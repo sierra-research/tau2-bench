@@ -57,7 +57,7 @@ def get_now() -> str:
     Returns the current date and time in the format YYYYMMDD_HHMMSS.
     """
     now = datetime.now()
-    return format_time(now)
+    return now.strftime("%Y%m%d_%H%M%S")
 
 
 def format_time(time: datetime) -> str:
