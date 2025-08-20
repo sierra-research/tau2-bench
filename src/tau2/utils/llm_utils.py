@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from typing import Any, Optional
 
@@ -30,14 +31,11 @@ from tau2.data_model.message import (
 )
 from tau2.environment.tool import Tool
 
-# litellm._turn_on_debug()
-
 if USE_LANGFUSE:
     # set callbacks
     litellm.success_callback = ["langfuse"]
     litellm.failure_callback = ["langfuse"]
 
-litellm.drop_params = True
 
 if LLM_CACHE_ENABLED:
     if DEFAULT_LLM_CACHE_TYPE == "redis":
@@ -66,10 +64,36 @@ else:
     litellm.disable_cache()
 
 
-ALLOW_SONNET_THINKING = False
+def get_thinking_allowed() -> bool:
+    return os.getenv("ALLOW_THINKING", "false").strip().lower() in {"1", "true", "yes", "on", "enable", "enabled"}
 
-if not ALLOW_SONNET_THINKING:
-    logger.warning("Sonnet thinking is disabled")
+
+if not get_thinking_allowed():
+    logger.info("Thinking is disabled")
+
+
+def get_litellm_debug() -> bool:
+    """
+    Check if litellm debug mode is enabled.
+    """
+    return os.getenv("LITELLM_DEBUG", "false").strip().lower() in {"1", "true", "yes", "on", "enable", "enabled"}
+
+
+if get_litellm_debug():
+    logger.info("LiteLLM debug mode is enabled")
+    litellm._turn_on_debug()
+
+
+def get_litellm_params_drop() -> bool:
+    """
+    Check if litellm params drop mode is enabled.
+    """
+    return os.getenv("LITELLM_PARAMS_DROP", "false").strip().lower() in {"1", "true", "yes", "on", "enable", "enabled"}
+
+
+if get_litellm_params_drop():
+    logger.info("LiteLLM params drop mode is enabled")
+    litellm.drop_params = get_litellm_params_drop()
 
 
 def _parse_ft_model_name(model: str) -> str:
@@ -134,6 +158,13 @@ def to_tau2_messages(
     return tau2_messages
 
 
+def safe_json_load(s):
+    try:
+        return json.loads(s) if s else None
+    except json.JSONDecodeError:
+        return s
+
+
 def to_litellm_messages(messages: list[Message]) -> list[dict]:
     """
     Convert a list of Tau2 messages to a list of litellm messages.
@@ -160,7 +191,7 @@ def to_litellm_messages(messages: list[Message]) -> list[dict]:
             litellm_messages.append(
                 {
                     "role": "assistant",
-                    "content": message.content,
+                    "content": safe_json_load(message.content),
                     "tool_calls": tool_calls,
                 }
             )
@@ -175,6 +206,22 @@ def to_litellm_messages(messages: list[Message]) -> list[dict]:
         elif isinstance(message, SystemMessage):
             litellm_messages.append({"role": "system", "content": message.content})
     return litellm_messages
+
+
+def handle_reasoning_blocks_for_claude_models(response: Message):
+    text_content = response.message.content
+    thinking_blocks = response.message.provider_specific_fields.get("thinking_blocks", [])
+
+    kombinierter_content = []
+    if thinking_blocks:
+        kombinierter_content.extend(thinking_blocks)
+
+    if text_content:
+        kombinierter_content.append({"type": "text", "text": text_content})
+
+    content = json.dumps(kombinierter_content) if kombinierter_content else None
+
+    return content
 
 
 def generate(
@@ -199,9 +246,57 @@ def generate(
     if kwargs.get("num_retries") is None:
         kwargs["num_retries"] = DEFAULT_MAX_RETRIES
 
-    if model.startswith("claude") and not ALLOW_SONNET_THINKING:
-        kwargs["thinking"] = {"type": "disabled"}
+    custom_api_base = os.getenv("CUSTOM_API_BASE", None)
+    custom_api_key = os.getenv("CUSTOM_API_KEY", None)
+
+    sonnet_max_tokens = os.getenv("SONNET_MAX_TOKENS", 64000)
+    opus_max_tokens = os.getenv("OPUS_MAX_TOKENS", 32000)
+    anthropic_thinking_budget = os.getenv("ANTHROPIC_THINKING_BUDGET", 1024)
+    gpt5_reasoning_effort = os.getenv("GPT5_REASONING_EFFORT", "low")
+    gpt5_verbosity_level = os.getenv("GPT5_VERBOSITY", "low")
+
+    allow_thinking = get_thinking_allowed()
+
+    # This approach is needed to avoid collision with the judge o4-mini running over the true OpenAI base/key
+    if model.startswith("custom_openai/"):
+        kwargs["api_key"] = custom_api_key
+        kwargs["api_base"] = custom_api_base
+
+        if "glm-4" in model:
+            # Extra Body because working with direct thinking is not supported by litellm
+            # https://github.com/BerriAI/litellm/issues/11185
+            # kwargs["allowed_openai_params"] = ['thinking']
+            # kwargs["thinking"] = {"type": "disabled" / "enabled"}
+            if not allow_thinking:
+                kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+            else:
+                kwargs["extra_body"] = {"thinking": {"type": "enabled"}}
+
+    if model.startswith("anthropic/claude"):
+        if "sonnet-" in model:
+            kwargs["max_tokens"] = sonnet_max_tokens
+        elif "opus-" in model:
+            kwargs["max_tokens"] = opus_max_tokens
+
+        if not allow_thinking:
+            kwargs["thinking"] = {"type": "disabled"}
+        else:
+            kwargs["temperature"] = 1.0
+            kwargs["thinking"] = {"type": "enabled", "budget_tokens": anthropic_thinking_budget}
+
+    if model.startswith("openai/gpt-5"):
+        kwargs["temperature"] = 1.0
+        if not allow_thinking:
+            # we can not really disable thinking for GPT-5, but we can set the reasoning effort to low
+            kwargs["reasoning_effort"] = "low"
+            kwargs["verbosity"] = "low"
+        else:
+            kwargs["reasoning_effort"] = gpt5_reasoning_effort
+            kwargs["verbosity"] = gpt5_verbosity_level
+
+
     litellm_messages = to_litellm_messages(messages)
+
     tools = [tool.openai_schema for tool in tools] if tools else None
     if tools and tool_choice is None:
         tool_choice = "auto"
@@ -229,7 +324,13 @@ def generate(
     assert response.message.role == "assistant", (
         "The response should be an assistant message"
     )
-    content = response.message.content
+
+    # Handle Reasoning Blocks for Claude models, because need to resupply these in following conversations
+    if model.startswith("anthropic/claude") and allow_thinking and response.message.provider_specific_fields:
+        content = handle_reasoning_blocks_for_claude_models(response)
+    else:
+        content = response.message.content or None
+
     tool_calls = response.message.tool_calls or []
     tool_calls = [
         ToolCall(
@@ -249,6 +350,15 @@ def generate(
         usage=usage,
         raw_data=response.to_dict(),
     )
+
+    # Prevent error in benchmarks runs, better make the benchmark fail in that step instead of end the benchmark
+    # Needed because open source modell sometimes stuck in reasoning, what would be a failure in the benchmark
+    # but not an exception that should be raised
+    try:
+        message.validate()
+    except ValueError as e:
+        message.content = "noop"
+
     return message
 
 
