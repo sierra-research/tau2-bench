@@ -1,3 +1,6 @@
+import hashlib
+import json
+import random
 import time
 import uuid
 from copy import deepcopy
@@ -15,10 +18,12 @@ from tau2.data_model.message import (
     MultiToolMessage,
     ToolMessage,
     UserMessage,
+    OmissionMetadata,
 )
 from tau2.data_model.simulation import SimulationRun, TerminationReason
 from tau2.data_model.tasks import EnvFunctionCall, InitializationData, Task
 from tau2.environment.environment import Environment, EnvironmentInfo
+from tau2.environment.toolkit import ToolType
 from tau2.user.base import BaseUser, is_valid_user_history_message
 from tau2.user.user_simulator import DummyUser, UserSimulator, UserState
 from tau2.utils.llm_utils import get_cost
@@ -53,6 +58,7 @@ class Orchestrator:
         max_errors: int = 10,
         seed: Optional[int] = None,
         solo_mode: bool = False,
+        omission_config: Optional[dict] = None,
     ):
         self.domain = domain
         self.agent = agent
@@ -73,6 +79,16 @@ class Orchestrator:
         self.from_role: Optional[Role] = None
         self.to_role: Optional[Role] = None
         self.message: Optional[Message] = None
+        
+        # Omission feature setup
+        self.omission_config = omission_config
+        self.omission_events: list[OmissionMetadata] = []
+        self.omission_attempt_counters: dict[tuple[str, str], int] = {}
+        
+        # Simple RNG setup if omission is enabled
+        if omission_config and omission_config.get("enabled"):
+            seed = omission_config.get("seed", self.seed) or self.seed
+            self.omission_rng = random.Random(seed)
 
     def initialize(self):
         """
@@ -301,6 +317,10 @@ class Orchestrator:
             user_msg, self.user_state = self.user.generate_next_message(
                 self.message, self.user_state
             )
+            
+            # Modify message if omission injection is enabled
+            user_msg = self._apply_omission_injection(user_msg)
+            
             user_msg.validate()
             if UserSimulator.is_stop(user_msg):
                 self.done = True
@@ -450,3 +470,137 @@ class Orchestrator:
         for i, msg in enumerate(message_history):
             msg.timestamp = format_time(time_offset + timedelta(seconds=i))
         return message_history
+
+
+    def _get_args_hash(self, tool_args: dict) -> str:
+        """Get normalized hash of tool arguments for operation key generation.
+        
+        Operation key is (tool_name, args_hash) so retries of the same instruction
+        converge; distinct operations are independent.
+        """
+        try:
+            # Normalize arguments for consistent hashing
+            normalized_args = json.dumps(tool_args, sort_keys=True, default=str)
+            return hashlib.md5(normalized_args.encode()).hexdigest()[:8]
+        except Exception:
+            # Fallback if JSON serialization fails
+            return hashlib.md5(str(tool_args).encode()).hexdigest()[:8]
+
+    def _should_omit_tool_call(self, tool_name: str, tool_args: dict) -> bool:
+        """Check if a tool call should be omitted."""
+        if not hasattr(self, 'omission_rng') or not self.omission_rng:
+            return False
+            
+        # Check if it's a WRITE tool we can omit
+        try:
+            if (not hasattr(self.environment, 'user_tools') or
+                not self.environment.user_tools.has_tool(tool_name) or
+                self.environment.user_tools.tool_type(tool_name) != ToolType.WRITE):
+                return False
+        except Exception:
+            return False
+            
+        # Apply filters
+        tool_filter = self.omission_config.get("tool_name_filter")
+        if tool_filter and tool_name not in tool_filter:
+            return False
+            
+        # Simple probability calculation
+        args_hash = self._get_args_hash(tool_args)
+        operation_key = (tool_name, args_hash)
+        attempt_index = self.omission_attempt_counters.get(operation_key, 0)
+        
+        max_failures = self.omission_config.get("max_failures", 1)
+        if attempt_index >= max_failures:
+            return False
+            
+        p0 = self.omission_config.get("p0", 0.05)
+        probability = p0 / (2 ** attempt_index)
+        should_omit = self.omission_rng.random() < probability
+        
+        # Update counter and record event if omitting
+        self.omission_attempt_counters[operation_key] = attempt_index + 1
+        if should_omit:
+            p_effective = p0 / (2 ** attempt_index)
+            self.omission_events.append(OmissionMetadata(
+                domain=self.domain,
+                tool_name=tool_name,
+                args_hash=args_hash,
+                attempt_index=attempt_index,
+                p0=p0,
+                p_effective=p_effective,
+                max_failures=max_failures,
+                seed=self.omission_config.get("seed", self.seed) or 0,
+            ))
+            
+        return should_omit
+
+
+    def _get_user_claim_text(self, tool_name: str, tool_args: dict) -> str:
+        """Get user claim text for an omitted tool call.
+        
+        Delegates to the domain-specific user_tools implementation when available
+        (e.g., TelecomUserTools._get_user_claim_text) to ensure claims align with
+        current state and use appropriate domain phrasing.
+        """
+        # Try user_tools first
+        try:
+            if (hasattr(self.environment, 'user_tools') and 
+                hasattr(self.environment.user_tools, '_get_user_claim_text')):
+                return self.environment.user_tools._get_user_claim_text(tool_name, **tool_args)
+        except Exception:
+            pass
+                
+        # Simple fallback
+        return f"I used {tool_name.replace('_', ' ')}."
+
+    def _apply_omission_injection(self, user_msg: Message) -> Message:
+        """Apply omission injection logic to user messages. Modifies the user_msg if omission conditions are met or simply returns it."""
+        # We skip omission for multi-tool messages to avoid ambiguity about which operation
+        # the user "claims" to have executed and to prevent partial state inconsistency.
+        if (not self.omission_config or 
+            not self.omission_config.get("enabled") or
+            user_msg.role != 'user' or 
+            not user_msg.is_tool_call() or 
+            len(user_msg.tool_calls) != 1):
+            return user_msg
+            
+        # Quick domain check
+        domains = self.omission_config.get("domains", ["telecom", "telecom-workflow"])
+        if self.domain not in domains:
+            return user_msg
+            
+        tool_call = user_msg.tool_calls[0]
+        tool_name = tool_call.name
+        tool_args = tool_call.arguments or {}
+        
+        # Check if this should be omitted
+        if self._should_omit_tool_call(tool_name, tool_args):
+            # Mutate the returned user_msg so user_state.messages stays consistent
+            claim_text = self._get_user_claim_text(tool_name, tool_args)
+            user_msg.content = claim_text
+            user_msg.tool_calls = None
+            # Attach omission metadata for viewers/debugging
+            p0 = self.omission_config.get("p0", 0.05)
+            args_hash = self._get_args_hash(tool_args)
+            operation_key = (tool_name, args_hash)
+            attempt_index = max(self.omission_attempt_counters.get(operation_key, 1) - 1, 0)
+            max_failures = self.omission_config.get("max_failures", 1)
+            p_effective = p0 / (2 ** attempt_index)
+            user_msg.omission_metadata = OmissionMetadata(
+                domain=self.domain,
+                tool_name=tool_name,
+                args_hash=args_hash,
+                attempt_index=attempt_index,
+                p0=p0,
+                p_effective=p_effective,
+                max_failures=max_failures,
+                seed=self.omission_config.get("seed", self.seed),
+            )
+            return user_msg
+            
+        return user_msg
+
+    def get_omission_events(self) -> list[OmissionMetadata]:
+        """Get the collected omission events."""
+        return self.omission_events.copy()

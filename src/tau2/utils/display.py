@@ -193,6 +193,11 @@ class ConsoleDisplay:
         sim_info.append(f"{simulation.duration:.2f}s\n")
         sim_info.append("Termination Reason: ", style="bold cyan")
         sim_info.append(f"{simulation.termination_reason}\n")
+        if simulation.omission_events:
+            num_omissions = len(simulation.omission_events)
+            tool_set = sorted(list({e.tool_name for e in simulation.omission_events}))
+            sim_info.append("User Tool Call Omissions: ", style="bold cyan")
+            sim_info.append(f"{num_omissions} (tools: {', '.join(tool_set)})\n")
         if simulation.agent_cost is not None:
             sim_info.append("Agent Cost: ", style="bold cyan")
             sim_info.append(f"${simulation.agent_cost:.4f}\n")
@@ -312,6 +317,16 @@ class ConsoleDisplay:
                                 f"[{tool_style}]Tool: {tool.name}[/]\n[{tool_style}]Args: {json.dumps(tool.arguments, indent=2)}[/]"
                             )
                         details = "\n".join(tool_calls)
+                    # Show omission metadata if present on user messages
+                    if isinstance(msg, UserMessage) and msg.omission_metadata:
+                        om = msg.omission_metadata
+                        omission_details = [
+                            "[bold yellow]User Action Omission[/]",
+                            f"tool={om.tool_name}",
+                            f"attempt={om.attempt_index+1}",
+                            f"probability={om.p_effective}",
+                        ]
+                        details = (details + "\n" if details else "") + "\n".join(omission_details)
                 elif isinstance(msg, ToolMessage):
                     details = f"[{content_style}]Tool ID: {msg.id}. Requestor: {msg.requestor}[/]"
                     if msg.error:

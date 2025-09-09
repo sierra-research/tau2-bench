@@ -19,8 +19,9 @@ from tau2.config import (
     DEFAULT_NUM_TRIALS,
     DEFAULT_SAVE_TO,
     DEFAULT_SEED,
+    DEFAULT_USER_ACTION_OMISSION,
 )
-from tau2.data_model.message import Message
+from tau2.data_model.message import Message, OmissionMetadata
 from tau2.data_model.tasks import Action, EnvAssertion, RewardType, Task
 from tau2.environment.environment import EnvironmentInfo
 from tau2.utils.utils import get_now
@@ -151,6 +152,13 @@ class RunConfig(BaseModel):
         Field(
             description="The log level to use for the simulation",
             default=DEFAULT_LOG_LEVEL,
+        ),
+    ]
+    user_action_omission: Annotated[
+        Optional[dict],
+        Field(
+            description="Configuration for user action omission feature (default: None disables)",
+            default=DEFAULT_USER_ACTION_OMISSION,
         ),
     ]
 
@@ -307,6 +315,7 @@ class TerminationReason(str, Enum):
     TOO_MANY_ERRORS = "too_many_errors"
 
 
+
 class SimulationRun(BaseModel):
     """
     Simulation run for the given task.
@@ -338,6 +347,10 @@ class SimulationRun(BaseModel):
     trial: Optional[int] = Field(description="Trial number", default=None)
     seed: Optional[int] = Field(
         description="Seed used for the simulation.", default=None
+    )
+    omission_events: Optional[list[OmissionMetadata]] = Field(
+        description="User action omission events. Records when user tool calls were omitted and replaced with claims.", 
+        default=None
     )
 
 
@@ -419,6 +432,8 @@ class Results(BaseModel):
                 "termination_reason": sim.termination_reason,
                 "duration": sim.duration,
                 "num_messages": len(sim.messages),
+                "num_omissions": len(sim.omission_events or []),
+                "omitted_tools": sorted(list({e.tool_name for e in (sim.omission_events or [])})),
                 "info_git_commit": self.info.git_commit,
                 "info_seed": self.info.seed,
                 "info_num_trials": self.info.num_trials,

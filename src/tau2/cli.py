@@ -14,6 +14,7 @@ from tau2.config import (
     DEFAULT_NUM_TRIALS,
     DEFAULT_SEED,
     DEFAULT_USER_IMPLEMENTATION,
+    DEFAULT_USER_ACTION_OMISSION
 )
 from tau2.data_model.simulation import RunConfig
 from tau2.run import get_options, run_domain
@@ -128,6 +129,12 @@ def add_run_args(parser):
         default=DEFAULT_LOG_LEVEL,
         help=f"The log level to use for the simulation. Default is {DEFAULT_LOG_LEVEL}.",
     )
+    parser.add_argument(
+        "--user-action-omission",
+        type=json.loads,
+        default=DEFAULT_USER_ACTION_OMISSION,
+        help="Configuration for user action omission feature. Pass as JSON string, e.g., '{\"enabled\": true}'. Default is None (disabled).",
+    )
 
 
 def main():
@@ -157,6 +164,7 @@ def main():
                 max_concurrency=args.max_concurrency,
                 seed=args.seed,
                 log_level=args.log_level,
+                user_action_omission=args.user_action_omission,
             )
         )
     )
