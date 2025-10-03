@@ -145,6 +145,92 @@ tau2 check-data
 ```
 This command checks if your data directory is properly configured and all required files are present.
 
+## Leaderboard Submission
+
+To submit your agent results to the τ²-bench leaderboard, you need to prepare a valid submission package that meets specific requirements.
+
+### Requirements for Valid Submissions
+
+Your trajectory runs must follow these constraints:
+
+1. **Complete domain coverage**: Include results for all three domains:
+   - `retail`
+   - `airline` 
+   - `telecom`
+
+2. **Consistent model configuration**: All trajectory files must use:
+   - The same agent LLM with identical arguments across all domains
+   - The same user simulator LLM with identical arguments across all domains
+
+3. **One result per domain**: Each domain should appear exactly once in your submission
+
+4. **All tasks completed**: Run evaluation on all tasks within each domain (don't use `--task-ids` or `--num-tasks` filters)
+
+### Preparing Your Submission
+
+#### Step 1: Run Evaluations
+First, run your agent evaluation on all domains with consistent settings:
+
+```bash
+# Example: Run complete evaluation for all domains
+tau2 run --domain retail --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4 --save-to my_model_retail
+tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4 --save-to my_model_airline  
+tau2 run --domain telecom --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4 --save-to my_model_telecom
+```
+
+**Important**: Use identical `--agent-llm`, `--user-llm`, and their arguments across all runs.
+
+#### Step 2: Prepare Submission Package
+Use the submission preparation tool to create your leaderboard submission:
+
+```bash
+tau2 submit prepare data/tau2/simulations/my_model_*.json --output ./my_submission
+```
+
+This command will:
+- Verify all trajectory files are valid
+- Check that submission requirements are met
+- Compute performance metrics (Pass^k rates)
+- Prompt for required metadata (model name, organization, contact email)
+- Create a structured submission directory with:
+  - `submission.json`: Metadata and metrics
+  - `trajectories/`: Your trajectory files
+
+#### Step 3: Validate Your Submission
+Before submitting, validate your submission package:
+
+```bash
+tau2 submit validate ./my_submission
+```
+
+This will verify:
+- All required files are present
+- Trajectory files are valid
+- Domain coverage is complete
+- Model configurations are consistent
+
+### Additional Options
+
+#### Skip Verification (if needed)
+```bash
+tau2 submit prepare data/tau2/simulations/my_model_*.json --output ./my_submission --no-verify
+```
+
+#### Verify Individual Trajectory Files
+```bash
+tau2 submit verify-trajs data/tau2/simulations/my_model_*.json
+```
+
+### Submitting to the Leaderboard
+
+Once your submission package is prepared and validated:
+
+1. Review the generated `submission.json` file
+2. Follow the submission guidelines in [web/leaderboard/public/submissions/README.md](web/leaderboard/public/submissions/README.md) to create a Pull Request
+3. Keep your `trajectories/` directory for reference
+
+The leaderboard will display your model's Pass^k success rates (k=1,2,3,4) across all domains.
+
 ## Experiments
 
 ### Running Ablation Studies (No User, or Agent with Oracle Plan)

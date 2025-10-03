@@ -23,6 +23,25 @@ test:
 env-cli:
 	python -m tau2.environment.utils.interface_agent
 
+## Lint code with ruff
+.PHONY: lint
+lint:
+	ruff check .
+
+## Format code with ruff
+.PHONY: format
+format:
+	ruff format .
+
+## Lint and fix issues automatically
+.PHONY: lint-fix
+lint-fix:
+	ruff check --fix .
+
+## Run both linting and formatting
+.PHONY: check-all
+check-all: lint format
+
 ## Display online help for commonly used targets in this Makefile
 .PHONY: help
 help:

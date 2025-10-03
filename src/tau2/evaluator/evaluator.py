@@ -122,9 +122,9 @@ def evaluate_simulation(
             db_check=env_reward_info.db_check,
             env_assertions=env_reward_info.env_assertions,
             action_checks=action_reward_info.action_checks,
-            nl_assertions=nl_reward_info.nl_assertions
-            if nl_reward_info is not None
-            else None,
+            nl_assertions=(
+                nl_reward_info.nl_assertions if nl_reward_info is not None else None
+            ),
             communicate_checks=communicate_reward_info.communicate_checks,
             reward_basis=task.evaluation_criteria.reward_basis,
             reward_breakdown=reward_breakdown,

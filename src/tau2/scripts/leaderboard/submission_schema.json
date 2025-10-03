@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tau2-Bench Leaderboard Submission",
+  "description": "Schema for submitting model results to the tau2-bench leaderboard",
+  "type": "object",
+  "required": ["model_name", "organization", "submission_date", "contact_info", "results"],
+  "properties": {
+    "model_name": {
+      "type": "string",
+      "description": "Name of the model being evaluated",
+      "examples": ["GPT-4.1", "Claude-3.7-Sonnet", "Custom-Model-v1.0"]
+    },
+    "organization": {
+      "type": "string",
+      "description": "Organization or company that developed the model",
+      "examples": ["OpenAI", "Anthropic", "Google", "My Company"]
+    },
+    "submission_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of submission in YYYY-MM-DD format"
+    },
+    "contact_info": {
+      "type": "object",
+      "required": ["email"],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Contact email for questions about this submission"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the submitter"
+        },
+        "github": {
+          "type": "string",
+          "description": "GitHub username (optional)"
+        }
+      }
+    },
+    "is_new": {
+      "type": "boolean",
+      "description": "Whether this model should be highlighted as new on the leaderboard",
+      "default": false
+    },
+    "results": {
+      "type": "object",
+      "description": "Performance results for each domain",
+      "properties": {
+        "retail": {
+          "$ref": "#/definitions/domain_results"
+        },
+        "airline": {
+          "$ref": "#/definitions/domain_results"
+        },
+        "telecom": {
+          "$ref": "#/definitions/domain_results"
+        }
+      },
+      "additionalProperties": false
+    },
+    "methodology": {
+      "type": "object",
+      "description": "Information about how the evaluation was conducted",
+      "properties": {
+        "evaluation_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Date when evaluation was conducted"
+        },
+        "tau2_bench_version": {
+          "type": "string",
+          "description": "Version of tau2-bench used for evaluation"
+        },
+        "user_simulator": {
+          "type": ["string", "null"],
+          "description": "Model used for user simulation during evaluation, or null if unknown"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes about the evaluation methodology"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "domain_results": {
+      "type": "object",
+      "description": "Results for a specific domain",
+      "properties": {
+        "pass_1": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Pass^1 success rate percentage"
+        },
+        "pass_2": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Pass^2 success rate percentage"
+        },
+        "pass_3": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Pass^3 success rate percentage"
+        },
+        "pass_4": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Pass^4 success rate percentage"
+        },
+        "cost": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Average cost in USD to run one trajectory in this domain (optional)"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

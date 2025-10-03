@@ -4,7 +4,6 @@ Script to check if the tau2 data directory is properly configured.
 """
 
 import sys
-from pathlib import Path
 
 from tau2.utils.utils import DATA_DIR
 

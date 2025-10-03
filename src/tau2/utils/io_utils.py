@@ -1,3 +1,4 @@
+import glob
 import json
 import os
 from pathlib import Path
@@ -5,6 +6,46 @@ from typing import Any
 
 import toml
 import yaml
+
+
+def expand_paths(paths: list[str], extension: str | None = None) -> list[str]:
+    """Expand directories and glob patterns into a list of files.
+
+    Args:
+        paths: List of paths to directories or glob patterns
+        extension: Optional file extension to filter for (e.g., '.json', '.txt')
+
+    Returns:
+        List of files
+    """
+    files = []
+    for path in paths:
+        path_obj = Path(path)
+
+        if path_obj.is_file():
+            files.append(str(path_obj))
+        elif path_obj.is_dir():
+            # Find all files in directory
+            for file_path in path_obj.rglob("*"):
+                if file_path.is_file():
+                    files.append(str(file_path))
+        else:
+            # Try as glob pattern
+            matched_files = glob.glob(path)
+            if matched_files:
+                files.extend(matched_files)
+            else:
+                print(f"Warning: No files found for pattern: {path}")
+
+    # Remove duplicates and sort
+    all_files = sorted(list(set(files)))
+
+    # Filter by extension if specified
+    if extension is not None:
+        all_files = [f for f in all_files if Path(f).suffix == extension]
+
+    return all_files
+
 
 # NOTE: When using the results of load_file(), we need to pay attention to the case
 # where the value is None when loading from json or yaml, the key will be missing in

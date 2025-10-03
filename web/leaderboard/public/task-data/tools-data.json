@@ -1,0 +1,789 @@
+{
+  "airline": {
+    "description": "Tools available for airline customer service agents to help with flight reservations, modifications, and customer support.",
+    "tools": [
+      {
+        "name": "search_direct_flight",
+        "type": "READ",
+        "description": "Search for direct flights between two cities on a specific date.",
+        "parameters": [
+          {
+            "name": "origin",
+            "type": "string",
+            "required": true,
+            "description": "The origin city airport in three letters, such as 'JFK'."
+          },
+          {
+            "name": "destination", 
+            "type": "string",
+            "required": true,
+            "description": "The destination city airport in three letters, such as 'LAX'."
+          },
+          {
+            "name": "date",
+            "type": "string",
+            "required": true,
+            "description": "The date of the flight in the format 'YYYY-MM-DD', such as '2024-01-01'."
+          }
+        ],
+        "returns": "A list of DirectFlight objects containing flight details, schedules, and pricing."
+      },
+      {
+        "name": "search_onestop_flight",
+        "type": "READ", 
+        "description": "Search for one-stop flights between two cities on a specific date.",
+        "parameters": [
+          {
+            "name": "origin",
+            "type": "string",
+            "required": true,
+            "description": "The origin city airport in three letters, such as 'JFK'."
+          },
+          {
+            "name": "destination",
+            "type": "string", 
+            "required": true,
+            "description": "The destination city airport in three letters, such as 'LAX'."
+          },
+          {
+            "name": "date",
+            "type": "string",
+            "required": true,
+            "description": "The date of the flight in the format 'YYYY-MM-DD', such as '2024-05-01'."
+          }
+        ],
+        "returns": "A list of pairs of DirectFlight objects representing connecting flights."
+      },
+      {
+        "name": "list_all_airports",
+        "type": "READ",
+        "description": "Returns a list of all available airports with their IATA codes and city names.",
+        "parameters": [],
+        "returns": "A list of AirportCode objects with IATA codes and city names."
+      },
+      {
+        "name": "book_reservation", 
+        "type": "WRITE",
+        "description": "Book a flight reservation for one or more passengers.",
+        "parameters": [
+          {
+            "name": "user_id",
+            "type": "string",
+            "required": true,
+            "description": "The ID of the user to book the reservation such as 'sara_doe_496'."
+          },
+          {
+            "name": "origin",
+            "type": "string",
+            "required": true,
+            "description": "The IATA code for the origin city such as 'SFO'."
+          },
+          {
+            "name": "destination",
+            "type": "string",
+            "required": true,
+            "description": "The IATA code for the destination city such as 'JFK'."
+          },
+          {
+            "name": "flight_type",
+            "type": "string",
+            "required": true,
+            "description": "The type of flight such as 'one_way' or 'round_trip'."
+          },
+          {
+            "name": "cabin",
+            "type": "string",
+            "required": true,
+            "description": "The cabin class such as 'basic_economy', 'economy', or 'business'."
+          },
+          {
+            "name": "flights",
+            "type": "array",
+            "required": true,
+            "description": "An array of objects containing details about each piece of flight."
+          },
+          {
+            "name": "passengers",
+            "type": "array",
+            "required": true,
+            "description": "An array of objects containing details about each passenger."
+          },
+          {
+            "name": "payment_methods",
+            "type": "array",
+            "required": true,
+            "description": "An array of objects containing details about each payment method."
+          },
+          {
+            "name": "total_baggages",
+            "type": "integer",
+            "required": true,
+            "description": "The total number of baggage items to book the reservation."
+          },
+          {
+            "name": "nonfree_baggages",
+            "type": "integer",
+            "required": true,
+            "description": "The number of non-free baggage items to book the reservation."
+          },
+          {
+            "name": "insurance",
+            "type": "string",
+            "required": true,
+            "description": "Whether the reservation has insurance."
+          }
+        ],
+        "returns": "A Reservation object containing the booking details and confirmation."
+      },
+      {
+        "name": "get_reservation_details",
+        "type": "READ",
+        "description": "Get the details of a reservation.",
+        "parameters": [
+          {
+            "name": "reservation_id",
+            "type": "string",
+            "required": true,
+            "description": "The reservation ID, such as '8JX2WO'."
+          }
+        ],
+        "returns": "The reservation details including flights, passengers, and payment information."
+      },
+      {
+        "name": "get_user_details",
+        "type": "READ",
+        "description": "Get the details of a user, including their reservations.",
+        "parameters": [
+          {
+            "name": "user_id",
+            "type": "string",
+            "required": true,
+            "description": "The user ID, such as 'sara_doe_496'."
+          }
+        ],
+        "returns": "The user details including profile and reservation history."
+      },
+      {
+        "name": "cancel_reservation",
+        "type": "WRITE",
+        "description": "Cancel the whole reservation.",
+        "parameters": [
+          {
+            "name": "reservation_id",
+            "type": "string",
+            "required": true,
+            "description": "The reservation ID, such as 'ZFA04Y'."
+          }
+        ],
+        "returns": "The updated reservation with cancellation details and refund information."
+      },
+      {
+        "name": "calculate",
+        "type": "GENERIC",
+        "description": "Calculate the result of a mathematical expression.",
+        "parameters": [
+          {
+            "name": "expression",
+            "type": "string",
+            "required": true,
+            "description": "The mathematical expression to calculate, such as '2 + 2'. The expression can contain numbers, operators (+, -, *, /), parentheses, and spaces."
+          }
+        ],
+        "returns": "The result of the mathematical expression as a string."
+      },
+      {
+        "name": "send_certificate",
+        "type": "WRITE",
+        "description": "Send a certificate to a user. Be careful!",
+        "parameters": [
+          {
+            "name": "user_id",
+            "type": "string",
+            "required": true,
+            "description": "The ID of the user to book the reservation, such as 'sara_doe_496'."
+          },
+          {
+            "name": "amount",
+            "type": "integer",
+            "required": true,
+            "description": "The amount of the certificate to send."
+          }
+        ],
+        "returns": "A message indicating the certificate was sent."
+      },
+      {
+        "name": "transfer_to_human_agents",
+        "type": "WRITE",
+        "description": "Transfer the user to a human agent when the request cannot be handled within the scope of your actions.",
+        "parameters": [],
+        "returns": "Confirmation that the transfer request has been initiated."
+      }
+    ]
+  },
+  "retail": {
+    "description": "Tools available for retail customer service agents to help with orders, returns, exchanges, and customer account management.",
+    "tools": [
+      {
+        "name": "authenticate_user",
+        "type": "READ",
+        "description": "Authenticate user identity by locating their user id via email, or via name + zip code.",
+        "parameters": [
+          {
+            "name": "email",
+            "type": "string",
+            "required": false,
+            "description": "The user's email address for authentication."
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "required": false,
+            "description": "The user's full name when using name + zip authentication."
+          },
+          {
+            "name": "zip_code",
+            "type": "string",
+            "required": false,
+            "description": "The user's zip code when using name + zip authentication."
+          }
+        ],
+        "returns": "User authentication details and user ID."
+      },
+      {
+        "name": "get_user_profile",
+        "type": "READ",
+        "description": "Get user profile information including addresses and payment methods.",
+        "parameters": [
+          {
+            "name": "user_id",
+            "type": "string",
+            "required": true,
+            "description": "The authenticated user's ID."
+          }
+        ],
+        "returns": "User profile containing user id, email, default address, and payment methods."
+      },
+      {
+        "name": "get_user_orders",
+        "type": "READ",
+        "description": "Get all orders for a specific user.",
+        "parameters": [
+          {
+            "name": "user_id",
+            "type": "string",
+            "required": true,
+            "description": "The authenticated user's ID."
+          }
+        ],
+        "returns": "List of all orders with their status, items, and details."
+      },
+      {
+        "name": "get_order_details",
+        "type": "READ",
+        "description": "Get detailed information about a specific order.",
+        "parameters": [
+          {
+            "name": "order_id",
+            "type": "string",
+            "required": true,
+            "description": "The unique order ID."
+          }
+        ],
+        "returns": "Detailed order information including items, status, fulfillment, and payment history."
+      },
+      {
+        "name": "search_products",
+        "type": "READ",
+        "description": "Search for products in the retail catalog.",
+        "parameters": [
+          {
+            "name": "query",
+            "type": "string",
+            "required": true,
+            "description": "Search query for products."
+          }
+        ],
+        "returns": "List of products matching the search criteria with variants and pricing."
+      },
+      {
+        "name": "get_product_details",
+        "type": "READ",
+        "description": "Get detailed information about a specific product including all variants.",
+        "parameters": [
+          {
+            "name": "product_id",
+            "type": "string",
+            "required": true,
+            "description": "The unique product ID."
+          }
+        ],
+        "returns": "Product details including all variants, options, availability, and pricing."
+      },
+      {
+        "name": "cancel_order",
+        "type": "WRITE",
+        "description": "Cancel a pending order. Can only be used if order status is 'pending'.",
+        "parameters": [
+          {
+            "name": "order_id",
+            "type": "string",
+            "required": true,
+            "description": "The unique order ID to cancel."
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "required": true,
+            "description": "The reason for cancellation: 'no longer needed' or 'ordered by mistake'."
+          }
+        ],
+        "returns": "Updated order with cancellation details and refund information."
+      },
+      {
+        "name": "modify_order",
+        "type": "WRITE",
+        "description": "Modify a pending order. Can only be used if order status is 'pending'. Can only be called once per order.",
+        "parameters": [
+          {
+            "name": "order_id",
+            "type": "string",
+            "required": true,
+            "description": "The unique order ID to modify."
+          },
+          {
+            "name": "modifications",
+            "type": "array",
+            "required": true,
+            "description": "List of modifications to make to the order items."
+          }
+        ],
+        "returns": "Updated order with modification details and any price changes."
+      },
+      {
+        "name": "return_order",
+        "type": "WRITE",
+        "description": "Return items from a delivered order.",
+        "parameters": [
+          {
+            "name": "order_id",
+            "type": "string",
+            "required": true,
+            "description": "The unique order ID for the return."
+          },
+          {
+            "name": "items",
+            "type": "array",
+            "required": true,
+            "description": "List of items to return with quantities."
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "required": true,
+            "description": "The reason for the return."
+          }
+        ],
+        "returns": "Return confirmation with refund details and return shipping information."
+      },
+      {
+        "name": "exchange_order",
+        "type": "WRITE",
+        "description": "Exchange items from a delivered order. Can only be called once per order.",
+        "parameters": [
+          {
+            "name": "order_id",
+            "type": "string",
+            "required": true,
+            "description": "The unique order ID for the exchange."
+          },
+          {
+            "name": "exchanges",
+            "type": "array",
+            "required": true,
+            "description": "List of items to exchange with new item details."
+          }
+        ],
+        "returns": "Exchange confirmation with price differences and shipping information."
+      },
+      {
+        "name": "update_user_address",
+        "type": "WRITE",
+        "description": "Modify the user's default address.",
+        "parameters": [
+          {
+            "name": "user_id",
+            "type": "string",
+            "required": true,
+            "description": "The authenticated user's ID."
+          },
+          {
+            "name": "address",
+            "type": "object",
+            "required": true,
+            "description": "The new address information."
+          }
+        ],
+        "returns": "Confirmation of the address update."
+      },
+      {
+        "name": "transfer_to_human_agents",
+        "type": "WRITE",
+        "description": "Transfer the user to a human agent when the request cannot be handled within the scope of your actions.",
+        "parameters": [],
+        "returns": "Confirmation that the transfer request has been initiated."
+      }
+    ]
+  },
+  "telecom": {
+    "description": "Tools available for telecom customer service agents to help with technical support, billing, line management, and plan options.",
+    "tools": [
+      {
+        "name": "get_customer_profile",
+        "type": "READ",
+        "description": "Get customer profile information including account details and associated lines.",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "type": "string",
+            "required": true,
+            "description": "The customer ID to look up."
+          }
+        ],
+        "returns": "Customer profile with personal information, account status, and associated line IDs."
+      },
+      {
+        "name": "search_customer",
+        "type": "READ", 
+        "description": "Search for customer by phone number, email, or name.",
+        "parameters": [
+          {
+            "name": "query",
+            "type": "string",
+            "required": true,
+            "description": "Search query - can be phone number, email, or customer name."
+          }
+        ],
+        "returns": "Customer information matching the search criteria."
+      },
+      {
+        "name": "get_line_details",
+        "type": "READ",
+        "description": "Get detailed information about a specific line including status, plan, and usage.",
+        "parameters": [
+          {
+            "name": "line_id",
+            "type": "string",
+            "required": true,
+            "description": "The line ID to look up."
+          }
+        ],
+        "returns": "Line details including status, plan, device, data usage, and contract information."
+      },
+      {
+        "name": "get_device_details",
+        "type": "READ",
+        "description": "Get information about a device including model, IMEI, and activation status.",
+        "parameters": [
+          {
+            "name": "device_id",
+            "type": "string",
+            "required": true,
+            "description": "The device ID to look up."
+          }
+        ],
+        "returns": "Device information including type, model, IMEI, eSIM capability, and activation details."
+      },
+      {
+        "name": "get_bill_details",
+        "type": "READ",
+        "description": "Get billing information for a customer.",
+        "parameters": [
+          {
+            "name": "bill_id",
+            "type": "string",
+            "required": true,
+            "description": "The bill ID to look up."
+          }
+        ],
+        "returns": "Bill details including billing period, amount, due date, and payment status."
+      },
+      {
+        "name": "get_available_plans",
+        "type": "READ",
+        "description": "Get list of available service plans with pricing and features.",
+        "parameters": [],
+        "returns": "List of available plans with data limits, pricing, and features."
+      },
+      {
+        "name": "check_service_status",
+        "type": "READ",
+        "description": "Check the current service status for a line including network connectivity.",
+        "parameters": [
+          {
+            "name": "line_id",
+            "type": "string",
+            "required": true,
+            "description": "The line ID to check service status for."
+          }
+        ],
+        "returns": "Service status information including network connectivity and any issues."
+      },
+      {
+        "name": "restart_network_service",
+        "type": "WRITE",
+        "description": "Restart network service for a line to resolve connectivity issues.",
+        "parameters": [
+          {
+            "name": "line_id",
+            "type": "string",
+            "required": true,
+            "description": "The line ID to restart service for."
+          }
+        ],
+        "returns": "Confirmation of service restart and expected resolution time."
+      },
+      {
+        "name": "toggle_airplane_mode",
+        "type": "WRITE",
+        "description": "Toggle airplane mode on a device to help resolve connectivity issues.",
+        "parameters": [
+          {
+            "name": "device_id",
+            "type": "string",
+            "required": true,
+            "description": "The device ID to toggle airplane mode for."
+          }
+        ],
+        "returns": "Confirmation of airplane mode toggle action."
+      },
+      {
+        "name": "reset_network_settings",
+        "type": "WRITE",
+        "description": "Reset network settings on a device to resolve configuration issues.",
+        "parameters": [
+          {
+            "name": "device_id",
+            "type": "string",
+            "required": true,
+            "description": "The device ID to reset network settings for."
+          }
+        ],
+        "returns": "Confirmation of network settings reset."
+      },
+      {
+        "name": "suspend_line",
+        "type": "WRITE",
+        "description": "Suspend service for a line.",
+        "parameters": [
+          {
+            "name": "line_id",
+            "type": "string",
+            "required": true,
+            "description": "The line ID to suspend."
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "required": true,
+            "description": "The reason for suspension."
+          }
+        ],
+        "returns": "Confirmation of line suspension with effective date."
+      },
+      {
+        "name": "reactivate_line",
+        "type": "WRITE",
+        "description": "Reactivate a suspended line.",
+        "parameters": [
+          {
+            "name": "line_id",
+            "type": "string",
+            "required": true,
+            "description": "The line ID to reactivate."
+          }
+        ],
+        "returns": "Confirmation of line reactivation."
+      },
+      {
+        "name": "change_plan",
+        "type": "WRITE",
+        "description": "Change the service plan for a line.",
+        "parameters": [
+          {
+            "name": "line_id",
+            "type": "string",
+            "required": true,
+            "description": "The line ID to change the plan for."
+          },
+          {
+            "name": "new_plan_id",
+            "type": "string",
+            "required": true,
+            "description": "The new plan ID to switch to."
+          }
+        ],
+        "returns": "Confirmation of plan change with effective date and pricing details."
+      },
+      {
+        "name": "process_payment",
+        "type": "WRITE",
+        "description": "Process payment for overdue bills.",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "type": "string",
+            "required": true,
+            "description": "The customer ID to process payment for."
+          },
+          {
+            "name": "amount",
+            "type": "number",
+            "required": true,
+            "description": "The payment amount."
+          },
+          {
+            "name": "payment_method_id",
+            "type": "string",
+            "required": true,
+            "description": "The payment method to use."
+          }
+        ],
+        "returns": "Payment confirmation with transaction details."
+      },
+      {
+        "name": "setup_payment_extension",
+        "type": "WRITE",
+        "description": "Set up a payment extension for a customer with overdue bills.",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "type": "string",
+            "required": true,
+            "description": "The customer ID to set up extension for."
+          },
+          {
+            "name": "extension_days",
+            "type": "integer",
+            "required": true,
+            "description": "Number of days to extend payment deadline."
+          }
+        ],
+        "returns": "Confirmation of payment extension with new due date."
+      },
+      {
+        "name": "add_data_refill",
+        "type": "WRITE",
+        "description": "Add data refill to a line that has exceeded its plan limit.",
+        "parameters": [
+          {
+            "name": "line_id",
+            "type": "string",
+            "required": true,
+            "description": "The line ID to add data refill for."
+          },
+          {
+            "name": "data_amount_gb",
+            "type": "number",
+            "required": true,
+            "description": "Amount of data to add in GB."
+          }
+        ],
+        "returns": "Confirmation of data refill with cost and new data balance."
+      },
+      {
+        "name": "transfer_to_human_agents",
+        "type": "WRITE",
+        "description": "Transfer the user to a human agent when the request cannot be handled within the scope of your actions.",
+        "parameters": [],
+        "returns": "Confirmation that the transfer request has been initiated."
+      }
+    ]
+  },
+  "mock": {
+    "description": "Tools available for the mock testing domain to demonstrate basic task management functionality.",
+    "tools": [
+      {
+        "name": "create_task",
+        "type": "WRITE",
+        "description": "Create a new task for a user.",
+        "parameters": [
+          {
+            "name": "user_id",
+            "type": "string",
+            "required": true,
+            "description": "The ID of the user to create the task for, such as 'user_1'."
+          },
+          {
+            "name": "title",
+            "type": "string",
+            "required": true,
+            "description": "The title of the task to create."
+          }
+        ],
+        "returns": "Confirmation that the task was created successfully with task details."
+      },
+      {
+        "name": "get_task",
+        "type": "READ",
+        "description": "Get details of a specific task.",
+        "parameters": [
+          {
+            "name": "task_id",
+            "type": "string",
+            "required": true,
+            "description": "The ID of the task to retrieve."
+          }
+        ],
+        "returns": "Task details including title, status, and user information."
+      },
+      {
+        "name": "list_user_tasks",
+        "type": "READ",
+        "description": "List all tasks for a specific user.",
+        "parameters": [
+          {
+            "name": "user_id",
+            "type": "string",
+            "required": true,
+            "description": "The ID of the user to list tasks for."
+          }
+        ],
+        "returns": "List of all tasks belonging to the specified user."
+      },
+      {
+        "name": "update_task_status",
+        "type": "WRITE",
+        "description": "Update the status of a task. Status can only be 'pending' or 'completed'.",
+        "parameters": [
+          {
+            "name": "task_id",
+            "type": "string",
+            "required": true,
+            "description": "The ID of the task to update."
+          },
+          {
+            "name": "status",
+            "type": "string",
+            "required": true,
+            "description": "The new status: 'pending' or 'completed'."
+          }
+        ],
+        "returns": "Confirmation of status update with updated task details."
+      },
+      {
+        "name": "compliment_user",
+        "type": "GENERIC",
+        "description": "Give a compliment to the user when requested.",
+        "parameters": [
+          {
+            "name": "user_id",
+            "type": "string",
+            "required": true,
+            "description": "The ID of the user to compliment."
+          }
+        ],
+        "returns": "A friendly compliment message for the user."
+      }
+    ]
+  }
+}
