@@ -19,10 +19,12 @@ function App() {
   }
   
   const [currentView, setCurrentView] = useState(getInitialView())
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Handle navigation with URL updates
   const navigateTo = (view) => {
     setCurrentView(view)
+    setMobileMenuOpen(false) // Close mobile menu when navigating
     if (view === 'home') {
       window.history.pushState(null, '', '#home')
     } else if (view === 'leaderboard') {
@@ -32,9 +34,14 @@ function App() {
     }
   }
 
+  // Toggle mobile menu
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen)
+  }
 
 
-  // Listen for browser back/forward button clicks
+
+  // Listen for browser back/forward button clicks and handle mobile menu
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1)
@@ -55,9 +62,17 @@ function App() {
       handleHashChange()
     }
 
-    // Listen to both hashchange and popstate events
+    // Close mobile menu when clicking outside
+    const handleClickOutside = (event) => {
+      if (mobileMenuOpen && !event.target.closest('.nav-container')) {
+        setMobileMenuOpen(false)
+      }
+    }
+
+    // Listen to events
     window.addEventListener('hashchange', handleHashChange)
     window.addEventListener('popstate', handlePopState)
+    document.addEventListener('click', handleClickOutside)
 
     // Set initial URL if none exists
     if (!window.location.hash) {
@@ -67,8 +82,9 @@ function App() {
     return () => {
       window.removeEventListener('hashchange', handleHashChange)
       window.removeEventListener('popstate', handlePopState)
+      document.removeEventListener('click', handleClickOutside)
     }
-  }, [])
+  }, [mobileMenuOpen])
 
   return (
     <div className="App">
@@ -85,11 +101,16 @@ function App() {
               <span className="from-text">from Sierra</span>
             </a>
           </div>
-          <div className="nav-links">
+          <button className="mobile-menu-toggle" onClick={toggleMobileMenu}>
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div className={`nav-links ${mobileMenuOpen ? '' : 'mobile-hidden'}`}>
             <button onClick={() => navigateTo('home')} className={`nav-link ${currentView === 'home' ? 'active' : ''}`}>Overview</button>
             <button onClick={() => navigateTo('leaderboard')} className={`nav-link ${currentView === 'leaderboard' ? 'active' : ''}`}>Leaderboard</button>
             <button onClick={() => navigateTo('trajectory-visualizer')} className={`nav-link ${currentView === 'trajectory-visualizer' ? 'active' : ''}`}>Visualizer</button>
-            <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)}>GitHub</a>
           </div>
         </div>
       </nav>
@@ -134,7 +155,10 @@ function App() {
                       <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer">
                         <button className="btn-primary">View on GitHub</button>
                       </a>
-                      <a href="https://github.com/sierra-research/tau2-bench#submitting-results" target="_blank" rel="noopener noreferrer">
+                      <button onClick={() => navigateTo('leaderboard')} className="btn-secondary">
+                        View Leaderboard
+                      </button>
+                      <a href="https://github.com/sierra-research/tau2-bench?tab=readme-ov-file#leaderboard-submission" target="_blank" rel="noopener noreferrer">
                         <button className="btn-secondary">Submit Results</button>
                       </a>
                     </div>

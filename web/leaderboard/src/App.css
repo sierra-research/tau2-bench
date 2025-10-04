@@ -55,6 +55,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: relative;
 }
 
 .nav-logo {
@@ -115,6 +116,10 @@ body {
 .nav-links {
   display: flex;
   gap: 32px;
+}
+
+.mobile-menu-toggle {
+  display: none;
 }
 
 .nav-links a {
@@ -1041,7 +1046,55 @@ body {
   }
   
   .nav-links {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border-bottom: 1px solid #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    gap: 0;
+    padding: 16px 0;
+  }
+  
+  .nav-links.mobile-hidden {
     display: none;
+  }
+  
+  .nav-links .nav-link,
+  .nav-links a {
+    padding: 16px 24px;
+    text-align: center;
+    border-bottom: 1px solid #f7fafc;
+  }
+  
+  .nav-links .nav-link:last-child,
+  .nav-links a:last-child {
+    border-bottom: none;
+  }
+  
+  .mobile-menu-toggle {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+  }
+  
+  .mobile-menu-toggle span {
+    width: 20px;
+    height: 2px;
+    background: #2d3748;
+    border-radius: 1px;
+    transition: all 0.3s ease;
+  }
+
+  .mobile-menu-toggle {
+    display: flex !important;
   }
   
   .domains-tabs {
@@ -1154,6 +1207,34 @@ body {
 .footer-email:hover {
   color: #047857;
   text-decoration: underline;
+}
+
+/* Desktop view - ensure nav is horizontal and mobile toggle is hidden */
+@media (min-width: 769px) {
+  .nav-links {
+    display: flex !important;
+    flex-direction: row !important;
+    position: static !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    gap: 32px !important;
+    padding: 0 !important;
+  }
+  
+  .nav-links.mobile-hidden {
+    display: flex !important;
+  }
+  
+  .nav-links .nav-link,
+  .nav-links a {
+    padding: 0 !important;
+    border: none !important;
+  }
+  
+  .mobile-menu-toggle {
+    display: none !important;
+  }
 }
 
 /* Large screen optimizations */
