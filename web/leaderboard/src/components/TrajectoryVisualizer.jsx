@@ -47,7 +47,7 @@ const TrajectoryVisualizer = () => {
       setError(null)
       
       // Load the manifest file to get list of submissions
-      const manifestResponse = await fetch('/submissions/manifest.json')
+      const manifestResponse = await fetch(`${import.meta.env.BASE_URL}submissions/manifest.json`)
       if (!manifestResponse.ok) {
         throw new Error('Failed to load submissions manifest')
       }
@@ -60,7 +60,7 @@ const TrajectoryVisualizer = () => {
       // Load each submission from its directory
       for (const submissionDir of submissionDirs) {
         try {
-          const response = await fetch(`/submissions/${submissionDir}/submission.json`)
+          const response = await fetch(`${import.meta.env.BASE_URL}submissions/${submissionDir}/submission.json`)
           if (!response.ok) {
             console.warn(`Failed to load ${submissionDir}: ${response.status}`)
             continue
@@ -144,7 +144,7 @@ const TrajectoryVisualizer = () => {
           const fileName = pattern.replace('{domain}', domain)
           
           try {
-            const response = await fetch(`/submissions/${submissionDir}/trajectories/${fileName}`, { method: 'HEAD' })
+            const response = await fetch(`${import.meta.env.BASE_URL}submissions/${submissionDir}/trajectories/${fileName}`, { method: 'HEAD' })
             if (response.ok) {
               trajectories.push({
                 name: `${submission.model_name} - ${domain.charAt(0).toUpperCase() + domain.slice(1)}`,
@@ -191,7 +191,7 @@ const TrajectoryVisualizer = () => {
       setError(null)
       
       // Construct the path based on submission directory and file
-      const filePath = `/submissions/${trajectoryInfo.submissionDir}/trajectories/${trajectoryInfo.file}`
+      const filePath = `${import.meta.env.BASE_URL}submissions/${trajectoryInfo.submissionDir}/trajectories/${trajectoryInfo.file}`
       
       // Fetch the JSON file from the submissions directory
       const response = await fetch(filePath)
@@ -220,8 +220,8 @@ const TrajectoryVisualizer = () => {
       
       // Load both tasks and policy for the domain
       const [tasksResponse, policyResponse] = await Promise.all([
-        fetch(`/task-data/domains/${domain}/tasks.json`),
-        fetch(`/task-data/domains/${domain}/policy.md`)
+        fetch(`${import.meta.env.BASE_URL}task-data/domains/${domain}/tasks.json`),
+        fetch(`${import.meta.env.BASE_URL}task-data/domains/${domain}/policy.md`)
       ])
       
       if (!tasksResponse.ok) {

@@ -57,7 +57,7 @@ const Leaderboard = () => {
       setLoadError(null)
       
       // Load the manifest file to get list of submissions from new directory structure
-      const manifestResponse = await fetch('/submissions/manifest.json')
+      const manifestResponse = await fetch(`${import.meta.env.BASE_URL}submissions/manifest.json`)
       if (!manifestResponse.ok) {
         throw new Error('Failed to load submissions manifest')
       }
@@ -71,7 +71,7 @@ const Leaderboard = () => {
       // Load each submission from its directory
       for (const submissionDir of submissionDirs) {
         try {
-          const response = await fetch(`/submissions/${submissionDir}/submission.json`)
+          const response = await fetch(`${import.meta.env.BASE_URL}submissions/${submissionDir}/submission.json`)
           if (!response.ok) {
             console.warn(`Failed to load ${submissionDir}: ${response.status}`)
             continue
@@ -654,27 +654,27 @@ const Leaderboard = () => {
                      <td className="organization-info">
                        <div className="org-container">
                          <div className="company-logo">
-                           {model.organization === 'Anthropic' && (
-                             <img src="/src/assets/claude.png" alt="Anthropic" className="logo-img" />
-                           )}
-                           {model.organization === 'OpenAI' && (
-                             <img src="/src/assets/openai.svg" alt="OpenAI" className="logo-img" />
-                           )}
-                           {model.organization === 'Sierra' && (
-                             <img src="/src/assets/sierra-logo.png" alt="Sierra" className="logo-img" />
-                           )}
-                           {model.organization === 'Moonshot AI' && (
-                             <span className="emoji-logo">🚀</span>
-                           )}
-                           {model.organization === 'DeepSeek' && (
-                             <img src="/src/assets/DeepSeek_logo_icon.png" alt="DeepSeek" className="logo-img" />
-                           )}
-                           {model.organization === 'Alibaba' && (
-                             <img src="/src/assets/qwen-color.png" alt="Alibaba" className="logo-img" />
-                           )}
-                           {model.organization === 'Google' && (
-                             <img src="/src/assets/Google__G__logo.svg.png" alt="Google" className="logo-img" />
-                           )}
+                          {model.organization === 'Anthropic' && (
+                            <img src={`${import.meta.env.BASE_URL}claude.png`} alt="Anthropic" className="logo-img" />
+                          )}
+                          {model.organization === 'OpenAI' && (
+                            <img src={`${import.meta.env.BASE_URL}openai.svg`} alt="OpenAI" className="logo-img" />
+                          )}
+                          {model.organization === 'Sierra' && (
+                            <img src={`${import.meta.env.BASE_URL}sierra-logo.png`} alt="Sierra" className="logo-img" />
+                          )}
+                          {model.organization === 'Moonshot AI' && (
+                            <span className="emoji-logo">🚀</span>
+                          )}
+                          {model.organization === 'DeepSeek' && (
+                            <img src={`${import.meta.env.BASE_URL}DeepSeek_logo_icon.png`} alt="DeepSeek" className="logo-img" />
+                          )}
+                          {model.organization === 'Alibaba' && (
+                            <img src={`${import.meta.env.BASE_URL}qwen-color.png`} alt="Alibaba" className="logo-img" />
+                          )}
+                          {model.organization === 'Google' && (
+                            <img src={`${import.meta.env.BASE_URL}Google__G__logo.svg.png`} alt="Google" className="logo-img" />
+                          )}
                          </div>
                          <span className="org-name">{model.organization}</span>
                        </div>

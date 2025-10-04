@@ -81,7 +81,7 @@ function App() {
               <span className="bench-text">-bench</span>
             </div>
             <a href="https://sierra.ai" target="_blank" rel="noopener noreferrer" className="logo-attribution">
-              <img src="/src/assets/sierra_logo.jpeg" alt="Sierra" className="sierra-logo" />
+              <img src={`${import.meta.env.BASE_URL}sierra_logo.jpeg`} alt="Sierra" className="sierra-logo" />
               <span className="from-text">from Sierra</span>
             </a>
           </div>
@@ -120,7 +120,7 @@ function App() {
                 </div>
                 
                 <div className="hero-image-section">
-                  <img src="/src/assets/traj.png" alt="Sample τ²-bench Trajectories" className="trajectory-image" />
+                  <img src={`${import.meta.env.BASE_URL}traj.png`} alt="Sample τ²-bench Trajectories" className="trajectory-image" />
                 </div>
                 
                 <div className="hero-description-section">

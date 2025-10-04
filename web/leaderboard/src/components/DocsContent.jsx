@@ -12,22 +12,22 @@ const DocsContent = ({ domain }) => {
     airline: {
       title: "Airline Agent Policy",
       description: "Documentation for the airline customer service domain",
-      policyPath: "/task-data/domains/airline/policy.md"
+      policyPath: "task-data/domains/airline/policy.md"
     },
     retail: {
       title: "Retail Agent Policy", 
       description: "Documentation for the retail customer service domain",
-      policyPath: "/task-data/domains/retail/policy.md"
+      policyPath: "task-data/domains/retail/policy.md"
     },
     telecom: {
       title: "Telecom Agent Policy",
       description: "Documentation for the telecom customer service domain", 
-      policyPath: "/task-data/domains/telecom/main_policy.md"
+      policyPath: "task-data/domains/telecom/main_policy.md"
     },
     mock: {
       title: "Mock Domain Policy",
       description: "Documentation for the mock testing domain",
-      policyPath: "/task-data/domains/mock/policy.md"
+      policyPath: "task-data/domains/mock/policy.md"
     }
   }
 
@@ -38,7 +38,7 @@ const DocsContent = ({ domain }) => {
       
       try {
         // Load policy content
-        const policyResponse = await fetch(domainDocs[domain].policyPath)
+        const policyResponse = await fetch(`${import.meta.env.BASE_URL}${domainDocs[domain].policyPath}`)
         if (!policyResponse.ok) {
           throw new Error(`Failed to load policy: ${policyResponse.statusText}`)
         }
@@ -46,7 +46,7 @@ const DocsContent = ({ domain }) => {
         setPolicyContent(policyContent)
 
         // Load tools data
-        const toolsResponse = await fetch('/task-data/tools-data.json')
+        const toolsResponse = await fetch(`${import.meta.env.BASE_URL}task-data/tools-data.json`)
         if (!toolsResponse.ok) {
           throw new Error(`Failed to load tools data: ${toolsResponse.statusText}`)
         }

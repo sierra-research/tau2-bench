@@ -74,9 +74,9 @@ const Results = () => {
         
         // Load action success rates data
         const [telecomResponse, workflowResponse, costResponse] = await Promise.all([
-          fetch('/data/action_success_rates_telecom.csv'),
-          fetch('/data/action_success_rates_telecom-workflow.csv'),
-          fetch('/data/cost_info.txt')
+          fetch(`${import.meta.env.BASE_URL}data/action_success_rates_telecom.csv`),
+          fetch(`${import.meta.env.BASE_URL}data/action_success_rates_telecom-workflow.csv`),
+          fetch(`${import.meta.env.BASE_URL}data/cost_info.txt`)
         ])
         
         const telecomText = await telecomResponse.text()
