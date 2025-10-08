@@ -7,7 +7,7 @@
 [![blog](https://img.shields.io/badge/blog-tau2--bench-green)](https://sierra.ai/blog/benchmarking-agents-in-collaborative-real-world-scenarios)
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/sierra.svg?style=social&label=Follow%20%40SierraPlatform)](https://x.com/SierraPlatform/status/1932464265207889974)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?logo=linkedin&logoColor=white)](https://www.linkedin.com/posts/sierra_last-year-we-introduced-%F0%9D%9C%8F-bench-a-benchmark-activity-7338229693898231809-F8L4?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAdc8goBmhEsiEo1_t_XSJbAnY4_zMfAWcE)
-[![Leaderboard](https://img.shields.io/badge/🏆_Live_Leaderboard-tau--bench.com-brightgreen?style=flat)](https://tau-bench.com)
+[![Leaderboard](https://img.shields.io/badge/🏆_Live_Leaderboard-tau--bench.com-brightgreen?style=flat)](https://taubench.com)
 
 <div align="center">
 <img src="figs/overview.png" width="95%" alt="System Overview"><br>
@@ -22,14 +22,14 @@
 ## 🆕 What's New
 
 ### 🏆 Live Leaderboard (v0.2.0)
-The τ²-bench leaderboard is now live at **[tau-bench.com](https://tau-bench.com)**! 
+The τ²-bench leaderboard is now live at **[taubench.com](https://taubench.com)**! 
 
 - **📊 Interactive Rankings**: Compare model performance across all domains
 - **📱 Mobile-Friendly**: View results on any device  
 - **🔍 Detailed Analysis**: Explore trajectories and conversation flows
 - **📥 Easy Submission**: Submit your results directly through the interface
 
-[**→ Visit the Leaderboard**](https://tau-bench.com) | [**→ Submit Your Results**](#leaderboard-submission)
+[**→ Visit the Leaderboard**](https://taubench.com) | [**→ Submit Your Results**](#leaderboard-submission)
 
 ## Overview
 
