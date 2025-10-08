@@ -764,25 +764,31 @@ const TrajectoryVisualizer = () => {
                     <div className="task-section">
                       <h4>Evaluation Criteria</h4>
                       
-                      {selectedTaskDetail.evaluation_criteria.actions && selectedTaskDetail.evaluation_criteria.actions.length > 0 && (
+                      {selectedTaskDetail.evaluation_criteria.actions && (
                         <div className="criteria-subsection">
                           <h5>Expected Actions ({selectedTaskDetail.evaluation_criteria.actions.length})</h5>
                           <div className="actions-list">
-                            {selectedTaskDetail.evaluation_criteria.actions.map((action, index) => (
-                              <div key={index} className="action-item">
-                                <p><strong>Action:</strong> {action.name}</p>
-                                {action.arguments && (
-                                  <pre className="action-args">{JSON.stringify(action.arguments, null, 2)}</pre>
-                                )}
+                            {selectedTaskDetail.evaluation_criteria.actions.length > 0 ? (
+                              selectedTaskDetail.evaluation_criteria.actions.map((action, index) => (
+                                <div key={index} className="action-item">
+                                  <p><strong>Action:</strong> {action.name}</p>
+                                  {action.arguments && (
+                                    <pre className="action-args">{JSON.stringify(action.arguments, null, 2)}</pre>
+                                  )}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="no-actions-message">
+                                <p>Agent should not take any action</p>
                               </div>
-                            ))}
+                            )}
                           </div>
                         </div>
                       )}
 
                       {selectedTaskDetail.evaluation_criteria.nl_assertions && selectedTaskDetail.evaluation_criteria.nl_assertions.length > 0 && (
                         <div className="criteria-subsection">
-                          <h5>Natural Language Assertions ({selectedTaskDetail.evaluation_criteria.nl_assertions.length})</h5>
+                          <h5>Natural Language Assertions ({selectedTaskDetail.evaluation_criteria.nl_assertions.length}) <span className="experimental-badge-container"><span className="experimental-badge">experimental</span><div className="experimental-tooltip">These assertions are experimental and not used to compute benchmark scores</div></span></h5>
                           <div className="assertions-list">
                             {selectedTaskDetail.evaluation_criteria.nl_assertions.map((assertion, index) => (
                               <div key={index} className="assertion-item">
