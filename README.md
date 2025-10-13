@@ -35,6 +35,8 @@ The τ²-bench leaderboard is now live at **[taubench.com](https://taubench.com)
 
 $\tau^2$-bench implements a simulation framework for evaluating customer service agents across various domains.
 
+**$\tau^2$-bench is the new iteration of the original $\tau$-bench**, featuring code fixes and an additional telecom domain.
+
 Each domain specifies:
 - a policy that the agent must follow
 - a set of tools that the agent can use
