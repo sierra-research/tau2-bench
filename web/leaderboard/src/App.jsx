@@ -93,7 +93,7 @@ function App() {
         <div className="nav-container">
           <div className="nav-logo">
             <div className="logo-main" onClick={() => navigateTo('home')}>
-              <span className="tau-symbol">τ²</span>
+              <span className="tau-symbol">τ</span>
               <span className="bench-text">-bench</span>
             </div>
             <a href="https://sierra.ai" target="_blank" rel="noopener noreferrer" className="logo-attribution">
@@ -120,8 +120,8 @@ function App() {
         <div className="notification-container">
           <span className="notification-badge">NEW</span>
           <span className="notification-text">
-            We have updated to τ²-bench. If you are seeking the original τ-bench please 
-            <a href="https://github.com/sierra-research/tau-bench" target="_blank" rel="noopener noreferrer" className="notification-link"> click here</a>.
+            τ-bench now supports telecom domain, introduced by the{' '}
+            <a href="https://arxiv.org/abs/2506.07982" target="_blank" rel="noopener noreferrer" className="notification-link">τ²-bench paper</a>.
           </span>
         </div>
       </div>
@@ -135,19 +135,19 @@ function App() {
               <div className="hero-content-vertical">
                 <div className="hero-title-section">
                   <h1 className="hero-main-title">
-                    <span className="tau-symbol">τ²</span>
+                    <span className="tau-symbol">τ</span>
                     <span className="bench-text">-bench</span>
                   </h1>
                 </div>
                 
                 <div className="hero-image-section">
-                  <img src={`${import.meta.env.BASE_URL}traj.png`} alt="Sample τ²-bench Trajectories" className="trajectory-image" />
+                  <img src={`${import.meta.env.BASE_URL}traj.png`} alt="Sample τ-bench Trajectories" className="trajectory-image" />
                 </div>
                 
                 <div className="hero-description-section">
                   <p className="hero-description">
                     Benchmarking AI agents in collaborative real-world scenarios. 
-                    τ²-bench challenges agents to coordinate, guide, and assist users 
+                    τ-bench challenges agents to coordinate, guide, and assist users 
                     in achieving shared objectives across complex enterprise domains.
                   </p>
                   <div className="hero-actions">
@@ -189,7 +189,7 @@ function App() {
                 <a href="https://sierra.ai/resources/research/tau-squared-bench" target="_blank" rel="noopener noreferrer" className="news-item">
                   <div className="news-icon">🎉</div>
                   <div className="news-text">
-                    <strong>τ²-bench leaderboard released: Track model performance and submit your results across retail, airline, and telecom domains</strong>
+                    <strong>τ-bench leaderboard released: Track model performance and submit your results across retail, airline, and telecom domains</strong>
                     <span>October 3, 2025</span>
                   </div>
                   <div className="news-arrow">→</div>
@@ -197,7 +197,7 @@ function App() {
                 <a href="https://openai.com/gpt-5" target="_blank" rel="noopener noreferrer" className="news-item">
                   <div className="news-icon">🏆</div>
                   <div className="news-text">
-                    <strong>GPT-5 achieves state-of-the-art performance on τ²-bench, setting new records with 96% on telecom, 82% on retail, and 63% on airline</strong>
+                    <strong>GPT-5 achieves state-of-the-art performance on τ-bench, setting new records with 96% on telecom, 82% on retail, and 63% on airline</strong>
                     <span>January 15, 2025</span>
                   </div>
                   <div className="news-arrow">→</div>
@@ -205,7 +205,7 @@ function App() {
                 <a href="https://sierra.ai/resources/research/tau-squared-bench" target="_blank" rel="noopener noreferrer" className="news-item">
                   <div className="news-icon">🚀</div>
                   <div className="news-text">
-                    <strong>τ²-bench launched: Evaluating agents in dual-control environments, testing coordination and collaboration with tool-accessing user simulators</strong>
+                    <strong>τ-bench launched: Evaluating agents in dual-control environments, testing coordination and collaboration with tool-accessing user simulators</strong>
                     <span>June 11, 2025</span>
                   </div>
                   <div className="news-arrow">→</div>

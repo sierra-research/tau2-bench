@@ -303,9 +303,9 @@ const TrajectoryVisualizer = () => {
   return (
     <div className="trajectory-visualizer">
         <div className="visualizer-header">
-          <h2>τ²-bench Visualizer</h2>
+          <h2>τ-bench Visualizer</h2>
           <p className="visualizer-description">
-            Explore τ²-bench dataset: view conversation trajectories showing AI agent interactions with users, 
+            Explore τ-bench dataset: view conversation trajectories showing AI agent interactions with users, 
             or examine the underlying task definitions that drive these conversations across airline, retail, and telecom domains.
           </p>
           

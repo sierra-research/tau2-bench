@@ -102,7 +102,7 @@ const Results = () => {
     <div className="contributions-section">
       <h2>Key Contributions</h2>
       <p className="results-subtitle" style={{textAlign: 'center', marginBottom: '32px'}}>
-        τ²-bench introduces four fundamental advances in agent evaluation methodology
+        τ-bench introduces four fundamental advances in agent evaluation methodology
       </p>
       <div className="contributions-grid">
         <div className="contribution-card">
@@ -628,7 +628,7 @@ const Results = () => {
       <div className="container">
         {/* Header */}
         <div className="results-header">
-          <h1>τ²-Bench Research Analysis</h1>
+          <h1>τ-Bench Research Analysis</h1>
           <p className="results-subtitle">
             Comprehensive evaluation of conversational agents in dual-control collaborative environments.
             Detailed analysis of coordination challenges, reasoning bottlenecks, and simulation quality.

@@ -197,7 +197,7 @@ const DocsContent = ({ domain }) => {
         <div className="docs-note">
           <h3>📖 About This Documentation</h3>
           <p>
-            This documentation represents the agent policy and domain specifications for the {domain} domain in τ²-bench. 
+            This documentation represents the agent policy and domain specifications for the {domain} domain in τ-bench. 
             Agents are evaluated based on their adherence to these policies and their ability to successfully complete tasks within this domain.
           </p>
           <div className="docs-links">

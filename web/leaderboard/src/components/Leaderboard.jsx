@@ -400,7 +400,7 @@ const Leaderboard = () => {
   if (isLoading) {
     return (
       <div className="leaderboard-container">
-        <h2 className="leaderboard-title">τ²-bench Leaderboard</h2>
+        <h2 className="leaderboard-title">τ-bench Leaderboard</h2>
         <div className="loading-state">
           <div className="loading-spinner"></div>
           <p>Loading leaderboard data...</p>
@@ -412,7 +412,7 @@ const Leaderboard = () => {
   if (loadError) {
     return (
       <div className="leaderboard-container">
-        <h2 className="leaderboard-title">τ²-bench Leaderboard</h2>
+        <h2 className="leaderboard-title">τ-bench Leaderboard</h2>
         <div className="error-state">
           <p>Error loading leaderboard data: {loadError}</p>
           <button onClick={loadSubmissionData} className="retry-button">
@@ -426,7 +426,7 @@ const Leaderboard = () => {
   if (Object.keys(passKData).length === 0) {
     return (
       <div className="leaderboard-container">
-        <h2 className="leaderboard-title">τ²-bench Leaderboard</h2>
+        <h2 className="leaderboard-title">τ-bench Leaderboard</h2>
         <div className="empty-state">
           <p>No leaderboard data available.</p>
         </div>
@@ -436,7 +436,7 @@ const Leaderboard = () => {
 
   return (
     <div className="leaderboard-container">
-      <h2 className="leaderboard-title">τ²-bench Leaderboard</h2>
+      <h2 className="leaderboard-title">τ-bench Leaderboard</h2>
 
       {/* Combined Controls Row */}
       <div className="leaderboard-controls">
@@ -669,8 +669,8 @@ const Leaderboard = () => {
                           {model.organization === 'DeepSeek' && (
                             <img src={`${import.meta.env.BASE_URL}DeepSeek_logo_icon.png`} alt="DeepSeek" className="logo-img" />
                           )}
-                          {model.organization === 'Alibaba' && (
-                            <img src={`${import.meta.env.BASE_URL}qwen-color.png`} alt="Alibaba" className="logo-img" />
+                          {(model.organization === 'Alibaba' || model.organization === 'Qwen') && (
+                            <img src={`${import.meta.env.BASE_URL}qwen-color.png`} alt="Qwen" className="logo-img" />
                           )}
                           {model.organization === 'Google' && (
                             <img src={`${import.meta.env.BASE_URL}Google__G__logo.svg.png`} alt="Google" className="logo-img" />
