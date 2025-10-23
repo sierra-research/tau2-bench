@@ -248,6 +248,17 @@ The leaderboard will display your model's Pass^k success rates (k=1,2,3,4) acros
 
 ## Experiments
 
+### Experimental Code Directory
+
+The `@experiments/` directory contains experimental features and research code that extends beyond the core tau2 benchmark. This directory is designed for community contributions of innovative approaches, prototypes, and new features that are not part of the core evaluation framework.
+
+- **Purpose**: Research code and experimental features
+- **Location**: `src/experiments/`
+- **Usage**: Each experimental component has its own README with documentation
+- **Status**: Experimental code is provided as-is and may not be fully tested or supported
+
+For more details, see the [experiments README](src/experiments/README.md).
+
 ### Running Ablation Studies (No User, or Agent with Oracle Plan)
 `telecom` domain enables running ablation studies.
 
@@ -363,6 +374,18 @@ To enable LLM calls caching:
 
 ## Evaluate Your Own Agent
 For local or remote agent evaluation, see our [agent developer guide](src/tau2/agent/README.md).
+
+## Contributing
+
+We welcome contributions to τ²-bench! Whether you're fixing bugs, adding new features, creating new domains, or contributing experimental research code, please see our [Contributing Guide](CONTRIBUTING.md) for detailed guidelines on:
+
+- **Opening issues** before starting work
+- **Branch naming conventions** and development workflow  
+- **Code quality standards** and testing requirements
+- **Pull request guidelines** for clean, reviewable contributions
+- **Domain and experimental contributions** specific guidelines
+
+For experimental features and research code, check out the [`@experiments/`](src/experiments/) directory.
 
 ## Orchestration Sequence Diagram
 
