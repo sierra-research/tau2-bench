@@ -77,6 +77,44 @@ class ToolCall(BaseModel):
             and self.requestor == other.requestor
         )
 
+class OmissionMetadata(BaseModel):
+    """
+    Metadata for user action omission events. Used both for UserMessage metadata
+    and simulation-level telemetry. Records when a user tool call was omitted and
+    replaced with a natural-language claim to test agent verification behaviors.
+    
+    Simulates user mistakes by removing a single WRITE user tool call and replacing 
+    it with a natural-language claim.
+    
+    Important guardrails:
+    - Default-off via config and domain gating
+    - Only messages with exactly one tool call are eligible
+    - Environment state is not mutated and no tool output is fabricated
+    """
+
+    type: Literal["user_claim_omission"] = Field(
+        description="Event type identifier", default="user_claim_omission"
+    )
+    domain: str = Field(description="Domain name")
+    tool_name: str = Field(description="User WRITE tool name")
+    args_hash: str = Field(
+        description="Hash of normalized args. attempt_index is keyed by (tool_name, args_hash) so retries of the same instruction converge; distinct operations remain independent. args_hash uses normalized JSON."
+    )
+    attempt_index: int = Field(description="0-based attempt index per (tool, args_hash)")
+    params_summary: Optional[dict] = Field(
+        description="Optional, small redacted view of args", 
+        default=None
+    )
+    p0: float = Field(description="Initial omission probability")
+    p_effective: float = Field(
+        description="Effective probability used. p_effective = p0 / (2 ** attempt_index), clamped to 0 beyond max_failures"
+    )
+    max_failures: int = Field(description="Maximum failures before clamping to 0")
+    seed: Optional[int] = Field(description="RNG seed used", default=None)
+    turn_index: Optional[int] = Field(
+        description="Derived from trajectory ordering", 
+        default=None
+    )
 
 class ParticipantMessageBase(BaseModel):
     """
@@ -172,6 +210,10 @@ class UserMessage(ParticipantMessageBase):
     """
 
     role: UserRole = Field(description="The role of the message sender.")
+    omission_metadata: Optional[OmissionMetadata] = Field(
+        description="Omission metadata for cases when a user tool call was omitted and replaced with a natural-language claim.",
+        default=None,
+    )
 
 
 class ToolMessage(BaseModel):

@@ -17,7 +17,7 @@ from tau2.domains.telecom.user_data_model import (
     UserSurroundings,
     VpnDetails,
 )
-from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool, user_claim, CLAIM_ATTR
 
 
 class TelecomUserTools(ToolKitBase):
@@ -46,6 +46,51 @@ class TelecomUserTools(ToolKitBase):
         Initializes
         """
         super().__init__(db)
+
+    def _get_user_claim_text(self, tool_name: str, **tool_args) -> str:
+        """
+        Produces the user-facing claim string for a tool. If a decorator is absent, fall back
+        to a generic "I used ..." with a minimal, redacted argument mention to prevent leakage.
+        
+        This method is called from the orchestrator when user action omission is enabled to
+        generate realistic user claims that replace actual tool calls. The claims should be
+        succinct and (in relevant cases) state-aware.
+        
+        Args:
+            tool_name: Name of the tool being called
+            **tool_args: Arguments passed to the tool
+            
+        Returns:
+            State-aware user claim text for the tool call
+        """
+        if not hasattr(self, tool_name):
+            return f"I used {tool_name}."
+            
+        tool_method = getattr(self, tool_name)
+        
+        # Check if the method has a CLAIM_ATTR attribute
+        if hasattr(tool_method, CLAIM_ATTR):
+            claim_fn_or_str = getattr(tool_method, CLAIM_ATTR)
+            
+            if callable(claim_fn_or_str):
+                # It's a function, call it with self and tool args
+                return claim_fn_or_str(self, **tool_args)
+            else:
+                # It's a static string
+                return claim_fn_or_str
+        else:
+            # Generic fallback: tool name → words + minimal arg mention
+            readable_name = tool_name.replace('_', ' ')
+            if tool_args:
+                # Include a minimal mention of key arguments
+                key_args = []
+                for key, value in tool_args.items():
+                    if isinstance(value, (str, int, float, bool)):
+                        key_args.append(f"{key}={value}")
+                if key_args:
+                    args_str = ", ".join(key_args[:2])  # Limit to first 2 args
+                    return f"I used {readable_name} with {args_str}."
+            return f"I used {readable_name}."
 
     # --- Properties ---
     @property
@@ -186,6 +231,7 @@ class TelecomUserTools(ToolKitBase):
         return self.device.network_mode_preference
 
     @is_tool(ToolType.WRITE)
+    @user_claim(lambda self, mode: f"I changed network mode to {mode}.")
     def set_network_mode_preference(
         self, mode: Union[NetworkModePreference, str]
     ) -> str:
@@ -364,6 +410,7 @@ class TelecomUserTools(ToolKitBase):
 
     # --- Airplane Mode ---
     @is_tool(ToolType.WRITE)
+    @user_claim(lambda self: f"I turned airplane mode {'off' if self.device.airplane_mode else 'on'}.")
     def toggle_airplane_mode(self) -> str:
         """Toggles Airplane Mode ON or OFF. When ON, it disconnects all wireless communications including cellular, Wi-Fi, and Bluetooth.
         Returns the new state of airplane_mode.
@@ -433,6 +480,7 @@ class TelecomUserTools(ToolKitBase):
         return self.device.sim_card_status
 
     @is_tool(ToolType.WRITE)
+    @user_claim("I removed and reinserted my SIM card.")
     def reseat_sim_card(self) -> str:
         """Simulates removing and reinserting your SIM card. This can help resolve recognition issues."""
         status_update = self._reseat_sim_card()
@@ -469,6 +517,7 @@ class TelecomUserTools(ToolKitBase):
 
     # --- Mobile Data & Roaming ---
     @is_tool(ToolType.WRITE)
+    @user_claim(lambda self: f"I turned mobile data {'off' if self.device.data_enabled else 'on'}.")
     def toggle_data(self) -> str:
         """Toggles your phone's mobile data connection ON or OFF. Controls whether your phone can use cellular data for internet access when Wi-Fi is unavailable.
         Returns the new data connection status.
@@ -497,6 +546,7 @@ class TelecomUserTools(ToolKitBase):
         return "Data connection broken."
 
     @is_tool(ToolType.WRITE)
+    @user_claim(lambda self: f"I turned data roaming {'off' if self.device.roaming_enabled else 'on'}.")
     def toggle_roaming(self) -> str:
         """Toggles Data Roaming ON or OFF. When ON, your phone can use data networks in areas outside your carrier's coverage.
         Returns the new data roaming status.
@@ -544,6 +594,7 @@ class TelecomUserTools(ToolKitBase):
         }
 
     @is_tool(ToolType.WRITE)
+    @user_claim(lambda self: f"I turned data saver mode {'off' if self.device.data_saver_mode else 'on'}.")
     def toggle_data_saver_mode(self) -> str:
         """Toggles Data Saver mode ON or OFF. When ON, it reduces data usage, which may affect data speed.
         Returns the new data saver mode status.
@@ -588,6 +639,7 @@ class TelecomUserTools(ToolKitBase):
         return self.device.active_apn_settings.model_copy(deep=True)
 
     @is_tool(ToolType.WRITE)
+    @user_claim(lambda self, apn_settings: "I updated the APN settings.")
     def set_apn_settings(self, apn_settings: Union[APNSettings, dict]) -> str:
         """Sets the APN settings for the phone."""
         if isinstance(apn_settings, dict):
@@ -602,6 +654,7 @@ class TelecomUserTools(ToolKitBase):
         return f"APN settings set to: {apn_settings.apn_name.value}"
 
     @is_tool(ToolType.WRITE)
+    @user_claim("I reset the APN settings to default.")
     def reset_apn_settings(self) -> str:
         """Resets your APN settings to the default settings."""
         apn_status = self._reset_apn_settings()
@@ -648,6 +701,7 @@ class TelecomUserTools(ToolKitBase):
         }
 
     @is_tool(ToolType.WRITE)
+    @user_claim(lambda self: f"I turned Wi-Fi {'off' if self.device.wifi_enabled else 'on'}.")
     def toggle_wifi(self) -> str:
         """Toggles your phone's Wi-Fi radio ON or OFF. Controls whether your phone can discover and connect to wireless networks for internet access.
         Returns the new Wi-Fi status.
@@ -688,6 +742,7 @@ class TelecomUserTools(ToolKitBase):
         }
 
     @is_tool(ToolType.WRITE)
+    @user_claim(lambda self: f"I turned Wi-Fi calling {'off' if self.device.wifi_calling_enabled else 'on'}.")
     def toggle_wifi_calling(self) -> str:
         """Toggles Wi-Fi Calling ON or OFF. This feature allows you to make and receive calls over Wi-Fi instead of the cellular network, which can help in areas with weak cellular signal.
         Returns the new Wi-Fi Calling status.
@@ -743,6 +798,7 @@ class TelecomUserTools(ToolKitBase):
         }
 
     @is_tool(ToolType.WRITE)
+    @user_claim("I connected to the VPN.")
     def connect_vpn(self) -> str:
         """Connects to your VPN (Virtual Private Network)."""
         connected = self._connect_vpn()
@@ -766,6 +822,7 @@ class TelecomUserTools(ToolKitBase):
         return True
 
     @is_tool(ToolType.WRITE)
+    @user_claim("I disconnected from the VPN.")
     def disconnect_vpn(self) -> str:
         """Disconnects any active VPN (Virtual Private Network) connection. Stops routing your internet traffic through a VPN server, which might affect connection speed or access to content."""
         disconnected = self._disconnect_vpn()
@@ -858,6 +915,7 @@ class TelecomUserTools(ToolKitBase):
         return None
 
     @is_tool(ToolType.WRITE)
+    @user_claim(lambda self, app_name, permission: f"I granted {permission} permission to {app_name}.")
     def grant_app_permission(self, app_name: str, permission: str) -> str:
         """Gives a specific permission to an app (like access to storage, camera, or location). Required for some app functions to work properly.
 
@@ -939,6 +997,7 @@ class TelecomUserTools(ToolKitBase):
 
     # --- Device Level Actions ---
     @is_tool(ToolType.WRITE)
+    @user_claim("I restarted my phone.")
     def reboot_device(self) -> str:
         """Restarts your phone completely. This can help resolve many temporary software glitches by refreshing all running services and connections."""
         status_update = self._reboot_device()
@@ -1070,6 +1129,7 @@ class TelecomUserTools(ToolKitBase):
         return self.surroundings.payment_request
 
     @is_tool(ToolType.WRITE)
+    @user_claim("I made the payment.")
     def make_payment(self) -> str:
         """
         Makes a payment for the bill that the agent has sent you.

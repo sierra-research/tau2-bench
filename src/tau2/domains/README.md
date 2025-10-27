@@ -51,3 +51,33 @@ registry.register_domain(your_domain_get_environment, "your_domain_name")
 registry.register_tasks(your_domain_get_tasks, "your_domain_name")
 ```
 
+## User Action Omission Testing
+
+To test the robustness of agents when users claim to have performed actions without actually executing them, you can enable the optional user action omission feature. This simulates real-world situations in which users occasionally misreport their own behavior in some external environment due to confusion or other human errors.
+
+### How It Works
+
+The feature only affects WRITE-type user tools in telecom domains by default. When enabled, it replaces single user tool calls with natural language claims such as "I turned mobile data off". The environment state remains unchanged, no fabricated tool outputs are generated, and the feature is disabled by default. Running with user-action-omission enabled tests whether agents implicitly verify user actions and retry when needed.
+
+### Configuration
+
+Enable via the `--user-action-omission` CLI flag with JSON configuration:
+
+```bash
+tau2 run --domain telecom \
+  --user-action-omission '{
+    "enabled": true,
+    "tool_name_filter": ["toggle_data", "toggle_wifi"],
+    "p0": 0.1,
+    "max_failures": 1
+  }'
+```
+
+#### Available Settings
+
+- **`enabled`** (boolean, required): Master switch to activate omission behavior
+- **`p0`** (float, 0.0-1.0): Initial omission probability for first attempt to call a function (default: `0.05`). Probability decays on each subsequent attempt according to `p = p0 / (2 ** attempt_index)`.
+- **`max_failures`** (integer ≥ 1): Maximum omission attempts per operation before stopping (default: `1`)
+- **`tool_name_filter`** (list[str], optional): Only omit specific tools (default: all WRITE tools eligible)
+- **`max_omitted_tools`** (integer, optional): Randomly sample N tools per simulation (default: all eligible)
+- **`seed`** (integer, optional): RNG seed for reproducible omission patterns (default: uses simulation seed)

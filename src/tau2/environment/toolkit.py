@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Annotated, Any, Callable, Dict, Optional, TypeVar
+from typing import Annotated, Any, Callable, Dict, Optional, TypeVar, Union
 
 from pydantic import BaseModel, Field
 
@@ -9,6 +9,7 @@ from tau2.utils import get_dict_hash, update_pydantic_model_with_dict
 
 TOOL_ATTR = "__tool__"
 TOOL_TYPE_ATTR = "__tool_type__"
+CLAIM_ATTR = "__user_claim__"
 
 
 T = TypeVar("T", bound=DB)
@@ -59,6 +60,22 @@ def is_tool(tool_type: ToolType = ToolType.READ):
         setattr(func, TOOL_TYPE_ATTR, tool_type)
         return func
 
+    return decorator
+
+
+def user_claim(claim_fn_or_str: Union[str, Callable]):
+    """
+    Decorator for user tools to provide state-aware user claim text for the omission tests. 
+    User claims return text that replace the tool call result when user action omissions are enabled.
+    Prefer succinct, state-aware phrasing.
+    
+    Args:
+        claim_fn_or_str: Either a static string or a callable that takes 
+                        (self, **tool_args) and returns a claim string.
+    """
+    def decorator(func):
+        setattr(func, CLAIM_ATTR, claim_fn_or_str)
+        return func
     return decorator
 
 

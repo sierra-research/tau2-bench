@@ -146,6 +146,7 @@ def run_domain(config: RunConfig) -> Results:
         max_concurrency=config.max_concurrency,
         seed=config.seed,
         log_level=config.log_level,
+        user_action_omission=config.user_action_omission,
     )
     metrics = compute_metrics(simulation_results)
     ConsoleDisplay.display_agent_metrics(metrics)
@@ -171,6 +172,7 @@ def run_tasks(
     max_concurrency: int = 1,
     seed: Optional[int] = 300,
     log_level: Optional[str] = "INFO",
+    user_action_omission: Optional[dict] = None,
 ) -> Results:
     """
     Runs tasks for a given domain.
@@ -344,6 +346,7 @@ def run_tasks(
                 max_errors=max_errors,
                 evaluation_type=evaluation_type,
                 seed=seed,
+                user_action_omission=user_action_omission,
             )
             simulation.trial = trial
             if console_display:
@@ -390,6 +393,7 @@ def run_task(
     max_errors: int = 10,
     evaluation_type: EvaluationType = EvaluationType.ALL,
     seed: Optional[int] = None,
+    user_action_omission: Optional[dict] = None,
 ) -> SimulationRun:
     """
     Runs tasks for a given domain.
@@ -483,8 +487,10 @@ def run_task(
         max_errors=max_errors,
         seed=seed,
         solo_mode=solo_mode,
+        omission_config=user_action_omission,
     )
     simulation = orchestrator.run()
+    simulation.omission_events = orchestrator.get_omission_events()
 
     reward_info = evaluate_simulation(
         domain=domain,
