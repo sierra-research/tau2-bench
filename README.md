@@ -21,6 +21,16 @@
 
 ## 🆕 What's New
 
+### 🎮 Gymnasium Interface & Train/Test Splits (New!)
+τ²-bench now includes a Gymnasium-compatible interface for interactive agent development and reinforcement learning:
+
+- **🕹️ Interactive Play Mode**: Step into the agent's shoes with `tau2 play` - manually interact with domains to understand tasks and develop intuition
+- **📊 Train/Test Splits**: All domains now include standardized train/test task splits for proper model evaluation
+- **🤖 RL Integration**: Use the gym interface to train agents with popular RL frameworks
+- **🔧 Compatible with Standard Tools**: Works seamlessly with Gymnasium, Stable-Baselines3, and other RL libraries
+
+[**→ See Gym Documentation**](src/tau2/gym/README.md) | [**→ Try Play Mode**](#interactive-play-mode)
+
 ### 🏆 Live Leaderboard (v0.2.0)
 The τ²-bench leaderboard is now live at **[taubench.com](https://taubench.com)**! 
 
@@ -135,6 +145,24 @@ tau2 run \
   --max-concurrency <concurrent_sims> \
   ...
 ```
+
+### Interactive Play Mode
+```bash
+tau2 play
+```
+Experience τ²-bench from the agent's perspective! The play mode allows you to:
+- **Manually interact** with any domain as if you were the agent
+- **Understand tasks** by walking through scenarios step-by-step
+- **Test strategies** before implementing them in code
+- **Choose task splits** to practice on training data or test on held-out tasks
+
+This is perfect for:
+- Getting familiar with domain policies and tools
+- Debugging task scenarios
+- Developing intuition for agent strategies
+- Training yourself before training your model!
+
+See the [Gym Documentation](src/tau2/gym/README.md) for more details on using the gymnasium interface programmatically.
 
 ### Viewing Results
 ```bash
