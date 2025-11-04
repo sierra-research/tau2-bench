@@ -17,7 +17,6 @@ from tau2.config import (
 )
 from tau2.data_model.simulation import RunConfig
 from tau2.run import get_options, run_domain
-from tau2.scripts.leaderboard.verify_trajectories import VerificationMode
 
 
 def add_run_args(parser):
@@ -82,6 +81,12 @@ def add_run_args(parser):
         help="The task set to run the simulation on. If not provided, will load default task set for the domain.",
     )
     parser.add_argument(
+        "--task-split-name",
+        type=str,
+        default="train+test",
+        help="The task split to run the simulation on. If not provided, will load 'train+test' split.",
+    )
+    parser.add_argument(
         "--task-ids",
         type=str,
         nargs="+",
@@ -143,6 +148,7 @@ def main():
             RunConfig(
                 domain=args.domain,
                 task_set_name=args.task_set_name,
+                task_split_name=args.task_split_name,
                 task_ids=args.task_ids,
                 num_tasks=args.num_tasks,
                 agent=args.agent,
@@ -162,8 +168,19 @@ def main():
         )
     )
 
+    # Play command
+    play_parser = subparsers.add_parser(
+        "play", help="Play manual mode - interact with a domain as the agent"
+    )
+    play_parser.set_defaults(func=lambda args: run_manual_mode())
+
     # View command
     view_parser = subparsers.add_parser("view", help="View simulation results")
+    view_parser.add_argument(
+        "--dir",
+        type=str,
+        help="Directory containing simulation files. Defaults to data/simulations if not specified.",
+    )
     view_parser.add_argument(
         "--file",
         type=str,
@@ -200,87 +217,6 @@ def main():
     )
     check_data_parser.set_defaults(func=lambda args: run_check_data())
 
-    # Evaluate trajectories command
-    evaluate_parser = subparsers.add_parser(
-        "evaluate-trajs", help="Evaluate trajectories and update rewards"
-    )
-    evaluate_parser.add_argument(
-        "paths",
-        nargs="+",
-        help="Paths to trajectory files, directories, or glob patterns",
-    )
-    evaluate_parser.add_argument(
-        "-o",
-        "--output-dir",
-        help="Directory to save updated trajectory files with recomputed rewards. If not provided, only displays metrics.",
-    )
-    evaluate_parser.set_defaults(func=lambda args: run_evaluate_trajectories(args))
-
-    # Submit command with subcommands
-    submit_parser = subparsers.add_parser(
-        "submit", help="Submission management for the leaderboard"
-    )
-    submit_subparsers = submit_parser.add_subparsers(
-        dest="submit_command", help="Submit subcommands", required=True
-    )
-
-    # Submit prepare subcommand
-    submit_prepare_parser = submit_subparsers.add_parser(
-        "prepare", help="Prepare a submission for the leaderboard"
-    )
-    submit_prepare_parser.add_argument(
-        "input_paths",
-        nargs="+",
-        help="Paths to trajectory files, directories, or glob patterns",
-    )
-    submit_prepare_parser.add_argument(
-        "--output",
-        "-o",
-        required=True,
-        help="Output directory to save the submission and trajectories",
-    )
-    submit_prepare_parser.add_argument(
-        "--no-verify",
-        action="store_true",
-        help="Skip trajectory verification step",
-    )
-    submit_prepare_parser.set_defaults(func=lambda args: run_prepare_submission(args))
-
-    # Submit validate subcommand
-    submit_validate_parser = submit_subparsers.add_parser(
-        "validate", help="Validate an existing submission directory"
-    )
-    submit_validate_parser.add_argument(
-        "submission_dir",
-        help="Path to the submission directory to validate",
-    )
-    submit_validate_parser.add_argument(
-        "--mode",
-        type=VerificationMode,
-        choices=[mode.value for mode in VerificationMode],
-        default=VerificationMode.PUBLIC,
-        help=f"Verification mode. Default is '{VerificationMode.PUBLIC.value}'",
-    )
-    submit_validate_parser.set_defaults(func=lambda args: run_validate_submission(args))
-
-    # Submit verify-trajs subcommand
-    submit_verify_parser = submit_subparsers.add_parser(
-        "verify-trajs", help="Verify trajectory files"
-    )
-    submit_verify_parser.add_argument(
-        "paths",
-        nargs="+",
-        help="Paths to trajectory files, directories, or glob patterns",
-    )
-    submit_verify_parser.add_argument(
-        "--mode",
-        type=VerificationMode,
-        choices=[mode.value for mode in VerificationMode],
-        default=VerificationMode.PUBLIC,
-        help=f"Verification mode. Default is '{VerificationMode.PUBLIC.value}'",
-    )
-    submit_verify_parser.set_defaults(func=lambda args: run_verify_trajectories(args))
-
     args = parser.parse_args()
     if not hasattr(args, "func"):
         parser.print_help()
@@ -296,6 +232,7 @@ def run_view_simulations(args):
         sim_file=args.file,
         only_show_failed=args.only_show_failed,
         only_show_all_failed=args.only_show_all_failed,
+        sim_dir=args.dir,
     )
 
 
@@ -317,46 +254,10 @@ def run_check_data():
     check_data_main()
 
 
-def run_verify_trajectories(args):
-    import sys
+def run_manual_mode():
+    from tau2.scripts.manual_mode import main as manual_main
 
-    from loguru import logger
-
-    from tau2.scripts.leaderboard.verify_trajectories import verify_trajectories
-
-    logger.configure(handlers=[{"sink": sys.stderr, "level": "ERROR"}])
-
-    verify_trajectories(args.paths, args.mode)
-
-
-def run_evaluate_trajectories(args):
-    import sys
-
-    from loguru import logger
-
-    from tau2.scripts.evaluate_trajectories import evaluate_trajectories
-
-    logger.configure(handlers=[{"sink": sys.stderr, "level": "ERROR"}])
-
-    evaluate_trajectories(args.paths, args.output_dir)
-
-
-def run_prepare_submission(args):
-    """Run the prepare submission command."""
-    from tau2.scripts.leaderboard.prepare_submission import prepare_submission
-
-    prepare_submission(
-        input_paths=args.input_paths,
-        output_dir=args.output,
-        run_verification=not args.no_verify,
-    )
-
-
-def run_validate_submission(args):
-    """Run the validate submission command."""
-    from tau2.scripts.leaderboard.prepare_submission import validate_submission
-
-    validate_submission(submission_dir=args.submission_dir, mode=args.mode)
+    manual_main()
 
 
 if __name__ == "__main__":

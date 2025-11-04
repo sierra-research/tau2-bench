@@ -41,6 +41,13 @@ class RunConfig(BaseModel):
             default=None,
         ),
     ]
+    task_split_name: Annotated[
+        Optional[str],
+        Field(
+            description="The task split to run the simulation on. If not provided, will load 'train+test' split.",
+            default="train+test",
+        ),
+    ]
     task_ids: Annotated[
         Optional[list[str]],
         Field(
@@ -305,6 +312,8 @@ class TerminationReason(str, Enum):
     AGENT_STOP = "agent_stop"
     MAX_STEPS = "max_steps"
     TOO_MANY_ERRORS = "too_many_errors"
+    AGENT_ERROR = "agent_error"
+    USER_ERROR = "user_error"
 
 
 class SimulationRun(BaseModel):

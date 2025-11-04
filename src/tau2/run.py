@@ -19,6 +19,7 @@ from tau2.data_model.simulation import (
 from tau2.data_model.tasks import Task
 from tau2.environment.environment import Environment, EnvironmentInfo
 from tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
+from tau2.gym.gym_agent import GymAgent
 from tau2.metrics.agent_metrics import compute_metrics
 from tau2.orchestrator.orchestrator import Orchestrator
 from tau2.registry import RegistryInfo, registry
@@ -44,18 +45,30 @@ def get_environment_info(
     return env_constructor().get_info(include_tool_info=include_tool_info)
 
 
-def load_tasks(task_set_name: str) -> list[Task]:
+def load_task_splits(task_set_name: str) -> Optional[dict[str, list[str]]]:
+    """
+    Loads the task splits for the given domain.
+    """
+    global registry
+    task_split_loader = registry.get_task_splits_loader(task_set_name)
+    if task_split_loader is None:
+        return None
+    return task_split_loader()
+
+
+def load_tasks(task_set_name: str, task_split_name: Optional[str] = None) -> list[Task]:
     """
     Loads the tasks for the given domain.
     """
     global registry
     task_loader = registry.get_tasks_loader(task_set_name)
-    tasks = task_loader()
+    tasks = task_loader(task_split_name=task_split_name)
     return tasks
 
 
 def get_tasks(
     task_set_name: str,
+    task_split_name: Optional[str] = None,
     task_ids: Optional[list[str]] = None,
     num_tasks: Optional[int] = None,
 ) -> list[Task]:
@@ -63,17 +76,19 @@ def get_tasks(
     Loads the tasks for the given domain.
     """
     if task_ids is None:
-        tasks = load_tasks(task_set_name=task_set_name)
+        tasks = load_tasks(task_set_name=task_set_name, task_split_name=task_split_name)
     else:
         tasks = [
             task
-            for task in load_tasks(task_set_name=task_set_name)
+            for task in load_tasks(
+                task_set_name=task_set_name, task_split_name=task_split_name
+            )
             if task.id in task_ids
         ]
     if task_ids is not None and len(tasks) != len(task_ids):
         missing_tasks = set(task_ids) - set([task.id for task in tasks])
         raise ValueError(
-            f"Not all tasks were found for task set {task_set_name}: {missing_tasks}"
+            f"Not all tasks were found for task set {task_set_name} - {task_split_name}: {missing_tasks}"
         )
     if num_tasks is not None:
         tasks = tasks[:num_tasks]
@@ -84,10 +99,10 @@ def make_run_name(config: RunConfig) -> str:
     """
     Make a run name from the run config
     """
-    clean_llm_agent_name = config.llm_agent.split("/")[-1]
+    clean_llm_agent_name = [x for x in config.llm_agent.split("/") if x][-1]
     agent_name = f"{config.agent}_{clean_llm_agent_name}"
 
-    clean_llm_user_name = config.llm_user.split("/")[-1]
+    clean_llm_user_name = [x for x in config.llm_user.split("/") if x][-1]
     user_name = f"{config.user}_{clean_llm_user_name}"
 
     return f"{get_now()}_{config.domain}_{agent_name}_{user_name}"
@@ -103,7 +118,12 @@ def run_domain(config: RunConfig) -> Results:
         task_set_name = config.domain
     else:
         task_set_name = config.task_set_name
-    tasks = get_tasks(task_set_name, config.task_ids, config.num_tasks)
+    tasks = get_tasks(
+        task_set_name=task_set_name,
+        task_split_name=config.task_split_name,
+        task_ids=config.task_ids,
+        num_tasks=config.num_tasks,
+    )
     if "gt" in config.agent:
         total_num_tasks = len(tasks)
         tasks = [task for task in tasks if LLMGTAgent.check_valid_task(task)]
@@ -450,6 +470,11 @@ def run_task(
             llm=llm_agent,
             llm_args=llm_args_agent,
             task=task,
+        )
+    elif issubclass(AgentConstructor, GymAgent):
+        agent = AgentConstructor(
+            tools=environment.get_tools(),
+            domain_policy=environment.get_policy(),
         )
     else:
         raise ValueError(
