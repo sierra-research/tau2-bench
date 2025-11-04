@@ -21,13 +21,14 @@
 
 ## 🆕 What's New
 
-### 🎮 Gymnasium Interface & Train/Test Splits (New!)
-τ²-bench now includes a Gymnasium-compatible interface for interactive agent development and reinforcement learning:
+### 🤖 Reinforcement Learning Support (New!)
+τ²-bench now supports RL training with a Gymnasium-compatible interface:
 
-- **🕹️ Interactive Play Mode**: Step into the agent's shoes with `tau2 play` - manually interact with domains to understand tasks and develop intuition
-- **📊 Train/Test Splits**: All domains now include standardized train/test task splits for proper model evaluation
-- **🤖 RL Integration**: Use the gym interface to train agents with popular RL frameworks
-- **🔧 Compatible with Standard Tools**: Works seamlessly with Gymnasium, Stable-Baselines3, and other RL libraries
+- **🏋️ Train RL Agents**: Use the gym interface to train agents with popular RL frameworks (Stable-Baselines3, RLlib, etc.)
+- **📊 Train/Test Splits**: All domains include standardized task splits for proper train/test evaluation
+- **🔧 Gymnasium Compatible**: Standard gym interface works with existing RL tools and libraries
+
+Plus, try **Play Mode** (`tau2 play`) to manually step through tasks and develop intuition before training your agents.
 
 [**→ See Gym Documentation**](src/tau2/gym/README.md) | [**→ Try Play Mode**](#interactive-play-mode)
 
