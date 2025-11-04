@@ -28,9 +28,7 @@
 - **📊 Train/Test Splits**: All domains include standardized task splits for proper train/test evaluation
 - **🔧 Gymnasium Compatible**: Standard gym interface works with existing RL tools and libraries
 
-Plus, try **Play Mode** (`tau2 play`) to manually step through tasks and develop intuition before training your agents.
-
-[**→ See Gym Documentation**](src/tau2/gym/README.md) | [**→ Try Play Mode**](#interactive-play-mode)
+[**→ See Gym Documentation**](src/tau2/gym/README.md) | [**→ Try CLI Play Mode**](#interactive-play-mode)
 
 ### 🏆 Live Leaderboard (v0.2.0)
 The τ²-bench leaderboard is now live at **[taubench.com](https://taubench.com)**! 
