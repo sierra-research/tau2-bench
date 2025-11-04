@@ -53,6 +53,7 @@ class Orchestrator:
         max_errors: int = 10,
         seed: Optional[int] = None,
         solo_mode: bool = False,
+        validate_communication: bool = True,
     ):
         self.domain = domain
         self.agent = agent
@@ -61,6 +62,7 @@ class Orchestrator:
         self.task = task
         self.seed = seed
         self.solo_mode = solo_mode
+        self.validate_communication = validate_communication
         self.agent_state: Optional[Any] = None
         self.user_state: Optional[UserState] = None
         self.trajectory: list[Message] = []
@@ -253,7 +255,8 @@ class Orchestrator:
                     if self.done:
                         self.to_role = Role.USER  # FIXIT: For now, we assume last message cannot be to the environment
                         self.termination_reason = TerminationReason.AGENT_STOP
-        self.check_communication_error()
+        if self.validate_communication:
+            self.check_communication_error()
         self.environment.sync_tools()
 
     def check_communication_error(self) -> None:
@@ -467,7 +470,8 @@ class Orchestrator:
             raise ValueError(
                 f"Invalid role combination. From role: {self.from_role}, To role: {self.to_role}"
             )
-        self.check_communication_error()
+        if self.validate_communication:
+            self.check_communication_error()
         self.step_count += 1
         self.environment.sync_tools()
 
