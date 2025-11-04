@@ -19,7 +19,7 @@ EXP_NAME="demo-$(date +%Y%m%d-%H%M%S)"
 echo "=== tau2 Hyperparameter Experiments Demo ==="
 echo ""
 echo "Running experiment: $EXP_NAME"
-echo "This will take ~2-3 minutes and cost ~$0.10"
+echo "This will take ~2-3 minutes and cost ~\$0.10"
 echo ""
 
 # Run experiment
