@@ -281,3 +281,114 @@ print(observation)
 ```
 
 The observation string provides the complete conversation context, making it easy to understand the current state of the interaction and plan the next action accordingly.
+
+## Architecture & Threading Model
+
+### Overview
+
+The Tau2 Gym environment uses a **dual-thread architecture** to coordinate between the external gym interface and the internal simulation system. Understanding this architecture is important for developers working with the codebase or debugging threading issues.
+
+### Two Main Components
+
+1. **GymAgent** - A special agent that can be controlled step-by-step from external code, rather than making autonomous decisions
+2. **AgentGymEnv** - A gym environment wrapper that manages the simulation lifecycle and thread coordination
+
+### Threading Architecture
+
+The environment runs two threads simultaneously:
+
+1. **Main Thread** (gym interface)
+   - Handles external `reset()` and `step()` calls
+   - Provides actions to the agent via `set_action()`
+   - Returns observations and rewards
+
+2. **Orchestrator Thread** (simulation)
+   - Runs the Tau2 simulation loop
+   - Processes messages between agent and user
+   - Executes tool calls and updates environment state
+   - Runs in the background as a daemon thread
+
+### Synchronization Mechanisms
+
+The threads coordinate using two key synchronization primitives:
+
+#### The Lock (`self._lock`)
+A **mutex** (mutual exclusion lock) that prevents race conditions when multiple threads access shared data:
+```python
+with self._lock:
+    # Only one thread can execute this code at a time
+    self._observation = deepcopy(state.messages)
+    self._next_action = action_msg
+```
+
+Protected variables include:
+- `self._next_action` - The action provided by the external code
+- `self._observation` - The current conversation history
+- `self._agent_turn_finished` - Synchronization event state
+
+#### The Event (`self._agent_turn_finished`)
+A **threading event** that acts as a signaling flag between threads:
+- **`.clear()`** - Sets event to "false", threads will block on `.wait()`
+- **`.set()`** - Sets event to "true", threads can proceed past `.wait()`
+- **`.wait()`** - Blocks until the event is set to "true"
+- **`.is_set()`** - Returns True if event is set, False otherwise
+
+### The Observation-Action Cycle
+
+Here's how the synchronization works during a typical step:
+
+**Phase 1: Observation (Orchestrator Thread)**
+```python
+def generate_next_message(self, message, state):
+    with self._lock:
+        self._agent_turn_finished.clear()  # Signal: "agent is processing"
+        state.messages.append(message)
+        self._observation = deepcopy(state.messages)  # Update observation
+    
+    # BLOCKS HERE waiting for external action
+    self._agent_turn_finished.wait()
+```
+
+**Phase 2: Action (Main Thread)**
+```python
+def step(self, action):
+    action_msg = parse_action_string(action)
+    self._agent.set_action(action_msg)  # Provides action to agent
+    
+    # Inside set_action():
+    with self._lock:
+        self._next_action = action_msg
+        self._agent_turn_finished.set()  # Signal: "action ready, continue!"
+```
+
+**Phase 3: Processing (Orchestrator Thread)**
+```python
+    # Continues from wait()...
+    with self._lock:
+        response_message = self._next_action  # Retrieve the action
+        self._next_action = None  # Reset for next iteration
+    
+    return response_message, state
+```
+
+### Why This Design?
+
+This architecture enables:
+- **External control**: Step-by-step control of agent actions via the gym interface
+- **Thread safety**: No race conditions when accessing shared state
+- **Non-blocking simulation**: The orchestrator can run independently while waiting for actions
+- **Standard gym interface**: Compatible with existing RL frameworks and tools
+
+### Key Properties
+
+- **`is_agent_turn`**: Returns `True` when the agent is waiting for an action via `set_action()`
+- **`observation`**: Returns the current conversation history as a list of messages
+- **Error handling**: `set_action()` raises `RuntimeError` if called when it's not the agent's turn
+
+### Thread Safety Considerations
+
+When working with this code:
+- Always use the lock when accessing shared state
+- Don't call `set_action()` unless `is_agent_turn` is `True`
+- The orchestrator thread is a daemon thread - it will terminate when the main thread exits
+- Timeouts are used in wait loops to periodically check termination conditions
