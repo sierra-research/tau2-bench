@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 from loguru import logger
 
-from tau2.agent.base import BaseAgent, is_valid_agent_history_message
+from tau2.agent.base import AgentError, BaseAgent, is_valid_agent_history_message
 from tau2.agent.llm_agent import LLMSoloAgent
 from tau2.data_model.message import (
     AssistantMessage,
@@ -19,7 +19,7 @@ from tau2.data_model.message import (
 from tau2.data_model.simulation import SimulationRun, TerminationReason
 from tau2.data_model.tasks import EnvFunctionCall, InitializationData, Task
 from tau2.environment.environment import Environment, EnvironmentInfo
-from tau2.user.base import BaseUser, is_valid_user_history_message
+from tau2.user.base import BaseUser, UserError, is_valid_user_history_message
 from tau2.user.user_simulator import DummyUser, UserSimulator, UserState
 from tau2.utils.llm_utils import get_cost
 from tau2.utils.utils import format_time, get_now
@@ -101,9 +101,10 @@ class Orchestrator:
 
         if self.solo_mode:
             assert self.environment.solo_mode, "Environment should be in solo mode"
-            assert isinstance(self.agent, LLMSoloAgent), (
-                "Agent must be a LLMSoloAgent in solo mode"
-            )
+            assert (
+                isinstance(self.agent, LLMSoloAgent)
+                or self.agent.__class__.__name__ == "GymAgent"
+            ), "Agent must be a LLMSoloAgent or GymAgent in solo mode"
             assert isinstance(self.user, DummyUser), (
                 "User must be a DummyUser in solo mode"
             )
@@ -216,30 +217,110 @@ class Orchestrator:
                     f"Last message should be of type AssistantMessage, UserMessage, or ToolMessage, got {type(last_message)}"
                 )
             self.trajectory = message_history
-
         else:
-            self.agent_state = self.agent.get_init_state()
             self.user_state = self.user.get_init_state()
             if not self.solo_mode:
                 first_message = deepcopy(DEFAULT_FIRST_AGENT_MESSAGE)
                 first_message.timestamp = get_now()
+                self.agent_state = self.agent.get_init_state(
+                    message_history=[first_message]
+                )
                 self.trajectory = [first_message]
                 self.message = first_message
                 self.from_role = Role.AGENT
                 self.to_role = Role.USER
             else:
-                first_message, agent_state = self.agent.generate_next_message(
+                self.agent_state = self.agent.get_init_state()
+                first_message, self.agent_state = self.agent.generate_next_message(
                     None, self.agent_state
                 )
                 self.trajectory = [first_message]
                 self.message = first_message
-                self.from_role = Role.AGENT
-                self.to_role = Role.ENV
-                self.done = self.agent.is_stop(first_message)
-                if self.done:
-                    self.termination_reason = TerminationReason.AGENT_STOP
-
+                # In solo mode, there is no user, so if the message is not a tool call, then we end and report an agent error
+                if not first_message.is_tool_call():
+                    self.from_role = Role.AGENT
+                    self.to_role = Role.USER
+                    self.done = True
+                    if self.agent.is_stop(first_message):
+                        # If the agent is stopping (###STOP###)
+                        self.termination_reason = TerminationReason.AGENT_STOP
+                    else:
+                        self.termination_reason = TerminationReason.AGENT_ERROR
+                else:
+                    self.from_role = Role.AGENT
+                    self.to_role = Role.ENV
+                    self.done = self.agent.is_stop(first_message)
+                    if self.done:
+                        self.to_role = Role.USER  # FIXIT: For now, we assume last message cannot be to the environment
+                        self.termination_reason = TerminationReason.AGENT_STOP
+        self.check_communication_error()
         self.environment.sync_tools()
+
+    def check_communication_error(self) -> None:
+        """
+        Check the orchestrator state for communication errors and handle them appropriately.
+
+        Communication errors occur when agents or users violate the communication protocol rules:
+        - Empty messages (no text content and no tool calls)
+        - Mixed messages (both text content and tool calls in the same message)
+        - Solo mode violations (agents sending text content instead of tool calls)
+
+        When a communication error is detected:
+        - Sets `self.done = True` to terminate the simulation
+        - Sets `self.termination_reason` to either `AGENT_ERROR` or `USER_ERROR`
+        - Re-raises any other exceptions that are not communication-related
+        """
+        try:
+            self._check_communication_error()
+        except AgentError:
+            self.done = True
+            self.termination_reason = TerminationReason.AGENT_ERROR
+        except UserError:
+            self.done = True
+            self.termination_reason = TerminationReason.USER_ERROR
+        except Exception:
+            # Re-raise all other exceptions
+            raise
+
+    def _check_communication_error(self) -> None:
+        """
+        Check the orchestrator state for communication protocol violations.
+
+        Validates that messages follow the communication rules:
+        1. Messages must have either text content OR tool calls, not both
+        2. Messages cannot be empty (no text content and no tool calls)
+        3. In solo mode, agents can only send tool calls (except for stop messages)
+
+        Raises:
+            AgentError: When the agent violates communication rules
+            UserError: When the user violates communication rules
+            ValueError: When from_role is invalid
+        """
+        if self.from_role == Role.ENV:
+            return
+        if self.from_role == Role.USER:
+            exception_type = UserError
+        elif self.from_role == Role.AGENT:
+            exception_type = AgentError
+        else:
+            raise ValueError(f"Invalid from role: {self.from_role}")
+        # Check if the message is empty
+        if not self.message.is_tool_call() and not self.message.has_text_content():
+            raise exception_type(
+                f"{self.from_role.value} sent an empty message. {self.message}"
+            )
+        # Check if the message has both text content and tool calls
+        if self.message.is_tool_call() and self.message.has_text_content():
+            raise exception_type(
+                f"{self.from_role.value} sent both text content and tool calls. {self.message}"
+            )
+
+        # Check if the agent is allowed to send a message to the user
+        if self.from_role == Role.AGENT and self.solo_mode:
+            if self.message.has_text_content() and not self.agent.is_stop(self.message):
+                raise exception_type(
+                    f"{self.from_role.value} can only send tool calls. {self.message}"
+                )
 
     def run(self) -> SimulationRun:
         """
@@ -253,12 +334,35 @@ class Orchestrator:
         self.initialize()
         while not self.done:
             self.step()
-            if self.step_count >= self.max_steps:
+            # Checking for maximum steps and errors only if the last message is not to the environment
+            if self.to_role == Role.ENV:
+                continue
+            if self.step_count >= self.max_steps and self.to_role != Role.ENV:
                 self.done = True
                 self.termination_reason = TerminationReason.MAX_STEPS
-            if self.num_errors >= self.max_errors:
+            if self.num_errors >= self.max_errors and self.to_role != Role.ENV:
                 self.done = True
                 self.termination_reason = TerminationReason.TOO_MANY_ERRORS
+        # Send stop signal to the agent, user, and environment
+        has_error = self.termination_reason in [
+            TerminationReason.USER_ERROR,
+            TerminationReason.AGENT_ERROR,
+        ]
+        last_msg_to_agent = None
+        last_msg_to_user = None
+        if self.to_role == Role.AGENT:
+            last_msg_to_agent = self.message
+        elif self.to_role == Role.USER:
+            last_msg_to_user = self.message
+        elif self.to_role == Role.ENV and not has_error:
+            raise ValueError(
+                "Environment should not receive the last message. Last message: "
+                + str(self.message)
+            )
+        self.agent.stop(last_msg_to_agent, self.agent_state)
+        self.user.stop(last_msg_to_user, self.user_state)
+
+        # Wrap up the simulation
         duration = time.perf_counter() - start
         messages = self.get_trajectory()
         res = get_cost(messages)
@@ -330,6 +434,10 @@ class Orchestrator:
                 self.to_role = Role.ENV
             else:
                 self.to_role = Role.USER
+                # In solo mode, there is no user, so if the message is not a tool call and not a stop, then we end and report an agent error
+                if self.solo_mode and not self.agent.is_stop(agent_msg):
+                    self.done = True
+                    self.termination_reason = TerminationReason.AGENT_ERROR
         # AGENT/USER -> ENV
         elif self.from_role in [Role.AGENT, Role.USER] and self.to_role == Role.ENV:
             if not self.message.is_tool_call():
@@ -337,6 +445,8 @@ class Orchestrator:
             tool_msgs = []
             for tool_call in self.message.tool_calls:
                 tool_msg = self.environment.get_response(tool_call)
+                if tool_msg.error:
+                    self.num_errors += 1
                 tool_msgs.append(tool_msg)
             assert len(self.message.tool_calls) == len(tool_msgs), (
                 "Number of tool calls and tool messages should be the same"
@@ -357,6 +467,7 @@ class Orchestrator:
             raise ValueError(
                 f"Invalid role combination. From role: {self.from_role}, To role: {self.to_role}"
             )
+        self.check_communication_error()
         self.step_count += 1
         self.environment.sync_tools()
 
