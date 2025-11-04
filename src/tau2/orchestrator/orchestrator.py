@@ -319,7 +319,12 @@ class Orchestrator:
             agent_msg, self.agent_state = self.agent.generate_next_message(
                 self.message, self.agent_state
             )
-            agent_msg.validate()
+            try:
+                agent_msg.validate()
+            except ValueError as e:
+                logging.error('Unable to validate agent_msg: ', e)
+                self.done = True
+                self.termination_reason = TerminationReason.AGENT_VALIDATION_ERROR
             if self.agent.is_stop(agent_msg):
                 self.done = True
                 self.termination_reason = TerminationReason.AGENT_STOP
