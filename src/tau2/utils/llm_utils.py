@@ -213,6 +213,10 @@ def generate(
             tool_choice=tool_choice,
             **kwargs,
         )
+    except litellm.ContextWindowExceededError as e:
+        logger.error(f"Context window exceeded: {e}")
+        # Re-raise with a specific type for orchestrator to catch
+        raise litellm.ContextWindowExceededError(str(e)) from e
     except Exception as e:
         logger.error(e)
         raise e

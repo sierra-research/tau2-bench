@@ -298,38 +298,64 @@ class Orchestrator:
         )
         # AGENT/ENV -> USER
         if self.from_role in [Role.AGENT, Role.ENV] and self.to_role == Role.USER:
-            user_msg, self.user_state = self.user.generate_next_message(
-                self.message, self.user_state
-            )
-            user_msg.validate()
-            if UserSimulator.is_stop(user_msg):
-                self.done = True
-                self.termination_reason = TerminationReason.USER_STOP
-            self.trajectory.append(user_msg)
-            self.message = user_msg
-            self.from_role = Role.USER
-            if user_msg.is_tool_call():
-                self.to_role = Role.ENV
-            else:
-                self.to_role = Role.AGENT
+            try:
+                user_msg, self.user_state = self.user.generate_next_message(
+                    self.message, self.user_state
+                )
+                user_msg.validate()
+                if UserSimulator.is_stop(user_msg):
+                    self.done = True
+                    self.termination_reason = TerminationReason.USER_STOP
+                self.trajectory.append(user_msg)
+                self.message = user_msg
+                self.from_role = Role.USER
+                if user_msg.is_tool_call():
+                    self.to_role = Role.ENV
+                else:
+                    self.to_role = Role.AGENT
+            except Exception as e:
+                if "ContextWindowExceededError" in str(type(e)) or "context length" in str(e).lower():
+                    logger.warning(f"Context window exceeded in user generation: {e}")
+                    self.done = True
+                    self.termination_reason = TerminationReason.CONTEXT_WINDOW_EXCEEDED
+                    return
+                else:
+                    self.num_errors += 1
+                    logger.error(f"Error in user generation: {e}")
+                    if self.num_errors >= self.max_errors:
+                        self.done = True
+                        self.termination_reason = TerminationReason.TOO_MANY_ERRORS
         # USER/ENV -> AGENT
         elif (
             self.from_role == Role.USER or self.from_role == Role.ENV
         ) and self.to_role == Role.AGENT:
-            agent_msg, self.agent_state = self.agent.generate_next_message(
-                self.message, self.agent_state
-            )
-            agent_msg.validate()
-            if self.agent.is_stop(agent_msg):
-                self.done = True
-                self.termination_reason = TerminationReason.AGENT_STOP
-            self.trajectory.append(agent_msg)
-            self.message = agent_msg
-            self.from_role = Role.AGENT
-            if agent_msg.is_tool_call():
-                self.to_role = Role.ENV
-            else:
-                self.to_role = Role.USER
+            try:
+                agent_msg, self.agent_state = self.agent.generate_next_message(
+                    self.message, self.agent_state
+                )
+                agent_msg.validate()
+                if self.agent.is_stop(agent_msg):
+                    self.done = True
+                    self.termination_reason = TerminationReason.AGENT_STOP
+                self.trajectory.append(agent_msg)
+                self.message = agent_msg
+                self.from_role = Role.AGENT
+                if agent_msg.is_tool_call():
+                    self.to_role = Role.ENV
+                else:
+                    self.to_role = Role.USER
+            except Exception as e:
+                if "ContextWindowExceededError" in str(type(e)) or "context length" in str(e).lower():
+                    logger.warning(f"Context window exceeded in agent generation: {e}")
+                    self.done = True
+                    self.termination_reason = TerminationReason.CONTEXT_WINDOW_EXCEEDED
+                    return
+                else:
+                    self.num_errors += 1
+                    logger.error(f"Error in agent generation: {e}")
+                    if self.num_errors >= self.max_errors:
+                        self.done = True
+                        self.termination_reason = TerminationReason.TOO_MANY_ERRORS
         # AGENT/USER -> ENV
         elif self.from_role in [Role.AGENT, Role.USER] and self.to_role == Role.ENV:
             if not self.message.is_tool_call():

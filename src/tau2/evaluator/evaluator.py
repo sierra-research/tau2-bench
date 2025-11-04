@@ -31,6 +31,7 @@ def evaluate_simulation(
     if simulation.termination_reason in {
         TerminationReason.TOO_MANY_ERRORS,
         TerminationReason.MAX_STEPS,
+        TerminationReason.CONTEXT_WINDOW_EXCEEDED,
     }:
         return RewardInfo(
             reward=0.0,
