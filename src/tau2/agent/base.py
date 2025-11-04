@@ -17,6 +17,14 @@ AgentState = TypeVar("AgentState")
 ValidAgentInputMessage = UserMessage | ToolMessage | MultiToolMessage
 
 
+class AgentError(Exception):
+    """
+    Generic exception for agent errors.
+    """
+
+    pass
+
+
 def is_valid_agent_history_message(message: Message) -> bool:
     """Check if the message is a valid agent history message."""
     return (
@@ -43,6 +51,20 @@ class BaseAgent(ABC, Generic[AgentState]):
 
         Returns:
             A tuple of an assistant message and an agent state.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def stop(
+        self,
+        message: Optional[ValidAgentInputMessage] = None,
+        state: Optional[AgentState] = None,
+    ) -> None:
+        """
+        Can be used to stop the agent.
+        Args:
+            message: The last message to the agent.
+            state: The agent last state.
         """
         raise NotImplementedError
 
@@ -91,3 +113,60 @@ class LocalAgent(BaseAgent[AgentState]):
         super().__init__()
         self.tools = tools
         self.domain_policy = domain_policy
+
+    def stop(
+        self,
+        message: Optional[ValidAgentInputMessage] = None,
+        state: Optional[AgentState] = None,
+    ) -> None:
+        """
+        Stops the agent.
+        Args:
+            message: The last message to the agent.
+            state: The agent state.
+        """
+        pass
+
+
+def validate_message_format(
+    message: AssistantMessage, solo: bool = False
+) -> tuple[bool, str]:
+    """Validate the message format for the agent."""
+    if solo:
+        return validate_message_format_solo(message)
+    else:
+        return validate_message_format_default(message)
+
+
+def validate_message_format_default(message: AssistantMessage) -> tuple[bool, str]:
+    """Validate the message format for the agent."""
+    has_content = message.has_text_content()
+    is_tool_call = message.is_tool_call()
+    if not has_content and not is_tool_call:
+        return (
+            False,
+            "You sent an empty message. Each message must contain either a text content (message to the user) or tool calls (actions to perform). Message cannot contain both or be empty.",
+        )
+    if has_content and is_tool_call:
+        return (
+            False,
+            "You sent a message with both text content and tool calls. Each message must contain either a text content (message to the user) or tool calls (actions to perform). Message cannot contain both or be empty.",
+        )
+    return True, None
+
+
+def validate_message_format_solo(message: AssistantMessage) -> tuple[bool, str]:
+    """Validate the message format for the solo agent."""
+    has_content = message.has_text_content()
+    is_tool_call = message.is_tool_call()
+    if not has_content and not is_tool_call:
+        return (
+            False,
+            "You sent an empty message. Each message must contain tool calls and no other text content.",
+        )
+    if has_content:
+        return (
+            False,
+            "You sent a message with text content. Each message must contain tool calls and no other text content.",
+        )
+    return True, None
