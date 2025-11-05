@@ -25,6 +25,7 @@
 τ²-bench now supports RL training with a Gymnasium-compatible interface:
 
 - **🏋️ Train RL Agents**: Use the gym interface to train agents with popular RL frameworks (Stable-Baselines3, RLlib, etc.)
+- **🎮 Play as Agent or User**: Interactive mode lets you control either the agent or the user in conversations
 - **📊 Train/Test Splits**: All domains include standardized task splits for proper train/test evaluation
 - **🔧 Gymnasium Compatible**: Standard gym interface works with existing RL tools and libraries
 
@@ -149,19 +150,21 @@ tau2 run \
 ```bash
 tau2 play
 ```
-Experience τ²-bench from the agent's perspective! The play mode allows you to:
-- **Manually interact** with any domain as if you were the agent
+Experience τ²-bench from either perspective! The play mode allows you to:
+- **Play as Agent**: Manually control the agent's responses and tool calls
+- **Play as User**: Control the user while an LLM agent handles requests (available in domains with user tools like telecom)
 - **Understand tasks** by walking through scenarios step-by-step
 - **Test strategies** before implementing them in code
 - **Choose task splits** to practice on training data or test on held-out tasks
 
 This is perfect for:
-- Getting familiar with domain policies and tools
-- Debugging task scenarios
+- Getting familiar with domain policies and tools from both perspectives
+- Debugging task scenarios and conversation flows
 - Developing intuition for agent strategies
+- Testing user behavior and agent responses
 - Training yourself before training your model!
 
-See the [Gym Documentation](src/tau2/gym/README.md) for more details on using the gymnasium interface programmatically.
+See the [Gym Documentation](src/tau2/gym/README.md) for more details on using the gymnasium interface programmatically, including the `AgentGymEnv` (play as agent) and `UserGymEnv` (play as user).
 
 ### Viewing Results
 ```bash

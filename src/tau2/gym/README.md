@@ -10,27 +10,44 @@ The Tau2 Gym module extends the standard `gym.Env` interface to provide a conver
 
 ### Basic Setup
 
+There are two gym environments available:
+
+1. **AgentGymEnv** (`TAU_BENCH_ENV_ID`) - Play as the agent against a user simulator
+2. **UserGymEnv** (`TAU_BENCH_USER_ENV_ID`) - Play as the user against an automated agent
+
 ```python
 import gymnasium as gym
-from tau2.gym import register_gym_agent, TAU_BENCH_ENV_ID
+from tau2.gym import register_gym_agent, TAU_BENCH_ENV_ID, TAU_BENCH_USER_ENV_ID
 
-# Register the environment (only needed once)
+# Register the environments (only needed once)
 register_gym_agent()
 
-# Create environment for a specific domain and task
+# Create AgentGymEnv - play as the agent
 domain = "mock"
 task_id = "create_task_1"
 
-env = gym.make(TAU_BENCH_ENV_ID, domain=domain, task_id=task_id)
+agent_env = gym.make(TAU_BENCH_ENV_ID, domain=domain, task_id=task_id)
 
-# Or with additional configuration
-env = gym.make(
+# Or create UserGymEnv - play as the user
+user_env = gym.make(TAU_BENCH_USER_ENV_ID, domain=domain, task_id=task_id)
+
+# With additional configuration for AgentGymEnv
+agent_env = gym.make(
     TAU_BENCH_ENV_ID, 
     domain=domain, 
     task_id=task_id,
     solo_mode=True,
     user_llm="gpt-4",
     user_llm_args={"temperature": 0.7}
+)
+
+# With additional configuration for UserGymEnv
+user_env = gym.make(
+    TAU_BENCH_USER_ENV_ID,
+    domain=domain,
+    task_id=task_id,
+    agent_llm="gpt-4o",
+    agent_llm_args={"temperature": 0.7}
 )
 ```
 
@@ -188,6 +205,82 @@ observation, info = env.reset()
 action = "I'd be happy to help you find and book a flight. Where would you like to go?"
 observation, reward, terminated, truncated, info = env.step(action)
 ```
+
+### UserGymEnv - Play as the User
+
+The `UserGymEnv` lets you control the user's actions while an automated LLMAgent responds. This is useful for:
+- Testing agent behavior from a user's perspective
+- Human evaluation of agent performance  
+- Debugging conversational flows
+- Training user simulators via RL
+
+#### Basic UserGymEnv Example
+
+```python
+from tau2.gym.gym_agent import UserGymEnv
+
+# Create environment - you control the user, agent is automated
+env = UserGymEnv(domain="mock", task_id="create_task_1")
+observation, info = env.reset()
+
+# Observation shows the agent's initial greeting
+print(f"Agent says: {observation}")
+# Output: "assistant: Hello! How can I help you today?"
+
+# You respond as the user
+action = "I need to create a new task"
+observation, reward, terminated, truncated, info = env.step(action)
+
+# Observation shows agent's response
+print(f"Agent says: {observation}")
+# Output: "assistant: I can help you create a task. What would you like to name it?"
+
+# Continue the conversation as the user
+action = "Call it 'Important Meeting'"
+observation, reward, terminated, truncated, info = env.step(action)
+```
+
+#### UserGymEnv with Custom Agent LLM
+
+```python
+# Use a specific LLM for the automated agent
+env = UserGymEnv(
+    domain="airline",
+    task_id="book_flight_1",
+    agent_llm="gpt-4o",
+    agent_llm_args={
+        "temperature": 0.7,
+        "max_tokens": 1000,
+    }
+)
+
+observation, info = env.reset()
+# The agent will use GPT-4o with the specified parameters
+print(f"Agent: {observation}")
+
+# You play as the user
+action = "I need to book a flight from NYC to LAX"
+observation, reward, terminated, truncated, info = env.step(action)
+print(f"Agent: {observation}")
+```
+
+#### UserGymEnv Configuration
+
+**`agent_llm` (str, optional):**
+- **Default:** Uses system default agent LLM
+- **Description:** Specifies which language model to use for the automated agent
+- **Examples:** `"gpt-4o"`, `"claude-3-sonnet"`, `"gpt-4"`
+
+**`agent_llm_args` (dict, optional):**
+- **Default:** Uses system default LLM arguments
+- **Description:** Additional parameters to pass to the agent LLM
+- **Common parameters:** `temperature`, `max_tokens`, `top_p`, etc.
+
+**`all_messages_as_observation` (bool, optional):**
+- **Default:** `False`
+- **Description:** When `False`, only shows agent responses. When `True`, shows full conversation history.
+
+**Note:** `solo_mode` is NOT supported for UserGymEnv since solo mode has no user interaction.
 
 ### Info Dictionary
 
