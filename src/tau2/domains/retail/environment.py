@@ -33,7 +33,7 @@ def get_environment(
     )
 
 
-def get_tasks(task_split_name: Optional[str] = None) -> list[Task]:
+def get_tasks(task_split_name: Optional[str] = "base") -> list[Task]:
     tasks = load_file(RETAIL_TASK_SET_PATH)
     tasks = [Task.model_validate(task) for task in tasks]
     if task_split_name is None:

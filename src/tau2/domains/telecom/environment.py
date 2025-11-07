@@ -169,7 +169,7 @@ def load_tasks_split(path: str) -> Optional[dict[str, list[str]]]:
     return None
 
 
-def get_tasks(task_split_name: Optional[str] = None) -> list[Task]:
+def get_tasks(task_split_name: Optional[str] = "base") -> list[Task]:
     tasks = load_tasks(TELECOM_TASK_SET_PATH)
     tasks = [Task.model_validate(task) for task in tasks]
     if task_split_name is None:
@@ -188,11 +188,11 @@ def get_tasks_split() -> dict[str, list[str]]:
 
 # Legacy functions for backward compatibility
 def get_tasks_full() -> list[Task]:
-    return load_tasks(TELECOM_TASK_SET_PATH_FULL)
+    return get_tasks("full")
 
 
 def get_tasks_small() -> list[Task]:
-    return load_tasks(TELECOM_TASK_SET_PATH_SMALL)
+    return get_tasks("small")
 
 
 if __name__ == "__main__":

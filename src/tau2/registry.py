@@ -60,7 +60,7 @@ class Registry:
         self._users: Dict[str, Type[BaseUser]] = {}
         self._agents: Dict[str, Type[BaseAgent]] = {}
         self._domains: Dict[str, Callable[[], Environment]] = {}
-        self._tasks: Dict[str, Callable[[], list[Task]]] = {}
+        self._tasks: Dict[str, Callable[[Optional[str]], list[Task]]] = {}
         self._task_splits: Dict[str, Callable[[], dict[str, list[str]]]] = {}
 
     def register_user(
@@ -109,11 +109,16 @@ class Registry:
 
     def register_tasks(
         self,
-        get_tasks: Callable[[], list[Task]],
+        get_tasks: Callable[[Optional[str]], list[Task]],
         name: str,
         get_task_splits: Optional[Callable[[], dict[str, list[str]]]] = None,
     ):
-        """Register a new Domain implementation"""
+        """Register a new Domain implementation.
+        Args:
+            get_tasks: A function that returns a list of tasks for the domain. If a task split name is provided, it returns the tasks for that split.
+            name: The name of the domain.
+            get_task_splits: A function that returns a dictionary of task splits for the domain.
+        """
         try:
             if name in self._tasks:
                 raise ValueError(f"Tasks {name} already registered")
@@ -142,8 +147,14 @@ class Registry:
             raise KeyError(f"Domain {name} not found in registry")
         return self._domains[name]
 
-    def get_tasks_loader(self, name: str) -> Callable[[], list[Task]]:
-        """Get a registered Task Set by name"""
+    def get_tasks_loader(self, name: str) -> Callable[[Optional[str]], list[Task]]:
+        """Get a registered Task Set by name.
+        Args:
+            name: The name of the task set.
+        Returns:
+            A function that takes an optional task_split_name parameter and returns the corresponding tasks.
+            Can be called as: func() or func(task_split_name="base") or func("base").
+        """
         if name not in self._tasks:
             raise KeyError(f"Task Set {name} not found in registry")
         return self._tasks[name]
@@ -151,7 +162,7 @@ class Registry:
     def get_task_splits_loader(
         self, name: str
     ) -> Optional[Callable[[], dict[str, list[str]]]]:
-        """Get a registered Task Split by name"""
+        """Get a registered task split dict loader."""
         if name not in self._task_splits:
             return None
         return self._task_splits[name]

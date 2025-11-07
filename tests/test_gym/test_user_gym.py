@@ -72,7 +72,7 @@ def test_gym_user_properties():
 
     # Check initial state
     assert user.observation == []
-    assert user.is_user_turn == False  # Initially not waiting for action
+    assert not user.is_user_turn  # Initially not waiting for action
 
     # Check is_stop method
     msg = UserMessage(role="user", content="Hello")
@@ -87,7 +87,7 @@ def test_user_gym_env_no_solo_mode():
     )
 
     # Should always be False
-    assert env._get_orchestrator().solo_mode == False
+    assert not env._get_orchestrator().solo_mode
 
 
 def test_gym_user_stop_tokens():
@@ -97,31 +97,31 @@ def test_gym_user_stop_tokens():
 
     # Test STOP token
     msg_stop = UserMessage(role="user", content="Thanks, that's perfect! ###STOP###")
-    assert GymUser.is_stop(msg_stop) == True
+    assert GymUser.is_stop(msg_stop)
 
     # Test TRANSFER token
     msg_transfer = UserMessage(
         role="user", content="I need to speak with a human ###TRANSFER###"
     )
-    assert GymUser.is_stop(msg_transfer) == True
+    assert GymUser.is_stop(msg_transfer)
 
     # Test OUT_OF_SCOPE token
     msg_oos = UserMessage(
         role="user", content="This is not what I need ###OUT-OF-SCOPE###"
     )
-    assert GymUser.is_stop(msg_oos) == True
+    assert GymUser.is_stop(msg_oos)
 
     # Test normal message (no stop)
     msg_normal = UserMessage(role="user", content="Hello, I need help")
-    assert GymUser.is_stop(msg_normal) == False
+    assert not GymUser.is_stop(msg_normal)
 
     # Test tool call (should not be stop)
     msg_tool = UserMessage(role="user", tool_calls=[])
-    assert GymUser.is_stop(msg_tool) == False
+    assert not GymUser.is_stop(msg_tool)
 
     # Test None content (should not be stop)
     msg_none = UserMessage(role="user", content=None)
-    assert GymUser.is_stop(msg_none) == False
+    assert not GymUser.is_stop(msg_none)
 
 
 def test_user_gym_env_tool_call_parsing():

@@ -28,7 +28,7 @@
 - **🎮 Play as Agent or User**: Interactive mode lets you control either the agent or the user in conversations
 - **📊 Train/Test Splits**: To help support experiments around training Agents and evaluating them, all domains include standardized task splits for proper train/test evaluation.
 
-> **⚠️ IMPORTANT FOR BACKWARD COMPATIBILITY**: If you are just evaluating an agent (not training), you **MUST** use the `"base"` task split to evaluate on the complete task set that matches the original τ²-bench structure. This ensures your results are comparable to previous evaluations and maintains consistency with the established benchmark.
+> **⚠️ IMPORTANT FOR BACKWARD COMPATIBILITY**: If you are just evaluating an agent (not training), you **MUST** use the `base` task split to evaluate on the complete task set that matches the original τ²-bench structure. This ensures your results are comparable to previous evaluations and maintains consistency with the established benchmark. (If you don't specify a task split, it will default to `base`.)
 - **🔧 Gymnasium Compatible**: Standard gym interface works with existing RL tools and libraries
 
 [**→ See Gym Documentation**](src/tau2/gym/README.md) | [**→ Try CLI Play Mode**](#interactive-play-mode)
@@ -132,7 +132,7 @@ tau2 run \
 
 Results will be saved in `data/tau2/simulations/`.
 
-> **💡 Tip**: For full agent evaluation that matches the original τ²-bench methodology, remove `--num-tasks` and use `--task-split "base"` to evaluate on the complete task set.
+> **💡 Tip**: For full agent evaluation that matches the original τ²-bench methodology, remove `--num-tasks` and use `--task-split base` to evaluate on the complete task set.
 
 ## Command Line Interface
 
@@ -215,7 +215,7 @@ Your trajectory runs must follow these constraints:
 
 4. **All tasks completed**: Run evaluation on all tasks within each domain (don't use `--task-ids` or `--num-tasks` filters)
 
-> **📝 Note**: For consistency with the original τ²-bench evaluation methodology, use the `"base"` task split when evaluating your agent to ensure you're testing on the complete, standard task set.
+> **📝 Note**: For consistency with the original τ²-bench evaluation methodology, use the `base` task split when evaluating your agent to ensure you're testing on the complete, standard task set.
 
 ### Preparing Your Submission
 
