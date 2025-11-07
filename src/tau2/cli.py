@@ -84,8 +84,8 @@ def add_run_args(parser):
     parser.add_argument(
         "--task-split-name",
         type=str,
-        default="train+test",
-        help="The task split to run the simulation on. If not provided, will load 'train+test' split.",
+        default="base",
+        help="The task split to run the simulation on. If not provided, will load 'base' split.",
     )
     parser.add_argument(
         "--task-ids",

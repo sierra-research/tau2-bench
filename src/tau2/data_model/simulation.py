@@ -44,8 +44,8 @@ class RunConfig(BaseModel):
     task_split_name: Annotated[
         Optional[str],
         Field(
-            description="The task split to run the simulation on. If not provided, will load 'train+test' split.",
-            default="train+test",
+            description="The task split to run the simulation on. If not provided, will load 'base' split.",
+            default="base",
         ),
     ]
     task_ids: Annotated[

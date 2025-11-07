@@ -26,7 +26,9 @@
 
 - **🏋️ Train RL Agents**: Use the gym interface to train agents with popular RL frameworks (Stable-Baselines3, RLlib, etc.)
 - **🎮 Play as Agent or User**: Interactive mode lets you control either the agent or the user in conversations
-- **📊 Train/Test Splits**: All domains include standardized task splits for proper train/test evaluation
+- **📊 Train/Test Splits**: To help support experiments around training Agents and evaluating them, all domains include standardized task splits for proper train/test evaluation.
+
+> **⚠️ IMPORTANT FOR BACKWARD COMPATIBILITY**: If you are just evaluating an agent (not training), you **MUST** use the `"base"` task split to evaluate on the complete task set that matches the original τ²-bench structure. This ensures your results are comparable to previous evaluations and maintains consistency with the established benchmark.
 - **🔧 Gymnasium Compatible**: Standard gym interface works with existing RL tools and libraries
 
 [**→ See Gym Documentation**](src/tau2/gym/README.md) | [**→ Try CLI Play Mode**](#interactive-play-mode)
@@ -130,6 +132,8 @@ tau2 run \
 
 Results will be saved in `data/tau2/simulations/`.
 
+> **💡 Tip**: For full agent evaluation that matches the original τ²-bench methodology, remove `--num-tasks` and use `--task-split "base"` to evaluate on the complete task set.
+
 ## Command Line Interface
 
 The `tau2` command provides a unified interface for all functionality:
@@ -210,6 +214,8 @@ Your trajectory runs must follow these constraints:
 3. **One result per domain**: Each domain should appear exactly once in your submission
 
 4. **All tasks completed**: Run evaluation on all tasks within each domain (don't use `--task-ids` or `--num-tasks` filters)
+
+> **📝 Note**: For consistency with the original τ²-bench evaluation methodology, use the `"base"` task split when evaluating your agent to ensure you're testing on the complete, standard task set.
 
 ### Preparing Your Submission
 
