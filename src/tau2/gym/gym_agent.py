@@ -54,8 +54,9 @@ class TauSpace(gym.spaces.Space):
         """
         Sample a string from the space.
         """
-        logger.warning("Sampling not supported for tau-bench gym environment")
-        return ""
+        raise NotImplementedError(
+            "Sampling not supported for tau-bench gym environment"
+        )
 
     def contains(self, x: Any) -> bool:
         """
@@ -527,18 +528,6 @@ class GymUser(BaseUser):
         )
 
 
-class GymConfig(BaseModel):
-    """
-    Configuration for the Gym environment.
-    """
-
-    domain: str
-    task_id: str
-    solo_mode: bool = False
-    user_llm: str = DEFAULT_LLM_USER
-    user_llm_args: dict = deepcopy(DEFAULT_LLM_ARGS_USER)
-
-
 class AgentGymEnv(gym.Env):
     """
     A Gymnasium environment that wraps the Tau2 simulation system.
@@ -675,6 +664,12 @@ class AgentGymEnv(gym.Env):
             # Wait for any existing thread to finish
             if self._orchestrator_thread and self._orchestrator_thread.is_alive():
                 self._orchestrator_thread.join(timeout=1.0)
+                if self._orchestrator_thread.is_alive():
+                    self._log(
+                        "Previous orchestrator thread did not terminate within timeout. "
+                        "Continuing anyway (daemon thread will be cleaned up).",
+                        "WARNING",
+                    )
 
             # Create new orchestrator
             self._orchestrator = self._get_orchestrator()
@@ -1206,6 +1201,12 @@ class UserGymEnv(gym.Env):
             # Wait for any existing thread to finish
             if self._orchestrator_thread and self._orchestrator_thread.is_alive():
                 self._orchestrator_thread.join(timeout=1.0)
+                if self._orchestrator_thread.is_alive():
+                    self._log(
+                        "Previous orchestrator thread did not terminate within timeout. "
+                        "Continuing anyway (daemon thread will be cleaned up).",
+                        "WARNING",
+                    )
 
             # Create new orchestrator
             self._orchestrator = self._get_orchestrator()
