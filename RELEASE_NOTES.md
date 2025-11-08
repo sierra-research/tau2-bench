@@ -2,6 +2,33 @@
 
 Welcome to the τ²-bench release notes! Here you'll find user-friendly summaries of what's new, what's changed, and what you need to know for each release.
 
+## Version 0.2.1 - Reinforcement Learning Support 🤖
+
+**Release Date**: November 2025
+
+### 🎮 Gymnasium Integration
+
+τ²-bench now supports reinforcement learning with a standard Gymnasium-compatible interface!
+
+#### 🌟 What's New
+- **Train RL Agents**: Use `AgentGymEnv` and `UserGymEnv` with popular RL frameworks (Stable-Baselines3, RLlib, etc.)
+- **Interactive Play Mode**: New `tau2 play` command lets you control the agent or user manually
+- **Train/Test Splits**: Standardized task splits across all domains for proper evaluation
+- **Backward Compatible**: Use `base` task split to evaluate on the complete original τ²-bench task set
+
+#### 🚀 Getting Started
+```bash
+# Try interactive play mode
+tau2 play
+
+# Use programmatically with gym interface
+from tau2.gym import AgentGymEnv, UserGymEnv
+```
+
+See the [Gym Documentation](src/tau2/gym/README.md) for detailed usage examples and API reference.
+
+---
+
 ## Version 0.2.0 - Web-Based Leaderboard 🌐
 
 **Release Date**: October 6, 2025
