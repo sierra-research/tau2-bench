@@ -160,6 +160,13 @@ class RunConfig(BaseModel):
             default=DEFAULT_LOG_LEVEL,
         ),
     ]
+    enforce_communication_protocol: Annotated[
+        bool,
+        Field(
+            description="Whether to enforce communication protocol rules (e.g., no mixed messages with text and tool calls)",
+            default=False,
+        ),
+    ]
 
     def validate(self) -> None:
         """

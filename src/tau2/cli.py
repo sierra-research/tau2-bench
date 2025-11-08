@@ -135,6 +135,12 @@ def add_run_args(parser):
         default=DEFAULT_LOG_LEVEL,
         help=f"The log level to use for the simulation. Default is {DEFAULT_LOG_LEVEL}.",
     )
+    parser.add_argument(
+        "--enforce-communication-protocol",
+        action="store_true",
+        default=False,
+        help="Enforce communication protocol rules (e.g., no mixed messages with text and tool calls). Default is False.",
+    )
 
 
 def main():
@@ -165,6 +171,7 @@ def main():
                 max_concurrency=args.max_concurrency,
                 seed=args.seed,
                 log_level=args.log_level,
+                enforce_communication_protocol=args.enforce_communication_protocol,
             )
         )
     )

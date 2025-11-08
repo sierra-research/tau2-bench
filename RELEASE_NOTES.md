@@ -15,6 +15,7 @@ Welcome to the τ²-bench release notes! Here you'll find user-friendly summarie
 - **Interactive Play Mode**: New `tau2 play` command lets you control the agent or user manually
 - **Train/Test Splits**: Standardized task splits across all domains for proper evaluation
 - **Backward Compatible**: Use `base` task split to evaluate on the complete original τ²-bench task set
+- **Enforce Communication Protocol**: Optionally enforce communication protocol rules (e.g., no mixed messages with text and tool calls)
 
 #### 🚀 Getting Started
 ```bash

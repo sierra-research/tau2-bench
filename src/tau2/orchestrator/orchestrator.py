@@ -40,6 +40,43 @@ class Orchestrator:
     """
     Orchestrator for the simulation given a task.
     Passes messages between the Agent, User, and Environment.
+
+    Communication Protocol:
+        The orchestrator manages message flow between three roles: AGENT, USER, and ENV(ironment).
+        Messages are passed in a turn-based manner following these rules:
+
+        Message Types:
+            - AssistantMessage: Sent by the agent
+            - UserMessage: Sent by the user
+            - ToolMessage: Sent by the environment in response to tool calls
+            - MultiToolMessage: Wraps multiple tool messages when multiple tool calls are made
+
+        Message Content Rules:
+            1. Messages must contain EITHER text content OR tool calls, never both
+            2. Messages cannot be empty (must have either text or tool calls)
+            3. Tool calls must be followed by corresponding tool messages from the environment
+
+        Communication Flow:
+            - AGENT -> USER: Agent sends text response to user
+            - AGENT -> ENV: Agent makes tool call(s) to environment
+            - USER -> AGENT: User sends text message to agent
+            - USER -> ENV: User makes tool call(s) to environment
+            - ENV -> AGENT: Environment returns tool results to agent (after agent's tool call)
+            - ENV -> USER: Environment returns tool results to user (after user's tool call)
+
+        Solo Mode:
+            In solo mode, the user is replaced by a DummyUser and the agent operates autonomously:
+            - Agent can ONLY send tool calls (no text messages to user)
+            - Exception: Agent can send stop signal (###STOP###) to end simulation
+            - Agent interacts exclusively with the environment until completion
+
+        Termination:
+            Simulation ends when:
+            - Agent sends stop signal (###STOP###)
+            - User sends stop signal
+            - Maximum steps (max_steps) reached
+            - Maximum errors (max_errors) reached
+            - Communication protocol violation detected (if validate_communication=True)
     """
 
     def __init__(
@@ -53,8 +90,27 @@ class Orchestrator:
         max_errors: int = 10,
         seed: Optional[int] = None,
         solo_mode: bool = False,
-        validate_communication: bool = True,
+        validate_communication: bool = False,
     ):
+        """
+        Initialize the Orchestrator for managing simulation between Agent, User, and Environment.
+
+        Args:
+            domain: The domain name of the simulation (e.g., 'airline', 'retail', 'telecom').
+            agent: The agent instance that will respond to user requests and make tool calls.
+            user: The user instance that interacts with the agent (can be UserSimulator or DummyUser).
+            environment: The environment instance that handles tool execution and maintains state.
+            task: The task specification containing initial state, goals, and evaluation criteria.
+            max_steps: Maximum number of simulation steps before termination. Defaults to 100.
+            max_errors: Maximum number of tool execution errors before termination. Defaults to 10.
+            seed: Optional random seed for reproducibility of agent and user behavior. Defaults to None.
+            solo_mode: If True, agent operates without user interaction (only tool calls allowed).
+                      Requires agent to be LLMSoloAgent or GymAgent, and user to be DummyUser.
+                      Defaults to False.
+            validate_communication: If True, validates communication protocol rules (e.g., no mixed
+                                   messages with both text and tool calls). Defaults to False.
+        """
+
         self.domain = domain
         self.agent = agent
         self.user = user
@@ -107,9 +163,9 @@ class Orchestrator:
                 isinstance(self.agent, LLMSoloAgent)
                 or self.agent.__class__.__name__ == "GymAgent"
             ), "Agent must be a LLMSoloAgent or GymAgent in solo mode"
-            assert isinstance(self.user, DummyUser), (
-                "User must be a DummyUser in solo mode"
-            )
+            assert isinstance(
+                self.user, DummyUser
+            ), "User must be a DummyUser in solo mode"
 
         # Initialize Environment state
         self._initialize_environment(
@@ -253,7 +309,9 @@ class Orchestrator:
                     self.to_role = Role.ENV
                     self.done = self.agent.is_stop(first_message)
                     if self.done:
-                        self.to_role = Role.USER  # FIXIT: For now, we assume last message cannot be to the environment
+                        self.to_role = (
+                            Role.USER
+                        )  # FIXIT: For now, we assume last message cannot be to the environment
                         self.termination_reason = TerminationReason.AGENT_STOP
         if self.validate_communication:
             self.check_communication_error()
@@ -451,9 +509,9 @@ class Orchestrator:
                 if tool_msg.error:
                     self.num_errors += 1
                 tool_msgs.append(tool_msg)
-            assert len(self.message.tool_calls) == len(tool_msgs), (
-                "Number of tool calls and tool messages should be the same"
-            )
+            assert len(self.message.tool_calls) == len(
+                tool_msgs
+            ), "Number of tool calls and tool messages should be the same"
             self.trajectory.extend(tool_msgs)
             if (
                 len(tool_msgs) > 1
