@@ -1,3 +1,4 @@
+import json
 import threading
 from copy import deepcopy
 from typing import Any, List, Optional
@@ -22,7 +23,7 @@ from tau2.data_model.message import (
     MultiToolMessage,
     UserMessage,
 )
-from tau2.data_model.simulation import SimulationRun, Task
+from tau2.data_model.simulation import RewardInfo, SimulationRun, Task
 from tau2.environment.environment import Environment
 from tau2.environment.tool import Tool, as_tool
 from tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
@@ -718,7 +719,7 @@ class AgentGymEnv(gym.Env):
             "policy": self._get_policy(),
         }
 
-    def _get_simulation_run(self) -> SimulationRun:
+    def _get_simulation_run(self) -> str:
         """
         Get the current simulation run as a JSON string.
 
@@ -727,7 +728,7 @@ class AgentGymEnv(gym.Env):
             or an empty dictionary if no simulation has run yet.
         """
         if self._simulation_run is None:
-            return {}
+            return json.dumps({}, indent=2)
         return self._simulation_run.model_dump_json(indent=2)
 
     def step(self, action: str) -> tuple[str, float, bool, bool, dict]:
@@ -804,15 +805,18 @@ class AgentGymEnv(gym.Env):
             # Convert observation to string format
             observation_str = self._format_observation(self._agent.observation)
 
+            reward, reward_info = self._get_reward()
+            info = self._get_info()
+            info["reward_info"] = reward_info
             return (
                 observation_str,
-                self._get_reward(),
+                reward,
                 terminated,
                 False,
-                self._get_info(),
+                info,
             )
 
-    def _get_reward(self) -> float:
+    def _get_reward(self) -> tuple[float, str]:
         """
         Compute the reward for the current simulation run.
 
@@ -821,10 +825,12 @@ class AgentGymEnv(gym.Env):
         evaluation type and non-solo mode for comprehensive assessment.
         The reward value for the current simulation, or 0.0 if no simulation has been completed.
         Returns:
-            The computed reward value based on simulation performance.
+            A tuple containing:
+            - reward: The computed reward value based on simulation performance.
+            - reward_info: A JSON string containing the reward information.
         """
         if self._simulation_run is None:
-            return 0.0
+            return 0.0, json.dumps({}, indent=2)
         evaluation_type = EvaluationType.ALL
         evaluation_result = evaluate_simulation(
             simulation=self._simulation_run,
@@ -834,7 +840,7 @@ class AgentGymEnv(gym.Env):
             domain=self.domain,
         )
         self._log(f"Evaluation result: {evaluation_result}", "INFO")
-        return evaluation_result.reward
+        return evaluation_result.reward, evaluation_result.model_dump_json(indent=2)
 
     def _run_orchestrator(self):
         """
@@ -1244,7 +1250,7 @@ class UserGymEnv(gym.Env):
             "policy": self._get_policy(),
         }
 
-    def _get_simulation_run(self) -> SimulationRun:
+    def _get_simulation_run(self) -> str:
         """
         Get the current simulation run as a JSON string.
 
@@ -1253,7 +1259,7 @@ class UserGymEnv(gym.Env):
             or an empty dictionary if no simulation has run yet.
         """
         if self._simulation_run is None:
-            return {}
+            return json.dumps({}, indent=2)
         return self._simulation_run.model_dump_json(indent=2)
 
     def step(self, action: str) -> tuple[str, float, bool, bool, dict]:
@@ -1320,24 +1326,28 @@ class UserGymEnv(gym.Env):
 
             # Convert observation to string format
             observation_str = self._format_observation(self._user.observation)
-
+            reward, reward_info = self._get_reward()
+            info = self._get_info()
+            info["reward_info"] = reward_info
             return (
                 observation_str,
-                self._get_reward(),
+                reward,
                 terminated,
                 False,
-                self._get_info(),
+                info,
             )
 
-    def _get_reward(self) -> float:
+    def _get_reward(self) -> tuple[float, str]:
         """
         Compute the reward for the current simulation run.
 
         Returns:
-            The computed reward value based on simulation performance.
+            A tuple containing:
+            - reward: The computed reward value based on simulation performance.
+            - reward_info: A JSON string containing the reward information.
         """
         if self._simulation_run is None:
-            return 0.0
+            return 0.0, json.dumps({}, indent=2)
         evaluation_type = EvaluationType.ALL
         evaluation_result = evaluate_simulation(
             simulation=self._simulation_run,
@@ -1347,7 +1357,7 @@ class UserGymEnv(gym.Env):
             domain=self.domain,
         )
         self._log(f"Evaluation result: {evaluation_result}", "INFO")
-        return evaluation_result.reward
+        return evaluation_result.reward, evaluation_result.model_dump_json(indent=2)
 
     def _run_orchestrator(self):
         """
