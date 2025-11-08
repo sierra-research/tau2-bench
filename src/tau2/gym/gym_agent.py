@@ -23,7 +23,7 @@ from tau2.data_model.message import (
     MultiToolMessage,
     UserMessage,
 )
-from tau2.data_model.simulation import RewardInfo, SimulationRun, Task
+from tau2.data_model.simulation import SimulationRun, Task
 from tau2.environment.environment import Environment
 from tau2.environment.tool import Tool, as_tool
 from tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
