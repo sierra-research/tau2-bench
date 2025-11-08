@@ -24,7 +24,7 @@
 ### 🤖 Reinforcement Learning Support (New!)
 τ²-bench now supports RL training with a Gymnasium-compatible interface:
 
-- **🏋️ Train RL Agents**: Use the gym interface to train agents with popular RL frameworks (Stable-Baselines3, RLlib, etc.)
+- **🏋️ Train RL Agents**: Use the gym interface to train agents with popular RL frameworks. 
 - **🎮 Play as Agent or User**: Interactive mode lets you control either the agent or the user in conversations
 - **📊 Train/Test Splits**: To help support experiments around training Agents and evaluating them, all domains include standardized task splits for proper train/test evaluation.
 

@@ -11,7 +11,7 @@ Welcome to the τ²-bench release notes! Here you'll find user-friendly summarie
 τ²-bench now supports reinforcement learning with a standard Gymnasium-compatible interface!
 
 #### 🌟 What's New
-- **Train RL Agents**: Use `AgentGymEnv` and `UserGymEnv` with popular RL frameworks (Stable-Baselines3, RLlib, etc.)
+- **Train RL Agents**: Use `AgentGymEnv` and `UserGymEnv` with popular RL frameworks
 - **Interactive Play Mode**: New `tau2 play` command lets you control the agent or user manually
 - **Train/Test Splits**: Standardized task splits across all domains for proper evaluation
 - **Backward Compatible**: Use `base` task split to evaluate on the complete original τ²-bench task set
