@@ -321,8 +321,10 @@ def test_orchestrator_restart(
 
     ## Step each orchestrator 3 times
     for _ in range(3):
-        orchestrator1.step()
-        orchestrator2.step()
+        if not orchestrator1.done:
+            orchestrator1.step()
+        if not orchestrator2.done:
+            orchestrator2.step()
         print("--------------------------------")
         print("Orchestrator 1")
         print(orchestrator1.message)
