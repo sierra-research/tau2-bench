@@ -12,16 +12,14 @@ DATA_EXP_DIR = DATA_DIR / "exp"
 
 DEFAULT_LLM_SUPERVISOR = None
 DEFAULT_LLM_USER = "gpt-4.1-2025-04-14"
-DEFAULT_MAX_CONCURRENCY = 100
+DEFAULT_MAX_CONCURRENCY = 5
 DEFAULT_NUM_TRIALS = 4
 DEFAULT_SEED = 300
 DEFAULT_MAX_STEPS = 200
 DEFAULT_MAX_ERRORS = 10
-DEFAULT_DOMAINS = ["retail", "airline", "telecom", "telecom-workflow"]
+DEFAULT_DOMAINS = ["retail", "airline", "telecom"]
 DEFAULT_MODES = [
     RunMode.DEFAULT.value,
-    RunMode.ORACLE_PLAN.value,
-    RunMode.NO_USER.value,
 ]
 DEFAULT_LLM_AGENT_ARGS = {"temperature": 0.0}
 DEFAULT_LLM_USER_ARGS = {"temperature": 0.0}
