@@ -394,7 +394,11 @@ class Orchestrator:
         start = time.perf_counter()
         self.initialize()
         while not self.done:
-            self.step()
+            try:
+                self.step()
+            except Exception as e:
+                self.done = True
+                self.termination_reason = TerminationReason.AGENT_ERROR
             # Checking for maximum steps and errors only if the last message is not to the environment
             if self.to_role == Role.ENV:
                 continue
@@ -463,9 +467,19 @@ class Orchestrator:
         )
         # AGENT/ENV -> USER
         if self.from_role in [Role.AGENT, Role.ENV] and self.to_role == Role.USER:
-            user_msg, self.user_state = self.user.generate_next_message(
-                self.message, self.user_state
-            )
+            # 重试三次，如果失败，则抛出异常
+            for i in range(4):
+                try:
+                    user_msg, self.user_state = self.user.generate_next_message(
+                        self.message, self.user_state
+                    )
+                    break
+                except Exception as e:
+                    logger.error(f"Error generating user message: {e}")
+                    time.sleep(1)
+                    continue
+            if i == 3:
+                raise ValueError("Failed to generate user message after 3 retries")
             user_msg.validate()
             if UserSimulator.is_stop(user_msg):
                 self.done = True
@@ -481,9 +495,12 @@ class Orchestrator:
         elif (
             self.from_role == Role.USER or self.from_role == Role.ENV
         ) and self.to_role == Role.AGENT:
-            agent_msg, self.agent_state = self.agent.generate_next_message(
-                self.message, self.agent_state
-            )
+            try:
+                agent_msg, self.agent_state = self.agent.generate_next_message(
+                    self.message, self.agent_state
+                )
+            except Exception as e:
+                raise ValueError(f"Error generating agent message: {e}")
             agent_msg.validate()
             if self.agent.is_stop(agent_msg):
                 self.done = True
