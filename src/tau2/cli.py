@@ -28,6 +28,7 @@ def add_run_args(parser):
         "-d",
         type=str,
         choices=domains,
+        default="retail",
         help="The domain to run the simulation on",
     )
     parser.add_argument(
@@ -115,7 +116,7 @@ def add_run_args(parser):
         "--save-to",
         type=str,
         required=False,
-        help="The path to save the simulation results. Will be saved to data/simulations/<save_to>.json. If not provided, will save to <domain>_<agent>_<user>_<llm_agent>_<llm_user>_<timestamp>.json. If the file already exists, it will try to resume the run.",
+        help="The path to save the simulation results. Will be saved to data/simulations/<save_to>.json. If not provided, will save to <domain>_<agent>_<user>_<llm_agent>_<llm_user>_<timestamp>.json. If the file already exists, it will try to resume the run. (damonzheng change in run.py)",
     )
     parser.add_argument(
         "--max-concurrency",
@@ -141,6 +142,21 @@ def add_run_args(parser):
         default=False,
         help="Enforce communication protocol rules (e.g., no mixed messages with text and tool calls). Default is False.",
     )
+    
+    # API相关参数
+    parser.add_argument("--api_base", default="http://10.119.17.112:60012/generate", type=str, help="API base URL for the model provider")
+
+    # 新增lightllm的参数
+    parser.add_argument("--top_p", type=float, default=0.95, help="Top-p sampling parameter for LightLLM")
+    parser.add_argument("--top_k", type=int, default=20, help="Top-k sampling parameter for LightLLM")
+    parser.add_argument("--temperature", type=float, default=0.6, help="Temperature parameter for LightLLM")
+    parser.add_argument("--repetition_penalty", type=float, default=1.05, help="Repetition penalty parameter for LightLLM")
+    parser.add_argument("--max_new_tokens", type=int, default=8192, help="Maximum new tokens for LightLLM")
+    parser.add_argument("--do_sample", type=bool, default=True, help="Whether to use sampling for LightLLM")
+    parser.add_argument("--skip_special_tokens", type=bool, default=False, help="Whether to skip special tokens for LightLLM")
+    parser.add_argument("--add_special_tokens", type=bool, default=False, help="Whether to add special tokens for LightLLM")
+    parser.add_argument("--stop_sequences", type=str, nargs="+", default=["<|im_end|>"], help="Stop sequences for LightLLM")
+    parser.add_argument("--enable_thinking", type=bool, default=True, help="Whether to use thinking for LightLLM")
 
 
 def main():
@@ -172,6 +188,20 @@ def main():
                 seed=args.seed,
                 log_level=args.log_level,
                 enforce_communication_protocol=args.enforce_communication_protocol,
+                
+                # API相关参数
+                api_base=args.api_base,
+                # LightLLM参数
+                top_p=args.top_p,
+                top_k=args.top_k,
+                temperature=args.temperature,
+                repetition_penalty=args.repetition_penalty,
+                max_new_tokens=args.max_new_tokens,
+                do_sample=args.do_sample,
+                skip_special_tokens=args.skip_special_tokens,
+                add_special_tokens=args.add_special_tokens,
+                stop_sequences=args.stop_sequences,
+                enable_thinking=args.enable_thinking
             )
         )
     )
