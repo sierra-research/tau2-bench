@@ -151,6 +151,8 @@ def run_domain(config: RunConfig) -> Results:
     
     # 保存到模型结果文件里
     save_to = config.save_to
+    if not save_to:
+        save_to = DATA_DIR / "simulations"
     json_name = make_run_name(config)
     save_to = f"{save_to}/{json_name}.json"
     
