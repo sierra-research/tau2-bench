@@ -152,11 +152,11 @@ def add_run_args(parser):
     parser.add_argument("--temperature", type=float, default=0.6, help="Temperature parameter for LightLLM")
     parser.add_argument("--repetition_penalty", type=float, default=1.05, help="Repetition penalty parameter for LightLLM")
     parser.add_argument("--max_new_tokens", type=int, default=8192, help="Maximum new tokens for LightLLM")
-    parser.add_argument("--do_sample", type=bool, default=True, help="Whether to use sampling for LightLLM")
-    parser.add_argument("--skip_special_tokens", type=bool, default=False, help="Whether to skip special tokens for LightLLM")
-    parser.add_argument("--add_special_tokens", type=bool, default=False, help="Whether to add special tokens for LightLLM")
+    parser.add_argument("--do_sample", action="store_true", default=False, help="Whether to use sampling for LightLLM")
+    parser.add_argument("--skip_special_tokens", action="store_true", default=False, help="Whether to skip special tokens for LightLLM")
+    parser.add_argument("--add_special_tokens", action="store_true", default=False, help="Whether to add special tokens for LightLLM")
     parser.add_argument("--stop_sequences", type=str, nargs="+", default=["<|im_end|>"], help="Stop sequences for LightLLM")
-    parser.add_argument("--enable_thinking", type=bool, default=True, help="Whether to use thinking for LightLLM")
+    parser.add_argument("--enable_thinking", action="store_true", default=False, help="Whether to use thinking for LightLLM")
 
 
 def main():

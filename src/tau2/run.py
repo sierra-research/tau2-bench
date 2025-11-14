@@ -112,6 +112,21 @@ def run_domain(config: RunConfig) -> Results:
     """
     Run simulations for a domain
     """
+    # lightllm 相关参数
+    lightllm_args = {
+        "api_base": config.api_base,
+        "top_p": config.top_p,
+        "top_k": config.top_k,
+        "temperature": config.temperature,
+        "repetition_penalty": config.repetition_penalty,
+        "max_new_tokens": config.max_new_tokens,
+        "do_sample": config.do_sample,
+        "skip_special_tokens": config.skip_special_tokens,
+        "add_special_tokens": config.add_special_tokens,
+        "stop_sequences": config.stop_sequences,
+        "enable_thinking": config.enable_thinking,
+    }
+    config.llm_args_agent.update(lightllm_args)
     config.validate()
     ConsoleDisplay.display_run_config(config)
     if config.task_set_name is None:
@@ -155,22 +170,6 @@ def run_domain(config: RunConfig) -> Results:
         save_to = DATA_DIR / "simulations"
     json_name = make_run_name(config)
     save_to = f"{save_to}/{json_name}.json"
-    
-    # lightllm 相关参数
-    lightllm_args = {
-        "api_base": config.api_base,
-        "top_p": config.top_p,
-        "top_k": config.top_k,
-        "temperature": config.temperature,
-        "repetition_penalty": config.repetition_penalty,
-        "max_new_tokens": config.max_new_tokens,
-        "do_sample": config.do_sample,
-        "skip_special_tokens": config.skip_special_tokens,
-        "add_special_tokens": config.add_special_tokens,
-        "stop_sequences": config.stop_sequences,
-        "enable_thinking": config.enable_thinking,
-    }
-    config.llm_args_agent.update(lightllm_args)
     
     simulation_results = run_tasks(
         domain=config.domain,
