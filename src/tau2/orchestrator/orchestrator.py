@@ -301,8 +301,8 @@ class Orchestrator:
             user_msg, self.user_state = self.user.generate_next_message(
                 self.message, self.user_state
             )
-            user_msg.validate()
-            if UserSimulator.is_stop(user_msg):
+            _halt_signal = user_msg.validate()
+            if UserSimulator.is_stop(user_msg) or _halt_signal == "halt":
                 self.done = True
                 self.termination_reason = TerminationReason.USER_STOP
             self.trajectory.append(user_msg)
@@ -319,10 +319,11 @@ class Orchestrator:
             agent_msg, self.agent_state = self.agent.generate_next_message(
                 self.message, self.agent_state
             )
-            agent_msg.validate()
-            if self.agent.is_stop(agent_msg):
+            _halt_signal = agent_msg.validate()
+            if self.agent.is_stop(agent_msg) or _halt_signal == "halt":
                 self.done = True
                 self.termination_reason = TerminationReason.AGENT_STOP
+
             self.trajectory.append(agent_msg)
             self.message = agent_msg
             self.from_role = Role.AGENT
