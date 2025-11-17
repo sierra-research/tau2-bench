@@ -1,7 +1,7 @@
 import json
-from typing import Literal, Optional
+from typing import Literal, Optional, Dict, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from tau2.utils.utils import get_now
 
@@ -53,11 +53,39 @@ class ToolCall(BaseModel):
 
     id: str = Field(default="", description="The unique identifier for the tool call.")
     name: str = Field(description="The name of the tool.")
-    arguments: dict = Field(description="The arguments of the tool.")
+    arguments: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="The arguments of the tool.",
+    )
     requestor: ToolRequestor = Field(
         "assistant",
         description="The requestor of the tool call.",
     )
+
+    @field_validator("arguments", mode="before")
+    @classmethod
+    def parse_arguments(cls, v):
+        # Accept None → {}
+        if v is None:
+            return {}
+
+        # If it's already a dict, just pass it through
+        if isinstance(v, dict):
+            return v
+
+        # If it's a JSON string, parse it
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"ToolCall.arguments is a string but not valid JSON: {v!r}"
+                ) from e
+
+        # Anything else is invalid
+        raise TypeError(
+            f"ToolCall.arguments must be a dict, JSON string, or None; got {type(v)}: {v!r}"
+        )
 
     def __str__(self) -> str:
         lines = [f"ToolCall (from {self.requestor})"]
@@ -112,10 +140,13 @@ class ParticipantMessageBase(BaseModel):
         """
         Validate the message.
         """
+        # print(self.content)
+        # input()
         if not (self.has_text_content() or self.is_tool_call()):
-            raise ValueError(
+            print(
                 f"AssistantMessage must have either content or tool calls. Got {self}"
             )
+            return "halt"
 
     def has_text_content(self) -> bool:
         """
@@ -131,7 +162,7 @@ class ParticipantMessageBase(BaseModel):
         """
         Check if the message is a tool call.
         """
-        return self.tool_calls is not None
+        return self.tool_calls is not None and len(self.tool_calls) > 0
 
     def __str__(self) -> str:
         lines = [f"{self.role.capitalize()}Message"]

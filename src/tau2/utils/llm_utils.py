@@ -1,5 +1,6 @@
 import json
 import re
+from collections import defaultdict
 from typing import Any, Optional
 
 import litellm
@@ -72,6 +73,61 @@ if not ALLOW_SONNET_THINKING:
     logger.warning("Sonnet thinking is disabled")
 
 
+# Global error tracking for tool calls
+TOOL_CALL_ERROR_COUNTS = defaultdict(int)
+TOOL_CALL_ERROR_DETAILS = defaultdict(list)
+
+
+def save_tool_call_error_analysis(filepath: str = "error_call_analysis.txt"):
+    """
+    Save the tool call error analysis to a file.
+    """
+    with open(filepath, "w") as f:
+        f.write("=" * 80 + "\n")
+        f.write("TOOL CALL ERROR ANALYSIS\n")
+        f.write("=" * 80 + "\n\n")
+
+        # Summary statistics
+        f.write("ERROR TYPE DISTRIBUTION:\n")
+        f.write("-" * 80 + "\n")
+        total_errors = sum(TOOL_CALL_ERROR_COUNTS.values())
+        if total_errors == 0:
+            f.write("No tool call errors recorded.\n")
+        else:
+            for error_type, count in sorted(
+                TOOL_CALL_ERROR_COUNTS.items(), key=lambda x: x[1], reverse=True
+            ):
+                percentage = (count / total_errors) * 100
+                f.write(f"{error_type}: {count} ({percentage:.2f}%)\n")
+
+        f.write(f"\nTotal errors: {total_errors}\n")
+        f.write("\n" + "=" * 80 + "\n\n")
+
+        # Detailed error information
+        f.write("DETAILED ERROR INFORMATION:\n")
+        f.write("-" * 80 + "\n\n")
+        for error_type, details in sorted(TOOL_CALL_ERROR_DETAILS.items()):
+            f.write(f"\n{error_type} ({len(details)} occurrences):\n")
+            f.write("-" * 40 + "\n")
+            for i, detail in enumerate(details[:10], 1):  # Show first 10 of each type
+                f.write(f"{i}. {detail}\n")
+            if len(details) > 10:
+                f.write(f"... and {len(details) - 10} more occurrences\n")
+            f.write("\n")
+
+    logger.info(f"Tool call error analysis saved to {filepath}")
+
+
+def get_tool_call_error_stats() -> dict:
+    """
+    Get current tool call error statistics.
+    """
+    return {
+        "counts": dict(TOOL_CALL_ERROR_COUNTS),
+        "total": sum(TOOL_CALL_ERROR_COUNTS.values()),
+    }
+
+
 def _parse_ft_model_name(model: str) -> str:
     """
     Parse the ft model name from the litellm model name.
@@ -95,7 +151,7 @@ def get_response_cost(response: ModelResponse) -> float:
     try:
         cost = completion_cost(completion_response=response)
     except Exception as e:
-        logger.error(e)
+        logger.info(e)
         return 0.0
     return cost
 
@@ -230,16 +286,120 @@ def generate(
         "The response should be an assistant message"
     )
     content = response.message.content
-    tool_calls = response.message.tool_calls or []
-    tool_calls = [
-        ToolCall(
-            id=tool_call.id,
-            name=tool_call.function.name,
-            arguments=json.loads(tool_call.function.arguments),
+    tool_calls = []
+    for raw_call in response.message.tool_calls or []:
+        raw_args = raw_call.function.arguments
+        error_occurred = False
+        error_type = None
+
+        try:
+            parsed_args = json.loads(raw_args)
+        except json.JSONDecodeError as e:
+            error_type = "JSON_DECODE_ERROR"
+            error_occurred = True
+            TOOL_CALL_ERROR_COUNTS[error_type] += 1
+            error_detail = f"Tool: {raw_call.function.name}, Error: {str(e)}, raw_args: {raw_args[:200]}"
+            TOOL_CALL_ERROR_DETAILS[error_type].append(error_detail)
+            logger.error(
+                "Tool call error [%s]: Tool %s failed initial JSON decode. "
+                "Error: %s, raw_args=%r",
+                error_type,
+                raw_call.function.name,
+                str(e),
+                raw_args[:200],
+            )
+            parsed_args = {}
+        except Exception as e:
+            error_type = "UNEXPECTED_PARSE_ERROR"
+            error_occurred = True
+            TOOL_CALL_ERROR_COUNTS[error_type] += 1
+            error_detail = f"Tool: {raw_call.function.name}, Type: {type(e).__name__}, Error: {str(e)}"
+            TOOL_CALL_ERROR_DETAILS[error_type].append(error_detail)
+            logger.error(
+                "Tool call error [%s]: Tool %s failed with unexpected error. "
+                "Error type: %s, Error: %s, raw_args=%r",
+                error_type,
+                raw_call.function.name,
+                type(e).__name__,
+                str(e),
+                raw_args[:200],
+            )
+            parsed_args = {}
+
+        if isinstance(parsed_args, str):
+            error_type = "DOUBLE_ENCODED_STRING"
+            error_occurred = True
+            TOOL_CALL_ERROR_COUNTS[error_type] += 1
+            error_detail = f"Tool: {raw_call.function.name}, parsed_args: {parsed_args[:200]}"
+            TOOL_CALL_ERROR_DETAILS[error_type].append(error_detail)
+            logger.warning(
+                "Tool call error [%s]: Tool %s returned string instead of dict after first decode. "
+                "Attempting second decode. parsed_args=%r",
+                error_type,
+                raw_call.function.name,
+                parsed_args[:200],
+            )
+            try:
+                parsed_args = json.loads(parsed_args)
+                logger.info(
+                    "Tool call recovery [DOUBLE_DECODE_SUCCESS]: Tool %s successfully decoded after second attempt.",
+                    raw_call.function.name,
+                )
+            except json.JSONDecodeError as e:
+                error_type = "DOUBLE_DECODE_FAILURE"
+                TOOL_CALL_ERROR_COUNTS[error_type] += 1
+                error_detail = f"Tool: {raw_call.function.name}, Error: {str(e)}, parsed_args: {parsed_args[:200]}"
+                TOOL_CALL_ERROR_DETAILS[error_type].append(error_detail)
+                logger.error(
+                    "Tool call error [%s]: Tool %s failed second JSON decode. "
+                    "Using empty dict. Error: %s, parsed_args=%r",
+                    error_type,
+                    raw_call.function.name,
+                    str(e),
+                    parsed_args[:200],
+                )
+                parsed_args = {}
+        elif isinstance(parsed_args, dict):
+            pass
+        elif parsed_args is None:
+            error_type = "NULL_ARGUMENTS"
+            error_occurred = True
+            TOOL_CALL_ERROR_COUNTS[error_type] += 1
+            error_detail = f"Tool: {raw_call.function.name}"
+            TOOL_CALL_ERROR_DETAILS[error_type].append(error_detail)
+            logger.warning(
+                "Tool call error [%s]: Tool %s returned null/None arguments. Using empty dict.",
+                error_type,
+                raw_call.function.name,
+            )
+            parsed_args = {}
+        else:
+            error_type = "UNEXPECTED_TYPE"
+            error_occurred = True
+            TOOL_CALL_ERROR_COUNTS[error_type] += 1
+            error_detail = f"Tool: {raw_call.function.name}, Type: {type(parsed_args).__name__}, Value: {str(parsed_args)[:200]}"
+            TOOL_CALL_ERROR_DETAILS[error_type].append(error_detail)
+            logger.error(
+                "Tool call error [%s]: Tool %s returned unexpected arguments type. "
+                "Type: %s, Using empty dict. parsed_args=%r",
+                error_type,
+                raw_call.function.name,
+                type(parsed_args).__name__,
+                parsed_args,
+            )
+            parsed_args = {}
+
+        tool_calls.append(
+            ToolCall(
+                id=raw_call.id,
+                name=raw_call.function.name,
+                arguments=parsed_args,
+            )
         )
-        for tool_call in tool_calls
-    ]
-    tool_calls = tool_calls or None
+
+    # Convert empty tool_calls list to None to match expected behavior
+    if not tool_calls:
+        tool_calls = None
 
     message = AssistantMessage(
         role="assistant",
@@ -287,3 +447,12 @@ def get_token_usage(messages: list[Message]) -> dict:
         usage["completion_tokens"] += message.usage["completion_tokens"]
         usage["prompt_tokens"] += message.usage["prompt_tokens"]
     return usage
+
+
+def reset_tool_call_error_tracking():
+    """
+    Reset the tool call error tracking counters.
+    """
+    TOOL_CALL_ERROR_COUNTS.clear()
+    TOOL_CALL_ERROR_DETAILS.clear()
+    logger.info("Tool call error tracking has been reset")
