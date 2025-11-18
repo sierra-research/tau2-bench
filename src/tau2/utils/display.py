@@ -336,6 +336,10 @@ class ConsoleDisplay:
         # Create content for metrics panel
         content = Text()
 
+        # Add total finished conversations section
+        content.append("✅ Total Finished Conversations: ", style="bold cyan")
+        content.append(f"{metrics.total_finished}\n\n")
+
         # Add average reward section
         content.append("🏆 Average Reward: ", style="bold cyan")
         content.append(f"{metrics.avg_reward:.4f}\n\n")

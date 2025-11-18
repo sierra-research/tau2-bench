@@ -1,3 +1,4 @@
+import ast
 import atexit
 from datetime import datetime
 import json
@@ -336,7 +337,29 @@ def generate(
                 str(e),
                 raw_args[:200],
             )
-            parsed_args = {}
+            # Try ast.literal_eval as fallback for Python dict syntax (single quotes)
+            try:
+                parsed_args = ast.literal_eval(raw_args)
+                if isinstance(parsed_args, dict):
+                    logger.info(
+                        "Tool call recovery [LITERAL_EVAL_SUCCESS]: Tool %s successfully parsed using ast.literal_eval (Python dict syntax).",
+                        raw_call.function.name,
+                    )
+                else:
+                    logger.warning(
+                        "Tool call recovery [LITERAL_EVAL_NON_DICT]: Tool %s parsed to non-dict type %s, using empty dict.",
+                        raw_call.function.name,
+                        type(parsed_args).__name__,
+                    )
+                    parsed_args = {}
+            except (ValueError, SyntaxError) as eval_error:
+                logger.error(
+                    "Tool call error [LITERAL_EVAL_FAILURE]: Tool %s failed ast.literal_eval fallback. "
+                    "Error: %s, using empty dict.",
+                    raw_call.function.name,
+                    str(eval_error),
+                )
+                parsed_args = {}
         except Exception as e:
             error_type = "UNEXPECTED_PARSE_ERROR"
             error_occurred = True
