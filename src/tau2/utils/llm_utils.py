@@ -1,3 +1,5 @@
+import atexit
+from datetime import datetime
 import json
 import re
 from collections import defaultdict
@@ -76,12 +78,21 @@ if not ALLOW_SONNET_THINKING:
 # Global error tracking for tool calls
 TOOL_CALL_ERROR_COUNTS = defaultdict(int)
 TOOL_CALL_ERROR_DETAILS = defaultdict(list)
+# Timestamp for this run (set once at module import)
+_ERROR_LOG_TIMESTAMP = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def save_tool_call_error_analysis(filepath: str = "error_call_analysis.txt"):
+def save_tool_call_error_analysis(filepath: str = None):
     """
     Save the tool call error analysis to a file.
+
+    Args:
+        filepath: Path to save the file. If None, uses timestamped filename
+                 in format: error_call_analysis_{timestamp}.txt
     """
+    if filepath is None:
+        filepath = f"error_call_analysis_{_ERROR_LOG_TIMESTAMP}.txt"
+
     with open(filepath, "w") as f:
         f.write("=" * 80 + "\n")
         f.write("TOOL CALL ERROR ANALYSIS\n")
@@ -126,6 +137,23 @@ def get_tool_call_error_stats() -> dict:
         "counts": dict(TOOL_CALL_ERROR_COUNTS),
         "total": sum(TOOL_CALL_ERROR_COUNTS.values()),
     }
+
+
+def _save_errors_on_exit():
+    """
+    Automatically save error analysis when program exits.
+    Only saves if there are errors to report.
+    Uses timestamped filename to avoid overwrites.
+    """
+    if sum(TOOL_CALL_ERROR_COUNTS.values()) > 0:
+        try:
+            save_tool_call_error_analysis()  # Uses default timestamped filename
+        except Exception as e:
+            logger.error(f"Failed to save error analysis on exit: {e}")
+
+
+# Register automatic error saving on program exit
+atexit.register(_save_errors_on_exit)
 
 
 def _parse_ft_model_name(model: str) -> str:
