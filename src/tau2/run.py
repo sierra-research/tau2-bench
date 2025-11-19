@@ -10,7 +10,7 @@ from loguru import logger
 from tau2.agent.llm_agent import LLMAgent, LLMGTAgent, LLMSoloAgent
 from tau2.data_model.simulation import (
     AgentInfo,
-    Info,
+    Info,  
     Results,
     RunConfig,
     SimulationRun,
