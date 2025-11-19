@@ -116,7 +116,6 @@ def run_domain(config: RunConfig) -> Results:
     lightllm_args = {
         "api_base": config.api_base,
         "top_p": config.top_p,
-        "top_k": config.top_k,
         "temperature": config.temperature,
         "repetition_penalty": config.repetition_penalty,
         "max_new_tokens": config.max_new_tokens,
@@ -124,9 +123,32 @@ def run_domain(config: RunConfig) -> Results:
         "skip_special_tokens": config.skip_special_tokens,
         "add_special_tokens": config.add_special_tokens,
         "stop_sequences": config.stop_sequences,
-        "enable_thinking": config.enable_thinking,
     }
+    # YouRouter 调用gpt没有这两个字段，但是其他模型调用的时候需要有这两个字段
+    if not config.llm_agent.startswith("openai/gpt"):
+        lightllm_args["top_k"] = config.top_k
+        lightllm_args["enable_thinking"] = config.enable_thinking
+
+    # 如果config中输入过api_key,则传入相关的api(只有同时用一个前缀并且需要调取的api不一样才会有这个字段)
+    api_value = getattr(config, "api_key", None)
+    if api_value:
+        lightllm_args["api_key"] = api_value
+
     config.llm_args_agent.update(lightllm_args)
+
+    # user默认为gpt4.1，用环境变量中的url和api，YouRouter 没有topk和enable thinking选项
+    user_model_args = {
+        "top_p": config.top_p,
+        "temperature": config.temperature,
+        "repetition_penalty": config.repetition_penalty,
+        "max_new_tokens": config.max_new_tokens,
+        "do_sample": config.do_sample,
+        "skip_special_tokens": config.skip_special_tokens,
+        "add_special_tokens": config.add_special_tokens,
+        "stop_sequences": config.stop_sequences,
+    }
+    config.llm_args_user.update(user_model_args)
+
     config.validate()
     ConsoleDisplay.display_run_config(config)
     if config.task_set_name is None:

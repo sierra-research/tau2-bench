@@ -1,7 +1,26 @@
 import argparse
 import json
 
-from tau2.config import (
+# from tau2.config import (
+#     DEFAULT_AGENT_IMPLEMENTATION,
+#     DEFAULT_LLM_AGENT,
+#     DEFAULT_LLM_TEMPERATURE_AGENT,
+#     DEFAULT_LLM_TEMPERATURE_USER,
+#     DEFAULT_LLM_USER,
+#     DEFAULT_LOG_LEVEL,
+#     DEFAULT_MAX_CONCURRENCY,
+#     DEFAULT_MAX_ERRORS,
+#     DEFAULT_MAX_STEPS,
+#     DEFAULT_NUM_TRIALS,
+#     DEFAULT_SEED,
+#     DEFAULT_USER_IMPLEMENTATION,
+# )
+# from tau2.data_model.simulation import RunConfig
+# from tau2.run import get_options, run_domain
+# from tau2.scripts.leaderboard.verify_trajectories import VerificationMode
+
+# 调试的时候使用这个
+from config import (
     DEFAULT_AGENT_IMPLEMENTATION,
     DEFAULT_LLM_AGENT,
     DEFAULT_LLM_TEMPERATURE_AGENT,
@@ -15,9 +34,9 @@ from tau2.config import (
     DEFAULT_SEED,
     DEFAULT_USER_IMPLEMENTATION,
 )
-from tau2.data_model.simulation import RunConfig
-from tau2.run import get_options, run_domain
-from tau2.scripts.leaderboard.verify_trajectories import VerificationMode
+from data_model.simulation import RunConfig
+from run import get_options, run_domain
+from scripts.leaderboard.verify_trajectories import VerificationMode
 
 
 def add_run_args(parser):
@@ -145,6 +164,7 @@ def add_run_args(parser):
     
     # API相关参数
     parser.add_argument("--api_base", default="http://10.119.17.112:60012/generate", type=str, help="API base URL for the model provider")
+    parser.add_argument("--api_key", type=str, default=None, help="API key for the model provider (optional)")
 
     # 新增lightllm的参数
     parser.add_argument("--top_p", type=float, default=0.95, help="Top-p sampling parameter for LightLLM")
@@ -191,6 +211,7 @@ def main():
                 
                 # API相关参数
                 api_base=args.api_base,
+                api_key=args.api_key,
                 # LightLLM参数
                 top_p=args.top_p,
                 top_k=args.top_k,

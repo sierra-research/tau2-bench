@@ -176,6 +176,13 @@ class RunConfig(BaseModel):
             default=None,
         ),
     ]
+    api_key: Annotated[
+        Optional[str],
+        Field(
+            description="API base key for the model provider",
+            default=None,
+        ),
+    ]
     # LightLLM相关参数
     top_p: Annotated[
         float,
