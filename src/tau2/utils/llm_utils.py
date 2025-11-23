@@ -157,13 +157,16 @@ def to_litellm_messages(messages: list[Message]) -> list[dict]:
                     }
                     for tc in message.tool_calls
                 ]
-            litellm_messages.append(
-                {
-                    "role": "assistant",
-                    "content": message.content,
-                    "tool_calls": tool_calls,
-                }
-            )
+            if message.raw_data:
+                litellm_messages.append(message.raw_data["message"])
+            else:
+                litellm_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": message.content,
+                        "tool_calls": tool_calls,
+                    }
+                )
         elif isinstance(message, ToolMessage):
             litellm_messages.append(
                 {
