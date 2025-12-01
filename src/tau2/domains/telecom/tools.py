@@ -44,6 +44,14 @@ class TelecomTools(ToolKitBase):
         super().__init__(db)
         self.id_generator = IDGenerator()
 
+    def _normalize_phone(self, phone: str) -> str:
+        """Normalize phone number by keeping only digits."""
+        return "".join(c for c in phone if c.isdigit())
+
+    def _phones_match(self, phone1: str, phone2: str) -> bool:
+        """Compare two phone numbers after normalizing both."""
+        return self._normalize_phone(phone1) == self._normalize_phone(phone2)
+
     # Customer Lookup
     @is_tool(ToolType.READ)
     def get_customer_by_phone(self, phone_number: str) -> Customer:
@@ -58,13 +66,13 @@ class TelecomTools(ToolKitBase):
         """
         # Check primary contact number
         for customer in self.db.customers:
-            if customer.phone_number == phone_number:
+            if self._phones_match(customer.phone_number, phone_number):
                 return customer
 
             # Check lines
             for line_id in customer.line_ids:
                 line = self._get_line_by_id(line_id)
-                if line and line.phone_number == phone_number:
+                if line and self._phones_match(line.phone_number, phone_number):
                     return customer
 
         raise ValueError(f"Customer with phone number {phone_number} not found")
@@ -125,7 +133,7 @@ class TelecomTools(ToolKitBase):
             ValueError: If the line with the specified phone number is not found.
         """
         for line in self.db.lines:
-            if line.phone_number == phone_number:
+            if self._phones_match(line.phone_number, phone_number):
                 return line
         raise ValueError(f"Line with phone number {phone_number} not found")
 
