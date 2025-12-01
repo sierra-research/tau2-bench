@@ -12,19 +12,19 @@ This agent is the **evaluator** - it accepts requests to evaluate other A2A-comp
 
 ```bash
 # From project root
-adk api_server --a2a . --port 8000
+adk api_server --a2a . --port 8001
 ```
 
 ### Verify Agent Card
 
 ```bash
-curl http://localhost:8000/a2a/tau2_agent/.well-known/agent-card.json | jq
+curl http://localhost:8001/a2a/tau2_agent/.well-known/agent-card.json | jq
 ```
 
 ### Request an Evaluation
 
 ```bash
-curl -X POST http://localhost:8000/a2a/tau2_agent/ \
+curl -X POST http://localhost:8001/a2a/tau2_agent/ \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -33,7 +33,7 @@ curl -X POST http://localhost:8000/a2a/tau2_agent/ \
       "message": {
         "messageId": "eval-001",
         "role": "user",
-        "parts": [{"text": "Evaluate the agent at http://localhost:8001/a2a/simple_nebius_agent on the mock domain with 3 tasks"}]
+        "parts": [{"text": "Evaluate the agent at http://localhost:8002/a2a/simple_nebius_agent on the mock domain with 3 tasks"}]
       }
     },
     "id": "req-001"

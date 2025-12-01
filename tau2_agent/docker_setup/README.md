@@ -129,7 +129,7 @@ docker-compose up -d --build
 ### 404 Error When Agent Tries to Contact Another Agent
 
 **Error:**
-```
+```text
 A2AError: Message send failed with status 404 (HTTP 404)
 ```
 
@@ -172,15 +172,15 @@ print(f'Status: {r.status_code}')
 
 These errors can be safely ignored:
 
-**1. Unclosed client session**
-```
+#### 1. Unclosed client session
+```text
 ERROR - base_events.py:1785 - Unclosed client session
 ```
 - Minor memory leak from Google ADK's aiohttp client
 - Does not affect functionality
 
-**2. LLM cost tracking error**
-```
+#### 2. LLM cost tracking error
+```text
 ERROR | tau2.utils.llm_utils:get_response_cost:97 - litellm.BadRequestError
 ```
 - Cost tracking fails for non-standard model names (e.g., Nebius models)
