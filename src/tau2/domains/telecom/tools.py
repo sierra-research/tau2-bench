@@ -44,6 +44,28 @@ class TelecomTools(ToolKitBase):
         super().__init__(db)
         self.id_generator = IDGenerator()
 
+    def _normalize_phone(self, phone: str | None) -> str:
+        """Normalize phone number by keeping only digits.
+
+        Returns empty string for None/non-str inputs.
+        """
+        if not isinstance(phone, str):
+            return ""
+        return "".join(c for c in phone if c.isdigit())
+
+    def _phones_match(self, phone1: str | None, phone2: str | None) -> bool:
+        """Compare two phone numbers after normalizing both.
+
+        Returns False if either phone normalizes to fewer than 7 digits
+        (to avoid accidental matches on empty/placeholder values).
+        """
+        norm1 = self._normalize_phone(phone1)
+        norm2 = self._normalize_phone(phone2)
+        # Require minimum 7 digits to avoid matching empty/placeholder values
+        if len(norm1) < 7 or len(norm2) < 7:
+            return False
+        return norm1 == norm2
+
     # Customer Lookup
     @is_tool(ToolType.READ)
     def get_customer_by_phone(self, phone_number: str) -> Customer:
@@ -58,13 +80,13 @@ class TelecomTools(ToolKitBase):
         """
         # Check primary contact number
         for customer in self.db.customers:
-            if customer.phone_number == phone_number:
+            if self._phones_match(customer.phone_number, phone_number):
                 return customer
 
             # Check lines
             for line_id in customer.line_ids:
                 line = self._get_line_by_id(line_id)
-                if line and line.phone_number == phone_number:
+                if line and self._phones_match(line.phone_number, phone_number):
                     return customer
 
         raise ValueError(f"Customer with phone number {phone_number} not found")
@@ -125,7 +147,7 @@ class TelecomTools(ToolKitBase):
             ValueError: If the line with the specified phone number is not found.
         """
         for line in self.db.lines:
-            if line.phone_number == phone_number:
+            if self._phones_match(line.phone_number, phone_number):
                 return line
         raise ValueError(f"Line with phone number {phone_number} not found")
 

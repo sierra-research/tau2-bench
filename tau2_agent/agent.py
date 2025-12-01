@@ -163,7 +163,7 @@ def parse_text_tool_call(
 
 # Define the ADK Agent
 root_agent = LlmAgent(
-    name="tau2_eval_agent",
+    name="tau2_agent",
     model=create_model(),
     instruction=INSTRUCTION,
     description="Agent evaluation service using tau2-bench framework across airline, retail, and telecom domains",

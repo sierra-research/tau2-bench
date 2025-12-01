@@ -32,17 +32,17 @@ This agent provides a simple example of:
 # Set your API key
 export NEBIUS_API_KEY="your-api-key-here"
 
-# Start the agent on port 8001 (from project root)
-adk api_server --a2a . --port 8001
+# Start the agent on port 8002 (from project root)
+adk api_server --a2a . --port 8002
 ```
 
-The agent will be available at `http://localhost:8001/a2a/simple_nebius_agent`
+The agent will be available at `http://localhost:8002/a2a/simple_nebius_agent`
 
 ### 2. Verify Agent is Running
 
 Check the agent card:
 ```bash
-curl http://localhost:8001/a2a/simple_nebius_agent/.well-known/agent-card.json | jq
+curl http://localhost:8002/a2a/simple_nebius_agent/.well-known/agent-card.json | jq
 ```
 
 Expected response:
@@ -50,7 +50,7 @@ Expected response:
 {
   "name": "simple_nebius_agent",
   "description": "A simple agent using Nebius Qwen3-30B for testing A2A protocol",
-  "url": "http://localhost:8001/a2a/simple_nebius_agent",
+  "url": "http://localhost:8002/a2a/simple_nebius_agent",
   "version": "1.0.0",
   "capabilities": {
     "streaming": false
@@ -64,7 +64,7 @@ Run a simple evaluation (mock domain):
 ```bash
 tau2 run mock \
   --agent a2a_agent \
-  --agent-a2a-endpoint http://localhost:8001/a2a/simple_nebius_agent \
+  --agent-a2a-endpoint http://localhost:8002/a2a/simple_nebius_agent \
   --num-trials 1
 ```
 
@@ -72,7 +72,7 @@ For real domains (requires user simulator):
 ```bash
 tau2 run airline \
   --agent a2a_agent \
-  --agent-a2a-endpoint http://localhost:8001/a2a/simple_nebius_agent \
+  --agent-a2a-endpoint http://localhost:8002/a2a/simple_nebius_agent \
   --user-llm claude-3-haiku-20240307 \
   --num-trials 1 \
   --num-tasks 5
@@ -109,9 +109,9 @@ agent = LlmAgent(
 
 ## Port Configuration
 
-By default, this agent runs on port 8001 to avoid conflicts with:
-- Port 8000: Main tau2_eval_agent
-- Port 8002+: Available for additional test agents
+By default, this agent runs on port 8002 to avoid conflicts with:
+- Port 8001: Main tau2_agent (canonical port, used by Docker deployment)
+- Port 8003+: Available for additional test agents
 
 To use a different port:
 ```bash
@@ -124,12 +124,12 @@ adk api_server --a2a . --port 8002
 
 1. **Test Agent Discovery**:
    ```bash
-   curl http://localhost:8001/a2a/simple_nebius_agent/.well-known/agent-card.json | jq
+   curl http://localhost:8002/a2a/simple_nebius_agent/.well-known/agent-card.json | jq
    ```
 
 2. **Test Message Sending** (using A2A protocol):
    ```bash
-   curl -X POST http://localhost:8001/a2a/simple_nebius_agent \
+   curl -X POST http://localhost:8002/a2a/simple_nebius_agent \
      -H "Content-Type: application/json" \
      -d '{
        "jsonrpc": "2.0",
@@ -165,7 +165,7 @@ Or use the convenience script:
 
 ```
 +--------------------------------------------+
-|  Simple Nebius Agent (localhost:8001)      |
+|  Simple Nebius Agent (localhost:8002)      |
 |                                            |
 |  +--------------------------------------+  |
 |  |  A2A HTTP Server                     |  |
@@ -194,14 +194,14 @@ Or use the convenience script:
        +------------------------+
 ```
 
-## Comparison with Full tau2_eval_agent
+## Comparison with Full tau2_agent
 
-| Feature | simple_nebius_agent | tau2_eval_agent |
+| Feature | simple_nebius_agent | tau2_agent |
 |---------|---------------------|-----------------|
 | Purpose | Testing/Demo | Production Service |
 | Complexity | ~50 lines | 500+ lines |
 | Tools | None | 3 tools |
-| Port | 8001 | 8000 |
+| Port | 8002 | 8001 |
 | Model | Nebius Qwen3-30B | Gemini 2.0 Flash |
 | Use Case | Quick local testing | Remote evaluation |
 
@@ -222,13 +222,13 @@ export NEBIUS_API_KEY="your-api-key-here"
 
 **Solution**: Check what's using the port and kill it:
 ```bash
-lsof -i :8001
+lsof -i :8002
 kill <PID>
 ```
 
 Or use a different port:
 ```bash
-adk api_server --a2a . --port 8002
+adk api_server --a2a . --port 8003
 ```
 
 ### Agent Not Responding
@@ -236,7 +236,7 @@ adk api_server --a2a . --port 8002
 **Check 1**: Wait for startup (5-10 seconds)
 ```bash
 # Health check
-curl http://localhost:8001/a2a/simple_nebius_agent/.well-known/agent-card.json
+curl http://localhost:8002/a2a/simple_nebius_agent/.well-known/agent-card.json
 ```
 
 **Check 2**: Verify API key is valid
@@ -266,7 +266,7 @@ pip install -e .
 
 After testing the simple agent:
 
-1. **Scale Up**: Use the full `tau2_eval_agent` for production evaluations
+1. **Scale Up**: Use the full `tau2_agent` for production evaluations
 2. **Add Tools**: Extend the agent with custom tools
 3. **Different Models**: Try Claude Haiku or GPT-4
 4. **More Domains**: Test with airline, retail, or telecom domains

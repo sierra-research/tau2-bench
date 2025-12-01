@@ -1,0 +1,23 @@
+name: tau2-agent
+
+services:
+  tau2-agent:
+    image: ${DOCKER_REGISTRY:-}tau2-agent:${TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: tau2_agent/docker_setup/Dockerfile
+    container_name: tau2-agent
+    env_file:
+      - ../../.env
+    ports:
+      - "8001:8001"
+    volumes:
+      - tau2-evals:/app/data/tau2/evals
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+volumes:
+  tau2-evals:

@@ -43,7 +43,7 @@ adk api_server --a2a . --port 8001
 ```bash
 # tau2_agent (evaluator)
 curl -s http://localhost:8001/a2a/tau2_agent/.well-known/agent-card.json | jq .name
-# → "tau2_eval_agent"
+# → "tau2_agent"
 
 # simple_nebius_agent (evaluatee)
 curl -s http://localhost:8001/a2a/simple_nebius_agent/.well-known/agent-card.json | jq .name
@@ -256,7 +256,7 @@ from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
 
 root_agent = LlmAgent(
-    name="tau2_eval_agent",
+    name="tau2_agent",
     model=LiteLlm(model="nebius/Qwen/Qwen3-30B-A3B-Thinking-2507", ...),
     after_model_callback=parse_text_tool_call,  # Text-based tool calls
     tools=[RunTau2Evaluation, ListDomains, GetEvaluationResults],

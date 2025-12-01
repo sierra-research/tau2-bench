@@ -278,7 +278,7 @@ class ListDomains(BaseTool):
 # Define the ADK Agent
 
 root_agent = LlmAgent(
-    name="tau2_eval_agent",
+    name="tau2_agent",
     model="gemini-2.0-flash-exp",
     instruction="""
     You are a conversational agent evaluation service powered by tau2-bench.
@@ -704,7 +704,7 @@ async def test_a2a_agent_card():
 
         assert response.status_code == 200
         card = response.json()
-        assert card["name"] == "tau2_eval_agent"
+        assert card["name"] == "tau2_agent"
         assert "run_tau2_evaluation" in str(card["skills"])
 
 @pytest.mark.asyncio

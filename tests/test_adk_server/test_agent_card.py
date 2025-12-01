@@ -55,7 +55,7 @@ async def test_agent_card_structure():
         # Required fields per A2A spec
         assert "name" in card, "Agent card must have name"
         assert "url" in card, "Agent card must have url"
-        assert card["name"] == "tau2_eval_agent", "Agent name should be tau2_eval_agent"
+        assert card["name"] == "tau2_agent", "Agent name should be tau2_agent"
 
         # Optional but expected fields
         assert "description" in card, "Agent card should have description"
