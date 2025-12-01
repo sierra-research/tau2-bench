@@ -5,6 +5,6 @@ This package contains the ADK agent that exposes tau2-bench evaluation
 capabilities via A2A protocol.
 """
 
-from . import agent
+from .agent import root_agent
 
-__all__ = ["agent"]
+__all__ = ["root_agent"]

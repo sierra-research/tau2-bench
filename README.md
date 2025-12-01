@@ -6,6 +6,25 @@ Fork of [tau2-bench](https://github.com/sierra-research/tau2-bench) adding [A2A 
 
 ## Quick Start
 
+### Option 1: Using uv (Recommended)
+
+```bash
+# 1. Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. Setup project and install dependencies
+uv sync
+
+# 3. Configure API key (get from https://tokenfactory.nebius.com/)
+cp .env.example .env
+# Edit .env with your NEBIUS_API_KEY
+
+# 4. Start ADK server (serves both agents)
+uv run adk api_server --a2a . --port 8001
+```
+
+### Option 2: Using pip
+
 ```bash
 # 1. Setup
 python -m venv venv && source venv/bin/activate
@@ -23,7 +42,7 @@ adk api_server --a2a . --port 8001
 ```bash
 # tau2_agent (evaluator)
 curl -s http://localhost:8001/a2a/tau2_agent/.well-known/agent-card.json | jq .name
-# → "tau2_eval_agent"
+# → "tau2_agent"
 
 # simple_nebius_agent (evaluatee)
 curl -s http://localhost:8001/a2a/simple_nebius_agent/.well-known/agent-card.json | jq .name
@@ -85,6 +104,13 @@ sequenceDiagram
 
 ```bash
 # Requires ADK server running (see Quick Start)
+# With uv:
+uv run tau2 run airline \
+  --agent a2a_agent \
+  --agent-a2a-endpoint http://localhost:8001/a2a/simple_nebius_agent \
+  --user-llm nebius/Qwen/Qwen3-30B-A3B-Thinking-2507
+
+# Or with pip (if using venv):
 tau2 run airline \
   --agent a2a_agent \
   --agent-a2a-endpoint http://localhost:8001/a2a/simple_nebius_agent \

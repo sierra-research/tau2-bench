@@ -109,7 +109,7 @@ Provide a minimal, easy-to-understand example of:
 
 ## Port Allocation
 
-- **8000**: Main tau2_eval_agent (from tau2_agent/)
+- **8000**: Main tau2_agent (from tau2_agent/)
 - **8001**: Simple test agent (this architecture)
 - **8002+**: Available for additional test agents
 
@@ -283,7 +283,7 @@ To test with authentication:
 
 ## Comparison with Full Implementation
 
-| Feature | Simple Agent (This) | tau2_eval_agent (Full) |
+| Feature | Simple Agent (This) | tau2_agent (Full) |
 |---------|---------------------|------------------------|
 | Purpose | Testing/Demo | Production Service |
 | Complexity | ~50 lines | ~500+ lines |
@@ -296,7 +296,7 @@ To test with authentication:
 
 After validating the simple local test:
 
-1. **Scale Up**: Use the full tau2_eval_agent for production
+1. **Scale Up**: Use the full tau2_agent for production
 2. **Add Haiku**: Test with Claude Haiku for comparison
 3. **Performance Testing**: Add benchmarking scripts
 4. **CI Integration**: Add to GitHub Actions workflow

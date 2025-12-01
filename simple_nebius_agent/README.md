@@ -110,7 +110,7 @@ agent = LlmAgent(
 ## Port Configuration
 
 By default, this agent runs on port 8001 to avoid conflicts with:
-- Port 8000: Main tau2_eval_agent
+- Port 8000: Main tau2_agent
 - Port 8002+: Available for additional test agents
 
 To use a different port:
@@ -194,9 +194,9 @@ Or use the convenience script:
        +------------------------+
 ```
 
-## Comparison with Full tau2_eval_agent
+## Comparison with Full tau2_agent
 
-| Feature | simple_nebius_agent | tau2_eval_agent |
+| Feature | simple_nebius_agent | tau2_agent |
 |---------|---------------------|-----------------|
 | Purpose | Testing/Demo | Production Service |
 | Complexity | ~50 lines | 500+ lines |
@@ -266,7 +266,7 @@ pip install -e .
 
 After testing the simple agent:
 
-1. **Scale Up**: Use the full `tau2_eval_agent` for production evaluations
+1. **Scale Up**: Use the full `tau2_agent` for production evaluations
 2. **Add Tools**: Extend the agent with custom tools
 3. **Different Models**: Try Claude Haiku or GPT-4
 4. **More Domains**: Test with airline, retail, or telecom domains
