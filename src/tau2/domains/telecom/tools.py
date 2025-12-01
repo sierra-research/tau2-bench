@@ -44,13 +44,27 @@ class TelecomTools(ToolKitBase):
         super().__init__(db)
         self.id_generator = IDGenerator()
 
-    def _normalize_phone(self, phone: str) -> str:
-        """Normalize phone number by keeping only digits."""
+    def _normalize_phone(self, phone: str | None) -> str:
+        """Normalize phone number by keeping only digits.
+
+        Returns empty string for None/non-str inputs.
+        """
+        if not isinstance(phone, str):
+            return ""
         return "".join(c for c in phone if c.isdigit())
 
-    def _phones_match(self, phone1: str, phone2: str) -> bool:
-        """Compare two phone numbers after normalizing both."""
-        return self._normalize_phone(phone1) == self._normalize_phone(phone2)
+    def _phones_match(self, phone1: str | None, phone2: str | None) -> bool:
+        """Compare two phone numbers after normalizing both.
+
+        Returns False if either phone normalizes to fewer than 7 digits
+        (to avoid accidental matches on empty/placeholder values).
+        """
+        norm1 = self._normalize_phone(phone1)
+        norm2 = self._normalize_phone(phone2)
+        # Require minimum 7 digits to avoid matching empty/placeholder values
+        if len(norm1) < 7 or len(norm2) < 7:
+            return False
+        return norm1 == norm2
 
     # Customer Lookup
     @is_tool(ToolType.READ)
