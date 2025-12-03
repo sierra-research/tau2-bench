@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>τ² Judge Viewer</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>τ² Judge Viewer</h1>
+      <div class="loaders">
+        <label>
+          <span>Dataset</span>
+          <select id="dataset-select">
+            <option value="">Manual upload</option>
+          </select>
+        </label>
+        <label>
+          <span>Simulation File</span>
+          <input type="file" id="simulation-input" accept=".json" />
+        </label>
+        <label>
+          <span>Judge Output Files</span>
+          <input
+            type="file"
+            id="judge-input"
+            accept=".json,.jsonl"
+            multiple
+          />
+        </label>
+        <button id="clear-btn" type="button">Clear</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="pane list-pane">
+        <div class="pane-header">
+          <h2>Simulations</h2>
+          <input
+            type="search"
+            id="search"
+            placeholder="Search by task id or simulation id..."
+          />
+        </div>
+        <div id="simulation-list" class="scrollable"></div>
+      </section>
+
+      <section class="pane content-pane">
+        <div id="simulation-details">
+          <p class="empty-state">Load a simulation file to get started.</p>
+        </div>
+      </section>
+
+      <section class="pane judge-pane">
+        <div class="pane-header">
+          <h2>Judge Outputs</h2>
+          <select id="judge-filter">
+            <option value="all">All Labels</option>
+          </select>
+        </div>
+        <div id="judge-details" class="scrollable">
+          <p class="empty-state">Load judge outputs to see verdicts here.</p>
+        </div>
+      </section>
+    </main>
+
+    <template id="message-template">
+      <div class="message">
+        <div class="meta">
+          <span class="role"></span>
+          <span class="timestamp"></span>
+        </div>
+        <pre class="content"></pre>
+      </div>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
+
+
