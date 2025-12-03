@@ -38,8 +38,8 @@ async def launch_evaluation():
         "domain": "mock",
         "task_ids": None,
         "max_steps": 20,
-        "user_llm": "openai/gpt-4o",
-        "user_llm_args": {"temperature": 0.0},
+        "user_llm": "openrouter/openai/gpt-4o",
+        "user_llm_args": {"temperature": 0.0, "custom_llm_provider": "litellm_proxy"},
     }
     task_text = f"""
 Your task is to instantiate tau-bench to test the agent located at:

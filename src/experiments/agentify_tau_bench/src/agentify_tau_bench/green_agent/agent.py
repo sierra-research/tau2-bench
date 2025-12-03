@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 import time
 import tomllib
 from typing import Optional
@@ -123,7 +124,6 @@ async def ask_agent_to_solve(
     env: gym.Env,
     max_retries: int = 3,
 ) -> Optional[SimulationRun]:
-
     terminated = False
     context_id = None
     observation, info = env.reset()
@@ -138,30 +138,40 @@ Here's a list of tools you can use (you can use at most one tool at a time):
 {tools_to_str(info["tools"])}
 Please response in the JSON format. Please wrap the JSON part with <json>...</json> tags.
 The JSON should contain:
-- "name": the tool call function name, or "{RESPOND_ACTION_NAME}" if you want to respond directly.
+- "name": the tool call function name, or "{
+        RESPOND_ACTION_NAME
+    }" if you want to respond directly.
 - "arguments": the arguments for the tool call, or {{"content": "your message here"}} if you want to respond directly.
 You should only use one tool at a time!!
 You cannot respond to user and use a tool at the same time!!
 
 Examples of responses:
 <json>
-{json.dumps({
-    "name": "find_user_id_by_name_zip",
-    "arguments": {
-        "first_name": "Yusuf",
-        "last_name": "Rossi",
-        "zip_code": "19122"
+{
+        json.dumps(
+            {
+                "name": "find_user_id_by_name_zip",
+                "arguments": {
+                    "first_name": "Yusuf",
+                    "last_name": "Rossi",
+                    "zip_code": "19122",
+                },
+            },
+            indent=2,
+        )
     }
-}, indent=2)}
 </json>
 
 <json>
-{json.dumps({
-    "name": "{RESPOND_ACTION_NAME}",
-    "arguments": {
-        "content": "Hello, how can I help you today?"
+{
+        json.dumps(
+            {
+                "name": "{RESPOND_ACTION_NAME}",
+                "arguments": {"content": "Hello, how can I help you today?"},
+            },
+            indent=2,
+        )
     }
-}, indent=2)}
 </json>
 
 Next, I'll provide you with the user message and tool call results.
@@ -196,24 +206,24 @@ User message: {json.dumps(observation, indent=2)}
             return None
 
         res_root = white_agent_response.root
-        assert isinstance(
-            res_root, SendMessageSuccessResponse
-        ), f"Expected SendMessageSuccessResponse, got {type(res_root)}"
+        assert isinstance(res_root, SendMessageSuccessResponse), (
+            f"Expected SendMessageSuccessResponse, got {type(res_root)}"
+        )
         res_result = res_root.result
-        assert isinstance(
-            res_result, Message
-        ), f"Expected Message, got {type(res_result)}"
+        assert isinstance(res_result, Message), (
+            f"Expected Message, got {type(res_result)}"
+        )
         if context_id is None:
             context_id = res_result.context_id
         else:
-            assert (
-                context_id == res_result.context_id
-            ), "Context ID should remain the same in a conversation"
+            assert context_id == res_result.context_id, (
+                "Context ID should remain the same in a conversation"
+            )
 
         text_parts = get_text_parts(res_result.parts)
-        assert (
-            len(text_parts) == 1
-        ), "Expecting exactly one text part from the white agent"
+        assert len(text_parts) == 1, (
+            "Expecting exactly one text part from the white agent"
+        )
         white_text = text_parts[0]
         logger.info(f"@@@ White agent response:\n{white_text}")
         # parse the action out
@@ -298,9 +308,7 @@ class TauGreenAgentExecutor(AgentExecutor):
                     logger.error(f"Green agent: Error running task {task_id}: {e}")
                     metrics["tasks"][
                         task_id
-                    ] = (
-                        -1
-                    )  # TODO: This is just a placeholder, we need to handle this properly
+                    ] = -1  # TODO: This is just a placeholder, we need to handle this properly
 
         tasks = [run_one_task(task_id) for task_id in env_config.task_ids]
         logger.info(f"Green agent: Running {len(tasks)} tasks...")
@@ -322,7 +330,7 @@ class TauGreenAgentExecutor(AgentExecutor):
         raise NotImplementedError
 
 
-def start_green_agent(agent_name="tau_green_agent", host="localhost", port=9001):
+def start_green_agent(agent_name="tau2_green_agent", host="localhost", port=9001):
     """
     Start the green agent.
 
@@ -333,8 +341,10 @@ def start_green_agent(agent_name="tau_green_agent", host="localhost", port=9001)
     """
     logger.info("Starting green agent...")
     agent_card_dict = load_agent_card_toml(agent_name)
-    url = f"http://{host}:{port}"
-    agent_card_dict["url"] = url  # complete all required card fields
+
+    # url = f"http://{host}:{port}"
+    # agent_card_dict["url"] = url  # complete all required card fields
+    agent_card_dict["url"] = os.getenv("AGENT_URL")
 
     request_handler = DefaultRequestHandler(
         agent_executor=TauGreenAgentExecutor(),
