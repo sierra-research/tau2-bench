@@ -38,6 +38,24 @@ cp .env.example .env
 adk api_server --a2a . --port 8001
 ```
 
+### Option 3: Using Docker
+
+```bash
+# 1. Configure API key
+cp .env.example .env
+# Edit .env with your NEBIUS_API_KEY
+
+# 2. Build and start container
+cd tau2_agent/docker_setup
+docker-compose up -d
+
+# 3. Verify agent is running
+curl http://localhost:8001/a2a/tau2_agent/.well-known/agent-card.json | jq .name
+# → "tau2_agent"
+```
+
+For container networking details and troubleshooting, see [tau2_agent/docker_setup/README.md](tau2_agent/docker_setup/README.md).
+
 **Verify agents are running** (new terminal):
 ```bash
 # tau2_agent (evaluator)
