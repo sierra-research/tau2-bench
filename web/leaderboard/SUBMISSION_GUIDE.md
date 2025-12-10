@@ -2,6 +2,69 @@
 
 This repository supports community submissions to the leaderboard through pull requests! Here's how it works:
 
+## Submission Types: Standard vs Custom
+
+The leaderboard distinguishes between two types of submissions:
+
+### Standard Submissions (Default)
+Standard submissions use the **default τ-bench scaffold**:
+- A base LLM as the agent
+- The standard tool set provided by τ-bench
+- Default prompts and evaluation protocol
+
+If you're running τ-bench as documented without modifications, your submission is **standard**. You don't need to specify `submission_type` in your JSON (it defaults to `"standard"`).
+
+### Custom Submissions
+Custom submissions use **modified scaffolds or approaches**, such as:
+- Multi-model routers or model ensembles
+- Additional tools beyond the standard τ-bench tool set
+- Modified agent orchestration or control flow
+- Any other modifications to the default evaluation setup
+
+**⚠️ Requirements for Custom Submissions:**
+
+Custom submissions **must** include detailed methodology documentation:
+
+1. **Set `submission_type` to `"custom"`** in your submission.json
+
+2. **Provide comprehensive `methodology.notes`** explaining:
+   - What modifications were made to the standard scaffold
+   - Why these modifications were made
+   - How the custom system works at a high level
+
+3. **Link to your implementation** in the `references` array:
+   - Include a GitHub link to your code/fork
+   - Provide documentation or a blog post if available
+
+4. **Set `methodology.verification.modified_prompts` to `true`** if you modified any prompts
+
+Example methodology section for a custom submission:
+```json
+{
+  "submission_type": "custom",
+  "methodology": {
+    "evaluation_date": "2025-01-15",
+    "tau2_bench_version": "0.2.0",
+    "user_simulator": "gpt-4o",
+    "notes": "This submission uses a multi-model router that selects between GPT-4 and Claude based on task complexity. We also added a custom reflection step after each tool call. See our GitHub repo for full implementation details.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "Modified the agent system prompt to include reflection instructions. No questions were omitted."
+    }
+  },
+  "references": [
+    {
+      "title": "Our Custom Agent Implementation",
+      "url": "https://github.com/example/custom-tau-agent",
+      "type": "github"
+    }
+  ]
+}
+```
+
+---
+
 ## How to Submit Results
 
 ### Step 1: Evaluate Your Model and Generate Trajectories
@@ -70,6 +133,8 @@ If you omitted any tasks from your evaluation runs:
    - `submission.json` - Your submission metadata (using schema defined in `public/submissions/schema.json`)
    - `trajectories/` directory - For your trajectory files
 
+**Important:** If you made any modifications to the standard τ-bench scaffold, set `"submission_type": "custom"` and provide detailed methodology documentation. See [Submission Types](#submission-types-standard-vs-custom) above.
+
 Example directory structure:
 ```
 public/submissions/my-awesome-model_mycompany_2025-01-15/
@@ -126,6 +191,10 @@ The leaderboard automatically loads all submissions listed in `public/submission
 - [ ] Directory name follows convention
 - [ ] Manifest.json is updated
 - [ ] Contact info is provided
+- [ ] **`submission_type` is set correctly** (`"standard"` or `"custom"`)
+- [ ] **If custom:** detailed `methodology.notes` explaining modifications
+- [ ] **If custom:** `references` includes link to implementation/code
+- [ ] **If custom:** `methodology.verification.modified_prompts` is set appropriately
 - [ ] Framework modifications and task omissions documented in PR description (if any changes or omissions)
 - [ ] **Trajectory files uploaded to submission's `trajectories/` directory**
 - [ ] Trajectory files follow naming convention
