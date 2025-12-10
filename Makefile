@@ -62,25 +62,38 @@ test-cov:
 
 ## Run all quality checks (format-check, lint, typecheck, test) - A2A/ADK only
 .PHONY: quality
-quality:
+quality: _quality-header _quality-format _quality-lint _quality-typecheck _quality-test _quality-footer
+
+.PHONY: _quality-header
+_quality-header:
 	@echo "=== Running code quality checks (A2A/ADK module only) ==="
-	@echo ""
+
+.PHONY: _quality-format
+_quality-format:
 	@echo "1. Checking code formatting..."
-	@uv run ruff format --check src/tau2/a2a/ tau2_agent/ tests/test_a2a_client/ tests/test_adk_server/ tests/test_a2a_e2e/ || (echo "❌ Formatting check failed. Run 'make format' to fix." && exit 1)
-	@echo "✅ Formatting check passed"
-	@echo ""
+	@uv run ruff format --check src/tau2/a2a/ tau2_agent/ tests/test_a2a_client/ tests/test_adk_server/ tests/test_a2a_e2e/ || (echo "❌ Run 'make format' to fix." && exit 1)
+	@echo "✅ Formatting OK"
+
+.PHONY: _quality-lint
+_quality-lint:
 	@echo "2. Running linter..."
-	@uv run ruff check src/tau2/a2a/ tau2_agent/ tests/test_a2a_client/ tests/test_adk_server/ tests/test_a2a_e2e/ || (echo "❌ Linter check failed. Run 'make lint-fix' to auto-fix." && exit 1)
-	@echo "✅ Linter check passed"
-	@echo ""
-	@echo "3. Running type checker on A2A/ADK module..."
+	@uv run ruff check src/tau2/a2a/ tau2_agent/ tests/test_a2a_client/ tests/test_adk_server/ tests/test_a2a_e2e/ || (echo "❌ Run 'make lint-fix' to fix." && exit 1)
+	@echo "✅ Linter OK"
+
+.PHONY: _quality-typecheck
+_quality-typecheck:
+	@echo "3. Running type checker..."
 	@uv run mypy src/tau2/a2a/ tau2_agent/ || (echo "❌ Type check failed." && exit 1)
-	@echo "✅ Type check passed"
-	@echo ""
-	@echo "4. Running A2A/ADK tests (mock-based, excludes E2E)..."
+	@echo "✅ Types OK"
+
+.PHONY: _quality-test
+_quality-test:
+	@echo "4. Running tests..."
 	@uv run pytest tests/test_a2a_client/ tests/test_adk_server/ -q || (echo "❌ Tests failed." && exit 1)
-	@echo "✅ Tests passed"
-	@echo ""
+	@echo "✅ Tests OK"
+
+.PHONY: _quality-footer
+_quality-footer:
 	@echo "=== All quality checks passed! ==="
 
 ## Auto-fix linting and formatting issues on A2A/ADK code
@@ -131,25 +144,38 @@ test-cov-all:
 
 ## Run all quality checks on entire repository (format-check, lint, typecheck, test)
 .PHONY: quality-all
-quality-all:
+quality-all: _quality-all-header _quality-all-format _quality-all-lint _quality-all-typecheck _quality-all-test _quality-all-footer
+
+.PHONY: _quality-all-header
+_quality-all-header:
 	@echo "=== Running code quality checks (ENTIRE REPOSITORY) ==="
-	@echo ""
+
+.PHONY: _quality-all-format
+_quality-all-format:
 	@echo "1. Checking code formatting..."
-	@uv run ruff format --check src/ tests/ || (echo "❌ Formatting check failed. Run 'make format-all' to fix." && exit 1)
-	@echo "✅ Formatting check passed"
-	@echo ""
+	@uv run ruff format --check src/ tests/ || (echo "❌ Run 'make format-all' to fix." && exit 1)
+	@echo "✅ Formatting OK"
+
+.PHONY: _quality-all-lint
+_quality-all-lint:
 	@echo "2. Running linter..."
-	@uv run ruff check src/ tests/ || (echo "❌ Linter check failed. Run 'make lint-fix-all' to auto-fix." && exit 1)
-	@echo "✅ Linter check passed"
-	@echo ""
-	@echo "3. Running type checker on entire codebase..."
-	@uv run mypy src/ || (echo "⚠️  Type check had errors (non-fatal for entire repo)" && true)
-	@echo "✅ Type check completed"
-	@echo ""
+	@uv run ruff check src/ tests/ || (echo "❌ Run 'make lint-fix-all' to fix." && exit 1)
+	@echo "✅ Linter OK"
+
+.PHONY: _quality-all-typecheck
+_quality-all-typecheck:
+	@echo "3. Running type checker..."
+	@uv run mypy src/ || (echo "⚠️ Type check errors (non-fatal)" && true)
+	@echo "✅ Types checked"
+
+.PHONY: _quality-all-test
+_quality-all-test:
 	@echo "4. Running all tests..."
 	@uv run pytest tests/ -q || (echo "❌ Tests failed." && exit 1)
-	@echo "✅ Tests passed"
-	@echo ""
+	@echo "✅ Tests OK"
+
+.PHONY: _quality-all-footer
+_quality-all-footer:
 	@echo "=== All quality checks completed! ==="
 
 ## Auto-fix linting and formatting issues on entire repository

@@ -12,6 +12,7 @@ import re
 import uuid
 
 from google.adk.agents import LlmAgent
+from google.adk.agents.callback_context import CallbackContext
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
@@ -47,9 +48,9 @@ Be helpful in explaining evaluation metrics and suggesting improvements.
 def create_model():
     """
     Selects and constructs the LLM model used by the agent.
-    
+
     If the `NEBIUS_API_KEY` environment variable is present, returns a LiteLlm configured for the Nebius Qwen model and uses `NEBIUS_API_BASE` (default: "https://api.tokenfactory.nebius.com/v1/") as the API base. If `NEBIUS_API_KEY` is not set, returns the Gemini model identifier string "gemini-2.0-flash-exp".
-    
+
     Returns:
         A LiteLlm instance configured for Nebius when `NEBIUS_API_KEY` is set; otherwise the Gemini model identifier string `"gemini-2.0-flash-exp"`.
     """
@@ -68,14 +69,15 @@ def create_model():
 
 
 def parse_text_tool_call(
-    *, callback_context, llm_response: LlmResponse
+    callback_context: CallbackContext,  # noqa: ARG001
+    llm_response: LlmResponse,
 ) -> LlmResponse | None:
     """
     Parse a JSON-formatted text tool call from an LLM response and convert it into a function_call LlmResponse.
-    
+
     Parameters:
         llm_response (LlmResponse): The model response to inspect for a JSON `tool_call` object; ignored if the response already contains a native function_call.
-    
+
     Returns:
         LlmResponse | None: A new LlmResponse whose single part is a function_call constructed from the parsed `tool_call` (with a generated id), or `None` if no valid text-based tool call is found.
     """
@@ -149,6 +151,7 @@ def parse_text_tool_call(
         args=tool_args,
     )
     # ADK expects an id on function calls; set post-creation as from_function_call doesn't accept id
+    assert function_call_part.function_call is not None
     function_call_part.function_call.id = str(uuid.uuid4())
 
     # Return a new LlmResponse with the function call

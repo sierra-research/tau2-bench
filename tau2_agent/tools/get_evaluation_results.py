@@ -26,7 +26,7 @@ class GetEvaluationResults(BaseTool):
     def _get_declaration(self) -> types.FunctionDeclaration | None:
         """
         Return a FunctionDeclaration describing this tool's public API.
-        
+
         Returns:
             declaration (types.FunctionDeclaration | None): A declaration object containing the tool name, description, and parameter schema, or `None` if the tool should not be exposed.
         """
@@ -49,22 +49,25 @@ class GetEvaluationResults(BaseTool):
         )
 
     async def run_async(
-        self, *, args: dict[str, Any], tool_context: ToolContext  # noqa: ARG002
+        self,
+        *,
+        args: dict[str, Any],
+        tool_context: ToolContext,  # noqa: ARG002
     ) -> Any:
         """
         Retrieve or list tau2 evaluation results from the simulations data directory.
-        
+
         Parameters:
             args (dict): Input arguments. Recognized keys:
                 - evaluation_id (str): Identifier of the evaluation file (filename without ".json") to load.
                 - list_available (bool): If truthy, return a list of available evaluation IDs instead of loading a specific result.
             _tool_context: Invocation context (not used).
-        
+
         Returns:
             dict: One of the following payload shapes:
               - Listing payload when `list_available` is truthy:
                   {
-                    "available_evaluations": [<evaluation_id>, ...],
+                    "available_evaluations": [<evaluation_id>, ...],  # empty if no directory
                     "simulations_dir": "<absolute path to simulations directory>"
                   }
               - Error payloads for missing inputs or missing files:
@@ -97,9 +100,10 @@ class GetEvaluationResults(BaseTool):
                     },
                     "tasks": [{"task_id": "<task id>"}, ...]
                   }
-        
+
         Notes:
-            - If the simulations directory does not exist, the listing payload will return an empty `available_evaluations`.
+            - If the simulations directory does not exist, the listing payload returns an empty
+              `available_evaluations` list with the expected `simulations_dir` path.
             - Any failure during loading or processing returns an error payload and logs the exception.
         """
         from tau2.data_model.simulation import Results
@@ -111,7 +115,10 @@ class GetEvaluationResults(BaseTool):
         # List available evaluations if requested
         if args.get("list_available"):
             if not simulations_dir.exists():
-                return {"available_evaluations": [], "message": "No simulations directory found"}
+                return {
+                    "available_evaluations": [],
+                    "simulations_dir": str(simulations_dir),
+                }
 
             files = list(simulations_dir.glob("*.json"))
             return {
@@ -129,7 +136,7 @@ class GetEvaluationResults(BaseTool):
 
         # Sanitize evaluation_id to prevent path traversal attacks
         # Only allow alphanumeric characters, hyphens, underscores, and dots (not leading)
-        if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9_\-\.]*$', evaluation_id):
+        if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_\-\.]*$", evaluation_id):
             return {
                 "error": "Invalid evaluation_id format",
                 "message": "evaluation_id must contain only alphanumeric characters, hyphens, underscores, and dots",
@@ -148,7 +155,9 @@ class GetEvaluationResults(BaseTool):
         if not results_path.exists():
             return {
                 "error": f"Evaluation not found: {evaluation_id}",
-                "available_evaluations": [f.stem for f in simulations_dir.glob("*.json")]
+                "available_evaluations": [
+                    f.stem for f in simulations_dir.glob("*.json")
+                ]
                 if simulations_dir.exists()
                 else [],
             }
@@ -188,7 +197,7 @@ class GetEvaluationResults(BaseTool):
             }
 
         except Exception as e:
-            logger.error(f"Failed to load evaluation {evaluation_id}: {e}")
+            logger.exception(f"Failed to load evaluation {evaluation_id}")
             return {
                 "error": f"Failed to load evaluation: {e}",
                 "evaluation_id": evaluation_id,

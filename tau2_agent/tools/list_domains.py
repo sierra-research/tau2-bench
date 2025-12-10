@@ -32,7 +32,7 @@ class ListDomains(BaseTool):
     def _get_declaration(self) -> types.FunctionDeclaration | None:
         """
         Create a FunctionDeclaration describing this tool for integration with GenAI tooling.
-        
+
         Returns:
             types.FunctionDeclaration | None: A FunctionDeclaration populated with the tool's name, description,
             and an empty object schema for parameters; `None` if no declaration is provided.
@@ -47,14 +47,17 @@ class ListDomains(BaseTool):
         )
 
     async def run_async(
-        self, *, args: dict[str, Any], tool_context: ToolContext  # noqa: ARG002
+        self,
+        *,
+        args: dict[str, Any],  # noqa: ARG002
+        tool_context: ToolContext,  # noqa: ARG002
     ) -> Any:
         """
         Discover available tau2-bench evaluation domains and return metadata for each domain.
-        
+
         Parameters:
             _args (dict[str, Any]): Ignored; reserved for tool invocation parameters.
-        
+
         Returns:
             dict: A mapping with key "domains" to a list of domain info objects. Each domain info object contains:
                 - name (str): Domain identifier.
@@ -71,17 +74,17 @@ class ListDomains(BaseTool):
                 tasks = load_tasks(domain_name)
                 num_tasks = len(tasks)
             except Exception as e:
-                logger.warning(
-                    f"Could not load tasks for domain {domain_name}: {e}"
-                )
+                logger.warning(f"Could not load tasks for domain {domain_name}: {e}")
                 num_tasks = None
 
-            domains_info.append({
-                "name": domain_name,
-                "description": DOMAIN_DESCRIPTIONS.get(
-                    domain_name, f"{domain_name} domain"
-                ),
-                "num_tasks": num_tasks,
-            })
+            domains_info.append(
+                {
+                    "name": domain_name,
+                    "description": DOMAIN_DESCRIPTIONS.get(
+                        domain_name, f"{domain_name} domain"
+                    ),
+                    "num_tasks": num_tasks,
+                }
+            )
 
         return {"domains": domains_info}

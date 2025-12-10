@@ -91,9 +91,11 @@ async def test_run_tau2_evaluation_tool_success(mock_tool_context):
     mock_metrics.avg_agent_cost = 0.001
 
     # Patch at source since imports are inside _execute function
-    with patch("tau2.run.run_domain", return_value=mock_results), \
-         patch("tau2.metrics.agent_metrics.compute_metrics", return_value=mock_metrics), \
-         patch("tau2.metrics.agent_metrics.is_successful", return_value=True):
+    with (
+        patch("tau2.run.run_domain", return_value=mock_results),
+        patch("tau2.metrics.agent_metrics.compute_metrics", return_value=mock_metrics),
+        patch("tau2.metrics.agent_metrics.is_successful", return_value=True),
+    ):
         result = await tool.run_async(
             args={
                 "domain": "airline",
@@ -107,7 +109,9 @@ async def test_run_tau2_evaluation_tool_success(mock_tool_context):
     assert result["status"] == "completed", "Evaluation should complete successfully"
     assert result["timestamp"] == "2025-11-24T10:00:00Z", "Should include timestamp"
     assert "summary" in result, "Should include summary"
-    assert result["summary"]["successful_simulations"] == 10, "All simulations should succeed"
+    assert result["summary"]["successful_simulations"] == 10, (
+        "All simulations should succeed"
+    )
     assert result["summary"]["total_simulations"] == 10, "Should have 10 simulations"
 
 

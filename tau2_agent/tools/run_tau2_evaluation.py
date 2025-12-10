@@ -45,7 +45,7 @@ class RunTau2Evaluation(BaseTool):
     def _get_declaration(self) -> types.FunctionDeclaration | None:
         """
         Create the FunctionDeclaration used by the ADK function-calling interface for this tool.
-        
+
         Returns:
             function_declaration (types.FunctionDeclaration | None): A FunctionDeclaration describing the tool's name, description, and parameter schema (including `domain`, `agent_endpoint`, `user_llm`, `num_trials`, and `num_tasks`), or `None` if a declaration cannot be generated.
         """
@@ -90,7 +90,7 @@ class RunTau2Evaluation(BaseTool):
     ) -> Any:
         """
         Invoke the tool via the ADK function-calling interface using the supplied arguments and context.
-        
+
         Parameters:
             args (dict[str, Any]): Input fields expected by the tool. Recognized keys:
                 - domain (str): Evaluation domain (required).
@@ -100,14 +100,19 @@ class RunTau2Evaluation(BaseTool):
                 - num_tasks (int | None): Number of tasks to evaluate (optional).
                 - task_ids (list[str] | None): Specific task IDs to evaluate (optional).
             tool_context (ToolContext): ADK-provided execution context for the tool.
-        
+
         Returns:
             dict[str, Any]: Structured evaluation result (e.g., status, timestamp, summary, tasks) produced by the execution.
         """
+        domain = args.get("domain")
+        agent_endpoint = args.get("agent_endpoint")
+        if not isinstance(domain, str) or not isinstance(agent_endpoint, str):
+            msg = "domain and agent_endpoint must be strings"
+            raise TypeError(msg)
         return await self._execute(
             _tool_context=tool_context,
-            domain=args.get("domain"),
-            agent_endpoint=args.get("agent_endpoint"),
+            domain=domain,
+            agent_endpoint=agent_endpoint,
             user_llm=args.get("user_llm", DEFAULT_USER_LLM),
             num_trials=args.get("num_trials", 1),
             num_tasks=args.get("num_tasks"),
@@ -126,9 +131,9 @@ class RunTau2Evaluation(BaseTool):
     ) -> dict[str, Any]:
         """
         Run a tau2-bench evaluation for a given domain and A2A agent endpoint.
-        
+
         Validates the domain, constructs a RunConfig (wiring the agent endpoint and optional Nebius/OpenAI credentials for the user LLM), executes the evaluation in a thread pool to avoid blocking the event loop, computes aggregate metrics, and returns a structured summary and per-task metadata.
-        
+
         Parameters:
             domain (str): Evaluation domain identifier (e.g., "airline", "retail", "telecom", "mock").
             agent_endpoint (str): A2A endpoint URL of the agent under test.
@@ -136,7 +141,7 @@ class RunTau2Evaluation(BaseTool):
             num_trials (int): Number of trials to run per task; defaults to 1.
             num_tasks (int | None): Optional number of tasks to evaluate; when None, uses domain defaults.
             task_ids (list[str] | None): Optional explicit list of task IDs to run.
-        
+
         Returns:
             dict[str, Any]: A result object with keys:
                 - status: "completed" on success.
@@ -151,7 +156,7 @@ class RunTau2Evaluation(BaseTool):
                 - tasks: list of per-task dicts with:
                     - task_id (str)
                     - purpose (str | None)
-        
+
         Raises:
             ValueError: If the provided domain is not recognized by tau2's registry.
         """
@@ -190,12 +195,15 @@ class RunTau2Evaluation(BaseTool):
             # Create run configuration
             config = RunConfig(
                 domain=domain,
-                agent="a2a_agent",  # Use A2A client implementation
-                user="user_simulator",
+                task_set_name=None,
+                task_split_name="base",
                 task_ids=task_ids,
                 num_tasks=num_tasks,
+                is_remote=False,
+                agent="a2a_agent",  # Use A2A client implementation
                 llm_agent=agent_endpoint,  # A2A agent endpoint
                 llm_args_agent={},
+                user="user_simulator",
                 llm_user=user_llm,
                 llm_args_user=llm_args_user,
                 num_trials=num_trials,
@@ -203,6 +211,10 @@ class RunTau2Evaluation(BaseTool):
                 max_errors=10,
                 save_to=None,
                 max_concurrency=1,
+                seed=None,
+                log_level="ERROR",
+                enforce_communication_protocol=False,
+                a2a_debug=False,
             )
 
             # Run evaluations in a thread pool to avoid blocking ADK's event loop.
