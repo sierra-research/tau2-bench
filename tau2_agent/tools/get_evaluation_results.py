@@ -67,7 +67,7 @@ class GetEvaluationResults(BaseTool):
             dict: One of the following payload shapes:
               - Listing payload when `list_available` is truthy:
                   {
-                    "available_evaluations": [<evaluation_id>, ...],
+                    "available_evaluations": [<evaluation_id>, ...],  # empty if no directory
                     "simulations_dir": "<absolute path to simulations directory>"
                   }
               - Error payloads for missing inputs or missing files:
@@ -102,7 +102,8 @@ class GetEvaluationResults(BaseTool):
                   }
 
         Notes:
-            - If the simulations directory does not exist, the listing payload will return an empty `available_evaluations`.
+            - If the simulations directory does not exist, the listing payload returns an empty
+              `available_evaluations` list with the expected `simulations_dir` path.
             - Any failure during loading or processing returns an error payload and logs the exception.
         """
         from tau2.data_model.simulation import Results
@@ -116,7 +117,7 @@ class GetEvaluationResults(BaseTool):
             if not simulations_dir.exists():
                 return {
                     "available_evaluations": [],
-                    "message": "No simulations directory found",
+                    "simulations_dir": str(simulations_dir),
                 }
 
             files = list(simulations_dir.glob("*.json"))
@@ -196,7 +197,7 @@ class GetEvaluationResults(BaseTool):
             }
 
         except Exception as e:
-            logger.error(f"Failed to load evaluation {evaluation_id}: {e}")
+            logger.exception(f"Failed to load evaluation {evaluation_id}")
             return {
                 "error": f"Failed to load evaluation: {e}",
                 "evaluation_id": evaluation_id,

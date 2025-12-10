@@ -107,8 +107,8 @@ class RunTau2Evaluation(BaseTool):
         domain = args.get("domain")
         agent_endpoint = args.get("agent_endpoint")
         if not isinstance(domain, str) or not isinstance(agent_endpoint, str):
-            msg = "domain and agent_endpoint are required string arguments"
-            raise ValueError(msg)
+            msg = "domain and agent_endpoint must be strings"
+            raise TypeError(msg)
         return await self._execute(
             _tool_context=tool_context,
             domain=domain,
