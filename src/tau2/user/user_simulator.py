@@ -140,7 +140,7 @@ class UserSimulator(BaseUser):
     async def agenerate_next_message(
         self, message: ValidUserInputMessage, state: UserState
     ) -> Tuple[UserMessage, UserState]:
-        return await self._generate_next_message(message, state)
+        return await self._agenerate_next_message(message, state)
 
     def _generate_next_message(
         self, message: ValidUserInputMessage, state: UserState
