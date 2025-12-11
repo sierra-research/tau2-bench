@@ -1,0 +1,840 @@
+[
+  {
+    "id": "0",
+    "description": {
+      "purpose": "Test agent's ability to provide basic amenity information",
+      "relevant_policies": "Information queries, amenity hours",
+      "notes": "Simple information retrieval task"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Ask about pool hours and location.",
+        "domain": "hotel",
+        "reason_for_call": "You want to use the hotel pool.",
+        "known_info": "You are Sarah Johnson, guest ID G001, staying in room 305.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "0_0",
+          "name": "get_amenity_info",
+          "arguments": {
+            "amenity_name": "Pool"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "Pool hours: 06:00-22:00",
+        "Location: Rooftop (10th Floor)"
+      ],
+      "nl_assertions": [
+        "Agent should provide both hours and location in a clear format"
+      ],
+      "reward_basis": ["ACTION", "COMMUNICATE"],
+      "env_assertions": null
+    },
+    "annotations": null
+  },
+  {
+    "id": "1",
+    "description": {
+      "purpose": "Test agent's ability to handle service requests",
+      "relevant_policies": "Service request creation",
+      "notes": "Basic service request task"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Request extra towels for your room.",
+        "domain": "hotel",
+        "reason_for_call": "You need extra towels.",
+        "known_info": "You are Michael Chen, guest ID G002, staying in room 412.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "1_0",
+          "name": "create_service_request",
+          "arguments": {
+            "guest_id": "G002",
+            "request_type": "towels",
+            "details": "Extra towels needed for room 412"
+          },
+          "info": null,
+          "compare_args": ["guest_id", "request_type"]
+        }
+      ],
+      "communicate_info": [
+        "Service request ID"
+      ],
+      "nl_assertions": [
+        "Agent should provide the service request ID to the guest"
+      ],
+      "reward_basis": ["ACTION", "NL_ASSERTION", "ENV_ASSERTION"],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_service_request_exists",
+          "arguments": {
+            "guest_id": "G002",
+            "request_type": "towels",
+            "status": "pending"
+          },
+          "message": "Service request was not created in the system"
+        }
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "2",
+    "description": {
+      "purpose": "Test experience search and booking flow",
+      "relevant_policies": "Experience booking, payment confirmation",
+      "notes": "Complete booking flow with confirmation"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "You want to book a spa treatment for tomorrow (2024-05-16) at 9:00 AM. Confirm the booking when agent provides details.",
+        "domain": "hotel",
+        "reason_for_call": "You want to book a spa experience.",
+        "known_info": "You are Emily Rodriguez, guest ID G003. You want to pay by room charge.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "2_0",
+          "name": "search_experiences",
+          "arguments": {
+            "category": "spa"
+          },
+          "info": null,
+          "compare_args": ["category"]
+        },
+        {
+          "action_id": "2_1",
+          "name": "book_experience",
+          "arguments": {
+            "guest_id": "G003",
+            "experience_id": "E003",
+            "date": "2024-05-16",
+            "time": "09:00",
+            "participants": 1,
+            "payment_method": "room_charge"
+          },
+          "info": null,
+          "compare_args": ["guest_id", "experience_id", "date", "time", "payment_method"]
+        }
+      ],
+      "communicate_info": [
+        "Booking confirmation",
+        "Total price"
+      ],
+      "nl_assertions": [
+        "Agent should apply 5% silver tier discount to the price",
+        "Agent should confirm all booking details before processing"
+      ],
+      "reward_basis": ["ACTION", "COMMUNICATE", "NL_ASSERTION", "ENV_ASSERTION", "DB"],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_booking_exists",
+          "arguments": {
+            "guest_id": "G003",
+            "experience_id": "E003",
+            "date": "2024-05-16",
+            "status": "confirmed"
+          },
+          "message": "Booking was not created or confirmed in the system"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_discount_applied",
+          "arguments": {
+            "guest_id": "G003",
+            "tier": "silver",
+            "discount_percentage": 5
+          },
+          "message": "Silver tier discount was not properly applied"
+        }
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "3",
+    "description": {
+      "purpose": "Test local information retrieval",
+      "relevant_policies": "Local information queries",
+      "notes": "Information about nearby locations"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Ask about nearby pharmacies.",
+        "domain": "hotel",
+        "reason_for_call": "You need to find a pharmacy.",
+        "known_info": "You are David Thompson, guest ID G004.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "3_0",
+          "name": "get_local_info",
+          "arguments": {
+            "query_type": "pharmacy"
+          },
+          "info": null,
+          "compare_args": ["query_type"]
+        }
+      ],
+      "communicate_info": [
+        "Pharmacy name",
+        "Distance from hotel"
+      ],
+      "nl_assertions": [
+        "Agent should provide at least one pharmacy option with complete information"
+      ],
+      "reward_basis": ["ACTION", "COMMUNICATE"],
+      "env_assertions": null
+    },
+    "annotations": null
+  },
+  {
+    "id": "4",
+    "description": {
+      "purpose": "Test agent's ability to acknowledge guest preference information",
+      "relevant_policies": "Guest preferences management, communication protocol",
+      "notes": "Agent should acknowledge dietary restriction but cannot directly update preferences (user-side only)"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Tell the agent you have a nut allergy and want it noted in your preferences.",
+        "domain": "hotel",
+        "reason_for_call": "You want to inform the hotel about your dietary preferences.",
+        "known_info": "You are David Thompson, guest ID G004.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent should acknowledge the dietary restriction (nut allergy)",
+        "Agent should confirm that the preference has been noted",
+        "Agent should communicate professionally and empathetically about the dietary restriction"
+      ],
+      "reward_basis": ["NL_ASSERTION"],
+      "env_assertions": null
+    },
+    "annotations": null
+  },
+  {
+    "id": "5",
+    "description": {
+      "purpose": "Test agent's ability to handle complex requests requiring staff escalation",
+      "relevant_policies": "Staff escalation for special requests",
+      "notes": "Should route to staff"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Request early check-in for tomorrow at 10 AM (before standard check-in time).",
+        "domain": "hotel",
+        "reason_for_call": "You have a flight arriving early and want early check-in.",
+        "known_info": "You are Michael Chen, guest ID G002.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "5_0",
+          "name": "send_to_staff",
+          "arguments": {
+            "guest_id": "G002",
+            "message_type": "special_request"
+          },
+          "info": null,
+          "compare_args": ["guest_id", "message_type"]
+        }
+      ],
+      "communicate_info": [
+        "Escalation confirmation",
+        "Expected response timeframe"
+      ],
+      "nl_assertions": [
+        "Agent should explain that early check-in requires staff approval",
+        "Agent should inform guest that request has been forwarded to staff"
+      ],
+      "reward_basis": ["ACTION", "NL_ASSERTION", "ENV_ASSERTION"],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_staff_message_sent",
+          "arguments": {
+            "guest_id": "G002",
+            "message_type": "special_request"
+          },
+          "message": "Request was not properly escalated to staff"
+        }
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "6",
+    "description": {
+      "purpose": "Test experience cancellation with policy compliance",
+      "relevant_policies": "Cancellation policy, cancellation windows",
+      "notes": "Existing booking cancellation"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Cancel your spa booking (booking ID EB0001).",
+        "domain": "hotel",
+        "reason_for_call": "You need to cancel your spa appointment.",
+        "known_info": "You are Sarah Johnson, guest ID G001. Your booking ID is EB0001.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "6_0",
+          "name": "get_experience_booking_details",
+          "arguments": {
+            "booking_id": "EB0001"
+          },
+          "info": null,
+          "compare_args": ["booking_id"]
+        },
+        {
+          "action_id": "6_1",
+          "name": "cancel_experience_booking",
+          "arguments": {
+            "booking_id": "EB0001"
+          },
+          "info": null,
+          "compare_args": ["booking_id"]
+        }
+      ],
+      "communicate_info": [
+        "Cancellation confirmed",
+        "Refund information"
+      ],
+      "nl_assertions": [
+        "Agent should check cancellation policy before cancelling"
+      ],
+      "reward_basis": ["ACTION", "COMMUNICATE", "NL_ASSERTION", "ENV_ASSERTION", "DB"],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_booking_cancelled",
+          "arguments": {
+            "booking_id": "EB0001",
+            "status": "cancelled"
+          },
+          "message": "Booking was not properly cancelled in the system"
+        }
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "7",
+    "description": {
+      "purpose": "Test room service menu inquiry",
+      "relevant_policies": "Room service information",
+      "notes": "Menu and pricing information"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Ask about room service menu and breakfast options.",
+        "domain": "hotel",
+        "reason_for_call": "You want to order breakfast via room service.",
+        "known_info": "You are Jessica Martinez, guest ID G005.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "7_0",
+          "name": "check_room_service_menu",
+          "arguments": {},
+          "info": null,
+          "compare_args": []
+        }
+      ],
+      "communicate_info": [
+        "Breakfast options",
+        "Prices",
+        "Delivery time"
+      ],
+      "nl_assertions": [
+        "Agent should mention the 18% service charge",
+        "Agent should present breakfast options clearly with prices",
+        "Agent should inform guest of approximate delivery time"
+      ],
+      "reward_basis": ["ACTION", "COMMUNICATE", "NL_ASSERTION"],
+      "env_assertions": null
+    },
+    "annotations": null
+  },
+  {
+    "id": "8",
+    "description": {
+      "purpose": "Test multi-participant experience booking with age verification",
+      "relevant_policies": "Age restrictions, participant limits",
+      "notes": "Wine tour has 21+ age requirement"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Book the wine tasting tour for 2 people on 2024-05-17 at 10:00 AM. Pay with credit card.",
+        "domain": "hotel",
+        "reason_for_call": "You want to book a wine tour.",
+        "known_info": "You are Michael Chen, guest ID G002. Both participants are over 21.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "8_0",
+          "name": "get_experience_details",
+          "arguments": {
+            "experience_id": "E002"
+          },
+          "info": null,
+          "compare_args": ["experience_id"]
+        },
+        {
+          "action_id": "8_1",
+          "name": "book_experience",
+          "arguments": {
+            "guest_id": "G002",
+            "experience_id": "E002",
+            "date": "2024-05-17",
+            "time": "10:00",
+            "participants": 2,
+            "payment_method": "credit_card"
+          },
+          "info": null,
+          "compare_args": ["guest_id", "experience_id", "date", "time", "participants", "payment_method"]
+        }
+      ],
+      "communicate_info": [
+        "Total price",
+        "Age requirement"
+      ],
+      "nl_assertions": [
+        "Agent should verify age requirement (21+) before booking",
+        "Agent should apply 10% gold tier discount"
+      ],
+      "reward_basis": ["ACTION", "COMMUNICATE", "NL_ASSERTION", "ENV_ASSERTION"],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_booking_exists",
+          "arguments": {
+            "guest_id": "G002",
+            "experience_id": "E002",
+            "participants": 2,
+            "status": "confirmed"
+          },
+          "message": "Wine tour booking was not created"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_discount_applied",
+          "arguments": {
+            "guest_id": "G002",
+            "tier": "gold",
+            "discount_percentage": 10
+          },
+          "message": "Gold tier discount was not applied"
+        }
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "9",
+    "description": {
+      "purpose": "Test guest identity verification before sharing information",
+      "relevant_policies": "Guest identification and privacy",
+      "notes": "Should verify guest ID before providing booking details"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Ask about your current room booking details. Provide your guest ID when asked.",
+        "domain": "hotel",
+        "reason_for_call": "You want to confirm your checkout date.",
+        "known_info": "You are Emily Rodriguez, guest ID G003.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "9_0",
+          "name": "get_guest_details",
+          "arguments": {
+            "guest_id": "G003"
+          },
+          "info": null,
+          "compare_args": ["guest_id"]
+        }
+      ],
+      "communicate_info": [
+        "Checkout date: 2024-05-16"
+      ],
+      "nl_assertions": [
+        "Agent should ask for guest ID BEFORE calling get_guest_details",
+        "Agent should not provide booking information until guest ID is verified",
+        "Agent should communicate checkout date clearly"
+      ],
+      "reward_basis": ["ACTION", "COMMUNICATE", "NL_ASSERTION"],
+      "env_assertions": null
+    },
+    "annotations": null
+  },
+  {
+    "id": "10",
+    "description": {
+      "purpose": "Test handling of unavailable time slot",
+      "relevant_policies": "Experience availability",
+      "notes": "Guest requests time not in available_times"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Try to book the cooking class at 12:00 PM on 2024-05-17. If that time is not available, accept an alternative time.",
+        "domain": "hotel",
+        "reason_for_call": "You want to take a cooking class.",
+        "known_info": "You are David Thompson, guest ID G004.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "10_0",
+          "name": "get_experience_details",
+          "arguments": {
+            "experience_id": "E004"
+          },
+          "info": null,
+          "compare_args": ["experience_id"]
+        }
+      ],
+      "communicate_info": [
+        "Available times"
+      ],
+      "nl_assertions": [
+        "Agent should inform guest that 12:00 PM is not available",
+        "Agent should offer alternative times (10:00 or 15:00)"
+      ],
+      "reward_basis": ["ACTION", "COMMUNICATE", "NL_ASSERTION"],
+      "env_assertions": null
+    },
+    "annotations": null
+  },
+  {
+    "id": "11",
+    "description": {
+      "purpose": "Test wake-up call service request",
+      "relevant_policies": "Service requests",
+      "notes": "Wake-up call scheduling"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Request a wake-up call for 6:30 AM tomorrow.",
+        "domain": "hotel",
+        "reason_for_call": "You need a wake-up call.",
+        "known_info": "You are Jessica Martinez, guest ID G005.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "11_0",
+          "name": "create_service_request",
+          "arguments": {
+            "guest_id": "G005",
+            "request_type": "wake_up_call",
+            "details": "Wake-up call requested for 6:30 AM"
+          },
+          "info": null,
+          "compare_args": ["guest_id", "request_type"]
+        }
+      ],
+      "communicate_info": [
+        "Wake-up call confirmation",
+        "Confirmed time"
+      ],
+      "nl_assertions": [
+        "Agent should confirm the wake-up time (6:30 AM)"
+      ],
+      "reward_basis": ["ACTION", "NL_ASSERTION", "ENV_ASSERTION"],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_service_request_exists",
+          "arguments": {
+            "guest_id": "G005",
+            "request_type": "wake_up_call",
+            "details": {
+              "time": "06:30"
+            }
+          },
+          "message": "Wake-up call request was not properly created with correct time"
+        }
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "12",
+    "description": {
+      "purpose": "Test complaint handling and staff escalation",
+      "relevant_policies": "Complaint handling, staff escalation",
+      "notes": "Should route complaint to staff"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Complain about noise from the room next door last night.",
+        "domain": "hotel",
+        "reason_for_call": "You want to complain about noise.",
+        "known_info": "You are Sarah Johnson, guest ID G001, room 305.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "12_0",
+          "name": "send_to_staff",
+          "arguments": {
+            "guest_id": "G001",
+            "message_type": "complaint"
+          },
+          "info": null,
+          "compare_args": ["guest_id", "message_type"]
+        }
+      ],
+      "communicate_info": [
+        "Apology",
+        "Escalation confirmation",
+        "Next steps"
+      ],
+      "nl_assertions": [
+        "Agent should sincerely apologize for the inconvenience",
+        "Agent should inform guest that complaint has been forwarded to staff",
+        "Agent should communicate next steps or expected response time",
+        "Agent should demonstrate empathy and understanding"
+      ],
+      "reward_basis": ["ACTION", "NL_ASSERTION", "ENV_ASSERTION"],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_staff_message_sent",
+          "arguments": {
+            "guest_id": "G001",
+            "message_type": "complaint",
+            "priority": "high"
+          },
+          "message": "Complaint was not properly escalated to staff"
+        }
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "13",
+    "description": {
+      "purpose": "Test multiple amenity inquiries in one conversation",
+      "relevant_policies": "Amenity information",
+      "notes": "Multiple information requests"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Ask about gym hours and then ask about the spa.",
+        "domain": "hotel",
+        "reason_for_call": "You want to know about hotel facilities.",
+        "known_info": "You are Michael Chen, guest ID G002.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "13_0",
+          "name": "get_amenity_info",
+          "arguments": {
+            "amenity_name": "Gym"
+          },
+          "info": null,
+          "compare_args": ["amenity_name"]
+        },
+        {
+          "action_id": "13_1",
+          "name": "get_amenity_info",
+          "arguments": {
+            "amenity_name": "Spa"
+          },
+          "info": null,
+          "compare_args": ["amenity_name"]
+        }
+      ],
+      "communicate_info": [
+        "Gym hours",
+        "Spa hours"
+      ],
+      "nl_assertions": [
+        "Agent should provide information about both amenities in a clear and organized manner"
+      ],
+      "reward_basis": ["ACTION", "COMMUNICATE"],
+      "env_assertions": null
+    },
+    "annotations": null
+  },
+  {
+    "id": "14",
+    "description": {
+      "purpose": "Test experience search with budget constraint",
+      "relevant_policies": "Experience search and filtering",
+      "notes": "Price-based filtering"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Look for activities under $100 per person.",
+        "domain": "hotel",
+        "reason_for_call": "You want to find affordable activities.",
+        "known_info": "You are Emily Rodriguez, guest ID G003.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "14_0",
+          "name": "search_experiences",
+          "arguments": {
+            "max_price": 100.0
+          },
+          "info": null,
+          "compare_args": ["max_price"]
+        }
+      ],
+      "communicate_info": [
+        "List of experiences under $100",
+        "Prices for each option"
+      ],
+      "nl_assertions": [
+        "Agent should only present experiences priced under $100 per person",
+        "Agent should clearly indicate the price for each suggested experience",
+        "If no experiences are available under $100, agent should communicate this clearly"
+      ],
+      "reward_basis": ["ACTION", "NL_ASSERTION", "COMMUNICATE"],
+      "env_assertions": null
+    },
+    "annotations": null
+  },
+  {
+    "id": "15",
+    "description": {
+      "purpose": "Test maintenance request handling",
+      "relevant_policies": "Service requests, maintenance",
+      "notes": "Non-emergency maintenance"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Report that the air conditioning in your room is not working properly.",
+        "domain": "hotel",
+        "reason_for_call": "You have a maintenance issue.",
+        "known_info": "You are David Thompson, guest ID G004, room 115.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "15_0",
+          "name": "create_service_request",
+          "arguments": {
+            "guest_id": "G004",
+            "request_type": "maintenance",
+            "details": "Air conditioning not working properly in room 115"
+          },
+          "info": null,
+          "compare_args": ["guest_id", "request_type"]
+        }
+      ],
+      "communicate_info": [
+        "Service request confirmation",
+        "Expected response time",
+        "Request ID"
+      ],
+      "nl_assertions": [
+        "Agent should create maintenance request",
+        "Agent should provide expected response time"
+      ],
+      "reward_basis": ["ACTION", "NL_ASSERTION", "ENV_ASSERTION"],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_service_request_exists",
+          "arguments": {
+            "guest_id": "G004",
+            "request_type": "maintenance",
+            "status": "pending",
+            "priority": "normal"
+          },
+          "message": "Maintenance request was not properly created"
+        }
+      ]
+    },
+    "annotations": null
+  }
+]
+
