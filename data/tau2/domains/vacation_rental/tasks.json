@@ -1,0 +1,415 @@
+[
+    {
+        "id": "0",
+        "description": {
+            "purpose": "Lookup Chain: Test flexible policy full refund (3 days out). Paired with task 1 to prove policy lookup matters.",
+            "relevant_policies": null,
+            "notes": "Same user (Emeka) and timing as task 1, but different listing policy. Must produce different outcome than task 1."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Cancel your reservation at the Cozy Beach Cottage. If the agent asks which reservation, specify the beach cottage one (RES001). Do not end the conversation until the agent confirms the cancellation has been successfully completed and tells you the refund amount.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Change of plans, need to cancel my upcoming beach trip.",
+                "known_info": "You are Emeka Eze. Your user id is emeka_eze_5678. Your reservation ID is RES001.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "0_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES001"}, "info": null},
+                {"action_id": "0_1", "name": "get_listing_details", "arguments": {"listing_id": "LST001"}, "info": "CRITICAL: Agent must lookup listing to determine cancellation policy"},
+                {"action_id": "0_2", "name": "cancel_reservation", "arguments": {"reservation_id": "RES001", "expected_refund_amount": 450.0, "cancelled_by": "guest"}, "info": null}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent must call get_listing_details before cancel_reservation",
+                "Agent should confirm the cancellation and full refund amount with user before proceeding"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "1",
+        "description": {
+            "purpose": "Lookup Chain: Test firm policy no refund (3 days out). Same timing as task 0 but different policy = different outcome.",
+            "relevant_policies": null,
+            "notes": "CRITICAL: Same user (Emeka) and same timing as task 0, but firm policy listing. Proves agent must look up listing policy."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Cancel your reservation at the Urban Studio Apartment. If the agent tells you there's no refund, you still want to proceed with the cancellation. Do not end the conversation until the agent confirms the cancellation has been completed.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Work emergency, need to cancel my New York trip.",
+                "known_info": "You are Emeka Eze. Your user id is emeka_eze_5678. Your reservation ID is RES002.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "1_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES002"}, "info": null},
+                {"action_id": "1_1", "name": "get_listing_details", "arguments": {"listing_id": "LST005"}, "info": "CRITICAL: Agent must lookup listing to determine firm cancellation policy"},
+                {"action_id": "1_2", "name": "cancel_reservation", "arguments": {"reservation_id": "RES002", "expected_refund_amount": 0.0, "cancelled_by": "guest"}, "info": null}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent must call get_listing_details before cancel_reservation",
+                "Agent should clearly explain that firm policy with less than 7 days notice means no refund",
+                "Agent should confirm user wants to proceed despite no refund"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "2",
+        "description": {
+            "purpose": "Lookup Chain: Test complete multi-hop retrieval (user -> reservations -> listing -> policy)",
+            "relevant_policies": null,
+            "notes": "User knows their ID but not reservation ID. Agent must look up user to find reservation, then listing, then policy."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Cancel your reservation. You have only one reservation so the agent should be able to find it. Do not end the conversation until the agent confirms the cancellation has been successfully completed and tells you the refund amount.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Plans changed, need to cancel my upcoming stay.",
+                "known_info": "You are Sara Rezaei. Your user id is sara_rezaei_7890.",
+                "unknown_info": "You don't remember your reservation ID."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "2_0", "name": "get_user_details", "arguments": {"user_id": "sara_rezaei_7890"}, "info": "Agent retrieves user to find reservation ID"},
+                {"action_id": "2_1", "name": "get_reservation_details", "arguments": {"reservation_id": "RES010"}, "info": null},
+                {"action_id": "2_2", "name": "get_listing_details", "arguments": {"listing_id": "LST002"}, "info": "CRITICAL: Must lookup listing for policy"},
+                {"action_id": "2_3", "name": "cancel_reservation", "arguments": {"reservation_id": "RES010", "expected_refund_amount": 525.0, "cancelled_by": "guest"}, "info": null}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent must complete full chain: user lookup -> reservation lookup -> listing lookup -> cancel",
+                "Agent should confirm the reservation details before cancelling"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "3",
+        "description": {
+            "purpose": "Refund Outcome: Test 100% refund path with flexible policy (2 days out)",
+            "relevant_policies": null,
+            "notes": "Baseline full refund scenario. 2 days out on flexible policy."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Cancel your reservation at the beach cottage in Malibu (RES004). Do not end the conversation until the agent confirms the cancellation has been successfully completed and tells you the refund amount.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Family emergency, need to cancel immediately.",
+                "known_info": "You are Aoife Ryan. Your user id is aoife_ryan_3456. Your reservation ID is RES004.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "3_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES004"}, "info": null},
+                {"action_id": "3_1", "name": "get_listing_details", "arguments": {"listing_id": "LST001"}, "info": null},
+                {"action_id": "3_2", "name": "cancel_reservation", "arguments": {"reservation_id": "RES004", "expected_refund_amount": 450.0, "cancelled_by": "guest"}, "info": null}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent correctly identifies flexible policy allows full refund with 2+ days notice"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "4",
+        "description": {
+            "purpose": "Refund Outcome: Test 50% refund with firm policy (14 days out)",
+            "relevant_policies": null,
+            "notes": "Tests simple percentage calculation. 14 days out on firm policy = 50% of $900."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Cancel your reservation at the Historic Townhouse in Boston (RES005). Do not end the conversation until the agent confirms the cancellation has been successfully completed and tells you the refund amount.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Conference got cancelled, no longer need the accommodation.",
+                "known_info": "You are Aoife Ryan. Your user id is aoife_ryan_3456. Your reservation ID is RES005.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "4_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES005"}, "info": null},
+                {"action_id": "4_1", "name": "get_listing_details", "arguments": {"listing_id": "LST006"}, "info": null},
+                {"action_id": "4_2", "name": "cancel_reservation", "arguments": {"reservation_id": "RES005", "expected_refund_amount": 450.0, "cancelled_by": "guest"}, "info": null}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent correctly calculates 50% of $900 = $450",
+                "Agent explains firm policy 7-29 days rule"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "5",
+        "description": {
+            "purpose": "Refund Outcome: Test complex partial refund calculation (moderate policy, <5 days)",
+            "relevant_policies": null,
+            "notes": "CRITICAL arithmetic test: 14-night stay at $200/night. First night ($200) non-refundable, 50% of remaining 13 nights refunded. Refund = 13 * $200 * 0.5 = $1300"
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Cancel your 2-week reservation at the Mountain Cabin Retreat (RES006). Do not end the conversation until the agent confirms the cancellation has been successfully completed and tells you the refund amount.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Got sick, can't make the trip anymore.",
+                "known_info": "You are Takeshi Kobayashi. Your user id is takeshi_kobayashi_9012. Your reservation ID is RES006.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "5_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES006"}, "info": null},
+                {"action_id": "5_1", "name": "get_listing_details", "arguments": {"listing_id": "LST003"}, "info": null},
+                {"action_id": "5_2", "name": "cancel_reservation", "arguments": {"reservation_id": "RES006", "expected_refund_amount": 1300.0, "cancelled_by": "guest"}, "info": null}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent correctly applies moderate policy: first night non-refundable + 50% of remaining",
+                "Agent performs correct arithmetic: 13 nights * $200 * 0.5 = $1300"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "6",
+        "description": {
+            "purpose": "Refund Outcome: Test 0% refund path (strict policy, <7 days)",
+            "relevant_policies": null,
+            "notes": "Tests agent communicates $0 refund clearly and still confirms before proceeding."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Cancel your reservation at the Luxury Penthouse Suite in Miami (RES007). Even if there's no refund, you still want to cancel. Do not end the conversation until the agent confirms the cancellation has been successfully completed.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Trip plans changed completely.",
+                "known_info": "You are Takeshi Kobayashi. Your user id is takeshi_kobayashi_9012. Your reservation ID is RES007.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "6_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES007"}, "info": null},
+                {"action_id": "6_1", "name": "get_listing_details", "arguments": {"listing_id": "LST007"}, "info": null},
+                {"action_id": "6_2", "name": "cancel_reservation", "arguments": {"reservation_id": "RES007", "expected_refund_amount": 0.0, "cancelled_by": "guest"}, "info": null}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent clearly communicates $0 refund due to strict policy with less than 7 days notice",
+                "Agent confirms user wants to proceed despite no refund before cancelling"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "7",
+        "description": {
+            "purpose": "Rejection Guard: Test agent rejects cancellation for already-cancelled reservation",
+            "relevant_policies": null,
+            "notes": "RES008 is already cancelled. Agent should reject and explain."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Try to cancel your reservation RES008 at the Lakeside Villa.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Want to make sure my reservation is cancelled.",
+                "known_info": "You are Emeka Eze. Your user id is emeka_eze_5678. Your reservation ID is RES008.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "7_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES008"}, "info": null}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent should NOT call cancel_reservation",
+                "Agent should explain the reservation is already in cancelled status"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "8",
+        "description": {
+            "purpose": "Rejection Guard: Test agent rejects cancellation when check-in date has passed",
+            "relevant_policies": null,
+            "notes": "RES009 has check-in date 2025-02-28, which is before current time 2025-03-01."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Cancel your reservation RES009 at the Urban Studio Apartment.",
+                "domain": "vacation_rental",
+                "reason_for_call": "I couldn't make it to my trip and want to cancel for a refund.",
+                "known_info": "You are Aoife Ryan. Your user id is aoife_ryan_3456. Your reservation ID is RES009.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "8_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES009"}, "info": null}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent should NOT call cancel_reservation",
+                "Agent should explain the check-in date (Feb 28) has already passed"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "9",
+        "description": {
+            "purpose": "Information Retrieval: Test agent retrieves reservation ID from user profile when user doesn't know it",
+            "relevant_policies": null,
+            "notes": "User mentions 'beach cottage' which matches LST001 title. Frieda has RES015 at LST001."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Cancel your reservation at the beach cottage. You don't remember the reservation ID but know it's the beach cottage one. Do not end the conversation until the agent confirms the cancellation has been successfully completed and tells you the refund amount.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Need to cancel my beach vacation.",
+                "known_info": "You are Frieda Schmidt. Your user id is frieda_schmidt_1234.",
+                "unknown_info": "You don't remember your reservation ID, but you know the property is a beach cottage."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "9_0", "name": "get_user_details", "arguments": {"user_id": "frieda_schmidt_1234"}, "info": "Agent looks up user to find reservations"},
+                {"action_id": "9_1", "name": "get_reservation_details", "arguments": {"reservation_id": "RES015"}, "info": "Agent identifies correct reservation"},
+                {"action_id": "9_2", "name": "get_listing_details", "arguments": {"listing_id": "LST001"}, "info": "Confirms beach cottage and gets policy"},
+                {"action_id": "9_3", "name": "cancel_reservation", "arguments": {"reservation_id": "RES015", "expected_refund_amount": 750.0, "cancelled_by": "guest"}, "info": null}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent successfully locates reservation by looking up user's reservations and matching to beach cottage listing"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "10",
+        "description": {
+            "purpose": "Information Retrieval: Test agent disambiguates when user has multiple reservations",
+            "relevant_policies": null,
+            "notes": "Frieda has 3 reservations (RES011, RES012, RES015). Agent must ask clarifying questions to identify which one to cancel."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want to cancel a reservation but don't specify which one initially. When the agent asks, say you want to cancel the one at the mountain cabin. That's RES011 at the Mountain Cabin Retreat. After the agent processes the cancellation, ask for confirmation of the refund amount. Do not end the conversation until the agent confirms the cancellation has been successfully processed.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Need to cancel one of my upcoming trips.",
+                "known_info": "You are Frieda Schmidt. Your user id is frieda_schmidt_1234.",
+                "unknown_info": "You don't remember which reservation ID is which, but you know you want to cancel the mountain cabin one."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "10_0", "name": "get_user_details", "arguments": {"user_id": "frieda_schmidt_1234"}, "info": "Agent looks up user to find multiple reservations"},
+                {"action_id": "10_1", "name": "get_reservation_details", "arguments": {"reservation_id": "RES011"}, "info": null},
+                {"action_id": "10_2", "name": "get_listing_details", "arguments": {"listing_id": "LST003"}, "info": null},
+                {"action_id": "10_3", "name": "cancel_reservation", "arguments": {"reservation_id": "RES011", "expected_refund_amount": 800.0, "cancelled_by": "guest"}, "info": null}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent asks clarifying question when user has multiple reservations",
+                "Agent correctly identifies RES011 as the Mountain Cabin Retreat reservation"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "11",
+        "description": {
+            "purpose": "Exception Flow: Test free cancellation period override (booked <24h ago, 7+ days out)",
+            "relevant_policies": null,
+            "notes": "RES013 was booked at 2025-03-01 00:30:00. Current time is 2025-03-01 10:00:00 (9.5 hours later). Check-in is 2025-03-09 (8 days out). Despite strict policy, user gets full refund due to grace period."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Cancel your reservation at the Oceanfront Condo in San Diego (RES013). You just booked it this morning but realized you can't go. Do not end the conversation until the agent confirms the cancellation has been successfully completed and tells you the refund amount.",
+                "domain": "vacation_rental",
+                "reason_for_call": "I just booked this earlier today but realized I have a conflict. Need to cancel.",
+                "known_info": "You are Aoife Ryan. Your user id is aoife_ryan_3456. Your reservation ID is RES013. You booked it earlier this morning.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "11_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES013"}, "info": null},
+                {"action_id": "11_1", "name": "get_listing_details", "arguments": {"listing_id": "LST008"}, "info": null},
+                {"action_id": "11_2", "name": "cancel_reservation", "arguments": {"reservation_id": "RES013", "expected_refund_amount": 1200.0, "cancelled_by": "guest"}, "info": null}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent correctly identifies free cancellation period applies (booked <24h ago, 7+ days before check-in)",
+                "Agent grants full refund despite strict policy due to grace period exception"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "12",
+        "description": {
+            "purpose": "Exception Flow: Test host-initiated cancellation results in full refund",
+            "relevant_policies": null,
+            "notes": "User states host cancelled. Agent should process as host cancellation = full refund regardless of timing/policy."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "The host just contacted you and said they need to cancel your reservation RES014 at the Lakeside Villa. You're calling to finalize the cancellation and get your refund. Do not end the conversation until the agent confirms the cancellation has been successfully completed and tells you the refund amount.",
+                "domain": "vacation_rental",
+                "reason_for_call": "The host cancelled my reservation. I need to process the cancellation and get my full refund.",
+                "known_info": "You are Takeshi Kobayashi. Your user id is takeshi_kobayashi_9012. Your reservation ID is RES014. The host initiated this cancellation.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "12_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES014"}, "info": null},
+                {"action_id": "12_1", "name": "cancel_reservation", "arguments": {"reservation_id": "RES014", "expected_refund_amount": 750.0, "cancelled_by": "host"}, "info": "Host cancellation = full refund regardless of policy"}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent correctly identifies this as a host-initiated cancellation",
+                "Agent processes cancellation with cancelled_by='host' to ensure full refund"
+            ]
+        },
+        "annotations": null
+    }
+]
