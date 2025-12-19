@@ -1,18 +1,13 @@
-# common imports
 from pydantic import BaseModel
 from fastworkflow.workflow import Workflow
 
-# For command metadata extraction
 import os
 from typing import Annotated
 from pydantic import Field, ConfigDict
 import fastworkflow
 from fastworkflow.train.generate_synthetic import generate_diverse_utterances
-
-# For response generation
 from fastworkflow import CommandOutput, CommandResponse
 
-# Tau2-bench imports
 from tau2.domains.retail.tools import RetailTools
 from tau2.domains.retail.data_model import RetailDB
 from tau2.domains.retail.utils import RETAIL_DB_PATH
@@ -104,19 +99,18 @@ class ResponseGenerator:
         Process the cancel_pending_order command using tau2-bench tools.
         """
         try:
-            # Load database and create tools instance
             db = RetailDB.load(RETAIL_DB_PATH)
             tools = RetailTools(db)
             
-            # Call the tau2-bench tool method
+            order_id = input.order_id if input.order_id.startswith('#') else f'#{input.order_id}'
+            
             order = tools.cancel_pending_order(
-                order_id=input.order_id,
+                order_id=order_id,
                 reason=input.reason
             )
             
-            # Return success status
             return Signature.Output(
-                status=f"Order {input.order_id} cancelled successfully. Status: {order.status}"
+                status=f"Order {order_id} cancelled successfully. Status: {order.status}"
             )
             
         except ValueError as e:

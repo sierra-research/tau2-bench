@@ -12,41 +12,37 @@ from tau2.domains.retail.utils import RETAIL_DB_PATH
 
 
 class Signature:
-    """Get user details"""
+    """Get product details"""
     class Input(BaseModel):
-        user_id: str = Field(
+        product_id: str = Field(
             default="NOT_FOUND",
-            description="The user ID to get details for",
-            pattern=r"^([\w_]+|NOT_FOUND)$",
-            examples=["sara_doe_496"],
+            description="The product ID (numeric string)",
+            pattern=r"^(\d{10}|NOT_FOUND)$",
+            examples=["6086499569"],
             json_schema_extra={
-                "available_from": ["find_user_id_by_email", "find_user_id_by_name_zip"]
+                "available_from": ["get_order_details", "list_all_product_types"]
             }
         )
 
         model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
     class Output(BaseModel):
-        user_details: str = Field(
+        product_details: str = Field(
             description=(
-                "Detailed information about the user including "
-                "name, email, address, payment methods, and order history"
+                "Detailed product information of all product variants of a given product type"
+                "including item id, options, availability and price"
             ),
             json_schema_extra={
-                "used_by": [
-                    "get_order_details",
-                    "modify_user_address",
-                    "cancel_pending_order",
-                ]
-            },
+                "used_by": ["exchange_delivered_order_items", "modify_pending_order_items"]
+            }
         )
 
     plain_utterances: List[str] = [
-        "Can you look up user sara_doe_496?",
-        "Show me the details for user john_smith_123.",
-        "I need information about user account mary_jones_789.",
-        "What are the details for this user ID?",
-        "Tell me about the customer with ID alice_brown_456.",
+        "Can you give me more information about this product?",
+        "I need the specs and availability for an item I saw earlier.",
+        "What are the details of that product with the long ID?",
+        "Is this product still in stock and what are its features?",
+        "Can you check if this product is available and tell me more about it?",
     ]
 
     template_utterances: List[str] = []
@@ -56,12 +52,8 @@ class Signature:
         utterance_definition = fastworkflow.RoutingRegistry.get_definition(workflow.folderpath)
         utterances_obj = utterance_definition.get_command_utterances(command_name)
 
-        import os
-        command_name = os.path.splitext(os.path.basename(__file__))[0]
         from fastworkflow.train.generate_synthetic import generate_diverse_utterances
-        return generate_diverse_utterances(
-            utterances_obj.plain_utterances, command_name
-        )
+        return generate_diverse_utterances(utterances_obj.plain_utterances, command_name)
 
 
 class ResponseGenerator:
@@ -75,7 +67,7 @@ class ResponseGenerator:
         return CommandOutput(
             workflow_id=workflow.id,
             command_responses=[
-                CommandResponse(response=output.user_details)
+                CommandResponse(response=output.product_details)
             ]
         )
 
@@ -83,22 +75,19 @@ class ResponseGenerator:
         workflow: Workflow, input: Signature.Input
     ) -> Signature.Output:
         """
-        Process the get_user_details command using tau2-bench tools.
+        Process the get_product_details command using tau2-bench tools.
         """
         try:
-            # Load database and create tools instance
             db = RetailDB.load(RETAIL_DB_PATH)
             tools = RetailTools(db)
             
-            # Call the tau2-bench tool method
-            user = tools.get_user_details(user_id=input.user_id)
+            product = tools.get_product_details(product_id=input.product_id)
             
-            # Convert Pydantic model to JSON string
-            user_json = user.model_dump_json(indent=2)
+            product_json = product.model_dump_json(indent=2)
             
-            return Signature.Output(user_details=user_json)
+            return Signature.Output(product_details=product_json)
             
         except ValueError as e:
-            return Signature.Output(user_details=f"Error: {str(e)}")
+            return Signature.Output(product_details=f"Error: {str(e)}")
         except Exception as e:
-            return Signature.Output(user_details=f"Unexpected error: {str(e)}")
+            return Signature.Output(product_details=f"Unexpected error: {str(e)}")

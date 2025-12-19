@@ -12,63 +12,55 @@ from tau2.domains.retail.utils import RETAIL_DB_PATH
 
 
 class Signature:
-    """Get order details"""
+    """Get user details"""
     class Input(BaseModel):
-        order_id: str = Field(
+        user_id: str = Field(
             default="NOT_FOUND",
-            description=(
-                "The order ID to get details for (must start with #)"
-            ),
-            pattern=r"^(#[\w\d]+|NOT_FOUND)$",
-            examples=["#W0000000"],
+            description="The user ID to get details for",
+            pattern=r"^([a-z]+_[a-z]+_\d+|NOT_FOUND)$",
+            examples=["sara_doe_496"],
             json_schema_extra={
-                "available_from": ["get_user_details"]
+                "available_from": ["find_user_id_by_email", "find_user_id_by_name_zip"]
             }
         )
 
         model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
     class Output(BaseModel):
-        order_details: str = Field(
+        user_details: str = Field(
             description=(
-                "Detailed information about the order such as "
-                "shipping address, "
-                "items ordered with details including name, product and item id, price and options, "
-                "fulfillments with details including tracking id and item ids, "
-                "order status, and"
-                "payment history with details including transaction type, amount and payment method id"
+                "Detailed user information such as "
+                "first and last name, address, email, payment methods and "
+                "the list of order id's"
             ),
             json_schema_extra={
                 "used_by": [
+                    "cancel_pending_order",
                     "exchange_delivered_order_items",
-                    "get_product_details",
+                    "get_order_details",
+                    "modify_pending_order_address",
                     "modify_pending_order_items",
+                    "modify_pending_order_payment",
                     "return_delivered_order_items",
                 ]
             },
         )
 
     plain_utterances: List[str] = [
-        "Can you look up order #W0000000 for me?",
-        "I need details on my order number #W1234567.",
-        "What's the status of order #W9876543?",
-        "Tell me more about my order #W0000001.",
-        "Show me all the information for order #W5555555.",
+        "Can you pull up my account info?",
+        "I want to see all the orders linked to my profile.",
+        "What details do you have on my user account?",
+        "Can you show me everything tied to my profile?",
+        "I'd like to review my account and recent activity.",
     ]
-
     template_utterances: List[str] = []
 
     @staticmethod
     def generate_utterances(workflow: fastworkflow.Workflow, command_name: str) -> List[str]:
         utterance_definition = fastworkflow.RoutingRegistry.get_definition(workflow.folderpath)
         utterances_obj = utterance_definition.get_command_utterances(command_name)
-
-        import os
-        command_name = os.path.splitext(os.path.basename(__file__))[0]
         from fastworkflow.train.generate_synthetic import generate_diverse_utterances
-        return generate_diverse_utterances(
-            utterances_obj.plain_utterances, command_name
-        )
+        return generate_diverse_utterances(utterances_obj.plain_utterances, command_name)
 
 
 class ResponseGenerator:
@@ -82,7 +74,7 @@ class ResponseGenerator:
         return CommandOutput(
             workflow_id=workflow.id,
             command_responses=[
-                CommandResponse(response=output.order_details)
+                CommandResponse(response=output.user_details)
             ]
         )
 
@@ -90,29 +82,20 @@ class ResponseGenerator:
         workflow: Workflow, input: Signature.Input
     ) -> Signature.Output:
         """
-        Process the get_order_details command using tau2-bench tools.
+        Process the get_user_details command using tau2-bench tools.
         """
         try:
-            # Load database and create tools instance
             db = RetailDB.load(RETAIL_DB_PATH)
             tools = RetailTools(db)
             
-            # Call the tau2-bench tool method
-            order = tools.get_order_details(order_id=input.order_id)
+            user = tools.get_user_details(user_id=input.user_id)
             
             # Convert Pydantic model to JSON string
-            import json
-            order_json = order.model_dump_json(indent=2)
+            user_json = user.model_dump_json(indent=2)
             
-            return Signature.Output(
-                order_details=order_json
-            )
+            return Signature.Output(user_details=user_json)
             
         except ValueError as e:
-            return Signature.Output(
-                order_details=f"Error: {str(e)}"
-            )
+            return Signature.Output(user_details=f"Error: {str(e)}")
         except Exception as e:
-            return Signature.Output(
-                order_details=f"Unexpected error: {str(e)}"
-            )
+            return Signature.Output(user_details=f"Unexpected error: {str(e)}")

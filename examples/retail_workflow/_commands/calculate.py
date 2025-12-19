@@ -1,15 +1,11 @@
-"""
-Transfer to Human Agents Command for FastWorkflow.
-
-This command wraps tau2-bench's transfer_to_human_agents tool.
-"""
-
 from typing import List
 
 import fastworkflow
 from pydantic import BaseModel, Field, ConfigDict
 from fastworkflow.workflow import Workflow
 from fastworkflow import CommandOutput, CommandResponse
+from fastworkflow.train.generate_synthetic import generate_diverse_utterances
+
 
 from tau2.domains.retail.tools import RetailTools
 from tau2.domains.retail.data_model import RetailDB
@@ -17,45 +13,43 @@ from tau2.domains.retail.utils import RETAIL_DB_PATH
 
 
 class Signature:
-    """Transfer the conversation to a human agent."""
-    
+    """Calculate a mathematical expression"""
+
     class Input(BaseModel):
-        # No parameters needed for this tool
-        trigger: str = Field(
-            default="transfer",
-            description="Trigger to transfer to human agent",
+        expression: str = Field(
+            default="NOT_FOUND",
+            description=(
+                "The mathematical expression to calculate. Allowed characters: digits, "
+                "+, -, *, /, parentheses, spaces."
+            ),
+            pattern=r"^(NOT_FOUND|[0-9+\-*/().\s]+)$",
+            examples=["(2 + 3) * 4", "10 / 2 + 3", "(8-3)/5"],
         )
 
         model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
     class Output(BaseModel):
         result: str = Field(
-            description="Confirmation message that transfer is initiated"
+            description=(
+                "Calculated result as a string. Returns an error message for invalid input."
+            )
         )
 
     plain_utterances: List[str] = [
-        "Transfer me to a human agent",
-        "I want to speak with a real person",
-        "Connect me to customer service",
-        "Can I talk to a human?",
-        "I need help from a human agent",
-        "Transfer to human support",
+        "What is 2 + 2?",
+        "Calculate (2 + 3) * 4",
+        "Can you compute 10 / 2 + 3?",
+        "Evaluate (8-3)/5",
+        "Please calculate 7 * (6 - 2)",
     ]
 
     template_utterances: List[str] = []
 
     @staticmethod
     def generate_utterances(workflow: fastworkflow.Workflow, command_name: str) -> List[str]:
-        utterance_definition = fastworkflow.RoutingRegistry.get_definition(workflow.folderpath)
-        utterances_obj = utterance_definition.get_command_utterances(command_name)
-
-        import os
-        command_name = os.path.splitext(os.path.basename(__file__))[0]
-        from fastworkflow.train.generate_synthetic import generate_diverse_utterances
-        return generate_diverse_utterances(
-            utterances_obj.plain_utterances, command_name
-        )
-
+        return [
+            command_name.split('/')[-1].lower().replace('_', ' ')
+        ] + generate_diverse_utterances(Signature.plain_utterances, command_name)
 
 class ResponseGenerator:
     def __call__(
@@ -68,21 +62,25 @@ class ResponseGenerator:
         return CommandOutput(
             workflow_id=workflow.id,
             command_responses=[
-                CommandResponse(response=output.result)
+                CommandResponse(response=f"The result is: {output.result}")
             ]
         )
 
     def _process_command(self,
         workflow: Workflow, input: Signature.Input
     ) -> Signature.Output:
-        """Transfer to human agent using tau2-bench tool."""
+        """
+        Process the calculate command using tau2-bench tools.
+        """
         try:
             db = RetailDB.load(RETAIL_DB_PATH)
             tools = RetailTools(db)
             
-            result = tools.transfer_to_human_agents()
+            result = tools.calculate(expression=input.expression)
             
             return Signature.Output(result=result)
             
+        except ValueError as e:
+            return Signature.Output(result=f"Error: {str(e)}")
         except Exception as e:
-            return Signature.Output(result=f"Error transferring to human agent: {str(e)}")
+            return Signature.Output(result=f"Unexpected error: {str(e)}")

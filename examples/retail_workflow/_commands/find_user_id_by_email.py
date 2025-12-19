@@ -51,12 +51,9 @@ class Signature:
         utterance_definition = fastworkflow.RoutingRegistry.get_definition(workflow.folderpath)
         utterances_obj = utterance_definition.get_command_utterances(command_name)
 
-        import os
-        command_name = os.path.splitext(os.path.basename(__file__))[0]
         from fastworkflow.train.generate_synthetic import generate_diverse_utterances
-        return generate_diverse_utterances(
-            utterances_obj.plain_utterances, command_name
-        )
+
+        return generate_diverse_utterances(utterances_obj.plain_utterances, command_name)
 
 
 class ResponseGenerator:
@@ -81,11 +78,9 @@ class ResponseGenerator:
         Process the find_user_id_by_email command using tau2-bench tools.
         """
         try:
-            # Load database and create tools instance
             db = RetailDB.load(RETAIL_DB_PATH)
             tools = RetailTools(db)
             
-            # Call the tau2-bench tool method
             user_id = tools.find_user_id_by_email(email=input.email)
             
             return Signature.Output(user_id=user_id)

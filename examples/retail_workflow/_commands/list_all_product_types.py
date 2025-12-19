@@ -1,9 +1,3 @@
-"""
-List All Product Types Command for FastWorkflow.
-
-This command wraps tau2-bench's list_all_product_types tool.
-"""
-
 from typing import List
 
 import fastworkflow
@@ -17,32 +11,30 @@ from tau2.domains.retail.utils import RETAIL_DB_PATH
 
 
 class Signature:
-    """List all available product types in the retail database."""
-    
-    class Input(BaseModel):
-        # No parameters needed for this tool
-        trigger: str = Field(
-            default="list",
-            description="Trigger to list product types",
-        )
+    """List all product types"""
+    """Metadata and parameter definitions for `list_all_product_types`."""
 
-        model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
+    class Input(BaseModel):
+        """No parameters expected for this command."""
 
     class Output(BaseModel):
-        product_types: str = Field(
-            description="List of all available product types",
+        status: str = Field(
+            description="List of product type and product id tuples, or a JSON string representation of that list.",
             json_schema_extra={
                 "used_by": ["get_product_details"]
             }
         )
 
+    # ---------------------------------------------------------------------
+    # Utterances
+    # ---------------------------------------------------------------------
+
     plain_utterances: List[str] = [
-        "List all product types",
-        "Show me all available product categories",
-        "What product types do you have?",
-        "Display all product types in the system",
-        "Get list of all product categories",
-        "What kinds of products are available?",
+        "What kind of products do you have in the store?",
+        "Can you show me everything you carry?",
+        "I'm curious about all the categories you offer.",
+        "I'd like to browse your full product range.",
+        "What are the different types of items you sell?",
     ]
 
     template_utterances: List[str] = []
@@ -52,12 +44,9 @@ class Signature:
         utterance_definition = fastworkflow.RoutingRegistry.get_definition(workflow.folderpath)
         utterances_obj = utterance_definition.get_command_utterances(command_name)
 
-        import os
-        command_name = os.path.splitext(os.path.basename(__file__))[0]
         from fastworkflow.train.generate_synthetic import generate_diverse_utterances
-        return generate_diverse_utterances(
-            utterances_obj.plain_utterances, command_name
-        )
+
+        return generate_diverse_utterances(utterances_obj.plain_utterances, command_name)
 
 
 class ResponseGenerator:
@@ -71,7 +60,7 @@ class ResponseGenerator:
         return CommandOutput(
             workflow_id=workflow.id,
             command_responses=[
-                CommandResponse(response=f"Available product types:\n{output.product_types}")
+                CommandResponse(response=f"Available product types:\n{output.status}")
             ]
         )
 
@@ -83,13 +72,13 @@ class ResponseGenerator:
             db = RetailDB.load(RETAIL_DB_PATH)
             tools = RetailTools(db)
             
-            # Returns List[str]
-            product_types_list = tools.list_all_product_types()
+            product_types_json = tools.list_all_product_types()
             
-            # Format as readable string
-            product_types_str = "\n".join(f"- {pt}" for pt in product_types_list)
+            import json
+            product_dict = json.loads(product_types_json)
+            product_types_str = "\n".join(f"- {name}: {pid}" for name, pid in product_dict.items())
             
-            return Signature.Output(product_types=product_types_str)
+            return Signature.Output(status=product_types_str)
             
         except Exception as e:
-            return Signature.Output(product_types=f"Error listing product types: {str(e)}")
+            return Signature.Output(status=f"Error listing product types: {str(e)}")

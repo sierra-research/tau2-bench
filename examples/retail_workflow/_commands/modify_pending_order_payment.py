@@ -1,9 +1,3 @@
-"""
-Modify Pending Order Payment Command for FastWorkflow.
-
-This command wraps tau2-bench's modify_pending_order_payment tool.
-"""
-
 from typing import List
 
 import fastworkflow
@@ -17,49 +11,47 @@ from tau2.domains.retail.utils import RETAIL_DB_PATH
 
 
 class Signature:
-    """Modify the payment method of a pending order."""
-    
+    """Modify pending order payment method"""
     class Input(BaseModel):
         order_id: str = Field(
             default="NOT_FOUND",
-            description="ID of the pending order",
-            examples=["ORD123", "ORD456"],
+            description="The order ID to modify (must start with #)",
+            pattern=r"^(#W\d+|NOT_FOUND)$",
+            examples=["#W0000000"],
+            json_schema_extra={
+                "available_from": ["get_user_details"]
+            }
         )
-        
-        card_last_four: str = Field(
+        payment_method_id: str = Field(
             default="NOT_FOUND",
-            description="Last 4 digits of the new payment card",
-            examples=["1234", "5678"],
+            description="Payment method ID to switch to",
+            pattern=r"^((gift_card|credit_card|paypal)_\d+|NOT_FOUND)$",
+            examples=["gift_card_0000000", "credit_card_0000000", "paypal_0000000"],
+            json_schema_extra={
+                "available_from": ["get_user_details"]
+            }
         )
 
         model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
     class Output(BaseModel):
-        result: str = Field(
-            description="Confirmation message or error"
-        )
+        status: str = Field(description="Whether payment modification succeeded.")
 
     plain_utterances: List[str] = [
-        "Change payment method for order ORD123 to card ending in 1234",
-        "Update payment card for my pending order",
-        "Switch payment method on order ORD456 to card ending 5678",
-        "Change the credit card for order ORD123",
-        "Update payment to card ending in 1234",
+        "I want to change the payment method for my pending order.",
+        "Can you update my order to use a different payment method?",
+        "Please switch the payment method for my order to a new credit card.",
+        "I'd like to pay with a different gift card for my pending order.",
+        "How can I modify the payment method on my order before it ships?",
     ]
-
     template_utterances: List[str] = []
 
     @staticmethod
     def generate_utterances(workflow: fastworkflow.Workflow, command_name: str) -> List[str]:
         utterance_definition = fastworkflow.RoutingRegistry.get_definition(workflow.folderpath)
         utterances_obj = utterance_definition.get_command_utterances(command_name)
-
-        import os
-        command_name = os.path.splitext(os.path.basename(__file__))[0]
         from fastworkflow.train.generate_synthetic import generate_diverse_utterances
-        return generate_diverse_utterances(
-            utterances_obj.plain_utterances, command_name
-        )
+        return generate_diverse_utterances(utterances_obj.plain_utterances, command_name)
 
 
 class ResponseGenerator:
@@ -70,10 +62,11 @@ class ResponseGenerator:
         command_parameters: Signature.Input
     ) -> CommandOutput:
         output = self._process_command(workflow, command_parameters)
+        response = f"Response: Modified details: {output.status}"
         return CommandOutput(
             workflow_id=workflow.id,
             command_responses=[
-                CommandResponse(response=output.result)
+                CommandResponse(response=response)
             ]
         )
 
@@ -85,14 +78,17 @@ class ResponseGenerator:
             db = RetailDB.load(RETAIL_DB_PATH)
             tools = RetailTools(db)
             
+            # Ensure order_id has # prefix
+            order_id = input.order_id if input.order_id.startswith('#') else f'#{input.order_id}'
+            
             result = tools.modify_pending_order_payment(
-                order_id=input.order_id,
-                card_last_four=input.card_last_four
+                order_id=order_id,
+                payment_method_id=input.payment_method_id
             )
             
-            return Signature.Output(result=result)
+            return Signature.Output(status=str(result))
             
         except ValueError as e:
-            return Signature.Output(result=f"Error: {str(e)}")
+            return Signature.Output(status=f"Error: {str(e)}")
         except Exception as e:
-            return Signature.Output(result=f"Unexpected error: {str(e)}")
+            return Signature.Output(status=f"Unexpected error: {str(e)}")

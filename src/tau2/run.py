@@ -123,6 +123,18 @@ def run_task(
             retrieval_config=retrieval_config,
             retrieval_config_kwargs=retrieval_config_kwargs,
         )
+    elif AgentConstructor.__name__ == "FastWorkflowAgentAdapter":
+        # FastWorkflow adapter needs special initialization
+        from tau2.agent.fastworkflow_adapter import FastWorkflowAgentAdapter
+        agent = FastWorkflowAgentAdapter(
+            tools=environment.get_tools(),
+            domain_policy=environment.get_policy(),
+            model=llm_agent if llm_agent else "mistral-small-latest",
+            provider="mistral",
+            temperature=llm_args_agent.get("temperature", 0.0) if llm_args_agent else 0.0,
+            use_reasoning=True,
+            workflow_type=domain,
+        )
     else:
         config = TextRunConfig(
             domain=domain,

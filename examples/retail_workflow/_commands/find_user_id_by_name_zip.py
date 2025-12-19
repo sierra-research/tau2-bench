@@ -1,9 +1,3 @@
-"""
-Find User ID by Name and Zip Command for FastWorkflow.
-
-This command wraps tau2-bench's find_user_id_by_name_zip tool.
-"""
-
 from typing import List
 
 import fastworkflow
@@ -17,43 +11,47 @@ from tau2.domains.retail.utils import RETAIL_DB_PATH
 
 
 class Signature:
-    """Find a user's ID by their first name, last name, and zip code."""
-    
+    """Find user id by name and zip"""
     class Input(BaseModel):
         first_name: str = Field(
             default="NOT_FOUND",
-            description="User's first name",
-            examples=["John", "Jane"],
+            description="The first name of the customer",
+            pattern=r"^(NOT_FOUND|[A-Za-z]+)$",
+            examples=["John"],
         )
-        
         last_name: str = Field(
             default="NOT_FOUND",
-            description="User's last name",
-            examples=["Doe", "Smith"],
+            description="The last name of the customer",
+            pattern=r"^(NOT_FOUND|[A-Za-z]+)$",
+            examples=["Doe"],
         )
-        
-        zip_code: str = Field(
+        zip: str = Field(
             default="NOT_FOUND",
-            description="User's zip code",
-            examples=["12345", "90210"],
+            description="The zip code of the customer",
+            pattern=r"^(NOT_FOUND|\d{5})$",
+            examples=["12345"],
         )
 
         model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
     class Output(BaseModel):
         user_id: str = Field(
-            description="The user's ID if found, or error message",
+            description="User identifier returned by lookup.",
             json_schema_extra={
-                "used_by": ["get_user_details", "modify_user_address"]
+                "used_by": ["get_user_details"]
             }
         )
 
+    # ------------------------------------------------------------------
+    # Utterances
+    # ------------------------------------------------------------------
+
     plain_utterances: List[str] = [
-        "Find user ID for John Doe in zip code 12345",
-        "Look up user ID by name Jane Smith and zip 90210",
-        "Search for user ID using name and zip code",
-        "Get user ID for first name John, last name Doe, zip 12345",
-        "Find the user ID for someone named Jane Smith in zip code 90210",
+        "I can't remember the email I used, but my name is John Doe and I live in 12345.",
+        "I forgot my email address. Can you look me up with my name and zip code?",
+        "My name is Sarah Parker and my zip is 90210 — can you help me find my account?",
+        "I'm not sure which email I signed up with, but my name is Michael Lee and I live in 77001.",
+        "Can you check if you have me under Amanda White in zip code 10001? I don't recall the email.",
     ]
 
     template_utterances: List[str] = []
@@ -63,12 +61,9 @@ class Signature:
         utterance_definition = fastworkflow.RoutingRegistry.get_definition(workflow.folderpath)
         utterances_obj = utterance_definition.get_command_utterances(command_name)
 
-        import os
-        command_name = os.path.splitext(os.path.basename(__file__))[0]
         from fastworkflow.train.generate_synthetic import generate_diverse_utterances
-        return generate_diverse_utterances(
-            utterances_obj.plain_utterances, command_name
-        )
+
+        return generate_diverse_utterances(utterances_obj.plain_utterances, command_name)
 
 
 class ResponseGenerator:
@@ -97,7 +92,7 @@ class ResponseGenerator:
             user_id = tools.find_user_id_by_name_zip(
                 first_name=input.first_name,
                 last_name=input.last_name,
-                zip_code=input.zip_code
+                zip=input.zip
             )
             
             return Signature.Output(user_id=user_id)

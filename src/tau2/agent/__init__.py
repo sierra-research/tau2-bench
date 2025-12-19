@@ -20,6 +20,7 @@ from tau2.agent.base_agent import (
     ValidAgentInputMessage,
 )
 from tau2.agent.llm_agent import LLMAgent, LLMAgentState, LLMGTAgent, LLMSoloAgent
+from tau2.agent.fastworkflow_adapter import FastWorkflowAgentAdapter
 from tau2.voice.audio_native.openai import OpenAIRealtimeProvider
 from tau2.voice.audio_native.openai.provider import OpenAIVADMode
 
@@ -90,6 +91,7 @@ __all__ = [
     "LLMAgentState",
     "LLMGTAgent",
     "LLMSoloAgent",
+    "FastWorkflowAgentAdapter",
     # Audio Native
     "OpenAIRealtimeProvider",
     "OpenAIVADMode",
