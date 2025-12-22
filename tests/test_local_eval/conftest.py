@@ -24,6 +24,26 @@ def nebius_api_configured():
 
 
 @pytest.fixture
+def anthropic_user_llm_config():
+    """
+    Provide Anthropic LLM configuration for user simulation.
+
+    Skip test if ANTHROPIC_API_KEY is not configured.
+
+    Returns:
+        dict with 'llm' (model string) and 'llm_args' (additional args)
+    """
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        pytest.skip("ANTHROPIC_API_KEY not set - skipping test requiring Anthropic API")
+
+    return {
+        "llm": "anthropic/claude-3-haiku-20240307",
+        "llm_args": {},
+    }
+
+
+@pytest.fixture
 def simple_agent_port() -> int:
     """Port for simple agent server."""
     return 8001
