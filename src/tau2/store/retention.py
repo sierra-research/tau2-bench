@@ -108,7 +108,10 @@ class RetentionManager:
         Sessions without heartbeat for TAU2_SESSION_STALE_HOURS (default: 2)
         are marked as abandoned.
 
-        Only sessions in WORKING status with a progress/heartbeat are checked.
+        For sessions with progress, uses the last_heartbeat timestamp.
+        For sessions without progress (e.g., SUBMITTED state), uses file mtime
+        as fallback to prevent orphaned sessions.
+
         Already abandoned sessions are skipped.
 
         Returns:
@@ -131,22 +134,26 @@ class RetentionManager:
                 if data.get("status") == EvaluationStatus.ABANDONED.value:
                     continue
 
-                # Check heartbeat from progress
+                # Determine last activity time
+                # Priority: heartbeat > file mtime
+                last_activity: datetime | None = None
+
                 progress = data.get("progress")
-                if progress is None:
-                    continue
+                if progress is not None:
+                    heartbeat_str = progress.get("last_heartbeat")
+                    if heartbeat_str is not None:
+                        last_activity = datetime.fromisoformat(
+                            heartbeat_str.replace("Z", "+00:00")
+                        )
 
-                heartbeat_str = progress.get("last_heartbeat")
-                if heartbeat_str is None:
-                    continue
-
-                # Parse heartbeat timestamp
-                heartbeat = datetime.fromisoformat(
-                    heartbeat_str.replace("Z", "+00:00")
-                )
+                # Fallback to file mtime for sessions without progress (e.g., SUBMITTED)
+                if last_activity is None:
+                    last_activity = datetime.fromtimestamp(
+                        session_file.stat().st_mtime, tz=timezone.utc
+                    )
 
                 # Mark as abandoned if stale
-                if heartbeat < cutoff:
+                if last_activity < cutoff:
                     data["status"] = EvaluationStatus.ABANDONED.value
 
                     # Add to state history

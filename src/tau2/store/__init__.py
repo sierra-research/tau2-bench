@@ -39,27 +39,23 @@ from tau2.store.retention import RetentionManager, create_retention_manager
 from tau2.store.store import EvaluationStore, create_store
 
 __all__ = [
-    # Factory functions
-    "create_event_logger",
-    "create_retention_manager",
-    "create_store",
-    # Store classes
-    "EvaluationStore",
-    "EventLogger",
-    "RetentionManager",
-    # Exceptions
+    "Evaluation",
     "EvaluationIdCollisionError",
     "EvaluationNotFoundError",
-    "EvaluationStoreError",
-    "InvalidStateError",
-    # Models
-    "Evaluation",
     "EvaluationRequest",
     "EvaluationResults",
     "EvaluationStatus",
+    "EvaluationStore",
+    "EvaluationStoreError",
     "EvaluationSummary",
+    "EventLogger",
+    "InvalidStateError",
     "LogEvent",
     "Progress",
+    "RetentionManager",
     "StateTransition",
     "TaskResult",
+    "create_event_logger",
+    "create_retention_manager",
+    "create_store",
 ]
