@@ -91,16 +91,11 @@ class EventLogger:
             "evaluation_id": evaluation_id,
         }
 
-        # Add optional correlation IDs
+        # Add optional correlation IDs (only when present to reduce log size)
         if trace_id is not None:
             event_data["trace_id"] = trace_id
-        else:
-            event_data["trace_id"] = None
-
         if session_id is not None:
             event_data["session_id"] = session_id
-        else:
-            event_data["session_id"] = None
 
         # Add any extra fields
         event_data.update(kwargs)

@@ -261,7 +261,7 @@ class TestStoreIntegration:
         - Optional trace_id and session_id when provided
         - Extra fields (domain, task_num, success_rate) are included
         """
-        eval_id = "eval-test-structured-logging"
+        eval_id = "eval-0123456789012-abcdef"
         trace_id = "abcdef1234567890abcdef1234567890"
         session_id = "sess-loggingtest"
 

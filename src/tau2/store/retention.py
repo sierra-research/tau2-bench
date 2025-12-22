@@ -5,8 +5,10 @@ Handles cleanup of expired evaluations, stale session detection,
 abandoned session cleanup, and log rotation.
 """
 
+import gzip
 import json
 import os
+import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -254,9 +256,6 @@ class RetentionManager:
 
                 # Compress if old enough but not yet compressed
                 if file_mtime < compress_cutoff:
-                    import gzip
-                    import shutil
-
                     archive_path = archive_dir / f"{log_file.name}.gz"
                     with (
                         open(log_file, "rb") as f_in,

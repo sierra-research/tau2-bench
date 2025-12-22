@@ -519,9 +519,7 @@ class TestGetEvaluationFromCompleted:
         assert evaluation is not None
         assert evaluation.status == EvaluationStatus.FAILED
 
-    def test_get_evaluation_checks_sessions_first(
-        self, store, temp_data_dir, sample_request
-    ):
+    def test_get_evaluation_checks_sessions_first(self, store, sample_request):
         """get_evaluation should check sessions directory first."""
         # Create an in-progress session
         evaluation_id = store.create_session(
@@ -651,7 +649,7 @@ class TestListEvaluations:
 class TestEvaluationIdCollision:
     """Tests for evaluation ID collision handling."""
 
-    def test_collision_raises_error(self, store, temp_data_dir, sample_request):
+    def test_collision_raises_error(self, store, sample_request):
         """create_session should raise EvaluationIdCollisionError on collision."""
         # Create a session first
         first_id = store.create_session(domain="airline", request=sample_request)

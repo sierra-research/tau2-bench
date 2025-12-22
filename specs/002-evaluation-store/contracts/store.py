@@ -52,6 +52,7 @@ class EvaluationStoreProtocol(ABC):
         """Update progress of an in-progress evaluation.
 
         Updates the progress fields and refreshes the heartbeat timestamp.
+        Transitions status from SUBMITTED to WORKING on first update.
 
         Args:
             evaluation_id: Evaluation to update
@@ -60,7 +61,7 @@ class EvaluationStoreProtocol(ABC):
 
         Raises:
             EvaluationNotFoundError: If evaluation_id not in sessions
-            InvalidStateError: If evaluation is not in WORKING state
+            InvalidStateError: If evaluation is not in SUBMITTED or WORKING state
             IOError: If unable to write to filesystem
         """
         ...

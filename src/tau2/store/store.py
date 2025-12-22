@@ -8,6 +8,9 @@ and two-directory design (sessions for in-progress, evaluations for completed).
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import ClassVar
+
+from loguru import logger
 
 from tau2.store.config import get_data_dir
 from tau2.store.exceptions import (
@@ -42,6 +45,12 @@ class EvaluationStore:
 
     All writes are atomic using temp file + rename pattern.
     """
+
+    TERMINAL_STATES: ClassVar[set[EvaluationStatus]] = {
+        EvaluationStatus.COMPLETED,
+        EvaluationStatus.FAILED,
+        EvaluationStatus.ABANDONED,
+    }
 
     def __init__(self, data_dir: Path | str | None = None):
         """Initialize the evaluation store.
@@ -148,12 +157,7 @@ class EvaluationStore:
         evaluation = Evaluation.model_validate(data)
 
         # Check for terminal states
-        terminal_states = {
-            EvaluationStatus.COMPLETED,
-            EvaluationStatus.FAILED,
-            EvaluationStatus.ABANDONED,
-        }
-        if evaluation.status in terminal_states:
+        if evaluation.status in self.TERMINAL_STATES:
             raise InvalidStateError(
                 evaluation_id,
                 evaluation.status.value,
@@ -218,12 +222,7 @@ class EvaluationStore:
         evaluation = Evaluation.model_validate(data)
 
         # Check for terminal states
-        terminal_states = {
-            EvaluationStatus.COMPLETED,
-            EvaluationStatus.FAILED,
-            EvaluationStatus.ABANDONED,
-        }
-        if evaluation.status in terminal_states:
+        if evaluation.status in self.TERMINAL_STATES:
             raise InvalidStateError(
                 evaluation_id,
                 evaluation.status.value,
@@ -248,7 +247,18 @@ class EvaluationStore:
         atomic_write(eval_path, evaluation.model_dump(mode="json"))
 
         # Remove from sessions directory
-        session_path.unlink()
+        try:
+            session_path.unlink()
+        except OSError as e:
+            logger.error(f"Failed to unlink session file {session_path}: {e}")
+            # Attempt to clean up the newly written evaluation file
+            try:
+                eval_path.unlink()
+            except OSError as cleanup_err:
+                logger.error(
+                    f"Failed to cleanup evaluation file {eval_path}: {cleanup_err}"
+                )
+            raise
 
     def fail_evaluation(
         self,
@@ -281,12 +291,7 @@ class EvaluationStore:
         evaluation = Evaluation.model_validate(data)
 
         # Check for terminal states
-        terminal_states = {
-            EvaluationStatus.COMPLETED,
-            EvaluationStatus.FAILED,
-            EvaluationStatus.ABANDONED,
-        }
-        if evaluation.status in terminal_states:
+        if evaluation.status in self.TERMINAL_STATES:
             raise InvalidStateError(
                 evaluation_id,
                 evaluation.status.value,
@@ -308,7 +313,18 @@ class EvaluationStore:
         atomic_write(eval_path, evaluation.model_dump(mode="json"))
 
         # Remove from sessions directory
-        session_path.unlink()
+        try:
+            session_path.unlink()
+        except OSError as e:
+            logger.error(f"Failed to unlink session file {session_path}: {e}")
+            # Attempt to clean up the newly written evaluation file
+            try:
+                eval_path.unlink()
+            except OSError as cleanup_err:
+                logger.error(
+                    f"Failed to cleanup evaluation file {eval_path}: {cleanup_err}"
+                )
+            raise
 
     def get_evaluation(self, evaluation_id: str) -> Evaluation | None:
         """Retrieve evaluation by ID.

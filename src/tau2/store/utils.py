@@ -41,6 +41,11 @@ def atomic_write(path: Path, data: dict[str, Any], mode: int = FILE_MODE_DATA) -
 
         temp_path.chmod(mode)
         temp_path.rename(path)  # Atomic on POSIX
+    except Exception:
+        # Clean up temp file if it exists
+        if temp_path.exists():
+            temp_path.unlink()
+        raise
     finally:
         os.umask(old_umask)
 
