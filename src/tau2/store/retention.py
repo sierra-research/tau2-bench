@@ -5,7 +5,6 @@ Handles cleanup of expired evaluations, stale session detection,
 abandoned session cleanup, and log rotation.
 """
 
-import fcntl
 import gzip
 import json
 import os
@@ -128,54 +127,49 @@ class RetentionManager:
 
         for session_file in sessions_dir.glob("*.json"):
             try:
-                # Use file locking to prevent race conditions during read-modify-write
-                with open(session_file, "r+") as f:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                    try:
-                        data = json.load(f)
+                with open(session_file) as f:
+                    data = json.load(f)
 
-                        # Skip if already abandoned
-                        if data.get("status") == EvaluationStatus.ABANDONED.value:
-                            continue
+                # Skip if already abandoned
+                if data.get("status") == EvaluationStatus.ABANDONED.value:
+                    continue
 
-                        # Determine last activity time
-                        # Priority: heartbeat > file mtime
-                        last_activity: datetime | None = None
+                # Determine last activity time
+                # Priority: heartbeat > file mtime
+                last_activity: datetime | None = None
 
-                        progress = data.get("progress")
-                        if progress is not None:
-                            heartbeat_str = progress.get("last_heartbeat")
-                            if heartbeat_str is not None:
-                                last_activity = datetime.fromisoformat(
-                                    heartbeat_str.replace("Z", "+00:00")
-                                )
+                progress = data.get("progress")
+                if progress is not None:
+                    heartbeat_str = progress.get("last_heartbeat")
+                    if heartbeat_str is not None:
+                        last_activity = datetime.fromisoformat(
+                            heartbeat_str.replace("Z", "+00:00")
+                        )
 
-                        # Fallback to file mtime for sessions without progress
-                        if last_activity is None:
-                            last_activity = datetime.fromtimestamp(
-                                session_file.stat().st_mtime, tz=timezone.utc
-                            )
+                # Fallback to file mtime for sessions without progress (e.g., SUBMITTED)
+                if last_activity is None:
+                    last_activity = datetime.fromtimestamp(
+                        session_file.stat().st_mtime, tz=timezone.utc
+                    )
 
-                        # Mark as abandoned if stale
-                        if last_activity < cutoff:
-                            data["status"] = EvaluationStatus.ABANDONED.value
+                # Mark as abandoned if stale
+                if last_activity < cutoff:
+                    data["status"] = EvaluationStatus.ABANDONED.value
 
-                            # Add to state history
-                            state_history = data.get("state_history", [])
-                            state_history.append(
-                                {
-                                    "state": EvaluationStatus.ABANDONED.value,
-                                    "at": now.isoformat().replace("+00:00", "Z"),
-                                }
-                            )
-                            data["state_history"] = state_history
+                    # Add to state history
+                    state_history = data.get("state_history", [])
+                    state_history.append(
+                        {
+                            "state": EvaluationStatus.ABANDONED.value,
+                            "at": now.isoformat().replace("+00:00", "Z"),
+                        }
+                    )
+                    data["state_history"] = state_history
 
-                            # Write updated data while still holding lock
-                            atomic_write(session_file, data)
+                    # Write updated data
+                    atomic_write(session_file, data)
 
-                            abandoned.append(data["evaluation_id"])
-                    finally:
-                        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                    abandoned.append(data["evaluation_id"])
 
             except (OSError, json.JSONDecodeError, KeyError):
                 # Skip files that can't be read or parsed
