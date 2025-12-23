@@ -1,0 +1,213 @@
+openapi: 3.1.0
+info:
+  title: tau2 Streaming Event Schemas
+  version: 1.0.0
+  description: |
+    Shared A2A-compliant SSE event schemas for tau2_agent evaluations.
+    These schemas are used by both the structured path (004-gym-evaluation)
+    and natural language path.
+
+    Events are sent as Server-Sent Events (SSE) with `Content-Type: text/event-stream`.
+    Each event's `data` field contains a JSON-serialized object.
+
+components:
+  schemas:
+    # A2A Task States (subset used by tau2)
+    Tau2TaskState:
+      type: string
+      enum:
+        - submitted
+        - working
+        - completed
+        - failed
+      description: tau2 evaluation task lifecycle state
+
+    # tau2-specific metadata (tau2.* namespace)
+    Tau2Metadata:
+      type: object
+      description: |
+        tau2-specific metadata fields. All keys use the 'tau2.' prefix
+        to avoid collisions with ADK or other middleware metadata.
+      properties:
+        tau2.state:
+          $ref: '#/components/schemas/Tau2TaskState'
+        tau2.progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Percent complete
+        tau2.completed_tasks:
+          type: integer
+          minimum: 0
+          description: Number of tasks completed
+        tau2.total_tasks:
+          type: integer
+          minimum: 0
+          description: Total number of tasks
+        tau2.current_task_id:
+          type: string
+          description: ID of task currently being evaluated
+        tau2.current_trial:
+          type: integer
+          minimum: 1
+          description: Current trial number
+        tau2.total_trials:
+          type: integer
+          minimum: 1
+          description: Total trials per task
+        tau2.elapsed_seconds:
+          type: number
+          minimum: 0
+          description: Seconds since evaluation started
+        tau2.evaluation_id:
+          type: string
+          pattern: '^eval-\d+-[a-z0-9]{6}$'
+          description: Unique evaluation identifier
+        tau2.domain:
+          type: string
+          enum: [airline, retail, telecom, mock]
+          description: Evaluation domain
+        tau2.agent_endpoint:
+          type: string
+          format: uri
+          description: URL of agent being evaluated
+        tau2.error:
+          type: string
+          description: Error message (for failed state)
+        tau2.error_code:
+          type: string
+          description: Error code (for failed state)
+
+    # Evaluation results structure
+    EvaluationSummary:
+      type: object
+      description: Aggregated evaluation metrics
+      properties:
+        total_simulations:
+          type: integer
+        total_tasks:
+          type: integer
+        successful_simulations:
+          type: integer
+        success_rate:
+          type: number
+          minimum: 0
+          maximum: 1
+        avg_reward:
+          type: number
+        pass_hat_k:
+          type: object
+        avg_agent_cost:
+          type: number
+
+    TaskResult:
+      type: object
+      properties:
+        task_id:
+          type: string
+        purpose:
+          type: string
+        reward:
+          type: number
+        success:
+          type: boolean
+
+    EvaluationResults:
+      type: object
+      required:
+        - evaluation_id
+        - status
+        - summary
+      properties:
+        evaluation_id:
+          type: string
+        status:
+          type: string
+          enum: [completed, failed]
+        timestamp:
+          type: string
+          format: date-time
+        domain:
+          type: string
+        agent_endpoint:
+          type: string
+          format: uri
+        summary:
+          $ref: '#/components/schemas/EvaluationSummary'
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskResult'
+        duration_seconds:
+          type: number
+        error:
+          type: string
+          nullable: true
+
+# Example SSE events (tau2 evaluation flow)
+x-examples:
+  evaluation-stream:
+    description: Example SSE stream for a tau2 evaluation
+    events:
+      - comment: "Initial submitted state"
+        data: |
+          {
+            "statusUpdate": {
+              "taskId": "eval-1732449600000-a1b2c3",
+              "status": {"state": "submitted"},
+              "metadata": {
+                "tau2.state": "submitted",
+                "tau2.domain": "airline",
+                "tau2.total_tasks": 5
+              }
+            }
+          }
+
+      - comment: "Working state with progress"
+        data: |
+          {
+            "statusUpdate": {
+              "taskId": "eval-1732449600000-a1b2c3",
+              "status": {"state": "working"},
+              "metadata": {
+                "tau2.state": "working",
+                "tau2.progress": 40,
+                "tau2.completed_tasks": 2,
+                "tau2.total_tasks": 5,
+                "tau2.current_task_id": "airline_003"
+              }
+            }
+          }
+
+      - comment: "Completed with artifact"
+        data: |
+          {
+            "artifactUpdate": {
+              "taskId": "eval-1732449600000-a1b2c3",
+              "artifact": {
+                "name": "evaluation_results",
+                "parts": [{
+                  "data": {
+                    "evaluation_id": "eval-1732449600000-a1b2c3",
+                    "status": "completed",
+                    "summary": {"success_rate": 0.8, "total_tasks": 5}
+                  }
+                }]
+              },
+              "lastChunk": true
+            }
+          }
+
+      - comment: "Final completion"
+        data: |
+          {
+            "statusUpdate": {
+              "taskId": "eval-1732449600000-a1b2c3",
+              "status": {"state": "completed"},
+              "final": true,
+              "metadata": {
+                "tau2.state": "completed",
+                "tau2.progress": 100
+              }
+            }
+          }

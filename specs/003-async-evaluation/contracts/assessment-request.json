@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentbeats.dev/schemas/assessment-request.json",
+  "title": "AgentBeats Assessment Request",
+  "description": "Request format sent by AgentBeats platform to tau2_agent for evaluation",
+  "type": "object",
+  "required": ["participants"],
+  "properties": {
+    "participants": {
+      "type": "object",
+      "description": "Map of participant roles to their endpoints",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "format": "uri",
+        "pattern": "^https?://"
+      },
+      "examples": [
+        {"agent": "http://my-agent:8000"},
+        {"purple_agent": "https://agent.example.com/a2a"}
+      ]
+    },
+    "config": {
+      "type": "object",
+      "description": "Evaluation configuration options",
+      "properties": {
+        "domain": {
+          "type": "string",
+          "enum": ["airline", "retail", "telecom", "mock"],
+          "default": "mock",
+          "description": "Evaluation domain"
+        },
+        "num_tasks": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of tasks to evaluate (default: all in domain)"
+        },
+        "num_trials": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "Number of trials per task"
+        },
+        "max_steps": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 100,
+          "description": "Maximum steps per simulation"
+        },
+        "task_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Specific task IDs to evaluate"
+        },
+        "user_llm": {
+          "type": "string",
+          "description": "LLM model for user simulator",
+          "examples": ["gpt-4o", "openai/gpt-4o-mini"]
+        },
+        "user_llm_args": {
+          "type": "object",
+          "description": "Additional arguments for user LLM",
+          "properties": {
+            "temperature": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2
+            },
+            "api_key": {
+              "type": "string"
+            },
+            "api_base": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "participants": {
+        "agent": "http://my-agent:8000"
+      },
+      "config": {
+        "domain": "airline",
+        "num_tasks": 5,
+        "num_trials": 1
+      }
+    },
+    {
+      "participants": {
+        "purple_agent": "https://agent.example.com/a2a/my_agent"
+      },
+      "config": {
+        "domain": "retail",
+        "task_ids": ["task_1", "task_2", "task_3"],
+        "user_llm": "gpt-4o",
+        "user_llm_args": {
+          "temperature": 0.0
+        }
+      }
+    }
+  ]
+}
