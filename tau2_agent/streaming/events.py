@@ -19,8 +19,8 @@ TaskState = Literal["submitted", "working", "completed", "failed"]
 
 __all__ = [
     "TaskState",
-    "create_adk_progress_event",
     "create_adk_error_event",
+    "create_adk_progress_event",
     "create_adk_result_event",
 ]
 
@@ -61,7 +61,6 @@ def create_adk_progress_event(
 
     # Add progress metadata if provided
     if progress is not None:
-        metadata[TAU2_PROGRESS] = progress.percent
         metadata.update(progress.to_metadata())
     else:
         metadata[TAU2_PROGRESS] = 0 if state == "submitted" else 100

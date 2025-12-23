@@ -381,7 +381,7 @@ async def test_run_tau2_evaluation_error_event(mock_tool_context):
         name="run_tau2_evaluation", description="Run tau2-bench evaluation"
     )
 
-    mock_results, mock_metrics, mock_tasks = _create_mock_evaluation_results(
+    _mock_results, _mock_metrics, mock_tasks = _create_mock_evaluation_results(
         num_tasks=2
     )
 

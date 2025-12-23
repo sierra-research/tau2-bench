@@ -5,11 +5,13 @@ Verifies that existing LLM agent interface methods work unchanged after A2A inte
 These tests complement tests/test_agent.py with interface-specific checks.
 """
 
-import pytest
 from unittest.mock import Mock, patch
 
+import pytest
+
+from tau2.agent.base import LocalAgent
 from tau2.agent.llm_agent import LLMAgent, LLMAgentState
-from tau2.data_model.message import UserMessage, AssistantMessage
+from tau2.data_model.message import AssistantMessage, UserMessage
 from tau2.environment.tool import Tool
 
 
@@ -69,8 +71,8 @@ class TestLLMAgentNoBreakingChanges:
 
     def test_llm_agent_imports_unchanged(self):
         """Test that LLMAgent imports work as before."""
-        from tau2.agent.llm_agent import LLMAgent, LLMAgentState, LLMGTAgent, LLMSoloAgent
-        from tau2.agent.base import BaseAgent, LocalAgent
+        from tau2.agent.base import BaseAgent
+        from tau2.agent.llm_agent import LLMGTAgent, LLMSoloAgent
 
         assert LLMAgent is not None
         assert LLMAgentState is not None
@@ -81,8 +83,6 @@ class TestLLMAgentNoBreakingChanges:
 
     def test_llm_agent_inherits_from_local_agent(self):
         """Test LLMAgent still inherits from LocalAgent."""
-        from tau2.agent.base import LocalAgent
-
         assert issubclass(LLMAgent, LocalAgent)
 
     def test_llm_agent_constructor_signature_unchanged(self, mock_tools):
