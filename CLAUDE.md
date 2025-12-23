@@ -28,7 +28,6 @@ Python 3.10+ (per tau2-bench pyproject.toml requires-python): Follow standard co
 
 ## Recent Changes
 - 003-async-evaluation: Added Python 3.10+ (per tau2-bench pyproject.toml `requires-python = ">=3.10"`)
-- 003-async-evaluation: Added Python 3.10+ (per tau2-bench pyproject.toml `requires-python = ">=3.10"`)
 - 002-evaluation-store: Added Python 3.10+ (matches tau2-bench pyproject.toml requires-python) + pydantic (data models), loguru (logging), pathlib (file operations)
 
 

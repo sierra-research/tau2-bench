@@ -17,6 +17,7 @@ Tracks evaluation progress for streaming updates.
 ```python
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Any
 
 @dataclass
 class EvaluationProgress:
@@ -47,7 +48,7 @@ class EvaluationProgress:
             return 0.0
         return (datetime.now(timezone.utc) - self.started_at).total_seconds()
 
-    def to_metadata(self) -> dict[str, any]:
+    def to_metadata(self) -> dict[str, Any]:
         """Convert to tau2-namespaced metadata dict for event emission."""
         return {
             "tau2.progress": self.percent,
@@ -80,7 +81,7 @@ Standard metadata fields for tau2 streaming events.
 
 ```python
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 TaskState = Literal["submitted", "working", "completed", "failed"]
 
@@ -111,7 +112,7 @@ class Tau2EventMetadata:
     error: str | None = None
     error_code: str | None = None
 
-    def to_dict(self) -> dict[str, any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to namespaced dict, excluding None values."""
         result = {"tau2.state": self.state}
 
@@ -172,7 +173,9 @@ def create_adk_error_event(
     error_code: str | None = None,
     **extra_metadata,
 ) -> Event:
-    """Create ADK Event for error/failure state.
+    """Create ADK Event representing a failed task state.
+
+    The state field is implicitly set to "failed".
 
     Args:
         invocation_id: ADK invocation ID
