@@ -2,7 +2,7 @@
 End-to-end tests for A2A protocol compliance with ADK agents.
 
 These tests verify the A2A protocol communication works correctly
-with any ADK agent server.
+with any ADK agent server, including tau2-bench evaluation integration.
 
 All tests are marked with @pytest.mark.a2a_e2e and are NOT run by default.
 Run explicitly with: pytest -m a2a_e2e
@@ -273,3 +273,5 @@ async def test_e2e_concurrent_requests(adk_server):
             if isinstance(resp, Exception):
                 pytest.fail(f"Request {i} failed: {resp}")
             assert resp.status_code == 200, f"Request {i} returned {resp.status_code}"
+
+

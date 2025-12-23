@@ -20,7 +20,10 @@ import pytest_asyncio
 from tau2.a2a.client import A2AClient
 from tau2.a2a.models import A2AConfig
 
+
 # Test configuration - use unique port to avoid conflicts
+# Note: LLM config fixtures (nebius_llm_config, anthropic_user_llm_config, etc.)
+# are defined in the root tests/conftest.py and inherited by all test modules.
 ADK_SERVER_HOST = "localhost"
 ADK_SERVER_PORT = int(os.environ.get("E2E_TEST_PORT", "8765"))  # Unique test port
 ADK_SERVER_BASE_URL = f"http://{ADK_SERVER_HOST}:{ADK_SERVER_PORT}"
