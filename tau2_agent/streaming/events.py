@@ -36,15 +36,17 @@ def create_adk_progress_event(
     """Create ADK Event with tau2 progress metadata.
 
     ADK's A2aAgentExecutor converts this to TaskStatusUpdateEvent for SSE.
-    Required metadata: tau2.state, tau2.progress, tau2.evaluation_id
+
+    Required metadata: tau2.state, tau2.progress
+    Optional metadata: tau2.evaluation_id (included only if provided)
 
     Args:
         invocation_id: ADK invocation ID for event correlation
         state: Task state (submitted, working, completed, failed)
         message: Human-readable status message
-        evaluation_id: Unique evaluation identifier
+        evaluation_id: Optional evaluation identifier (included in metadata if not None)
         progress: Optional EvaluationProgress for detailed tracking
-        **extra_metadata: Additional tau2-namespaced metadata
+        **extra_metadata: Additional tau2-namespaced fields merged into metadata
 
     Returns:
         ADK Event that will be converted to TaskStatusUpdateEvent by ADK
@@ -59,11 +61,19 @@ def create_adk_progress_event(
         TAU2_STATE: state,
     }
 
-    # Add progress metadata if provided
+    # Add progress metadata
     if progress is not None:
         metadata.update(progress.to_metadata())
+    elif state == "submitted":
+        metadata[TAU2_PROGRESS] = 0
+    elif state == "working":
+        raise ValueError(
+            "progress is required for 'working' state; "
+            "provide an EvaluationProgress instance"
+        )
     else:
-        metadata[TAU2_PROGRESS] = 0 if state == "submitted" else 100
+        # Terminal states (completed, failed): default to 100%
+        metadata[TAU2_PROGRESS] = 100
 
     # Add evaluation ID if provided
     if evaluation_id is not None:

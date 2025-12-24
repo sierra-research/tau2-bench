@@ -54,8 +54,8 @@ class TestLLMAgentInterface:
         # Should not raise exception
         llm_agent.stop(message=user_msg, state=state)
 
-    def test_is_stop_method_exists(self, llm_agent):
-        """Test is_stop class method exists."""
+    def test_is_stop_returns_false_by_default(self, llm_agent):
+        """Test is_stop class method behavior (defaults to False)."""
         msg = AssistantMessage(role="assistant", content="Goodbye!", tool_calls=[])
         result = llm_agent.is_stop(msg)
         assert result is False  # Default behavior

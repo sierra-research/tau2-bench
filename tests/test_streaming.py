@@ -262,11 +262,14 @@ class TestCreateAdkProgressEventWorking:
     def test_produces_event_with_state_working(self) -> None:
         """Produces Event with state=working."""
         from tau2_agent.streaming.events import create_adk_progress_event
+        from tau2_agent.streaming.progress import EvaluationProgress
 
+        progress = EvaluationProgress(total_tasks=10, completed_tasks=3)
         event = create_adk_progress_event(
             invocation_id="test-123",
             state="working",
             message="Processing task",
+            progress=progress,
         )
 
         assert event.custom_metadata["tau2.state"] == "working"
@@ -287,6 +290,19 @@ class TestCreateAdkProgressEventWorking:
         assert event.custom_metadata["tau2.progress"] == 50
         assert event.custom_metadata["tau2.completed_tasks"] == 5
         assert event.custom_metadata["tau2.total_tasks"] == 10
+
+    def test_working_state_requires_progress(self) -> None:
+        """Working state without progress raises ValueError."""
+        import pytest
+
+        from tau2_agent.streaming.events import create_adk_progress_event
+
+        with pytest.raises(ValueError, match="progress is required for 'working' state"):
+            create_adk_progress_event(
+                invocation_id="test-123",
+                state="working",
+                message="Processing task",
+            )
 
 
 class TestCreateAdkProgressEventWithProgressObject:
@@ -443,12 +459,15 @@ class TestRequiredMetadataPresent:
     def test_progress_event_has_required_metadata(self) -> None:
         """Progress events have tau2.state, tau2.progress, tau2.evaluation_id."""
         from tau2_agent.streaming.events import create_adk_progress_event
+        from tau2_agent.streaming.progress import EvaluationProgress
 
+        progress = EvaluationProgress(total_tasks=10, completed_tasks=5)
         event = create_adk_progress_event(
             invocation_id="test-123",
             state="working",
             message="Processing",
             evaluation_id="eval-456",
+            progress=progress,
         )
 
         assert "tau2.state" in event.custom_metadata
@@ -490,11 +509,14 @@ class TestExtraMetadata:
     def test_progress_event_accepts_extra_metadata(self) -> None:
         """Extra metadata can be passed to progress events."""
         from tau2_agent.streaming.events import create_adk_progress_event
+        from tau2_agent.streaming.progress import EvaluationProgress
 
+        progress = EvaluationProgress(total_tasks=10, completed_tasks=5)
         event = create_adk_progress_event(
             invocation_id="test-123",
             state="working",
             message="Processing",
+            progress=progress,
             **{
                 "tau2.domain": "airline",
                 "tau2.agent_endpoint": "http://localhost:8080",
