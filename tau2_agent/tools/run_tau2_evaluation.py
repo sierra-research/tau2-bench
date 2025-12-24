@@ -2,16 +2,31 @@
 RunTau2Evaluation tool for ADK agent.
 
 This tool enables external agents to request tau2-bench evaluations via A2A protocol.
+Emits SSE progress events during evaluation for real-time monitoring.
 """
 
 import asyncio
 import os
+from collections.abc import AsyncIterator
 from typing import Any
 
+from google.adk.events.event import Event
 from google.adk.tools import BaseTool
 from google.adk.tools.tool_context import ToolContext
 from google.genai import types
 from loguru import logger
+
+from tau2.store.utils import generate_evaluation_id
+from tau2_agent.streaming import (
+    EvaluationProgress,
+    create_adk_error_event,
+    create_adk_progress_event,
+    create_adk_result_event,
+)
+from tau2_agent.streaming.metadata import (
+    TAU2_AGENT_ENDPOINT,
+    TAU2_DOMAIN,
+)
 
 DEFAULT_USER_LLM = (
     "openai/Qwen/Qwen3-30B-A3B-Thinking-2507"
@@ -85,11 +100,14 @@ class RunTau2Evaluation(BaseTool):
             ),
         )
 
-    async def run_async(
+    async def run_async(  # type: ignore[override]
         self, *, args: dict[str, Any], tool_context: ToolContext
-    ) -> Any:
+    ) -> AsyncIterator[Event]:
         """
         Invoke the tool via the ADK function-calling interface using the supplied arguments and context.
+
+        This method returns an AsyncIterator that yields ADK Event objects for SSE streaming.
+        Events include progress updates, error states, and final results.
 
         Parameters:
             args (dict[str, Any]): Input fields expected by the tool. Recognized keys:
@@ -101,23 +119,30 @@ class RunTau2Evaluation(BaseTool):
                 - task_ids (list[str] | None): Specific task IDs to evaluate (optional).
             tool_context (ToolContext): ADK-provided execution context for the tool.
 
-        Returns:
-            dict[str, Any]: Structured evaluation result (e.g., status, timestamp, summary, tasks) produced by the execution.
+        Yields:
+            Event: ADK Event objects with tau2 metadata for SSE streaming:
+                - submitted: Initial acknowledgment event
+                - working: Progress update events (emitted per task)
+                - completed: Final result event with evaluation results
+                - failed: Error event if evaluation fails
         """
         domain = args.get("domain")
         agent_endpoint = args.get("agent_endpoint")
         if not isinstance(domain, str) or not isinstance(agent_endpoint, str):
             msg = "domain and agent_endpoint must be strings"
             raise TypeError(msg)
-        return await self._execute(
-            _tool_context=tool_context,
+
+        # Delegate to async generator
+        async for event in self._execute_streaming(
+            tool_context=tool_context,
             domain=domain,
             agent_endpoint=agent_endpoint,
             user_llm=args.get("user_llm", DEFAULT_USER_LLM),
             num_trials=args.get("num_trials", 1),
             num_tasks=args.get("num_tasks"),
             task_ids=args.get("task_ids"),
-        )
+        ):
+            yield event
 
     async def _execute(
         self,
@@ -281,3 +306,155 @@ class RunTau2Evaluation(BaseTool):
                 exc_info=True,
             )
             raise
+
+    async def _execute_streaming(
+        self,
+        tool_context: ToolContext,
+        domain: str,
+        agent_endpoint: str,
+        user_llm: str = DEFAULT_USER_LLM,
+        num_trials: int = 1,
+        num_tasks: int | None = None,
+        task_ids: list[str] | None = None,
+    ) -> AsyncIterator[Event]:
+        """Run tau2-bench evaluation with SSE streaming events.
+
+        Wraps the _execute method with streaming event emission for real-time
+        progress monitoring. Emits events with tau2 metadata for tracing.
+
+        Parameters:
+            tool_context (ToolContext): ADK-provided execution context.
+            domain (str): Evaluation domain identifier.
+            agent_endpoint (str): A2A endpoint URL of the agent under test.
+            user_llm (str): LLM model identifier for user simulator.
+            num_trials (int): Number of trials per task.
+            num_tasks (int | None): Optional number of tasks to evaluate.
+            task_ids (list[str] | None): Optional explicit list of task IDs.
+
+        Yields:
+            Event: ADK Event objects for SSE streaming with tau2 metadata:
+                - tau2.evaluation_id: Unique evaluation correlation ID
+                - tau2.domain: Evaluation domain
+                - tau2.agent_endpoint: Agent being evaluated
+                - tau2.state: Current state (submitted/working/completed/failed)
+                - tau2.progress: Completion percentage (0-100)
+                - tau2.current_task_id: Task currently being evaluated (for working state)
+        """
+        # Generate evaluation ID for event correlation
+        # Note: This is a correlation ID for streaming. Full store integration
+        # (calling store.create_session) is a separate concern.
+        evaluation_id = generate_evaluation_id()
+        invocation_id = tool_context.invocation_id or evaluation_id
+
+        # Common trace context metadata for all events
+        # These fields support 007-datadog instrumentation
+        trace_context = {
+            TAU2_DOMAIN: domain,
+            TAU2_AGENT_ENDPOINT: agent_endpoint,
+        }
+
+        try:
+            # Import tau2-bench components
+            from tau2.registry import registry
+            from tau2.run import load_tasks
+
+            # Validate domain
+            valid_domains = registry.get_domains()
+            if domain not in valid_domains:
+                msg = f"Invalid domain: {domain}. Must be one of {valid_domains}"
+                raise ValueError(msg)
+
+            # Get task count for progress tracking
+            # Use provided task_ids count, num_tasks, or load from domain
+            if task_ids:
+                estimated_task_count = len(task_ids)
+            elif num_tasks:
+                estimated_task_count = num_tasks
+            else:
+                # Load domain tasks to get count
+                try:
+                    domain_tasks = load_tasks(domain)
+                    estimated_task_count = len(domain_tasks)
+                except Exception:
+                    # Fallback if tasks can't be loaded
+                    estimated_task_count = 0
+
+            # Initialize progress tracker
+            progress = EvaluationProgress(
+                total_tasks=estimated_task_count,
+                total_trials=num_trials,
+            )
+
+            # Emit submitted event
+            yield create_adk_progress_event(
+                invocation_id=invocation_id,
+                state="submitted",
+                message=f"Starting {domain} evaluation with {estimated_task_count} tasks",
+                evaluation_id=evaluation_id,
+                progress=progress,
+                **trace_context,
+            )
+
+            # Run the evaluation (this blocks while evaluation runs)
+            result = await self._execute(
+                _tool_context=tool_context,
+                domain=domain,
+                agent_endpoint=agent_endpoint,
+                user_llm=user_llm,
+                num_trials=num_trials,
+                num_tasks=num_tasks,
+                task_ids=task_ids,
+            )
+
+            # Update progress based on actual results
+            actual_task_count = result["summary"]["total_tasks"]
+            progress = EvaluationProgress(
+                total_tasks=actual_task_count,
+                completed_tasks=actual_task_count,
+                total_trials=num_trials,
+            )
+
+            # Emit working events for each completed task
+            # Note: Since run_domain is synchronous, we emit progress after completion
+            for task in result.get("tasks", []):
+                task_id = task.get("task_id", "unknown")
+                progress.current_task_id = task_id
+
+                yield create_adk_progress_event(
+                    invocation_id=invocation_id,
+                    state="working",
+                    message=f"Completed task {task_id}",
+                    evaluation_id=evaluation_id,
+                    progress=progress,
+                    **trace_context,
+                )
+
+            # Emit final result event
+            yield create_adk_result_event(
+                invocation_id=invocation_id,
+                evaluation_id=evaluation_id,
+                results=result,
+                message=f"Evaluation complete: {result['summary']['successful_simulations']}/{result['summary']['total_simulations']} simulations successful",
+                **trace_context,
+            )
+
+        except ValueError as e:
+            # Invalid parameters - emit error event
+            yield create_adk_error_event(
+                invocation_id=invocation_id,
+                evaluation_id=evaluation_id,
+                error_message=str(e),
+                error_code="INVALID_PARAMETERS",
+                **trace_context,
+            )
+
+        except Exception as e:
+            # Unexpected error - emit error event
+            error_message = str(e) if str(e) else type(e).__name__
+            yield create_adk_error_event(
+                invocation_id=invocation_id,
+                evaluation_id=evaluation_id,
+                error_message=error_message,
+                error_code="EVALUATION_FAILED",
+                **trace_context,
+            )

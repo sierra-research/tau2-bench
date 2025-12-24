@@ -333,43 +333,97 @@ def configure_test_logging():
     logger.info("Test session complete")
 
 
-@pytest.fixture
-def debug_logging():
-    """
-    Enable DEBUG level logging for specific tests.
-
-    Usage:
-        @pytest.mark.asyncio
-        async def test_something(debug_logging):
-            # This test will see DEBUG logs
-            pass
-    """
-    handler_id = logger.add(
-        sys.stderr,
-        level="DEBUG",
-        format="<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
-        colorize=True,
-    )
-    yield
-    logger.remove(handler_id)
+# =============================================================================
+# Mock HTTP Fixtures for Metrics Testing
+# =============================================================================
 
 
 @pytest.fixture
-def trace_logging():
-    """
-    Enable TRACE level logging for specific tests.
+def mock_httpx_client():
+    """Create a mock httpx AsyncClient for testing."""
+    from unittest.mock import AsyncMock, Mock
 
-    Usage:
-        @pytest.mark.asyncio
-        async def test_something(trace_logging):
-            # This test will see TRACE logs (most verbose)
-            pass
-    """
-    handler_id = logger.add(
-        sys.stderr,
-        level="TRACE",
-        format="<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-        colorize=True,
+    mock_response = Mock(spec=httpx.Response)
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "jsonrpc": "2.0",
+        "id": "test-id",
+        "result": {
+            "message": {
+                "messageId": "msg-001",
+                "role": "agent",
+                "parts": [{"text": "Hello from mock agent"}],
+                "contextId": "mock-context-123",
+            }
+        },
+    }
+
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.post.return_value = mock_response
+    mock_client.get.return_value = mock_response
+    mock_client.aclose.return_value = None
+
+    return mock_client
+
+
+@pytest.fixture
+def mock_httpx_error_client():
+    """Create a mock httpx AsyncClient that returns errors."""
+    from unittest.mock import AsyncMock, Mock
+
+    mock_response = Mock(spec=httpx.Response)
+    mock_response.status_code = 500
+    mock_response.json.return_value = {
+        "jsonrpc": "2.0",
+        "id": "test-id",
+        "error": {
+            "code": -32603,
+            "message": "Internal server error",
+        },
+    }
+
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.post.return_value = mock_response
+
+    return mock_client
+
+
+@pytest.fixture
+def mock_a2a_agent_with_metrics():
+    """Create a mock A2AAgent with metrics collection enabled."""
+    from unittest.mock import AsyncMock, Mock
+
+    from tau2.a2a.models import A2AConfig
+    from tau2.agent.a2a_agent import A2AAgent
+
+    config = A2AConfig(endpoint="http://localhost:8080")
+
+    mock_response_data = {
+        "jsonrpc": "2.0",
+        "id": "test-id",
+        "result": {
+            "message": {
+                "messageId": "msg-001",
+                "role": "agent",
+                "parts": [{"text": "Mock response"}],
+                "contextId": "ctx-123",
+            }
+        },
+    }
+
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = mock_response_data
+
+    mock_client = AsyncMock()
+    mock_client.post.return_value = mock_response
+    mock_client.aclose.return_value = None
+
+    agent = A2AAgent(
+        config=config,
+        tools=[],
+        domain_policy="Test policy",
+        http_client=mock_client,
     )
-    yield
-    logger.remove(handler_id)
+
+    return agent, mock_client

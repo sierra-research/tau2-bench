@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tau2-bench.example.com/schemas/agent-card.json",
+  "title": "tau2_agent Agent Card",
+  "description": "A2A Agent Card for tau2_agent with streaming capability enabled",
+  "type": "object",
+  "required": ["name", "url", "capabilities"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "const": "tau2_agent",
+      "description": "Agent identifier"
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Agent endpoint URL (set via --card-url or AGENT_CARD_URL env var)"
+    },
+    "description": {
+      "type": "string",
+      "default": "Agent evaluation service using tau2-bench framework. Evaluates conversational agents across airline, retail, and telecom customer service domains."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "default": "1.0.0"
+    },
+    "capabilities": {
+      "type": "object",
+      "required": ["streaming"],
+      "properties": {
+        "streaming": {
+          "type": "boolean",
+          "const": true,
+          "description": "SSE streaming is enabled for long-running evaluations"
+        },
+        "pushNotifications": {
+          "type": "boolean",
+          "default": false,
+          "description": "Push notifications not supported"
+        }
+      }
+    },
+    "defaultInputModes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": ["text/plain"]
+    },
+    "defaultOutputModes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": ["text/plain"]
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "default": [
+        {
+          "id": "run-evaluation",
+          "name": "Run Evaluation",
+          "description": "Execute tau2-bench evaluation of a conversational agent with streaming progress updates",
+          "tags": ["evaluation", "benchmark", "testing", "streaming"]
+        },
+        {
+          "id": "list-domains",
+          "name": "List Domains",
+          "description": "List available evaluation domains",
+          "tags": ["domains", "info"]
+        },
+        {
+          "id": "get-results",
+          "name": "Get Results",
+          "description": "Retrieve detailed evaluation results by evaluation ID",
+          "tags": ["results", "metrics"]
+        }
+      ]
+    }
+  },
+  "examples": [
+    {
+      "name": "tau2_agent",
+      "url": "http://tau2-agent:8001",
+      "description": "Agent evaluation service using tau2-bench framework. Evaluates conversational agents across airline, retail, and telecom customer service domains.",
+      "version": "1.0.0",
+      "capabilities": {
+        "streaming": true,
+        "pushNotifications": false
+      },
+      "defaultInputModes": ["text/plain"],
+      "defaultOutputModes": ["text/plain"],
+      "skills": [
+        {
+          "id": "run-evaluation",
+          "name": "Run Evaluation",
+          "description": "Execute tau2-bench evaluation of a conversational agent with streaming progress updates",
+          "tags": ["evaluation", "benchmark", "testing", "streaming"]
+        },
+        {
+          "id": "list-domains",
+          "name": "List Domains",
+          "description": "List available evaluation domains",
+          "tags": ["domains", "info"]
+        },
+        {
+          "id": "get-results",
+          "name": "Get Results",
+          "description": "Retrieve detailed evaluation results by evaluation ID",
+          "tags": ["results", "metrics"]
+        }
+      ]
+    }
+  ]
+}
