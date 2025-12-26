@@ -24,6 +24,11 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 2. **Load context**: Read FEATURE_SPEC and `.specify/memory/constitution.md`. Load IMPL_PLAN template (already copied).
 
+   **Checklist gate**: Check if `FEATURE_DIR/checklists/requirements.md` exists.
+   - If missing: Warn user - "No requirements checklist found. Consider running `/speckit.checklist requirements` first to validate spec quality."
+   - If exists but incomplete: Warn user - "Requirements checklist has incomplete items. Review before proceeding."
+   - Continue regardless (soft gate), but document warning in output.
+
 3. **Execute plan workflow**: Follow the structure in IMPL_PLAN template to:
    - Fill Technical Context (mark unknowns as "NEEDS CLARIFICATION")
    - Fill Constitution Check section from constitution
@@ -53,12 +58,26 @@ You **MUST** consider the user input before proceeding (if not empty).
      Task: "Find best practices for {tech} in {domain}"
    ```
 
-3. **Consolidate findings** in `research.md` using format:
-   - Decision: [what was chosen]
-   - Rationale: [why chosen]
-   - Alternatives considered: [what else evaluated]
+3. **Consolidate findings** in `research.md` using the structured template from `.specify/templates/research-template.md`:
 
-**Output**: research.md with all NEEDS CLARIFICATION resolved
+   **CRITICAL**: Use the exact template format to enable automated parsing by `/speckit.tasks` and `/speckit.verify`.
+
+   **Required sections**:
+   - `## Dependencies`: Runtime and Development dependency tables with version constraints
+   - `## Decision Registry`: Each decision as `### DEC-XXX:` block with:
+     - **Decision**: Concrete choice made
+     - **Pattern**: Code pattern to verify (searchable string)
+     - **Verify In**: File path or glob where pattern should appear
+     - **Rationale**: Why this choice
+     - **Alternatives Rejected**: What wasn't chosen and why
+     - **Verification Points**: Checkable items (become checklist items)
+
+   **Version Management**:
+   - Pin all dependencies with version constraints (>=X.Y.Z or ==X.Y.Z)
+   - Link to package registry for verification (PyPI, npm, etc.)
+   - Document version constraints and incompatibilities
+
+**Output**: research.md with all NEEDS CLARIFICATION resolved, structured for automated verification
 
 ### Phase 1: Design & Contracts
 
