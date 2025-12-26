@@ -82,7 +82,7 @@ async def test_concurrent_evaluations_unique_files(a2e_server: A2EServer):
     # Verify unique evaluation IDs
     eval_ids = set()
     for f in new_files:
-        with open(f) as fp:
+        with open(f, encoding="utf-8") as fp:
             data = json.load(fp)
         eid = data.get("evaluation_id")
         assert eid is not None, f"Missing evaluation_id in {f}"

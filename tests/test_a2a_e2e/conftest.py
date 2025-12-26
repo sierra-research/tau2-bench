@@ -262,25 +262,15 @@ async def send_a2a_evaluation_request(
             async for chunk in response.aiter_text():
                 buffer += chunk
 
-                # Process complete SSE events (separated by \n\n or single lines)
+                # Process only complete SSE events (delimited by \n\n)
+                # Do NOT split on single \n - multi-line events may span chunks
                 while "\n\n" in buffer:
                     event_text, buffer = buffer.split("\n\n", 1)
                     event_data = parse_sse_event(event_text)
                     if event_data:
                         yield event_data
 
-                # Process single-line events
-                lines = buffer.split("\n")
-                complete_lines = lines[:-1]
-                buffer = lines[-1] if lines else ""
-
-                for line in complete_lines:
-                    if line.strip():
-                        event_data = parse_sse_event(line)
-                        if event_data:
-                            yield event_data
-
-            # Handle remaining buffer
+            # After stream ends, parse remaining buffer if non-empty
             if buffer.strip():
                 event_data = parse_sse_event(buffer)
                 if event_data:
@@ -743,7 +733,7 @@ class EvaluationResult:
 
 
 @pytest.fixture(scope="module")
-def _cached_evaluation(a2e_server: A2EServer, request) -> EvaluationResult:
+def _cached_evaluation(a2e_server: A2EServer) -> EvaluationResult:
     """Run one evaluation and cache results for module.
 
     This fixture is module-scoped so all tests in a file share
@@ -778,7 +768,7 @@ def _cached_evaluation(a2e_server: A2EServer, request) -> EvaluationResult:
     if eval_files:
         eval_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
         eval_file = eval_files[0]
-        with open(eval_file) as f:
+        with open(eval_file, encoding="utf-8") as f:
             eval_data = json.load(f)
 
     return EvaluationResult(events=events, eval_file=eval_file, eval_data=eval_data)
