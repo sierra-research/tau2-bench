@@ -202,7 +202,8 @@ def mock_agent_server(tmp_path_factory):
                 process.terminate()
             stdout, stderr = process.communicate(timeout=5)
             pytest.fail(
-                f"Mock agent server did not become ready within {SERVER_STARTUP_TIMEOUT}s.\n"
+                f"Mock agent server did not become ready "
+                f"within {SERVER_STARTUP_TIMEOUT}s.\n"
                 f"URL checked: {agent_card_url}\n"
                 f"Last error: {last_error}\n"
                 f"STDOUT: {stdout}\n"
@@ -263,13 +264,18 @@ def traced_adk_server(temp_data_dir, mock_agent_server):
                     f"Port {TAU2_AGENT_PORT} is in use. "
                     f"Stop the existing server or set DATADOG_E2E_TAU2_PORT."
                 )
+            else:
+                # Port in use by something else (not tau2_agent)
+                pytest.fail(
+                    f"Port {TAU2_AGENT_PORT} is already in use. "
+                    f"Set DATADOG_E2E_TAU2_PORT to use a different port."
+                )
         except (httpx.ConnectError, httpx.TimeoutException):
-            pass
-
-        pytest.fail(
-            f"Port {TAU2_AGENT_PORT} is already in use. "
-            f"Set DATADOG_E2E_TAU2_PORT to use a different port."
-        )
+            # Port bound but not responding to HTTP
+            pytest.fail(
+                f"Port {TAU2_AGENT_PORT} is already in use. "
+                f"Set DATADOG_E2E_TAU2_PORT to use a different port."
+            )
 
     # Build environment with ddtrace configuration
     env = os.environ.copy()
@@ -352,7 +358,8 @@ def traced_adk_server(temp_data_dir, mock_agent_server):
                 process.terminate()
             stdout, stderr = process.communicate(timeout=5)
             pytest.fail(
-                f"Traced ADK server did not become ready within {SERVER_STARTUP_TIMEOUT}s.\n"
+                f"Traced ADK server did not become ready "
+                f"within {SERVER_STARTUP_TIMEOUT}s.\n"
                 f"URL checked: {agent_card_url}\n"
                 f"Last error: {last_error}\n"
                 f"STDOUT: {stdout}\n"
@@ -429,8 +436,9 @@ def build_a2a_evaluation_request(
                 "parts": [
                     {
                         "text": (
-                            f"Run an evaluation on the {domain} domain for agent at "
-                            f"{agent_endpoint}. Use {num_tasks} tasks and {num_trials} trial(s)."
+                            f"Run an evaluation on the {domain} domain "
+                            f"for agent at {agent_endpoint}. "
+                            f"Use {num_tasks} tasks and {num_trials} trial(s)."
                         )
                     }
                 ],
