@@ -67,6 +67,8 @@ async def test_run_tau2_evaluation_tool_success(mock_tool_context):
     # Create mock reward_info for simulations
     mock_reward_info = Mock()
     mock_reward_info.reward = 1.0  # Successful reward
+    # model_dump is called to serialize reward_info
+    mock_reward_info.model_dump = Mock(return_value={"reward": 1.0})
 
     # Create mock simulations with proper structure
     mock_simulations = []
@@ -76,6 +78,11 @@ async def test_run_tau2_evaluation_tool_success(mock_tool_context):
         sim.task = mock_task
         sim.success = True
         sim.reward_info = mock_reward_info
+        # Required fields for simulation data extraction (007-datadog Phase 4.5)
+        sim.duration = 10.5
+        sim.termination_reason = Mock()
+        sim.termination_reason.value = "user_stop"
+        sim.messages = []  # Empty list, not a Mock object
         mock_simulations.append(sim)
 
     mock_results = Mock()
@@ -194,11 +201,18 @@ def _create_mock_evaluation_results(num_tasks: int = 3):
         # Create mock simulation for each task
         mock_reward_info = Mock()
         mock_reward_info.reward = 1.0
+        # model_dump is called to serialize reward_info (007-datadog Phase 4.5)
+        mock_reward_info.model_dump = Mock(return_value={"reward": 1.0})
         sim = Mock()
         sim.task_id = mock_task.id
         sim.task = mock_task
         sim.success = True
         sim.reward_info = mock_reward_info
+        # Required fields for simulation data extraction (007-datadog Phase 4.5)
+        sim.duration = 10.5
+        sim.termination_reason = Mock()
+        sim.termination_reason.value = "user_stop"
+        sim.messages = []  # Empty list, not a Mock object
         mock_simulations.append(sim)
 
     mock_results = Mock()
