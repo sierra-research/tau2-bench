@@ -37,7 +37,7 @@ async def test_e2e_jsonrpc_message_send(adk_server):
             "id": "req-001",
         }
 
-        response = await client.post(f"{adk_server}/", json=jsonrpc_request)
+        response = await client.post(adk_server, json=jsonrpc_request)
 
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
         result = response.json()
@@ -97,7 +97,7 @@ async def test_e2e_context_persistence(adk_server):
             "id": "req-001",
         }
 
-        response_1 = await client.post(f"{adk_server}/", json=request_1)
+        response_1 = await client.post(adk_server, json=request_1)
         assert response_1.status_code == 200
         result_1 = response_1.json()
 
@@ -122,7 +122,7 @@ async def test_e2e_context_persistence(adk_server):
             "id": "req-002",
         }
 
-        response_2 = await client.post(f"{adk_server}/", json=request_2)
+        response_2 = await client.post(adk_server, json=request_2)
         assert response_2.status_code == 200
 
 
@@ -140,17 +140,24 @@ async def test_e2e_error_handling_invalid_method(adk_server):
             "id": "req-error-001",
         }
 
-        response = await client.post(f"{adk_server}/", json=jsonrpc_request)
+        response = await client.post(adk_server, json=jsonrpc_request)
 
         # Should return 200 with JSON-RPC error, or 4xx HTTP error
-        assert response.status_code in [200, 400, 404, 405], (
-            f"Unexpected status: {response.status_code}"
+        # NOTE: 404 is NOT valid - it indicates endpoint routing failure
+        assert response.status_code in [200, 400, 405], (
+            f"Expected 200 (with JSON-RPC error), 400, or 405. "
+            f"Got {response.status_code}. 404 indicates routing failure."
         )
 
         if response.status_code == 200:
             result = response.json()
             # JSON-RPC error response should have error field
             assert "error" in result, "Should return JSON-RPC error"
+            # Verify error code is method not found (-32601) per JSON-RPC spec
+            error_code = result["error"].get("code")
+            assert error_code == -32601, (
+                f"Expected method not found error code -32601, got {error_code}"
+            )
 
 
 @pytest.mark.asyncio
@@ -167,7 +174,7 @@ async def test_e2e_error_handling_malformed_request(adk_server):
             "id": "req-malformed-001",
         }
 
-        response = await client.post(f"{adk_server}/", json=jsonrpc_request)
+        response = await client.post(adk_server, json=jsonrpc_request)
 
         # Should return error (either HTTP or JSON-RPC)
         assert response.status_code in [200, 400, 422], (
@@ -213,7 +220,7 @@ async def test_e2e_response_formats(adk_server):
             "id": "req-format-001",
         }
 
-        response = await client.post(f"{adk_server}/", json=jsonrpc_request)
+        response = await client.post(adk_server, json=jsonrpc_request)
         assert response.status_code == 200
 
         result = response.json()
@@ -261,7 +268,7 @@ async def test_e2e_concurrent_requests(adk_server):
             },
             "id": f"req-concurrent-{msg_id}",
         }
-        return await client.post(f"{adk_server}/", json=jsonrpc_request)
+        return await client.post(adk_server, json=jsonrpc_request)
 
     async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
         # Send 3 concurrent requests
@@ -273,5 +280,3 @@ async def test_e2e_concurrent_requests(adk_server):
             if isinstance(resp, Exception):
                 pytest.fail(f"Request {i} failed: {resp}")
             assert resp.status_code == 200, f"Request {i} returned {resp.status_code}"
-
-

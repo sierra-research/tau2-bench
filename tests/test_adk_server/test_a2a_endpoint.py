@@ -258,11 +258,18 @@ async def test_a2a_invalid_method_returns_error(async_client):
         response = await client.post(A2A_ENDPOINT, json=invalid_message)
 
         # Should return 200 with JSON-RPC error, or 4xx HTTP error
-        assert response.status_code in [200, 400, 404, 405], (
-            f"Should handle invalid method gracefully, got {response.status_code}"
+        # NOTE: 404 is NOT valid - it indicates endpoint routing failure, not method error
+        assert response.status_code in [200, 400, 405], (
+            f"Expected 200 (with JSON-RPC error), 400, or 405. "
+            f"Got {response.status_code}. 404 indicates routing failure."
         )
 
         if response.status_code == 200:
             result = response.json()
             # JSON-RPC error response should have error field
             assert "error" in result, "Should return JSON-RPC error for invalid method"
+            # Verify error code is method not found (-32601) per JSON-RPC spec
+            error_code = result["error"].get("code")
+            assert error_code == -32601, (
+                f"Expected method not found error code -32601, got {error_code}"
+            )
