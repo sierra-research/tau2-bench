@@ -25,13 +25,16 @@ from tau2.store.exceptions import (
     InvalidStateError,
 )
 from tau2.store.models import (
+    EnvironmentInfo,
     Evaluation,
+    EvaluationInfo,
     EvaluationRequest,
     EvaluationResults,
     EvaluationStatus,
     EvaluationSummary,
     LogEvent,
     Progress,
+    SimulationData,
     StateTransition,
     TaskResult,
 )
@@ -39,8 +42,10 @@ from tau2.store.retention import RetentionManager, create_retention_manager
 from tau2.store.store import EvaluationStore, create_store
 
 __all__ = [
+    "EnvironmentInfo",
     "Evaluation",
     "EvaluationIdCollisionError",
+    "EvaluationInfo",
     "EvaluationNotFoundError",
     "EvaluationRequest",
     "EvaluationResults",
@@ -53,6 +58,7 @@ __all__ = [
     "LogEvent",
     "Progress",
     "RetentionManager",
+    "SimulationData",
     "StateTransition",
     "TaskResult",
     "create_event_logger",
