@@ -1,0 +1,103 @@
+{
+  "case_templates": [
+    {
+      "id": "task-failure-investigation",
+      "name": "Task Failure Investigation",
+      "trigger": "Monitor DR-001, DR-002, or DR-003 fires",
+      "fields": {
+        "title": "Task Failure: {{task_id}} in {{domain}}",
+        "priority": "P2",
+        "team": "ai-platform",
+        "labels": [
+          "tau2-bench",
+          "task-failure",
+          "{{domain}}"
+        ],
+        "context": {
+          "evaluation_id": "{{evaluation_id}}",
+          "task_id": "{{task_id}}",
+          "reward": "{{reward}}",
+          "termination_reason": "{{termination_reason}}"
+        },
+        "links": [
+          {
+            "title": "View APM Trace",
+            "url": "https://app.datadoghq.com/apm/trace/{{trace_id}}"
+          },
+          {
+            "title": "View Logs",
+            "url": "https://app.datadoghq.com/logs?query=evaluation_id:{{evaluation_id}}"
+          },
+          {
+            "title": "Evaluation JSON",
+            "url": "{{storage_url}}/evaluations/{{evaluation_id}}.json"
+          }
+        ]
+      },
+      "runbook": "## Investigation Steps\n\n### 1. Check Reward Breakdown\nLook at the `reward_breakdown` in the evaluation JSON:\n- `db`: Did database state match expected?\n- `action`: Were tool calls correct?\n- `nl`: Were NL assertions met?\n- `communicate`: Was required info communicated?\n\n### 2. Review Conversation Flow\nOpen the APM trace and examine:\n- User simulator prompts (what did user ask?)\n- Agent responses (did agent understand?)\n- Tool calls (were they appropriate?)\n\n### 3. Compare to Successful Task\nFind a similar successful task in the same domain and compare:\n- Tool call sequence\n- Information communicated\n- Response patterns\n\n### 4. Check for Systemic Issues\n- Are multiple tasks failing with same pattern?\n- Is this domain-specific?\n- Did a recent deployment cause this?"
+    },
+    {
+      "id": "tool-pattern-issue",
+      "name": "Tool Pattern Issue",
+      "trigger": "Monitor DR-002 fires with tool-related evidence",
+      "fields": {
+        "title": "Tool Usage Issue: {{tool_name}} in {{domain}}",
+        "priority": "P3",
+        "team": "ai-platform",
+        "labels": [
+          "tau2-bench",
+          "tool-issue",
+          "{{domain}}"
+        ],
+        "context": {
+          "tool_name": "{{tool_name}}",
+          "call_count": "{{call_count}}",
+          "failure_rate": "{{failure_rate}}"
+        }
+      },
+      "runbook": "## Tool Issue Investigation\n\n### 1. Analyze Tool Call Patterns\nQuery logs for this tool:\n```\nservice:tau2-bench-agent event:tau2.tool.called tool_name:{{tool_name}}\n```\n\nLook for:\n- Repeated calls with same arguments (agent stuck in loop)\n- Invalid argument patterns\n- Calls at wrong point in conversation\n\n### 2. Check Tool Schema\n- Has the tool schema changed recently?\n- Are arguments matching expected types?\n- Is the tool returning expected format?\n\n### 3. Review Agent Prompt\n- Does the system prompt explain when to use this tool?\n- Are tool usage examples included?\n- Is the tool description clear?"
+    },
+    {
+      "id": "premature-termination",
+      "name": "Premature Termination Investigation",
+      "trigger": "Monitor DR-004 fires",
+      "fields": {
+        "title": "Premature Termination: {{task_id}} - MAX_ERRORS",
+        "priority": "P1",
+        "team": "platform",
+        "labels": [
+          "tau2-bench",
+          "environment-fix",
+          "{{domain}}",
+          "critical"
+        ],
+        "context": {
+          "task_id": "{{task_id}}",
+          "error_count": "{{error_count}}",
+          "last_error": "{{last_error}}"
+        }
+      },
+      "runbook": "## Premature Termination Investigation\n\n### 1. Check Error Logs\nQuery for tool execution errors:\n```\nservice:tau2-bench-agent event:tau2.tool.result success:false task_id:{{task_id}}\n```\n\n### 2. Verify Environment State\n- Is the environment properly initialized?\n- Are tool schemas correct?\n- Are there validation errors?\n\n### 3. Check Agent Behavior\n- Is the agent making invalid tool calls?\n- Is there a pattern to the failures?\n- Compare to successful tasks in same domain\n\n### 4. Escalation\nIf root cause unclear after 15 minutes, escalate to platform team."
+    },
+    {
+      "id": "latency-breach",
+      "name": "Latency SLO Breach",
+      "trigger": "Monitor DR-005 fires",
+      "fields": {
+        "title": "Latency SLO Breach: p99 > 60s",
+        "priority": "P2",
+        "team": "ai-platform",
+        "labels": [
+          "tau2-bench",
+          "latency",
+          "slo-breach"
+        ],
+        "context": {
+          "p99_latency": "{{p99_latency}}",
+          "slowest_domain": "{{slowest_domain}}"
+        }
+      },
+      "runbook": "## Latency Investigation\n\n### 1. Identify Slow Spans\nCheck APM traces for slow operations:\n- LLM generation time\n- A2A protocol latency\n- Tool execution time\n\n### 2. Check External Dependencies\n- Gemini API status: https://status.cloud.google.com/\n- External agent health\n- Network latency\n\n### 3. Review Recent Changes\n- Any prompt changes that could increase token count?\n- New domains or tasks added?\n- Configuration changes?\n\n### 4. Mitigation\n- Consider reducing task complexity\n- Check if specific tasks are slow\n- Review timeout configuration"
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "monitors": [
+    {
+      "id": "DR-001",
+      "name": "tau2-bench: High Task Error Rate",
+      "type": "metric alert",
+      "query": "sum(last_5m):sum:tau2.task.success{success:false,env:production}.as_count() / sum:tau2.task.total{env:production}.as_count() > 0.2",
+      "message": "{{#is_alert}}\n🚨 **Task error rate exceeded 20%**\n\n**Domain**: {{domain.name}}\n**Current Rate**: {{value}}%\n\n**Recommended Actions**:\n1. Check recent model changes\n2. Review error logs in APM\n3. Verify Gemini API health\n\n@slack-ai-alerts\n{{/is_alert}}\n\n{{#is_warning}}\n⚠️ Task error rate elevated at {{value}}%\n{{/is_warning}}",
+      "tags": [
+        "team:ai-platform",
+        "service:tau2-bench",
+        "env:production",
+        "hackathon:datadog-2024"
+      ],
+      "options": {
+        "thresholds": {
+          "critical": 0.2,
+          "warning": 0.1
+        },
+        "notify_no_data": false,
+        "renotify_interval": 60,
+        "escalation_message": "Error rate still elevated after 1 hour. Creating incident.",
+        "notify_audit": true,
+        "include_tags": true
+      }
+    },
+    {
+      "id": "DR-002",
+      "name": "tau2-bench: Task Failure Spike (Hero Monitor)",
+      "type": "metric alert",
+      "query": "avg(last_10m):avg:tau2.task.reward{env:production} by {domain} < 0.7",
+      "message": "{{#is_alert}}\n🎯 **Task Quality Degradation Detected**\n\n**Domain**: {{domain.name}}\n**Average Reward**: {{value}}\n**Threshold**: 0.7\n\nThis indicates the agent is completing tasks incorrectly or incompletely.\n\n**Investigation Steps**:\n1. Check LLM Observability for prompt/completion issues\n2. Review recent task failures in dashboard\n3. Compare to baseline performance\n\n**Runbook**: [Task Failure Investigation](https://docs.example.com/runbooks/task-failure)\n\n@slack-ai-alerts @pagerduty-tau2-oncall\n{{/is_alert}}",
+      "tags": [
+        "team:ai-platform",
+        "service:tau2-bench",
+        "env:production",
+        "hackathon:datadog-2024",
+        "hero-monitor"
+      ],
+      "options": {
+        "thresholds": {
+          "critical": 0.7,
+          "warning": 0.8
+        },
+        "notify_no_data": false,
+        "renotify_interval": 30,
+        "escalation_message": "Quality still degraded. Creating case for investigation.",
+        "notify_audit": true,
+        "include_tags": true
+      }
+    },
+    {
+      "id": "DR-003",
+      "name": "tau2-bench: Token Cost Anomaly",
+      "type": "metric alert",
+      "query": "avg(last_15m):anomalies(sum:tau2.llm.token_cost{env:production}.as_count(), 'agile', 2, direction='above') >= 1",
+      "message": "{{#is_alert}}\n💰 **Token Cost Anomaly Detected**\n\nToken costs are significantly higher than the baseline.\n\n**Possible Causes**:\n- Agent making excessive LLM calls\n- Prompts growing unexpectedly large\n- Model change with different pricing\n\n**Recommended Actions**:\n1. Check LLM Observability for token breakdown\n2. Review recent prompt changes\n3. Verify model configuration\n\n@slack-ai-platform\n{{/is_alert}}",
+      "tags": [
+        "team:ai-platform",
+        "service:tau2-bench",
+        "env:production",
+        "hackathon:datadog-2024"
+      ],
+      "options": {
+        "thresholds": {
+          "critical": 1,
+          "warning": 0.5
+        },
+        "notify_no_data": false,
+        "renotify_interval": 60,
+        "notify_audit": true
+      }
+    },
+    {
+      "id": "DR-004",
+      "name": "tau2-bench: Premature Termination Spike",
+      "type": "metric alert",
+      "query": "sum(last_1h):sum:tau2.termination{reason:max_errors,env:production}.as_count() > 10",
+      "message": "{{#is_alert}}\n⚠️ **Excessive MAX_ERRORS Terminations**\n\nTasks are hitting the error limit and being terminated prematurely.\n\n**Count**: {{value}} tasks in the last hour\n**Threshold**: 10\n\n**This indicates**:\n- Agent making invalid tool calls\n- Tool schema mismatch\n- Environment state corruption\n\n**Immediate Actions**:\n1. Check latest tool execution errors in logs\n2. Verify tool schemas haven't changed\n3. Review agent's tool call patterns\n\n@pagerduty-tau2-critical\n{{/is_alert}}",
+      "tags": [
+        "team:ai-platform",
+        "service:tau2-bench",
+        "env:production",
+        "hackathon:datadog-2024"
+      ],
+      "options": {
+        "thresholds": {
+          "critical": 10,
+          "warning": 5
+        },
+        "notify_no_data": false,
+        "renotify_interval": 30,
+        "escalation_message": "Creating incident for premature termination investigation.",
+        "notify_audit": true,
+        "require_full_window": false
+      }
+    },
+    {
+      "id": "DR-005",
+      "name": "tau2-bench: Task Latency SLO Breach",
+      "type": "metric alert",
+      "query": "percentile(last_10m):p99:tau2.task.duration_seconds{env:production} > 60",
+      "message": "{{#is_alert}}\n⏱️ **Task Latency SLO Breach**\n\n**p99 Latency**: {{value}}s\n**SLO Target**: 60s\n\n**Possible Causes**:\n- Gemini API latency increase\n- Complex task scenarios\n- Network issues to external agent\n\n**Recommended Actions**:\n1. Check APM traces for slow spans\n2. Review LLM Observability for slow generations\n3. Check GCP status page\n\n@slack-ai-alerts\n{{/is_alert}}",
+      "tags": [
+        "team:ai-platform",
+        "service:tau2-bench",
+        "env:production",
+        "hackathon:datadog-2024"
+      ],
+      "options": {
+        "thresholds": {
+          "critical": 60,
+          "warning": 45
+        },
+        "notify_no_data": false,
+        "renotify_interval": 60,
+        "notify_audit": true
+      }
+    }
+  ]
+}
