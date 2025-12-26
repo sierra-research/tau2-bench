@@ -395,10 +395,10 @@ def traced_adk_server(temp_data_dir, mock_agent_server):
 
 
 @pytest.fixture
-def evaluation_store(traced_adk_server):
+def evaluation_store(traced_adk_server, monkeypatch):
     """Provide access to EvaluationStore for verification."""
     # Set the data dir environment for store operations
-    os.environ["TAU2_DATA_DIR"] = str(traced_adk_server.data_dir)
+    monkeypatch.setenv("TAU2_DATA_DIR", str(traced_adk_server.data_dir))
 
     from tau2.store import create_store
 
@@ -466,7 +466,7 @@ async def send_a2a_evaluation_request(
         num_tasks: Number of tasks to run
         num_trials: Number of trials per task
         stream: Whether to use SSE streaming (default: True)
-        timeout: Request timeout in seconds (default: 120)
+        timeout: Request timeout in seconds (default: 180.0)
 
     Yields:
         dict: Parsed SSE event data containing evaluation progress/results
@@ -494,25 +494,36 @@ async def send_a2a_evaluation_request(
             async for chunk in response.aiter_text():
                 buffer += chunk
 
-                # Process complete SSE events (separated by \n\n or single lines)
+                # Process complete SSE events (delimited by \n\n per SSE spec)
                 while "\n\n" in buffer:
                     event_text, buffer = buffer.split("\n\n", 1)
                     event_data = parse_sse_event(event_text)
                     if event_data:
                         yield event_data
 
-                # Process single-line events
-                lines = buffer.split("\n")
-                complete_lines = lines[:-1]
-                buffer = lines[-1] if lines else ""
+                # Handle non-spec-compliant servers using single \n between events
+                # Only process standalone data: lines (no event: prefix pending)
+                while "\n" in buffer:
+                    # If buffer starts with event:, wait for \n\n (multi-line event)
+                    if buffer.lstrip().startswith("event:"):
+                        break
 
-                for line in complete_lines:
-                    if line.strip():
+                    line, rest = buffer.split("\n", 1)
+                    stripped = line.strip()
+
+                    if stripped.startswith("data:"):
                         event_data = parse_sse_event(line)
                         if event_data:
                             yield event_data
+                        buffer = rest
+                    elif stripped.startswith(":") or stripped == "":
+                        # SSE comment or empty line, skip
+                        buffer = rest
+                    else:
+                        # Unknown format, keep in buffer
+                        break
 
-            # Handle remaining buffer
+            # Handle remaining buffer (final event may not have trailing \n\n)
             if buffer.strip():
                 event_data = parse_sse_event(buffer)
                 if event_data:
