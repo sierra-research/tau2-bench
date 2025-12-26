@@ -18,6 +18,7 @@ from loguru import logger
 
 from tau2.store import EvaluationStore, create_store
 from tau2.store.utils import generate_evaluation_id
+from tau2_agent.utils import compact_message, sanitize_float
 
 DEFAULT_USER_LLM = (
     "openai/Qwen/Qwen3-30B-A3B-Thinking-2507"
@@ -207,7 +208,8 @@ class RunTau2Evaluation(BaseTool):
                         "total_tasks": result["summary"]["total_tasks"],
                         "successful": result["summary"]["successful_simulations"],
                         "tasks": task_results,
-                        "simulations": result.get("simulations", []),
+                        # Use full simulations data (with reasoning_content) for store
+                        "simulations": result.get("_simulations_full", []),
                         "info": result.get("info"),
                     }
 
@@ -223,8 +225,9 @@ class RunTau2Evaluation(BaseTool):
                 except Exception as e:
                     logger.warning(f"Failed to complete evaluation in store: {e}")
 
-            # Add evaluation_id to result
+            # Add evaluation_id to result and remove internal fields
             result["evaluation_id"] = evaluation_id
+            result.pop("_simulations_full", None)  # Don't send full data to Datadog
             return result
 
         except ValueError as e:
@@ -377,10 +380,19 @@ class RunTau2Evaluation(BaseTool):
                 total_simulations=total_simulations,
             )
 
-            # Build simulation data for metrics emission
-            simulations_data = []
+            # Build simulation data - full version for store, compact for tracing
+            simulations_data_full = []  # Full data for EvaluationStore
+            simulations_data_compact = []  # Compact data for Datadog traces
             for sim in results.simulations:
-                sim_data = {
+                # Full messages for EvaluationStore
+                full_messages = [
+                    msg.model_dump(mode="json") if hasattr(msg, "model_dump") else msg
+                    for msg in (sim.messages or [])
+                ]
+                # Compact messages for tracing (removes raw_data, reasoning_content)
+                compact_messages = [compact_message(msg) for msg in full_messages]
+
+                base_sim_data = {
                     "task_id": sim.task_id,
                     "duration": sim.duration,
                     "termination_reason": (
@@ -388,28 +400,28 @@ class RunTau2Evaluation(BaseTool):
                         if hasattr(sim.termination_reason, "value")
                         else str(sim.termination_reason)
                     ),
-                    "messages": [
-                        msg.model_dump(mode="json") if hasattr(msg, "model_dump") else msg
-                        for msg in (sim.messages or [])
-                    ],
                     "reward_info": (
                         sim.reward_info.model_dump(mode="json")
                         if sim.reward_info and hasattr(sim.reward_info, "model_dump")
                         else sim.reward_info
                     ),
                 }
-                simulations_data.append(sim_data)
+                simulations_data_full.append({**base_sim_data, "messages": full_messages})
+                simulations_data_compact.append({**base_sim_data, "messages": compact_messages})
 
-            return {
+            # Build result with compact simulations for Datadog traces
+            result = {
                 "status": "completed",
                 "timestamp": results.timestamp,
                 "summary": {
                     "total_simulations": total_simulations,
                     "total_tasks": len(results.tasks),
                     "successful_simulations": successful_sims,
-                    "avg_reward": metrics.avg_reward,
-                    "pass_hat_k": metrics.pass_hat_ks,
-                    "avg_agent_cost": metrics.avg_agent_cost,
+                    "avg_reward": sanitize_float(metrics.avg_reward),
+                    "pass_hat_k": {
+                        k: sanitize_float(v) for k, v in metrics.pass_hat_ks.items()
+                    },
+                    "avg_agent_cost": sanitize_float(metrics.avg_agent_cost),
                 },
                 "tasks": [
                     {
@@ -422,14 +434,17 @@ class RunTau2Evaluation(BaseTool):
                     }
                     for task in results.tasks
                 ],
-                # Full simulation data for EvaluationStore/emit_metrics.py
-                "simulations": simulations_data,
+                # Compact simulation data for Datadog traces (< 1MB limit)
+                "simulations": simulations_data_compact,
                 "info": {
                     "environment_info": {
                         "domain_name": domain,
                     },
                 },
+                # Full simulation data for EvaluationStore (not sent to Datadog)
+                "_simulations_full": simulations_data_full,
             }
+            return result
 
         except ValueError as e:
             logger.error("Invalid evaluation parameters", error=str(e))
