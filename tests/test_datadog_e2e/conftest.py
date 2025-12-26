@@ -267,14 +267,15 @@ def traced_adk_server(temp_data_dir, mock_agent_server):
     env = os.environ.copy()
 
     # Enable ddtrace via environment (auto-patches on import)
-    env["DD_TRACE_ENABLED"] = "true"
+    env["DD_TRACE_ENABLED"] = "1"
     env["DD_SERVICE"] = "tau2-bench-agent"
     env["DD_ENV"] = "test"
 
-    # Optional: Enable LLM Observability if DD_API_KEY is set
+    # Enable LLM Observability if DD_API_KEY is set
     if os.getenv("DD_API_KEY"):
-        env["DD_LLMOBS_ENABLED"] = "true"
-        env["DD_LLMOBS_AGENTLESS_ENABLED"] = "true"
+        env["DD_LLMOBS_ENABLED"] = "1"
+        env["DD_LLMOBS_AGENTLESS_ENABLED"] = "1"
+        env["DD_LLMOBS_ML_APP"] = os.getenv("DD_LLMOBS_ML_APP", "tau2-bench-agent")
 
     # Use isolated data directory
     env["TAU2_DATA_DIR"] = str(temp_data_dir)
@@ -288,7 +289,9 @@ def traced_adk_server(temp_data_dir, mock_agent_server):
         tau2_agent_link.symlink_to(PROJECT_ROOT / "tau2_agent")
 
     # Start ADK server for tau2_agent only (test agent runs separately)
+    # Use ddtrace-run to enable Datadog tracing and LLM Observability
     cmd = [
+        "ddtrace-run",
         "adk",
         "api_server",
         "--a2a",

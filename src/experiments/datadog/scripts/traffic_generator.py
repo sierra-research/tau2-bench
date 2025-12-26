@@ -57,7 +57,7 @@ import httpx
 from loguru import logger
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Callable
 
 # ============================================================================
 # Configuration Constants
@@ -131,7 +131,7 @@ class ServerManager:
 
     tau2_server: TracedServer | None = None
     mock_server: MockAgentServer | None = None
-    _cleanup_functions: list = field(default_factory=list)
+    _cleanup_functions: list[Callable[[], None]] = field(default_factory=list)
 
     def add_cleanup(self, func):
         """Add a cleanup function to be called on shutdown."""
@@ -554,25 +554,15 @@ async def send_a2a_evaluation_request(
             async for chunk in response.aiter_text():
                 buffer += chunk
 
-                # Process complete SSE events (separated by \n\n or single lines)
+                # Process only complete SSE events (delimited by \n\n)
+                # Do NOT split on single \n - multi-line events may span chunks
                 while "\n\n" in buffer:
                     event_text, buffer = buffer.split("\n\n", 1)
                     event_data = parse_sse_event(event_text)
                     if event_data:
                         yield event_data
 
-                # Process single-line events
-                lines = buffer.split("\n")
-                complete_lines = lines[:-1]
-                buffer = lines[-1] if lines else ""
-
-                for line in complete_lines:
-                    if line.strip():
-                        event_data = parse_sse_event(line)
-                        if event_data:
-                            yield event_data
-
-            # Handle remaining buffer
+            # After stream ends, parse remaining buffer if non-empty
             if buffer.strip():
                 event_data = parse_sse_event(buffer)
                 if event_data:

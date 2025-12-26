@@ -1,1 +1,1 @@
-# Experiments package
+"""Experiments package."""
