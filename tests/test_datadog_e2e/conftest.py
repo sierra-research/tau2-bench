@@ -137,11 +137,19 @@ def mock_agent_server(tmp_path_factory):
     mock_agent_link = mock_agents_dir / agent_name
     mock_agent_link.symlink_to(PROJECT_ROOT / agent_name)
 
-    # Build environment - no ddtrace needed for mock agent
+    # Build environment with ddtrace for mock agent LLM tracing
     env = os.environ.copy()
+    env["DD_TRACE_ENABLED"] = "1"
+    env["DD_SERVICE"] = "simple-nebius-agent"
+    env["DD_ENV"] = "test"
+    if os.getenv("DD_API_KEY"):
+        env["DD_LLMOBS_ENABLED"] = "1"
+        env["DD_LLMOBS_AGENTLESS_ENABLED"] = "1"
+        env["DD_LLMOBS_ML_APP"] = os.getenv("DD_LLMOBS_ML_APP", "tau2-bench-agent")
 
-    # Start ADK server for mock agent only
+    # Start ADK server for mock agent with ddtrace-run for LLM tracing
     cmd = [
+        "ddtrace-run",
         "adk",
         "api_server",
         "--a2a",
