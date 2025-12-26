@@ -184,21 +184,16 @@ class A2AAgent(LocalAgent):
 
             return assistant_msg, new_state
 
-        # Run async function - handle both cases: running in a thread or in an async context
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-
-        if loop is None:
-            # No event loop running, create one
-            return asyncio.run(_async_generate())
-        else:
-            # Already in an async context - use nest_asyncio or new thread
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, _async_generate())
-                return future.result()
+        # Run async function synchronously.
+        # This method is called from thread pool workers (via run_in_executor in
+        # run_tau2_evaluation.py), which never have a running event loop.
+        # Using asyncio.run() creates a fresh event loop for this thread.
+        #
+        # IMPORTANT: Do NOT use nested ThreadPoolExecutor here - it causes deadlock
+        # when multiple concurrent evaluations run, as each nested executor blocks
+        # its parent worker thread waiting on future.result().
+        # See: specs/007-datadog-project/resolve-tau2agent-concurrency.md
+        return asyncio.run(_async_generate())
 
     def stop(
         self,
@@ -220,19 +215,9 @@ class A2AAgent(LocalAgent):
         async def _async_close():
             await self.client.close()
 
-        # Use same event loop handling pattern as generate_next_message
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-
-        if loop is None:
-            asyncio.run(_async_close())
-        else:
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, _async_close())
-                future.result()
+        # Run async close synchronously - same pattern as generate_next_message()
+        # See: specs/007-datadog-project/resolve-tau2agent-concurrency.md
+        asyncio.run(_async_close())
 
         logger.debug("A2AAgent stopped and resources cleaned up")
 

@@ -56,13 +56,46 @@ class TaskResult(BaseModel):
     trajectory: list[dict[str, Any]] | None = None
 
 
+class SimulationData(BaseModel):
+    """Full simulation data for metrics emission.
+
+    Contains all data needed for post-hoc metrics emission by emit_metrics.py.
+    This is a simplified representation of tau2's SimulationRun.
+    """
+
+    task_id: str
+    duration: float = Field(ge=0.0)
+    termination_reason: str
+    messages: list[dict[str, Any]] = Field(default_factory=list)
+    reward_info: dict[str, Any] | None = None
+
+
+class EnvironmentInfo(BaseModel):
+    """Environment information for the evaluation."""
+
+    domain_name: str
+
+
+class EvaluationInfo(BaseModel):
+    """Evaluation metadata including environment info."""
+
+    environment_info: EnvironmentInfo
+
+
 class EvaluationResults(BaseModel):
-    """Final evaluation results (only for completed evaluations)."""
+    """Final evaluation results (only for completed evaluations).
+
+    Includes full simulation data for post-hoc metrics emission.
+    """
 
     success_rate: float = Field(ge=0.0, le=1.0)
     total_tasks: int = Field(ge=1)
     successful: int = Field(ge=0)
     tasks: list[TaskResult]
+    # Full simulation data for emit_metrics.py
+    simulations: list[SimulationData] = Field(default_factory=list)
+    # Environment info for domain name extraction
+    info: EvaluationInfo | None = None
 
 
 class Evaluation(BaseModel):

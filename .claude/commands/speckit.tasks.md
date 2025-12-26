@@ -39,7 +39,69 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Create parallel execution examples per user story
    - Validate task completeness (each user story has all needed tasks, independently testable)
 
-4. **Generate tasks.md**: Use `.specify.specify/templates/tasks-template.md` as structure, fill with:
+4. **Generate research-compliance.md** (if research.md exists):
+   - Create `FEATURE_DIR/checklists/` directory if it doesn't exist
+   - Parse research.md and extract:
+     - **Dependencies**: From `## Dependencies` section tables
+     - **Decisions**: From `### DEC-XXX:` blocks
+     - **Verification Points**: From `**Verification Points**:` lists within decisions
+   - Generate `FEATURE_DIR/checklists/research-compliance.md` with format:
+
+   ```markdown
+   # Research Compliance Checklist: [FEATURE]
+
+   **Purpose**: Verify implementation matches researched patterns, libraries, and decisions
+   **Auto-generated from**: research.md
+   **Created**: [DATE]
+   **Feature**: [link to spec.md]
+
+   ## Dependency Verification
+
+   Verify all dependencies are installed with correct versions per research.md.
+
+   - [ ] DEP001 - Verify [package] [version] is in pyproject.toml/package.json [Research §Dependencies]
+   - [ ] DEP002 - Verify [package] [version] is in pyproject.toml/package.json [Research §Dependencies]
+   ...
+
+   ## Decision Compliance
+
+   Verify implementation follows researched patterns and decisions.
+
+   ### DEC-001: [Decision Title]
+   - [ ] RC001 - [First verification point from decision] [Research §DEC-001]
+   - [ ] RC002 - [Second verification point from decision] [Research §DEC-001]
+
+   ### DEC-002: [Decision Title]
+   - [ ] RC003 - [Verification point] [Research §DEC-002]
+   ...
+
+   ## Verification Commands
+
+   Run these commands to verify compliance (generated from research.md patterns):
+
+   \`\`\`bash
+   # DEP: Check dependency versions
+   # [package manager specific command]
+
+   # DEC-001: [Decision Title]
+   grep -r "[pattern from decision]" [verify_in path]
+   \`\`\`
+
+   ## Notes
+
+   - Check items off as verified during implementation
+   - This checklist is enforced by /speckit.implement before proceeding
+   - Run /speckit.verify for automated pattern verification
+   ```
+
+   **Parsing Rules**:
+   - Dependencies: Extract from markdown tables under `## Dependencies` → `### Runtime Dependencies` and `### Development Dependencies`
+   - Decisions: Match `### DEC-\d{3}:` pattern, extract title, Pattern, Verify In, and Verification Points
+   - Generate one DEP item per dependency row
+   - Generate one RC item per verification point in each decision
+   - Include grep commands for patterns that have `**Pattern**:` and `**Verify In**:` fields
+
+5. **Generate tasks.md**: Use `.specify/templates/tasks-template.md` as the structure template, fill with:
    - Correct feature name from plan.md
    - Phase 1: Setup tasks (project initialization)
    - Phase 2: Foundational tasks (blocking prerequisites for all user stories)
@@ -52,13 +114,14 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Parallel execution examples per story
    - Implementation strategy section (MVP first, incremental delivery)
 
-5. **Report**: Output path to generated tasks.md and summary:
+6. **Report**: Output path to generated tasks.md and summary:
    - Total task count
    - Task count per user story
    - Parallel opportunities identified
    - Independent test criteria for each story
    - Suggested MVP scope (typically just User Story 1)
    - Format validation: Confirm ALL tasks follow the checklist format (checkbox, ID, labels, file paths)
+   - **If research-compliance.md generated**: Report checklist location and item counts (DEP items, RC items)
 
 Context for task generation: $ARGUMENTS
 

@@ -49,6 +49,8 @@ dependencies = [
     "types-toml>=0.10.0",
     "types-redis>=4.6.0",
     "python-dotenv>=1.0.0",
+    "ddtrace>=4.0.0",
+    "datadog>=0.50.0",
 ]
 [project.scripts]
 tau2 = "tau2.cli:main"
@@ -65,11 +67,12 @@ asyncio_default_fixture_loop_scope = "function"
 markers = [
     "a2a_mock: A2A tests with mocked dependencies (run by default)",
     "a2a_e2e: A2A end-to-end tests requiring real services (opt-in only)",
-    "smoke: Smoke tests for full tau2_agent <-> agent integration (opt-in, requires API keys)"
+    "smoke: Smoke tests for full tau2_agent <-> agent integration (opt-in, requires API keys)",
+    "datadog_e2e: Datadog E2E observability tests validating A2A -> Store -> Metrics flow (opt-in)"
 ]
 
 # Exclude E2E and smoke tests by default
-addopts = "-m 'not a2a_e2e and not smoke'"
+addopts = "-m 'not a2a_e2e and not smoke and not datadog_e2e'"
 
 [tool.ruff]
 line-length = 88
