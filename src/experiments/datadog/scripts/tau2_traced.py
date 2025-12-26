@@ -48,8 +48,13 @@ def main() -> int:
     # Now import and run the tau2 CLI
     from tau2.cli import main as tau2_main
 
-    tau2_main()
-    return 0
+    try:
+        result = tau2_main()
+        # tau2_main may return None or an int
+        return result if isinstance(result, int) else 0
+    except SystemExit as e:
+        # tau2 CLI may raise SystemExit with an exit code
+        return e.code if isinstance(e.code, int) else (1 if e.code else 0)
 
 
 if __name__ == "__main__":

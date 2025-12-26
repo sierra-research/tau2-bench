@@ -33,8 +33,25 @@ set -e  # Exit on error
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../../../.." && pwd)"
-DATADOG_SCRIPTS_DIR="${SCRIPT_DIR}"
+
+# Find project root by looking for pyproject.toml
+find_project_root() {
+    local dir="$1"
+    while [[ "$dir" != "/" ]]; do
+        if [[ -f "$dir/pyproject.toml" ]]; then
+            echo "$dir"
+            return 0
+        fi
+        dir="$(dirname "$dir")"
+    done
+    return 1
+}
+
+PROJECT_ROOT="$(find_project_root "$SCRIPT_DIR")"
+if [[ -z "$PROJECT_ROOT" ]]; then
+    echo "Error: Could not find project root (no pyproject.toml found)"
+    exit 1
+fi
 
 # Default values
 DRY_RUN=false
@@ -310,7 +327,7 @@ log_section "Step 6: Demo Complete!"
 
 # Count evaluations stored
 DATA_DIR="${TAU2_DATA_DIR:-./data}"
-EVAL_COUNT=$(find "$DATA_DIR/evaluations" -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
+EVAL_COUNT=$(find "$DATA_DIR/evaluations" -name "*.json" 2>/dev/null | wc -l | tr -d ' ' || echo "0")
 
 echo ""
 log_info "Demo Summary:"

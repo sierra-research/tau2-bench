@@ -24,16 +24,16 @@ Environment Variables:
 
 Usage:
     # Generate 5 normal evaluations (dry-run, no Datadog needed)
-    python -m experiments.datadog.scripts.traffic_generator --count 5 --dry-run
+    uv run python -m experiments.datadog.scripts.traffic_generator --count 5 --dry-run
 
     # Generate evaluations with metrics to Datadog
-    python -m experiments.datadog.scripts.traffic_generator --count 5
+    uv run python -m experiments.datadog.scripts.traffic_generator --count 5
 
     # Generate failure-mode evaluations to trigger DR-002
-    python -m experiments.datadog.scripts.traffic_generator --count 3 --mode failure
+    uv run python -m experiments.datadog.scripts.traffic_generator --count 3 --mode failure
 
     # Skip server startup (use existing servers)
-    python -m experiments.datadog.scripts.traffic_generator --count 5 --skip-server-start
+    uv run python -m experiments.datadog.scripts.traffic_generator --count 5 --skip-server-start
 """
 
 from __future__ import annotations
@@ -122,6 +122,7 @@ class MockAgentServer:
     process: subprocess.Popen | None
     endpoint: str
     agent_endpoint: str
+    temp_dir: Path | None = None  # Temp directory to clean up on shutdown
 
 
 @dataclass
@@ -144,8 +145,17 @@ class ServerManager:
             except Exception as e:
                 logger.warning(f"Cleanup error: {e}")
 
-        if self.mock_server and self.mock_server.process:
-            self._stop_process(self.mock_server.process)
+        if self.mock_server:
+            if self.mock_server.process:
+                self._stop_process(self.mock_server.process)
+            # Clean up temp directory if it exists
+            if self.mock_server.temp_dir and self.mock_server.temp_dir.exists():
+                import shutil
+                try:
+                    shutil.rmtree(self.mock_server.temp_dir)
+                    logger.debug(f"Cleaned up temp dir: {self.mock_server.temp_dir}")
+                except Exception as e:
+                    logger.warning(f"Failed to clean up temp dir: {e}")
             self.mock_server = None
 
         if self.tau2_server and self.tau2_server.process:
@@ -220,12 +230,14 @@ def start_mock_agent_server(agents_dir: Path | None = None) -> MockAgentServer:
 
     # Create a temp directory with simple_nebius_agent symlinked
     # ADK expects AGENTS_DIR to contain subdirectories, each being an agent
+    # Note: temp_dir is stored in MockAgentServer.temp_dir for cleanup by ServerManager
+    temp_dir_path: Path | None = None
     if agents_dir is None:
         import tempfile
-        temp_dir = Path(tempfile.mkdtemp(prefix="traffic_gen_mock_"))
-        mock_agent_link = temp_dir / agent_name
+        temp_dir_path = Path(tempfile.mkdtemp(prefix="traffic_gen_mock_"))
+        mock_agent_link = temp_dir_path / agent_name
         mock_agent_link.symlink_to(PROJECT_ROOT / agent_name)
-        agents_dir = temp_dir
+        agents_dir = temp_dir_path
 
     # Build environment - no ddtrace needed for mock agent
     env = os.environ.copy()
@@ -297,6 +309,7 @@ def start_mock_agent_server(agents_dir: Path | None = None) -> MockAgentServer:
         process=process,
         endpoint=MOCK_AGENT_BASE_URL,
         agent_endpoint=mock_agent_endpoint,
+        temp_dir=temp_dir_path,
     )
 
 
