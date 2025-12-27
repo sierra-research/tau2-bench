@@ -1,0 +1,250 @@
+# BYOK (Bring Your Own Key) Header Contract
+# tau2_agent GCP Integration - API Contract
+#
+# This document defines the HTTP header requirements for accessing
+# the hosted tau2_agent evaluation service.
+
+openapi: "3.1.0"
+info:
+  title: tau2_agent BYOK Header Contract
+  version: "1.0.0"
+  description: |
+    Header requirements for the hosted tau2_agent evaluation service.
+
+    The service uses a split cost model:
+    - Server pays for orchestrator LLM (Gemini)
+    - Client pays for user simulator LLM (BYOK)
+
+components:
+  headers:
+    X-User-LLM-Model:
+      description: |
+        LiteLLM-compatible model identifier for the user simulator LLM.
+
+        Examples:
+        - OpenAI: `gpt-4o`, `gpt-4o-mini`
+        - Anthropic: `claude-3-5-sonnet-20241022`
+        - Google: `gemini/gemini-2.0-flash`
+        - Any litellm-supported model
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 256
+        example: "gpt-4o"
+
+    X-User-LLM-API-Key:
+      description: |
+        API key for the user's chosen LLM provider.
+
+        Security:
+        - Never logged by the service
+        - Not echoed in error responses
+        - Transmitted only over HTTPS
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 1024
+        format: password
+        example: "sk-..."
+
+    Authorization:
+      description: |
+        Optional service-level authentication.
+        Only required if SERVICE_API_KEYS is configured on the server.
+
+        Format: `Bearer <service-api-key>`
+      required: false
+      schema:
+        type: string
+        pattern: "^Bearer .+$"
+        example: "Bearer service-key-12345"
+
+  responses:
+    MissingBYOKHeader:
+      description: Missing required BYOK header
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Missing X-User-LLM-Model header"
+            required:
+              - error
+
+    InvalidServiceAuth:
+      description: Invalid or missing service API key (when auth enabled)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Invalid authorization"
+            required:
+              - error
+
+    UserLLMAuthFailed:
+      description: User's LLM API key is invalid
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "User LLM authentication failed"
+            required:
+              - error
+
+paths:
+  /a2a/tau2_agent:
+    post:
+      summary: Send message to tau2_agent
+      description: |
+        A2A protocol endpoint for tau2_agent.
+        All requests MUST include BYOK headers.
+      parameters:
+        - name: X-User-LLM-Model
+          in: header
+          required: true
+          schema:
+            $ref: "#/components/headers/X-User-LLM-Model/schema"
+          description: User simulator LLM model identifier
+
+        - name: X-User-LLM-API-Key
+          in: header
+          required: true
+          schema:
+            $ref: "#/components/headers/X-User-LLM-API-Key/schema"
+          description: User's LLM API key
+
+        - name: Authorization
+          in: header
+          required: false
+          schema:
+            $ref: "#/components/headers/Authorization/schema"
+          description: Optional service authentication
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: A2A JSON-RPC 2.0 request
+              properties:
+                jsonrpc:
+                  type: string
+                  enum: ["2.0"]
+                id:
+                  type: string
+                method:
+                  type: string
+                  enum: ["message/send", "message/stream"]
+                params:
+                  type: object
+              required:
+                - jsonrpc
+                - id
+                - method
+                - params
+            example:
+              jsonrpc: "2.0"
+              id: "eval-001"
+              method: "message/send"
+              params:
+                message:
+                  role: "user"
+                  parts:
+                    - text: "Run mock domain evaluation for http://agent:8001/a2a/my_agent"
+
+      responses:
+        "200":
+          description: Successful A2A response
+          content:
+            application/json:
+              schema:
+                type: object
+                description: A2A JSON-RPC 2.0 response
+
+        "400":
+          $ref: "#/components/responses/MissingBYOKHeader"
+
+        "401":
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/responses/InvalidServiceAuth/content/application~1json/schema"
+                  - $ref: "#/components/responses/UserLLMAuthFailed/content/application~1json/schema"
+
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+# Evaluation Parameter Limits (enforced at tool level, not header level)
+x-evaluation-limits:
+  num_tasks:
+    max: 30
+    description: Maximum tasks per evaluation (Cloud Run 60-min timeout)
+  num_trials:
+    max: 3
+    description: Maximum trials per task
+
+# Example requests
+x-examples:
+  curl-basic:
+    description: Basic evaluation request with curl
+    command: |
+      curl -X POST "https://tau2-agent-xxx.run.app/a2a/tau2_agent" \
+        -H "Content-Type: application/json" \
+        -H "X-User-LLM-Model: gpt-4o" \
+        -H "X-User-LLM-API-Key: sk-..." \
+        -d '{
+          "jsonrpc": "2.0",
+          "id": "1",
+          "method": "message/send",
+          "params": {
+            "message": {
+              "role": "user",
+              "parts": [{"text": "Run mock domain evaluation for http://agent:8001/a2a/my_agent"}]
+            }
+          }
+        }'
+
+  python-httpx:
+    description: Python with httpx
+    code: |
+      import httpx
+
+      response = httpx.post(
+          "https://tau2-agent-xxx.run.app/a2a/tau2_agent",
+          headers={
+              "X-User-LLM-Model": "gpt-4o",
+              "X-User-LLM-API-Key": os.environ["OPENAI_API_KEY"],
+          },
+          json={
+              "jsonrpc": "2.0",
+              "id": "1",
+              "method": "message/send",
+              "params": {
+                  "message": {
+                      "role": "user",
+                      "parts": [{"text": "Run mock domain evaluation..."}]
+                  }
+              }
+          }
+      )
