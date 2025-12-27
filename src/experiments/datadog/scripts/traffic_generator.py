@@ -56,6 +56,8 @@ from typing import TYPE_CHECKING
 import httpx
 from loguru import logger
 
+from tau2_agent.utils import SSEEvent, SSEParser
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
 
@@ -550,21 +552,16 @@ async def send_a2a_evaluation_request(
         ) as response:
             response.raise_for_status()
 
-            buffer = ""
+            parser = SSEParser()
             async for chunk in response.aiter_text():
-                buffer += chunk
-
-                # Process only complete SSE events (delimited by \n\n)
-                # Do NOT split on single \n - multi-line events may span chunks
-                while "\n\n" in buffer:
-                    event_text, buffer = buffer.split("\n\n", 1)
-                    event_data = parse_sse_event(event_text)
+                for event in parser.feed(chunk):
+                    event_data = sse_event_to_dict(event)
                     if event_data:
                         yield event_data
 
-            # After stream ends, parse remaining buffer if non-empty
-            if buffer.strip():
-                event_data = parse_sse_event(buffer)
+            # Flush any remaining buffered event
+            for event in parser.flush():
+                event_data = sse_event_to_dict(event)
                 if event_data:
                     yield event_data
     else:
@@ -574,39 +571,24 @@ async def send_a2a_evaluation_request(
             yield response.json()
 
 
-def parse_sse_event(event_text: str) -> dict | None:
-    """Parse a single SSE event into a dictionary.
+def sse_event_to_dict(event: SSEEvent) -> dict | None:
+    """Convert SSEEvent to dict format expected by callers.
 
     Args:
-        event_text: Raw SSE event text (e.g., "event: message\\ndata: {...}")
+        event: Parsed SSEEvent from SSEParser.
 
     Returns:
-        dict or None: Parsed event data, or None if not parseable
+        dict or None: Parsed event data with _event_type field if present.
+        If JSON parsing fails, returns {"_raw": data, "_event_type": event_type}
     """
-    lines = event_text.strip().split("\n")
-    event_type = None
-    data_lines = []
-
-    for line in lines:
-        if line.startswith("event:"):
-            event_type = line[6:].strip()
-        elif line.startswith("data:"):
-            data_lines.append(line[5:].strip())
-        elif line.startswith(":"):
-            # Comment line, skip
-            continue
-
-    if not data_lines:
-        return None
-
-    data_str = "".join(data_lines)
-    try:
-        data = json.loads(data_str)
-        if event_type:
-            data["_event_type"] = event_type
-        return data
-    except json.JSONDecodeError:
-        return {"_raw": data_str, "_event_type": event_type}
+    parsed = event.json()
+    if parsed is not None:
+        if event.event:
+            parsed["_event_type"] = event.event
+        return parsed
+    if event.data:
+        return {"_raw": event.data, "_event_type": event.event}
+    return None
 
 
 # ============================================================================

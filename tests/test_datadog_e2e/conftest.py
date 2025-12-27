@@ -19,6 +19,8 @@ import httpx
 import pytest
 from dotenv import load_dotenv
 
+from tau2_agent.utils import SSEEvent, SSEParser
+
 # Load environment variables from .env file (for NEBIUS_API_KEY, etc.)
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
@@ -63,6 +65,7 @@ class MockAgentServer:
     process: subprocess.Popen
     endpoint: str
     agent_endpoint: str
+    port: int
 
 
 def is_port_in_use(port: int, host: str = "localhost") -> bool:
@@ -75,6 +78,29 @@ def is_port_in_use(port: int, host: str = "localhost") -> bool:
             return False
         except OSError:
             return True
+
+
+def find_available_port(
+    start_port: int, host: str = "localhost", max_attempts: int = 100
+) -> int:
+    """Find an available port starting from start_port.
+
+    Args:
+        start_port: The port to start searching from.
+        host: The host to check port availability on.
+        max_attempts: Maximum number of ports to try.
+
+    Returns:
+        int: An available port number.
+
+    Raises:
+        RuntimeError: If no available port is found within max_attempts.
+    """
+    for port in range(start_port, start_port + max_attempts):
+        if not is_port_in_use(port, host):
+            return port
+    msg = f"No available port found in range {start_port}-{start_port + max_attempts}"
+    raise RuntimeError(msg)
 
 
 @pytest.fixture(scope="session")
@@ -121,15 +147,12 @@ def mock_agent_server(tmp_path_factory):
     """
     # Use simple_nebius_agent which properly integrates with tau2's A2A protocol
     agent_name = "simple_nebius_agent"
-    mock_agent_endpoint = f"{MOCK_AGENT_BASE_URL}/a2a/{agent_name}"
-    agent_card_url = f"{mock_agent_endpoint}/.well-known/agent-card.json"
 
-    # Check if port is already in use
-    if is_port_in_use(MOCK_AGENT_PORT):
-        pytest.fail(
-            f"Port {MOCK_AGENT_PORT} is already in use. "
-            f"Set DATADOG_E2E_MOCK_PORT to use a different port."
-        )
+    # Find an available port dynamically
+    mock_agent_port = find_available_port(MOCK_AGENT_PORT, ADK_SERVER_HOST)
+    mock_agent_base_url = f"http://{ADK_SERVER_HOST}:{mock_agent_port}"
+    mock_agent_endpoint = f"{mock_agent_base_url}/a2a/{agent_name}"
+    agent_card_url = f"{mock_agent_endpoint}/.well-known/agent-card.json"
 
     # Create a temp directory with simple_nebius_agent symlinked
     # ADK expects AGENTS_DIR to contain subdirectories, each being an agent
@@ -155,7 +178,7 @@ def mock_agent_server(tmp_path_factory):
         "--a2a",
         str(mock_agents_dir),
         "--port",
-        str(MOCK_AGENT_PORT),
+        str(mock_agent_port),
         "--host",
         ADK_SERVER_HOST,
     ]
@@ -212,8 +235,9 @@ def mock_agent_server(tmp_path_factory):
 
         yield MockAgentServer(
             process=process,
-            endpoint=MOCK_AGENT_BASE_URL,
+            endpoint=mock_agent_base_url,
             agent_endpoint=mock_agent_endpoint,
+            port=mock_agent_port,
         )
 
     finally:
@@ -235,6 +259,12 @@ def mock_agent_server(tmp_path_factory):
                 except (ProcessLookupError, OSError):
                     pass
 
+        # Verify port is released
+        for _ in range(10):
+            if not is_port_in_use(mock_agent_port, ADK_SERVER_HOST):
+                break
+            time.sleep(0.1)
+
 
 @pytest.fixture(scope="session")
 def traced_adk_server(temp_data_dir, mock_agent_server):
@@ -250,32 +280,11 @@ def traced_adk_server(temp_data_dir, mock_agent_server):
     Yields:
         TracedServer: Server info including process, data_dir, and endpoints
     """
-    tau2_agent_endpoint = f"{TAU2_AGENT_BASE_URL}/a2a/tau2_agent"
+    # Find an available port dynamically
+    tau2_agent_port = find_available_port(TAU2_AGENT_PORT, ADK_SERVER_HOST)
+    tau2_agent_base_url = f"http://{ADK_SERVER_HOST}:{tau2_agent_port}"
+    tau2_agent_endpoint = f"{tau2_agent_base_url}/a2a/tau2_agent"
     agent_card_url = f"{tau2_agent_endpoint}/.well-known/agent-card.json"
-
-    # Check if port is already in use
-    if is_port_in_use(TAU2_AGENT_PORT):
-        try:
-            response = httpx.get(agent_card_url, timeout=2)
-            if response.status_code == 200:
-                # Port has tau2_agent, but we can't use it because
-                # we need our isolated data directory
-                pytest.fail(
-                    f"Port {TAU2_AGENT_PORT} is in use. "
-                    f"Stop the existing server or set DATADOG_E2E_TAU2_PORT."
-                )
-            else:
-                # Port in use by something else (not tau2_agent)
-                pytest.fail(
-                    f"Port {TAU2_AGENT_PORT} is already in use. "
-                    f"Set DATADOG_E2E_TAU2_PORT to use a different port."
-                )
-        except (httpx.ConnectError, httpx.TimeoutException):
-            # Port bound but not responding to HTTP
-            pytest.fail(
-                f"Port {TAU2_AGENT_PORT} is already in use. "
-                f"Set DATADOG_E2E_TAU2_PORT to use a different port."
-            )
 
     # Build environment with ddtrace configuration
     env = os.environ.copy()
@@ -302,18 +311,16 @@ def traced_adk_server(temp_data_dir, mock_agent_server):
     if not tau2_agent_link.exists():
         tau2_agent_link.symlink_to(PROJECT_ROOT / "tau2_agent")
 
-    # Start ADK server for tau2_agent only (test agent runs separately)
+    # Start custom server for tau2_agent with credentials middleware
     # Use ddtrace-run to enable Datadog tracing and LLM Observability
+    env["AGENTS_DIR"] = str(tau2_agents_dir)
+    env["PORT"] = str(tau2_agent_port)
+    env["HOST"] = ADK_SERVER_HOST
     cmd = [
         "ddtrace-run",
-        "adk",
-        "api_server",
-        "--a2a",
-        str(tau2_agents_dir),
-        "--port",
-        str(TAU2_AGENT_PORT),
-        "--host",
-        ADK_SERVER_HOST,
+        "python",
+        "-m",
+        "tau2_agent.server",
     ]
 
     process = None
@@ -369,7 +376,7 @@ def traced_adk_server(temp_data_dir, mock_agent_server):
         yield TracedServer(
             process=process,
             data_dir=temp_data_dir,
-            endpoint=TAU2_AGENT_BASE_URL,
+            endpoint=tau2_agent_base_url,
             tau2_agent_endpoint=tau2_agent_endpoint,
             mock_agent_endpoint=mock_agent_server.agent_endpoint,
         )
@@ -392,6 +399,12 @@ def traced_adk_server(temp_data_dir, mock_agent_server):
                     process.wait(timeout=5)
                 except (ProcessLookupError, OSError):
                     pass
+
+        # Verify port is released
+        for _ in range(10):
+            if not is_port_in_use(tau2_agent_port, ADK_SERVER_HOST):
+                break
+            time.sleep(0.1)
 
 
 @pytest.fixture
@@ -448,6 +461,23 @@ def build_a2a_evaluation_request(
     }
 
 
+def get_user_llm_headers() -> dict[str, str]:
+    """Get user LLM headers from environment variables."""
+    headers = {}
+    model = os.environ.get("USER_LLM_MODEL") or os.environ.get("TEST_USER_LLM_MODEL")
+    api_key = os.environ.get("USER_LLM_API_KEY") or os.environ.get("NEBIUS_API_KEY")
+
+    # Default model when using Nebius API
+    if api_key and not model and os.environ.get("NEBIUS_API_KEY"):
+        model = "openai/Qwen/Qwen3-30B-A3B-Thinking-2507"
+
+    if model:
+        headers["X-User-LLM-Model"] = model
+    if api_key:
+        headers["X-User-LLM-API-Key"] = api_key
+    return headers
+
+
 async def send_a2a_evaluation_request(
     endpoint: str,
     domain: str = "mock",
@@ -455,18 +485,22 @@ async def send_a2a_evaluation_request(
     num_tasks: int = 2,
     num_trials: int = 1,
     stream: bool = True,
-    timeout: float = 180.0,  # Increased timeout for sequential evaluations
+    timeout: float = 180.0,
+    user_llm_model: str | None = None,
+    user_llm_api_key: str | None = None,
 ) -> AsyncIterator[dict]:
     """Send an A2A evaluation request and stream SSE events.
 
     Args:
-        endpoint: The A2A endpoint URL (e.g., "http://localhost:8766/a2a/tau2_agent")
+        endpoint: The A2A endpoint URL
         domain: The tau2 domain to evaluate
         agent_endpoint: URL of the agent to evaluate
         num_tasks: Number of tasks to run
         num_trials: Number of trials per task
         stream: Whether to use SSE streaming (default: True)
         timeout: Request timeout in seconds (default: 180.0)
+        user_llm_model: LLM model for user simulator (falls back to env)
+        user_llm_api_key: API key for user simulator (falls back to env)
 
     Yields:
         dict: Parsed SSE event data containing evaluation progress/results
@@ -478,93 +512,62 @@ async def send_a2a_evaluation_request(
         num_trials=num_trials,
     )
 
+    # Build headers with user LLM credentials
+    headers = {"Accept": "text/event-stream"}
+    if user_llm_model:
+        headers["X-User-LLM-Model"] = user_llm_model
+    if user_llm_api_key:
+        headers["X-User-LLM-API-Key"] = user_llm_api_key
+
+    # Fall back to environment if not explicitly provided
+    if "X-User-LLM-Model" not in headers or "X-User-LLM-API-Key" not in headers:
+        env_headers = get_user_llm_headers()
+        for k, v in env_headers.items():
+            if k not in headers:
+                headers[k] = v
+
     if stream:
-        # Use message/stream for SSE streaming
         request["method"] = "message/stream"
 
         async with httpx.AsyncClient(timeout=timeout) as client, client.stream(
-            "POST",
-            endpoint,
-            json=request,
-            headers={"Accept": "text/event-stream"},
+            "POST", endpoint, json=request, headers=headers
         ) as response:
             response.raise_for_status()
 
-            buffer = ""
+            parser = SSEParser()
             async for chunk in response.aiter_text():
-                buffer += chunk
-
-                # Process complete SSE events (delimited by \n\n per SSE spec)
-                while "\n\n" in buffer:
-                    event_text, buffer = buffer.split("\n\n", 1)
-                    event_data = parse_sse_event(event_text)
+                for event in parser.feed(chunk):
+                    event_data = sse_event_to_dict(event)
                     if event_data:
                         yield event_data
 
-                # Handle non-spec-compliant servers using single \n between events
-                # Only process standalone data: lines (no event: prefix pending)
-                while "\n" in buffer:
-                    # If buffer starts with event:, wait for \n\n (multi-line event)
-                    if buffer.lstrip().startswith("event:"):
-                        break
-
-                    line, rest = buffer.split("\n", 1)
-                    stripped = line.strip()
-
-                    if stripped.startswith("data:"):
-                        event_data = parse_sse_event(line)
-                        if event_data:
-                            yield event_data
-                        buffer = rest
-                    elif stripped.startswith(":") or stripped == "":
-                        # SSE comment or empty line, skip
-                        buffer = rest
-                    else:
-                        # Unknown format, keep in buffer
-                        break
-
-            # Handle remaining buffer (final event may not have trailing \n\n)
-            if buffer.strip():
-                event_data = parse_sse_event(buffer)
+            # Flush any remaining buffered event
+            for event in parser.flush():
+                event_data = sse_event_to_dict(event)
                 if event_data:
                     yield event_data
     else:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(endpoint, json=request)
+            response = await client.post(endpoint, json=request, headers=headers)
             response.raise_for_status()
             yield response.json()
 
 
-def parse_sse_event(event_text: str) -> dict | None:
-    """Parse a single SSE event into a dictionary.
+def sse_event_to_dict(event: SSEEvent) -> dict | None:
+    """Convert SSEEvent to dict format expected by tests.
 
     Args:
-        event_text: Raw SSE event text (e.g., "event: message\\ndata: {...}")
+        event: Parsed SSEEvent from SSEParser.
 
     Returns:
-        dict or None: Parsed event data, or None if not parseable
+        dict or None: Parsed event data with _event_type field if present.
+        If JSON parsing fails, returns {"_raw": data, "_event_type": event_type}
     """
-    lines = event_text.strip().split("\n")
-    event_type = None
-    data_lines = []
-
-    for line in lines:
-        if line.startswith("event:"):
-            event_type = line[6:].strip()
-        elif line.startswith("data:"):
-            data_lines.append(line[5:].strip())
-        elif line.startswith(":"):
-            # Comment line, skip
-            continue
-
-    if not data_lines:
-        return None
-
-    data_str = "".join(data_lines)
-    try:
-        data = json.loads(data_str)
-        if event_type:
-            data["_event_type"] = event_type
-        return data
-    except json.JSONDecodeError:
-        return {"_raw": data_str, "_event_type": event_type}
+    parsed = event.json()
+    if parsed is not None:
+        if event.event:
+            parsed["_event_type"] = event.event
+        return parsed
+    if event.data:
+        return {"_raw": event.data, "_event_type": event.event}
+    return None
