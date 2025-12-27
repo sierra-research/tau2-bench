@@ -13,6 +13,7 @@ class A2AConfig:
     endpoint: str
     auth_token: str | None = None
     timeout: int = 300
+    connect_timeout: int = 5
     verify_ssl: bool = True
 
     def __post_init__(self) -> None:

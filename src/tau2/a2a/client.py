@@ -55,7 +55,10 @@ class A2AClient:
             httpx.AsyncClient: An AsyncClient configured with the client's timeout, SSL verification setting, default JSON headers, and redirects enabled.
         """
         return httpx.AsyncClient(
-            timeout=httpx.Timeout(self.config.timeout),
+            timeout=httpx.Timeout(
+                self.config.timeout,
+                connect=self.config.connect_timeout,
+            ),
             verify=self.config.verify_ssl,
             headers=self._build_headers(),
             follow_redirects=True,
