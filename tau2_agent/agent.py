@@ -13,7 +13,7 @@ import uuid
 
 from google.adk.agents import LlmAgent
 from google.adk.agents.callback_context import CallbackContext
-from google.adk.models.lite_llm import LiteLlm
+from google.adk.models import Gemini
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 from loguru import logger
@@ -47,25 +47,66 @@ Be helpful in explaining evaluation metrics and suggesting improvements.
 
 def create_model():
     """
-    Selects and constructs the LLM model used by the agent.
+    Create the Gemini model for the tau2 agent orchestrator.
 
-    If the `NEBIUS_API_KEY` environment variable is present, returns a LiteLlm configured for the Nebius Qwen model and uses `NEBIUS_API_BASE` (default: "https://api.tokenfactory.nebius.com/v1/") as the API base. If `NEBIUS_API_KEY` is not set, returns the Gemini model identifier string "gemini-2.0-flash-exp".
+    Uses ADK's native Gemini integration for optimal performance on GCP.
+    Model can be configured via TAU2_AGENT_MODEL env var (default: gemini-2.0-flash).
+
+    Authentication is handled automatically:
+    - GCP: Uses Application Default Credentials (ADC)
+    - Local: Reads GOOGLE_API_KEY from environment
 
     Returns:
-        A LiteLlm instance configured for Nebius when `NEBIUS_API_KEY` is set; otherwise the Gemini model identifier string `"gemini-2.0-flash-exp"`.
+        Gemini: ADK Gemini model instance.
     """
-    nebius_key = os.getenv("NEBIUS_API_KEY")
-    if nebius_key:
-        api_base = os.getenv(
-            "NEBIUS_API_BASE", "https://api.tokenfactory.nebius.com/v1/"
-        )
-        return LiteLlm(
-            model="nebius/Qwen/Qwen3-30B-A3B-Thinking-2507",
-            api_base=api_base,
-            api_key=nebius_key,
-        )
-    # Fallback to Gemini if no Nebius key
-    return "gemini-2.0-flash-exp"
+    model = os.getenv("TAU2_AGENT_MODEL", "gemini-2.0-flash")
+
+    # Strip 'gemini/' prefix if present - native Gemini uses bare model name
+    if model.startswith("gemini/"):
+        model = model[7:]
+
+    return Gemini(model=model)
+
+
+def _extract_tool_call(text: str) -> dict | None:
+    """Extract a tool call from text, trying multiple JSON formats.
+
+    Attempts to find and parse JSON that represents a tool call.
+    Handles wrapped format {"tool_call": {...}}, code blocks,
+    and direct format {"name": "...", "arguments": {...}}.
+
+    Args:
+        text: The text to search for tool calls.
+
+    Returns:
+        A dict with "name" and optional "arguments" keys, or None if not found.
+    """
+    # Remove code block markers if present
+    cleaned = re.sub(r'```(?:tool_call|json)?\s*', '', text)
+    cleaned = re.sub(r'```', '', cleaned)
+
+    # Find all JSON-like objects in the text
+    json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+    matches = re.findall(json_pattern, cleaned, re.DOTALL)
+
+    for match in matches:
+        try:
+            parsed = json.loads(match)
+
+            # Check for wrapped format: {"tool_call": {"name": ...}}
+            if isinstance(parsed.get("tool_call"), dict):
+                inner = parsed["tool_call"]
+                if "name" in inner:
+                    return inner
+
+            # Check for direct format: {"name": ..., "arguments": ...}
+            if "name" in parsed:
+                return parsed
+
+        except json.JSONDecodeError:
+            continue
+
+    return None
 
 
 def parse_text_tool_call(
@@ -101,39 +142,12 @@ def parse_text_tool_call(
     if not full_text:
         return None
 
-    # Try to find JSON tool_call in the text
-    # Pattern: {"tool_call": {"name": "...", "arguments": {...}}}
-    tool_call_match = re.search(
-        r'\{\s*"tool_call"\s*:\s*\{[^}]*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^}]*\}\s*\}\s*\}',
-        full_text,
-        re.DOTALL,
-    )
-
-    if not tool_call_match:
-        # Try a more lenient pattern for nested arguments
-        tool_call_match = re.search(
-            r'\{"tool_call":\s*(\{.*?\})\s*\}',
-            full_text,
-            re.DOTALL,
-        )
-        if tool_call_match:
-            try:
-                # Try to parse the full match
-                inner = tool_call_match.group(0)
-                parsed = json.loads(inner)
-                tool_call = parsed.get("tool_call")
-            except json.JSONDecodeError:
-                return None
-        else:
-            return None
-    else:
-        try:
-            parsed = json.loads(tool_call_match.group(0))
-            tool_call = parsed.get("tool_call")
-        except json.JSONDecodeError:
-            return None
-
-    if not tool_call or "name" not in tool_call:
+    # Extract tool call from text - supports multiple formats:
+    # 1. {"tool_call": {"name": "...", "arguments": {...}}}
+    # 2. ```tool_call\n{"name": "...", "arguments": {...}}```
+    # 3. {"name": "...", "arguments": {...}}
+    tool_call = _extract_tool_call(full_text)
+    if not tool_call:
         return None
 
     tool_name = tool_call["name"]
@@ -176,10 +190,11 @@ root_agent = LlmAgent(
             name="run_tau2_evaluation",
             description="""Run a tau2-bench evaluation of a conversational agent.
 
+            Requires X-User-LLM-Model and X-User-LLM-API-Key headers.
+
             Parameters:
             - domain: Evaluation domain (airline, retail, telecom, mock)
             - agent_endpoint: A2A endpoint of agent to evaluate
-            - user_llm: LLM model for user simulator (default: gpt-4o)
             - num_trials: Number of trials per task (default: 1)
             - num_tasks: Number of tasks to evaluate (optional)
             - task_ids: Optional list of specific task IDs to run

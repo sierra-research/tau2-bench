@@ -34,15 +34,24 @@ class ListDomains(BaseTool):
         Create a FunctionDeclaration describing this tool for integration with GenAI tooling.
 
         Returns:
-            types.FunctionDeclaration | None: A FunctionDeclaration populated with the tool's name, description,
-            and an empty object schema for parameters; `None` if no declaration is provided.
+            types.FunctionDeclaration | None: A FunctionDeclaration with a minimal but valid
+            parameters schema. Gemini requires at least an OBJECT type with properties.
         """
+        # Gemini requires a valid OBJECT schema with at least one property defined.
+        # We add an optional 'verbose' flag that doesn't affect tool behavior
+        # but satisfies Gemini's function calling schema requirements.
         return types.FunctionDeclaration(
             name=self.name,
             description=self.description,
             parameters=types.Schema(
                 type=types.Type.OBJECT,
-                properties={},
+                properties={
+                    "verbose": types.Schema(
+                        type=types.Type.BOOLEAN,
+                        description="Return verbose output with task counts (optional, default: true)",
+                    ),
+                },
+                required=[],
             ),
         )
 

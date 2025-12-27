@@ -45,6 +45,7 @@ class GetEvaluationResults(BaseTool):
                         description="If true, list all available evaluation result files",
                     ),
                 },
+                required=[],  # Both parameters are optional
             ),
         )
 
