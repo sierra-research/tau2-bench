@@ -7,17 +7,121 @@ description: |
   - Analyzing test coverage gaps
   - Investigating flaky or slow tests
   - Setting up test infrastructure (fixtures, conftest)
-  Provides strategies for unit, integration, and e2e testing with pytest.
+  Enforces behavior-focused testing with pytest.
 ---
 
 # Testing Skill
 
 ## Purpose
 
-Guide systematic test creation and debugging to catch implementation issues early. Tests should validate:
-1. **Unit tests**: Individual function/class logic with high coverage
-2. **Integration tests**: Component interactions with mocks where appropriate
-3. **E2E tests**: Real behavior against actual services when necessary
+Guide systematic test creation and debugging. Tests validate behavior, not implementation details.
+
+---
+
+## Core Principles (FIRST)
+
+Based on Uncle Bob Martin's FIRST principles for effective unit testing.
+
+### 1. Fast
+
+Tests must run quickly. Slow tests don't get run.
+
+- Unit tests: < 1 second each
+- Full unit suite: < 2 minutes
+- Slow tests block feedback loops and discourage TDD
+
+### 2. Independent (Isolated)
+
+Tests must not affect each other. Run in any order, get same results.
+
+- No shared mutable state between tests
+- Each test sets up its own preconditions
+- Each test cleans up after itself
+
+### 3. Repeatable
+
+Same test, same result. Every time, on every machine.
+
+- No timing-dependent assertions
+- No reliance on external service availability
+- No environment-specific assumptions (paths, ports, configs)
+- Control randomness with seeds
+
+### 4. Self-Validating
+
+Tests have a clear pass/fail result. No manual inspection required.
+
+```python
+# BAD: Requires manual inspection
+def test_output():
+    result = process(data)
+    print(result)  # "Check if this looks right"
+
+# GOOD: Automatic pass/fail
+def test_output():
+    result = process(data)
+    assert result == expected_output
+```
+
+### 5. Thorough
+
+Test the full behavior space, not just the happy path.
+
+- Success cases AND failure cases
+- Boundary conditions (empty, null, max, min)
+- Edge cases and error handling
+- State transitions
+
+---
+
+## Behavioral Testing Principles
+
+### Test Behavior, Not Implementation
+
+Tests verify **what** code does, not **how** it does it. Implementation can change; behavior contracts should not.
+
+```python
+# BAD: Tests internal implementation
+def test_cache_uses_dict():
+    cache = Cache()
+    assert isinstance(cache._storage, dict)
+
+# GOOD: Tests observable behavior
+def test_cache_returns_stored_value():
+    cache = Cache()
+    cache.set("key", "value")
+    assert cache.get("key") == "value"
+```
+
+### One Behavior Per Test
+
+Each test should verify one logical behavior. Failures should pinpoint the problem.
+
+```python
+# BAD: One test does everything
+def test_full_workflow():
+    # 100 lines of setup, action, and assertions
+
+# GOOD: Focused tests with clear purpose
+def test_create_succeeds_with_valid_data(): ...
+def test_create_rejects_empty_name(): ...
+def test_update_preserves_created_timestamp(): ...
+```
+
+### Test the Unhappy Path
+
+Every success path needs corresponding failure tests.
+
+```python
+# Both are required
+def test_login_succeeds_with_valid_credentials():
+    result = login("user", "correct_password")
+    assert result.success
+
+def test_login_fails_with_wrong_password():
+    with pytest.raises(AuthenticationError):
+        login("user", "wrong_password")
+```
 
 ---
 
@@ -25,176 +129,328 @@ Guide systematic test creation and debugging to catch implementation issues earl
 
 ### Unit Tests (`tests/test_<module>/`)
 
-**Purpose**: Test implemented logic in isolation
+**Purpose**: Test logic in isolation
 
-**Characteristics**:
-- Fast execution (< 1 second per test)
-- No external dependencies (mocked)
-- High coverage of edge cases
-- Named after the module they test
+| Characteristic | Requirement |
+|----------------|-------------|
+| Execution time | < 1 second per test |
+| Dependencies | All mocked |
+| Coverage | High (80%+), including edge cases |
+| Naming | After the module they test |
 
-**Naming Convention**:
 ```
 tests/test_<module>/
     test_<module>.py           # Main module tests
     test_<submodule>.py        # Submodule tests
 ```
 
-**Example**:
 ```python
-# tests/test_store/test_models.py - tests src/tau2/store/models.py
+# tests/test_store/test_models.py
 class TestEvaluationSession:
     def test_create_with_valid_data(self):
-        """Test session creation with valid inputs."""
+        """Session creation accepts valid inputs."""
 
     def test_create_rejects_invalid_status(self):
-        """Test validation rejects unknown status values."""
-
-    def test_update_status_transitions_correctly(self):
-        """Test status can only transition in valid order."""
+        """Validation rejects unknown status values."""
 ```
 
 ### Integration Tests (`tests/test_<feature>/`)
 
 **Purpose**: Test component interactions
 
-**Characteristics**:
-- Mock external services (APIs, databases)
-- Test data flow between components
-- Verify error handling across boundaries
-- Named after the feature being tested
+| Characteristic | Requirement |
+|----------------|-------------|
+| External services | Mocked |
+| Data flow | Verified across boundaries |
+| Error handling | Tested at integration points |
+| Naming | After the feature |
 
-**Naming Convention**:
 ```
 tests/test_<feature>/
     conftest.py               # Shared fixtures
     test_<flow>.py            # Flow-specific tests
 ```
 
-**Example**:
 ```python
 # tests/test_a2a_integration/test_message_flow.py
 class TestA2AMessageFlow:
-    @pytest.fixture
-    def mock_http_client(self):
-        """Mock HTTP client for A2A requests."""
-
     async def test_message_sent_and_response_parsed(self, mock_http_client):
-        """Test full message send/receive cycle with mocked HTTP."""
+        """Full message cycle works with mocked HTTP."""
 ```
 
 ### E2E Tests (`tests/test_<feature>_e2e/`)
 
-**Purpose**: Test real behavior against actual services
+**Purpose**: Validate real behavior
 
-**Characteristics**:
-- Use real external services when possible
-- Longer execution time (acceptable)
-- Catch integration issues missed by mocks
-- Named with `_e2e` suffix
+| Characteristic | Requirement |
+|----------------|-------------|
+| External services | Real when possible |
+| Execution time | Longer (acceptable) |
+| Scope | Critical paths only |
+| Naming | `_e2e` suffix |
 
-**Naming Convention**:
 ```
 tests/test_<feature>_e2e/
-    conftest.py               # Server fixtures, API keys
+    conftest.py               # Server fixtures, credentials
     test_<scenario>.py        # Scenario-based tests
 ```
 
-**Example**:
 ```python
 # tests/test_datadog_e2e/test_observability_flow.py
-@pytest.mark.datadog_e2e
-class TestA2AObservabilityFlow:
-    async def test_concurrent_evaluations_complete(self, traced_server):
-        """Test multiple evaluations run concurrently without deadlock."""
+@pytest.mark.e2e
+class TestObservabilityFlow:
+    async def test_traces_appear_in_datadog(self, live_agent):
+        """Traces from agent calls appear in Datadog within 30s."""
 ```
 
 ---
 
-## Test Debugging Strategy
+## Anti-Patterns
 
-### Step 1: Isolate the Failure
-
-**Never start with the full test suite for debugging.**
-
-```bash
-# Run single test first
-uv run pytest tests/path/test_file.py::TestClass::test_method -v
-
-# Run single class
-uv run pytest tests/path/test_file.py::TestClass -v
-
-# Run single file
-uv run pytest tests/path/test_file.py -v
-```
-
-### Step 2: Add Visibility
-
-**For hanging tests or unclear failures:**
-
-```bash
-# Show print statements
-uv run pytest ... -s
-
-# Show all output including captured
-uv run pytest ... -v --capture=no
-
-# Set shorter timeout to fail fast
-timeout 30 uv run pytest ... -v
-```
-
-**For subprocess-based tests (servers):**
+### 1. Testing Implementation Details
 
 ```python
-# In conftest.py - capture server output
-process = subprocess.Popen(
-    cmd,
-    stdout=subprocess.PIPE,
-    stderr=subprocess.STDOUT,  # Combine streams
-    text=True,
-)
+# BAD: Asserts on private attributes
+assert obj._internal_counter == 5
+assert mock_db.execute.call_count == 3
 
-# On failure, print server output
+# GOOD: Asserts on observable outcomes
+assert obj.get_count() == 5
+assert len(results) == 3
+```
+
+### 2. Overly Broad Tests
+
+```python
+# BAD: Tests everything, failure reveals nothing
+def test_user_workflow():
+    user = create_user()
+    user.update_profile(...)
+    user.add_payment(...)
+    user.place_order(...)
+    assert user.orders[0].status == "complete"
+
+# GOOD: Each test has one reason to fail
+def test_create_user_assigns_id(): ...
+def test_update_profile_changes_name(): ...
+def test_place_order_requires_payment(): ...
+```
+
+### 3. Missing Edge Cases (Happy Path Only)
+
+```python
+# BAD: Only tests happy path
+def test_parse_json():
+    assert parse('{"key": "value"}') == {"key": "value"}
+
+# GOOD: Tests boundaries
+def test_parse_empty_object(): ...
+def test_parse_nested_structure(): ...
+def test_parse_invalid_json_raises(): ...
+def test_parse_empty_string_raises(): ...
+```
+
+### 4. Magic Numbers
+
+```python
+# BAD: Unexplained values
+assert response.status_code == 200
+assert len(result) == 42
+
+# GOOD: Named or explained
+assert response.status_code == HTTPStatus.OK
+assert len(result) == len(input_items)  # One result per input
+```
+
+### 5. Shared Mutable State
+
+```python
+# BAD: Tests affect each other
+_test_cache = {}  # Module-level mutable
+
+def test_first():
+    _test_cache["key"] = "value"
+
+def test_second():
+    assert "key" not in _test_cache  # Fails if test_first runs first
+
+# GOOD: Fixture provides isolated state
 @pytest.fixture
-def server(request):
-    proc = start_server()
-    yield proc
-    if request.node.rep_call.failed:
-        stdout, _ = proc.communicate(timeout=5)
-        print(f"Server output:\n{stdout}")
+def cache():
+    return {}
+
+def test_first(cache):
+    cache["key"] = "value"
 ```
 
-### Step 3: Progressive Scope Expansion
+### 6. Time-Dependent Assertions
 
-After single test passes:
+```python
+# BAD: Flaky on slow machines
+start = time.time()
+do_operation()
+assert time.time() - start < 0.1
 
-```bash
-# Expand to related tests
-uv run pytest tests/path/test_file.py -v
-
-# Expand to test directory
-uv run pytest tests/path/ -v
-
-# Only then run full suite
-uv run pytest -v
+# GOOD: Mock time or use generous bounds
+def test_operation_completes(mocker):
+    mock_time = mocker.patch("time.time")
+    # Control time explicitly
 ```
 
-### Step 4: Identify Root Cause Patterns
+### 7. Over-Mocking (Mockery)
 
-**Hanging Tests**:
-- Check for deadlocks (nested executors, shared resources)
-- Check for blocking I/O without timeouts
-- Check for event loop conflicts in async code
+When you mock so much that you're testing the mocks, not the code.
 
-**Flaky Tests**:
-- Check for race conditions
-- Check for shared state between tests
-- Check for timing-dependent assertions
+```python
+# BAD: Everything is mocked, testing nothing real
+def test_process_data(mocker):
+    mock_validator = mocker.patch("app.validator")
+    mock_transformer = mocker.patch("app.transformer")
+    mock_saver = mocker.patch("app.saver")
+    mock_validator.return_value = True
+    mock_transformer.return_value = {"data": "transformed"}
 
-**Slow Tests**:
-- Profile with `pytest --durations=10`
-- Check for unnecessary setup/teardown
-- Check for repeated expensive operations
+    result = process_data(input)
+
+    # Only testing that mocks were called, not actual behavior
+    mock_validator.assert_called_once()
+    mock_transformer.assert_called_once()
+
+# GOOD: Mock external dependencies, test real logic
+def test_process_data(mocker):
+    mocker.patch("app.external_api.send")  # Only mock external
+
+    result = process_data(valid_input)
+
+    assert result.status == "processed"
+    assert result.transformed_field == expected_value
+```
+
+### 8. The Liar (Missing/Weak Assertions)
+
+Tests that pass but don't actually verify anything meaningful.
+
+```python
+# BAD: No real assertion
+def test_process():
+    result = process(data)
+    assert result is not None  # Passes even if completely wrong
+
+# BAD: Tests that something was called, not that it worked
+def test_send_email(mocker):
+    mock_send = mocker.patch("app.send_email")
+    notify_user(user)
+    mock_send.assert_called()  # Called, but with what? Did it work?
+
+# GOOD: Verify actual outcomes
+def test_process():
+    result = process(data)
+    assert result.status == "success"
+    assert result.output == expected_output
+
+# GOOD: Verify call arguments matter
+def test_send_email(mocker):
+    mock_send = mocker.patch("app.send_email")
+    notify_user(user)
+    mock_send.assert_called_once_with(
+        to=user.email,
+        subject="Notification",
+        body=mocker.ANY,
+    )
+```
+
+### 9. Free Ride (Piggyback)
+
+Adding unrelated assertions to existing tests instead of writing new ones.
+
+```python
+# BAD: Test does too many unrelated things
+def test_create_user():
+    user = create_user("alice", "alice@example.com")
+    assert user.name == "alice"
+    assert user.email == "alice@example.com"
+    # Unrelated assertions piggybacking
+    assert validate_email("alice@example.com") == True
+    assert hash_password("password123") != "password123"
+
+# GOOD: Separate tests for separate behaviors
+def test_create_user_sets_name(): ...
+def test_create_user_sets_email(): ...
+def test_validate_email_accepts_valid(): ...
+def test_hash_password_is_irreversible(): ...
+```
+
+### 10. Local Hero (Environment-Dependent)
+
+Tests that only pass on the original developer's machine.
+
+```python
+# BAD: Hardcoded paths and environment
+def test_load_config():
+    config = load_config("/Users/alice/project/config.json")
+    assert config["debug"] == True
+
+# BAD: Assumes specific port is available
+def test_server():
+    server = start_server(port=8080)  # What if 8080 is in use?
+
+# GOOD: Use fixtures and relative paths
+def test_load_config(tmp_path):
+    config_file = tmp_path / "config.json"
+    config_file.write_text('{"debug": true}')
+    config = load_config(config_file)
+    assert config["debug"] == True
+
+# GOOD: Use dynamic port assignment
+def test_server():
+    server = start_server(port=0)  # OS assigns available port
+    assert server.is_running
+```
+
+### 11. Slow Poke
+
+Tests that take too long and block the feedback loop.
+
+```python
+# BAD: Sleeps and real waits
+def test_retry_logic():
+    time.sleep(5)  # Waiting for real timeout
+    result = operation_with_retry()
+    assert result.success
+
+# BAD: Unnecessary I/O in unit tests
+def test_data_processing():
+    data = load_from_remote_api()  # Slow network call
+    assert process(data) == expected
+
+# GOOD: Mock time and external calls
+def test_retry_logic(mocker):
+    mocker.patch("time.sleep")  # Don't actually sleep
+    result = operation_with_retry()
+    assert result.success
+
+# GOOD: Use fixtures with test data
+def test_data_processing(sample_data):
+    assert process(sample_data) == expected
+```
+
+### 12. Bad Test Names (Enumerator)
+
+Names that don't describe what's being tested.
+
+```python
+# BAD: Meaningless names
+def test1(): ...
+def test2(): ...
+def test_it(): ...
+def test_stuff(): ...
+def test_user(): ...  # What about the user?
+
+# GOOD: Describe behavior and condition
+def test_user_creation_assigns_unique_id(): ...
+def test_user_creation_fails_with_duplicate_email(): ...
+def test_user_deletion_removes_associated_data(): ...
+```
 
 ---
 
@@ -203,30 +459,26 @@ uv run pytest -v
 ### Scope Appropriately
 
 ```python
-# Session scope for expensive shared resources
 @pytest.fixture(scope="session")
 def database_connection():
-    """Single DB connection for all tests."""
+    """Expensive resource shared across all tests."""
 
-# Function scope for isolated state
 @pytest.fixture(scope="function")  # Default
 def clean_state():
     """Fresh state for each test."""
 
-# Class scope for related tests
 @pytest.fixture(scope="class")
 def shared_context():
     """Shared across test class methods."""
 ```
 
-### Clean Up Resources
+### Always Clean Up
 
 ```python
 @pytest.fixture
 def server():
     proc = subprocess.Popen(cmd)
     yield proc
-    # Always clean up
     proc.terminate()
     proc.wait(timeout=10)
 ```
@@ -238,105 +490,56 @@ def server():
 async def async_client():
     async with httpx.AsyncClient() as client:
         yield client
-    # Client closed automatically
 ```
 
 ---
 
 ## Coverage Guidelines
 
-### Minimum Coverage Targets
+| Test Type | Target | Focus |
+|-----------|--------|-------|
+| Unit | 80%+ | All logic branches |
+| Integration | Key paths | Critical flows |
+| E2E | Happy + error | Real behavior |
 
-| Test Type | Target | Rationale |
-|-----------|--------|-----------|
-| Unit tests | 80%+ | Core logic fully tested |
-| Integration | Key paths | Critical flows covered |
-| E2E | Happy path + errors | Real behavior validated |
+### Blind Spots to Cover
 
-### Coverage Blind Spots to Avoid
-
-1. **Error paths**: Test exception handling, not just success
-2. **Edge cases**: Empty inputs, max values, unicode
-3. **Concurrency**: Parallel execution, race conditions
-4. **State transitions**: All valid state changes
-
-### Check Coverage
-
-```bash
-# Run with coverage
-uv run pytest --cov=src --cov-report=html
-
-# View report
-open htmlcov/index.html
-```
+- **Error paths**: Exception handling, not just success
+- **Edge cases**: Empty, null, max values, unicode
+- **Concurrency**: Race conditions, deadlocks
+- **State transitions**: All valid state changes
 
 ---
 
-## Common Anti-Patterns
+## Quick Reference
 
-### 1. Testing Implementation, Not Behavior
-
-```python
-# BAD: Tests internal implementation
-def test_cache_uses_dict():
-    cache = Cache()
-    assert isinstance(cache._storage, dict)
-
-# GOOD: Tests behavior
-def test_cache_returns_stored_value():
-    cache = Cache()
-    cache.set("key", "value")
-    assert cache.get("key") == "value"
-```
-
-### 2. Overly Long Test Methods
+### Test Naming
 
 ```python
-# BAD: One test does everything
-def test_full_workflow():
-    # 100 lines of setup, action, and assertions
+def test_<unit>_<behavior>_<condition>():
+    """<Unit> <behavior> when <condition>."""
 
-# GOOD: Focused tests
-def test_create_succeeds():
-    ...
-
-def test_update_after_create():
-    ...
-
-def test_delete_after_update():
-    ...
+# Examples
+def test_parser_returns_empty_dict_for_empty_input(): ...
+def test_validator_rejects_negative_values(): ...
+def test_cache_expires_entries_after_ttl(): ...
 ```
 
-### 3. Missing Negative Tests
+### Test Structure (Arrange-Act-Assert)
 
 ```python
-# Need both positive AND negative tests
-def test_create_with_valid_data():
-    result = create(valid_data)
-    assert result.success
+def test_example():
+    # Arrange: Set up preconditions
+    user = User(name="test")
 
-def test_create_with_invalid_data():
-    with pytest.raises(ValidationError):
-        create(invalid_data)
+    # Act: Perform the action
+    result = user.greet()
+
+    # Assert: Verify the outcome
+    assert result == "Hello, test"
 ```
 
-### 4. Hardcoded Test Values
-
-```python
-# BAD: Magic numbers
-assert response.status_code == 200
-assert len(result) == 42
-
-# GOOD: Named constants or explicit
-assert response.status_code == HTTPStatus.OK
-assert len(result) == expected_count
-```
-
----
-
-## Test Discovery Checklist
-
-When implementing a feature, ensure tests exist for:
+### What Every Feature Needs
 
 - [ ] Happy path (normal operation)
 - [ ] Error conditions (invalid input, missing data)
@@ -344,109 +547,10 @@ When implementing a feature, ensure tests exist for:
 - [ ] State transitions (all valid paths)
 - [ ] Concurrency (if applicable)
 - [ ] Resource cleanup (no leaks)
-- [ ] Integration points (external calls)
 
 ---
 
-## Debugging Session Template
+## Additional Resources
 
-When debugging test failures, follow this template:
-
-```markdown
-## Test Failure Investigation
-
-**Test**: `tests/path/test_file.py::TestClass::test_method`
-**Symptom**: [Describe what happens - timeout, assertion error, exception]
-
-### Step 1: Reproduce
-```bash
-uv run pytest tests/path/test_file.py::TestClass::test_method -v -s
-```
-
-### Step 2: Isolate
-- Does it fail in isolation? [yes/no]
-- Does it fail with other tests? [yes/no]
-- Is it timing-dependent? [yes/no]
-
-### Step 3: Gather Evidence
-- Error output: [paste]
-- Relevant logs: [paste]
-- State at failure: [describe]
-
-### Step 4: Root Cause
-[Describe the actual cause]
-
-### Step 5: Fix
-[Describe the fix and why it works]
-
-### Step 6: Verify
-```bash
-uv run pytest tests/path/ -v  # Verify in broader context
-```
-```
-
----
-
-## Pytest Configuration Reference
-
-### pytest.ini / pyproject.toml
-
-```ini
-[pytest]
-# Test discovery
-testpaths = tests
-python_files = test_*.py
-python_classes = Test*
-python_functions = test_*
-
-# Async support
-asyncio_mode = strict
-asyncio_default_fixture_loop_scope = function
-
-# Markers for selective running
-markers =
-    unit: Unit tests (fast, isolated)
-    integration: Integration tests (mocked externals)
-    e2e: End-to-end tests (real services)
-    slow: Tests that take > 10 seconds
-```
-
-### Running Subsets
-
-```bash
-# By marker
-uv run pytest -m unit
-uv run pytest -m "not slow"
-uv run pytest -m "integration or e2e"
-
-# By keyword
-uv run pytest -k "concurrent"
-uv run pytest -k "not flaky"
-```
-
----
-
-## Integration with CI
-
-### Recommended CI Test Stages
-
-```yaml
-test:
-  stages:
-    - unit:        # Fast feedback (< 2 min)
-        run: pytest -m unit --timeout=30
-    - integration: # Medium feedback (< 5 min)
-        run: pytest -m integration --timeout=60
-    - e2e:         # Thorough validation (< 15 min)
-        run: pytest -m e2e --timeout=300
-```
-
-### Fail Fast in Development
-
-```bash
-# Stop on first failure
-uv run pytest -x
-
-# Stop after N failures
-uv run pytest --maxfail=3
-```
+- For debugging strategies, see [debugging-guide.md](debugging-guide.md)
+- For pytest configuration, see [pytest-reference.md](pytest-reference.md)
