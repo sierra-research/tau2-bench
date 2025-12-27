@@ -6,12 +6,19 @@ The test suite manages its own isolated servers to avoid conflicts with
 any user-running servers.
 
 Key design decisions:
+- MODULE-SCOPED SERVERS: Each test module gets its own fresh server instances,
+  providing complete isolation between test modules. This prevents state leakage
+  from error/timeout tests affecting subsequent modules.
 - tau2_agent and mock_agent run on SEPARATE ports to avoid async deadlock
 - Uses A2EServer dataclass to encapsulate server state
+- CONNECTION DRAIN: Module boundary fixtures ensure connections are properly
+  drained between test modules with health verification
+- SAFE CLOSE: All async client cleanup uses timeout guards to prevent hanging
 - SSE streaming helpers for evaluation request handling
 - EvaluationStore verification fixtures
 """
 
+import asyncio
 import json
 import os
 import signal
@@ -25,9 +32,14 @@ from pathlib import Path
 import httpx
 import pytest
 import pytest_asyncio
+from dotenv import load_dotenv
 
 from tau2.a2a.client import A2AClient
 from tau2.a2a.models import A2AConfig
+from tau2_agent.utils import SSEEvent, SSEParser
+
+# Load .env for NEBIUS_API_KEY and other credentials
+load_dotenv()
 
 # Test configuration - use unique ports to avoid conflicts
 # CRITICAL: tau2_agent and mock_agent MUST run on SEPARATE ports to avoid
@@ -49,6 +61,58 @@ SERVER_HEALTH_CHECK_INTERVAL = 0.5  # seconds
 
 # Project root for finding agents
 PROJECT_ROOT = Path(__file__).parent.parent.parent
+
+# Connection management constants
+CONNECTION_DRAIN_DELAY = 0.5  # seconds to wait for connections to drain
+SAFE_CLOSE_TIMEOUT = 5.0  # seconds to wait for client close
+HEALTH_CHECK_RETRIES = 10  # number of health check retries
+HEALTH_CHECK_RETRY_DELAY = 0.5  # seconds between health check retries
+
+
+async def _safe_close(client: httpx.AsyncClient, timeout: float = SAFE_CLOSE_TIMEOUT):
+    """Close httpx client with timeout guard.
+
+    Ensures client cleanup completes within a timeout, preventing
+    hanging connections from blocking test teardown.
+
+    Args:
+        client: The httpx.AsyncClient to close
+        timeout: Maximum seconds to wait for close (default: 5.0)
+    """
+    try:
+        async with asyncio.timeout(timeout):
+            await client.aclose()
+    except (TimeoutError, Exception):
+        # Connection will be cleaned up by garbage collection
+        pass
+
+
+def _create_temp_data_dir(base_dir: Path) -> Path:
+    """Create and configure a temporary data directory.
+
+    Creates a temp directory with:
+    - sessions/ for EvaluationStore session data
+    - evaluations/ for EvaluationStore completed evaluations
+    - tau2/ symlinked to project's data/tau2/ for domain task files
+
+    Args:
+        base_dir: Base directory to create subdirectories in
+
+    Returns:
+        Path: The configured data directory
+    """
+    # Create subdirectories for EvaluationStore
+    (base_dir / "sessions").mkdir(exist_ok=True)
+    (base_dir / "evaluations").mkdir(exist_ok=True)
+
+    # Symlink tau2 domains from project data directory
+    # This allows tau2-bench to find domain task files when TAU2_DATA_DIR is set
+    source_tau2_dir = PROJECT_ROOT / "data" / "tau2"
+    target_tau2_dir = base_dir / "tau2"
+    if source_tau2_dir.exists() and not target_tau2_dir.exists():
+        target_tau2_dir.symlink_to(source_tau2_dir)
+
+    return base_dir
 
 
 @dataclass
@@ -83,6 +147,7 @@ class MockAgentServer:
     process: subprocess.Popen
     endpoint: str
     agent_endpoint: str
+    port: int
 
 
 def is_port_in_use(port: int, host: str = "localhost") -> bool:
@@ -95,6 +160,29 @@ def is_port_in_use(port: int, host: str = "localhost") -> bool:
             return False
         except OSError:
             return True
+
+
+def find_available_port(
+    start_port: int, host: str = "localhost", max_attempts: int = 100
+) -> int:
+    """Find an available port starting from start_port.
+
+    Args:
+        start_port: The port to start searching from.
+        host: The host to check port availability on.
+        max_attempts: Maximum number of ports to try.
+
+    Returns:
+        int: An available port number.
+
+    Raises:
+        RuntimeError: If no available port is found within max_attempts.
+    """
+    for port in range(start_port, start_port + max_attempts):
+        if not is_port_in_use(port, host):
+            return port
+    msg = f"No available port found in range {start_port}-{start_port + max_attempts}"
+    raise RuntimeError(msg)
 
 
 def find_available_agent() -> str | None:
@@ -135,40 +223,24 @@ def find_available_agent() -> str | None:
     return None
 
 
-def parse_sse_event(event_text: str) -> dict | None:
-    """Parse a single SSE event into a dictionary.
+def sse_event_to_dict(event: SSEEvent) -> dict | None:
+    """Convert SSEEvent to dict format expected by tests.
 
     Args:
-        event_text: Raw SSE event text (e.g., "event: message\\ndata: {...}")
+        event: Parsed SSEEvent from SSEParser.
 
     Returns:
-        dict or None: Parsed event data, or None if not parseable.
-        If JSON parsing fails, returns {"_raw": data_str, "_event_type": event_type}
+        dict or None: Parsed event data with _event_type field if present.
+        If JSON parsing fails, returns {"_raw": data, "_event_type": event_type}
     """
-    lines = event_text.strip().split("\n")
-    event_type = None
-    data_lines = []
-
-    for line in lines:
-        if line.startswith("event:"):
-            event_type = line[6:].strip()
-        elif line.startswith("data:"):
-            data_lines.append(line[5:].strip())
-        elif line.startswith(":"):
-            # Comment line, skip
-            continue
-
-    if not data_lines:
-        return None
-
-    data_str = "".join(data_lines)
-    try:
-        data = json.loads(data_str)
-        if event_type:
-            data["_event_type"] = event_type
-        return data
-    except json.JSONDecodeError:
-        return {"_raw": data_str, "_event_type": event_type}
+    parsed = event.json()
+    if parsed is not None:
+        if event.event:
+            parsed["_event_type"] = event.event
+        return parsed
+    if event.data:
+        return {"_raw": event.data, "_event_type": event.event}
+    return None
 
 
 def build_a2a_evaluation_request(
@@ -213,6 +285,23 @@ def build_a2a_evaluation_request(
     }
 
 
+def get_user_llm_headers() -> dict[str, str]:
+    """Get user LLM headers from environment variables."""
+    headers = {}
+    model = os.environ.get("USER_LLM_MODEL") or os.environ.get("TEST_USER_LLM_MODEL")
+    api_key = os.environ.get("USER_LLM_API_KEY") or os.environ.get("NEBIUS_API_KEY")
+
+    # Default model when using Nebius API
+    if api_key and not model and os.environ.get("NEBIUS_API_KEY"):
+        model = "openai/Qwen/Qwen3-30B-A3B-Thinking-2507"
+
+    if model:
+        headers["X-User-LLM-Model"] = model
+    if api_key:
+        headers["X-User-LLM-API-Key"] = api_key
+    return headers
+
+
 async def send_a2a_evaluation_request(
     endpoint: str,
     domain: str = "mock",
@@ -221,17 +310,21 @@ async def send_a2a_evaluation_request(
     num_trials: int = 1,
     stream: bool = True,
     timeout: float = 180.0,
+    user_llm_model: str | None = None,
+    user_llm_api_key: str | None = None,
 ) -> AsyncIterator[dict]:
     """Send an A2A evaluation request and stream SSE events.
 
     Args:
-        endpoint: The A2A endpoint URL (e.g., "http://localhost:8768/a2a/tau2_agent")
+        endpoint: The A2A endpoint URL
         domain: The tau2 domain to evaluate
         agent_endpoint: URL of the agent to evaluate
         num_tasks: Number of tasks to run
         num_trials: Number of trials per task
         stream: Whether to use SSE streaming (default: True)
         timeout: Request timeout in seconds (default: 180)
+        user_llm_model: LLM model for user simulator (falls back to env)
+        user_llm_api_key: API key for user simulator (falls back to env)
 
     Yields:
         dict: Parsed SSE event data containing evaluation progress/results
@@ -243,48 +336,54 @@ async def send_a2a_evaluation_request(
         num_trials=num_trials,
     )
 
+    # Build headers with user LLM credentials
+    headers = {"Accept": "text/event-stream"}
+    if user_llm_model:
+        headers["X-User-LLM-Model"] = user_llm_model
+    if user_llm_api_key:
+        headers["X-User-LLM-API-Key"] = user_llm_api_key
+
+    # Fall back to environment if not explicitly provided
+    if "X-User-LLM-Model" not in headers or "X-User-LLM-API-Key" not in headers:
+        env_headers = get_user_llm_headers()
+        for k, v in env_headers.items():
+            if k not in headers:
+                headers[k] = v
+
     if stream:
-        # Use message/stream for SSE streaming
         request["method"] = "message/stream"
 
         async with (
             httpx.AsyncClient(timeout=timeout) as client,
-            client.stream(
-                "POST",
-                endpoint,
-                json=request,
-                headers={"Accept": "text/event-stream"},
-            ) as response,
+            client.stream("POST", endpoint, json=request, headers=headers) as response,
         ):
             response.raise_for_status()
 
-            buffer = ""
+            parser = SSEParser()
             async for chunk in response.aiter_text():
-                buffer += chunk
-
-                # Process only complete SSE events (delimited by \n\n)
-                # Do NOT split on single \n - multi-line events may span chunks
-                while "\n\n" in buffer:
-                    event_text, buffer = buffer.split("\n\n", 1)
-                    event_data = parse_sse_event(event_text)
+                for event in parser.feed(chunk):
+                    event_data = sse_event_to_dict(event)
                     if event_data:
                         yield event_data
 
-            # After stream ends, parse remaining buffer if non-empty
-            if buffer.strip():
-                event_data = parse_sse_event(buffer)
+            # Flush any remaining buffered event
+            for event in parser.flush():
+                event_data = sse_event_to_dict(event)
                 if event_data:
                     yield event_data
     else:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(endpoint, json=request)
+            response = await client.post(endpoint, json=request, headers=headers)
             response.raise_for_status()
             yield response.json()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def temp_data_dir(tmp_path_factory):
-    """Create an isolated temporary data directory for the test session.
+    """Create an isolated temporary data directory for the test module.
+
+    Each test module gets its own fresh data directory, providing
+    complete isolation between test modules.
 
     Creates a temp directory with:
     - sessions/ for EvaluationStore session data
@@ -292,26 +391,20 @@ def temp_data_dir(tmp_path_factory):
     - tau2/ symlinked to project's data/tau2/ for domain task files
     """
     data_dir = tmp_path_factory.mktemp("a2a_e2e_data")
-    # Create subdirectories for EvaluationStore
-    (data_dir / "sessions").mkdir(exist_ok=True)
-    (data_dir / "evaluations").mkdir(exist_ok=True)
-
-    # Symlink tau2 domains from project data directory
-    # This allows tau2-bench to find domain task files when TAU2_DATA_DIR is set
-    source_tau2_dir = PROJECT_ROOT / "data" / "tau2"
-    if source_tau2_dir.exists():
-        target_tau2_dir = data_dir / "tau2"
-        target_tau2_dir.symlink_to(source_tau2_dir)
-
-    return data_dir
+    return _create_temp_data_dir(data_dir)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def mock_agent_server(tmp_path_factory):
     """
     Start a separate ADK server for simple_nebius_agent on a different port.
 
-    This fixture starts simple_nebius_agent on a SEPARATE port to avoid the async
+    This fixture is module-scoped, meaning each test module gets its own
+    fresh server instance. This provides complete isolation between test
+    modules, preventing state leakage from error/timeout tests affecting
+    subsequent test modules.
+
+    The server starts simple_nebius_agent on a SEPARATE port to avoid the async
     deadlock that occurs when tau2_agent and simple_nebius_agent share the same
     ADK server. The deadlock happens because:
     - tau2_agent blocks its event loop waiting for run_in_executor
@@ -328,15 +421,11 @@ def mock_agent_server(tmp_path_factory):
             "agent.py and __init__.py"
         )
 
-    mock_agent_endpoint = f"{MOCK_AGENT_BASE_URL}/a2a/{agent_name}"
+    # Find an available port dynamically
+    mock_agent_port = find_available_port(MOCK_AGENT_PORT, ADK_SERVER_HOST)
+    mock_agent_base_url = f"http://{ADK_SERVER_HOST}:{mock_agent_port}"
+    mock_agent_endpoint = f"{mock_agent_base_url}/a2a/{agent_name}"
     agent_card_url = f"{mock_agent_endpoint}/.well-known/agent-card.json"
-
-    # Check if port is already in use
-    if is_port_in_use(MOCK_AGENT_PORT):
-        pytest.fail(
-            f"Port {MOCK_AGENT_PORT} is already in use. "
-            f"Set A2A_E2E_MOCK_PORT to use a different port."
-        )
 
     # Create a temp directory with agent symlinked
     mock_agents_dir = tmp_path_factory.mktemp("mock_agents")
@@ -353,7 +442,7 @@ def mock_agent_server(tmp_path_factory):
         "--a2a",
         str(mock_agents_dir),
         "--port",
-        str(MOCK_AGENT_PORT),
+        str(mock_agent_port),
         "--host",
         ADK_SERVER_HOST,
     ]
@@ -409,8 +498,9 @@ def mock_agent_server(tmp_path_factory):
 
         yield MockAgentServer(
             process=process,
-            endpoint=MOCK_AGENT_BASE_URL,
+            endpoint=mock_agent_base_url,
             agent_endpoint=mock_agent_endpoint,
+            port=mock_agent_port,
         )
 
     finally:
@@ -432,27 +522,34 @@ def mock_agent_server(tmp_path_factory):
                 except (ProcessLookupError, OSError):
                     pass
 
+        # Verify port is released
+        for _ in range(10):
+            if not is_port_in_use(mock_agent_port, ADK_SERVER_HOST):
+                break
+            time.sleep(0.1)
 
-@pytest.fixture(scope="session")
+
+@pytest.fixture(scope="module")
 def a2e_server(temp_data_dir, mock_agent_server) -> A2EServer:
     """
     Start ADK server for tau2_agent with isolated data directory.
 
-    This fixture starts tau2_agent on a separate port from mock_agent_server
+    This fixture is module-scoped, meaning each test module gets its own
+    fresh server instance. Combined with module-scoped mock_agent_server
+    and temp_data_dir, this provides complete isolation between test
+    modules.
+
+    The fixture starts tau2_agent on a separate port from mock_agent_server
     to avoid async deadlock issues during evaluation.
 
     Yields:
         A2EServer: Server info including processes, data_dir, and endpoints
     """
-    tau2_agent_endpoint = f"{TAU2_AGENT_BASE_URL}/a2a/tau2_agent"
+    # Find an available port dynamically
+    tau2_agent_port = find_available_port(TAU2_AGENT_PORT, ADK_SERVER_HOST)
+    tau2_agent_base_url = f"http://{ADK_SERVER_HOST}:{tau2_agent_port}"
+    tau2_agent_endpoint = f"{tau2_agent_base_url}/a2a/tau2_agent"
     agent_card_url = f"{tau2_agent_endpoint}/.well-known/agent-card.json"
-
-    # Check if port is already in use
-    if is_port_in_use(TAU2_AGENT_PORT):
-        pytest.fail(
-            f"Port {TAU2_AGENT_PORT} is already in use. "
-            f"Set A2A_E2E_TAU2_PORT to use a different port."
-        )
 
     # Build environment
     env = os.environ.copy()
@@ -467,16 +564,15 @@ def a2e_server(temp_data_dir, mock_agent_server) -> A2EServer:
     if not tau2_agent_link.exists():
         tau2_agent_link.symlink_to(PROJECT_ROOT / "tau2_agent")
 
-    # Start ADK server for tau2_agent only (mock agent runs separately)
+    # Start custom server for tau2_agent with credentials middleware
+    # Uses tau2_agent.server which wraps ADK with our middleware
+    env["AGENTS_DIR"] = str(tau2_agents_dir)
+    env["PORT"] = str(tau2_agent_port)
+    env["HOST"] = ADK_SERVER_HOST
     cmd = [
-        "adk",
-        "api_server",
-        "--a2a",
-        str(tau2_agents_dir),
-        "--port",
-        str(TAU2_AGENT_PORT),
-        "--host",
-        ADK_SERVER_HOST,
+        "python",
+        "-m",
+        "tau2_agent.server",
     ]
 
     process = None
@@ -555,9 +651,15 @@ def a2e_server(temp_data_dir, mock_agent_server) -> A2EServer:
                 except (ProcessLookupError, OSError):
                     pass
 
+        # Verify port is released
+        for _ in range(10):
+            if not is_port_in_use(tau2_agent_port, ADK_SERVER_HOST):
+                break
+            time.sleep(0.1)
+
 
 # Legacy fixture for backwards compatibility with existing tests
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def adk_server(a2e_server) -> str:
     """
     Legacy fixture that returns just the tau2_agent endpoint URL.
@@ -571,13 +673,71 @@ def adk_server(a2e_server) -> str:
     return a2e_server.tau2_agent_endpoint
 
 
+@pytest_asyncio.fixture(scope="module", autouse=True, loop_scope="module")
+async def _module_server_health_gate(a2e_server: A2EServer):
+    """
+    Verify server health at module boundaries.
+
+    This autouse fixture runs automatically for each test module:
+    1. At module start: verifies both servers are healthy
+    2. At module end: drains connections and verifies recovery
+
+    This provides defense-in-depth alongside module-scoped servers,
+    ensuring clean state even if individual test cleanup fails.
+    """
+    # === Module startup: verify servers are ready ===
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        for endpoint_name, endpoint_url in [
+            ("tau2_agent", a2e_server.tau2_agent_endpoint),
+            ("mock_agent", a2e_server.mock_agent_endpoint),
+        ]:
+            for _attempt in range(HEALTH_CHECK_RETRIES):
+                try:
+                    response = await client.get(
+                        f"{endpoint_url}/.well-known/agent-card.json"
+                    )
+                    if response.status_code == 200:
+                        break
+                except httpx.HTTPError:
+                    pass
+                await asyncio.sleep(HEALTH_CHECK_RETRY_DELAY)
+            else:
+                pytest.fail(
+                    f"{endpoint_name} health check failed after {HEALTH_CHECK_RETRIES} attempts"
+                )
+
+    yield  # Tests in this module run here
+
+    # === Module teardown: drain connections ===
+    # Allow TIME_WAIT sockets and in-flight requests to complete
+    await asyncio.sleep(CONNECTION_DRAIN_DELAY)
+
+    # Verify servers recovered (especially after error/timeout tests)
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        for _endpoint_name, endpoint_url in [
+            ("tau2_agent", a2e_server.tau2_agent_endpoint),
+            ("mock_agent", a2e_server.mock_agent_endpoint),
+        ]:
+            try:
+                response = await client.get(
+                    f"{endpoint_url}/.well-known/agent-card.json"
+                )
+                if response.status_code != 200:
+                    # Log warning but don't fail - server will be torn down anyway
+                    pass
+            except httpx.HTTPError:
+                # Server may already be shutting down, which is fine
+                pass
+
+
 @pytest_asyncio.fixture
 async def a2a_client_to_local(a2e_server):
     """
     Create A2AClient connected to local ADK server.
 
     This fixture provides a real A2AClient that communicates with
-    the local tau2_agent server over HTTP.
+    the local tau2_agent server over HTTP. Uses timeout-guarded cleanup
+    to prevent hanging connections from blocking test teardown.
 
     Args:
         a2e_server: A2EServer from a2e_server fixture
@@ -602,15 +762,15 @@ async def a2a_client_to_local(a2e_server):
     try:
         await client.discover_agent()
     except Exception as e:
-        await http_client.aclose()
+        await _safe_close(http_client)
         pytest.fail(
             f"Failed to connect to ADK server at {a2e_server.tau2_agent_endpoint}: {e}"
         )
 
     yield client
 
-    # Cleanup
-    await http_client.aclose()
+    # Cleanup with timeout guard to prevent hanging on abandoned connections
+    await _safe_close(http_client)
 
 
 @pytest.fixture
@@ -732,33 +892,26 @@ class EvaluationResult:
     eval_data: dict | None
 
 
-@pytest.fixture(scope="module")
-def _cached_evaluation(a2e_server: A2EServer) -> EvaluationResult:
+@pytest_asyncio.fixture(scope="module", loop_scope="module")
+async def _cached_evaluation(a2e_server: A2EServer) -> EvaluationResult:
     """Run one evaluation and cache results for module.
 
     This fixture is module-scoped so all tests in a file share
     the same evaluation result, reducing 6+ evaluations to 1.
-    """
-    import asyncio
 
+    Uses pytest-asyncio's event loop management to avoid conflicts
+    with the function-scoped loops used by async tests.
+    """
     events = []
 
-    async def run_eval():
-        async for event in send_a2a_evaluation_request(
-            endpoint=a2e_server.tau2_agent_endpoint,
-            domain="mock",
-            agent_endpoint=a2e_server.mock_agent_endpoint,
-            num_tasks=1,
-            num_trials=1,
-        ):
-            events.append(event)
-
-    # Run the async evaluation with a fresh event loop
-    loop = asyncio.new_event_loop()
-    try:
-        loop.run_until_complete(run_eval())
-    finally:
-        loop.close()
+    async for event in send_a2a_evaluation_request(
+        endpoint=a2e_server.tau2_agent_endpoint,
+        domain="mock",
+        agent_endpoint=a2e_server.mock_agent_endpoint,
+        num_tasks=1,
+        num_trials=1,
+    ):
+        events.append(event)
 
     # Find and load the evaluation file
     eval_files = list(a2e_server.evaluations_dir.glob("*.json"))

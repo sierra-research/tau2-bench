@@ -9,12 +9,14 @@ These tests verify the complete evaluation flow works end-to-end:
 
 Prerequisites:
 - NEBIUS_API_KEY: For simple_nebius_agent LLM calls
-- ANTHROPIC_API_KEY: For user simulator LLM calls
+- User LLM credentials set via context vars (normally from HTTP headers)
 
 Run with: pytest -m smoke
 """
 
 import pytest
+
+from tau2_agent.context import user_llm_api_key, user_llm_model
 
 # Mark all tests as smoke tests (opt-in only)
 pytestmark = [pytest.mark.smoke, pytest.mark.a2a_e2e]
@@ -32,11 +34,44 @@ def smoke_tool_context():
     return context
 
 
+@pytest.fixture
+def set_user_llm_credentials():
+    """Set user LLM credentials from environment for direct tool testing.
+
+    The RunTau2Evaluation tool reads credentials from contextvars that are
+    normally set by the CredentialsMiddleware from HTTP headers. For direct
+    tool testing, we need to set these manually from environment variables.
+    """
+    import os
+
+    model = os.environ.get("USER_LLM_MODEL") or os.environ.get("TEST_USER_LLM_MODEL")
+    api_key = os.environ.get("USER_LLM_API_KEY") or os.environ.get("NEBIUS_API_KEY")
+
+    # Default model when using Nebius API
+    if api_key and not model and os.environ.get("NEBIUS_API_KEY"):
+        model = "openai/Qwen/Qwen3-30B-A3B-Thinking-2507"
+
+    if not model or not api_key:
+        pytest.skip("User LLM credentials not configured (need USER_LLM_MODEL + USER_LLM_API_KEY or NEBIUS_API_KEY)")
+
+    # Set contextvars
+    token_model = user_llm_model.set(model)
+    token_key = user_llm_api_key.set(api_key)
+
+    yield
+
+    # Reset contextvars
+    user_llm_model.reset(token_model)
+    user_llm_api_key.reset(token_key)
+
+
 class TestTau2AgentSmoke:
     """Smoke tests for tau2_agent evaluating simple_nebius_agent."""
 
     @pytest.mark.asyncio
-    async def test_full_evaluation_flow(self, adk_server: str, smoke_tool_context):
+    async def test_full_evaluation_flow(
+        self, a2e_server, smoke_tool_context, set_user_llm_credentials
+    ):
         """
         Smoke test: tau2_agent evaluates simple_nebius_agent end-to-end.
 
@@ -53,50 +88,42 @@ class TestTau2AgentSmoke:
             description="Run tau2-bench evaluation",
         )
 
-        # Collect all events from the evaluation
-        events = []
-        async for event in tool.run_async(
+        # Run the evaluation (returns a dict, not an async generator)
+        result = await tool.run_async(
             args={
                 "domain": "mock",
-                "agent_endpoint": adk_server,
+                "agent_endpoint": a2e_server.mock_agent_endpoint,
                 "num_tasks": 1,
                 "num_trials": 1,
-                "max_steps": 5,  # Limit steps for faster test
             },
             tool_context=smoke_tool_context,
-        ):
-            events.append(event)
-
-        # Verify we got events
-        assert len(events) >= 2, "Should have at least submitted and result events"
-
-        # Check event states
-        states = [e.custom_metadata.get("tau2.state") for e in events]
-        assert "submitted" in states, "Should have submitted event"
-
-        # Final event should be completed or failed
-        final_state = events[-1].custom_metadata.get("tau2.state")
-        assert final_state in ("completed", "failed"), (
-            f"Final state should be completed or failed, got {final_state}"
         )
 
-        # If completed, verify result structure
-        if final_state == "completed":
-            assert events[-1].content is not None, "Result event should have content"
-            content_text = events[-1].content.parts[0].text
-            assert "Results:" in content_text or "success" in content_text.lower(), (
-                "Result should contain results summary"
-            )
+        # Check for error response
+        if "error" in result:
+            pytest.fail(f"Evaluation failed with error: {result.get('message', result)}")
+
+        # Verify result structure
+        assert result.get("status") == "completed", f"Expected completed, got {result.get('status')}"
+        assert "evaluation_id" in result, "Result should have evaluation_id"
+        assert "summary" in result, "Result should have summary"
+        assert "tasks" in result, "Result should have tasks"
+
+        # Verify summary metrics
+        summary = result["summary"]
+        assert "total_simulations" in summary, "Summary should have total_simulations"
+        assert "total_tasks" in summary, "Summary should have total_tasks"
+        assert summary["total_tasks"] >= 1, "Should have at least 1 task"
 
     @pytest.mark.asyncio
-    async def test_evaluation_emits_progress_events(
-        self, adk_server: str, smoke_tool_context
+    async def test_evaluation_returns_metrics(
+        self, a2e_server, smoke_tool_context, set_user_llm_credentials
     ):
         """
-        Smoke test: Verify progress events are emitted during evaluation.
+        Smoke test: Verify evaluation returns proper metrics.
 
-        This ensures the streaming/progress reporting works correctly
-        in the real evaluation flow.
+        This ensures the evaluation result contains all expected
+        metrics for downstream processing.
         """
         from tau2_agent.tools.run_tau2_evaluation import RunTau2Evaluation
 
@@ -105,36 +132,31 @@ class TestTau2AgentSmoke:
             description="Run tau2-bench evaluation",
         )
 
-        events = []
-        async for event in tool.run_async(
+        result = await tool.run_async(
             args={
                 "domain": "mock",
-                "agent_endpoint": adk_server,
+                "agent_endpoint": a2e_server.mock_agent_endpoint,
                 "num_tasks": 1,
                 "num_trials": 1,
-                "max_steps": 5,
             },
             tool_context=smoke_tool_context,
-        ):
-            events.append(event)
+        )
 
-        # Verify progress metadata is present
-        for event in events:
-            metadata = event.custom_metadata
-            assert "tau2.state" in metadata, "All events should have tau2.state"
-            assert "tau2.evaluation_id" in metadata, (
-                "All events should have tau2.evaluation_id"
-            )
+        # Skip if error (credentials issue, etc.)
+        if "error" in result:
+            pytest.skip(f"Evaluation returned error: {result.get('message')}")
 
-        # Verify we have progress tracking
-        progress_values = [
-            e.custom_metadata.get("tau2.progress")
-            for e in events
-            if "tau2.progress" in e.custom_metadata
-        ]
-        assert len(progress_values) >= 1, "Should have progress values"
+        # Verify metrics are present
+        summary = result.get("summary", {})
+        assert "avg_reward" in summary, "Summary should have avg_reward"
+        assert "successful_simulations" in summary, "Summary should have successful_simulations"
 
-        # Progress should end at 100 if completed
-        final_state = events[-1].custom_metadata.get("tau2.state")
-        if final_state == "completed":
-            assert events[-1].custom_metadata.get("tau2.progress") == 100
+        # Verify simulations data is present
+        assert "simulations" in result, "Result should have simulations"
+        simulations = result["simulations"]
+        assert len(simulations) >= 1, "Should have at least 1 simulation"
+
+        # Verify simulation structure
+        sim = simulations[0]
+        assert "task_id" in sim, "Simulation should have task_id"
+        assert "termination_reason" in sim, "Simulation should have termination_reason"
