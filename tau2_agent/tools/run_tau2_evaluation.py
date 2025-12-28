@@ -391,7 +391,16 @@ class RunTau2Evaluation(BaseTool):
                     store.fail_evaluation(evaluation_id=evaluation_id, error=str(e))
                 except Exception as store_err:
                     logger.warning(f"Failed to record failure in store: {store_err}")
-            raise
+            return {"error": "INVALID_PARAMETERS", "message": str(e)}
+
+        except UserLLMAuthError as e:
+            # Fail evaluation in store
+            if store and evaluation_id:
+                try:
+                    store.fail_evaluation(evaluation_id=evaluation_id, error=str(e))
+                except Exception as store_err:
+                    logger.warning(f"Failed to record failure in store: {store_err}")
+            return {"error": e.error.code.value, "message": e.error.message}
 
         except Exception as e:
             # Fail evaluation in store
@@ -403,7 +412,10 @@ class RunTau2Evaluation(BaseTool):
                     )
                 except Exception as store_err:
                     logger.warning(f"Failed to record failure in store: {store_err}")
-            raise
+            return {
+                "error": "INTERNAL_ERROR",
+                "message": str(e) if str(e) else type(e).__name__,
+            }
 
     async def _execute(
         self,

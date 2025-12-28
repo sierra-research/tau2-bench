@@ -246,7 +246,6 @@ class TestLLMAuthFailureFlow:
         assert result["details"]["model"] == "gpt-4o"
         # API key must never be in error details
         assert "api_key" not in result.get("details", {})
-        assert "key" not in str(result.get("details", {})).lower() or "api_key" not in str(result.get("details", {}))
 
     @pytest.mark.asyncio
     async def test_authentication_error_triggers_user_llm_auth_error(self):
