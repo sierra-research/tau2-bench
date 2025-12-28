@@ -5,7 +5,7 @@
       "name": "tau2-bench: High Task Error Rate",
       "type": "metric alert",
       "query": "sum(last_5m):sum:tau2.task.success{success:false,env:production}.as_count() / sum:tau2.task.total{env:production}.as_count() > 0.2",
-      "message": "{{#is_alert}}\n🚨 **Task error rate exceeded 20%**\n\n**Domain**: {{domain.name}}\n**Current Rate**: {{value}}%\n\n**Recommended Actions**:\n1. Check recent model changes\n2. Review error logs in APM\n3. Verify Gemini API health\n\n@slack-ai-alerts\n{{/is_alert}}\n\n{{#is_warning}}\n⚠️ Task error rate elevated at {{value}}%\n{{/is_warning}}",
+      "message": "{{#is_alert}}\n**ALERT: Task error rate exceeded 20%**\n\nDomain: {{domain.name}}\nCurrent Rate: {{value}}%\n\nRecommended Actions:\n1. Check recent model changes\n2. Review error logs in APM\n3. Verify Gemini API health\n\n@slack-ai-alerts\n{{/is_alert}}\n\n{{#is_warning}}\nWARNING: Task error rate elevated at {{value}}%\n{{/is_warning}}",
       "tags": [
         "team:ai-platform",
         "service:tau2-bench",
@@ -29,7 +29,7 @@
       "name": "tau2-bench: Task Failure Spike (Hero Monitor)",
       "type": "metric alert",
       "query": "avg(last_10m):avg:tau2.task.reward{env:production} by {domain} < 0.7",
-      "message": "{{#is_alert}}\n🎯 **Task Quality Degradation Detected**\n\n**Domain**: {{domain.name}}\n**Average Reward**: {{value}}\n**Threshold**: 0.7\n\nThis indicates the agent is completing tasks incorrectly or incompletely.\n\n**Investigation Steps**:\n1. Check LLM Observability for prompt/completion issues\n2. Review recent task failures in dashboard\n3. Compare to baseline performance\n\n**Runbook**: [Task Failure Investigation](https://docs.example.com/runbooks/task-failure)\n\n@slack-ai-alerts @pagerduty-tau2-oncall\n{{/is_alert}}",
+      "message": "{{#is_alert}}\n**ALERT: Task Quality Degradation Detected**\n\nDomain: {{domain.name}}\nAverage Reward: {{value}}\nThreshold: 0.7\n\nThe agent is completing tasks incorrectly or incompletely.\n\nInvestigation Steps:\n1. Check LLM Observability for prompt/completion issues\n2. Review recent task failures in dashboard\n3. Compare to baseline performance\n\nRunbook: https://docs.example.com/runbooks/task-failure\n\n@slack-ai-alerts @pagerduty-tau2-oncall\n{{/is_alert}}",
       "tags": [
         "team:ai-platform",
         "service:tau2-bench",
@@ -54,7 +54,7 @@
       "name": "tau2-bench: Token Cost Anomaly",
       "type": "metric alert",
       "query": "avg(last_15m):anomalies(sum:tau2.llm.token_cost{env:production}.as_count(), 'agile', 2, direction='above') >= 1",
-      "message": "{{#is_alert}}\n💰 **Token Cost Anomaly Detected**\n\nToken costs are significantly higher than the baseline.\n\n**Possible Causes**:\n- Agent making excessive LLM calls\n- Prompts growing unexpectedly large\n- Model change with different pricing\n\n**Recommended Actions**:\n1. Check LLM Observability for token breakdown\n2. Review recent prompt changes\n3. Verify model configuration\n\n@slack-ai-platform\n{{/is_alert}}",
+      "message": "{{#is_alert}}\n**ALERT: Token Cost Anomaly Detected**\n\nToken costs are significantly higher than the baseline.\n\nPossible Causes:\n- Agent making excessive LLM calls\n- Prompts growing unexpectedly large\n- Model change with different pricing\n\nRecommended Actions:\n1. Check LLM Observability for token breakdown\n2. Review recent prompt changes\n3. Verify model configuration\n\n@slack-ai-platform\n{{/is_alert}}",
       "tags": [
         "team:ai-platform",
         "service:tau2-bench",
@@ -76,7 +76,7 @@
       "name": "tau2-bench: Premature Termination Spike",
       "type": "metric alert",
       "query": "sum(last_1h):sum:tau2.termination{reason:max_errors,env:production}.as_count() > 10",
-      "message": "{{#is_alert}}\n⚠️ **Excessive MAX_ERRORS Terminations**\n\nTasks are hitting the error limit and being terminated prematurely.\n\n**Count**: {{value}} tasks in the last hour\n**Threshold**: 10\n\n**This indicates**:\n- Agent making invalid tool calls\n- Tool schema mismatch\n- Environment state corruption\n\n**Immediate Actions**:\n1. Check latest tool execution errors in logs\n2. Verify tool schemas haven't changed\n3. Review agent's tool call patterns\n\n@pagerduty-tau2-critical\n{{/is_alert}}",
+      "message": "{{#is_alert}}\n**ALERT: Excessive MAX_ERRORS Terminations**\n\nTasks are hitting the error limit and being terminated prematurely.\n\nCount: {{value}} tasks in the last hour\nThreshold: 10\n\nThis indicates:\n- Agent making invalid tool calls\n- Tool schema mismatch\n- Environment state corruption\n\nImmediate Actions:\n1. Check latest tool execution errors in logs\n2. Verify tool schemas haven't changed\n3. Review agent's tool call patterns\n\n@pagerduty-tau2-critical\n{{/is_alert}}",
       "tags": [
         "team:ai-platform",
         "service:tau2-bench",
@@ -100,7 +100,7 @@
       "name": "tau2-bench: Task Latency SLO Breach",
       "type": "metric alert",
       "query": "percentile(last_10m):p99:tau2.task.duration_seconds{env:production} > 60",
-      "message": "{{#is_alert}}\n⏱️ **Task Latency SLO Breach**\n\n**p99 Latency**: {{value}}s\n**SLO Target**: 60s\n\n**Possible Causes**:\n- Gemini API latency increase\n- Complex task scenarios\n- Network issues to external agent\n\n**Recommended Actions**:\n1. Check APM traces for slow spans\n2. Review LLM Observability for slow generations\n3. Check GCP status page\n\n@slack-ai-alerts\n{{/is_alert}}",
+      "message": "{{#is_alert}}\n**ALERT: Task Latency SLO Breach**\n\np99 Latency: {{value}}s\nSLO Target: 60s\n\nPossible Causes:\n- Gemini API latency increase\n- Complex task scenarios\n- Network issues to external agent\n\nRecommended Actions:\n1. Check APM traces for slow spans\n2. Review LLM Observability for slow generations\n3. Check GCP status page\n\n@slack-ai-alerts\n{{/is_alert}}",
       "tags": [
         "team:ai-platform",
         "service:tau2-bench",
@@ -115,6 +115,29 @@
         "notify_no_data": false,
         "renotify_interval": 60,
         "notify_audit": true
+      }
+    },
+    {
+      "id": "DR-006",
+      "name": "tau2-bench: Low Task Efficiency Alert",
+      "type": "metric alert",
+      "query": "avg(last_15m):avg:tau2.task.reward_per_turn{env:production} < 0.05",
+      "message": "{{#is_alert}}\n**ALERT: Low Task Efficiency Detected**\n\nTasks are requiring too many conversation turns relative to quality achieved.\n\nCurrent Reward/Turn: {{value}}\nThreshold: 0.05\n\nPossible Causes:\n- Agent requiring excessive clarification\n- Inefficient tool call patterns\n- Agent not understanding user intent\n\nRecommended Actions:\n1. Check conversation length distribution in dashboard\n2. Review tool call accuracy metrics\n3. Examine failed tasks for common patterns\n4. Compare to baseline efficiency by domain\n\n@slack-ai-alerts\n{{/is_alert}}\n\n{{#is_warning}}\nWARNING: Task efficiency below normal at {{value}} reward/turn.\n\nMonitor conversation length trends for emerging issues.\n{{/is_warning}}",
+      "tags": [
+        "team:ai-platform",
+        "service:tau2-bench",
+        "env:production",
+        "hackathon:datadog-2024"
+      ],
+      "options": {
+        "thresholds": {
+          "critical": 0.03,
+          "warning": 0.05
+        },
+        "notify_no_data": false,
+        "renotify_interval": 60,
+        "notify_audit": true,
+        "include_tags": true
       }
     }
   ]
