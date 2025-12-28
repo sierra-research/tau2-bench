@@ -5,11 +5,11 @@
 # to the imperative gcloud run deploy command in deploy.sh.
 #
 # Usage:
-#   # First, build and push the container
-#   gcloud builds submit --tag gcr.io/${PROJECT_ID}/tau2-agent
+#   # First, build and push the container (using Artifact Registry)
+#   gcloud builds submit --tag ${REGION}-docker.pkg.dev/${PROJECT_ID}/tau2-agent/tau2-agent
 #
 #   # Then deploy using this service definition
-#   gcloud run services replace service.yaml --region us-central1
+#   gcloud run services replace service.yaml --region ${REGION}
 
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -37,7 +37,8 @@ spec:
       containerConcurrency: 10
       timeoutSeconds: 3600  # 60 minutes - Cloud Run maximum
       containers:
-        - image: gcr.io/${PROJECT_ID}/tau2-agent:latest
+        # Image from Artifact Registry (gcr.io is deprecated)
+        - image: ${REGION}-docker.pkg.dev/${PROJECT_ID}/tau2-agent/tau2-agent:latest
           ports:
             - containerPort: 8001
           resources:

@@ -121,8 +121,12 @@ echo "  ✓ Service account exists"
 echo ""
 echo "Deploying from: ${REPO_ROOT}"
 
-# Image name
-IMAGE="gcr.io/${PROJECT_ID}/tau2-agent:latest"
+# Image name (Artifact Registry format - gcr.io is deprecated)
+# To migrate existing images from gcr.io, run:
+#   gcloud artifacts docker upgrade migrate --project=${PROJECT_ID}
+ARTIFACT_REGION="${ARTIFACT_REGION:-${REGION}}"
+ARTIFACT_REPO="${ARTIFACT_REPO:-tau2-agent}"
+IMAGE="${ARTIFACT_REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/tau2-agent:latest"
 
 if [[ -n "${DRY_RUN}" ]]; then
     echo ""
