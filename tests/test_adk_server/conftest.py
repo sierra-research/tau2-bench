@@ -1,15 +1,12 @@
 """
 Fixtures for ADK server tests.
 
-Provides mock tau2 backends and helper fixtures for testing
-ADK tools and streaming events.
+Provides mock tau2 backends and helper fixtures for testing ADK tools.
 """
 
 from unittest.mock import Mock, patch
 
 import pytest
-import pytest_asyncio
-from google.adk.events.event import Event
 
 
 @pytest.fixture
@@ -90,76 +87,3 @@ def apply_tau2_mocks(mock_tau2_backend):
         )
 
     return create_patches
-
-
-@pytest_asyncio.fixture
-async def streaming_tool():
-    """Provide RunTau2Evaluation tool configured for streaming tests."""
-    from tau2_agent.tools.run_tau2_evaluation import RunTau2Evaluation
-
-    tool = RunTau2Evaluation(
-        name="run_tau2_evaluation",
-        description="Run tau2-bench evaluation",
-    )
-
-    return tool
-
-
-@pytest_asyncio.fixture
-async def collect_streaming_events(mock_tool_context, streaming_tool, apply_tau2_mocks):
-    """Helper fixture to collect all streaming events from a tool invocation.
-
-    Returns an async function that runs the tool and collects all yielded events.
-    """
-
-    async def _collect_events(
-        domain: str = "airline",
-        agent_endpoint: str = "https://test-agent.example.com",
-        num_tasks: int | None = None,
-        num_trials: int = 1,
-    ) -> list[Event]:
-        """Run tool and collect all emitted events."""
-        events = []
-        patches = apply_tau2_mocks()
-
-        with patches[0], patches[1], patches[2], patches[3], patches[4]:
-            async for event in streaming_tool.run_async(
-                args={
-                    "domain": domain,
-                    "agent_endpoint": agent_endpoint,
-                    "num_trials": num_trials,
-                    **({"num_tasks": num_tasks} if num_tasks else {}),
-                },
-                tool_context=mock_tool_context,
-            ):
-                events.append(event)
-
-        return events
-
-    return _collect_events
-
-
-@pytest.fixture
-def extract_event_states():
-    """Helper to extract states from a list of events."""
-
-    def _extract(events: list[Event]) -> list[str]:
-        return [
-            e.custom_metadata.get("tau2.state") for e in events if e.custom_metadata
-        ]
-
-    return _extract
-
-
-@pytest.fixture
-def filter_events_by_state():
-    """Helper to filter events by state."""
-
-    def _filter(events: list[Event], state: str) -> list[Event]:
-        return [
-            e
-            for e in events
-            if e.custom_metadata and e.custom_metadata.get("tau2.state") == state
-        ]
-
-    return _filter
