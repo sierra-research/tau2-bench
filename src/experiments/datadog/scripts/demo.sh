@@ -281,9 +281,11 @@ fi
 # Step 4: Generate Failure Traffic
 # ============================================================================
 
-log_section "Step 4: Generating Failure Traffic (Trigger DR-002)"
+log_section "Step 4: Generating Failure Traffic (Trigger DR-002 & DR-006)"
 
-log_info "Running $FAILURE_COUNT failure evaluations to trigger Task Failure Spike monitor..."
+log_info "Running $FAILURE_COUNT failure evaluations to trigger monitors..."
+log_info "  - DR-002: Task Failure Spike (high failure rate)"
+log_info "  - DR-006: Low Task Efficiency (low reward per turn)"
 
 TRAFFIC_ARGS="--count $FAILURE_COUNT --mode failure"
 if [[ "$DRY_RUN" == "true" ]]; then
@@ -357,7 +359,9 @@ else
     echo "  Metrics:    $METRICS_URL"
     echo "  Monitors:   $MONITORS_URL"
     echo ""
-    log_info "Check the monitors page for DR-002 (Task Failure Spike) alerts!"
+    log_info "Check the monitors page for alerts:"
+    echo "    - DR-002: Task Failure Spike"
+    echo "    - DR-006: Low Task Efficiency"
 fi
 
 log_success "Demo completed successfully!"
