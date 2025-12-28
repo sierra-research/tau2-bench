@@ -21,9 +21,13 @@ class A2AConfig:
         # Normalize endpoint (remove trailing slash)
         self.endpoint = self.endpoint.rstrip("/")
 
-        # Validate timeout
+        # Validate timeouts
         if self.timeout <= 0:
             msg = f"timeout must be positive, got {self.timeout}"
+            raise ValueError(msg)
+
+        if self.connect_timeout <= 0:
+            msg = f"connect_timeout must be positive, got {self.connect_timeout}"
             raise ValueError(msg)
 
         # Validate URL scheme
