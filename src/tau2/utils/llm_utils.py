@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from typing import Any, Optional
 
@@ -38,6 +39,20 @@ if USE_LANGFUSE:
     litellm.failure_callback = ["langfuse"]
 
 litellm.drop_params = True
+
+# Register custom models for cost tracking (Datadog enhancement)
+# Allows tracking costs for self-hosted models (e.g., Nebius API)
+# Format: {"model_name": {"input_cost_per_token": X, "output_cost_per_token": Y, ...}}
+TAU2_LLM_MODELS_ENV = os.getenv("TAU2_LLM_MODELS")
+if TAU2_LLM_MODELS_ENV:
+    try:
+        custom_models = json.loads(TAU2_LLM_MODELS_ENV)
+        litellm.register_model(custom_models)
+        logger.info(f"Registered {len(custom_models)} custom model(s) for cost tracking")
+    except json.JSONDecodeError as e:
+        logger.warning(f"Failed to parse TAU2_LLM_MODELS: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to register custom models: {e}")
 
 if LLM_CACHE_ENABLED:
     if DEFAULT_LLM_CACHE_TYPE == "redis":
