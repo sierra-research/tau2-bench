@@ -29,6 +29,8 @@ Systematically analyze CodeRabbit review comments, evaluate their validity again
    - Parse each CodeRabbit comment
    - Identify the file path and line number(s) for each comment
    - Note the comment type (nitpick, minor issue, major issue, suggestion)
+   - Comments will be separated by this string to delimit: "---"
+   - Nitpick comments will not be delimited, but will start from "## Nitpicks"
 
 2. **Create structured inventory**:
    ```
