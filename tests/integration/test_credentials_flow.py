@@ -253,17 +253,15 @@ class TestLLMAuthFailureFlow:
         """_execute should raise UserLLMAuthError for authentication failures.
 
         This tests the actual error detection logic in run_tau2_evaluation._execute
-        rather than duplicating the pattern matching logic.
+        using litellm.AuthenticationError.
         """
+        import litellm
+
         tool = create_test_tool()
 
         # Set up credentials context
         token_model = user_llm_model.set("gpt-4o")
         token_key = user_llm_api_key.set("sk-invalid-key")
-
-        # Create a custom exception class to simulate litellm's AuthenticationError
-        class AuthenticationError(Exception):
-            """Mock litellm AuthenticationError."""
 
         try:
             # Mock tau2 imports (imported inside _execute method)
@@ -272,8 +270,12 @@ class TestLLMAuthFailureFlow:
 
                 # Simulate litellm AuthenticationError during run_domain
                 with patch("tau2.run.run_domain") as mock_run:
-                    # Create an exception with class name matching auth error pattern
-                    auth_error = AuthenticationError("Invalid API key provided")
+                    # Use real litellm.AuthenticationError
+                    auth_error = litellm.AuthenticationError(
+                        message="Invalid API key provided",
+                        llm_provider="openai",
+                        model="gpt-4o",
+                    )
                     mock_run.side_effect = auth_error
 
                     with pytest.raises(UserLLMAuthError) as exc_info:

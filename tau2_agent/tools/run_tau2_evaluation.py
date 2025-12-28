@@ -11,6 +11,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+import litellm
 from google.adk.tools import BaseTool
 from google.adk.tools.tool_context import ToolContext
 from google.genai import types
@@ -126,7 +127,7 @@ class RunTau2Evaluation(BaseTool):
         - OpenAI: gpt-4o, gpt-4-turbo (no prefix needed)
         - Gemini: gemini/gemini-2.0-flash
         - Anthropic: anthropic/claude-3-5-sonnet-20241022
-        - Nebius (OpenAI-compatible): openai/model-name
+        - Nebius: nebius/Qwen/Qwen3-235B-A22B (requires nebius/ prefix)
 
         Args:
             model: User-provided model name.
@@ -145,6 +146,10 @@ class RunTau2Evaluation(BaseTool):
         # Anthropic models
         if model.startswith("claude-"):
             return f"anthropic/{model}"
+
+        # Nebius models (Qwen family hosted on Nebius)
+        if model.startswith("Qwen"):
+            return f"nebius/{model}"
 
         # OpenAI models (gpt-*, o1-*, etc.) - no prefix needed
         return model
@@ -580,11 +585,23 @@ class RunTau2Evaluation(BaseTool):
             logger.error("Invalid evaluation parameters", error=str(e))
             raise
 
-        except Exception as e:
-            # Check if this is an LLM authentication error
+        except litellm.AuthenticationError as e:
             # LiteLLM raises AuthenticationError for invalid API keys
-            error_class_name = type(e).__name__
-            if "AuthenticationError" in error_class_name or "Unauthorized" in str(e):
+            error = EvaluationError(
+                code=ErrorCode.USER_LLM_AUTH_FAILED,
+                message="User LLM authentication failed",
+                details={"model": user_llm},  # Never include API key
+            )
+            logger.warning(
+                "User LLM authentication failed",
+                model=user_llm,
+                error_type=type(e).__name__,
+            )
+            raise UserLLMAuthError(error) from e
+
+        except Exception as e:
+            # Check for other auth-like errors (e.g., wrapped exceptions)
+            if "Unauthorized" in str(e):
                 error = EvaluationError(
                     code=ErrorCode.USER_LLM_AUTH_FAILED,
                     message="User LLM authentication failed",
@@ -593,7 +610,7 @@ class RunTau2Evaluation(BaseTool):
                 logger.warning(
                     "User LLM authentication failed",
                     model=user_llm,
-                    error_type=error_class_name,
+                    error_type=type(e).__name__,
                 )
                 raise UserLLMAuthError(error) from e
 
