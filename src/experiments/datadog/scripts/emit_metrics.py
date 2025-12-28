@@ -252,6 +252,167 @@ class MetricsEmitter:
         # tau2.evaluation.tasks_total - gauge
         self._emit_gauge("tau2.evaluation.tasks_total", float(total_tasks), base_tags)
 
+    def emit_efficiency_metrics(
+        self,
+        task_id: str,
+        domain: str,
+        evaluation_id: str,
+        reward: float,
+        duration_seconds: float,
+        turns: int,
+        tool_calls_total: int,
+        tool_accuracy: float,
+    ) -> None:
+        """Emit task completion efficiency metrics.
+
+        These metrics measure observable efficiency: how efficiently
+        the task was completed from the evaluator's perspective.
+
+        Args:
+            task_id: The task identifier.
+            domain: The domain name.
+            evaluation_id: The evaluation identifier.
+            reward: Task reward (0.0-1.0).
+            duration_seconds: Task execution time.
+            turns: Number of conversation turns.
+            tool_calls_total: Total tool calls made.
+            tool_accuracy: Fraction of correct tool calls (0.0-1.0).
+        """
+        base_tags = [
+            f"task_id:{task_id}",
+            f"domain:{domain}",
+            f"evaluation_id:{evaluation_id}",
+        ]
+
+        # tau2.task.reward_per_turn - efficiency metric
+        if turns > 0:
+            self._emit_gauge("tau2.task.reward_per_turn", reward / turns, base_tags)
+
+        # tau2.task.reward_per_second - time efficiency
+        if duration_seconds > 0:
+            self._emit_gauge("tau2.task.reward_per_second", reward / duration_seconds, base_tags)
+
+        # tau2.task.turns_total - conversation length
+        self._emit_gauge("tau2.task.turns_total", float(turns), base_tags)
+
+        # tau2.task.tool_calls_total - tool usage count
+        self._emit_gauge("tau2.task.tool_calls_total", float(tool_calls_total), base_tags)
+
+        # tau2.task.tool_accuracy - tool correctness ratio
+        self._emit_gauge("tau2.task.tool_accuracy", tool_accuracy, base_tags)
+
+        # tau2.task.first_attempt_success - quick resolution indicator
+        first_attempt = 1.0 if reward >= 0.7 and turns <= 4 else 0.0
+        self._emit_gauge("tau2.task.first_attempt_success", first_attempt, base_tags)
+
+    def emit_simulator_metrics(
+        self,
+        evaluation_id: str,
+        domain: str,
+        tokens_prompt: int,
+        tokens_completion: int,
+        tokens_total: int,
+        cost_usd: float,
+    ) -> None:
+        """Emit user simulator metrics (test harness cost).
+
+        These track the cost of running the user simulator LLM,
+        which is the cost we control (vs agent which is a black box).
+
+        Args:
+            evaluation_id: The evaluation identifier.
+            domain: The domain name.
+            tokens_prompt: Total prompt tokens used by simulator.
+            tokens_completion: Total completion tokens used by simulator.
+            tokens_total: Total tokens (prompt + completion).
+            cost_usd: Total cost in USD.
+        """
+        base_tags = [
+            f"evaluation_id:{evaluation_id}",
+            f"domain:{domain}",
+        ]
+
+        # Simulator-specific metrics (Category B - Test Harness)
+        self._emit_gauge("tau2.simulator.tokens_total", float(tokens_total), base_tags)
+        self._emit_gauge("tau2.simulator.tokens_prompt", float(tokens_prompt), base_tags)
+        self._emit_gauge("tau2.simulator.tokens_completion", float(tokens_completion), base_tags)
+        self._emit_gauge("tau2.simulator.cost_usd", cost_usd, base_tags)
+
+        # Aliases for dashboard/monitor compatibility (fixes broken widgets)
+        self._emit_gauge("tau2.llm.tokens_input", float(tokens_prompt), base_tags)
+        self._emit_gauge("tau2.llm.tokens_output", float(tokens_completion), base_tags)
+        self._emit_gauge("tau2.llm.token_cost", cost_usd, base_tags)
+
+
+def extract_simulator_metrics(messages: list) -> dict:
+    """Extract token usage and cost from user simulator messages.
+
+    User messages (role=user) contain usage data from the simulator LLM.
+    Assistant messages have usage=None (agent is a black box).
+
+    Args:
+        messages: List of message dictionaries from the simulation.
+
+    Returns:
+        dict with keys: tokens_prompt, tokens_completion, tokens_total, cost_usd
+    """
+    tokens_prompt = 0
+    tokens_completion = 0
+    cost_usd = 0.0
+
+    for msg in messages:
+        if msg.get("role") != "user":
+            continue
+        usage = msg.get("usage")
+        if usage:
+            tokens_prompt += usage.get("prompt_tokens", 0)
+            tokens_completion += usage.get("completion_tokens", 0)
+        cost = msg.get("cost")
+        if cost:
+            cost_usd += cost
+
+    return {
+        "tokens_prompt": tokens_prompt,
+        "tokens_completion": tokens_completion,
+        "tokens_total": tokens_prompt + tokens_completion,
+        "cost_usd": cost_usd,
+    }
+
+
+def count_tool_calls(messages: list) -> int:
+    """Count total tool calls from messages.
+
+    Tool calls can appear in both assistant and user messages.
+
+    Args:
+        messages: List of message dictionaries from the simulation.
+
+    Returns:
+        int: Total number of tool calls.
+    """
+    total = 0
+    for msg in messages:
+        tool_calls = msg.get("tool_calls")
+        if tool_calls:
+            total += len(tool_calls)
+    return total
+
+
+def calculate_tool_accuracy(action_checks: list) -> float:
+    """Calculate tool accuracy from action checks.
+
+    Args:
+        action_checks: List of action check results from reward_info.
+
+    Returns:
+        float: Accuracy between 0.0 and 1.0 (returns 1.0 if no checks).
+    """
+    if not action_checks:
+        return 1.0  # No checks = assume perfect (nothing to fail)
+
+    correct = sum(1 for check in action_checks if check.get("action_match", False))
+    return correct / len(action_checks)
+
 
 def get_data_dir() -> Path:
     """Get the tau2 data directory."""
@@ -324,6 +485,11 @@ def process_evaluation(emitter: MetricsEmitter, eval_data: dict, evaluation_id: 
     successful_tasks = 0
     total_tasks = len(simulations)
 
+    # Aggregates for simulator metrics (across all simulations)
+    total_sim_tokens_prompt = 0
+    total_sim_tokens_completion = 0
+    total_sim_cost = 0.0
+
     for sim in simulations:
         task_id = sim.get("task_id", "unknown")
         reward_info = sim.get("reward_info", {})
@@ -345,8 +511,29 @@ def process_evaluation(emitter: MetricsEmitter, eval_data: dict, evaluation_id: 
         # Emit termination metrics
         emitter.emit_termination_metrics(termination_reason)
 
-        # Process action checks for tool metrics
+        # Calculate and emit efficiency metrics (Phase 1)
         action_checks = reward_info.get("action_checks", [])
+        tool_calls_total = count_tool_calls(messages)
+        tool_accuracy = calculate_tool_accuracy(action_checks)
+
+        emitter.emit_efficiency_metrics(
+            task_id=task_id,
+            domain=domain,
+            evaluation_id=evaluation_id,
+            reward=reward,
+            duration_seconds=duration,
+            turns=len(messages),
+            tool_calls_total=tool_calls_total,
+            tool_accuracy=tool_accuracy,
+        )
+
+        # Accumulate simulator metrics from this simulation (Phase 2b)
+        sim_metrics = extract_simulator_metrics(messages)
+        total_sim_tokens_prompt += sim_metrics["tokens_prompt"]
+        total_sim_tokens_completion += sim_metrics["tokens_completion"]
+        total_sim_cost += sim_metrics["cost_usd"]
+
+        # Process action checks for tool metrics
         if action_checks:
             for check in action_checks:
                 action = check.get("action", {})
@@ -406,9 +593,21 @@ def process_evaluation(emitter: MetricsEmitter, eval_data: dict, evaluation_id: 
         total_tasks=total_tasks,
     )
 
+    # Emit aggregated simulator metrics (Phase 2b)
+    total_sim_tokens = total_sim_tokens_prompt + total_sim_tokens_completion
+    emitter.emit_simulator_metrics(
+        evaluation_id=evaluation_id,
+        domain=domain,
+        tokens_prompt=total_sim_tokens_prompt,
+        tokens_completion=total_sim_tokens_completion,
+        tokens_total=total_sim_tokens,
+        cost_usd=total_sim_cost,
+    )
+
     logger.info(
         f"Emitted metrics for {evaluation_id}: "
-        f"{total_tasks} tasks, pass_rate={pass_rate:.1f}%, avg_reward={avg_reward:.2f}"
+        f"{total_tasks} tasks, pass_rate={pass_rate:.1f}%, avg_reward={avg_reward:.2f}, "
+        f"simulator_tokens={total_sim_tokens}"
     )
 
 

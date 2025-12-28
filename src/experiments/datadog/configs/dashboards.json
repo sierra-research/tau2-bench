@@ -247,6 +247,110 @@
           "column": "timestamp",
           "order": "desc"
         }
+      },
+      {
+        "id": "task-efficiency",
+        "title": "Task Completion Efficiency (Reward per Turn)",
+        "type": "timeseries",
+        "requests": [
+          {
+            "q": "avg:tau2.task.reward_per_turn{$domain,$env} by {domain}",
+            "display_type": "line"
+          }
+        ],
+        "yaxis": {
+          "min": "0",
+          "max": "0.2"
+        },
+        "markers": [
+          {
+            "value": "y = 0.05",
+            "display_type": "warning dashed",
+            "label": "Warning Threshold"
+          },
+          {
+            "value": "y = 0.03",
+            "display_type": "error dashed",
+            "label": "Critical Threshold"
+          }
+        ]
+      },
+      {
+        "id": "conversation-length",
+        "title": "Conversation Length by Task",
+        "type": "toplist",
+        "requests": [
+          {
+            "q": "top(avg:tau2.task.turns_total{$domain,$env} by {task_id,domain}, 20, 'mean', 'desc')"
+          }
+        ]
+      },
+      {
+        "id": "tool-accuracy-domain",
+        "title": "Tool Accuracy by Domain",
+        "type": "timeseries",
+        "requests": [
+          {
+            "q": "avg:tau2.task.tool_accuracy{$domain,$env} by {domain}",
+            "display_type": "bars"
+          }
+        ],
+        "yaxis": {
+          "min": "0",
+          "max": "1"
+        }
+      },
+      {
+        "id": "simulator-tokens",
+        "title": "Simulator Token Breakdown (Test Harness Cost)",
+        "type": "timeseries",
+        "requests": [
+          {
+            "q": "sum:tau2.simulator.tokens_prompt{$domain,$env}",
+            "display_type": "bars",
+            "style": {
+              "palette": "cool"
+            }
+          },
+          {
+            "q": "sum:tau2.simulator.tokens_completion{$domain,$env}",
+            "display_type": "bars",
+            "style": {
+              "palette": "warm"
+            }
+          }
+        ]
+      },
+      {
+        "id": "first-attempt-success",
+        "title": "First Attempt Success Rate",
+        "type": "query_value",
+        "requests": [
+          {
+            "q": "avg:tau2.task.first_attempt_success{$domain,$env} * 100",
+            "aggregator": "avg"
+          }
+        ],
+        "precision": 1,
+        "autoscale": false,
+        "custom_unit": "%",
+        "conditional_formats": [
+          {
+            "comparator": ">=",
+            "value": 50,
+            "palette": "green_on_white"
+          },
+          {
+            "comparator": ">=",
+            "value": 25,
+            "palette": "yellow_on_white"
+          },
+          {
+            "comparator": "<",
+            "value": 25,
+            "palette": "red_on_white"
+          }
+        ]
       }
     ]
   }
