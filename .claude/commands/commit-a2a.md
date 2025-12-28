@@ -115,27 +115,45 @@ This command implements the cherry-pick workflow for A2A development using spec 
       * NO closing paragraphs explaining future implications
       * Focus on WHAT changed, not WHY it's better
 
-13. **Present plan to user**:
+13. **Present plan to user** with explicit file-to-commit mapping:
     ```
-    Proposed commits:
+    === Commit Plan ===
 
-    [A2A - WILL BE CHERRY-PICKED]
+    [A2A - WILL BE CHERRY-PICKED TO feature/a2a-agent-integration]
     Commit 1: feat(a2a): <description>
-    Files: file1, file2, file3
+    ┌─ Files ────────────────────────────────────────────
+    │  M  tau2_agent/agent.py
+    │  M  tau2_agent/tools/run_tau2_evaluation.py
+    │  A  tau2_agent/protocol.py
+    └────────────────────────────────────────────────────
     Reasoning: <why these go together>
 
-    [A2A - WILL BE CHERRY-PICKED]
+    [A2A - WILL BE CHERRY-PICKED TO feature/a2a-agent-integration]
     Commit 2: fix(a2a): <description>
-    Files: file4, file5
+    ┌─ Files ────────────────────────────────────────────
+    │  M  tau2_agent/utils.py
+    │  M  tests/test_tau2_agent/test_utils.py
+    └────────────────────────────────────────────────────
     Reasoning: <why these go together>
 
     [NON-A2A - STAYS ON SPEC BRANCH ONLY]
     Commit 3: chore: <description>
-    Files: file6
+    ┌─ Files ────────────────────────────────────────────
+    │  M  specs/008-gcp-integration/spec.md
+    │  A  .claude/commands/new-command.md
+    └────────────────────────────────────────────────────
     Reasoning: <tooling/workflow change>
 
-    Cherry-pick plan: Commits 1, 2 will be cherry-picked to feature/a2a-agent-integration
+    === File Summary ===
+    Total files: 7
+    ├─ A2A commits (cherry-picked): 5 files
+    │  ├─ Commit 1: 3 files (tau2_agent/*)
+    │  └─ Commit 2: 2 files (tau2_agent/*, tests/*)
+    └─ Non-A2A commits (spec branch only): 2 files
+       └─ Commit 3: 2 files (specs/*, .claude/*)
     ```
+
+    **File status indicators**: M = Modified, A = Added, D = Deleted, R = Renamed
 
 ## Phase 5: Execute Commits on Spec Branch (with user approval)
 

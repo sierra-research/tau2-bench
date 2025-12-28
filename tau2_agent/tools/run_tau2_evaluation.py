@@ -11,6 +11,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+import litellm
 from google.adk.tools import BaseTool
 from google.adk.tools.tool_context import ToolContext
 from google.genai import types
@@ -18,13 +19,34 @@ from loguru import logger
 
 from tau2.store import EvaluationStore, create_store
 from tau2.store.utils import generate_evaluation_id
+from tau2_agent.config import EvaluationLimits
+from tau2_agent.context import user_llm_api_key, user_llm_model
+from tau2_agent.errors import ErrorCode, EvaluationError
 from tau2_agent.utils import compact_message, sanitize_float
 
-DEFAULT_USER_LLM = (
-    "openai/Qwen/Qwen3-30B-A3B-Thinking-2507"
-    if os.getenv("NEBIUS_API_KEY")
-    else "gpt-4o"
-)
+
+class MissingCredentialsError(Exception):
+    """Raised when user LLM credentials are required but not provided."""
+
+    def __init__(self, error: EvaluationError):
+        self.error = error
+        super().__init__(str(error))
+
+
+class LimitExceededError(ValueError):
+    """Raised when evaluation parameters exceed Cloud Run limits."""
+
+    def __init__(self, error: EvaluationError):
+        self.error = error
+        super().__init__(str(error))
+
+
+class UserLLMAuthError(Exception):
+    """Raised when user's LLM API key authentication fails."""
+
+    def __init__(self, error: EvaluationError):
+        self.error = error
+        super().__init__(str(error))
 
 # Dedicated executor for evaluation work to prevent contention with other async operations.
 # This isolates evaluation threads and allows multiple concurrent evaluations without
@@ -40,15 +62,16 @@ class RunTau2Evaluation(BaseTool):
     """Tool to run tau2-bench agent evaluation"""
 
     name = "run_tau2_evaluation"
-    description = f"""
+    description = """
     Run a tau2-bench evaluation of a conversational agent.
+
+    IMPORTANT: Requires X-User-LLM-Model and X-User-LLM-API-Key headers.
 
     Parameters:
     - domain: Evaluation domain (airline, retail, telecom, mock)
     - agent_endpoint: A2A endpoint of agent to evaluate (e.g., https://agent.example.com)
-    - user_llm: LLM model for user simulator (default: {DEFAULT_USER_LLM})
-    - num_trials: Number of trials per task (default: 1)
-    - num_tasks: Number of tasks to evaluate (default: all tasks in domain)
+    - num_trials: Number of trials per task (default: 1, max: 3)
+    - num_tasks: Number of tasks to evaluate (default: all, max: 30)
     - task_ids: Optional list of specific task IDs to run
 
     Returns:
@@ -79,10 +102,6 @@ class RunTau2Evaluation(BaseTool):
                         type=types.Type.STRING,
                         description="A2A endpoint URL of the agent to evaluate",
                     ),
-                    "user_llm": types.Schema(
-                        type=types.Type.STRING,
-                        description=f"LLM model for user simulator (default: {DEFAULT_USER_LLM})",
-                    ),
                     "num_trials": types.Schema(
                         type=types.Type.INTEGER,
                         description="Number of trials per task (default: 1)",
@@ -100,6 +119,117 @@ class RunTau2Evaluation(BaseTool):
                 required=["domain", "agent_endpoint"],
             ),
         )
+
+    def _format_model_for_litellm(self, model: str) -> str:
+        """Format model name for LiteLLM compatibility.
+
+        LiteLLM expects specific prefixes for different providers:
+        - OpenAI: gpt-4o, gpt-4-turbo (no prefix needed)
+        - Gemini: gemini/gemini-2.0-flash
+        - Anthropic: anthropic/claude-3-5-sonnet-20241022
+        - Nebius: nebius/Qwen/Qwen3-235B-A22B (requires nebius/ prefix)
+
+        Args:
+            model: User-provided model name.
+
+        Returns:
+            Model name formatted for LiteLLM.
+        """
+        # Already has a provider prefix - return as-is
+        if "/" in model:
+            return model
+
+        # Gemini models
+        if model.startswith("gemini-"):
+            return f"gemini/{model}"
+
+        # Anthropic models
+        if model.startswith("claude-"):
+            return f"anthropic/{model}"
+
+        # Nebius models (Qwen family hosted on Nebius)
+        if model.startswith("Qwen"):
+            return f"nebius/{model}"
+
+        # OpenAI models (gpt-*, o1-*, etc.) - no prefix needed
+        return model
+
+    def _get_user_llm_credentials(self) -> tuple[str, dict[str, Any]]:
+        """Get user LLM model and credentials from request headers.
+
+        Reads credentials from contextvars set by middleware. Credentials
+        are REQUIRED - raises MissingCredentialsError if not provided.
+
+        Returns:
+            Tuple of (litellm_formatted_model, llm_args dict with api_key).
+
+        Raises:
+            MissingCredentialsError: If X-User-LLM-Model or X-User-LLM-API-Key
+                headers are not provided.
+        """
+        ctx_model = user_llm_model.get()
+        ctx_api_key = user_llm_api_key.get()
+
+        if not ctx_model or not ctx_api_key:
+            error = EvaluationError(
+                code=ErrorCode.MISSING_HEADER,
+                message="User LLM credentials required. Include X-User-LLM-Model and X-User-LLM-API-Key headers.",
+            )
+            raise MissingCredentialsError(error)
+
+        # Format model name for LiteLLM
+        formatted_model = self._format_model_for_litellm(ctx_model)
+
+        # Build llm_args with api_key and optional api_base
+        llm_args: dict[str, Any] = {"api_key": ctx_api_key}
+
+        # Add api_base for Nebius/custom OpenAI-compatible endpoints
+        api_base = os.environ.get("NEBIUS_API_BASE") or os.environ.get("USER_LLM_API_BASE")
+        if api_base:
+            llm_args["api_base"] = api_base
+
+        logger.debug(
+            "Using user LLM credentials",
+            original_model=ctx_model,
+            formatted_model=formatted_model,
+            has_api_base=bool(api_base),
+        )
+
+        return formatted_model, llm_args
+
+    def _validate_limits(self, num_tasks: int | None, num_trials: int) -> None:
+        """Validate evaluation parameters against Cloud Run limits.
+
+        Args:
+            num_tasks: Number of tasks to evaluate.
+            num_trials: Number of trials per task.
+
+        Raises:
+            LimitExceededError: If num_tasks > MAX_TASKS or num_trials > MAX_TRIALS.
+        """
+        if num_tasks is not None and num_tasks > EvaluationLimits.MAX_TASKS:
+            error = EvaluationError(
+                code=ErrorCode.LIMIT_EXCEEDED,
+                message=f"num_tasks must be between 1 and {EvaluationLimits.MAX_TASKS}",
+                details={
+                    "num_tasks": num_tasks,
+                    "max_tasks": EvaluationLimits.MAX_TASKS,
+                    "reason": "Cloud Run 60-minute timeout constraint",
+                },
+            )
+            raise LimitExceededError(error)
+
+        if num_trials > EvaluationLimits.MAX_TRIALS:
+            error = EvaluationError(
+                code=ErrorCode.LIMIT_EXCEEDED,
+                message=f"num_trials must be between 1 and {EvaluationLimits.MAX_TRIALS}",
+                details={
+                    "num_trials": num_trials,
+                    "max_trials": EvaluationLimits.MAX_TRIALS,
+                    "reason": "Cloud Run 60-minute timeout constraint",
+                },
+            )
+            raise LimitExceededError(error)
 
     async def run_async(  # type: ignore[override]
         self, *, args: dict[str, Any], tool_context: ToolContext
@@ -137,6 +267,22 @@ class RunTau2Evaluation(BaseTool):
             msg = "domain and agent_endpoint must be strings"
             raise TypeError(msg)
 
+        num_trials = args.get("num_trials", 1)
+        num_tasks = args.get("num_tasks")
+        task_ids = args.get("task_ids")
+
+        # Validate limits first (fail fast)
+        try:
+            self._validate_limits(num_tasks, num_trials)
+        except LimitExceededError as e:
+            return {"error": e.error.code.value, "message": e.error.message}
+
+        # Get user LLM credentials from request headers (required)
+        try:
+            user_llm, llm_args_user = self._get_user_llm_credentials()
+        except MissingCredentialsError as e:
+            return {"error": e.error.code.value, "message": e.error.message}
+
         # Initialize EvaluationStore for persistence
         store: EvaluationStore | None = None
         try:
@@ -145,10 +291,6 @@ class RunTau2Evaluation(BaseTool):
             logger.warning(f"Failed to initialize EvaluationStore: {e}")
 
         evaluation_id: str | None = None
-        user_llm = args.get("user_llm", DEFAULT_USER_LLM)
-        num_trials = args.get("num_trials", 1)
-        num_tasks = args.get("num_tasks")
-        task_ids = args.get("task_ids")
 
         try:
             # Create session in EvaluationStore
@@ -176,12 +318,24 @@ class RunTau2Evaluation(BaseTool):
             else:
                 evaluation_id = generate_evaluation_id()
 
+            # Transition to WORKING state before starting evaluation
+            if store and evaluation_id:
+                try:
+                    store.update_progress(
+                        evaluation_id,
+                        current_task=1,
+                        total_tasks=num_tasks or 1,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to update progress to WORKING: {e}")
+
             # Run the evaluation
             result = await self._execute(
                 _tool_context=tool_context,
                 domain=domain,
                 agent_endpoint=agent_endpoint,
                 user_llm=user_llm,
+                llm_args_user=llm_args_user,
                 num_trials=num_trials,
                 num_tasks=num_tasks,
                 task_ids=task_ids,
@@ -237,7 +391,16 @@ class RunTau2Evaluation(BaseTool):
                     store.fail_evaluation(evaluation_id=evaluation_id, error=str(e))
                 except Exception as store_err:
                     logger.warning(f"Failed to record failure in store: {store_err}")
-            raise
+            return {"error": "INVALID_PARAMETERS", "message": str(e)}
+
+        except UserLLMAuthError as e:
+            # Fail evaluation in store
+            if store and evaluation_id:
+                try:
+                    store.fail_evaluation(evaluation_id=evaluation_id, error=str(e))
+                except Exception as store_err:
+                    logger.warning(f"Failed to record failure in store: {store_err}")
+            return {"error": e.error.code.value, "message": e.error.message}
 
         except Exception as e:
             # Fail evaluation in store
@@ -249,14 +412,18 @@ class RunTau2Evaluation(BaseTool):
                     )
                 except Exception as store_err:
                     logger.warning(f"Failed to record failure in store: {store_err}")
-            raise
+            return {
+                "error": "INTERNAL_ERROR",
+                "message": str(e) if str(e) else type(e).__name__,
+            }
 
     async def _execute(
         self,
         _tool_context: ToolContext,
         domain: str,
         agent_endpoint: str,
-        user_llm: str = DEFAULT_USER_LLM,
+        user_llm: str,
+        llm_args_user: dict[str, Any],
         num_trials: int = 1,
         num_tasks: int | None = None,
         task_ids: list[str] | None = None,
@@ -264,12 +431,11 @@ class RunTau2Evaluation(BaseTool):
         """
         Run a tau2-bench evaluation for a given domain and A2A agent endpoint.
 
-        Validates the domain, constructs a RunConfig (wiring the agent endpoint and optional Nebius/OpenAI credentials for the user LLM), executes the evaluation in a thread pool to avoid blocking the event loop, computes aggregate metrics, and returns a structured summary and per-task metadata.
-
         Parameters:
             domain (str): Evaluation domain identifier (e.g., "airline", "retail", "telecom", "mock").
             agent_endpoint (str): A2A endpoint URL of the agent under test.
-            user_llm (str): LLM model identifier for the user simulator; defaults to DEFAULT_USER_LLM.
+            user_llm (str): LLM model identifier for the user simulator (LiteLLM formatted).
+            llm_args_user (dict): LLM arguments including api_key for the user simulator.
             num_trials (int): Number of trials to run per task; defaults to 1.
             num_tasks (int | None): Optional number of tasks to evaluate; when None, uses domain defaults.
             task_ids (list[str] | None): Optional explicit list of task IDs to run.
@@ -278,16 +444,8 @@ class RunTau2Evaluation(BaseTool):
             dict[str, Any]: A result object with keys:
                 - status: "completed" on success.
                 - timestamp: evaluation timestamp from tau2 results.
-                - summary: dict with aggregated metrics:
-                    - total_simulations (int)
-                    - total_tasks (int)
-                    - successful_simulations (int)
-                    - avg_reward (float)
-                    - pass_hat_k (mapping or list as produced by tau2)
-                    - avg_agent_cost (float)
-                - tasks: list of per-task dicts with:
-                    - task_id (str)
-                    - purpose (str | None)
+                - summary: dict with aggregated metrics
+                - tasks: list of per-task dicts
 
         Raises:
             ValueError: If the provided domain is not recognized by tau2's registry.
@@ -312,17 +470,6 @@ class RunTau2Evaluation(BaseTool):
                 user_llm=user_llm,
                 num_trials=num_trials,
             )
-
-            # Build llm_args_user - pass Nebius credentials for openai/ provider models
-            llm_args_user = {}
-            nebius_api_key = os.getenv("NEBIUS_API_KEY")
-            if user_llm.startswith("openai/") and nebius_api_key:
-                llm_args_user = {
-                    "api_key": nebius_api_key,
-                    "api_base": os.getenv(
-                        "NEBIUS_API_BASE", "https://api.tokenfactory.nebius.com/v1/"
-                    ),
-                }
 
             # Generate unique save_to path to prevent filename collisions when running
             # concurrent evaluations. This avoids the interactive prompt in run.py that
@@ -450,7 +597,35 @@ class RunTau2Evaluation(BaseTool):
             logger.error("Invalid evaluation parameters", error=str(e))
             raise
 
+        except litellm.AuthenticationError as e:
+            # LiteLLM raises AuthenticationError for invalid API keys
+            error = EvaluationError(
+                code=ErrorCode.USER_LLM_AUTH_FAILED,
+                message="User LLM authentication failed",
+                details={"model": user_llm},  # Never include API key
+            )
+            logger.warning(
+                "User LLM authentication failed",
+                model=user_llm,
+                error_type=type(e).__name__,
+            )
+            raise UserLLMAuthError(error) from e
+
         except Exception as e:
+            # Check for other auth-like errors (e.g., wrapped exceptions)
+            if "Unauthorized" in str(e):
+                error = EvaluationError(
+                    code=ErrorCode.USER_LLM_AUTH_FAILED,
+                    message="User LLM authentication failed",
+                    details={"model": user_llm},  # Never include API key
+                )
+                logger.warning(
+                    "User LLM authentication failed",
+                    model=user_llm,
+                    error_type=type(e).__name__,
+                )
+                raise UserLLMAuthError(error) from e
+
             logger.error(
                 "Evaluation failed",
                 domain=domain,

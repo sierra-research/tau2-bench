@@ -13,6 +13,7 @@ class A2AConfig:
     endpoint: str
     auth_token: str | None = None
     timeout: int = 300
+    connect_timeout: int = 5
     verify_ssl: bool = True
 
     def __post_init__(self) -> None:
@@ -20,9 +21,13 @@ class A2AConfig:
         # Normalize endpoint (remove trailing slash)
         self.endpoint = self.endpoint.rstrip("/")
 
-        # Validate timeout
+        # Validate timeouts
         if self.timeout <= 0:
             msg = f"timeout must be positive, got {self.timeout}"
+            raise ValueError(msg)
+
+        if self.connect_timeout <= 0:
+            msg = f"connect_timeout must be positive, got {self.connect_timeout}"
             raise ValueError(msg)
 
         # Validate URL scheme

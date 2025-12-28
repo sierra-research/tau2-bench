@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential git && rm -rf /var/lib/apt/lists/*
 
 # Copy and build minimal runtime dependencies
-COPY requirements.txt ./
+COPY tau2_agent/docker_setup/requirements.txt ./
 RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
 
 # =============================================================================
@@ -24,7 +24,9 @@ FROM python:3.11-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    TAU2_DATA_DIR=/app/data
+    TAU2_DATA_DIR=/app/data \
+    PORT=8001 \
+    TAU2_AGENT_MODEL=gemini-2.0-flash
 
 # Create non-root user
 RUN groupadd --gid 1000 tau2agent && \
@@ -49,6 +51,15 @@ RUN pip install -e . --no-deps
 # Create evals directory for volume mount
 RUN mkdir -p /app/data/tau2/evals && chown tau2agent:tau2agent /app/data/tau2/evals
 
+# Create .adk directory for ADK artifact storage
+RUN mkdir -p /app/.adk && chown tau2agent:tau2agent /app/.adk
+
+# Create agents/ directory with symlink to tau2_agent
+# This ensures /list-apps only returns valid agents (not data/, src/, etc.)
+RUN mkdir -p /app/agents && \
+    ln -s ../tau2_agent /app/agents/tau2_agent && \
+    chown -h tau2agent:tau2agent /app/agents /app/agents/tau2_agent
+
 USER tau2agent
 
 EXPOSE 8001
@@ -56,4 +67,4 @@ EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD python -c "import httpx; httpx.get('http://localhost:8001/a2a/tau2_agent/.well-known/agent-card.json', timeout=5).raise_for_status()" || exit 1
 
-CMD ["adk", "api_server", "--a2a", ".", "--port", "8001", "--host", "0.0.0.0"]
+CMD ["python", "-m", "tau2_agent.server"]

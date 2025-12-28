@@ -80,18 +80,32 @@ Given the optional user guidance in arguments, do this:
      * Focus on WHAT changed, not WHY it's better or HOW it will be used
    - Add breaking change notices if needed
 
-9. **Present plan to user**:
+9. **Present plan to user** with explicit file-to-commit mapping:
    ```
-   Proposed commits:
+   === Commit Plan ===
 
    Commit 1: <type>(<scope>): <description>
-   Files: file1, file2, file3
+   ┌─ Files ────────────────────────────────────────────
+   │  M  src/module/file1.py
+   │  M  src/module/file2.py
+   │  A  src/module/file3.py
+   └────────────────────────────────────────────────────
    Reasoning: <why these go together>
 
    Commit 2: <type>(<scope>): <description>
-   Files: file4, file5
+   ┌─ Files ────────────────────────────────────────────
+   │  M  tests/test_module.py
+   │  D  tests/old_test.py
+   └────────────────────────────────────────────────────
    Reasoning: <why these go together>
+
+   === File Summary ===
+   Total files: 5
+   ├─ Commit 1: 3 files (src/module/*)
+   └─ Commit 2: 2 files (tests/*)
    ```
+
+   **File status indicators**: M = Modified, A = Added, D = Deleted, R = Renamed
 
 ## Phase 4: Execute Commits (with user approval)
 

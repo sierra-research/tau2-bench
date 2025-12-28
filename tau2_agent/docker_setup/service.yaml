@@ -1,0 +1,76 @@
+# Cloud Run service definition for tau2_agent
+# Deploy with: gcloud run services replace service.yaml --region us-central1
+#
+# This file provides declarative Cloud Run configuration as an alternative
+# to the imperative gcloud run deploy command in deploy.sh.
+#
+# Usage:
+#   # First, build and push the container (using Artifact Registry)
+#   gcloud builds submit --tag ${REGION}-docker.pkg.dev/${PROJECT_ID}/tau2-agent/tau2-agent
+#
+#   # Then deploy using this service definition
+#   gcloud run services replace service.yaml --region ${REGION}
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: tau2-agent
+  labels:
+    app: tau2-agent
+  annotations:
+    # Allow unauthenticated access (credentials middleware provides user auth)
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        # Scale to zero when idle to minimize costs
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "10"
+        # Allow 60-minute timeout for long evaluations
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/cpu-throttling: "false"
+    spec:
+      # Service account with Secret Manager access
+      # Replace ${PROJECT_ID} with your actual project ID or use gcloud substitution
+      serviceAccountName: tau2-agent-sa@${PROJECT_ID}.iam.gserviceaccount.com
+      containerConcurrency: 10
+      timeoutSeconds: 3600  # 60 minutes - Cloud Run maximum
+      containers:
+        # Image from Artifact Registry (gcr.io is deprecated)
+        - image: ${REGION}-docker.pkg.dev/${PROJECT_ID}/tau2-agent/tau2-agent:latest
+          ports:
+            - containerPort: 8001
+          resources:
+            limits:
+              memory: 2Gi
+              cpu: "2"
+          env:
+            - name: PORT
+              value: "8001"
+            - name: TAU2_AGENT_MODEL
+              value: gemini-2.0-flash
+            - name: LOG_LEVEL
+              value: INFO
+            # GOOGLE_API_KEY is injected from Secret Manager
+            - name: GOOGLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: google-api-key
+                  key: latest
+          # Startup probe - wait for server to be ready
+          startupProbe:
+            httpGet:
+              path: /a2a/tau2_agent/.well-known/agent-card.json
+              port: 8001
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 20
+          # Liveness probe - check server health
+          livenessProbe:
+            httpGet:
+              path: /a2a/tau2_agent/.well-known/agent-card.json
+              port: 8001
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3

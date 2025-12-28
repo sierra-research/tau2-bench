@@ -7,14 +7,24 @@ Tests that RunTau2Evaluation and ListDomains tools work correctly.
 from unittest.mock import Mock, patch
 
 import pytest
-from google.adk.events.event import Event
 
+from tau2_agent.context import user_llm_api_key, user_llm_model
 from tau2_agent.tools.get_evaluation_results import GetEvaluationResults
 from tau2_agent.tools.list_domains import ListDomains
 from tau2_agent.tools.run_tau2_evaluation import RunTau2Evaluation
 
 # Mark all tests in this module as mock-based (no real endpoints)
 pytestmark = pytest.mark.a2a_mock
+
+
+@pytest.fixture
+def mock_user_credentials():
+    """Set up mock user LLM credentials in context variables."""
+    token_model = user_llm_model.set("gpt-4o")
+    token_key = user_llm_api_key.set("test-api-key-12345")
+    yield
+    user_llm_model.reset(token_model)
+    user_llm_api_key.reset(token_key)
 
 
 @pytest.mark.asyncio
@@ -52,8 +62,8 @@ def _create_mock_registry():
 
 
 @pytest.mark.asyncio
-async def test_run_tau2_evaluation_tool_success(mock_tool_context):
-    """Test RunTau2Evaluation tool with successful evaluation returns streaming events"""
+async def test_run_tau2_evaluation_tool_success(mock_tool_context, mock_user_credentials):
+    """Test RunTau2Evaluation tool with successful evaluation returns results dict"""
     tool = RunTau2Evaluation(
         name="run_tau2_evaluation", description="Run tau2-bench evaluation"
     )
@@ -104,62 +114,50 @@ async def test_run_tau2_evaluation_tool_success(mock_tool_context):
         patch("tau2.metrics.agent_metrics.compute_metrics", return_value=mock_metrics),
         patch("tau2.metrics.agent_metrics.is_successful", return_value=True),
     ):
-        # run_async now returns an async iterator, collect events
-        events = []
-        async for event in tool.run_async(
+        # run_async returns a dict directly
+        result = await tool.run_async(
             args={
                 "domain": "airline",
                 "agent_endpoint": "https://agent.example.com",
-                "user_llm": "gpt-4o",
                 "num_trials": 1,
             },
             tool_context=mock_tool_context,
-        ):
-            events.append(event)
+        )
 
-    # Should have multiple events
-    assert len(events) >= 2, "Should have at least submitted and result events"
+    # Should return completed status
+    assert result["status"] == "completed", "Result should have status='completed'"
 
-    # Final event should be completed with results
-    last_event = events[-1]
-    assert last_event.custom_metadata.get("tau2.state") == "completed", (
-        "Final event should have state='completed'"
-    )
+    # Check summary contains expected fields
+    assert "summary" in result, "Result should contain summary"
+    summary = result["summary"]
+    assert summary["total_simulations"] == 10, "Should have 10 simulations"
+    assert summary["successful_simulations"] == 10, "All simulations should succeed"
 
-    # Check results in final event content
-    content_text = last_event.content.parts[0].text if last_event.content else ""
-    assert "10/10" in content_text or "Results:" in content_text, (
-        "Result event should contain results info"
-    )
+    # Check evaluation_id is present
+    assert "evaluation_id" in result, "Result should contain evaluation_id"
 
 
 @pytest.mark.asyncio
-async def test_run_tau2_evaluation_tool_invalid_domain(mock_tool_context):
-    """Test RunTau2Evaluation tool with invalid domain emits error event"""
+async def test_run_tau2_evaluation_tool_invalid_domain(mock_tool_context, mock_user_credentials):
+    """Test RunTau2Evaluation tool with invalid domain returns error dict"""
     tool = RunTau2Evaluation(
         name="run_tau2_evaluation", description="Run tau2-bench evaluation"
     )
 
-    # Invalid domain should emit error event, not raise exception
-    events = []
-    async for event in tool.run_async(
+    # Invalid domain should return error dict, not raise exception
+    result = await tool.run_async(
         args={
             "domain": "invalid_domain",
             "agent_endpoint": "https://agent.example.com",
-            "user_llm": "gpt-4o",
         },
         tool_context=mock_tool_context,
-    ):
-        events.append(event)
-
-    # Should emit an error event
-    assert len(events) >= 1, "Should emit at least one event"
-    error_event = events[-1]
-    assert error_event.custom_metadata.get("tau2.state") == "failed", (
-        "Invalid domain should result in failed state"
     )
-    assert "tau2.error" in error_event.custom_metadata, (
-        "Error event should have tau2.error"
+
+    # Should return an error response
+    assert "error" in result, "Invalid domain should return error"
+    assert "message" in result, "Error response should have message"
+    assert "invalid_domain" in result["message"].lower() or "invalid" in result["message"].lower(), (
+        "Error message should mention invalid domain"
     )
 
 
@@ -229,8 +227,8 @@ def _create_mock_evaluation_results(num_tasks: int = 3):
 
 
 @pytest.mark.asyncio
-async def test_run_tau2_evaluation_yields_events(mock_tool_context):
-    """Test RunTau2Evaluation yields Event objects (not just dict)."""
+async def test_run_tau2_evaluation_returns_dict(mock_tool_context, mock_user_credentials):
+    """Test RunTau2Evaluation returns a dict with expected structure."""
     tool = RunTau2Evaluation(
         name="run_tau2_evaluation", description="Run tau2-bench evaluation"
     )
@@ -246,25 +244,24 @@ async def test_run_tau2_evaluation_yields_events(mock_tool_context):
         patch("tau2.metrics.agent_metrics.compute_metrics", return_value=mock_metrics),
         patch("tau2.metrics.agent_metrics.is_successful", return_value=True),
     ):
-        # run_async returns an async generator directly, iterate over it
-        events = []
-        async for event in tool.run_async(
+        # run_async returns a dict directly
+        result = await tool.run_async(
             args={
                 "domain": "airline",
                 "agent_endpoint": "https://agent.example.com",
                 "num_trials": 1,
             },
             tool_context=mock_tool_context,
-        ):
-            assert isinstance(event, Event), f"Expected Event, got {type(event)}"
-            events.append(event)
+        )
 
-        assert len(events) >= 2, "Should yield at least submitted and result events"
+        assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+        assert "status" in result, "Result should have status"
+        assert "summary" in result, "Result should have summary"
 
 
 @pytest.mark.asyncio
-async def test_run_tau2_evaluation_submitted_event(mock_tool_context):
-    """Test first event has state='submitted'."""
+async def test_run_tau2_evaluation_completed_status(mock_tool_context, mock_user_credentials):
+    """Test successful evaluation returns status='completed'."""
     tool = RunTau2Evaluation(
         name="run_tau2_evaluation", description="Run tau2-bench evaluation"
     )
@@ -280,28 +277,24 @@ async def test_run_tau2_evaluation_submitted_event(mock_tool_context):
         patch("tau2.metrics.agent_metrics.compute_metrics", return_value=mock_metrics),
         patch("tau2.metrics.agent_metrics.is_successful", return_value=True),
     ):
-        events = [
-            event
-            async for event in tool.run_async(
-                args={
-                    "domain": "airline",
-                    "agent_endpoint": "https://agent.example.com",
-                    "num_trials": 1,
-                },
-                tool_context=mock_tool_context,
-            )
-        ]
+        result = await tool.run_async(
+            args={
+                "domain": "airline",
+                "agent_endpoint": "https://agent.example.com",
+                "num_trials": 1,
+            },
+            tool_context=mock_tool_context,
+        )
 
-        # First event should be submitted state
-        first_event = events[0]
-        assert first_event.custom_metadata.get("tau2.state") == "submitted", (
-            "First event should have state='submitted'"
+        # Result should have completed status
+        assert result.get("status") == "completed", (
+            "Result should have status='completed'"
         )
 
 
 @pytest.mark.asyncio
-async def test_run_tau2_evaluation_progress_events(mock_tool_context):
-    """Test working events emitted during evaluation."""
+async def test_run_tau2_evaluation_summary_metrics(mock_tool_context, mock_user_credentials):
+    """Test result includes summary metrics for all tasks."""
     tool = RunTau2Evaluation(
         name="run_tau2_evaluation", description="Run tau2-bench evaluation"
     )
@@ -317,36 +310,33 @@ async def test_run_tau2_evaluation_progress_events(mock_tool_context):
         patch("tau2.metrics.agent_metrics.compute_metrics", return_value=mock_metrics),
         patch("tau2.metrics.agent_metrics.is_successful", return_value=True),
     ):
-        events = [
-            event
-            async for event in tool.run_async(
-                args={
-                    "domain": "airline",
-                    "agent_endpoint": "https://agent.example.com",
-                    "num_trials": 1,
-                },
-                tool_context=mock_tool_context,
-            )
-        ]
+        result = await tool.run_async(
+            args={
+                "domain": "airline",
+                "agent_endpoint": "https://agent.example.com",
+                "num_trials": 1,
+            },
+            tool_context=mock_tool_context,
+        )
 
-        # Should have progress events with state='working'
-        working_events = [
-            e for e in events if e.custom_metadata.get("tau2.state") == "working"
-        ]
+        # Should have summary with metrics
+        assert "summary" in result, "Result should have summary"
+        summary = result["summary"]
 
-        # At minimum, working events should be emitted per task completion
-        assert len(working_events) >= 1, "Should emit at least one working event"
+        # Check required summary fields
+        assert "total_simulations" in summary, "Summary should have total_simulations"
+        assert "total_tasks" in summary, "Summary should have total_tasks"
+        assert "successful_simulations" in summary, "Summary should have successful_simulations"
+        assert "avg_reward" in summary, "Summary should have avg_reward"
 
-        # Working events should have progress metadata
-        for event in working_events:
-            assert "tau2.progress" in event.custom_metadata, (
-                "Working events should include tau2.progress"
-            )
+        # Verify counts match mock data
+        assert summary["total_tasks"] == 3, "Should have 3 tasks"
+        assert summary["total_simulations"] == 3, "Should have 3 simulations"
 
 
 @pytest.mark.asyncio
-async def test_run_tau2_evaluation_result_event(mock_tool_context):
-    """Test final event contains results."""
+async def test_run_tau2_evaluation_result_contains_tasks(mock_tool_context, mock_user_credentials):
+    """Test result contains task details."""
     tool = RunTau2Evaluation(
         name="run_tau2_evaluation", description="Run tau2-bench evaluation"
     )
@@ -362,35 +352,34 @@ async def test_run_tau2_evaluation_result_event(mock_tool_context):
         patch("tau2.metrics.agent_metrics.compute_metrics", return_value=mock_metrics),
         patch("tau2.metrics.agent_metrics.is_successful", return_value=True),
     ):
-        events = [
-            event
-            async for event in tool.run_async(
-                args={
-                    "domain": "airline",
-                    "agent_endpoint": "https://agent.example.com",
-                    "num_trials": 1,
-                },
-                tool_context=mock_tool_context,
-            )
-        ]
-
-        # Last event should be completed state with results
-        last_event = events[-1]
-        assert last_event.custom_metadata.get("tau2.state") == "completed", (
-            "Last event should have state='completed'"
-        )
-        assert last_event.custom_metadata.get("tau2.progress") == 100, (
-            "Last event should have progress=100"
+        result = await tool.run_async(
+            args={
+                "domain": "airline",
+                "agent_endpoint": "https://agent.example.com",
+                "num_trials": 1,
+            },
+            tool_context=mock_tool_context,
         )
 
-        # Content should include results
-        content_text = last_event.content.parts[0].text if last_event.content else ""
-        assert "Results:" in content_text, "Result event should contain results"
+        # Result should have completed status
+        assert result.get("status") == "completed", (
+            "Result should have status='completed'"
+        )
+
+        # Result should contain tasks list
+        assert "tasks" in result, "Result should contain tasks"
+        tasks = result["tasks"]
+        assert len(tasks) == 2, "Should have 2 tasks"
+
+        # Each task should have required fields
+        for task in tasks:
+            assert "task_id" in task, "Task should have task_id"
+            assert "purpose" in task, "Task should have purpose"
 
 
 @pytest.mark.asyncio
-async def test_run_tau2_evaluation_error_event(mock_tool_context):
-    """Test failed state on error."""
+async def test_run_tau2_evaluation_error_handling(mock_tool_context, mock_user_credentials):
+    """Test error handling returns error dict."""
     tool = RunTau2Evaluation(
         name="run_tau2_evaluation", description="Run tau2-bench evaluation"
     )
@@ -404,34 +393,26 @@ async def test_run_tau2_evaluation_error_event(mock_tool_context):
         patch("tau2.run.load_tasks", return_value=mock_tasks),
         patch("tau2.registry.registry", _create_mock_registry()),
     ):
-        events = [
-            event
-            async for event in tool.run_async(
-                args={
-                    "domain": "airline",
-                    "agent_endpoint": "https://agent.example.com",
-                    "num_trials": 1,
-                },
-                tool_context=mock_tool_context,
-            )
-        ]
+        result = await tool.run_async(
+            args={
+                "domain": "airline",
+                "agent_endpoint": "https://agent.example.com",
+                "num_trials": 1,
+            },
+            tool_context=mock_tool_context,
+        )
 
-        # Should emit an error event
-        error_events = [
-            e for e in events if e.custom_metadata.get("tau2.state") == "failed"
-        ]
-
-        assert len(error_events) >= 1, "Should emit error event on failure"
-
-        error_event = error_events[0]
-        assert "tau2.error" in error_event.custom_metadata, (
-            "Error event should have tau2.error"
+        # Should return an error response
+        assert "error" in result, "Error should return error dict"
+        assert "message" in result, "Error response should have message"
+        assert "Evaluation failed" in result["message"], (
+            "Error message should contain error details"
         )
 
 
 @pytest.mark.asyncio
-async def test_run_tau2_evaluation_trace_context(mock_tool_context):
-    """Test events contain evaluation_id, task_id, domain for OTel instrumentation."""
+async def test_run_tau2_evaluation_includes_evaluation_id(mock_tool_context, mock_user_credentials):
+    """Test result contains evaluation_id for tracing."""
     tool = RunTau2Evaluation(
         name="run_tau2_evaluation", description="Run tau2-bench evaluation"
     )
@@ -447,38 +428,27 @@ async def test_run_tau2_evaluation_trace_context(mock_tool_context):
         patch("tau2.metrics.agent_metrics.compute_metrics", return_value=mock_metrics),
         patch("tau2.metrics.agent_metrics.is_successful", return_value=True),
     ):
-        events = [
-            event
-            async for event in tool.run_async(
-                args={
-                    "domain": "airline",
-                    "agent_endpoint": "https://agent.example.com",
-                    "num_trials": 1,
-                },
-                tool_context=mock_tool_context,
-            )
-        ]
+        result = await tool.run_async(
+            args={
+                "domain": "airline",
+                "agent_endpoint": "https://agent.example.com",
+                "num_trials": 1,
+            },
+            tool_context=mock_tool_context,
+        )
 
-        # All events should have trace context metadata
-        for event in events:
-            metadata = event.custom_metadata
+        # Result should include evaluation_id for tracing
+        assert "evaluation_id" in result, (
+            "Result should include evaluation_id for tracing"
+        )
+        assert result["evaluation_id"] is not None, (
+            "evaluation_id should not be None"
+        )
 
-            # Required trace context fields for 007-datadog instrumentation
-            assert "tau2.evaluation_id" in metadata, (
-                "Events should include tau2.evaluation_id for tracing"
-            )
-            assert "tau2.domain" in metadata, (
-                "Events should include tau2.domain for tracing"
-            )
-            assert "tau2.agent_endpoint" in metadata, (
-                "Events should include tau2.agent_endpoint for tracing"
-            )
+        # Result should include simulations data
+        assert "simulations" in result, "Result should include simulations"
+        assert len(result["simulations"]) == 2, "Should have 2 simulations"
 
-        # Working events should also have current_task_id
-        working_events = [
-            e for e in events if e.custom_metadata.get("tau2.state") == "working"
-        ]
-        for event in working_events:
-            assert "tau2.current_task_id" in event.custom_metadata, (
-                "Working events should include tau2.current_task_id"
-            )
+        # Each simulation should have task_id for tracing
+        for sim in result["simulations"]:
+            assert "task_id" in sim, "Simulation should have task_id"
