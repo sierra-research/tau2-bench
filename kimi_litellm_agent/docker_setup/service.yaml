@@ -1,0 +1,66 @@
+# Cloud Run service definition for kimi_litellm_agent
+# Deploy with: gcloud run services replace service.yaml --region us-west2
+#
+# This agent uses Kimi K2 Thinking via Nebius TokenFactory for tau2-bench evaluation.
+#
+# Usage:
+#   # Build and push the container
+#   gcloud builds submit --tag us-west2-docker.pkg.dev/${PROJECT_ID}/tau2-agent/kimi-litellm-agent
+#
+#   # Deploy using this service definition
+#   gcloud run services replace service.yaml --region us-west2
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: kimi-litellm-agent
+  labels:
+    app: kimi-litellm-agent
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "5"
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      serviceAccountName: tau2-agent-sa@${PROJECT_ID}.iam.gserviceaccount.com
+      containerConcurrency: 10
+      timeoutSeconds: 300
+      containers:
+        - image: us-west2-docker.pkg.dev/${PROJECT_ID}/tau2-agent/kimi-litellm-agent:latest
+          ports:
+            - containerPort: 8002
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: "1"
+          env:
+            - name: PORT
+              value: "8002"
+            - name: KIMI_AGENT_MODEL
+              value: moonshotai/Kimi-K2-Thinking
+            - name: NEBIUS_API_BASE
+              value: https://api.tokenfactory.nebius.com/v1/
+            # NEBIUS_API_KEY from Secret Manager
+            - name: NEBIUS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nebius-api-key
+                  key: latest
+          startupProbe:
+            httpGet:
+              path: /a2a/kimi_litellm_agent/.well-known/agent-card.json
+              port: 8002
+            initialDelaySeconds: 3
+            periodSeconds: 3
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /a2a/kimi_litellm_agent/.well-known/agent-card.json
+              port: 8002
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
