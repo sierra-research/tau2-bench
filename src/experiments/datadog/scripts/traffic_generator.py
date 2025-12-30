@@ -278,7 +278,7 @@ def start_mock_agent_server(
 ) -> MockAgentServer:
     """Start a separate ADK server for a mock agent on a different port.
 
-    Supports simple_gemini_agent (Gemini Flash 2.0) or simple_nebius_agent
+    Supports simple_gemini_agent (Gemini 3 Flash Preview) or simple_nebius_agent
     (Nebius Qwen3). Auto-detects which agent to use based on available API keys.
 
     Args:
