@@ -26,7 +26,21 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TAU2_DATA_DIR=/app/data \
     PORT=8001 \
-    TAU2_AGENT_MODEL=gemini-2.0-flash
+    LOG_LEVEL=INFO \
+    TAU2_AGENT_MODEL=gemini-2.0-flash \
+    PYTHONPATH=/app/agents:/app/src \
+    AGENTS_DIR=/app/agents \
+    # Datadog LLM Observability (agentless mode)
+    DD_TRACE_ENABLED=true \
+    DD_LLMOBS_ENABLED=true \
+    DD_LLMOBS_AGENTLESS_ENABLED=true \
+    DD_LLMOBS_ML_APP=tau2-bench-agent \
+    DD_SERVICE=tau2-bench-agent \
+    DD_ENV=dev \
+    # Disable httpx distributed tracing to avoid async generator conflicts
+    DD_HTTPX_DISTRIBUTED_TRACING=false \
+    # Force Gemini API instead of Vertex AI (ADK auto-detects GCP environment)
+    GOOGLE_GENAI_USE_VERTEXAI=FALSE
 
 # Create non-root user
 RUN groupadd --gid 1000 tau2agent && \
@@ -40,25 +54,34 @@ RUN pip install --no-cache-dir /wheels/*.whl && rm -rf /wheels
 
 # Copy application source
 COPY --chown=tau2agent:tau2agent src/ ./src/
-COPY --chown=tau2agent:tau2agent tau2_agent/ ./tau2_agent/
 COPY --chown=tau2agent:tau2agent data/tau2/domains/ ./data/tau2/domains/
 COPY --chown=tau2agent:tau2agent data/tau2/user_simulator/ ./data/tau2/user_simulator/
 COPY --chown=tau2agent:tau2agent pyproject.toml README.md ./
 
+# Create agents directory and copy tau2_agent directly into it
+# (ADK validates symlinks don't resolve outside base directory)
+RUN mkdir -p /app/agents
+COPY --chown=tau2agent:tau2agent tau2_agent/ ./agents/tau2_agent/
+
+# Create .adk directory inside agents for ADK artifact storage
+# ADK looks for .adk relative to AGENTS_DIR
+RUN mkdir -p /app/agents/.adk && chown tau2agent:tau2agent /app/agents/.adk
+
 # Install tau2 package (no deps - already installed)
 RUN pip install -e . --no-deps
 
-# Create evals directory for volume mount
-RUN mkdir -p /app/data/tau2/evals && chown tau2agent:tau2agent /app/data/tau2/evals
-
-# Create .adk directory for ADK artifact storage
-RUN mkdir -p /app/.adk && chown tau2agent:tau2agent /app/.adk
-
-# Create agents/ directory with symlink to tau2_agent
-# This ensures /list-apps only returns valid agents (not data/, src/, etc.)
-RUN mkdir -p /app/agents && \
-    ln -s ../tau2_agent /app/agents/tau2_agent && \
-    chown -h tau2agent:tau2agent /app/agents /app/agents/tau2_agent
+# Create data directories with proper permissions
+# - simulations/: tau2 run.py saves simulation results here
+# - evaluations/: EvaluationStore completed evaluations
+# - sessions/: EvaluationStore in-progress sessions
+# - logs/: EvaluationStore structured event logs
+# - tau2/evals/: Legacy evals directory for volume mount
+RUN mkdir -p /app/data/simulations \
+             /app/data/evaluations \
+             /app/data/sessions \
+             /app/data/logs \
+             /app/data/tau2/evals && \
+    chown -R tau2agent:tau2agent /app/data
 
 USER tau2agent
 

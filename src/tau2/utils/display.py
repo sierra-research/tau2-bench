@@ -51,18 +51,14 @@ class ConsoleDisplay:
 
         agent_content = Panel(
             f"[white]Implementation:[/] {config.agent}\n"
-            f"[white]Model:[/] {config.llm_agent}\n"
-            "[white]LLM Arguments:[/]\n"
-            f"{json.dumps(config.llm_args_agent, indent=2)}",
+            f"[white]Model:[/] {config.llm_agent}",
             title="[bold cyan]Agent Configuration",
             border_style="cyan",
         )
 
         user_content = Panel(
             f"[white]Implementation:[/] {config.user}\n"
-            f"[white]Model:[/] {config.llm_user}\n"
-            "[white]LLM Arguments:[/]\n"
-            f"{json.dumps(config.llm_args_user, indent=2)}",
+            f"[white]Model:[/] {config.llm_user}",
             title="[bold cyan]User Configuration",
             border_style="cyan",
         )

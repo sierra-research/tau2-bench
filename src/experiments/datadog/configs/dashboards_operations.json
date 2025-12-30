@@ -1,0 +1,746 @@
+{
+  "dashboard": {
+    "title": "tau2-bench Operations & Actionable Items",
+    "description": "Operational status dashboard showing detection rules, SLOs, and actionable insights for agent improvement",
+    "layout_type": "ordered",
+    "template_variables": [
+      {
+        "name": "domain",
+        "default": "*",
+        "prefix": "domain"
+      },
+      {
+        "name": "env",
+        "default": "dev",
+        "prefix": "env"
+      },
+      {
+        "name": "agent_endpoint",
+        "default": "*",
+        "prefix": "agent_endpoint"
+      },
+      {
+        "name": "difficulty",
+        "default": "*",
+        "prefix": "difficulty"
+      }
+    ],
+    "widgets": [
+      {
+        "id": "header",
+        "definition": {
+          "type": "note",
+          "content": "# tau2-bench Operations Dashboard\n\nMonitor detection rules, SLO status, and actionable items derived from evaluation signals. Use this dashboard to identify issues and prioritize agent improvements.",
+          "background_color": "orange",
+          "font_size": "16",
+          "text_align": "center",
+          "show_tick": false,
+          "tick_pos": "50%",
+          "tick_edge": "left"
+        },
+        "layout": {
+          "x": 0,
+          "y": 0,
+          "width": 12,
+          "height": 1
+        }
+      },
+      {
+        "id": "detection-slo-group",
+        "definition": {
+          "type": "group",
+          "title": "Detection Rules & SLO Status",
+          "background_color": "vivid_orange",
+          "layout_type": "ordered",
+          "widgets": [
+            {
+              "id": "monitor-summary",
+              "definition": {
+                "type": "manage_status",
+                "title": "Detection Rules Status",
+                "title_size": "16",
+                "title_align": "left",
+                "summary_type": "monitors",
+                "display_format": "countsAndList",
+                "color_preference": "text",
+                "hide_zero_counts": false,
+                "show_last_triggered": true,
+                "show_priority": false,
+                "query": "tag:(hackathon:datadog-2025)",
+                "sort": "status,asc"
+              },
+              "layout": {
+                "x": 0,
+                "y": 0,
+                "width": 6,
+                "height": 5
+              }
+            },
+            {
+              "id": "slo-summary",
+              "definition": {
+                "type": "slo_list",
+                "title": "SLO Status & Error Budgets",
+                "title_size": "16",
+                "title_align": "left",
+                "request": {
+                  "query": {
+                    "query_string": "tau2",
+                    "limit": 10
+                  },
+                  "request_type": "slo_list"
+                }
+              },
+              "layout": {
+                "x": 6,
+                "y": 0,
+                "width": 6,
+                "height": 5
+              }
+            }
+          ]
+        },
+        "layout": {
+          "x": 0,
+          "y": 1,
+          "width": 12,
+          "height": 6
+        }
+      },
+      {
+        "id": "actionable-insights-group",
+        "definition": {
+          "type": "group",
+          "title": "Actionable Insights - Root Cause Analysis",
+          "background_color": "yellow",
+          "layout_type": "ordered",
+          "widgets": [
+            {
+              "id": "assertion-failure-breakdown",
+              "definition": {
+                "type": "toplist",
+                "title": "Assertion Failures by Type",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(sum:tau2.assertion.result{met:false,$domain,$env,$agent_endpoint} by {type}.as_count(), 10, 'sum', 'desc')",
+                    "conditional_formats": [
+                      {
+                        "comparator": ">",
+                        "value": 10,
+                        "palette": "white_on_red"
+                      },
+                      {
+                        "comparator": ">",
+                        "value": 5,
+                        "palette": "white_on_yellow"
+                      },
+                      {
+                        "comparator": "<=",
+                        "value": 5,
+                        "palette": "white_on_green"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "layout": {
+                "x": 0,
+                "y": 0,
+                "width": 4,
+                "height": 4
+              }
+            },
+            {
+              "id": "termination-reasons",
+              "definition": {
+                "type": "toplist",
+                "title": "Termination Reasons",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(sum:tau2.termination{$domain,$env,$agent_endpoint} by {reason}.as_count(), 10, 'sum', 'desc')",
+                    "conditional_formats": [
+                      {
+                        "comparator": ">",
+                        "value": 5,
+                        "palette": "white_on_red"
+                      },
+                      {
+                        "comparator": ">",
+                        "value": 2,
+                        "palette": "white_on_yellow"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "layout": {
+                "x": 4,
+                "y": 0,
+                "width": 4,
+                "height": 4
+              }
+            },
+            {
+              "id": "failed-tools",
+              "definition": {
+                "type": "toplist",
+                "title": "Tools with Failed Calls",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(sum:tau2.tool.correct{correct:false,$domain,$env,$agent_endpoint} by {tool_name}.as_count(), 10, 'sum', 'desc')",
+                    "conditional_formats": [
+                      {
+                        "comparator": ">",
+                        "value": 3,
+                        "palette": "white_on_red"
+                      },
+                      {
+                        "comparator": ">",
+                        "value": 1,
+                        "palette": "white_on_yellow"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "layout": {
+                "x": 8,
+                "y": 0,
+                "width": 4,
+                "height": 4
+              }
+            },
+            {
+              "id": "insight-note",
+              "definition": {
+                "type": "note",
+                "content": "**How to interpret:**\n- **NL assertions failing** → Agent lacks domain knowledge or misunderstands user intent\n- **Action checks failing** → Agent calling wrong tools or wrong arguments\n- **DB checks failing** → Agent not completing required state changes\n- **too_many_errors termination** → Agent making invalid tool calls repeatedly\n- **max_steps termination** → Agent stuck in loops or over-clarifying",
+                "background_color": "white",
+                "font_size": "14",
+                "text_align": "left",
+                "show_tick": false,
+                "tick_pos": "50%",
+                "tick_edge": "left"
+              },
+              "layout": {
+                "x": 0,
+                "y": 4,
+                "width": 12,
+                "height": 2
+              }
+            }
+          ]
+        },
+        "layout": {
+          "x": 0,
+          "y": 7,
+          "width": 12,
+          "height": 7
+        }
+      },
+      {
+        "id": "agent-health-group",
+        "definition": {
+          "type": "group",
+          "title": "Agent Health by Domain & Difficulty",
+          "background_color": "blue",
+          "layout_type": "ordered",
+          "widgets": [
+            {
+              "id": "reward-by-domain",
+              "definition": {
+                "type": "toplist",
+                "title": "Avg Reward by Domain",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.task.reward{$env,$agent_endpoint,$difficulty} by {domain} * 100, 10, 'mean', 'desc')",
+                    "conditional_formats": [
+                      {
+                        "comparator": ">=",
+                        "value": 70,
+                        "palette": "white_on_green"
+                      },
+                      {
+                        "comparator": ">=",
+                        "value": 40,
+                        "palette": "white_on_yellow"
+                      },
+                      {
+                        "comparator": "<",
+                        "value": 40,
+                        "palette": "white_on_red"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "layout": {
+                "x": 0,
+                "y": 0,
+                "width": 4,
+                "height": 4
+              }
+            },
+            {
+              "id": "reward-by-difficulty",
+              "definition": {
+                "type": "toplist",
+                "title": "Avg Reward by Difficulty",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.task.reward{$domain,$env,$agent_endpoint,!difficulty:unknown} by {difficulty} * 100, 10, 'mean', 'desc')",
+                    "conditional_formats": [
+                      {
+                        "comparator": ">=",
+                        "value": 70,
+                        "palette": "white_on_green"
+                      },
+                      {
+                        "comparator": ">=",
+                        "value": 40,
+                        "palette": "white_on_yellow"
+                      },
+                      {
+                        "comparator": "<",
+                        "value": 40,
+                        "palette": "white_on_red"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "layout": {
+                "x": 4,
+                "y": 0,
+                "width": 4,
+                "height": 4
+              }
+            },
+            {
+              "id": "tool-accuracy-by-agent",
+              "definition": {
+                "type": "toplist",
+                "title": "Tool Accuracy by Agent (%)",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.task.tool_accuracy{$domain,$env,$difficulty} by {agent_endpoint} * 100, 10, 'mean', 'desc')",
+                    "conditional_formats": [
+                      {
+                        "comparator": ">=",
+                        "value": 80,
+                        "palette": "white_on_green"
+                      },
+                      {
+                        "comparator": ">=",
+                        "value": 60,
+                        "palette": "white_on_yellow"
+                      },
+                      {
+                        "comparator": "<",
+                        "value": 60,
+                        "palette": "white_on_red"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "layout": {
+                "x": 8,
+                "y": 0,
+                "width": 4,
+                "height": 4
+              }
+            }
+          ]
+        },
+        "layout": {
+          "x": 0,
+          "y": 14,
+          "width": 12,
+          "height": 5
+        }
+      },
+      {
+        "id": "token-cost-group",
+        "definition": {
+          "type": "group",
+          "title": "Simulator Token Usage & Cost (User LLM)",
+          "background_color": "purple",
+          "layout_type": "ordered",
+          "widgets": [
+            {
+              "id": "cost-tokens",
+              "definition": {
+                "type": "timeseries",
+                "title": "Simulator Token Usage Over Time",
+                "title_size": "16",
+                "title_align": "left",
+                "show_legend": true,
+                "legend_layout": "auto",
+                "legend_columns": ["sum", "value"],
+                "requests": [
+                  {
+                    "q": "sum:tau2.llm.tokens_input{$domain,$env,$agent_endpoint}.as_count()",
+                    "display_type": "bars",
+                    "style": {
+                      "palette": "cool"
+                    }
+                  },
+                  {
+                    "q": "sum:tau2.llm.tokens_output{$domain,$env,$agent_endpoint}.as_count()",
+                    "display_type": "bars",
+                    "style": {
+                      "palette": "warm"
+                    }
+                  }
+                ]
+              },
+              "layout": {
+                "x": 0,
+                "y": 0,
+                "width": 4,
+                "height": 3
+              }
+            },
+            {
+              "id": "total-input-tokens",
+              "definition": {
+                "type": "query_value",
+                "title": "Total Input Tokens",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "sum:tau2.llm.tokens_input{$domain,$env,$agent_endpoint}",
+                    "aggregator": "sum"
+                  }
+                ],
+                "precision": 0,
+                "autoscale": true
+              },
+              "layout": {
+                "x": 4,
+                "y": 0,
+                "width": 2,
+                "height": 3
+              }
+            },
+            {
+              "id": "total-output-tokens",
+              "definition": {
+                "type": "query_value",
+                "title": "Total Output Tokens",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "sum:tau2.llm.tokens_output{$domain,$env,$agent_endpoint}",
+                    "aggregator": "sum"
+                  }
+                ],
+                "precision": 0,
+                "autoscale": true
+              },
+              "layout": {
+                "x": 6,
+                "y": 0,
+                "width": 2,
+                "height": 3
+              }
+            },
+            {
+              "id": "cost-total",
+              "definition": {
+                "type": "query_value",
+                "title": "Total Simulator Cost",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "sum:tau2.simulator.cost_usd{$domain,$env,$agent_endpoint}",
+                    "aggregator": "sum"
+                  }
+                ],
+                "precision": 4,
+                "autoscale": false,
+                "custom_unit": "$"
+              },
+              "layout": {
+                "x": 8,
+                "y": 0,
+                "width": 2,
+                "height": 3
+              }
+            },
+            {
+              "id": "cost-per-task",
+              "definition": {
+                "type": "query_value",
+                "title": "Avg Cost/Task",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "avg:tau2.model.cost_per_task{$domain,$env,$agent_endpoint}",
+                    "aggregator": "avg"
+                  }
+                ],
+                "precision": 5,
+                "autoscale": false,
+                "custom_unit": "$"
+              },
+              "layout": {
+                "x": 10,
+                "y": 0,
+                "width": 2,
+                "height": 3
+              }
+            }
+          ]
+        },
+        "layout": {
+          "x": 0,
+          "y": 26,
+          "width": 12,
+          "height": 4
+        }
+      },
+      {
+        "id": "quick-stats-group",
+        "definition": {
+          "type": "group",
+          "title": "Quick Stats",
+          "layout_type": "ordered",
+          "widgets": [
+            {
+              "id": "total-tasks",
+              "definition": {
+                "type": "query_value",
+                "title": "Total Tasks",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "sum:tau2.task.total{$domain,$env,$agent_endpoint,$difficulty}.as_count()",
+                    "aggregator": "sum"
+                  }
+                ],
+                "precision": 0,
+                "autoscale": true
+              },
+              "layout": {
+                "x": 0,
+                "y": 0,
+                "width": 2,
+                "height": 2
+              }
+            },
+            {
+              "id": "success-count",
+              "definition": {
+                "type": "query_value",
+                "title": "Perfect Tasks",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "sum:tau2.task.success{success:true,$domain,$env,$agent_endpoint,$difficulty}.as_count()",
+                    "aggregator": "sum"
+                  }
+                ],
+                "precision": 0,
+                "autoscale": true
+              },
+              "layout": {
+                "x": 2,
+                "y": 0,
+                "width": 2,
+                "height": 2
+              }
+            },
+            {
+              "id": "avg-reward",
+              "definition": {
+                "type": "query_value",
+                "title": "Avg Reward",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "avg:tau2.task.reward{$domain,$env,$agent_endpoint,$difficulty} * 100",
+                    "aggregator": "avg"
+                  }
+                ],
+                "precision": 1,
+                "autoscale": false,
+                "custom_unit": "%",
+                "conditional_formats": [
+                  {
+                    "comparator": ">=",
+                    "value": 70,
+                    "palette": "white_on_green"
+                  },
+                  {
+                    "comparator": ">=",
+                    "value": 40,
+                    "palette": "white_on_yellow"
+                  },
+                  {
+                    "comparator": "<",
+                    "value": 40,
+                    "palette": "white_on_red"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 4,
+                "y": 0,
+                "width": 2,
+                "height": 2
+              }
+            },
+            {
+              "id": "avg-tool-accuracy",
+              "definition": {
+                "type": "query_value",
+                "title": "Tool Accuracy",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "avg:tau2.task.tool_accuracy{$domain,$env,$agent_endpoint,$difficulty} * 100",
+                    "aggregator": "avg"
+                  }
+                ],
+                "precision": 1,
+                "autoscale": false,
+                "custom_unit": "%",
+                "conditional_formats": [
+                  {
+                    "comparator": ">=",
+                    "value": 80,
+                    "palette": "white_on_green"
+                  },
+                  {
+                    "comparator": ">=",
+                    "value": 60,
+                    "palette": "white_on_yellow"
+                  },
+                  {
+                    "comparator": "<",
+                    "value": 60,
+                    "palette": "white_on_red"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 6,
+                "y": 0,
+                "width": 2,
+                "height": 2
+              }
+            },
+            {
+              "id": "max-errors-count",
+              "definition": {
+                "type": "query_value",
+                "title": "Too Many Errors",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "sum:tau2.termination{reason:too_many_errors,$domain,$env,$agent_endpoint}.as_count()",
+                    "aggregator": "sum"
+                  }
+                ],
+                "precision": 0,
+                "autoscale": true,
+                "conditional_formats": [
+                  {
+                    "comparator": "<=",
+                    "value": 0,
+                    "palette": "white_on_green"
+                  },
+                  {
+                    "comparator": "<=",
+                    "value": 5,
+                    "palette": "white_on_yellow"
+                  },
+                  {
+                    "comparator": ">",
+                    "value": 5,
+                    "palette": "white_on_red"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 8,
+                "y": 0,
+                "width": 2,
+                "height": 2
+              }
+            },
+            {
+              "id": "failed-assertions",
+              "definition": {
+                "type": "query_value",
+                "title": "Failed Assertions",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "sum:tau2.assertion.result{met:false,$domain,$env,$agent_endpoint}.as_count()",
+                    "aggregator": "sum"
+                  }
+                ],
+                "precision": 0,
+                "autoscale": true,
+                "conditional_formats": [
+                  {
+                    "comparator": "<=",
+                    "value": 10,
+                    "palette": "white_on_green"
+                  },
+                  {
+                    "comparator": "<=",
+                    "value": 50,
+                    "palette": "white_on_yellow"
+                  },
+                  {
+                    "comparator": ">",
+                    "value": 50,
+                    "palette": "white_on_red"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 10,
+                "y": 0,
+                "width": 2,
+                "height": 2
+              }
+            }
+          ]
+        },
+        "layout": {
+          "x": 0,
+          "y": 30,
+          "width": 12,
+          "height": 3
+        }
+      }
+    ]
+  }
+}

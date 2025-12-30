@@ -9,10 +9,6 @@ Tests validate:
 
 Uses real evaluations against the mock domain via traced subprocess servers.
 Test duration: ~4-5 minutes (includes 3 concurrent + 1 sequential evaluation).
-
-NOTE: test_concurrent_evaluations_complete_with_valid_results currently fails due to
-a deadlock in the A2AAgent async/sync bridge. See:
-  specs/007-datadog-project/resolve-tau2agent-concurrency.md
 """
 
 import asyncio

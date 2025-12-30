@@ -1,5 +1,6 @@
 """A2A Agent implementation for tau2-bench."""
 
+import os
 from typing import Any
 
 import httpx
@@ -55,6 +56,91 @@ class A2AAgent(LocalAgent):
             timeout=config.timeout,
             num_tools=len(tools),
         )
+
+    def _is_llmobs_enabled(self) -> bool:
+        """Check if LLMObs is enabled via environment variables."""
+        return (
+            os.getenv("DD_TRACE_ENABLED", "false").lower() == "true"
+            and os.getenv("DD_LLMOBS_ENABLED", "false").lower() == "true"
+        )
+
+    async def _send_with_llmobs(
+        self,
+        a2a_content: str,
+        context_id: str | None,
+        state: A2AAgentState,
+    ) -> tuple[str, str | None]:
+        """Send message to A2A agent, wrapped in LLMObs span if enabled.
+
+        This creates an 'agent' span in Datadog LLMObs that shows the
+        input message sent to the A2A agent and the response received.
+        This allows correlating A2A agent responses with user simulator
+        LLM calls in the same trace view.
+
+        Args:
+            a2a_content: The message content to send (already translated to A2A format)
+            context_id: Optional context ID for multi-turn conversations
+
+        Returns:
+            Tuple of (response_content, new_context_id) from the A2A agent
+        """
+        if not self._is_llmobs_enabled():
+            # LLMObs not enabled, just send directly
+            return await self.client.send_message(
+                message_content=a2a_content,
+                context_id=context_id,
+            )
+
+        try:
+            from ddtrace import tracer
+            from ddtrace.llmobs import LLMObs
+
+            # Get evaluation context from parent span for correlation
+            parent_span = tracer.current_span()
+            eval_id = parent_span.get_tag("evaluation_id") if parent_span else None
+            domain = parent_span.get_tag("domain") if parent_span else None
+
+            with LLMObs.agent(name="a2a_agent") as span:
+                # Annotate with input and metadata for trace correlation
+                LLMObs.annotate(
+                    span=span,
+                    input_data=a2a_content,
+                    metadata={
+                        "tau2.evaluation_id": eval_id,
+                        "tau2.domain": domain,
+                        "tau2.perspective": "agent_under_test",
+                        "tau2.turn": state.request_count + 1,
+                        "tau2.context_id": context_id or "new_conversation",
+                        "tau2.note": "This is the agent's response. Correlates with user_simulator completion spans where roles appear inverted (user=agent input, assistant=customer output).",
+                    },
+                )
+
+                # Send the actual request
+                response_content, new_context_id = await self.client.send_message(
+                    message_content=a2a_content,
+                    context_id=context_id,
+                )
+
+                # Annotate with output (what the agent responded)
+                LLMObs.annotate(
+                    span=span,
+                    output_data=response_content,
+                )
+
+                return response_content, new_context_id
+
+        except ImportError:
+            logger.debug("LLMObs not available, sending without span")
+            return await self.client.send_message(
+                message_content=a2a_content,
+                context_id=context_id,
+            )
+        except Exception as e:
+            logger.warning(f"LLMObs span failed, sending without span: {e}")
+            return await self.client.send_message(
+                message_content=a2a_content,
+                context_id=context_id,
+            )
 
     def get_init_state(
         self,
@@ -133,10 +219,11 @@ class A2AAgent(LocalAgent):
                     request_count=state.request_count,
                 )
 
-            # Send message to A2A agent
-            response_content, new_context_id = await self.client.send_message(
-                message_content=a2a_content,
+            # Send message to A2A agent, wrapped in LLMObs span if enabled
+            response_content, new_context_id = await self._send_with_llmobs(
+                a2a_content=a2a_content,
                 context_id=state.context_id,
+                state=state,
             )
 
             logger.debug(

@@ -281,16 +281,25 @@ test:
 ### Parallel Execution
 
 ```bash
-# Install pytest-xdist
-uv add pytest-xdist --dev
-
 # Run tests in parallel
 uv run pytest -n auto        # Auto-detect CPU count
 uv run pytest -n 4           # Use 4 workers
-
-# Distribute by file (faster for many files)
-uv run pytest -n auto --dist=loadfile
+uv run pytest -n auto --dist=loadfile  # Distribute by file
 ```
+
+### E2E Test Parallelization
+
+```bash
+# a2a_e2e: 4 workers optimal (~1:41 vs ~6min serial)
+uv run pytest -m "a2a_e2e and not smoke" -n 4 --dist=loadfile
+
+# smoke: 2 workers (long-running evaluations)
+uv run pytest -m "smoke" -n 2 --dist=loadfile
+```
+
+**When NOT to parallelize:**
+- `datadog_e2e`: Session-scoped fixtures (run serially)
+- Debugging: Use `-n 0` to disable parallelization
 
 ---
 

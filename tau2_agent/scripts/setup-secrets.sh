@@ -75,22 +75,57 @@ if [[ -z "${GOOGLE_API_KEY}" ]]; then
     exit 1
 fi
 
-# Create or update the secret
-SECRET_NAME="google-api-key"
-if gcloud secrets describe "${SECRET_NAME}" --project="${PROJECT_ID}" &>/dev/null; then
-    log_info "Secret '${SECRET_NAME}' exists. Adding new version..."
-    echo -n "${GOOGLE_API_KEY}" | gcloud secrets versions add "${SECRET_NAME}" \
-        --project="${PROJECT_ID}" \
-        --data-file=-
-else
-    log_info "Creating secret '${SECRET_NAME}'..."
-    echo -n "${GOOGLE_API_KEY}" | gcloud secrets create "${SECRET_NAME}" \
-        --project="${PROJECT_ID}" \
-        --replication-policy="automatic" \
-        --data-file=-
-fi
+# Helper function to create or update a secret
+create_or_update_secret() {
+    local secret_name="$1"
+    local secret_value="$2"
 
-log_info "Secret created/updated successfully"
+    if gcloud secrets describe "${secret_name}" --project="${PROJECT_ID}" &>/dev/null; then
+        log_info "Secret '${secret_name}' exists. Adding new version..."
+        echo -n "${secret_value}" | gcloud secrets versions add "${secret_name}" \
+            --project="${PROJECT_ID}" \
+            --data-file=-
+    else
+        log_info "Creating secret '${secret_name}'..."
+        echo -n "${secret_value}" | gcloud secrets create "${secret_name}" \
+            --project="${PROJECT_ID}" \
+            --replication-policy="automatic" \
+            --data-file=-
+    fi
+}
+
+# Create or update the Google API key secret
+create_or_update_secret "google-api-key" "${GOOGLE_API_KEY}"
+log_info "Google API key secret created/updated successfully"
+
+# Optionally create Datadog secrets for LLM Observability
+echo ""
+log_info "Datadog secrets are optional but enable LLM Observability in GCP."
+echo -n "Do you want to configure Datadog secrets? (y/N): "
+read -r SETUP_DATADOG
+
+if [[ "${SETUP_DATADOG}" =~ ^[Yy]$ ]]; then
+    # Get Datadog API key
+    log_info "Get your Datadog API key from: https://app.datadoghq.com/organization-settings/api-keys"
+    echo -n "Enter your Datadog API key: "
+    read -rs DD_API_KEY
+    echo
+
+    if [[ -n "${DD_API_KEY}" ]]; then
+        create_or_update_secret "dd-api-key" "${DD_API_KEY}"
+        log_info "Datadog API key secret created/updated successfully"
+    else
+        log_warn "Datadog API key not provided, skipping"
+    fi
+
+    # Get Datadog site (optional, has default)
+    echo -n "Enter your Datadog site (default: datadoghq.com): "
+    read -r DD_SITE
+    DD_SITE="${DD_SITE:-datadoghq.com}"
+
+    create_or_update_secret "dd-site" "${DD_SITE}"
+    log_info "Datadog site secret created/updated successfully"
+fi
 
 # Create service account if it doesn't exist
 SA_NAME="tau2-agent-sa"
@@ -107,17 +142,34 @@ fi
 
 # Grant secret access to service account
 log_info "Granting secret access to service account..."
-gcloud secrets add-iam-policy-binding "${SECRET_NAME}" \
-    --project="${PROJECT_ID}" \
-    --member="serviceAccount:${SA_EMAIL}" \
-    --role="roles/secretmanager.secretAccessor" \
-    --quiet
+
+# Helper function to grant secret access
+grant_secret_access() {
+    local secret_name="$1"
+    if gcloud secrets describe "${secret_name}" --project="${PROJECT_ID}" &>/dev/null; then
+        gcloud secrets add-iam-policy-binding "${secret_name}" \
+            --project="${PROJECT_ID}" \
+            --member="serviceAccount:${SA_EMAIL}" \
+            --role="roles/secretmanager.secretAccessor" \
+            --quiet
+        log_info "Granted access to '${secret_name}'"
+    fi
+}
+
+grant_secret_access "google-api-key"
+grant_secret_access "dd-api-key"
+grant_secret_access "dd-site"
 
 log_info "Setup complete!"
 echo ""
 echo "Next steps:"
 echo "  1. Deploy to Cloud Run using: ./deploy.sh"
-echo "  2. The deployment will automatically inject GOOGLE_API_KEY from Secret Manager"
+echo "  2. The deployment will automatically inject secrets from Secret Manager"
 echo ""
 echo "Service account: ${SA_EMAIL}"
-echo "Secret: projects/${PROJECT_ID}/secrets/${SECRET_NAME}"
+echo "Secrets configured:"
+echo "  - google-api-key (required)"
+if gcloud secrets describe "dd-api-key" --project="${PROJECT_ID}" &>/dev/null 2>&1; then
+    echo "  - dd-api-key (Datadog LLM Observability)"
+    echo "  - dd-site (Datadog site)"
+fi

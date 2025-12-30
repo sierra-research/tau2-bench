@@ -1,12 +1,24 @@
 ---
 name: documentation
 description: |
-  Documentation hygiene for docstrings and comments. Use when:
-  - Writing or updating docstrings for functions, classes, or modules
-  - Adding comments to explain code logic
-  - Reviewing documentation quality
-  - Refactoring code that has existing documentation
-  Enforces Google-style docstrings and meaningful comments.
+  Documentation skill for docstrings, comments, and code documentation.
+
+  TRIGGER KEYWORDS: docstring, docstrings, comment, comments, documentation,
+  documenting, document, docs, README, inline comment, code comment, JSDoc,
+  type annotation, API docs, module docs, describe function, explain code,
+  add documentation, update documentation, fix documentation, missing docs,
+  Google style, documentation style, doc format.
+
+  Use this skill when:
+  - Writing, adding, updating, or fixing docstrings
+  - Adding or modifying comments (inline, block, or section comments)
+  - Documenting functions, classes, methods, or modules
+  - Reviewing or improving documentation quality
+  - Refactoring code that needs documentation updates
+  - Creating or updating README files
+  - Adding type annotations with descriptions
+
+  Enforces Google-style docstrings and meaningful, non-redundant comments.
 ---
 
 # Documentation Skill

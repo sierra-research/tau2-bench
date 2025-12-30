@@ -7,8 +7,10 @@ Persists evaluation results to EvaluationStore for post-hoc metrics emission.
 
 import asyncio
 import os
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from typing import Any
 
 import litellm
@@ -22,6 +24,17 @@ from tau2.store.utils import generate_evaluation_id
 from tau2_agent.config import EvaluationLimits
 from tau2_agent.context import user_llm_api_key, user_llm_model
 from tau2_agent.errors import ErrorCode, EvaluationError
+from tau2_agent.llmobs_evaluations import (
+    llmobs_evaluation_span,
+    submit_evaluation_summary,
+    submit_task_evaluations,
+)
+from tau2_agent.logging_config import (
+    log_evaluation_complete,
+    log_evaluation_error,
+    log_evaluation_start,
+)
+from tau2_agent.metrics import emit_evaluation_metrics
 from tau2_agent.utils import compact_message, sanitize_float
 
 
@@ -56,6 +69,58 @@ _EVALUATION_EXECUTOR = ThreadPoolExecutor(
     max_workers=10,
     thread_name_prefix="tau2_eval_",
 )
+
+
+@contextmanager
+def evaluation_span(
+    evaluation_id: str,
+    domain: str,
+    agent_endpoint: str,
+    num_tasks: int | None = None,
+    num_trials: int = 1,
+):
+    """Create a parent APM span for the entire evaluation.
+
+    This groups all LLM calls, tool calls, and other operations under a single
+    trace that can be viewed cohesively in Datadog APM.
+
+    Args:
+        evaluation_id: Unique identifier for this evaluation
+        domain: The tau2 domain being evaluated
+        agent_endpoint: The agent being evaluated
+        num_tasks: Number of tasks in the evaluation
+        num_trials: Number of trials per task
+    """
+    # Try to import ddtrace - if not available, yield None and return
+    try:
+        from ddtrace import tracer
+    except ImportError:
+        yield None
+        return
+
+    # Try to create the span - if it fails, yield None and return
+    try:
+        span = tracer.trace(
+            "tau2.evaluation",
+            service="tau2-bench-agent",
+            resource=f"{domain}",
+            span_type="worker",
+        )
+        span.set_tag("evaluation_id", evaluation_id)
+        span.set_tag("domain", domain)
+        span.set_tag("agent_endpoint", agent_endpoint)
+        span.set_tag("num_tasks", num_tasks or "all")
+        span.set_tag("num_trials", num_trials)
+    except Exception as e:
+        logger.debug(f"Failed to create evaluation span: {e}")
+        yield None
+        return
+
+    # Yield the span and ensure it's finished properly
+    try:
+        yield span
+    finally:
+        span.finish()
 
 
 class RunTau2Evaluation(BaseTool):
@@ -180,20 +245,15 @@ class RunTau2Evaluation(BaseTool):
         # Format model name for LiteLLM
         formatted_model = self._format_model_for_litellm(ctx_model)
 
-        # Build llm_args with api_key and optional api_base
         llm_args: dict[str, Any] = {"api_key": ctx_api_key}
 
-        # Add api_base for Nebius/custom OpenAI-compatible endpoints
-        api_base = os.environ.get("NEBIUS_API_BASE") or os.environ.get("USER_LLM_API_BASE")
-        if api_base:
-            llm_args["api_base"] = api_base
-
-        logger.debug(
-            "Using user LLM credentials",
-            original_model=ctx_model,
-            formatted_model=formatted_model,
-            has_api_base=bool(api_base),
-        )
+        # Set api_base only for providers requiring custom endpoints
+        if formatted_model.startswith("nebius/"):
+            api_base = os.environ.get("NEBIUS_API_BASE")
+            if api_base:
+                llm_args["api_base"] = api_base
+        elif os.environ.get("USER_LLM_API_BASE"):
+            llm_args["api_base"] = os.environ.get("USER_LLM_API_BASE")
 
         return formatted_model, llm_args
 
@@ -329,55 +389,133 @@ class RunTau2Evaluation(BaseTool):
                 except Exception as e:
                     logger.warning(f"Failed to update progress to WORKING: {e}")
 
-            # Run the evaluation
-            result = await self._execute(
-                _tool_context=tool_context,
+            # Log evaluation start with structured fields for GCP
+            log_evaluation_start(
                 domain=domain,
                 agent_endpoint=agent_endpoint,
-                user_llm=user_llm,
-                llm_args_user=llm_args_user,
-                num_trials=num_trials,
                 num_tasks=num_tasks,
-                task_ids=task_ids,
+                evaluation_id=evaluation_id,
+                user_llm=user_llm,
             )
+            start_time = time.time()
 
-            # Complete evaluation in store
-            if store and evaluation_id:
+            # Store span context for use after span closes
+            llmobs_span_ctx = None
+
+            # Wrap evaluation in APM span for cohesive tracing
+            with evaluation_span(
+                evaluation_id=evaluation_id or "unknown",
+                domain=domain,
+                agent_endpoint=agent_endpoint,
+                num_tasks=num_tasks,
+                num_trials=num_trials,
+            ) as span:
+                # Create LLMObs workflow span for evaluation metrics
+                with llmobs_evaluation_span(
+                    evaluation_id=evaluation_id or "unknown",
+                    domain=domain,
+                    agent_endpoint=agent_endpoint,
+                ) as ctx:
+                    llmobs_span_ctx = ctx  # Capture for use after span closes
+
+                    # Run the evaluation
+                    result = await self._execute(
+                        _tool_context=tool_context,
+                        domain=domain,
+                        agent_endpoint=agent_endpoint,
+                        user_llm=user_llm,
+                        llm_args_user=llm_args_user,
+                        num_trials=num_trials,
+                        num_tasks=num_tasks,
+                        task_ids=task_ids,
+                        llmobs_span_context=llmobs_span_ctx,
+                    )
+
+                    # Add result metrics to span
+                    if span and result.get("summary"):
+                        span.set_tag("success_rate", result["summary"].get("avg_reward", 0))
+                        span.set_tag("total_tasks", result["summary"].get("total_tasks", 0))
+                        span.set_tag(
+                            "successful_tasks",
+                            result["summary"].get("successful_simulations", 0),
+                        )
+
+                    # Submit LLMObs evaluation summary inside the span context
+                    submit_evaluation_summary(
+                        evaluation_id=evaluation_id or "unknown",
+                        domain=domain,
+                        total_tasks=result["summary"]["total_tasks"],
+                        successful_tasks=result["summary"]["successful_simulations"],
+                        avg_reward=result["summary"]["avg_reward"],
+                        agent_endpoint=agent_endpoint,
+                        span_context=llmobs_span_ctx,
+                    )
+
+            # Build store_results for both store and metrics emission
+            store_results = None
+            if evaluation_id:
+                task_results = []
+                for sim in result.get("simulations", []):
+                    reward_info = sim.get("reward_info", {})
+                    reward = reward_info.get("reward", 0.0) if reward_info else 0.0
+                    task_results.append({
+                        "task_id": sim.get("task_id", "unknown"),
+                        "success": reward >= 0.7,
+                        "reward": reward,
+                    })
+
+                store_results = {
+                    "success_rate": result["summary"]["successful_simulations"]
+                    / result["summary"]["total_simulations"]
+                    if result["summary"]["total_simulations"] > 0
+                    else 0.0,
+                    "total_tasks": result["summary"]["total_tasks"],
+                    "successful": result["summary"]["successful_simulations"],
+                    "tasks": task_results,
+                    # Use full simulations data (with reasoning_content) for store
+                    "simulations": result.get("_simulations_full", []),
+                    "info": result.get("info"),
+                }
+
+            # Complete evaluation in store (if store is available)
+            if store and evaluation_id and store_results:
                 try:
-                    task_results = []
-                    for sim in result.get("simulations", []):
-                        reward_info = sim.get("reward_info", {})
-                        reward = reward_info.get("reward", 0.0) if reward_info else 0.0
-                        task_results.append({
-                            "task_id": sim.get("task_id", "unknown"),
-                            "success": reward >= 0.7,
-                            "reward": reward,
-                        })
-
-                    store_results = {
-                        "success_rate": result["summary"]["successful_simulations"]
-                        / result["summary"]["total_simulations"]
-                        if result["summary"]["total_simulations"] > 0
-                        else 0.0,
-                        "total_tasks": result["summary"]["total_tasks"],
-                        "successful": result["summary"]["successful_simulations"],
-                        "tasks": task_results,
-                        # Use full simulations data (with reasoning_content) for store
-                        "simulations": result.get("_simulations_full", []),
-                        "info": result.get("info"),
-                    }
-
                     store.complete_evaluation(
                         evaluation_id=evaluation_id,
                         results=store_results,
                     )
-                    logger.info(
-                        f"Completed evaluation in store: {evaluation_id}",
-                        evaluation_id=evaluation_id,
-                        success_rate=store_results["success_rate"],
-                    )
                 except Exception as e:
                     logger.warning(f"Failed to complete evaluation in store: {e}")
+
+            # Emit Datadog metrics regardless of store success
+            # This ensures metrics are sent before container scales down
+            if evaluation_id and store_results:
+                try:
+                    emit_evaluation_metrics(
+                        evaluation_id=evaluation_id,
+                        domain=domain,
+                        agent_endpoint=agent_endpoint,
+                        results=store_results,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to emit metrics: {e}")
+
+            # Log evaluation completion with structured fields for GCP
+            duration_ms = (time.time() - start_time) * 1000
+            success_rate = (
+                result["summary"]["successful_simulations"]
+                / result["summary"]["total_simulations"]
+                if result["summary"]["total_simulations"] > 0
+                else 0.0
+            )
+            log_evaluation_complete(
+                evaluation_id=evaluation_id or "unknown",
+                domain=domain,
+                success_rate=success_rate,
+                total_tasks=result["summary"]["total_tasks"],
+                duration_ms=duration_ms,
+                successful_simulations=result["summary"]["successful_simulations"],
+            )
 
             # Add evaluation_id to result and remove internal fields
             result["evaluation_id"] = evaluation_id
@@ -391,6 +529,12 @@ class RunTau2Evaluation(BaseTool):
                     store.fail_evaluation(evaluation_id=evaluation_id, error=str(e))
                 except Exception as store_err:
                     logger.warning(f"Failed to record failure in store: {store_err}")
+            log_evaluation_error(
+                evaluation_id=evaluation_id,
+                domain=domain,
+                error=str(e),
+                error_type="INVALID_PARAMETERS",
+            )
             return {"error": "INVALID_PARAMETERS", "message": str(e)}
 
         except UserLLMAuthError as e:
@@ -400,6 +544,12 @@ class RunTau2Evaluation(BaseTool):
                     store.fail_evaluation(evaluation_id=evaluation_id, error=str(e))
                 except Exception as store_err:
                     logger.warning(f"Failed to record failure in store: {store_err}")
+            log_evaluation_error(
+                evaluation_id=evaluation_id,
+                domain=domain,
+                error=e.error.message,
+                error_type=e.error.code.value,
+            )
             return {"error": e.error.code.value, "message": e.error.message}
 
         except Exception as e:
@@ -412,6 +562,12 @@ class RunTau2Evaluation(BaseTool):
                     )
                 except Exception as store_err:
                     logger.warning(f"Failed to record failure in store: {store_err}")
+            log_evaluation_error(
+                evaluation_id=evaluation_id,
+                domain=domain,
+                error=str(e) if str(e) else type(e).__name__,
+                error_type="INTERNAL_ERROR",
+            )
             return {
                 "error": "INTERNAL_ERROR",
                 "message": str(e) if str(e) else type(e).__name__,
@@ -427,6 +583,7 @@ class RunTau2Evaluation(BaseTool):
         num_trials: int = 1,
         num_tasks: int | None = None,
         task_ids: list[str] | None = None,
+        llmobs_span_context: Any | None = None,
     ) -> dict[str, Any]:
         """
         Run a tau2-bench evaluation for a given domain and A2A agent endpoint.
@@ -481,7 +638,7 @@ class RunTau2Evaluation(BaseTool):
             config = RunConfig(
                 domain=domain,
                 task_set_name=None,
-                task_split_name="base",
+                task_split_name=None if task_ids else "base",
                 task_ids=task_ids,
                 num_tasks=num_tasks,
                 is_remote=False,
@@ -555,6 +712,17 @@ class RunTau2Evaluation(BaseTool):
                 }
                 simulations_data_full.append({**base_sim_data, "messages": full_messages})
                 simulations_data_compact.append({**base_sim_data, "messages": compact_messages})
+
+                # Submit LLMObs evaluations for this simulation (real-time trace correlation)
+                submit_task_evaluations(
+                    task_id=sim.task_id,
+                    domain=domain,
+                    reward=sim.reward_info.reward if sim.reward_info else 0.0,
+                    termination_reason=base_sim_data["termination_reason"],
+                    reward_info=base_sim_data["reward_info"],
+                    agent_endpoint=agent_endpoint,
+                    span_context=llmobs_span_context,
+                )
 
             # Build result with compact simulations for Datadog traces
             result = {

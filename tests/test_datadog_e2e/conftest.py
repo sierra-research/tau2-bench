@@ -469,7 +469,7 @@ def get_user_llm_headers() -> dict[str, str]:
 
     # Default model when using Nebius API
     if api_key and not model and os.environ.get("NEBIUS_API_KEY"):
-        model = "openai/Qwen/Qwen3-30B-A3B-Thinking-2507"
+        model = "nebius/Qwen/Qwen3-30B-A3B-Thinking-2507"
 
     if model:
         headers["X-User-LLM-Model"] = model

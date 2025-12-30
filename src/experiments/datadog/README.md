@@ -2,8 +2,6 @@
 
 This directory contains the **Datadog hackathon project** - a self-contained experiment demonstrating LLM observability with tau2-bench-agent.
 
-> **Extraction Note**: This directory is designed for eventual extraction into its own repository (`tau2-datadog-observability`). All datadog-specific code is isolated here to enable clean `git subtree split` extraction.
-
 ## Purpose
 
 Demonstrates end-to-end LLM observability for the Google Cloud x Datadog hackathon:
@@ -12,175 +10,222 @@ Demonstrates end-to-end LLM observability for the Google Cloud x Datadog hackath
 - Detection rules with Case/Incident management
 - Health dashboards
 
-## Quick Start
+## Prerequisites
 
-### Prerequisites
-
-1. **API Keys**: You'll need the following environment variables:
-   - `NEBIUS_API_KEY` - Required for mock agent LLM calls
-   - `DD_API_KEY` - Datadog API key (for production mode)
-   - `DD_APP_KEY` - Datadog Application key (for monitor/dashboard creation)
+1. **API Keys**:
+   - `DD_API_KEY` - Datadog API key
+   - `DD_APP_KEY` - Datadog Application key
+   - `GEMINI_API_KEY` - Required for local mode
 
 2. **Python 3.10+** with uv package manager
 
-### Run the Demo
+## One-Time Setup
+
+Create Datadog monitors, SLOs, and dashboards:
 
 ```bash
-# Set environment variables
-export NEBIUS_API_KEY=your_nebius_key
 export DD_API_KEY=your_datadog_api_key
 export DD_APP_KEY=your_datadog_app_key
 
-# Run full demo with Datadog integration
-./scripts/demo.sh
-
-# Or run a local dry-run demo (no Datadog API calls)
-./scripts/demo.sh --dry-run
+uv run python -m experiments.datadog.scripts.setup_datadog
 ```
 
-### What the Demo Does
+---
 
-1. **Checks Prerequisites** - Validates required API keys
-2. **Creates Datadog Resources** - Sets up monitors, SLOs, and dashboard
-3. **Generates Normal Traffic** - Runs 5 evaluations for baseline metrics
-4. **Generates Failure Traffic** - Runs 3 failure evaluations to trigger DR-002 (Task Failure Spike) monitor
-5. **Emits Metrics** - Sends all metrics to Datadog
-6. **Outputs Summary** - Shows dashboard URLs and alert status
+## GCP Demo
 
-### Demo Output
+Uses deployed agents on Google Cloud Run. No local server setup required.
 
-After the demo completes, you can view:
-- **Dashboard**: `https://app.datadoghq.com/dashboard/tau2-bench-health`
-- **APM Traces**: `https://app.datadoghq.com/apm/traces?query=service:tau2-bench-agent`
-- **Metrics**: `https://app.datadoghq.com/metric/explorer?query=tau2.task.reward`
-- **Monitors**: `https://app.datadoghq.com/monitors/manage`
+### Deployed Endpoints
+
+| Service | URL |
+|---------|-----|
+| tau2_agent | https://tau2-agent-676371821546.us-west2.run.app |
+| simple_gemini_agent | https://simple-gemini-agent-4twyiz3sqq-wl.a.run.app |
+| kimi_litellm_agent | https://kimi-litellm-agent-4twyiz3sqq-wl.a.run.app |
+
+### Sample A2A Queries
+
+**Health check:**
+```bash
+curl https://tau2-agent-676371821546.us-west2.run.app/a2a/tau2_agent/.well-known/agent-card.json
+```
+
+**Run evaluation:**
+```bash
+curl -X POST https://tau2-agent-676371821546.us-west2.run.app/a2a/tau2_agent \
+  -H "Content-Type: application/json" \
+  -H "X-User-LLM-Model: gemini/gemini-2.0-flash" \
+  -H "X-User-LLM-API-Key: $GEMINI_API_KEY" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "message/stream",
+    "params": {
+      "message": {
+        "messageId": "demo-001",
+        "role": "user",
+        "parts": [{
+          "text": "Run an evaluation on the airline domain for agent at https://simple-gemini-agent-4twyiz3sqq-wl.a.run.app/a2a/simple_gemini_agent. Use 1 tasks and 1 trial(s)."
+        }]
+      }
+    },
+    "id": "1"
+  }'
+```
+
+### Traffic Generation
+
+Generate evaluation traffic across different domains:
+
+```bash
+# Airline domain - 2 tasks, 1 trial, 2 evaluations
+uv run python -m experiments.datadog.scripts.traffic_generator \
+  --domain airline --num-tasks 2 --num-trials 1 --count 2
+
+# Retail domain - 1 task, 2 trials, 1 evaluation
+uv run python -m experiments.datadog.scripts.traffic_generator \
+  --domain retail --num-tasks 1 --num-trials 2 --count 1
+
+# Telecom domain - 3 tasks, 1 trial, 2 evaluations
+uv run python -m experiments.datadog.scripts.traffic_generator \
+  --domain telecom --num-tasks 3 --num-trials 1 --count 2
+```
+
+**Trigger failure monitors (DR-002, DR-006):**
+```bash
+uv run python -m experiments.datadog.scripts.traffic_generator \
+  --mode failure --domain airline --count 3
+```
+
+**Use multiple mock agents:**
+```bash
+uv run python -m experiments.datadog.scripts.traffic_generator \
+  --mock-urls https://simple-gemini-agent-4twyiz3sqq-wl.a.run.app \
+              https://kimi-litellm-agent-4twyiz3sqq-wl.a.run.app \
+  --domain airline --count 4
+```
+
+---
+
+## Local Demo
+
+Starts tau2_agent and mock agent servers locally on separate ports.
+
+### Setup
+
+```bash
+export GEMINI_API_KEY=your_gemini_key
+export DD_API_KEY=your_datadog_api_key
+```
+
+### Traffic Generation
+
+```bash
+# Airline domain
+uv run python -m experiments.datadog.scripts.traffic_generator \
+  --local --domain airline --num-tasks 2 --num-trials 1 --count 2
+
+# Retail domain
+uv run python -m experiments.datadog.scripts.traffic_generator \
+  --local --domain retail --num-tasks 1 --num-trials 2 --count 1
+
+# Telecom domain
+uv run python -m experiments.datadog.scripts.traffic_generator \
+  --local --domain telecom --num-tasks 3 --num-trials 1 --count 2
+
+# Failure mode
+uv run python -m experiments.datadog.scripts.traffic_generator \
+  --local --mode failure --domain airline --count 3
+```
+
+### Dry Run
+
+Test without sending metrics to Datadog:
+
+```bash
+uv run python -m experiments.datadog.scripts.traffic_generator \
+  --local --dry-run --domain airline --count 1
+```
+
+---
+
+## Datadog URLs
+
+After running traffic, view results at:
+
+| Resource | URL |
+|----------|-----|
+| Dashboard | https://app.datadoghq.com/dashboard/tau2-bench-health |
+| APM Traces | https://app.datadoghq.com/apm/traces?query=service:tau2-bench-agent |
+| Metrics | https://app.datadoghq.com/metric/explorer?query=tau2.task.reward |
+| Monitors | https://app.datadoghq.com/monitors/manage |
+
+---
+
+## Detection Rules
+
+| ID | Name | Trigger Condition | Action |
+|----|------|-------------------|--------|
+| DR-001 | High Error Rate | error_count / total > 0.2 | Create Case |
+| DR-002 | Task Quality Degradation | avg:tau2.task.reward < 0.5 | Create Case |
+| DR-003 | Token Cost Anomaly | token_cost > 2x baseline | Alert |
+| DR-004 | Premature Termination | termination:max_errors > 10/hr | Create Incident |
+| DR-005 | Latency SLO Breach | p99:duration > 60s | SLO Alert |
+| DR-006 | Low Task Efficiency | reward_per_turn < 0.03 | Create Case |
+
+---
 
 ## Directory Structure
 
 ```
 datadog/
-├── README.md                    # This file
-├── LICENSE                      # Apache-2.0 license
+├── README.md
+├── LICENSE
 ├── configs/
-│   ├── monitors.json            # Datadog monitor definitions (5 detection rules)
-│   ├── slos.json                # SLO definitions (3 SLOs)
-│   ├── dashboards.json          # Dashboard JSON exports
-│   └── case_templates.json      # Case management templates
-├── scripts/
-│   ├── demo.sh                  # End-to-end demo script
-│   ├── traffic_generator.py     # Runs tau2 evaluations for telemetry
-│   ├── emit_metrics.py          # Post-hoc metrics emission from JSON
-│   ├── setup_datadog.py         # Creates monitors/dashboards via API
-│   └── tau2_traced.py           # Wrapper to run tau2 with tracing
-├── deployment/
-│   ├── Dockerfile               # Cloud Run deployment
-│   ├── cloudbuild.yaml          # GCP Cloud Build config
-│   └── requirements.txt         # Python dependencies
-└── tests/
-    └── test_traffic_generator.py
+│   ├── monitors.json
+│   ├── slos.json
+│   ├── dashboards_agents.json
+│   └── dashboards_operations.json
+└── scripts/
+    ├── demo.py
+    ├── traffic_generator.py
+    ├── emit_metrics.py
+    └── setup_datadog.py
 ```
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DD_API_KEY` | Yes | Datadog API key |
+| `DD_APP_KEY` | Yes | Datadog Application key |
+| `DD_SITE` | No | Datadog site (default: datadoghq.com) |
+| `DD_SERVICE` | No | Service name (default: tau2-bench-agent) |
+| `DD_ENV` | No | Environment (default: development) |
+| `DD_LLMOBS_ENABLED` | No | Enable LLM Observability (default: false) |
+| `TAU2_AGENT_URL` | No | GCP tau2_agent base URL |
+| `MOCK_AGENT_URL` | No | GCP mock agent base URL |
+| `GEMINI_API_KEY` | Local | Gemini API key |
+| `NEBIUS_API_KEY` | Local | Nebius API key |
+| `TAU2_DATA_DIR` | No | Data directory (default: ./data) |
 
 ## Enabling Datadog Tracing
 
-The ddtrace integration is **opt-in** and does not modify tau2 core. Choose one of these methods:
-
-### Option 1: Use the traced wrapper (recommended)
+### Option 1: ddtrace-run
 
 ```bash
-# From repository root
-python -m experiments.datadog.scripts.tau2_traced run --domain mock
-```
-
-### Option 2: Use ddtrace-run (ddtrace's built-in wrapper)
-
-```bash
-# ddtrace-run auto-patches before importing
 ddtrace-run tau2 run --domain mock
 ```
 
-### Option 3: Environment-based auto-patch
+### Option 2: Environment-based
 
 ```bash
-# Set environment variables and run normally
 DD_TRACE_ENABLED=true \
 DD_PATCH_MODULES=litellm:true,httpx:true \
 tau2 run --domain mock
 ```
 
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DD_API_KEY` | Yes (for agentless) | Datadog API key |
-| `DD_APP_KEY` | Yes (for setup) | Datadog Application key |
-| `DD_SITE` | No | Datadog site (default: datadoghq.com) |
-| `DD_SERVICE` | No | Service name (default: tau2-bench-agent) |
-| `DD_ENV` | No | Environment (default: development) |
-| `DD_LLMOBS_ENABLED` | No | Enable LLM Observability (default: false) |
-| `NEBIUS_API_KEY` | Yes | Nebius API key for mock agent LLM calls |
-| `TAU2_DATA_DIR` | No | Data directory (default: ./data) |
-
-## Detection Rules
-
-The project includes 5 detection rules that create actionable Cases/Incidents:
-
-| ID | Name | Trigger Condition | Action |
-|----|------|-------------------|--------|
-| DR-001 | High Error Rate | error_count / total > 0.2 | Create Case |
-| DR-002 | Task Failure Spike (Hero) | avg:tau2.task.reward < 0.7 | Create Case |
-| DR-003 | Token Cost Anomaly | token_cost > 2x baseline | Alert |
-| DR-004 | Premature Termination | termination:max_errors > 10/hr | Create Incident |
-| DR-005 | Latency SLO Breach | p99:duration > 60s | SLO Alert |
-
-## Development
-
-```bash
-# Run traffic generator locally
-cd src/experiments/datadog
-python scripts/traffic_generator.py --dry-run
-
-# Emit metrics from evaluation results
-python scripts/emit_metrics.py --all --dry-run
-
-# Run tests
-pytest tests/
-```
-
-## Extraction to Standalone Repo
-
-When ready to extract for hackathon submission:
-
-```bash
-# From tau2-bench-agent root
-git subtree split -P src/experiments/datadog -b datadog-standalone
-
-# Create new repo and push
-gh repo create tau2-datadog-observability --public
-git push origin datadog-standalone:main
-```
-
-The extracted repo will need:
-1. Its own `pyproject.toml` (copy from `deployment/requirements.txt`)
-2. Reference to tau2-bench-agent as a dependency
-3. Updated paths in scripts
-
-## Hackathon Submission Checklist
-
-- [ ] Public GitHub repo with Apache-2.0 license
-- [ ] README with deployment instructions
-- [ ] `configs/` directory with JSON exports (monitors, SLOs, dashboard)
-- [ ] Traffic generator script that produces telemetry
-- [ ] demo.sh script for end-to-end demo
-- [ ] Hosted Cloud Run URL (optional)
-- [ ] Datadog organization name
-- [ ] Screenshots of dashboard and triggered monitors
-
-### Submission Artifacts
-
-1. **GitHub Repository**: `https://github.com/wuTims/tau2-datadog-observability`
-2. **Dashboard JSON**: `configs/dashboards.json`
-3. **Monitors JSON**: `configs/monitors.json`
-4. **SLOs JSON**: `configs/slos.json`
+---
 
 ## Related Specs
 

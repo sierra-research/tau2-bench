@@ -1,0 +1,53 @@
+# Cloud Build configuration for kimi_litellm_agent
+# Trigger: gcloud builds submit --config kimi_litellm_agent/docker_setup/cloudbuild.yaml .
+
+substitutions:
+  _TAG: 'latest'
+
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-west2-docker.pkg.dev/$PROJECT_ID/tau2-agent/kimi-litellm-agent:${_TAG}'
+      - '-f'
+      - 'kimi_litellm_agent/docker_setup/Dockerfile'
+      - '.'
+
+  # Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-west2-docker.pkg.dev/$PROJECT_ID/tau2-agent/kimi-litellm-agent:${_TAG}'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'kimi-litellm-agent'
+      - '--image'
+      - 'us-west2-docker.pkg.dev/$PROJECT_ID/tau2-agent/kimi-litellm-agent:${_TAG}'
+      - '--region'
+      - 'us-west2'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--timeout'
+      - '300'
+      - '--set-secrets'
+      - 'NEBIUS_API_KEY=nebius-api-key:latest,DD_API_KEY=dd-api-key:latest,DD_SITE=dd-site:latest'
+      - '--set-env-vars'
+      - 'DD_LLMOBS_ENABLED=1,DD_LLMOBS_AGENTLESS_ENABLED=1,DD_LLMOBS_ML_APP=tau2-bench-agent,DD_SERVICE=kimi-litellm-agent,DD_ENV=dev,NEBIUS_API_BASE=https://api.tokenfactory.nebius.com/v1/'
+
+images:
+  - 'us-west2-docker.pkg.dev/$PROJECT_ID/tau2-agent/kimi-litellm-agent:${_TAG}'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

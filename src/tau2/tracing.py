@@ -10,7 +10,7 @@ Environment Variables:
     DD_LLMOBS_ENABLED: Set to "true" to enable LLM Observability.
         Requires DD_API_KEY to be set.
     DD_SERVICE: Service name for traces. Defaults to "tau2-bench-agent".
-    DD_ENV: Environment name. Defaults to "development".
+    DD_ENV: Environment name. Defaults to "dev".
     DD_API_KEY: Datadog API key. Required for agentless mode.
     DD_SITE: Datadog site. Defaults to "datadoghq.com".
     DD_VERSION: Service version. Defaults to tau2 package version.
@@ -51,7 +51,7 @@ def configure_ddtrace() -> bool:
     Configuration only happens when DD_TRACE_ENABLED=true.
 
     Returns:
-        True if ddtrace was configured, False if disabled or already configured.
+        True if ddtrace was configured, False if disabled or configuration failed.
 
     Raises:
         No exceptions are raised. All errors are logged and the function
@@ -64,12 +64,8 @@ def configure_ddtrace() -> bool:
     try:
         from ddtrace import patch, tracer
 
-        if tracer._initialized:
-            logger.debug("ddtrace already initialized, skipping configuration")
-            return False
-
         service_name = os.getenv("DD_SERVICE", "tau2-bench-agent")
-        env_name = os.getenv("DD_ENV", "development")
+        env_name = os.getenv("DD_ENV", "dev")
         version = os.getenv("DD_VERSION", _get_tau2_version())
 
         tracer.set_tags(
@@ -81,7 +77,9 @@ def configure_ddtrace() -> bool:
             }
         )
 
-        patch(litellm=True, httpx=True)
+        # Only patch litellm, not httpx - httpx patching causes issues with
+        # async generators in google-adk streaming responses
+        patch(litellm=True)
 
         logger.info(
             f"Datadog tracing configured: service={service_name}, "

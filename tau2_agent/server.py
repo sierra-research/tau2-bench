@@ -20,6 +20,8 @@ from pathlib import Path
 from google.adk.cli.fast_api import get_fast_api_app
 from loguru import logger
 
+from tau2_agent.logging_config import configure_logging
+
 
 def create_app():
     """Create and configure the FastAPI application.
@@ -63,7 +65,18 @@ def main():
     # Get port from environment (Cloud Run sets PORT)
     port = int(os.getenv("PORT", "8001"))
     host = os.getenv("HOST", "0.0.0.0")
-    log_level = os.getenv("LOG_LEVEL", "info").lower()
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+
+    # Configure structured logging (JSON for GCP, human-readable locally)
+    configure_logging(level=log_level)
+
+    # Configure Datadog tracing (opt-in via DD_TRACE_ENABLED=true)
+    try:
+        from tau2.tracing import configure_ddtrace
+
+        configure_ddtrace()
+    except ImportError:
+        logger.debug("tau2.tracing not available, skipping ddtrace configuration")
 
     logger.info(
         "Starting tau2_agent server",
@@ -75,12 +88,12 @@ def main():
     # Create app
     app = create_app()
 
-    # Run with uvicorn
+    # Run with uvicorn (use lowercase for uvicorn)
     uvicorn.run(
         app,
         host=host,
         port=port,
-        log_level=log_level,
+        log_level=log_level.lower(),
     )
 
 

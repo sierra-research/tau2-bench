@@ -1,39 +1,28 @@
 #!/usr/bin/env python3
-"""Traffic generator for Datadog LLM observability demo.
+"""Traffic generator for Datadog observability demo.
 
-This script generates varied telemetry by running concurrent A2A evaluation requests
-against tau2_agent. It starts the necessary servers (tau2_agent and mock agent),
-fires N concurrent evaluations, and emits metrics to Datadog.
+Generates evaluation telemetry by running concurrent A2A requests against tau2_agent.
+Emits custom metrics via emit_metrics.py and enables LLM Observability in local mode.
 
-Architecture: Concurrent-by-default A2A requests to tau2_agent
-- Fires N concurrent evaluation requests using asyncio.gather()
-- tau2_agent handles up to 10 concurrent evaluations (via _EVALUATION_EXECUTOR)
-- Generates more data points in less time for richer Datadog visualizations
-
-Pattern Source: Inline copy from tests/test_datadog_e2e/conftest.py:
-- TracedServer / MockAgentServer dataclasses
-- build_a2a_evaluation_request(), send_a2a_evaluation_request(), parse_sse_event()
-- Server startup with DD environment variables
+Modes:
+    GCP (default): Uses deployed Cloud Run agents.
+    Local (--local): Starts local servers with ddtrace-run for LLM Observability.
 
 Environment Variables:
-    DD_TRACE_ENABLED: Enable ddtrace instrumentation (default: true)
-    DD_SERVICE: Datadog service name (default: tau2-bench-agent)
-    DD_API_KEY: Required for Datadog metric submission (optional for --dry-run)
-    TAU2_DATA_DIR: Base data directory (default: ./data)
-    NEBIUS_API_KEY: Required for mock agent LLM calls
+    DD_API_KEY: Required for Datadog metric/trace submission.
+    DD_SITE: Datadog site (default: us3.datadoghq.com).
+    GEMINI_API_KEY: Required for --local mode with simple_gemini_agent.
+    NEBIUS_API_KEY: Required for --local mode with simple_nebius_agent.
 
 Usage:
-    # Generate 5 normal evaluations (dry-run, no Datadog needed)
-    uv run python -m experiments.datadog.scripts.traffic_generator --count 5 --dry-run
-
-    # Generate evaluations with metrics to Datadog
+    # GCP mode (default)
     uv run python -m experiments.datadog.scripts.traffic_generator --count 5
 
-    # Generate failure-mode evaluations to trigger DR-002
-    uv run python -m experiments.datadog.scripts.traffic_generator --count 3 --mode failure
+    # Local mode with LLM Observability
+    uv run python -m experiments.datadog.scripts.traffic_generator --local --count 5
 
-    # Skip server startup (use existing servers)
-    uv run python -m experiments.datadog.scripts.traffic_generator --count 5 --skip-server-start
+    # Failure mode to generate low-reward evaluations
+    uv run python -m experiments.datadog.scripts.traffic_generator --mode failure --count 3
 """
 
 from __future__ import annotations
@@ -54,7 +43,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import httpx
+from dotenv import load_dotenv
 from loguru import logger
+
+_project_root = Path(__file__).parent.parent.parent.parent.parent
+load_dotenv(_project_root / ".env")
 
 from tau2_agent.utils import SSEEvent, SSEParser
 
@@ -65,14 +58,62 @@ if TYPE_CHECKING:
 # Configuration Constants
 # ============================================================================
 
-# Use unique ports to avoid conflicts with other services
+# GCP deployed endpoints - configurable via environment variables
+_DEFAULT_TAU2_URL = "https://tau2-agent-676371821546.us-west2.run.app"
+_DEFAULT_MOCK_URLS = [
+    "https://simple-gemini-agent-4twyiz3sqq-wl.a.run.app",
+    "https://kimi-litellm-agent-4twyiz3sqq-wl.a.run.app",
+]
+GCP_TAU2_AGENT_URL = os.environ.get("TAU2_AGENT_URL", _DEFAULT_TAU2_URL)
+GCP_MOCK_AGENT_URL = os.environ.get("MOCK_AGENT_URL", _DEFAULT_MOCK_URLS[0])
+# Support multiple mock agents via comma-separated URLs
+_mock_urls_env = os.environ.get("MOCK_AGENT_URLS", "")
+GCP_MOCK_AGENT_URLS = [
+    url.strip() for url in _mock_urls_env.split(",") if url.strip()
+] if _mock_urls_env else _DEFAULT_MOCK_URLS
+
+# A2A endpoint paths
+TAU2_A2A_PATH = "/a2a/tau2_agent"
+
+# Mock agent URL to A2A path mapping
+# Maps service name (from URL) to agent module name
+MOCK_AGENT_PATH_MAP = {
+    "simple-gemini-agent": "/a2a/simple_gemini_agent",
+    "kimi-litellm-agent": "/a2a/kimi_litellm_agent",
+}
+
+
+def get_mock_a2a_path(base_url: str) -> str:
+    """Get the A2A path for a mock agent URL.
+
+    Infers the agent name from the Cloud Run service URL pattern.
+    Falls back to simple_gemini_agent if not recognized.
+
+    Args:
+        base_url: The base URL of the mock agent (e.g., https://simple-gemini-agent-xxx.run.app)
+
+    Returns:
+        str: The A2A path (e.g., /a2a/simple_gemini_agent)
+    """
+    for service_name, a2a_path in MOCK_AGENT_PATH_MAP.items():
+        if service_name in base_url:
+            return a2a_path
+    # Fallback for unknown agents
+    logger.warning(f"Unknown mock agent URL pattern: {base_url}, using simple_gemini_agent path")
+    return "/a2a/simple_gemini_agent"
+
+# Use unique ports to avoid conflicts with other services (local mode only)
 # CRITICAL: tau2_agent and mock agent MUST run on SEPARATE ports to avoid
 # async deadlock. See issue_tracker/concurrency-fix.md for details.
 ADK_SERVER_HOST = "localhost"
 TAU2_AGENT_PORT = int(os.environ.get("TRAFFIC_GEN_TAU2_PORT", "8766"))
 MOCK_AGENT_PORT = int(os.environ.get("TRAFFIC_GEN_MOCK_PORT", "8767"))
-TAU2_AGENT_BASE_URL = f"http://{ADK_SERVER_HOST}:{TAU2_AGENT_PORT}"
-MOCK_AGENT_BASE_URL = f"http://{ADK_SERVER_HOST}:{MOCK_AGENT_PORT}"
+LOCAL_TAU2_AGENT_BASE_URL = f"http://{ADK_SERVER_HOST}:{TAU2_AGENT_PORT}"
+LOCAL_MOCK_AGENT_BASE_URL = f"http://{ADK_SERVER_HOST}:{MOCK_AGENT_PORT}"
+
+# Legacy aliases (for backward compatibility in local functions)
+TAU2_AGENT_BASE_URL = LOCAL_TAU2_AGENT_BASE_URL
+MOCK_AGENT_BASE_URL = LOCAL_MOCK_AGENT_BASE_URL
 
 # Server startup configuration
 SERVER_STARTUP_TIMEOUT = 60  # Longer timeout for traced startup
@@ -86,13 +127,26 @@ DEFAULT_NUM_TASKS = 2
 DEFAULT_NUM_TRIALS = 1
 
 # Domains available for evaluation
-AVAILABLE_DOMAINS = ["mock", "airline"]
+AVAILABLE_DOMAINS = ["mock", "airline", "retail", "telecom"]
 
-# Task IDs known to produce low rewards (for failure mode)
-# These are tasks that are intentionally difficult or have edge cases
+# Available mock agents for evaluation
+AVAILABLE_AGENTS = ["simple_gemini_agent", "simple_nebius_agent", "kimi_litellm_agent"]
+
+# Task IDs for failure mode (tasks that may produce varied/low rewards)
+# These are adversarial/complex tasks designed to test edge cases:
+# - mock: Task requires unavailable tool (must transfer to human)
+# - airline: Social engineering resistance tests (users make false claims)
+# - retail: Complex multi-item exchanges with specific product requirements
+# - telecom: [PERSONA:Hard] tasks with anxious user persona that gets flustered
 FAILURE_MODE_TASK_IDS = {
-    "mock": ["1", "2", "3"],  # Mock domain tasks
-    "airline": ["1", "2", "3"],  # Airline domain tasks
+    "mock": ["impossible_task_1"],  # Requires unavailable delete_task tool
+    "airline": ["0", "1", "2"],  # Users claim false approvals/policies
+    "retail": ["0", "1", "2"],  # Multi-item exchanges with product lookups
+    "telecom": [
+        "[mobile_data_issue]user_abroad_roaming_disabled_off[PERSONA:Hard]",
+        "[service_issue]lock_sim_card_pin[PERSONA:Hard]",
+        "[mms_issue]break_apn_mms_setting[PERSONA:Hard]",
+    ],
 }
 
 
@@ -194,19 +248,49 @@ def is_port_in_use(port: int, host: str = "localhost") -> bool:
             return True
 
 
-def start_mock_agent_server(agents_dir: Path | None = None) -> MockAgentServer:
-    """Start a separate ADK server for simple_nebius_agent on a different port.
+def detect_mock_agent() -> str:
+    """Detect which mock agent to use based on available API keys.
 
-    Uses simple_nebius_agent (real LLM via Nebius API) which properly integrates
-    with tau2's A2A protocol for tool calls.
+    Prefers Gemini (GEMINI_API_KEY) over Nebius (NEBIUS_API_KEY) since
+    Gemini is typically faster and more widely available.
+
+    Returns:
+        str: Name of the agent to use ("simple_gemini_agent" or "simple_nebius_agent")
+
+    Raises:
+        ValueError: If no API keys are available
+    """
+    if os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
+        return "simple_gemini_agent"
+    if os.getenv("NEBIUS_API_KEY"):
+        return "simple_nebius_agent"
+
+    raise ValueError(
+        "No mock agent API keys available. Set one of:\n"
+        "  - GEMINI_API_KEY or GOOGLE_API_KEY (for simple_gemini_agent)\n"
+        "  - NEBIUS_API_KEY (for simple_nebius_agent)"
+    )
+
+
+def start_mock_agent_server(
+    agents_dir: Path | None = None,
+    agent_name: str | None = None,
+) -> MockAgentServer:
+    """Start a separate ADK server for a mock agent on a different port.
+
+    Supports simple_gemini_agent (Gemini 3 Flash Preview) or simple_nebius_agent
+    (Nebius Qwen3). Auto-detects which agent to use based on available API keys.
 
     Args:
         agents_dir: Optional directory containing agents. If None, uses PROJECT_ROOT.
+        agent_name: Optional agent name. If None, auto-detects based on API keys.
 
     Returns:
         MockAgentServer: Server info including process and endpoint
     """
-    agent_name = "simple_nebius_agent"
+    if agent_name is None:
+        agent_name = detect_mock_agent()
+        logger.info(f"Auto-detected mock agent: {agent_name}")
     mock_agent_endpoint = f"{MOCK_AGENT_BASE_URL}/a2a/{agent_name}"
     agent_card_url = f"{mock_agent_endpoint}/.well-known/agent-card.json"
 
@@ -230,31 +314,37 @@ def start_mock_agent_server(agents_dir: Path | None = None) -> MockAgentServer:
         )
         raise RuntimeError(msg)
 
-    # Create a temp directory with simple_nebius_agent symlinked
-    # ADK expects AGENTS_DIR to contain subdirectories, each being an agent
-    # Note: temp_dir is stored in MockAgentServer.temp_dir for cleanup by ServerManager
+    # Copy agent to temp directory (ADK rejects symlinks outside base dir)
     temp_dir_path: Path | None = None
     if agents_dir is None:
+        import shutil
         import tempfile
         temp_dir_path = Path(tempfile.mkdtemp(prefix="traffic_gen_mock_"))
-        mock_agent_link = temp_dir_path / agent_name
-        mock_agent_link.symlink_to(PROJECT_ROOT / agent_name)
+        mock_agent_dest = temp_dir_path / agent_name
+        # Exclude docker_setup and __pycache__ as they interfere with ADK agent discovery
+        shutil.copytree(
+            PROJECT_ROOT / agent_name,
+            mock_agent_dest,
+            ignore=shutil.ignore_patterns("docker_setup", "__pycache__"),
+        )
         agents_dir = temp_dir_path
 
-    # Build environment - no ddtrace needed for mock agent
     env = os.environ.copy()
 
-    # Start ADK server for mock agent only
-    cmd = [
-        "adk",
-        "api_server",
-        "--a2a",
-        str(agents_dir),
-        "--port",
-        str(MOCK_AGENT_PORT),
-        "--host",
-        ADK_SERVER_HOST,
-    ]
+    # ADK's Gemini class expects GOOGLE_API_KEY
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if gemini_key:
+        env["GOOGLE_API_KEY"] = gemini_key
+
+    env["AGENTS_DIR"] = str(agents_dir)
+    env["PORT"] = str(MOCK_AGENT_PORT)
+    env["HOST"] = ADK_SERVER_HOST
+
+    # Add agents directory to PYTHONPATH for module import
+    pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{agents_dir}:{pythonpath}" if pythonpath else str(agents_dir)
+
+    cmd = ["uv", "run", "python", "-m", f"{agent_name}.server"]
 
     logger.info(f"Starting mock agent server: {' '.join(cmd)}")
     process = subprocess.Popen(
@@ -355,41 +445,54 @@ def start_tau2_server(data_dir: Path, mock_agent_endpoint: str) -> TracedServer:
         )
         raise RuntimeError(msg)
 
-    # Build environment with ddtrace configuration
     env = os.environ.copy()
 
-    # Enable ddtrace via environment (auto-patches on import)
+    # Configure ddtrace for LLM Observability
     env["DD_TRACE_ENABLED"] = "true"
     env["DD_SERVICE"] = "tau2-bench-agent"
-    env["DD_ENV"] = os.getenv("DD_ENV", "demo")
+    env["DD_ENV"] = os.getenv("DD_ENV", "dev")
 
-    # Optional: Enable LLM Observability if DD_API_KEY is set
-    if os.getenv("DD_API_KEY"):
+    # LLM Observability supports agentless mode (sends directly to Datadog intake).
+    # APM tracing requires a local Datadog Agent and is not enabled here.
+    dd_api_key = os.getenv("DD_API_KEY")
+    dd_site = os.getenv("DD_SITE", "us3.datadoghq.com")
+    if dd_api_key:
+        env["DD_API_KEY"] = dd_api_key
+        env["DD_SITE"] = dd_site
         env["DD_LLMOBS_ENABLED"] = "true"
         env["DD_LLMOBS_AGENTLESS_ENABLED"] = "true"
+        env["DD_LLMOBS_ML_APP"] = os.getenv("DD_LLMOBS_ML_APP", "tau2-bench-agent")
+        logger.info(f"LLM Observability enabled for {dd_site}")
 
-    # Use the specified data directory
     env["TAU2_DATA_DIR"] = str(data_dir)
 
-    # Create a temp directory with only tau2_agent symlinked
-    # ADK expects AGENTS_DIR to contain subdirectories, each being an agent
+    # ADK's Gemini class expects GOOGLE_API_KEY
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if gemini_key:
+        env["GOOGLE_API_KEY"] = gemini_key
+
+    # Copy tau2_agent to agents directory (ADK rejects symlinks outside base dir)
+    import shutil
     tau2_agents_dir = data_dir / "agents"
     tau2_agents_dir.mkdir(exist_ok=True)
-    tau2_agent_link = tau2_agents_dir / "tau2_agent"
-    if not tau2_agent_link.exists():
-        tau2_agent_link.symlink_to(PROJECT_ROOT / "tau2_agent")
+    tau2_agent_dest = tau2_agents_dir / "tau2_agent"
+    if not tau2_agent_dest.exists():
+        # Exclude docker_setup and __pycache__ as they interfere with ADK agent discovery
+        shutil.copytree(
+            PROJECT_ROOT / "tau2_agent",
+            tau2_agent_dest,
+            ignore=shutil.ignore_patterns("docker_setup", "__pycache__"),
+        )
 
-    # Start ADK server for tau2_agent only (mock agent runs separately)
-    cmd = [
-        "adk",
-        "api_server",
-        "--a2a",
-        str(tau2_agents_dir),
-        "--port",
-        str(TAU2_AGENT_PORT),
-        "--host",
-        ADK_SERVER_HOST,
-    ]
+    env["AGENTS_DIR"] = str(tau2_agents_dir)
+    env["PORT"] = str(TAU2_AGENT_PORT)
+    env["HOST"] = ADK_SERVER_HOST
+
+    # Use ddtrace-run for LLM Observability when DD_API_KEY is available
+    base_cmd = ["uv", "run"]
+    if dd_api_key:
+        base_cmd.extend(["ddtrace-run"])
+    cmd = base_cmd + ["python", "-m", "tau2_agent.server"]
 
     logger.info(f"Starting tau2_agent server: {' '.join(cmd)}")
     process = subprocess.Popen(
@@ -507,6 +610,33 @@ def build_a2a_evaluation_request(
     }
 
 
+def get_user_llm_credentials() -> dict[str, str]:
+    """Get user LLM credentials for tau2_agent requests.
+
+    Returns headers required by tau2_agent's CredentialsMiddleware.
+
+    Returns:
+        dict: Headers with X-User-LLM-Model and X-User-LLM-API-Key
+
+    Raises:
+        ValueError: If no LLM API key is configured
+    """
+    # Get API key from environment
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "Missing LLM API key. Set GEMINI_API_KEY or GOOGLE_API_KEY in .env"
+        )
+
+    # Get model from environment or use default
+    model = os.getenv("USER_LLM_MODEL", "gemini/gemini-3-flash-preview")
+
+    return {
+        "X-User-LLM-Model": model,
+        "X-User-LLM-API-Key": api_key,
+    }
+
+
 async def send_a2a_evaluation_request(
     endpoint: str,
     domain: str,
@@ -540,15 +670,19 @@ async def send_a2a_evaluation_request(
         task_ids=task_ids,
     )
 
+    # Get user LLM credentials for tau2_agent
+    llm_headers = get_user_llm_credentials()
+
     if stream:
         # Use message/stream for SSE streaming
         request["method"] = "message/stream"
 
+        headers = {"Accept": "text/event-stream", **llm_headers}
         async with httpx.AsyncClient(timeout=timeout) as client, client.stream(
             "POST",
             endpoint,
             json=request,
-            headers={"Accept": "text/event-stream"},
+            headers=headers,
         ) as response:
             response.raise_for_status()
 
@@ -566,7 +700,7 @@ async def send_a2a_evaluation_request(
                     yield event_data
     else:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(endpoint, json=request)
+            response = await client.post(endpoint, json=request, headers=llm_headers)
             response.raise_for_status()
             yield response.json()
 
@@ -645,6 +779,26 @@ async def run_single_evaluation(
         ):
             events.append(event)
 
+            # Check for error in function_response (tool returned error dict)
+            # The error is nested in: result.status.message.parts[].data.response.error
+            try:
+                result = event.get("result", {})
+                status = result.get("status", {})
+                message = status.get("message", {})
+                parts = message.get("parts", [])
+                for part in parts:
+                    data = part.get("data", {})
+                    metadata = part.get("metadata", {})
+                    # Check if this is a function_response with an error
+                    if metadata.get("adk_type") == "function_response":
+                        response = data.get("response", {})
+                        if "error" in response:
+                            success = False
+                            error = f"{response.get('error')}: {response.get('message', 'Unknown error')}"
+                            logger.error(f"Evaluation error from tau2_agent: {error}")
+            except Exception:
+                pass  # Ignore parsing errors, continue with other checks
+
             # Track final state from last message
             if "result" in event and "status" in event["result"]:
                 final_state = event["result"]["status"].get("state")
@@ -673,7 +827,7 @@ async def run_single_evaluation(
 
 async def run_concurrent_evaluations(
     tau2_endpoint: str,
-    mock_agent_endpoint: str,
+    mock_agent_endpoints: list[str],
     count: int,
     mode: str,
     domain: str | None = None,
@@ -684,7 +838,7 @@ async def run_concurrent_evaluations(
 
     Args:
         tau2_endpoint: The tau2_agent A2A endpoint
-        mock_agent_endpoint: The mock agent endpoint for evaluation
+        mock_agent_endpoints: List of mock agent endpoints for evaluation (cycles through)
         count: Number of evaluations to run
         mode: "normal" or "failure"
         domain: Optional domain (random if not specified)
@@ -700,6 +854,9 @@ async def run_concurrent_evaluations(
         # Select domain - random if not specified
         eval_domain = domain or random.choice(AVAILABLE_DOMAINS)
 
+        # Cycle through mock agents for load distribution
+        mock_agent_endpoint = mock_agent_endpoints[i % len(mock_agent_endpoints)]
+
         # In failure mode, use specific task IDs known to produce low rewards
         task_ids = None
         if mode == "failure":
@@ -707,7 +864,7 @@ async def run_concurrent_evaluations(
 
         logger.info(
             f"Queuing evaluation {i + 1}/{count}: domain={eval_domain}, "
-            f"mode={mode}, task_ids={task_ids}"
+            f"agent={mock_agent_endpoint}, mode={mode}, task_ids={task_ids}"
         )
 
         tasks.append(
@@ -809,21 +966,76 @@ async def async_main(args: argparse.Namespace) -> int:
 
         logger.info(f"Using data directory: {data_dir}")
 
-        # Start servers if needed
-        if args.skip_server_start:
-            logger.info("Skipping server startup (--skip-server-start)")
-            mock_agent_endpoint = f"{MOCK_AGENT_BASE_URL}/a2a/simple_nebius_agent"
-            tau2_agent_endpoint = f"{TAU2_AGENT_BASE_URL}/a2a/tau2_agent"
-        else:
+        # Determine mode: GCP (default) or local (--local flag)
+        if args.local:
+            # Local mode: Start local servers
+            logger.info("Local mode: Starting local servers...")
+
             # Start mock agent first
             logger.info("Starting mock agent server...")
-            manager.mock_server = start_mock_agent_server()
-            mock_agent_endpoint = manager.mock_server.agent_endpoint
+            manager.mock_server = start_mock_agent_server(agent_name=args.agent)
+            mock_agent_endpoints = [manager.mock_server.agent_endpoint]
 
             # Start tau2_agent with tracing
             logger.info("Starting tau2_agent server with ddtrace...")
-            manager.tau2_server = start_tau2_server(data_dir, mock_agent_endpoint)
+            manager.tau2_server = start_tau2_server(data_dir, mock_agent_endpoints[0])
             tau2_agent_endpoint = manager.tau2_server.tau2_agent_endpoint
+        else:
+            # GCP mode (default): Use deployed GCP agents
+            logger.info("GCP mode: Using deployed agents")
+            logger.info(f"  tau2_agent:  {args.tau2_url}")
+
+            # Build list of mock agent endpoints
+            # Priority: --mock-urls > --mock-url (if changed) > MOCK_AGENT_URLS env > defaults
+            if args.mock_urls:
+                mock_base_urls = args.mock_urls
+            elif args.mock_url != _DEFAULT_MOCK_URLS[0]:
+                # User explicitly set --mock-url to something different
+                mock_base_urls = [args.mock_url]
+            elif _mock_urls_env:
+                # User set MOCK_AGENT_URLS env var
+                mock_base_urls = GCP_MOCK_AGENT_URLS
+            else:
+                # Use all default mock agents
+                mock_base_urls = _DEFAULT_MOCK_URLS
+
+            # Build full A2A endpoints, inferring path from URL pattern
+            mock_agent_endpoints = [
+                f"{url.strip()}{get_mock_a2a_path(url)}" for url in mock_base_urls
+            ]
+            logger.info(f"  mock agents ({len(mock_agent_endpoints)}):")
+            for endpoint in mock_agent_endpoints:
+                logger.info(f"    - {endpoint}")
+
+            # Construct A2A endpoints from base URLs
+            tau2_agent_endpoint = f"{args.tau2_url}{TAU2_A2A_PATH}"
+
+            # Verify GCP agents are reachable
+            tau2_agent_card = f"{tau2_agent_endpoint}/.well-known/agent-card.json"
+
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    # Check tau2_agent
+                    logger.info(f"Checking tau2_agent at {tau2_agent_card}...")
+                    resp = await client.get(tau2_agent_card)
+                    if resp.status_code != 200:
+                        logger.warning(f"tau2_agent returned {resp.status_code}, may be cold starting")
+
+                    # Check all mock agents
+                    for endpoint in mock_agent_endpoints:
+                        mock_agent_card = f"{endpoint}/.well-known/agent-card.json"
+                        logger.info(f"Checking mock agent at {mock_agent_card}...")
+                        resp = await client.get(mock_agent_card)
+                        if resp.status_code != 200:
+                            logger.warning(f"mock agent returned {resp.status_code}, may be cold starting")
+
+                logger.info("GCP agents are reachable!")
+            except httpx.ConnectError as e:
+                logger.error(f"Failed to connect to GCP agents: {e}")
+                logger.error("Try --local flag to run with local servers instead")
+                return 1
+            except httpx.TimeoutException:
+                logger.warning("GCP agents timed out (may be cold starting), proceeding anyway...")
 
         # Run evaluations
         logger.info(
@@ -833,7 +1045,7 @@ async def async_main(args: argparse.Namespace) -> int:
 
         results = await run_concurrent_evaluations(
             tau2_endpoint=tau2_agent_endpoint,
-            mock_agent_endpoint=mock_agent_endpoint,
+            mock_agent_endpoints=mock_agent_endpoints,
             count=args.count,
             mode=args.mode,
             domain=args.domain,
@@ -854,12 +1066,16 @@ async def async_main(args: argparse.Namespace) -> int:
                 f"events={len(result.events)}, error={result.error}"
             )
 
-        # Emit metrics
-        logger.info("Emitting metrics to Datadog...")
-        emit_result = emit_metrics(dry_run=args.dry_run)
+        # Emit metrics - only in local mode
+        # In GCP mode, metrics are emitted from the container immediately after each evaluation
+        if args.local:
+            logger.info("Emitting metrics to Datadog (local mode)...")
+            emit_result = emit_metrics(dry_run=args.dry_run)
 
-        if emit_result != 0:
-            logger.warning(f"Metrics emission returned exit code {emit_result}")
+            if emit_result != 0:
+                logger.warning(f"Metrics emission returned exit code {emit_result}")
+        else:
+            logger.info("Skipping local metric emission (GCP mode - metrics emitted from container)")
 
         return 0 if failed == 0 else 1
 
@@ -907,9 +1123,35 @@ def main() -> int:
         help=f"Number of trials per task (default: {DEFAULT_NUM_TRIALS})",
     )
     parser.add_argument(
-        "--skip-server-start",
+        "--local",
         action="store_true",
-        help="Skip starting servers (use existing servers)",
+        help="Run with local servers instead of GCP (requires GEMINI_API_KEY or equivalent)",
+    )
+    parser.add_argument(
+        "--tau2-url",
+        type=str,
+        default=GCP_TAU2_AGENT_URL,
+        help=f"tau2_agent base URL (env: TAU2_AGENT_URL, default: {_DEFAULT_TAU2_URL})",
+    )
+    parser.add_argument(
+        "--mock-url",
+        type=str,
+        default=GCP_MOCK_AGENT_URL,
+        help=f"Mock agent base URL (env: MOCK_AGENT_URL, default: {_DEFAULT_MOCK_URLS[0]})",
+    )
+    parser.add_argument(
+        "--mock-urls",
+        type=str,
+        nargs="+",
+        default=None,
+        help="Multiple mock agent base URLs (space-separated). Overrides --mock-url.",
+    )
+    parser.add_argument(
+        "--agent",
+        type=str,
+        choices=AVAILABLE_AGENTS,
+        default=None,
+        help="Mock agent to use for local mode (default: auto-detect from API keys)",
     )
     parser.add_argument(
         "--dry-run",
@@ -936,10 +1178,17 @@ def main() -> int:
             "Use --dry-run for local testing."
         )
 
-    if not os.getenv("NEBIUS_API_KEY"):
-        logger.warning(
-            "NEBIUS_API_KEY not set. Mock agent LLM calls may fail."
-        )
+    # Local mode requires mock agent API keys
+    if args.local:
+        if not os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY") and not os.getenv("NEBIUS_API_KEY"):
+            logger.error(
+                "Local mode requires a mock agent API key. Set one of:\n"
+                "  - GEMINI_API_KEY or GOOGLE_API_KEY (for simple_gemini_agent)\n"
+                "  - NEBIUS_API_KEY (for simple_nebius_agent)"
+            )
+            return 1
+    else:
+        logger.info("GCP mode: Using deployed agents")
 
     return asyncio.run(async_main(args))
 

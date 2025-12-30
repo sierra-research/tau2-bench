@@ -1,0 +1,843 @@
+{
+  "dashboard": {
+    "title": "tau2-bench Agent Performance Dashboard",
+    "description": "Agent performance comparison dashboard",
+    "layout_type": "ordered",
+    "template_variables": [
+      {
+        "name": "domain",
+        "default": "*",
+        "prefix": "domain"
+      },
+      {
+        "name": "env",
+        "default": "dev",
+        "prefix": "env"
+      },
+      {
+        "name": "agent_endpoint",
+        "default": "*",
+        "prefix": "agent_endpoint"
+      },
+      {
+        "name": "difficulty",
+        "default": "*",
+        "prefix": "difficulty"
+      },
+      {
+        "name": "evaluation_id",
+        "default": "*",
+        "prefix": "evaluation_id"
+      }
+    ],
+    "widgets": [
+      {
+        "id": "header",
+        "definition": {
+          "type": "note",
+          "content": "# tau2-bench Agent Performance\n\nCompare agent performance across evaluations. Filter by difficulty to understand performance on easy vs hard tasks.",
+          "background_color": "blue",
+          "font_size": "16",
+          "text_align": "center",
+          "show_tick": false,
+          "tick_pos": "50%",
+          "tick_edge": "left"
+        },
+        "layout": {
+          "x": 0,
+          "y": 0,
+          "width": 12,
+          "height": 1
+        }
+      },
+      {
+        "id": "agent-leaderboard-group",
+        "definition": {
+          "type": "group",
+          "title": "Agent Leaderboard by Difficulty",
+          "layout_type": "ordered",
+          "widgets": [
+            {
+              "id": "leaderboard-hard-expert",
+              "definition": {
+                "type": "toplist",
+                "title": "Hard Tasks",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.task.reward{$domain,$env,$agent_endpoint,difficulty:hard} by {agent_endpoint} * 100, 10, 'mean', 'desc')",
+                    "conditional_formats": [
+                      {
+                        "comparator": ">=",
+                        "value": 40,
+                        "palette": "white_on_green"
+                      },
+                      {
+                        "comparator": ">=",
+                        "value": 20,
+                        "palette": "white_on_yellow"
+                      },
+                      {
+                        "comparator": "<",
+                        "value": 20,
+                        "palette": "white_on_red"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "layout": {
+                "x": 0,
+                "y": 0,
+                "width": 4,
+                "height": 4
+              }
+            },
+            {
+              "id": "leaderboard-easy-medium",
+              "definition": {
+                "type": "toplist",
+                "title": "Easy Tasks (Baseline)",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.task.reward{$domain,$env,$agent_endpoint,difficulty:easy} by {agent_endpoint} * 100, 10, 'mean', 'desc')",
+                    "conditional_formats": [
+                      {
+                        "comparator": ">=",
+                        "value": 80,
+                        "palette": "white_on_green"
+                      },
+                      {
+                        "comparator": ">=",
+                        "value": 60,
+                        "palette": "white_on_yellow"
+                      },
+                      {
+                        "comparator": "<",
+                        "value": 60,
+                        "palette": "white_on_red"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "layout": {
+                "x": 4,
+                "y": 0,
+                "width": 4,
+                "height": 4
+              }
+            },
+            {
+              "id": "leaderboard-pass-hat-1",
+              "definition": {
+                "type": "toplist",
+                "title": "Pass^1 (tau2 Metric)",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.evaluation.pass_hat_1{$domain,$env,$agent_endpoint} by {agent_endpoint}, 10, 'mean', 'desc')",
+                    "conditional_formats": [
+                      {
+                        "comparator": ">=",
+                        "value": 70,
+                        "palette": "white_on_green"
+                      },
+                      {
+                        "comparator": ">=",
+                        "value": 50,
+                        "palette": "white_on_yellow"
+                      },
+                      {
+                        "comparator": "<",
+                        "value": 50,
+                        "palette": "white_on_red"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "layout": {
+                "x": 8,
+                "y": 0,
+                "width": 4,
+                "height": 4
+              }
+            }
+          ]
+        },
+        "layout": {
+          "x": 0,
+          "y": 1,
+          "width": 12,
+          "height": 5
+        }
+      },
+      {
+        "id": "difficulty-group",
+        "definition": {
+          "type": "group",
+          "title": "Agent Performance Matrix (by Difficulty)",
+          "layout_type": "ordered",
+          "widgets": [
+            {
+              "id": "matrix-agent-difficulty",
+              "definition": {
+                "type": "toplist",
+                "title": "Full Agent x Difficulty Matrix",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.task.reward{$domain,$env,!difficulty:unknown} by {agent_endpoint,difficulty} * 100, 40, 'mean', 'desc')",
+                    "conditional_formats": [
+                      {
+                        "comparator": ">=",
+                        "value": 70,
+                        "palette": "white_on_green"
+                      },
+                      {
+                        "comparator": ">=",
+                        "value": 40,
+                        "palette": "white_on_yellow"
+                      },
+                      {
+                        "comparator": "<",
+                        "value": 40,
+                        "palette": "white_on_red"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "layout": {
+                "x": 0,
+                "y": 0,
+                "width": 6,
+                "height": 5
+              }
+            },
+            {
+              "id": "difficulty-distribution",
+              "definition": {
+                "type": "toplist",
+                "title": "Task Count by Difficulty",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(sum:tau2.task.total{$domain,$env,$agent_endpoint,!difficulty:unknown} by {difficulty}.as_count(), 10, 'sum', 'desc')"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 6,
+                "y": 0,
+                "width": 3,
+                "height": 2
+              }
+            },
+            {
+              "id": "difficulty-pass-rate",
+              "definition": {
+                "type": "toplist",
+                "title": "Avg Reward by Difficulty (%)",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.task.reward{$domain,$env,$agent_endpoint,!difficulty:unknown} by {difficulty} * 100, 10, 'mean', 'desc')",
+                    "conditional_formats": [
+                      {
+                        "comparator": ">=",
+                        "value": 70,
+                        "palette": "white_on_green"
+                      },
+                      {
+                        "comparator": ">=",
+                        "value": 50,
+                        "palette": "white_on_yellow"
+                      },
+                      {
+                        "comparator": "<",
+                        "value": 50,
+                        "palette": "white_on_red"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "layout": {
+                "x": 9,
+                "y": 0,
+                "width": 3,
+                "height": 2
+              }
+            },
+            {
+              "id": "difficulty-avg-complexity",
+              "definition": {
+                "type": "toplist",
+                "title": "Avg Complexity by Difficulty",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.task.complexity_score{$domain,$env,$agent_endpoint,!difficulty:unknown} by {difficulty}, 10, 'mean', 'desc')"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 6,
+                "y": 2,
+                "width": 3,
+                "height": 3
+              }
+            },
+            {
+              "id": "difficulty-success-count",
+              "definition": {
+                "type": "toplist",
+                "title": "Success Count by Difficulty",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(sum:tau2.task.success{$domain,$env,$agent_endpoint,success:true,!difficulty:unknown} by {difficulty}.as_count(), 10, 'sum', 'desc')"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 9,
+                "y": 2,
+                "width": 3,
+                "height": 3
+              }
+            }
+          ]
+        },
+        "layout": {
+          "x": 0,
+          "y": 6,
+          "width": 12,
+          "height": 6
+        }
+      },
+      {
+        "id": "agent-efficiency-group",
+        "definition": {
+          "type": "group",
+          "title": "Agent Efficiency Metrics",
+          "layout_type": "ordered",
+          "widgets": [
+            {
+              "id": "efficiency-reward-per-turn",
+              "definition": {
+                "type": "toplist",
+                "title": "Reward per Turn (higher = efficient)",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.task.reward_per_turn{$domain,$env,$difficulty} by {agent_endpoint}, 10, 'mean', 'desc')"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 0,
+                "y": 0,
+                "width": 4,
+                "height": 3
+              }
+            },
+            {
+              "id": "efficiency-reward-per-tool-call",
+              "definition": {
+                "type": "toplist",
+                "title": "Reward per Tool Call (higher = efficient)",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.task.reward_per_tool_call{$domain,$env,$difficulty} by {agent_endpoint}, 10, 'mean', 'desc')",
+                    "conditional_formats": [
+                      {
+                        "comparator": ">=",
+                        "value": 0.5,
+                        "palette": "white_on_green"
+                      },
+                      {
+                        "comparator": ">=",
+                        "value": 0.25,
+                        "palette": "white_on_yellow"
+                      },
+                      {
+                        "comparator": "<",
+                        "value": 0.25,
+                        "palette": "white_on_red"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "layout": {
+                "x": 4,
+                "y": 0,
+                "width": 4,
+                "height": 3
+              }
+            },
+            {
+              "id": "efficiency-tool-accuracy",
+              "definition": {
+                "type": "toplist",
+                "title": "Tool Accuracy (%)",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.task.tool_accuracy{$domain,$env,$difficulty} by {agent_endpoint} * 100, 10, 'mean', 'desc')",
+                    "conditional_formats": [
+                      {
+                        "comparator": ">=",
+                        "value": 80,
+                        "palette": "white_on_green"
+                      },
+                      {
+                        "comparator": ">=",
+                        "value": 60,
+                        "palette": "white_on_yellow"
+                      },
+                      {
+                        "comparator": "<",
+                        "value": 60,
+                        "palette": "white_on_red"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "layout": {
+                "x": 8,
+                "y": 0,
+                "width": 4,
+                "height": 3
+              }
+            },
+            {
+              "id": "efficiency-turns-per-task",
+              "definition": {
+                "type": "toplist",
+                "title": "Avg Turns per Task (lower = faster)",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.task.turns_total{$domain,$env,$difficulty} by {agent_endpoint}, 10, 'mean', 'asc')"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 0,
+                "y": 3,
+                "width": 4,
+                "height": 3
+              }
+            },
+            {
+              "id": "efficiency-duration",
+              "definition": {
+                "type": "toplist",
+                "title": "Avg Task Duration (seconds)",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.task.duration_seconds{$domain,$env,$difficulty} by {agent_endpoint}, 10, 'mean', 'asc')"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 4,
+                "y": 3,
+                "width": 4,
+                "height": 3
+              }
+            },
+            {
+              "id": "efficiency-reward-per-second",
+              "definition": {
+                "type": "toplist",
+                "title": "Reward per Second (speed efficiency)",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.task.reward_per_second{$domain,$env,$difficulty} by {agent_endpoint}, 10, 'mean', 'desc')"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 8,
+                "y": 3,
+                "width": 4,
+                "height": 3
+              }
+            }
+          ]
+        },
+        "layout": {
+          "x": 0,
+          "y": 12,
+          "width": 12,
+          "height": 7
+        }
+      },
+      {
+        "id": "domain-group",
+        "definition": {
+          "type": "group",
+          "title": "Performance by Domain",
+          "layout_type": "ordered",
+          "widgets": [
+            {
+              "id": "domain-pass-rate",
+              "definition": {
+                "type": "toplist",
+                "title": "Agent Performance by Domain",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.evaluation.pass_rate{$env,$agent_endpoint,$domain,$difficulty} by {agent_endpoint,domain}, 20, 'mean', 'desc')"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 0,
+                "y": 0,
+                "width": 6,
+                "height": 4
+              }
+            },
+            {
+              "id": "domain-task-count",
+              "definition": {
+                "type": "toplist",
+                "title": "Task Count by Domain",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(sum:tau2.task.total{$env,$agent_endpoint,$difficulty} by {domain}.as_count(), 10, 'sum', 'desc')"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 6,
+                "y": 0,
+                "width": 3,
+                "height": 4
+              }
+            },
+            {
+              "id": "domain-termination",
+              "definition": {
+                "type": "toplist",
+                "title": "Termination Reasons by Domain",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(sum:tau2.termination{$env,$agent_endpoint,$difficulty} by {domain,reason}.as_count(), 20, 'sum', 'desc')"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 9,
+                "y": 0,
+                "width": 3,
+                "height": 4
+              }
+            }
+          ]
+        },
+        "layout": {
+          "x": 0,
+          "y": 17,
+          "width": 12,
+          "height": 5
+        }
+      },
+      {
+        "id": "evaluation-details-group",
+        "definition": {
+          "type": "group",
+          "title": "Evaluation Details",
+          "layout_type": "ordered",
+          "widgets": [
+            {
+              "id": "detail-evaluations-list",
+              "definition": {
+                "type": "toplist",
+                "title": "Recent Evaluations (by Pass Rate)",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(avg:tau2.evaluation.pass_rate{$domain,$env,$agent_endpoint,$difficulty} by {evaluation_id,agent_endpoint,domain}, 20, 'mean', 'desc')"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 0,
+                "y": 0,
+                "width": 6,
+                "height": 4
+              }
+            },
+            {
+              "id": "detail-errors-by-agent",
+              "definition": {
+                "type": "toplist",
+                "title": "Error Count by Agent",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(sum:tau2.task.error_count{$domain,$env,$difficulty} by {agent_endpoint}.as_count(), 10, 'sum', 'desc')",
+                    "conditional_formats": [
+                      {
+                        "comparator": "<=",
+                        "value": 0,
+                        "palette": "white_on_green"
+                      },
+                      {
+                        "comparator": "<=",
+                        "value": 5,
+                        "palette": "white_on_yellow"
+                      },
+                      {
+                        "comparator": ">",
+                        "value": 5,
+                        "palette": "white_on_red"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "layout": {
+                "x": 6,
+                "y": 0,
+                "width": 3,
+                "height": 4
+              }
+            },
+            {
+              "id": "detail-tool-calls-by-agent",
+              "definition": {
+                "type": "toplist",
+                "title": "Tool Calls by Agent",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "top(sum:tau2.tool.calls{$domain,$env,$difficulty} by {agent_endpoint,tool_name}.as_count(), 20, 'sum', 'desc')"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 9,
+                "y": 0,
+                "width": 3,
+                "height": 4
+              }
+            }
+          ]
+        },
+        "layout": {
+          "x": 0,
+          "y": 22,
+          "width": 12,
+          "height": 5
+        }
+      },
+      {
+        "id": "summary-group",
+        "definition": {
+          "type": "group",
+          "title": "Quick Stats (Filtered)",
+          "layout_type": "ordered",
+          "widgets": [
+            {
+              "id": "summary-total-evals",
+              "definition": {
+                "type": "query_value",
+                "title": "Total Evaluations",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "count_not_null(avg:tau2.evaluation.pass_rate{$domain,$env,$agent_endpoint} by {evaluation_id})",
+                    "aggregator": "last"
+                  }
+                ],
+                "precision": 0,
+                "autoscale": true
+              },
+              "layout": {
+                "x": 0,
+                "y": 0,
+                "width": 2,
+                "height": 2
+              }
+            },
+            {
+              "id": "summary-total-tasks",
+              "definition": {
+                "type": "query_value",
+                "title": "Total Tasks",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "sum:tau2.task.total{$domain,$env,$agent_endpoint,$difficulty}.as_count()",
+                    "aggregator": "sum"
+                  }
+                ],
+                "precision": 0,
+                "autoscale": true
+              },
+              "layout": {
+                "x": 2,
+                "y": 0,
+                "width": 2,
+                "height": 2
+              }
+            },
+            {
+              "id": "summary-avg-pass-rate",
+              "definition": {
+                "type": "query_value",
+                "title": "Avg Pass Rate",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "avg:tau2.evaluation.pass_rate{$domain,$env,$agent_endpoint,$difficulty}",
+                    "aggregator": "avg"
+                  }
+                ],
+                "precision": 1,
+                "autoscale": false,
+                "custom_unit": "%",
+                "conditional_formats": [
+                  {
+                    "comparator": ">=",
+                    "value": 70,
+                    "palette": "white_on_green"
+                  },
+                  {
+                    "comparator": ">=",
+                    "value": 50,
+                    "palette": "white_on_yellow"
+                  },
+                  {
+                    "comparator": "<",
+                    "value": 50,
+                    "palette": "white_on_red"
+                  }
+                ]
+              },
+              "layout": {
+                "x": 4,
+                "y": 0,
+                "width": 2,
+                "height": 2
+              }
+            },
+            {
+              "id": "summary-avg-complexity",
+              "definition": {
+                "type": "query_value",
+                "title": "Avg Complexity",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "avg:tau2.task.complexity_score{$domain,$env,$agent_endpoint,$difficulty}",
+                    "aggregator": "avg"
+                  }
+                ],
+                "precision": 1,
+                "autoscale": false
+              },
+              "layout": {
+                "x": 6,
+                "y": 0,
+                "width": 2,
+                "height": 2
+              }
+            },
+            {
+              "id": "summary-agents-count",
+              "definition": {
+                "type": "query_value",
+                "title": "Unique Agents",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "count_not_null(avg:tau2.evaluation.pass_rate{$domain,$env} by {agent_endpoint})",
+                    "aggregator": "last"
+                  }
+                ],
+                "precision": 0,
+                "autoscale": true
+              },
+              "layout": {
+                "x": 8,
+                "y": 0,
+                "width": 2,
+                "height": 2
+              }
+            },
+            {
+              "id": "summary-avg-efficiency",
+              "definition": {
+                "type": "query_value",
+                "title": "Avg Reward/Turn",
+                "title_size": "16",
+                "title_align": "left",
+                "requests": [
+                  {
+                    "q": "avg:tau2.task.reward_per_turn{$domain,$env,$agent_endpoint,$difficulty}",
+                    "aggregator": "avg"
+                  }
+                ],
+                "precision": 3,
+                "autoscale": false
+              },
+              "layout": {
+                "x": 10,
+                "y": 0,
+                "width": 2,
+                "height": 2
+              }
+            }
+          ]
+        },
+        "layout": {
+          "x": 0,
+          "y": 27,
+          "width": 12,
+          "height": 3
+        }
+      }
+    ]
+  }
+}
