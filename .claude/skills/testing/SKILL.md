@@ -1,13 +1,26 @@
 ---
 name: testing
 description: |
-  Testing skill for creating, debugging, and maintaining tests. Use when:
-  - Creating new tests for implemented features
-  - Debugging failing or hanging tests
-  - Analyzing test coverage gaps
-  - Investigating flaky or slow tests
-  - Setting up test infrastructure (fixtures, conftest)
-  Enforces behavior-focused testing with pytest.
+  Testing skill for pytest tests, test debugging, and test infrastructure.
+
+  TRIGGER KEYWORDS: test, tests, testing, pytest, unit test, integration test,
+  e2e test, end-to-end test, test failure, failing test, test error, broken test,
+  flaky test, slow test, hanging test, test coverage, coverage gap, mock, mocking,
+  fixture, fixtures, conftest, assert, assertion, TDD, test driven, write tests,
+  add tests, create tests, run tests, debug test, fix test, test case, test suite.
+
+  Use this skill when:
+  - Writing, creating, or adding new tests
+  - Debugging failing, hanging, or broken tests
+  - Investigating flaky or intermittent test failures
+  - Analyzing or improving test coverage
+  - Setting up test infrastructure (fixtures, conftest.py, markers)
+  - Reviewing test quality or test anti-patterns
+  - Running or configuring pytest
+  - Creating mocks, stubs, or test doubles
+  - Fixing slow or timing-dependent tests
+
+  Enforces behavior-focused testing with pytest, FIRST principles, and AAA pattern.
 ---
 
 # Testing Skill
@@ -201,6 +214,13 @@ tests/test_<feature>_e2e/
 class TestObservabilityFlow:
     async def test_traces_appear_in_datadog(self, live_agent):
         """Traces from agent calls appear in Datadog within 30s."""
+```
+
+**Running E2E tests**: Use parallel execution for faster results:
+```bash
+uv run pytest -m "a2a_e2e and not smoke" -n 4 --dist=loadfile  # ~1:41
+uv run pytest -m "smoke" -n 2 --dist=loadfile
+uv run pytest -m "datadog_e2e"  # Serial only (session-scoped)
 ```
 
 ---

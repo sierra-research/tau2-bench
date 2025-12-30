@@ -185,6 +185,37 @@ results = await loop.run_in_executor(None, run_domain, config)
 | Real-time per-task progress | Evaluation is synchronous | Use SSE events (003-async-evaluation) |
 | Per-message A2A conversation traces | Not implemented | Future enhancement |
 
+#### LLMObs Evaluation Integration
+
+The `tau2_agent/llmobs_evaluations.py` module submits evaluation metrics directly to Datadog LLM Observability using `LLMObs.submit_evaluation()`. This provides trace-correlated quality metrics that appear alongside LLM calls in the Datadog UI.
+
+**Opt-in Behavior**: Evaluations are only submitted when both environment variables are set:
+- `DD_TRACE_ENABLED=true`
+- `DD_LLMOBS_ENABLED=true`
+
+**Metrics Submitted**:
+
+| Label | Type | Value | Description |
+|-------|------|-------|-------------|
+| `tau2.task.reward` | score | 0.0-1.0 | Per-task reward score |
+| `tau2.task.success` | categorical | pass/fail | Binary success (reward >= 0.7) |
+| `tau2.task.termination` | categorical | reason | Why task ended |
+| `tau2.assertion.db_check` | categorical | pass/fail | Database state validation |
+| `tau2.assertion.nl_pass_rate` | score | 0.0-1.0 | NL assertion pass ratio |
+| `tau2.assertion.action_accuracy` | score | 0.0-1.0 | Tool call correctness ratio |
+| `tau2.assertion.communicate_pass_rate` | score | 0.0-1.0 | Communication check pass ratio |
+| `tau2.evaluation.pass_rate` | score | 0.0-1.0 | Overall evaluation pass rate |
+| `tau2.evaluation.avg_reward` | score | 0.0-1.0 | Average reward across tasks |
+
+**Complementary Telemetry Channels**:
+
+| Channel | Purpose | UI Location |
+|---------|---------|-------------|
+| `llmobs_evaluations.py` | Real-time trace-correlated evaluations | LLM Observability → Traces |
+| `emit_metrics.py` | Post-hoc aggregated metrics for monitors/SLOs | Metrics Explorer, Dashboards |
+
+The two channels serve different purposes: LLMObs evaluations enable drill-down from traces to quality metrics, while DogStatsD metrics power detection rules and dashboards.
+
 #### EvaluationStore Integration Dependency (ADR-002)
 
 **Critical Finding**: The `RunTau2Evaluation` tool currently generates SSE events but does NOT persist evaluation results to disk. Per ADR-002:
@@ -492,7 +523,7 @@ ENV DD_TRACE_ENABLED=true
 ENV DD_LLMOBS_ENABLED=true
 ENV DD_LLMOBS_AGENTLESS_ENABLED=true
 ENV DD_SERVICE=tau2-datadog-observability
-ENV DD_ENV=production
+ENV DD_ENV=dev
 ENV TAU2_AGENT_MODEL=gemini-2.0-flash
 ENV PORT=8001
 
@@ -511,7 +542,7 @@ GOOGLE_API_KEY=AIza...                      # API key for Gemini (both orchestra
 DD_TRACE_ENABLED=true
 DD_LLMOBS_ENABLED=true
 DD_SERVICE=tau2-datadog-observability
-DD_ENV=production
+DD_ENV=dev
 DD_API_KEY=...                              # Datadog API key
 
 # Application
