@@ -46,17 +46,21 @@ spec:
               memory: 2Gi
               cpu: "2"
           env:
-            - name: PORT
-              value: "8001"
-            - name: TAU2_AGENT_MODEL
-              value: gemini-2.0-flash
-            - name: LOG_LEVEL
-              value: INFO
-            # GOOGLE_API_KEY is injected from Secret Manager
+            # Secrets from Secret Manager (Dockerfile has all other defaults)
             - name: GOOGLE_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: google-api-key
+                  key: latest
+            - name: DD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: dd-api-key
+                  key: latest
+            - name: DD_SITE
+              valueFrom:
+                secretKeyRef:
+                  name: dd-site
                   key: latest
           # Startup probe - wait for server to be ready
           startupProbe:

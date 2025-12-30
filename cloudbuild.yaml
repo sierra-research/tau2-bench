@@ -6,14 +6,16 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
+      - '--no-cache'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/tau2-agent:${_TAG}'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/tau2-agent/tau2-agent:${_TAG}'
       - '-f'
       - 'tau2_agent/docker_setup/Dockerfile'
       - '.'
 
 images:
-  - 'gcr.io/$PROJECT_ID/tau2-agent:${_TAG}'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/tau2-agent/tau2-agent:${_TAG}'
 
 substitutions:
   _TAG: 'latest'
+  _REGION: 'us-west2'

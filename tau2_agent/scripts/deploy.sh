@@ -10,6 +10,7 @@
 #   - GCP project with billing enabled
 #   - Required APIs enabled (run setup-secrets.sh first)
 #   - Secret 'google-api-key' created in Secret Manager
+#   - Secrets 'dd-api-key' and 'dd-site' created in Secret Manager (Datadog)
 #   - Service account 'tau2-agent-sa' created with secret access
 #
 # Usage:
@@ -25,8 +26,6 @@ set -euo pipefail
 # Default configuration
 DEFAULT_REGION="us-west2"
 DEFAULT_SERVICE_NAME="tau2-agent"
-DEFAULT_MODEL="gemini-2.0-flash"
-DEFAULT_LOG_LEVEL="INFO"
 
 # Parse command line arguments
 REGION="${DEFAULT_REGION}"
@@ -84,7 +83,6 @@ echo "=== tau2_agent Cloud Run Deployment ==="
 echo "Project:      ${PROJECT_ID}"
 echo "Region:       ${REGION}"
 echo "Service:      ${SERVICE_NAME}"
-echo "Model:        ${DEFAULT_MODEL}"
 echo ""
 
 # Get script directory and repository root
@@ -101,13 +99,28 @@ fi
 # Check prerequisites
 echo "Checking prerequisites..."
 
-# Verify secret exists
+# Verify required secrets exist
 if ! gcloud secrets describe google-api-key --project="${PROJECT_ID}" &>/dev/null; then
     echo "Error: Secret 'google-api-key' not found"
     echo "Run setup-secrets.sh first to create the secret"
     exit 1
 fi
 echo "  ✓ Secret 'google-api-key' exists"
+
+# Verify Datadog secrets exist (required for LLM Observability)
+if ! gcloud secrets describe dd-api-key --project="${PROJECT_ID}" &>/dev/null; then
+    echo "Error: Secret 'dd-api-key' not found"
+    echo "Run setup-secrets.sh first to create the Datadog secrets"
+    exit 1
+fi
+echo "  ✓ Secret 'dd-api-key' exists"
+
+if ! gcloud secrets describe dd-site --project="${PROJECT_ID}" &>/dev/null; then
+    echo "Error: Secret 'dd-site' not found"
+    echo "Run setup-secrets.sh first to create the Datadog secrets"
+    exit 1
+fi
+echo "  ✓ Secret 'dd-site' exists"
 
 # Verify service account exists
 SA_EMAIL="tau2-agent-sa@${PROJECT_ID}.iam.gserviceaccount.com"
@@ -147,6 +160,10 @@ gcloud builds submit \
 # Step 2: Deploy to Cloud Run
 echo ""
 echo "Step 2: Deploying to Cloud Run..."
+
+# Secrets from Secret Manager; ENV vars use Dockerfile defaults
+SECRETS_STRING="GOOGLE_API_KEY=google-api-key:latest,DD_API_KEY=dd-api-key:latest,DD_SITE=dd-site:latest"
+
 gcloud run deploy "${SERVICE_NAME}" \
     --image "${IMAGE}" \
     --region "${REGION}" \
@@ -161,8 +178,7 @@ gcloud run deploy "${SERVICE_NAME}" \
     --min-instances 0 \
     --max-instances 10 \
     --service-account "${SA_EMAIL}" \
-    --set-env-vars "TAU2_AGENT_MODEL=${DEFAULT_MODEL},LOG_LEVEL=${DEFAULT_LOG_LEVEL}" \
-    --set-secrets "GOOGLE_API_KEY=google-api-key:latest"
+    --set-secrets "${SECRETS_STRING}"
 
 echo ""
 echo "=== Deployment Complete ==="
@@ -175,6 +191,26 @@ SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \
 
 echo ""
 echo "Service URL: ${SERVICE_URL}"
+
+# Save endpoint to .env file for demo scripts
+ENV_FILE="${REPO_ROOT}/.env"
+if [[ -f "${ENV_FILE}" ]]; then
+    # Update existing TAU2_AGENT_URL or append
+    if grep -q "^TAU2_AGENT_URL=" "${ENV_FILE}"; then
+        sed -i "s|^TAU2_AGENT_URL=.*|TAU2_AGENT_URL=${SERVICE_URL}|" "${ENV_FILE}"
+        echo "  ✓ Updated TAU2_AGENT_URL in .env"
+    else
+        echo "" >> "${ENV_FILE}"
+        echo "# GCP deployed tau2_agent endpoint (auto-set by deploy.sh)" >> "${ENV_FILE}"
+        echo "TAU2_AGENT_URL=${SERVICE_URL}" >> "${ENV_FILE}"
+        echo "  ✓ Added TAU2_AGENT_URL to .env"
+    fi
+else
+    echo "# GCP deployed endpoints (auto-set by deploy.sh)" > "${ENV_FILE}"
+    echo "TAU2_AGENT_URL=${SERVICE_URL}" >> "${ENV_FILE}"
+    echo "  ✓ Created .env with TAU2_AGENT_URL"
+fi
+
 echo ""
 echo "Test with:"
 echo "  curl -X POST '${SERVICE_URL}/a2a/tau2_agent' \\"
