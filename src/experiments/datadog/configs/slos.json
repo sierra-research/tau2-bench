@@ -1,60 +1,84 @@
 {
   "slos": [
     {
-      "name": "tau2-bench Task Success Rate SLO",
-      "description": "99% of benchmark tasks should complete successfully (reward >= 0.7)",
+      "name": "tau2-bench Perfect Task Rate SLO",
+      "description": "Target: 15% of tasks achieve perfect reward (1.0).",
       "type": "metric",
       "query": {
-        "numerator": "sum:tau2.task.success{success:true,env:production}.as_count()",
-        "denominator": "sum:tau2.task.success{env:production}.as_count()"
+        "numerator": "sum:tau2.task.success{success:true,env:dev}.as_count()",
+        "denominator": "sum:tau2.task.success{env:dev}.as_count()"
       },
       "thresholds": {
-        "target": 99.0,
-        "warning": 99.5
+        "target": 15.0,
+        "warning": 20.0
       },
-      "timeframe": "30d",
+      "timeframe": "7d",
       "tags": [
         "team:ai-platform",
         "service:tau2-bench",
-        "hackathon:datadog-2024"
+        "hackathon:datadog-2025",
+        "slo-type:quality"
       ]
     },
     {
       "name": "tau2-bench Task Latency SLO",
-      "description": "95% of tasks should complete within 60 seconds",
+      "description": "90% of tasks should complete within 60 seconds. Complex tasks may exceed this.",
       "type": "metric",
       "query": {
-        "numerator": "count:tau2.task.duration_seconds{env:production,upper:60}.as_count()",
-        "denominator": "count:tau2.task.duration_seconds{env:production}.as_count()"
+        "numerator": "count:tau2.task.duration_seconds{env:dev,upper:60}.as_count()",
+        "denominator": "count:tau2.task.duration_seconds{env:dev}.as_count()"
       },
       "thresholds": {
-        "target": 95.0,
-        "warning": 97.0
+        "target": 90.0,
+        "warning": 93.0
       },
       "timeframe": "7d",
       "tags": [
         "team:ai-platform",
         "service:tau2-bench",
-        "hackathon:datadog-2024"
+        "hackathon:datadog-2025",
+        "slo-type:latency"
       ]
     },
     {
-      "name": "tau2-bench Task Quality SLO",
-      "description": "95% of tasks should achieve reward >= 0.7",
+      "name": "tau2-bench Easy Task Quality SLO",
+      "description": "70% of easy difficulty tasks should achieve reward >= 0.7. Easy tasks are the baseline expectation.",
       "type": "metric",
       "query": {
-        "numerator": "count:tau2.task.reward{env:production,lower:0.7}.as_count()",
-        "denominator": "count:tau2.task.reward{env:production}.as_count()"
+        "numerator": "sum:tau2.task.success{env:dev,difficulty:easy,success:true}.as_count()",
+        "denominator": "sum:tau2.task.success{env:dev,difficulty:easy}.as_count()"
       },
       "thresholds": {
-        "target": 95.0,
-        "warning": 97.0
+        "target": 70.0,
+        "warning": 80.0
       },
       "timeframe": "7d",
       "tags": [
         "team:ai-platform",
         "service:tau2-bench",
-        "hackathon:datadog-2024"
+        "hackathon:datadog-2025",
+        "slo-type:quality",
+        "difficulty:easy"
+      ]
+    },
+    {
+      "name": "tau2-bench Tool Accuracy SLO",
+      "description": "60% average tool accuracy across all tasks. Low accuracy indicates agent needs better tool guidance.",
+      "type": "metric",
+      "query": {
+        "numerator": "sum:tau2.tool.correct{correct:true,env:dev}.as_count()",
+        "denominator": "sum:tau2.tool.correct{env:dev}.as_count()"
+      },
+      "thresholds": {
+        "target": 60.0,
+        "warning": 70.0
+      },
+      "timeframe": "7d",
+      "tags": [
+        "team:ai-platform",
+        "service:tau2-bench",
+        "hackathon:datadog-2025",
+        "slo-type:quality"
       ]
     }
   ]

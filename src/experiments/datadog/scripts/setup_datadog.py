@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Datadog resource setup script for tau2-bench observability.
 
-This script creates and manages Datadog resources (monitors, SLOs, dashboards)
-from JSON configuration files.
+This script creates and manages Datadog resources (monitors, SLOs, dashboards,
+and Case Management) from JSON configuration files.
 
 Environment Variables:
     DD_API_KEY: Required. Datadog API key.
@@ -17,6 +17,7 @@ Usage:
     python setup_datadog.py --monitors
     python setup_datadog.py --slos
     python setup_datadog.py --dashboard
+    python setup_datadog.py --case-management
 
     # Export current configurations from Datadog
     python setup_datadog.py --export
@@ -34,9 +35,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from loguru import logger
 
-# Config directory relative to this script
+_project_root = Path(__file__).parent.parent.parent.parent.parent
+load_dotenv(_project_root / ".env")
+
 CONFIGS_DIR = Path(__file__).parent.parent / "configs"
 
 
@@ -61,9 +65,11 @@ class DatadogSetup:
         self.site = site
         self.dry_run = dry_run
         self._api_client: Any = None
+        self._api_client_v2: Any = None
         self._monitors_api: Any = None
         self._slo_api: Any = None
         self._dashboards_api: Any = None
+        self._cases_api: Any = None
 
         if not dry_run:
             self._init_client()
@@ -87,6 +93,12 @@ class DatadogSetup:
             self._monitors_api = MonitorsApi(self._api_client)
             self._slo_api = ServiceLevelObjectivesApi(self._api_client)
             self._dashboards_api = DashboardsApi(self._api_client)
+
+            # Initialize v2 API client for Case Management
+            from datadog_api_client.v2.api.case_management_api import CaseManagementApi
+
+            self._api_client_v2 = ApiClient(configuration)
+            self._cases_api = CaseManagementApi(self._api_client_v2)
 
             logger.info(f"Datadog API client initialized for site: {self.site}")
 
@@ -141,11 +153,14 @@ class DatadogSetup:
         with open(config_path) as f:
             return json.load(f)
 
-    def create_monitors(self) -> list[dict]:
-        """Create monitors from monitors.json.
+    def create_monitors(self, force_update: bool = False) -> list[dict]:
+        """Create or update monitors from monitors.json.
+
+        Args:
+            force_update: If True, update existing monitors instead of skipping.
 
         Returns:
-            List of created monitor responses.
+            List of created/updated monitor responses.
         """
         logger.info("Creating monitors...")
         config = self.load_config("monitors.json")
@@ -155,17 +170,120 @@ class DatadogSetup:
             logger.warning("No monitors found in configuration")
             return []
 
+        # Get existing monitors to check for duplicates
+        existing_monitors = {}
+        if not self.dry_run and force_update:
+            try:
+                all_monitors = self._monitors_api.list_monitors(
+                    name="tau2-bench"
+                )
+                for m in all_monitors:
+                    existing_monitors[m.name] = m.id
+                logger.info(f"Found {len(existing_monitors)} existing tau2-bench monitors")
+            except Exception as e:
+                logger.warning(f"Could not fetch existing monitors: {e}")
+
         results = []
         for monitor_def in monitors:
             try:
-                result = self._create_monitor(monitor_def)
+                monitor_name = monitor_def.get("name", "")
+                if force_update and monitor_name in existing_monitors:
+                    # Update existing monitor
+                    result = self._update_monitor(
+                        existing_monitors[monitor_name], monitor_def
+                    )
+                else:
+                    result = self._create_monitor(monitor_def)
                 results.append(result)
             except Exception as e:
-                logger.error(f"Failed to create monitor {monitor_def.get('id')}: {e}")
+                error_msg = str(e)
+                if "Duplicate" in error_msg and force_update:
+                    # Try to find and update the monitor
+                    logger.info(f"Monitor {monitor_def.get('id')} exists, attempting update...")
+                    try:
+                        result = self._find_and_update_monitor(monitor_def)
+                        results.append(result)
+                    except Exception as update_e:
+                        logger.error(f"Failed to update monitor {monitor_def.get('id')}: {update_e}")
+                else:
+                    logger.error(f"Failed to create monitor {monitor_def.get('id')}: {e}")
                 continue
 
-        logger.info(f"Created {len(results)} monitors")
+        logger.info(f"Created/updated {len(results)} monitors")
         return results
+
+    def _find_and_update_monitor(self, monitor_def: dict) -> dict:
+        """Find an existing monitor by name and update it.
+
+        Args:
+            monitor_def: Monitor definition from config.
+
+        Returns:
+            Updated monitor response.
+        """
+        monitor_name = monitor_def.get("name", "")
+
+        # Search for the monitor by name prefix
+        all_monitors = self._monitors_api.list_monitors(name="tau2-bench")
+        for m in all_monitors:
+            if m.name == monitor_name:
+                return self._update_monitor(m.id, monitor_def)
+
+        raise ValueError(f"Monitor not found: {monitor_name}")
+
+    def _update_monitor(self, monitor_id: int, monitor_def: dict) -> dict:
+        """Update an existing monitor.
+
+        Args:
+            monitor_id: Datadog monitor ID.
+            monitor_def: Monitor definition from config.
+
+        Returns:
+            Updated monitor response.
+        """
+        config_id = monitor_def.get("id", "unknown")
+        name = monitor_def.get("name", "Unnamed Monitor")
+
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would update monitor: {config_id} - {name}")
+            return {"id": monitor_id, "name": name, "dry_run": True, "action": "update"}
+
+        from datadog_api_client.v1.model.monitor_options import MonitorOptions
+        from datadog_api_client.v1.model.monitor_thresholds import MonitorThresholds
+        from datadog_api_client.v1.model.monitor_update_request import MonitorUpdateRequest
+
+        # Build thresholds
+        options_def = monitor_def.get("options", {})
+        thresholds_def = options_def.get("thresholds", {})
+        thresholds = MonitorThresholds(
+            critical=thresholds_def.get("critical"),
+            warning=thresholds_def.get("warning"),
+        )
+
+        # Build options
+        options = MonitorOptions(
+            thresholds=thresholds,
+            notify_no_data=options_def.get("notify_no_data", False),
+            renotify_interval=options_def.get("renotify_interval"),
+            escalation_message=options_def.get("escalation_message"),
+            notify_audit=options_def.get("notify_audit", False),
+            include_tags=options_def.get("include_tags", True),
+        )
+
+        # Build update request
+        update_request = MonitorUpdateRequest(
+            name=name,
+            query=monitor_def.get("query", ""),
+            message=monitor_def.get("message", ""),
+            tags=monitor_def.get("tags", []),
+            options=options,
+        )
+
+        response = self._monitors_api.update_monitor(
+            monitor_id=monitor_id, body=update_request
+        )
+        logger.info(f"Updated monitor: {config_id} - {name} (ID: {response.id})")
+        return {"id": response.id, "name": name, "config_id": config_id, "action": "update"}
 
     def _create_monitor(self, monitor_def: dict) -> dict:
         """Create a single monitor.
@@ -271,11 +389,11 @@ class DatadogSetup:
             logger.info(f"[DRY RUN] Would create SLO: {name}")
             return {"name": name, "dry_run": True}
 
-        from datadog_api_client.v1.model.service_level_objective import (
-            ServiceLevelObjective,
-        )
         from datadog_api_client.v1.model.service_level_objective_query import (
             ServiceLevelObjectiveQuery,
+        )
+        from datadog_api_client.v1.model.service_level_objective_request import (
+            ServiceLevelObjectiveRequest,
         )
         from datadog_api_client.v1.model.slo_threshold import SLOThreshold
         from datadog_api_client.v1.model.slo_timeframe import SLOTimeframe
@@ -308,8 +426,8 @@ class DatadogSetup:
             )
         ]
 
-        # Build SLO
-        slo = ServiceLevelObjective(
+        # Build SLO request
+        slo = ServiceLevelObjectiveRequest(
             name=name,
             description=slo_def.get("description", ""),
             type=SLOType.METRIC,
@@ -323,14 +441,24 @@ class DatadogSetup:
         logger.info(f"Created SLO: {name} (ID: {slo_data.get('id', 'unknown')})")
         return {"id": slo_data.get("id"), "name": name}
 
-    def create_dashboard(self) -> dict:
-        """Create dashboard from dashboards.json.
+    def create_dashboard(self, version: str = "agents") -> dict:
+        """Create dashboard from config file.
+
+        Args:
+            version: Dashboard version:
+                - "agents": Agent comparison dashboard (default)
+                - "operations": Operations & actionable items dashboard
 
         Returns:
             Created dashboard response.
         """
-        logger.info("Creating dashboard...")
-        config = self.load_config("dashboards.json")
+        version_to_file = {
+            "agents": "dashboards_agents.json",
+            "operations": "dashboards_operations.json",
+        }
+        config_file = version_to_file.get(version, "dashboards_agents.json")
+        logger.info(f"Creating dashboard from {config_file}...")
+        config = self.load_config(config_file)
         dashboard_def = config.get("dashboard", {})
 
         if not dashboard_def:
@@ -347,6 +475,9 @@ class DatadogSetup:
         from datadog_api_client.v1.model.dashboard_layout_type import (
             DashboardLayoutType,
         )
+        from datadog_api_client.v1.model.dashboard_template_variable import (
+            DashboardTemplateVariable,
+        )
 
         # Map layout type
         layout_mapping = {
@@ -358,8 +489,18 @@ class DatadogSetup:
         )
 
         # Build widgets from config
-        # Note: Full widget conversion is complex; using simplified approach
         widgets = self._convert_widgets(dashboard_def.get("widgets", []))
+
+        # Build template variables
+        template_vars_config = dashboard_def.get("template_variables", [])
+        template_variables = [
+            DashboardTemplateVariable(
+                name=tv.get("name"),
+                default=tv.get("default", "*"),
+                prefix=tv.get("prefix"),
+            )
+            for tv in template_vars_config
+        ]
 
         # Build dashboard
         dashboard = Dashboard(
@@ -367,6 +508,7 @@ class DatadogSetup:
             description=dashboard_def.get("description", ""),
             layout_type=layout_type,
             widgets=widgets,
+            template_variables=template_variables if template_variables else None,
         )
 
         response = self._dashboards_api.create_dashboard(body=dashboard)
@@ -376,12 +518,20 @@ class DatadogSetup:
     def _convert_widgets(self, widgets_config: list[dict]) -> list:
         """Convert widget configurations to API format.
 
+        Handles nested definition structures and group widgets.
+
         Args:
             widgets_config: List of widget definitions from config.
 
         Returns:
             List of Widget objects for the API.
         """
+        from datadog_api_client.v1.model.group_widget_definition import (
+            GroupWidgetDefinition,
+        )
+        from datadog_api_client.v1.model.group_widget_definition_type import (
+            GroupWidgetDefinitionType,
+        )
         from datadog_api_client.v1.model.note_widget_definition import (
             NoteWidgetDefinition,
         )
@@ -406,28 +556,52 @@ class DatadogSetup:
         from datadog_api_client.v1.model.timeseries_widget_request import (
             TimeseriesWidgetRequest,
         )
+        from datadog_api_client.v1.model.toplist_widget_definition import (
+            ToplistWidgetDefinition,
+        )
+        from datadog_api_client.v1.model.toplist_widget_definition_type import (
+            ToplistWidgetDefinitionType,
+        )
+        from datadog_api_client.v1.model.toplist_widget_request import (
+            ToplistWidgetRequest,
+        )
         from datadog_api_client.v1.model.widget import Widget
         from datadog_api_client.v1.model.widget_layout import WidgetLayout
+        from datadog_api_client.v1.model.widget_layout_type import WidgetLayoutType
 
         widgets = []
-        y_position = 0
 
         for widget_config in widgets_config:
-            widget_type = widget_config.get("type", "note")
-            title = widget_config.get("title", "")
+            # Handle nested definition structure (definition is inside widget_config)
+            defn = widget_config.get("definition", widget_config)
+            widget_type = defn.get("type", "note")
+            title = defn.get("title", "")
+            layout_config = widget_config.get("layout", {})
 
             try:
                 if widget_type == "note":
                     definition = NoteWidgetDefinition(
                         type=NoteWidgetDefinitionType.NOTE,
-                        content=widget_config.get("content", ""),
-                        background_color=widget_config.get("background_color", "white"),
-                        font_size=widget_config.get("font_size", "14"),
-                        text_align=widget_config.get("text_align", "left"),
+                        content=defn.get("content", ""),
+                        background_color=defn.get("background_color", "white"),
+                        font_size=defn.get("font_size", "14"),
+                        text_align=defn.get("text_align", "left"),
+                    )
+                elif widget_type == "group":
+                    # Recursively convert nested widgets
+                    nested_widgets = self._convert_widgets(defn.get("widgets", []))
+                    layout_type = WidgetLayoutType.ORDERED
+                    if defn.get("layout_type") == "free":
+                        layout_type = WidgetLayoutType.FREE
+                    definition = GroupWidgetDefinition(
+                        type=GroupWidgetDefinitionType.GROUP,
+                        title=title,
+                        layout_type=layout_type,
+                        widgets=nested_widgets,
                     )
                 elif widget_type == "timeseries":
                     requests = []
-                    for req in widget_config.get("requests", []):
+                    for req in defn.get("requests", []):
                         requests.append(
                             TimeseriesWidgetRequest(
                                 q=req.get("q", ""),
@@ -441,7 +615,7 @@ class DatadogSetup:
                     )
                 elif widget_type == "query_value":
                     requests = []
-                    for req in widget_config.get("requests", []):
+                    for req in defn.get("requests", []):
                         requests.append(
                             QueryValueWidgetRequest(
                                 q=req.get("q", ""),
@@ -452,8 +626,77 @@ class DatadogSetup:
                         type=QueryValueWidgetDefinitionType.QUERY_VALUE,
                         title=title,
                         requests=requests,
-                        precision=widget_config.get("precision", 2),
-                        autoscale=widget_config.get("autoscale", True),
+                        precision=defn.get("precision", 2),
+                        autoscale=defn.get("autoscale", True),
+                    )
+                elif widget_type == "toplist":
+                    requests = []
+                    for req in defn.get("requests", []):
+                        requests.append(
+                            ToplistWidgetRequest(
+                                q=req.get("q", ""),
+                            )
+                        )
+                    definition = ToplistWidgetDefinition(
+                        type=ToplistWidgetDefinitionType.TOPLIST,
+                        title=title,
+                        requests=requests,
+                    )
+                elif widget_type == "slo_list":
+                    from datadog_api_client.v1.model.slo_list_widget_definition import (
+                        SLOListWidgetDefinition,
+                    )
+                    from datadog_api_client.v1.model.slo_list_widget_definition_type import (
+                        SLOListWidgetDefinitionType,
+                    )
+                    from datadog_api_client.v1.model.slo_list_widget_query import (
+                        SLOListWidgetQuery,
+                    )
+                    from datadog_api_client.v1.model.slo_list_widget_request import (
+                        SLOListWidgetRequest,
+                    )
+                    from datadog_api_client.v1.model.slo_list_widget_request_type import (
+                        SLOListWidgetRequestType,
+                    )
+
+                    request_config = defn.get("request", {})
+                    query_config = request_config.get("query", {})
+                    slo_query = SLOListWidgetQuery(
+                        query_string=query_config.get("query_string", ""),
+                        limit=query_config.get("limit", 10),
+                    )
+                    slo_request = SLOListWidgetRequest(
+                        query=slo_query,
+                        request_type=SLOListWidgetRequestType.SLO_LIST,
+                    )
+                    definition = SLOListWidgetDefinition(
+                        type=SLOListWidgetDefinitionType.SLO_LIST,
+                        title=title,
+                        title_size=defn.get("title_size", "16"),
+                        title_align=defn.get("title_align", "left"),
+                        requests=[slo_request],
+                    )
+                elif widget_type == "manage_status":
+                    from datadog_api_client.v1.model.monitor_summary_widget_definition import (
+                        MonitorSummaryWidgetDefinition,
+                    )
+                    from datadog_api_client.v1.model.monitor_summary_widget_definition_type import (
+                        MonitorSummaryWidgetDefinitionType,
+                    )
+
+                    definition = MonitorSummaryWidgetDefinition(
+                        type=MonitorSummaryWidgetDefinitionType.MANAGE_STATUS,
+                        title=title,
+                        title_size=defn.get("title_size", "16"),
+                        title_align=defn.get("title_align", "left"),
+                        summary_type=defn.get("summary_type", "monitors"),
+                        display_format=defn.get("display_format", "countsAndList"),
+                        color_preference=defn.get("color_preference", "text"),
+                        hide_zero_counts=defn.get("hide_zero_counts", False),
+                        show_last_triggered=defn.get("show_last_triggered", True),
+                        show_priority=defn.get("show_priority", False),
+                        query=defn.get("query", ""),
+                        sort=defn.get("sort", "status,asc"),
                     )
                 else:
                     # For unsupported types, create a note placeholder
@@ -463,13 +706,15 @@ class DatadogSetup:
                         background_color="gray",
                     )
 
-                # Create widget with layout
-                widget = Widget(
-                    definition=definition,
-                    layout=WidgetLayout(x=0, y=y_position, width=12, height=3),
+                # Create widget with layout from config
+                layout = WidgetLayout(
+                    x=layout_config.get("x", 0),
+                    y=layout_config.get("y", 0),
+                    width=layout_config.get("width", 12),
+                    height=layout_config.get("height", 3),
                 )
+                widget = Widget(definition=definition, layout=layout)
                 widgets.append(widget)
-                y_position += 3
 
             except Exception as e:
                 logger.warning(f"Failed to convert widget {title}: {e}")
@@ -533,8 +778,130 @@ class DatadogSetup:
 
         logger.info(f"Export complete. Files saved to: {output_dir}")
 
-    def create_all(self) -> dict:
+    def create_all_dashboards(self) -> list[dict]:
+        """Create all dashboards (agents and operations).
+
+        Returns:
+            List of created dashboard responses.
+        """
+        logger.info("Creating all dashboards...")
+        results = []
+
+        for version in ["agents", "operations"]:
+            try:
+                result = self.create_dashboard(version=version)
+                results.append(result)
+            except Exception as e:
+                logger.error(f"Failed to create {version} dashboard: {e}")
+
+        logger.info(f"Created {len(results)} dashboards")
+        return results
+
+    def setup_case_management(self) -> dict:
+        """Set up Case Management for tau2-bench monitors.
+
+        Creates a project and sample case to verify Case Management is working.
+        Monitors will create cases automatically when they fire via the
+        @case-management notification handle.
+
+        Returns:
+            Dict with project and case information.
+        """
+        logger.info("Setting up Case Management...")
+
+        if self.dry_run:
+            logger.info("[DRY RUN] Would set up Case Management:")
+            logger.info("  - Get or create tau2-bench project")
+            logger.info("  - Create sample case for verification")
+            return {"dry_run": True}
+
+        from datadog_api_client.v2.model.project_create import ProjectCreate
+        from datadog_api_client.v2.model.project_create_attributes import ProjectCreateAttributes
+        from datadog_api_client.v2.model.project_create_request import ProjectCreateRequest
+
+        result = {"project": None, "case": None}
+
+        # Step 1: Get or create project
+        project_key = "TAUBENCH"
+        project_name = "tau2-bench Agent Evaluation"
+
+        try:
+            # Check for existing projects
+            projects_response = self._cases_api.get_projects()
+            existing_project = None
+
+            if projects_response.data:
+                for proj in projects_response.data:
+                    if proj.attributes.key == project_key:
+                        existing_project = proj
+                        logger.info(f"Found existing project: {project_key} (ID: {proj.id})")
+                        break
+
+            if existing_project:
+                project_id = existing_project.id
+                result["project"] = {
+                    "id": project_id,
+                    "key": project_key,
+                    "name": project_name,
+                    "action": "existing",
+                }
+            else:
+                # Create new project
+                project_request = ProjectCreateRequest(
+                    data=ProjectCreate(
+                        attributes=ProjectCreateAttributes(
+                            key=project_key,
+                            name=project_name,
+                        ),
+                        type="project",
+                    )
+                )
+                project_response = self._cases_api.create_project(body=project_request)
+                project_id = project_response.data.id
+                logger.info(f"Created project: {project_key} (ID: {project_id})")
+                result["project"] = {
+                    "id": project_id,
+                    "key": project_key,
+                    "name": project_name,
+                    "action": "created",
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to get/create project: {e}")
+            # Continue without project - cases can still be created
+            project_id = None
+
+        # Note: Cases will be created automatically when monitors fire via @case-management
+        # The project provides organization for those cases
+        if result["project"]:
+            logger.info("Cases will be created automatically when monitors fire via @case-management")
+
+        # Log summary
+        logger.info("=" * 50)
+        logger.info("Case Management Setup Complete:")
+        if result["project"]:
+            logger.info(f"  Project: {result['project']['key']} ({result['project']['action']})")
+            logger.info("  Monitors already configured with @case-management")
+            logger.info("  Cases will be created automatically when monitors fire")
+        else:
+            logger.info("  Project creation failed - cases will still work without a project")
+            logger.info("  Monitors are configured with @case-management")
+        logger.info("=" * 50)
+
+        return result
+
+    def create_all(
+        self,
+        dashboard_version: str = "agents",
+        all_dashboards: bool = True,
+        force_update: bool = False,
+    ) -> dict:
         """Create all Datadog resources.
+
+        Args:
+            dashboard_version: Dashboard version to create if all_dashboards is False.
+            all_dashboards: If True, create all dashboards (agents + operations).
+            force_update: If True, update existing monitors instead of skipping.
 
         Returns:
             Summary of created resources.
@@ -544,11 +911,11 @@ class DatadogSetup:
         results = {
             "monitors": [],
             "slos": [],
-            "dashboard": {},
+            "dashboards": [],
         }
 
         try:
-            results["monitors"] = self.create_monitors()
+            results["monitors"] = self.create_monitors(force_update=force_update)
         except Exception as e:
             logger.error(f"Failed to create monitors: {e}")
 
@@ -558,16 +925,19 @@ class DatadogSetup:
             logger.error(f"Failed to create SLOs: {e}")
 
         try:
-            results["dashboard"] = self.create_dashboard()
+            results["dashboards"] = self.create_all_dashboards()
         except Exception as e:
-            logger.error(f"Failed to create dashboard: {e}")
+            logger.error(f"Failed to create dashboard(s): {e}")
 
         # Summary
         logger.info("=" * 50)
         logger.info("Setup Complete Summary:")
         logger.info(f"  Monitors created: {len(results['monitors'])}")
         logger.info(f"  SLOs created: {len(results['slos'])}")
-        logger.info(f"  Dashboard created: {'Yes' if results['dashboard'] else 'No'}")
+        logger.info(f"  Dashboards created: {len(results['dashboards'])}")
+        for db in results["dashboards"]:
+            if db:
+                logger.info(f"    - {db.get('title', 'Unknown')}: {db.get('url', 'N/A')}")
         logger.info("=" * 50)
 
         return results
@@ -613,12 +983,29 @@ def main() -> int:
     parser.add_argument(
         "--dashboard",
         action="store_true",
-        help="Create dashboard from dashboards.json",
+        help="Create dashboard from config file",
+    )
+    parser.add_argument(
+        "--dashboard-version",
+        type=str,
+        default="agents",
+        choices=["agents", "operations"],
+        help="Dashboard version: agents (comparison), operations (actionable items). Default: agents",
+    )
+    parser.add_argument(
+        "--all-dashboards",
+        action="store_true",
+        help="Create all dashboards (agents + operations). Used with --all or --dashboard.",
+    )
+    parser.add_argument(
+        "--case-management",
+        action="store_true",
+        help="Set up Case Management (create project and verification case)",
     )
     parser.add_argument(
         "--all",
         action="store_true",
-        help="Create all resources (monitors, SLOs, dashboard)",
+        help="Create all resources (monitors, SLOs, dashboards, case management)",
     )
     parser.add_argument(
         "--export",
@@ -629,6 +1016,11 @@ def main() -> int:
         "--dry-run",
         action="store_true",
         help="Show what would be created without making API calls",
+    )
+    parser.add_argument(
+        "--force-update",
+        action="store_true",
+        help="Update existing monitors instead of skipping duplicates",
     )
     parser.add_argument(
         "--log-level",
@@ -644,9 +1036,9 @@ def main() -> int:
     logger.add(sys.stderr, level=args.log_level)
 
     # Check that at least one action is specified
-    if not any([args.monitors, args.slos, args.dashboard, args.all, args.export]):
+    if not any([args.monitors, args.slos, args.dashboard, args.case_management, args.all, args.export]):
         parser.error(
-            "At least one action is required: --monitors, --slos, --dashboard, --all, or --export"
+            "At least one action is required: --monitors, --slos, --dashboard, --case-management, --all, or --export"
         )
 
     # Get API keys (skip validation in dry-run mode)
@@ -682,14 +1074,25 @@ def main() -> int:
 
     try:
         if args.all:
-            setup.create_all()
+            setup.create_all(
+                dashboard_version=args.dashboard_version,
+                all_dashboards=args.all_dashboards,
+                force_update=args.force_update,
+            )
+            # Also set up case management when --all is used
+            setup.setup_case_management()
         else:
             if args.monitors:
-                setup.create_monitors()
+                setup.create_monitors(force_update=args.force_update)
             if args.slos:
                 setup.create_slos()
             if args.dashboard:
-                setup.create_dashboard()
+                if args.all_dashboards:
+                    setup.create_all_dashboards()
+                else:
+                    setup.create_dashboard(version=args.dashboard_version)
+            if args.case_management:
+                setup.setup_case_management()
 
         if args.export:
             setup.export_configs()

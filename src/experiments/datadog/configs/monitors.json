@@ -4,13 +4,14 @@
       "id": "DR-001",
       "name": "tau2-bench: High Task Error Rate",
       "type": "metric alert",
-      "query": "sum(last_5m):sum:tau2.task.success{success:false,env:production}.as_count() / sum:tau2.task.total{env:production}.as_count() > 0.2",
-      "message": "{{#is_alert}}\n**ALERT: Task error rate exceeded 20%**\n\nDomain: {{domain.name}}\nCurrent Rate: {{value}}%\n\nRecommended Actions:\n1. Check recent model changes\n2. Review error logs in APM\n3. Verify Gemini API health\n\n@slack-ai-alerts\n{{/is_alert}}\n\n{{#is_warning}}\nWARNING: Task error rate elevated at {{value}}%\n{{/is_warning}}",
+      "query": "sum(last_5m):sum:tau2.task.success{success:false,env:dev}.as_count() / clamp_min(sum:tau2.task.success{env:dev}.as_count(), 1) > 0.2",
+      "message": "{{#is_alert}}\n**ALERT: Task error rate exceeded 20%**\n\n**Current Rate:** {{value}}%\n\n**Investigation Steps:**\n1. Check termination reasons in dashboard\n2. Review failed NL assertions for patterns\n3. Verify tool accuracy metrics\n4. Check APM traces for errors\n\n**Runbook:** See case for detailed investigation steps.\n\n@case-TAUBENCH\n{{/is_alert}}\n\n{{#is_warning}}\n**WARNING: Task error rate elevated at {{value}}%**\n\nMonitor for escalation.\n{{/is_warning}}",
       "tags": [
         "team:ai-platform",
         "service:tau2-bench",
-        "env:production",
-        "hackathon:datadog-2024"
+        "env:dev",
+        "hackathon:datadog-2025",
+        "severity:warning"
       ],
       "options": {
         "thresholds": {
@@ -19,32 +20,33 @@
         },
         "notify_no_data": false,
         "renotify_interval": 60,
-        "escalation_message": "Error rate still elevated after 1 hour. Creating incident.",
+        "escalation_message": "Error rate still elevated after 1 hour.",
         "notify_audit": true,
         "include_tags": true
       }
     },
     {
       "id": "DR-002",
-      "name": "tau2-bench: Task Failure Spike (Hero Monitor)",
+      "name": "tau2-bench: Task Quality Degradation",
       "type": "metric alert",
-      "query": "avg(last_10m):avg:tau2.task.reward{env:production} by {domain} < 0.7",
-      "message": "{{#is_alert}}\n**ALERT: Task Quality Degradation Detected**\n\nDomain: {{domain.name}}\nAverage Reward: {{value}}\nThreshold: 0.7\n\nThe agent is completing tasks incorrectly or incompletely.\n\nInvestigation Steps:\n1. Check LLM Observability for prompt/completion issues\n2. Review recent task failures in dashboard\n3. Compare to baseline performance\n\nRunbook: https://docs.example.com/runbooks/task-failure\n\n@slack-ai-alerts @pagerduty-tau2-oncall\n{{/is_alert}}",
+      "query": "avg(last_10m):avg:tau2.task.reward{env:dev} by {domain,difficulty} < 0.5",
+      "message": "{{#is_alert}}\n**ALERT: Task Quality Degradation Detected**\n\n**Context:**\n- Domain: {{domain.name}}\n- Difficulty: {{difficulty.name}}\n- Average Reward: {{value}}\n- Threshold: 0.5\n\n**What This Means:**\nTasks in this domain/difficulty combination are completing with low quality scores.\n\n**Investigation Steps:**\n1. Check assertion breakdown for {{domain.name}} - which type is failing? (NL/Action/DB)\n2. Review tool accuracy for this domain\n3. Check if this difficulty tier is expected to be harder\n4. Review LLM Observability for prompt issues\n\n**Actionable Insights:**\n- NL assertions failing → Agent lacks {{domain.name}} domain knowledge\n- Action checks failing → Tool call patterns need review\n- DB checks failing → State management issue\n\n**Quick Links:**\n- [View Metrics](https://app.datadoghq.com/metric/explorer?exp_metric=tau2.task.reward&exp_scope=domain%3A{{domain.name}}%2Cdifficulty%3A{{difficulty.name}}&exp_agg=avg)\n- [APM Traces](https://app.datadoghq.com/apm/traces?query=service%3Atau2-bench-agent%20%40domain%3A{{domain.name}})\n- [LLM Observability](https://app.datadoghq.com/llm/traces?query=%40ml_app%3Atau2-bench)\n\n@case-TAUBENCH\n{{/is_alert}}\n\n{{#is_warning}}\n**WARNING: Task quality below normal**\n\nDomain: {{domain.name}} | Difficulty: {{difficulty.name}}\nAverage Reward: {{value}} (threshold: 0.6)\n{{/is_warning}}",
       "tags": [
         "team:ai-platform",
         "service:tau2-bench",
-        "env:production",
-        "hackathon:datadog-2024",
-        "hero-monitor"
+        "env:dev",
+        "hackathon:datadog-2025",
+        "hero-monitor",
+        "severity:critical"
       ],
       "options": {
         "thresholds": {
-          "critical": 0.7,
-          "warning": 0.8
+          "critical": 0.5,
+          "warning": 0.6
         },
         "notify_no_data": false,
         "renotify_interval": 30,
-        "escalation_message": "Quality still degraded. Creating case for investigation.",
+        "escalation_message": "Quality still degraded after 30 minutes.",
         "notify_audit": true,
         "include_tags": true
       }
@@ -53,13 +55,14 @@
       "id": "DR-003",
       "name": "tau2-bench: Token Cost Anomaly",
       "type": "metric alert",
-      "query": "avg(last_15m):anomalies(sum:tau2.llm.token_cost{env:production}.as_count(), 'agile', 2, direction='above') >= 1",
-      "message": "{{#is_alert}}\n**ALERT: Token Cost Anomaly Detected**\n\nToken costs are significantly higher than the baseline.\n\nPossible Causes:\n- Agent making excessive LLM calls\n- Prompts growing unexpectedly large\n- Model change with different pricing\n\nRecommended Actions:\n1. Check LLM Observability for token breakdown\n2. Review recent prompt changes\n3. Verify model configuration\n\n@slack-ai-platform\n{{/is_alert}}",
+      "query": "avg(last_15m):anomalies(sum:tau2.llm.token_cost{env:dev}.as_count(), 'agile', 2, direction='above') >= 1",
+      "message": "{{#is_alert}}\n**ALERT: Token Cost Anomaly Detected**\n\n**Context:**\n- Current Cost: Significantly above baseline\n- Detection Method: Agile anomaly detection (2 deviations)\n\n**Possible Causes:**\n- Agent making excessive LLM calls (check turns_total metric)\n- Prompts growing unexpectedly large\n- Complex tasks requiring more reasoning\n\n**Investigation Steps:**\n1. Check tau2.task.turns_total by domain - high turns = agent struggling\n2. Review tau2.simulator.tokens_prompt vs tokens_completion ratio\n3. Compare cost per task across agents\n4. Check LLM Observability for token breakdown by span\n\n@case-TAUBENCH\n{{/is_alert}}",
       "tags": [
         "team:ai-platform",
         "service:tau2-bench",
-        "env:production",
-        "hackathon:datadog-2024"
+        "env:dev",
+        "hackathon:datadog-2025",
+        "severity:warning"
       ],
       "options": {
         "thresholds": {
@@ -75,22 +78,23 @@
       "id": "DR-004",
       "name": "tau2-bench: Premature Termination Spike",
       "type": "metric alert",
-      "query": "sum(last_1h):sum:tau2.termination{reason:max_errors,env:production}.as_count() > 10",
-      "message": "{{#is_alert}}\n**ALERT: Excessive MAX_ERRORS Terminations**\n\nTasks are hitting the error limit and being terminated prematurely.\n\nCount: {{value}} tasks in the last hour\nThreshold: 10\n\nThis indicates:\n- Agent making invalid tool calls\n- Tool schema mismatch\n- Environment state corruption\n\nImmediate Actions:\n1. Check latest tool execution errors in logs\n2. Verify tool schemas haven't changed\n3. Review agent's tool call patterns\n\n@pagerduty-tau2-critical\n{{/is_alert}}",
+      "query": "sum(last_1h):sum:tau2.termination{env:dev} by {domain,reason}.as_count() > 3",
+      "message": "{{#is_alert}}\n**INCIDENT: Excessive Task Terminations**\n\n**Context:**\n- Domain: {{domain.name}}\n- Termination Reason: {{reason.name}}\n- Count: {{value}} tasks in the last hour\n- Threshold: 3\n\n**What This Means by Reason:**\n- **max_errors**: Agent making too many invalid tool calls\n- **max_steps**: Agent stuck in loops or over-clarifying\n- **error**: Unexpected system error\n\n**Root Cause Analysis for {{domain.name}}:**\n1. Check tau2.tool.correct{correct:false,domain:{{domain.name}}} - which tools are failing?\n2. Review tool accuracy for {{domain.name}} in dashboard\n3. Check assertion failures for this domain\n\n**Actionable Fix:**\n- max_errors → Review tool schemas and agent's tool usage\n- max_steps → Agent may need clearer stopping criteria\n- Domain-specific → Agent lacks {{domain.name}} knowledge\n\n**Quick Links:**\n- [View Terminations](https://app.datadoghq.com/metric/explorer?exp_metric=tau2.termination&exp_scope=domain%3A{{domain.name}}%2Creason%3A{{reason.name}}&exp_agg=sum)\n- [Tool Accuracy](https://app.datadoghq.com/metric/explorer?exp_metric=tau2.tool.correct&exp_scope=domain%3A{{domain.name}}&exp_agg=avg)\n- [APM Traces](https://app.datadoghq.com/apm/traces?query=service%3Atau2-bench-agent%20%40domain%3A{{domain.name}}%20status%3Aerror)\n\n@incident\n{{/is_alert}}\n\n{{#is_warning}}\n**WARNING: Terminations increasing**\n\nDomain: {{domain.name}} | Reason: {{reason.name}}\nCount: {{value}} tasks\n\n@case-TAUBENCH\n{{/is_warning}}",
       "tags": [
         "team:ai-platform",
         "service:tau2-bench",
-        "env:production",
-        "hackathon:datadog-2024"
+        "env:dev",
+        "hackathon:datadog-2025",
+        "severity:critical"
       ],
       "options": {
         "thresholds": {
-          "critical": 10,
-          "warning": 5
+          "critical": 3,
+          "warning": 2
         },
         "notify_no_data": false,
         "renotify_interval": 30,
-        "escalation_message": "Creating incident for premature termination investigation.",
+        "escalation_message": "Terminations still occurring.",
         "notify_audit": true,
         "require_full_window": false
       }
@@ -99,13 +103,14 @@
       "id": "DR-005",
       "name": "tau2-bench: Task Latency SLO Breach",
       "type": "metric alert",
-      "query": "percentile(last_10m):p99:tau2.task.duration_seconds{env:production} > 60",
-      "message": "{{#is_alert}}\n**ALERT: Task Latency SLO Breach**\n\np99 Latency: {{value}}s\nSLO Target: 60s\n\nPossible Causes:\n- Gemini API latency increase\n- Complex task scenarios\n- Network issues to external agent\n\nRecommended Actions:\n1. Check APM traces for slow spans\n2. Review LLM Observability for slow generations\n3. Check GCP status page\n\n@slack-ai-alerts\n{{/is_alert}}",
+      "query": "percentile(last_10m):p99:tau2.task.duration_seconds{env:dev} > 60",
+      "message": "{{#is_alert}}\n**ALERT: Task Latency SLO Breach**\n\n**Context:**\n- p99 Latency: {{value}}s\n- SLO Target: 60s\n\n**Possible Causes:**\n- High turn count (agent taking many iterations)\n- Complex task scenarios (hard/expert difficulty)\n- Gemini API latency increase\n- Network issues to external agent\n\n**Investigation Steps:**\n1. Check tau2.task.turns_total - more turns = longer tasks\n2. Filter by difficulty:hard/expert in dashboard - expected to be slower\n3. Check APM traces for slow spans\n4. Review LLM Observability for slow generations\n5. Check https://status.cloud.google.com/ for Gemini issues\n\n@case-TAUBENCH\n{{/is_alert}}\n\n{{#is_warning}}\n**WARNING: Task latency approaching SLO limit**\n\np99 Latency: {{value}}s (threshold: 45s)\n{{/is_warning}}",
       "tags": [
         "team:ai-platform",
         "service:tau2-bench",
-        "env:production",
-        "hackathon:datadog-2024"
+        "env:dev",
+        "hackathon:datadog-2025",
+        "severity:warning"
       ],
       "options": {
         "thresholds": {
@@ -121,18 +126,43 @@
       "id": "DR-006",
       "name": "tau2-bench: Low Task Efficiency Alert",
       "type": "metric alert",
-      "query": "avg(last_15m):avg:tau2.task.reward_per_turn{env:production} < 0.05",
-      "message": "{{#is_alert}}\n**ALERT: Low Task Efficiency Detected**\n\nTasks are requiring too many conversation turns relative to quality achieved.\n\nCurrent Reward/Turn: {{value}}\nThreshold: 0.05\n\nPossible Causes:\n- Agent requiring excessive clarification\n- Inefficient tool call patterns\n- Agent not understanding user intent\n\nRecommended Actions:\n1. Check conversation length distribution in dashboard\n2. Review tool call accuracy metrics\n3. Examine failed tasks for common patterns\n4. Compare to baseline efficiency by domain\n\n@slack-ai-alerts\n{{/is_alert}}\n\n{{#is_warning}}\nWARNING: Task efficiency below normal at {{value}} reward/turn.\n\nMonitor conversation length trends for emerging issues.\n{{/is_warning}}",
+      "query": "avg(last_15m):avg:tau2.task.reward_per_turn{env:dev} < 0.03",
+      "message": "{{#is_alert}}\n**ALERT: Low Task Efficiency Detected**\n\n**Context:**\n- Current Reward/Turn: {{value}}\n- Threshold: 0.03\n\n**What This Means:**\nTasks are requiring too many conversation turns relative to quality achieved. The agent is struggling to complete tasks efficiently.\n\n**Possible Causes:**\n- Agent requiring excessive clarification from user\n- Inefficient tool call patterns (multiple failed attempts)\n- Agent not understanding user intent\n- Complex tasks with many steps\n\n**Investigation Steps:**\n1. Check tau2.task.turns_total by domain in dashboard - which domain has longest conversations?\n2. Review tau2.task.tool_accuracy - low accuracy = wasted turns\n3. Compare efficiency by difficulty tier - hard tasks expected to be less efficient\n4. Check tau2.assertion.result{met:false} - which assertions are failing?\n\n**Actionable Insights:**\n- Low tool accuracy + high turns → Agent needs better tool guidance\n- High turns on easy tasks → Agent may be over-clarifying\n- Domain-specific → Agent may lack domain knowledge\n\n@case-TAUBENCH\n{{/is_alert}}\n\n{{#is_warning}}\n**WARNING: Task efficiency below normal**\n\nReward/Turn: {{value}} (threshold: 0.05)\nMonitor conversation length trends.\n{{/is_warning}}",
       "tags": [
         "team:ai-platform",
         "service:tau2-bench",
-        "env:production",
-        "hackathon:datadog-2024"
+        "env:dev",
+        "hackathon:datadog-2025",
+        "severity:warning"
       ],
       "options": {
         "thresholds": {
           "critical": 0.03,
           "warning": 0.05
+        },
+        "notify_no_data": false,
+        "renotify_interval": 60,
+        "notify_audit": true,
+        "include_tags": true
+      }
+    },
+    {
+      "id": "DR-007",
+      "name": "tau2-bench: High Assertion Failure Rate",
+      "type": "metric alert",
+      "query": "sum(last_15m):sum:tau2.assertion.result{met:false,env:dev} by {domain,type}.as_count() > 10",
+      "message": "{{#is_alert}}\n**ALERT: High Assertion Failure Rate**\n\n**Context:**\n- Domain: {{domain.name}}\n- Assertion Type: {{type.name}}\n- Failed Count: {{value}}\n- Threshold: 10\n\n**What Each Assertion Type Means:**\n- **check_nl_assertion**: Agent response doesn't match expected natural language criteria → Agent lacks domain understanding\n- **check_action**: Agent called wrong tool or wrong arguments → Tool usage needs improvement\n- **check_db**: Required state change didn't happen → Agent not completing actions properly\n\n**Actionable Fix for {{domain.name}} + {{type.name}}:**\n- check_nl_assertion → Improve agent's {{domain.name}} domain knowledge in prompts\n- check_action → Review tool schemas and add usage examples\n- check_db → Verify agent completes full action sequences\n\n**Quick Links:**\n- [View Assertions](https://app.datadoghq.com/metric/explorer?exp_metric=tau2.assertion.result&exp_scope=domain%3A{{domain.name}}%2Ctype%3A{{type.name}}&exp_agg=sum)\n- [Task Rewards](https://app.datadoghq.com/metric/explorer?exp_metric=tau2.task.reward&exp_scope=domain%3A{{domain.name}}&exp_agg=avg)\n- [LLM Observability](https://app.datadoghq.com/llm/traces?query=%40ml_app%3Atau2-bench)\n\n@case-TAUBENCH\n{{/is_alert}}\n\n{{#is_warning}}\n**WARNING: Assertion failures increasing**\n\nDomain: {{domain.name}} | Type: {{type.name}}\nFailed: {{value}} assertions\n{{/is_warning}}",
+      "tags": [
+        "team:ai-platform",
+        "service:tau2-bench",
+        "env:dev",
+        "hackathon:datadog-2025",
+        "severity:warning"
+      ],
+      "options": {
+        "thresholds": {
+          "critical": 10,
+          "warning": 5
         },
         "notify_no_data": false,
         "renotify_interval": 60,
