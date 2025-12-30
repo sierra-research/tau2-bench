@@ -49,7 +49,7 @@ def set_user_llm_credentials():
 
     # Default model when using Nebius API
     if api_key and not model and os.environ.get("NEBIUS_API_KEY"):
-        model = "openai/Qwen/Qwen3-30B-A3B-Thinking-2507"
+        model = "nebius/Qwen/Qwen3-30B-A3B-Thinking-2507"
 
     if not model or not api_key:
         pytest.skip("User LLM credentials not configured (need USER_LLM_MODEL + USER_LLM_API_KEY or NEBIUS_API_KEY)")

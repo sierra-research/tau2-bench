@@ -16,6 +16,7 @@ Key design decisions:
 - SAFE CLOSE: All async client cleanup uses timeout guards to prevent hanging
 - SSE streaming helpers for evaluation request handling
 - EvaluationStore verification fixtures
+- PARALLEL EXECUTION: pytest-xdist worker isolation via disjoint port ranges
 """
 
 import asyncio
@@ -41,19 +42,61 @@ from tau2_agent.utils import SSEEvent, SSEParser
 # Load .env for NEBIUS_API_KEY and other credentials
 load_dotenv()
 
+
+def pytest_configure(config):
+    """Configure pytest-xdist worker isolation with disjoint port ranges.
+
+    Each xdist worker gets a unique 10-port range to avoid collisions:
+    - gw0: 8700-8709
+    - gw1: 8710-8719
+    - gw2: 8720-8729
+    - etc.
+
+    This enables parallel execution of module-scoped server fixtures
+    without port conflicts between workers.
+    """
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "")
+    if worker_id:
+        # Extract worker number from id like "gw0", "gw1", etc.
+        worker_num = int(worker_id.replace("gw", ""))
+        port_base = 8700 + (worker_num * 10)
+        os.environ["A2A_E2E_TAU2_PORT"] = str(port_base)
+        os.environ["A2A_E2E_MOCK_PORT"] = str(port_base + 1)
+
+
 # Test configuration - use unique ports to avoid conflicts
 # CRITICAL: tau2_agent and mock_agent MUST run on SEPARATE ports to avoid
 # async deadlock. When both run on the same port, the evaluation request from
 # tau2_agent to the mock agent blocks the event loop that needs to handle
 # the mock agent's request.
 #
-# Port assignments:
+# Port assignments (dynamic for xdist workers):
 # - 8765: Legacy single-server (deprecated)
 # - 8766/8767: test_datadog_e2e (tau2_agent/mock_agent)
-# - 8768/8769: test_a2a_e2e (tau2_agent/mock_agent)
+# - 8768/8769: test_a2a_e2e default (tau2_agent/mock_agent)
+# - 8700+N*10: xdist worker N base port
 ADK_SERVER_HOST = "localhost"
-TAU2_AGENT_PORT = int(os.environ.get("A2A_E2E_TAU2_PORT", "8768"))
-MOCK_AGENT_PORT = int(os.environ.get("A2A_E2E_MOCK_PORT", "8769"))
+
+
+def get_worker_ports() -> tuple[int, int]:
+    """Get port assignments for this worker.
+
+    For pytest-xdist workers, returns unique port ranges to avoid conflicts.
+    Falls back to default ports for non-parallel execution.
+    """
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "")
+    if worker_id:
+        worker_num = int(worker_id.replace("gw", ""))
+        port_base = 8700 + (worker_num * 10)
+        return port_base, port_base + 1
+    # Default ports for serial execution
+    tau2_port = int(os.environ.get("A2A_E2E_TAU2_PORT", "8768"))
+    mock_port = int(os.environ.get("A2A_E2E_MOCK_PORT", "8769"))
+    return tau2_port, mock_port
+
+
+# Legacy constants for backwards compatibility (will be overridden by fixtures)
+TAU2_AGENT_PORT, MOCK_AGENT_PORT = get_worker_ports()
 TAU2_AGENT_BASE_URL = f"http://{ADK_SERVER_HOST}:{TAU2_AGENT_PORT}"
 MOCK_AGENT_BASE_URL = f"http://{ADK_SERVER_HOST}:{MOCK_AGENT_PORT}"
 SERVER_STARTUP_TIMEOUT = 60  # seconds
@@ -293,7 +336,7 @@ def get_user_llm_headers() -> dict[str, str]:
 
     # Default model when using Nebius API
     if api_key and not model and os.environ.get("NEBIUS_API_KEY"):
-        model = "openai/Qwen/Qwen3-30B-A3B-Thinking-2507"
+        model = "nebius/Qwen/Qwen3-30B-A3B-Thinking-2507"
 
     if model:
         headers["X-User-LLM-Model"] = model
