@@ -130,8 +130,12 @@ class ParticipantMessageBase(BaseModel):
     def is_tool_call(self) -> bool:
         """
         Check if the message is a tool call.
+
+        Returns True only if tool_calls is a non-empty list.
+        An empty list is treated as no tool calls to prevent IndexError
+        when processing tool call results.
         """
-        return self.tool_calls is not None
+        return self.tool_calls is not None and len(self.tool_calls) > 0
 
     def __str__(self) -> str:
         lines = [f"{self.role.capitalize()}Message"]

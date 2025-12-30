@@ -382,14 +382,7 @@ class A2AClient:
 
                 response_content = "\n".join(response_texts)
 
-                # Debug: Log actual response content
-                if response_content:
-                    logger.debug(
-                        "A2A agent response content",
-                        content_preview=response_content[:500],
-                        content_length=len(response_content),
-                    )
-                else:
+                if not response_content:
                     logger.warning(
                         "A2A agent returned empty response",
                         request_id=request_id,

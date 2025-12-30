@@ -11,7 +11,7 @@ from loguru import logger
 
 res = load_dotenv()
 if not res:
-    logger.warning("No .env file found")
+    logger.debug("No .env file found (using environment variables directly)")
 
 # Try to get data directory from environment variable first
 DATA_DIR_ENV = os.getenv("TAU2_DATA_DIR")
@@ -78,6 +78,6 @@ def get_commit_hash() -> str:
             .split("\n")[0]
         )
     except Exception as e:
-        logger.error(f"Failed to get git hash: {e}")
+        logger.debug(f"Git not available, using 'unknown' for commit hash: {e}")
         commit_hash = "unknown"
     return commit_hash
