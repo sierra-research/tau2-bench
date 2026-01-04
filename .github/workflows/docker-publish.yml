@@ -1,0 +1,179 @@
+# Multi-registry Docker build and push workflow
+# Publishes images to GHCR (for AgentBeats) and GCP Artifact Registry (for Cloud Run)
+#
+# Required GitHub Secrets:
+#   - GCP_PROJECT_ID: Your GCP project ID
+#   - GCP_SA_KEY: Base64-encoded service account JSON key with Artifact Registry Writer role
+#
+# Usage:
+#   - Automatic: Push to main or create a version tag (v*)
+#   - Manual: Use workflow_dispatch to select which registries to push to
+
+name: Build and Publish Docker Images
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      push_ghcr:
+        description: 'Push to GHCR (for AgentBeats)'
+        type: boolean
+        default: true
+      push_gar:
+        description: 'Push to GCP Artifact Registry'
+        type: boolean
+        default: true
+
+env:
+  GAR_LOCATION: us-west2-docker.pkg.dev
+  GAR_REPO: tau2-agent
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        agent:
+          - name: tau2-agent
+            dockerfile: tau2_agent/docker_setup/Dockerfile
+            port: 8001
+          - name: kimi-litellm-agent
+            dockerfile: kimi_litellm_agent/docker_setup/Dockerfile
+            port: 8002
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Determine which registries to push to
+      - name: Set push targets
+        id: targets
+        run: |
+          # For push events (not workflow_dispatch), default to both registries
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "push_ghcr=true" >> $GITHUB_OUTPUT
+            echo "push_gar=true" >> $GITHUB_OUTPUT
+          else
+            echo "push_ghcr=${{ inputs.push_ghcr }}" >> $GITHUB_OUTPUT
+            echo "push_gar=${{ inputs.push_gar }}" >> $GITHUB_OUTPUT
+          fi
+
+      # Login to GHCR
+      - name: Login to GitHub Container Registry
+        if: steps.targets.outputs.push_ghcr == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Login to GCP Artifact Registry
+      - name: Login to GCP Artifact Registry
+        if: steps.targets.outputs.push_gar == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GAR_LOCATION }}
+          username: _json_key_base64
+          password: ${{ secrets.GCP_SA_KEY }}
+
+      # Set up Docker Buildx for multi-platform builds
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Generate metadata for tags
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.agent.name }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      # Build tags based on push targets
+      - name: Build tag list
+        id: tags
+        run: |
+          TAGS=""
+          SHA_SHORT=$(echo "${{ github.sha }}" | cut -c1-7)
+
+          # GHCR tags
+          if [ "${{ steps.targets.outputs.push_ghcr }}" = "true" ]; then
+            TAGS="${TAGS}ghcr.io/${{ github.repository_owner }}/${{ matrix.agent.name }}:${SHA_SHORT},"
+            if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              TAGS="${TAGS}ghcr.io/${{ github.repository_owner }}/${{ matrix.agent.name }}:latest,"
+            fi
+            if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+              VERSION="${{ github.ref_name }}"
+              TAGS="${TAGS}ghcr.io/${{ github.repository_owner }}/${{ matrix.agent.name }}:${VERSION},"
+            fi
+          fi
+
+          # GAR tags
+          if [ "${{ steps.targets.outputs.push_gar }}" = "true" ]; then
+            GAR_BASE="${{ env.GAR_LOCATION }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.GAR_REPO }}/${{ matrix.agent.name }}"
+            TAGS="${TAGS}${GAR_BASE}:${SHA_SHORT},"
+            if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              TAGS="${TAGS}${GAR_BASE}:latest,"
+            fi
+            if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+              VERSION="${{ github.ref_name }}"
+              TAGS="${TAGS}${GAR_BASE}:${VERSION},"
+            fi
+          fi
+
+          # Remove trailing comma
+          TAGS="${TAGS%,}"
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+          echo "Generated tags: ${TAGS}"
+
+      # Determine if we should push (at least one target enabled)
+      - name: Should push?
+        id: should_push
+        run: |
+          if [ "${{ steps.targets.outputs.push_ghcr }}" = "true" ] || [ "${{ steps.targets.outputs.push_gar }}" = "true" ]; then
+            echo "push=true" >> $GITHUB_OUTPUT
+          else
+            echo "push=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Build and push
+      - name: Build and push ${{ matrix.agent.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.agent.dockerfile }}
+          platforms: linux/amd64
+          push: ${{ steps.should_push.outputs.push == 'true' }}
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.title=${{ matrix.agent.name }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      # Summary
+      - name: Build summary
+        run: |
+          echo "## ${{ matrix.agent.name }} Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Registry | Pushed |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| GHCR | ${{ steps.targets.outputs.push_ghcr }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| GCP Artifact Registry | ${{ steps.targets.outputs.push_gar }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tags" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.tags.outputs.tags }}" | tr ',' '\n' >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

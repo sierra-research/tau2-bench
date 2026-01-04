@@ -90,4 +90,6 @@ EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD python -c "import httpx; httpx.get('http://localhost:8001/a2a/tau2_agent/.well-known/agent-card.json', timeout=5).raise_for_status()" || exit 1
 
-CMD ["python", "-m", "tau2_agent.server"]
+# AgentBeats-compatible entrypoint: accepts --host, --port, --card-url args
+ENTRYPOINT ["python", "-m", "tau2_agent.server"]
+CMD ["--host", "0.0.0.0"]

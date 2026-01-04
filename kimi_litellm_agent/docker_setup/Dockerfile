@@ -39,5 +39,6 @@ EXPOSE 8002
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python -c "import httpx; httpx.get('http://localhost:8002/a2a/kimi_litellm_agent/.well-known/agent-card.json', timeout=5).raise_for_status()" || exit 1
 
-# Run server using get_fast_api_app (like tau2_agent)
-CMD ["python", "-m", "kimi_litellm_agent.server"]
+# AgentBeats-compatible entrypoint: accepts --host, --port, --card-url args
+ENTRYPOINT ["python", "-m", "kimi_litellm_agent.server"]
+CMD ["--host", "0.0.0.0"]

@@ -26,11 +26,43 @@ def create_app():
 
 
 def main():
-    """Run the kimi_litellm_agent server."""
+    """Run the kimi_litellm_agent server.
+
+    Supports both environment variables and CLI arguments for configuration.
+    CLI arguments take precedence over environment variables.
+
+    CLI Args (AgentBeats compatible):
+        --host: Host to bind the server (default: 0.0.0.0)
+        --port: Port to bind the server (default: 8002)
+        --card-url: External URL for agent card discovery
+    """
+    import argparse
+
     import uvicorn
 
-    port = int(os.getenv("PORT", "8002"))
-    host = os.getenv("HOST", "0.0.0.0")
+    # Parse CLI arguments (AgentBeats compatibility)
+    parser = argparse.ArgumentParser(description="Run the kimi_litellm_agent A2A server")
+    parser.add_argument(
+        "--host",
+        type=str,
+        default=os.getenv("HOST", "0.0.0.0"),
+        help="Host to bind the server (default: 0.0.0.0)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.getenv("PORT", "8002")),
+        help="Port to bind the server (default: 8002)",
+    )
+    parser.add_argument(
+        "--card-url",
+        type=str,
+        default=os.getenv("CARD_URL"),
+        help="External URL for agent card discovery",
+    )
+    args = parser.parse_args()
+
+    # Get log level from environment
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 
     # Configure structured logging (JSON for GCP, human-readable locally)
@@ -38,13 +70,14 @@ def main():
 
     logger.info(
         "Starting kimi_litellm_agent server",
-        host=host,
-        port=port,
+        host=args.host,
+        port=args.port,
+        card_url=args.card_url,
         log_level=log_level,
     )
 
     app = create_app()
-    uvicorn.run(app, host=host, port=port, log_level=log_level.lower())
+    uvicorn.run(app, host=args.host, port=args.port, log_level=log_level.lower())
 
 
 if __name__ == "__main__":
