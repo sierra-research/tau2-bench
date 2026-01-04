@@ -106,16 +106,18 @@ jobs:
         run: |
           TAGS=""
           SHA_SHORT=$(echo "${{ github.sha }}" | cut -c1-7)
+          # Docker tags must be lowercase
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
 
           # GHCR tags
           if [ "${{ steps.targets.outputs.push_ghcr }}" = "true" ]; then
-            TAGS="${TAGS}ghcr.io/${{ github.repository_owner }}/${{ matrix.agent.name }}:${SHA_SHORT},"
+            TAGS="${TAGS}ghcr.io/${OWNER}/${{ matrix.agent.name }}:${SHA_SHORT},"
             if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-              TAGS="${TAGS}ghcr.io/${{ github.repository_owner }}/${{ matrix.agent.name }}:latest,"
+              TAGS="${TAGS}ghcr.io/${OWNER}/${{ matrix.agent.name }}:latest,"
             fi
             if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
               VERSION="${{ github.ref_name }}"
-              TAGS="${TAGS}ghcr.io/${{ github.repository_owner }}/${{ matrix.agent.name }}:${VERSION},"
+              TAGS="${TAGS}ghcr.io/${OWNER}/${{ matrix.agent.name }}:${VERSION},"
             fi
           fi
 
