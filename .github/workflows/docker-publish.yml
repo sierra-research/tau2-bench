@@ -83,6 +83,10 @@ jobs:
           username: _json_key_base64
           password: ${{ secrets.GCP_SA_KEY }}
 
+      # Set up QEMU for multi-platform builds
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       # Set up Docker Buildx for multi-platform builds
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -155,7 +159,7 @@ jobs:
         with:
           context: .
           file: ${{ matrix.agent.dockerfile }}
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: ${{ steps.should_push.outputs.push == 'true' }}
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha
