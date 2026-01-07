@@ -167,18 +167,13 @@ num_tasks = 5
 
 ### 1.2 Create .env.example
 
+**Implemented differently**: Simplified to only the required key, following the principle of minimal configuration.
+
 ```bash
-# tau2-bench Leaderboard Environment Variables
-# Copy this file to .env and fill in your credentials
-
-# Nebius API key (used by both user simulator and purple agent when using Nebius models)
-NEBIUS_API_KEY=your-nebius-api-key-here
-
-# Optional: Other LLM provider API keys (uncomment if using)
-# GOOGLE_API_KEY=your-google-api-key-here
-# OPENAI_API_KEY=your-openai-api-key-here
-# ANTHROPIC_API_KEY=your-anthropic-api-key-here
+NEBIUS_API_KEY=
 ```
+
+**Rationale**: The template's `generate_compose.py` auto-extracts required env vars from `${VAR}` patterns in scenario.toml. A minimal `.env.example` avoids confusion and ensures users only configure what's actually needed. Additional API keys are added only when used.
 
 ### 1.3 Update README.md
 
@@ -189,7 +184,9 @@ Update with tau2-bench specific documentation:
 - Configuration reference (domain, num_tasks)
 - LiteLLM model path format table
 
-### 1.4 Local Validation
+### 1.4 Local Validation ✅
+
+**Completed**: Both compose generation and full end-to-end testing passed.
 
 ```bash
 cd /home/ubuntu/workspace/tau2-bench-agent-leaderboard
@@ -204,14 +201,20 @@ pip install tomli tomli-w pyyaml requests
 # Generate docker-compose.yml (validates scenario.toml syntax)
 python generate_compose.py --scenario scenario.toml
 
-# Optional: Run full assessment locally (requires credentials)
+# Full assessment locally (requires credentials and local images)
 cp .env.example .env
 # Edit .env with your NEBIUS_API_KEY
 docker compose up --abort-on-container-exit
 cat output/results.json
 ```
 
-> **Minimum validation**: Ensure `generate_compose.py` succeeds without errors. Full `docker compose up` requires valid API credentials.
+**Test Results**:
+- `generate_compose.py` succeeded without errors
+- Full `docker compose up` completed with exit code 0
+- Purple agent achieved **100% pass rate** (2/2 tasks on airline domain)
+- Results successfully written to `output/results.json`
+
+> **Note**: For local testing, use `local-scenario.toml` which references locally-built images (`tau2-agent:local`, `kimi-litellm-agent:local`) instead of GHCR images.
 
 ### 1.5 Commit and Push
 
@@ -232,94 +235,71 @@ git push -u origin main
 ## Phase 2: Agent Registration
 
 > **Prerequisite**: Phase 1 complete, images published
+>
+> **Status**: ✅ Agents registered, IDs captured in scenario.toml
 
-### 2.1 Register Green Agent (tau2-agent)
+### 2.1 Register Green Agent (tau2-agent) ✅
 
-1. Navigate to https://agentbeats.dev
-2. Click "Register Agent"
-3. Fill in:
-   - Name: `tau2-agent`
-   - Description: `tau2-bench evaluation agent (Green Agent)`
-   - Image: `ghcr.io/wutims/tau2-agent:latest`
-   - Port: `8001`
-   - Agent Card Path: `/a2a/tau2_agent/.well-known/agent-card.json`
-4. Copy the generated `agentbeats_id`
+**Completed**: Agent registered on AgentBeats.
 
-### 2.2 Register Purple Agent (kimi-litellm-agent)
+| Field | Value |
+|-------|-------|
+| Name | `tau2-agent` |
+| Image | `ghcr.io/wutims/tau2-agent:latest` |
+| Port | `9009` (note: updated from original plan of 8001) |
+| Agent Card Path | `/a2a/tau2_agent/.well-known/agent-card.json` |
+| **AgentBeats ID** | `019b950f-0070-7aa0-9135-085aab814ed7` |
 
-1. Navigate to https://agentbeats.dev
-2. Click "Register Agent"
-3. Fill in:
-   - Name: `kimi-litellm-agent`
-   - Description: `Kimi K2 agent via LiteLLM (Purple Agent)`
-   - Image: `ghcr.io/wutims/kimi-litellm-agent:latest`
-   - Port: `8002`
-   - Agent Card Path: `/a2a/kimi_litellm_agent/.well-known/agent-card.json`
-4. Copy the generated `agentbeats_id`
+### 2.2 Register Purple Agent (kimi-litellm-agent) ✅
 
-### 2.3 Connect Leaderboard to Green Agent
+**Completed**: Agent registered on AgentBeats.
 
-1. Navigate to your green agent's page on AgentBeats
-2. Click **"Edit Agent"**
-3. Add leaderboard repository URL: `https://github.com/wuTims/tau2-bench-agent-leaderboard`
-4. Add leaderboard query config:
+| Field | Value |
+|-------|-------|
+| Name | `kimi-litellm-agent` |
+| Image | `ghcr.io/wutims/kimi-litellm-agent:latest` |
+| Port | `9009` (note: updated from original plan of 8002) |
+| Agent Card Path | `/a2a/kimi_litellm_agent/.well-known/agent-card.json` |
+| **AgentBeats ID** | `019b9515-47bd-7e80-8ad3-86c33d0175c9` |
 
-```json
-[
-  {
-    "name": "Overall Performance",
-    "query": "SELECT
-      id,
-      ROUND(pass_rate, 1) AS \"Pass Rate\",
-      ROUND(time_used, 1) AS \"Time\",
-      total_tasks AS \"# Tasks\"
-    FROM (
-      SELECT *,
-             ROW_NUMBER() OVER (PARTITION BY id ORDER BY pass_rate DESC, time_used ASC) AS rn
-      FROM (
-        SELECT
-          results.participants.agent AS id,
-          res.pass_rate AS pass_rate,
-          res.time_used AS time_used,
-          SUM(res.max_score) OVER (PARTITION BY results.participants.agent) AS total_tasks
-        FROM results
-        CROSS JOIN UNNEST(results.results) AS r(res)
-      )
-    )
-    WHERE rn = 1
-    ORDER BY \"Pass Rate\" DESC;"
-  }
-]
+**Port Change Rationale**: Both agents now use port 9009 for consistency. In Docker networking, each container has its own network namespace, so port conflicts don't occur.
+
+### 2.3 Connect Leaderboard to Green Agent ✅
+
+**Completed**: Leaderboard repository connected to green agent on AgentBeats dashboard.
+
+Configuration:
+- Leaderboard repository URL: `https://github.com/wuTims/tau2-bench-agent-leaderboard`
+- Leaderboard query: Configured for tau2-bench results schema
+
+### 2.4 Set Up Webhook ✅
+
+**Completed**: Webhook configured for automatic leaderboard updates.
+
+- Webhook URL added to leaderboard repo settings
+- Content type: `application/json`
+
+### 2.5 Update scenario.toml with Agent IDs ✅
+
+**Completed**: scenario.toml updated with registered agent IDs (commit `29bea57`).
+
+Current `scenario.toml`:
+```toml
+[green_agent]
+agentbeats_id = "019b950f-0087-7d42-ad31-8965c08d1ed7"
+env = { USER_LLM_MODEL = "nebius/moonshotai/Kimi-K2-Instruct", USER_LLM_API_KEY = "${NEBIUS_API_KEY}" }
+
+[[participants]]
+agentbeats_id = "019b9515-47bd-7e80-8ad3-86c33d0175c9"
+name = "agent"
+env = { NEBIUS_API_KEY = "${NEBIUS_API_KEY}" }
+
+[config]
+domain = "airline"
+num_tasks = 5
 ```
 
-5. Click **Save**
-
-### 2.4 Set Up Webhook
-
-1. On green agent page, open **"Webhook Integration"** box
-2. Copy the webhook URL
-3. Go to leaderboard repo: **Settings** > **Webhooks** > **Add webhook**
-4. Fill in:
-   - **Payload URL**: The copied webhook URL
-   - **Content type**: `application/json` (important!)
-5. Click **"Add webhook"**
-
-### 2.5 Update scenario.toml with Agent IDs
-
-```bash
-cd /home/ubuntu/workspace/tau2-bench-agent-leaderboard
-
-# Edit scenario.toml to use agentbeats_id instead of image
-# [green_agent]
-# agentbeats_id = "<copied-green-agent-id>"
-#
-# [[participants]]
-# agentbeats_id = "<copied-purple-agent-id>"
-
-git add scenario.toml
-git commit -m "Use registered AgentBeats agent IDs"
-git push
-```
+**Note**: For local testing, replace `agentbeats_id` with `image` field pointing to local images.
 
 ---
 
@@ -365,16 +345,130 @@ git push
 - [x] 1.5: Commit and push to main
 
 ### Phase 2: Agent Registration
-- [ ] 2.1: Register tau2-agent (green) on AgentBeats
-- [ ] 2.2: Register kimi-litellm-agent (purple) on AgentBeats
-- [ ] 2.3: Connect leaderboard to green agent
-- [ ] 2.4: Set up webhook for automatic updates
-- [ ] 2.5: Update scenario.toml with agent IDs
+- [x] 2.1: Register tau2-agent (green) on AgentBeats
+- [x] 2.2: Register kimi-litellm-agent (purple) on AgentBeats
+- [x] 2.3: Connect leaderboard to green agent
+- [x] 2.4: Set up webhook for automatic updates
+- [x] 2.5: Update scenario.toml with agent IDs
 
 ### Phase 3: Final Verification
 - [ ] GitHub Actions workflow runs successfully
 - [ ] Results appear on AgentBeats dashboard
 - [ ] Webhook triggers leaderboard updates
+
+---
+
+## Implementation Notes (Phase 1-2)
+
+### Features Implemented Beyond Original Plan
+
+The following features were added during implementation to enable successful end-to-end AgentBeats integration:
+
+#### 1. Python-Based Agent Card URL Configuration
+
+**Original approach**: Shell entrypoint scripts (`entrypoint.sh`) to modify `agent.json` before server start.
+
+**Implemented approach**: Python function `_update_agent_card_url()` in `server.py` for both agents.
+
+**Rationale**:
+- Shell scripts added complexity and an extra layer of indirection
+- Python approach integrates naturally with the FastAPI server startup sequence
+- Better error handling and logging via loguru
+- No shell dependency in container (simpler Dockerfile)
+- Easier to test and debug
+
+**Files changed**:
+- `tau2_agent/server.py`: Added `_update_agent_card_url()` function (lines 29-51)
+- `kimi_litellm_agent/server.py`: Same pattern
+- Removed: `tau2_agent/docker_setup/entrypoint.sh` and `kimi_litellm_agent/docker_setup/entrypoint.sh`
+
+#### 2. LiteLLM Model Support for Orchestrator
+
+**Original assumption**: tau2_agent orchestrator always uses Gemini.
+
+**Implemented**: Support for any LiteLLM-compatible model via `TAU2_AGENT_MODEL` env var.
+
+**Usage**:
+```bash
+# Gemini (default)
+TAU2_AGENT_MODEL=gemini-2.0-flash
+
+# LiteLLM with Nebius
+TAU2_AGENT_MODEL=litellm/nebius/moonshotai/Kimi-K2-Instruct
+
+# LiteLLM with OpenAI
+TAU2_AGENT_MODEL=litellm/openai/gpt-4o
+```
+
+**Rationale**:
+- AgentBeats/Nebius integration required non-Gemini model support
+- Reuses existing `google.adk.models.lite_llm.LiteLlm` class from ADK
+- Consistent with user LLM configuration pattern
+
+**Files changed**:
+- `tau2_agent/agent.py`: Added `create_model()` with prefix detection (lines 53-83)
+
+#### 3. Environment Variable Fallback for User LLM Credentials
+
+**Original assumption**: User LLM credentials passed via HTTP headers only.
+
+**Implemented**: Fallback to `USER_LLM_MODEL` and `USER_LLM_API_KEY` env vars.
+
+**Rationale**:
+- AgentBeats deployments configure credentials via env vars, not per-request headers
+- Maintains backward compatibility (headers take precedence)
+- Documented in middleware module docstring
+
+**Files changed**:
+- `tau2_agent/middleware.py`: Added env var fallback (lines 123-132)
+
+#### 4. Generate Compose Enhancements for Google ADK Agents
+
+**Original template**: Basic A2A path support.
+
+**Implemented**: `agent_name` field for ADK-style `/a2a/<agent_name>/` paths.
+
+**Rationale**:
+- Google ADK agents serve at `/a2a/<agent_name>/.well-known/agent-card.json`
+- Health checks need correct path for proper container orchestration
+- Enables automatic endpoint discovery via scenario.toml
+
+**Files changed**:
+- `tau2-bench-agent-leaderboard/generate_compose.py`: Added `agent_name` support and helper functions
+
+### Local Testing Configuration
+
+The `docker-compose.yml` in the leaderboard repo is configured for local testing:
+
+```yaml
+# Local images (for development)
+image: tau2-agent:local
+pull_policy: never
+
+# Key environment variables
+CARD_URL: http://green-agent:9009/a2a/tau2_agent  # Dynamic URL for Docker networking
+TAU2_AGENT_MODEL: litellm/nebius/moonshotai/Kimi-K2-Instruct  # Orchestrator model
+USER_LLM_MODEL: nebius/moonshotai/Kimi-K2-Instruct  # User simulator model
+```
+
+### Verified End-to-End Workflow
+
+Local testing confirmed the complete AgentBeats integration:
+
+1. **agentbeats-client** starts, waits for agents to be healthy
+2. **green-agent** (tau2_agent) receives A2A assessment request
+3. **tau2-bench** runs evaluation using **purple-agent** (kimi_litellm_agent)
+4. Results written to `output/results.json`
+5. Exit code 0 indicates success
+
+Test results: 100% pass rate on airline domain tasks (2/2 successful)
+
+### Registered Agent IDs
+
+| Agent | AgentBeats ID | Port |
+|-------|---------------|------|
+| tau2-agent (green) | `019b950f-0070-7aa0-9135-085aab814ed7` | 9009 |
+| kimi-litellm-agent (purple) | `019b9515-47bd-7e80-8ad3-86c33d0175c9` | 9009 |
 
 ---
 
