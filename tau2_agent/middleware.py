@@ -7,6 +7,12 @@ Credentials are optional at the middleware level; individual tools validate
 if they require credentials (e.g., run_tau2_evaluation validates credentials
 because it needs them to call the user's LLM).
 
+Environment Variable Fallback:
+    When headers are not provided, the middleware falls back to environment
+    variables USER_LLM_MODEL and USER_LLM_API_KEY. This enables containerized
+    deployments (e.g., AgentBeats) where credentials are configured via env
+    vars rather than passed in each request.
+
 Security Note:
     API keys are NEVER logged. The middleware uses loguru for structured
     logging but explicitly excludes API key values from all log output.
@@ -21,12 +27,14 @@ Usage:
     app.add_middleware(CredentialsMiddleware, service_api_keys=["key1", "key2"])
 """
 
+import os
+
+from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from loguru import logger
 
-from tau2_agent.context import user_llm_model, user_llm_api_key, request_id
+from tau2_agent.context import request_id, user_llm_api_key, user_llm_model
 from tau2_agent.errors import ErrorCode, EvaluationError
 
 
@@ -111,8 +119,17 @@ class CredentialsMiddleware(BaseHTTPMiddleware):
             return auth_error
 
         # Extract headers (case-insensitive via Starlette)
-        model = request.headers.get(HEADER_MODEL, "").strip() or None
-        api_key = request.headers.get(HEADER_API_KEY, "").strip() or None
+        # Fall back to environment variables if headers not provided
+        model = (
+            request.headers.get(HEADER_MODEL, "").strip()
+            or os.getenv("USER_LLM_MODEL", "").strip()
+            or None
+        )
+        api_key = (
+            request.headers.get(HEADER_API_KEY, "").strip()
+            or os.getenv("USER_LLM_API_KEY", "").strip()
+            or None
+        )
         req_id = request.headers.get(HEADER_REQUEST_ID, "").strip() or None
 
         # Set context variables

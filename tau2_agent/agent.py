@@ -14,11 +14,16 @@ import uuid
 from google.adk.agents import LlmAgent
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models import Gemini
+from google.adk.models.lite_llm import LiteLlm
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 from loguru import logger
 
 from .tools import GetEvaluationResults, ListDomains, RunTau2Evaluation
+
+# Model prefix constants for create_model()
+LITELLM_MODEL_PREFIX = "litellm/"
+GEMINI_MODEL_PREFIX = "gemini/"
 
 # Agent instruction prompt
 INSTRUCTION = """You are a conversational agent evaluation service powered by tau2-bench.
@@ -47,24 +52,34 @@ Be helpful in explaining evaluation metrics and suggesting improvements.
 
 def create_model():
     """
-    Create the Gemini model for the tau2 agent orchestrator.
+    Create the LLM model for the tau2 agent orchestrator.
 
-    Uses ADK's native Gemini integration for optimal performance on GCP.
-    Model can be configured via TAU2_AGENT_MODEL env var (default: gemini-2.0-flash).
+    Supports two model backends:
+    - Gemini (default): Uses ADK's native Gemini integration
+    - LiteLLM: For non-Gemini models (OpenAI, Anthropic, Nebius, etc.)
 
-    Authentication is handled automatically:
-    - GCP: Uses Application Default Credentials (ADC)
-    - Local: Reads GOOGLE_API_KEY from environment
+    Model can be configured via TAU2_AGENT_MODEL env var:
+    - "gemini-2.0-flash" (default): Uses native Gemini
+    - "litellm/nebius/model-name": Uses LiteLLM with Nebius
+    - "litellm/openai/gpt-4o": Uses LiteLLM with OpenAI
+
+    Authentication:
+    - Gemini: GOOGLE_GENAI_API_KEY or Application Default Credentials
+    - LiteLLM: Provider-specific env vars (NEBIUS_API_KEY, OPENAI_API_KEY, etc.)
 
     Returns:
-        Gemini: ADK Gemini model instance.
+        Gemini or LiteLlm: ADK model instance.
     """
     model = os.getenv("TAU2_AGENT_MODEL", "gemini-2.0-flash")
 
-    # Strip 'gemini/' prefix if present - native Gemini uses bare model name
-    if model.startswith("gemini/"):
-        model = model[7:]
+    # Use LiteLLM for non-Gemini models
+    if model.startswith(LITELLM_MODEL_PREFIX):
+        litellm_model = model.removeprefix(LITELLM_MODEL_PREFIX)
+        logger.info(f"Using LiteLLM model: {litellm_model}")
+        return LiteLlm(model=litellm_model)
 
+    # Strip 'gemini/' prefix if present (for consistency with LiteLLM naming)
+    model = model.removeprefix(GEMINI_MODEL_PREFIX)
     return Gemini(model=model)
 
 
@@ -116,7 +131,7 @@ def parse_text_tool_call(
     """
     Parse a JSON-formatted text tool call from an LLM response and convert it into a function_call LlmResponse.
 
-    Parameters:
+    Args:
         llm_response (LlmResponse): The model response to inspect for a JSON `tool_call` object; ignored if the response already contains a native function_call.
 
     Returns:
@@ -192,7 +207,7 @@ root_agent = LlmAgent(
 
             Requires X-User-LLM-Model and X-User-LLM-API-Key headers.
 
-            Parameters:
+            Args:
             - domain: Evaluation domain (airline, retail, telecom, mock)
             - agent_endpoint: A2A endpoint of agent to evaluate
             - num_trials: Number of trials per task (default: 1)
