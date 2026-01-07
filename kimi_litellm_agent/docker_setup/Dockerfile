@@ -17,6 +17,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Install curl for agentbeats health checks
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 # Install ADK, LiteLLM, and dependencies
 RUN pip install --no-cache-dir \
     google-adk[a2a]>=1.18.0 \
@@ -40,5 +43,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python -c "import httpx; httpx.get('http://localhost:8002/a2a/kimi_litellm_agent/.well-known/agent-card.json', timeout=5).raise_for_status()" || exit 1
 
 # AgentBeats-compatible entrypoint: accepts --host, --port, --card-url args
+# CARD_URL env var is read by server.py to update agent.json URL at startup
 ENTRYPOINT ["python", "-m", "kimi_litellm_agent.server"]
 CMD ["--host", "0.0.0.0"]

@@ -4,6 +4,8 @@
 
 This document provides a comprehensive analysis of the tau2-bench agent evaluation architecture, comparing the current A2A `run_domain` implementation with the gym-based `agentified-tau-bench` experimental implementation. The goal is to verify functional equivalence and identify integration points for AgentBeats competition deployment.
 
+> **Terminology Note**: The experimental `agentified-tau-bench` code (sierra team) uses "White Agent" for the target agent. This document uses AgentBeats' official terminology where **Purple Agent** refers to the agent being evaluated. The RDI-Foundation's official tau2 scenario at [github.com/RDI-Foundation/agentbeats-tutorial/scenarios/tau2](https://github.com/RDI-Foundation/agentbeats-tutorial/tree/main/scenarios/tau2) uses this same terminology.
+
 ## Table of Contents
 
 1. [Architecture Comparison](#architecture-comparison)
@@ -41,7 +43,7 @@ External Client → tau2_agent (ADK Server)
 
 ### Gym-Based `agentified-tau-bench` Implementation
 
-**Entry Point**: `experiments/agentify_tau_bench/launcher.py`
+**Entry Point**: `src/experiments/agentify_tau_bench/src/agentify_tau_bench/launcher.py`
 
 ```
 Launcher → Green Agent (TauGreenAgentExecutor)
@@ -50,14 +52,14 @@ Launcher → Green Agent (TauGreenAgentExecutor)
                ↓
            ask_agent_to_solve()
                ↓
-           White Agent (GeneralWhiteAgentExecutor)
+           Purple Agent (GeneralWhiteAgentExecutor)
 ```
 
-**Key Files**:
-- `experiments/agentify_tau_bench/launcher.py` - Process orchestration
-- `experiments/agentify_tau_bench/green_agent/agent.py` - Assessment manager
-- `experiments/agentify_tau_bench/white_agent/agent.py` - Target agent
-- `experiments/agentify_tau_bench/utils/a2a_utils.py` - A2A utilities
+**Key Files** (sierra team experimental code, uses "white" naming internally):
+- `src/experiments/agentify_tau_bench/src/agentify_tau_bench/launcher.py` - Process orchestration
+- `src/experiments/agentify_tau_bench/src/agentify_tau_bench/green_agent/agent.py` - Assessment manager
+- `src/experiments/agentify_tau_bench/src/agentify_tau_bench/white_agent/agent.py` - Target agent (Purple Agent)
+- `src/experiments/agentify_tau_bench/src/agentify_tau_bench/utils/a2a_utils.py` - A2A utilities
 
 ---
 
@@ -106,7 +108,7 @@ new_state = A2AAgentState(
 
 ### Gym-Based Approach
 
-**Source**: `experiments/agentify_tau_bench/green_agent/agent.py`
+**Source**: `src/experiments/agentify_tau_bench/src/agentify_tau_bench/green_agent/agent.py`
 
 #### Per-Task Context Initialization (lines 122-128)
 ```python
@@ -132,7 +134,7 @@ else:
 
 ### Purple Agent Context Handling
 
-**Source**: `experiments/agentify_tau_bench/white_agent/agent.py`
+**Source**: `src/experiments/agentify_tau_bench/src/agentify_tau_bench/white_agent/agent.py` (uses "white" naming internally)
 
 ```python
 class GeneralWhiteAgentExecutor(AgentExecutor):
@@ -234,13 +236,13 @@ Uses ADK's `get_fast_api_app(a2a=True)` which automatically handles context_id t
 
 ### Credential Handling
 
-**A2A `run_domain`** (`tau2_agent/middleware.py`):
+**A2A `run_domain`** (defined in `tau2_agent/context.py`, used by `tau2_agent/middleware.py`):
 ```python
-# Context variables for request-scoped credentials
-user_llm_model: ContextVar[str | None]
-user_llm_api_key: ContextVar[str | None]
+# Context variables for request-scoped credentials (tau2_agent/context.py)
+user_llm_model: ContextVar[str | None] = ContextVar("user_llm_model", default=None)
+user_llm_api_key: ContextVar[str | None] = ContextVar("user_llm_api_key", default=None)
 
-# Middleware extracts from headers
+# Middleware extracts from HTTP headers
 X-User-LLM-Model: gemini-2.0-flash
 X-User-LLM-API-Key: <api-key>
 ```
@@ -337,3 +339,141 @@ The current `tau2_agent` implementation with `run_tau2_evaluation` tool and `A2A
 4. Prevent state leakage between concurrent task evaluations
 
 This validates that the current A2A-based implementation is suitable for AgentBeats integration without requiring modifications to the core evaluation logic.
+
+---
+
+## Official RDI-Foundation tau2 Scenario
+
+The RDI-Foundation provides an official tau2 scenario in the `agentbeats-tutorial` repository that validates our approach.
+
+**Repository**: [github.com/RDI-Foundation/agentbeats-tutorial/scenarios/tau2](https://github.com/RDI-Foundation/agentbeats-tutorial/tree/main/scenarios/tau2)
+
+### Official Green Agent Pattern
+
+```python
+# From RDI-Foundation tau2_evaluator.py
+class Tau2Evaluator(GreenAgent):
+    async def run_eval(self, request: EvalRequest, task_updater):
+        agent_url = request.participants["agent"]
+        agent = RemoteA2AAgent(agent_url, tools, policy)
+        orchestrator = Orchestrator(agent, user_simulator, environment)
+        simulation = orchestrator.simulate_task(task)
+        reward = evaluate_simulation(simulation)
+        return EvalResult(winner="agent" if reward > 0 else "none", detail={...})
+```
+
+### Official Data Models
+
+```python
+# From RDI-Foundation agentbeats/models.py
+class EvalRequest(BaseModel):
+    participants: dict[str, HttpUrl]  # role -> endpoint (e.g., {"agent": "http://..."})
+    config: dict                       # domain, num_tasks, etc.
+
+class EvalResult(BaseModel):
+    winner: str   # "agent" or "none"
+    detail: dict  # scores, timing, per-task results
+```
+
+### Official Purple Agent Context Pattern
+
+```python
+# From RDI-Foundation tau2_agent.py - matches our implementation
+class Tau2AgentExecutor(AgentExecutor):
+    def __init__(self):
+        self.ctx_id_to_messages = {}  # Per-context conversation history
+```
+
+This confirms our implementation aligns with the official AgentBeats patterns.
+
+---
+
+## Amendment: AgentBeats Platform Architecture (2026-01-06)
+
+This section clarifies the AgentBeats platform execution model based on official documentation review.
+
+### Platform Execution Model
+
+The AgentBeats platform uses two execution modes:
+
+**Local Testing** (via `agentbeats-run` CLI or `generate_compose.py`):
+```bash
+# Option 1: CLI tool from agentbeats-tutorial
+uv run agentbeats-run scenarios/tau2/scenario.toml
+
+# Option 2: Docker Compose from leaderboard template
+python generate_compose.py --scenario scenario.toml
+docker compose up --abort-on-container-exit
+```
+
+**GitHub Actions / Leaderboard** (via `run-scenario.yml` workflow):
+```yaml
+# From RDI-Foundation/agentbeats-leaderboard-template
+docker compose up --timestamps --no-color --exit-code-from agentbeats-client
+```
+
+### The agentbeats-client Container
+
+The `generate_compose.py` script from the leaderboard template generates a docker-compose.yml that includes an **agentbeats-client** container. This platform-provided container:
+
+1. Sends assessment requests to the green agent via A2A protocol
+2. Passes `participants` (role→URL mappings) and `config` parameters
+3. Collects results and writes to `output/results.json`
+4. Exits with status code indicating success/failure
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  docker-compose.yml (generated by generate_compose.py)       │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────────────┐     ┌──────────────────┐              │
+│  │  Green Agent     │     │  Purple Agent    │              │
+│  │  (tau2_agent)    │◄────┤  (participant)   │              │
+│  │  Port 8001       │     │  Port 8002+      │              │
+│  └────────▲─────────┘     └──────────────────┘              │
+│           │                                                  │
+│           │ A2A Assessment Request                          │
+│           │                                                  │
+│  ┌────────┴─────────┐                                       │
+│  │ agentbeats-client│  ← Platform-provided orchestrator     │
+│  │                  │                                        │
+│  │ Mounts:          │                                        │
+│  │ - ./output       │ → writes results.json                 │
+│  └──────────────────┘                                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Green Agent Requirements
+
+The green agent (tau2_agent) must:
+
+1. **Handle assessment requests** via A2A protocol containing:
+   - `participants`: dict mapping role names to agent URLs (e.g., `{"agent": "http://purple:8002"}`)
+   - `config`: scenario parameters (e.g., `{"domain": "airline", "num_tasks": 5}`)
+
+2. **Return results** as A2A artifacts that the platform parses into JSON
+
+3. **Not write files directly** - the agentbeats-client handles result collection
+
+### Leaderboard Workflow
+
+The GitHub Actions workflow (`run-scenario.yml`) from the leaderboard template:
+
+1. Generates docker-compose.yml via `generate_compose.py`
+2. Pulls agent images (requires `agentbeats_id` for registered agents)
+3. Runs `docker compose up --exit-code-from agentbeats-client`
+4. Records provenance metadata via `record_provenance.py`
+5. Creates submission branch and generates PR link
+6. Webhook notifies AgentBeats platform for automatic leaderboard updates
+
+### Key Clarification
+
+**We do not write** `generate_compose.py` or the GitHub Actions workflow from scratch. The [RDI-Foundation/agentbeats-leaderboard-template](https://github.com/RDI-Foundation/agentbeats-leaderboard-template) provides these. Our leaderboard repository should be created using GitHub's "Use this template" feature, then customized with our `scenario.toml` configuration.
+
+---
+
+## References
+
+- [RDI-Foundation agentbeats-tutorial](https://github.com/RDI-Foundation/agentbeats-tutorial) - Official tutorial with tau2 scenario
+- [RDI-Foundation agentbeats-leaderboard-template](https://github.com/RDI-Foundation/agentbeats-leaderboard-template) - Leaderboard setup template
+- [AgentBeats Platform Tutorial](https://docs.agentbeats.dev/tutorial/) - Platform documentation
