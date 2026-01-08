@@ -8,6 +8,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PORT=8002 \
     PYTHONPATH=/app/agents \
     AGENTS_DIR=/app/agents \
+    # AgentBeats compatibility: serve agent card at root path
+    AGENTBEATS_MODE=true \
     # Datadog LLM Observability (agentless mode)
     DD_LLMOBS_ENABLED=1 \
     DD_LLMOBS_AGENTLESS_ENABLED=1 \
@@ -40,7 +42,7 @@ RUN mkdir -p /app/.adk
 EXPOSE 8002
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:8002/a2a/kimi_litellm_agent/.well-known/agent-card.json', timeout=5).raise_for_status()" || exit 1
+    CMD python -c "import httpx; httpx.get('http://localhost:8002/.well-known/agent-card.json', timeout=5).raise_for_status()" || exit 1
 
 # AgentBeats-compatible entrypoint: accepts --host, --port, --card-url args
 # CARD_URL env var is read by server.py to update agent.json URL at startup

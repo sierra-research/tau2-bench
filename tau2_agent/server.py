@@ -18,37 +18,44 @@ import json
 import os
 from pathlib import Path
 
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from google.adk.cli.fast_api import get_fast_api_app
 from loguru import logger
 
+from tau2_agent.card_url_utils import update_agent_card_url
 from tau2_agent.logging_config import configure_logging
 
 AGENT_NAME = "tau2_agent"
 
 
-def _update_agent_card_url(card_url: str | None) -> None:
-    """Update agent.json URL if CARD_URL is provided.
+def _add_root_agent_card(app: FastAPI, agents_dir: str) -> None:
+    """Add /.well-known/agent-card.json route for AgentBeats compatibility.
 
-    This enables containerized deployments where the agent's external URL
-    differs from localhost (e.g., Docker networking, Kubernetes services).
+    AgentBeats health checks probe the root path, but ADK serves agent cards at
+    /a2a/{agent_name}/.well-known/agent-card.json. This adds a root-level route
+    that serves the same agent card content, enabling AgentBeats health checks
+    to pass while keeping the standard ADK routes intact.
 
     Args:
-        card_url: The external URL for agent card discovery. If None, no update.
+        app: FastAPI application to add the route to.
+        agents_dir: Directory containing agent subdirectories with agent.json files.
     """
-    if not card_url:
-        return
+    agent_json_path = Path(agents_dir) / AGENT_NAME / "agent.json"
 
-    agents_dir = Path(os.getenv("AGENTS_DIR", "/app/agents"))
-    agent_json = agents_dir / AGENT_NAME / "agent.json"
+    @app.get("/.well-known/agent-card.json")
+    async def root_agent_card():
+        """Serve agent card at root for AgentBeats health checks."""
+        if agent_json_path.exists():
+            data = json.loads(agent_json_path.read_text())
+            return JSONResponse(content=data)
+        logger.warning(f"Agent card not found at {agent_json_path}")
+        return JSONResponse(
+            content={"error": "agent.json not found"},
+            status_code=404,
+        )
 
-    if not agent_json.exists():
-        logger.warning(f"agent.json not found at {agent_json}")
-        return
-
-    data = json.loads(agent_json.read_text())
-    data["url"] = card_url
-    agent_json.write_text(json.dumps(data, indent=2))
-    logger.info(f"Updated agent.json URL to: {card_url}")
+    logger.info("Added root agent card route for AgentBeats compatibility")
 
 
 def create_app():
@@ -73,6 +80,12 @@ def create_app():
     # - a2a=True: enable A2A JSON-RPC endpoints for direct tool invocation
     app = get_fast_api_app(agents_dir=agents_dir, web=False, a2a=True)
 
+    # Add root agent card for AgentBeats health check compatibility
+    # AgentBeats probes /.well-known/agent-card.json at root, but ADK serves
+    # at /a2a/{agent_name}/.well-known/agent-card.json
+    if os.getenv("AGENTBEATS_MODE", "").lower() == "true":
+        _add_root_agent_card(app, agents_dir)
+
     # Import and add credentials middleware
     # Delayed import to avoid circular dependencies
     try:
@@ -81,7 +94,9 @@ def create_app():
         app.add_middleware(CredentialsMiddleware)
         logger.info("Credentials middleware registered")
     except ImportError:
-        logger.warning("CredentialsMiddleware not found, running without credential extraction")
+        logger.warning(
+            "CredentialsMiddleware not found, running without credential extraction"
+        )
 
     return app
 
@@ -137,14 +152,15 @@ def main():
     except ImportError:
         logger.debug("tau2.tracing not available, skipping ddtrace configuration")
 
-    # Update agent.json URL if provided (for containerized deployments)
-    _update_agent_card_url(args.card_url)
+    # Update agent.json URL (auto-derive if not provided, for containerized deployments)
+    effective_card_url = update_agent_card_url(AGENT_NAME, args.card_url, args.port)
 
     logger.info(
         "Starting tau2_agent server",
         host=args.host,
         port=args.port,
-        card_url=args.card_url,
+        card_url=effective_card_url,
+        card_url_auto_derived=args.card_url is None,
         log_level=log_level,
     )
 
