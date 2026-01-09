@@ -24,6 +24,10 @@ Each domain has its own folder with the following structure:
 All the data for the domain is stored in `data/tau2/domains/<domain_name>` folder.
 Should contain:
 - `tasks.json`: A JSON file containing the tasks for the domain.
+- `split_tasks.json`: A JSON file containing the task splits for the domain.
+    - The task splits are defined as a list of task IDs.
+    - The task IDs are defined in the `tasks.json` file.
+    - It must at minimum implement a task split called `base`. This will be the default task split.
 - `policy.md`: A markdown file containing the policy for the domain.
 - `db.json` or `db.toml`: A JSON or TOML file containing the database for the domain.
 - `user_db.json` or `user_db.toml`: A JSON or TOML file containing the user database for the domain. (Optional)

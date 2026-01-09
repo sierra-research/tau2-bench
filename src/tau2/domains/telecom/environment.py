@@ -1,5 +1,6 @@
 # Copyright Sierra
 from functools import partial
+from pathlib import Path
 from typing import Optional
 
 from tau2.data_model.tasks import Task
@@ -12,8 +13,6 @@ from tau2.domains.telecom.utils import (
     TELECOM_MAIN_POLICY_PATH,
     TELECOM_MAIN_POLICY_SOLO_PATH,
     TELECOM_TASK_SET_PATH,
-    TELECOM_TASK_SET_PATH_FULL,
-    TELECOM_TASK_SET_PATH_SMALL,
     TELECOM_TECH_SUPPORT_POLICY_MANUAL_PATH,
     TELECOM_TECH_SUPPORT_POLICY_MANUAL_SOLO_PATH,
     TELECOM_TECH_SUPPORT_POLICY_WORKFLOW_PATH,
@@ -159,16 +158,39 @@ def load_tasks(path: str) -> list[Task]:
     return [Task.model_validate(task) for task in tasks]
 
 
+def load_tasks_split(path: str) -> Optional[dict[str, list[str]]]:
+    """Load tasks split from a data file, could be json, yaml or toml file."""
+    split_file = Path(path).parent / f"split_{Path(path).stem}.json"
+    if split_file.exists():
+        tasks_split = load_file(split_file)
+        return tasks_split
+    return None
+
+
+def get_tasks(task_split_name: Optional[str] = "base") -> list[Task]:
+    tasks = load_tasks(TELECOM_TASK_SET_PATH)
+    tasks = [Task.model_validate(task) for task in tasks]
+    if task_split_name is None:
+        return tasks
+    task_splits = get_tasks_split()
+    if task_split_name not in task_splits:
+        raise ValueError(
+            f"Invalid task split name: {task_split_name}. Valid splits are: {task_splits.keys()}"
+        )
+    return [task for task in tasks if task.id in task_splits[task_split_name]]
+
+
+def get_tasks_split() -> dict[str, list[str]]:
+    return load_tasks_split(TELECOM_TASK_SET_PATH)
+
+
+# Legacy functions for backward compatibility
 def get_tasks_full() -> list[Task]:
-    return load_tasks(TELECOM_TASK_SET_PATH_FULL)
+    return get_tasks("full")
 
 
 def get_tasks_small() -> list[Task]:
-    return load_tasks(TELECOM_TASK_SET_PATH_SMALL)
-
-
-def get_tasks() -> list[Task]:
-    return load_tasks(TELECOM_TASK_SET_PATH)
+    return get_tasks("small")
 
 
 if __name__ == "__main__":

@@ -47,6 +47,11 @@
     flex-direction: column;
     gap: 24px;
   }
+  
+  .submission-type-filter {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* Modern View Toggle Switch */
@@ -159,6 +164,279 @@
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 8px rgba(6, 95, 70, 0.3);
   z-index: 1;
+}
+
+/* Submission Type Filter (Checkboxes) */
+.submission-type-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.checkbox-container:hover {
+  background: rgba(6, 95, 70, 0.08);
+}
+
+.checkbox-container input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkbox-checkmark {
+  position: relative;
+  height: 20px;
+  width: 20px;
+  background: white;
+  border: 2px solid #cbd5e1;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.checkbox-container:hover .checkbox-checkmark {
+  border-color: #065f46;
+}
+
+.checkbox-container input:checked ~ .checkbox-checkmark {
+  background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+  border-color: #065f46;
+}
+
+.checkbox-checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+  left: 50%;
+  top: 45%;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.checkbox-container input:checked ~ .checkbox-checkmark:after {
+  display: block;
+}
+
+.checkbox-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  transition: color 0.2s ease;
+}
+
+.checkbox-container input:checked ~ .checkbox-label {
+  color: #065f46;
+}
+
+.checkbox-container:hover .checkbox-label {
+  color: #065f46;
+}
+
+/* Filter Info Button and Popup */
+.filter-info-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.filter-info-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filter-info-button:hover {
+  background: rgba(6, 95, 70, 0.1);
+}
+
+.filter-info-button:focus {
+  outline: none;
+}
+
+.info-icon {
+  font-size: 16px;
+  color: #64748b;
+  transition: color 0.2s ease;
+}
+
+.filter-info-button:hover .info-icon {
+  color: #065f46;
+}
+
+.filter-info-popup {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  z-index: 100;
+  animation: popupFadeIn 0.2s ease-out;
+}
+
+@keyframes popupFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.filter-info-content {
+  padding: 20px;
+  position: relative;
+}
+
+.filter-info-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.filter-info-close:hover {
+  color: #1e293b;
+  background: #f1f5f9;
+}
+
+.filter-info-content h4 {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.filter-info-item {
+  margin-bottom: 12px;
+}
+
+.filter-info-item:last-child {
+  margin-bottom: 0;
+}
+
+.filter-info-item strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #065f46;
+  margin-bottom: 4px;
+}
+
+.filter-info-item p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+/* Mobile adjustments for filter info popup */
+@media (max-width: 768px) {
+  .filter-info-popup {
+    width: 280px;
+    right: -60px;
+  }
+}
+
+/* Empty State for Filters */
+.filter-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 32px;
+  text-align: center;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  border: 1px solid #f7fafc;
+  margin-bottom: 3rem;
+}
+
+.filter-empty-state .empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.filter-empty-state h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 8px 0;
+}
+
+.filter-empty-state p {
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0;
+  max-width: 400px;
+}
+
+/* Empty Results Row (inside table) */
+.empty-results-row {
+  height: auto !important;
+}
+
+.empty-results-cell {
+  padding: 48px 32px !important;
+  text-align: center;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.empty-results-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty-results-content .empty-icon {
+  font-size: 36px;
+}
+
+.empty-results-content .empty-text {
+  font-size: 1rem;
+  color: #64748b;
+  font-weight: 500;
 }
 
 /* Chart Visualization */

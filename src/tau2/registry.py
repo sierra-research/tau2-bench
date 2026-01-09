@@ -11,12 +11,18 @@ from tau2.domains.airline.environment import (
     get_environment as airline_domain_get_environment,
 )
 from tau2.domains.airline.environment import get_tasks as airline_domain_get_tasks
+from tau2.domains.airline.environment import (
+    get_tasks_split as airline_domain_get_tasks_split,
+)
 from tau2.domains.mock.environment import get_environment as mock_domain_get_environment
 from tau2.domains.mock.environment import get_tasks as mock_domain_get_tasks
 from tau2.domains.retail.environment import (
     get_environment as retail_domain_get_environment,
 )
 from tau2.domains.retail.environment import get_tasks as retail_domain_get_tasks
+from tau2.domains.retail.environment import (
+    get_tasks_split as retail_domain_get_tasks_split,
+)
 from tau2.domains.telecom.environment import (
     get_environment_manual_policy as telecom_domain_get_environment_manual_policy,
 )
@@ -29,6 +35,9 @@ from tau2.domains.telecom.environment import (
 )
 from tau2.domains.telecom.environment import (
     get_tasks_small as telecom_domain_get_tasks_small,
+)
+from tau2.domains.telecom.environment import (
+    get_tasks_split as telecom_domain_get_tasks_split,
 )
 from tau2.environment.environment import Environment
 from tau2.user.base import BaseUser
@@ -51,7 +60,8 @@ class Registry:
         self._users: Dict[str, Type[BaseUser]] = {}
         self._agents: Dict[str, Type[BaseAgent]] = {}
         self._domains: Dict[str, Callable[[], Environment]] = {}
-        self._tasks: Dict[str, Callable[[], list[Task]]] = {}
+        self._tasks: Dict[str, Callable[[Optional[str]], list[Task]]] = {}
+        self._task_splits: Dict[str, Callable[[], dict[str, list[str]]]] = {}
 
     def register_user(
         self,
@@ -99,14 +109,22 @@ class Registry:
 
     def register_tasks(
         self,
-        get_tasks: Callable[[], list[Task]],
+        get_tasks: Callable[[Optional[str]], list[Task]],
         name: str,
+        get_task_splits: Optional[Callable[[], dict[str, list[str]]]] = None,
     ):
-        """Register a new Domain implementation"""
+        """Register a new Domain implementation.
+        Args:
+            get_tasks: A function that returns a list of tasks for the domain. If a task split name is provided, it returns the tasks for that split.
+            name: The name of the domain.
+            get_task_splits: A function that returns a dictionary of task splits for the domain.
+        """
         try:
             if name in self._tasks:
                 raise ValueError(f"Tasks {name} already registered")
             self._tasks[name] = get_tasks
+            if get_task_splits is not None:
+                self._task_splits[name] = get_task_splits
         except Exception as e:
             logger.error(f"Error registering tasks {name}: {str(e)}")
             raise
@@ -129,11 +147,25 @@ class Registry:
             raise KeyError(f"Domain {name} not found in registry")
         return self._domains[name]
 
-    def get_tasks_loader(self, name: str) -> Callable[[], list[Task]]:
-        """Get a registered Task Set by name"""
+    def get_tasks_loader(self, name: str) -> Callable[[Optional[str]], list[Task]]:
+        """Get a registered Task Set by name.
+        Args:
+            name: The name of the task set.
+        Returns:
+            A function that takes an optional task_split_name parameter and returns the corresponding tasks.
+            Can be called as: func() or func(task_split_name="base") or func("base").
+        """
         if name not in self._tasks:
             raise KeyError(f"Task Set {name} not found in registry")
         return self._tasks[name]
+
+    def get_task_splits_loader(
+        self, name: str
+    ) -> Optional[Callable[[], dict[str, list[str]]]]:
+        """Get a registered task split dict loader."""
+        if name not in self._task_splits:
+            return None
+        return self._task_splits[name]
 
     def get_users(self) -> list[str]:
         """Get all registered Users"""
@@ -177,20 +209,41 @@ try:
     registry.register_agent(LLMAgent, "llm_agent")
     registry.register_agent(LLMGTAgent, "llm_agent_gt")
     registry.register_agent(LLMSoloAgent, "llm_agent_solo")
+
     registry.register_domain(mock_domain_get_environment, "mock")
     registry.register_tasks(mock_domain_get_tasks, "mock")
+
     registry.register_domain(airline_domain_get_environment, "airline")
-    registry.register_tasks(airline_domain_get_tasks, "airline")
+    registry.register_tasks(
+        airline_domain_get_tasks,
+        "airline",
+        get_task_splits=airline_domain_get_tasks_split,
+    )
+
     registry.register_domain(retail_domain_get_environment, "retail")
-    registry.register_tasks(retail_domain_get_tasks, "retail")
+    registry.register_tasks(
+        retail_domain_get_tasks,
+        "retail",
+        get_task_splits=retail_domain_get_tasks_split,
+    )
+
     registry.register_domain(telecom_domain_get_environment_manual_policy, "telecom")
     registry.register_domain(
         telecom_domain_get_environment_workflow_policy, "telecom-workflow"
     )
     registry.register_tasks(telecom_domain_get_tasks_full, "telecom_full")
     registry.register_tasks(telecom_domain_get_tasks_small, "telecom_small")
-    registry.register_tasks(telecom_domain_get_tasks, "telecom")
-    registry.register_tasks(telecom_domain_get_tasks, "telecom-workflow")
+    registry.register_tasks(
+        telecom_domain_get_tasks,
+        "telecom",
+        get_task_splits=telecom_domain_get_tasks_split,
+    )
+    registry.register_tasks(
+        telecom_domain_get_tasks,
+        "telecom-workflow",
+        get_task_splits=telecom_domain_get_tasks_split,
+    )
+
     logger.debug(
         f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}"
     )

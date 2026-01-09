@@ -21,6 +21,18 @@
 
 ## 🆕 What's New
 
+### 🤖 Reinforcement Learning Support (New!)
+τ²-bench now supports RL training with a Gymnasium-compatible interface:
+
+- **🏋️ Train RL Agents**: Use the gym interface to train agents with popular RL frameworks. 
+- **🎮 Play as Agent or User**: Interactive mode lets you control either the agent or the user in conversations
+- **📊 Train/Test Splits**: To help support experiments around training Agents and evaluating them, all domains include standardized task splits for proper train/test evaluation.
+
+> **⚠️ IMPORTANT FOR BACKWARD COMPATIBILITY**: If you are just evaluating an agent (not training), you **MUST** use the `base` task split to evaluate on the complete task set that matches the original τ²-bench structure. This ensures your results are comparable to previous evaluations and maintains consistency with the established benchmark. (If you don't specify a task split, it will default to `base`.)
+- **🔧 Gymnasium Compatible**: Standard gym interface works with existing RL tools and libraries
+
+[**→ See Gym Documentation**](src/tau2/gym/README.md) | [**→ Try CLI Play Mode**](#interactive-play-mode)
+
 ### 🏆 Live Leaderboard (v0.2.0)
 The τ²-bench leaderboard is now live at **[taubench.com](https://taubench.com)**! 
 
@@ -120,6 +132,8 @@ tau2 run \
 
 Results will be saved in `data/tau2/simulations/`.
 
+> **💡 Tip**: For full agent evaluation that matches the original τ²-bench methodology, remove `--num-tasks` and use `--task-split base` to evaluate on the complete task set.
+
 ## Command Line Interface
 
 The `tau2` command provides a unified interface for all functionality:
@@ -135,6 +149,26 @@ tau2 run \
   --max-concurrency <concurrent_sims> \
   ...
 ```
+
+### Interactive Play Mode
+```bash
+tau2 play
+```
+Experience τ²-bench from either perspective! The play mode allows you to:
+- **Play as Agent**: Manually control the agent's responses and tool calls
+- **Play as User**: Control the user while an LLM agent handles requests (available in domains with user tools like telecom)
+- **Understand tasks** by walking through scenarios step-by-step
+- **Test strategies** before implementing them in code
+- **Choose task splits** to practice on training data or test on held-out tasks
+
+This is perfect for:
+- Getting familiar with domain policies and tools from both perspectives
+- Debugging task scenarios and conversation flows
+- Developing intuition for agent strategies
+- Testing user behavior and agent responses
+- Training yourself before training your model!
+
+See the [Gym Documentation](src/tau2/gym/README.md) for more details on using the gymnasium interface programmatically, including the `AgentGymEnv` (play as agent) and `UserGymEnv` (play as user).
 
 ### Viewing Results
 ```bash
@@ -180,6 +214,8 @@ Your trajectory runs must follow these constraints:
 3. **One result per domain**: Each domain should appear exactly once in your submission
 
 4. **All tasks completed**: Run evaluation on all tasks within each domain (don't use `--task-ids` or `--num-tasks` filters)
+
+> **📝 Note**: For consistency with the original τ²-bench evaluation methodology, use the `base` task split when evaluating your agent to ensure you're testing on the complete, standard task set.
 
 ### Preparing Your Submission
 

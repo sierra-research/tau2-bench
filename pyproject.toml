@@ -39,9 +39,17 @@ dependencies = [
     "PyYAML>=6.0.2",
     "toml>=0.10.2",
     "langfuse>=2.60.7",
+    "gymnasium>=1.2.2",
 ]
 [project.scripts]
 tau2 = "tau2.cli:main"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:litellm.*:",
+    "ignore:Pydantic serializer warnings:UserWarning:pydantic.*:",
+]
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]

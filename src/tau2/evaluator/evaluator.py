@@ -28,19 +28,21 @@ def evaluate_simulation(
     """
     Evaluate the simulation based on the evaluation type.
     """
-    if simulation.termination_reason in {
-        TerminationReason.TOO_MANY_ERRORS,
-        TerminationReason.MAX_STEPS,
+    if simulation.termination_reason not in {
+        TerminationReason.AGENT_STOP,
+        TerminationReason.USER_STOP,
     }:
         return RewardInfo(
             reward=0.0,
+            reward_basis=None,
             info={
-                "note": f"Simulation terminated prematurely. Termination reason: {simulation.termination_reason}"
+                "note": f"Simulation terminated prematurely. Termination reason: {simulation.termination_reason.value}"
             },
         )
     if task.evaluation_criteria is None:
         return RewardInfo(
             reward=1.0,
+            reward_basis=None,
             info={"note": "No evaluation criteria"},
         )
     if evaluation_type == EvaluationType.ENV:
@@ -122,9 +124,9 @@ def evaluate_simulation(
             db_check=env_reward_info.db_check,
             env_assertions=env_reward_info.env_assertions,
             action_checks=action_reward_info.action_checks,
-            nl_assertions=(
-                nl_reward_info.nl_assertions if nl_reward_info is not None else None
-            ),
+            nl_assertions=nl_reward_info.nl_assertions
+            if nl_reward_info is not None
+            else None,
             communicate_checks=communicate_reward_info.communicate_checks,
             reward_basis=task.evaluation_criteria.reward_basis,
             reward_breakdown=reward_breakdown,

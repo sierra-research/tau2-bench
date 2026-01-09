@@ -19,6 +19,17 @@ const Leaderboard = () => {
   const [sortDirection, setSortDirection] = useState(() => {
     return localStorage.getItem('sortDirection') || 'desc'
   })
+  // Add submission type filter state (standard vs custom)
+  const [showStandard, setShowStandard] = useState(() => {
+    const stored = localStorage.getItem('showStandard')
+    return stored === null ? true : stored === 'true'
+  })
+  const [showCustom, setShowCustom] = useState(() => {
+    const stored = localStorage.getItem('showCustom')
+    return stored === null ? false : stored === 'true'
+  })
+  // Info tooltip state
+  const [showFilterInfo, setShowFilterInfo] = useState(false)
   
   // Add state for dynamically loaded data
   const [passKData, setPassKData] = useState({})
@@ -132,10 +143,14 @@ const Leaderboard = () => {
             organization: submission.submitting_organization,
             userSimulator: submission.methodology?.user_simulator || null,
             // Add verification status
+            // For 'custom' submissions, we relax the modified_prompts constraint
+            // Custom submissions are allowed to modify prompts as long as they have trajectories and don't omit questions
             isVerified: submission.trajectories_available && 
-                       submission.methodology?.verification?.modified_prompts === false && 
-                       submission.methodology?.verification?.omitted_questions === false,
-            verificationDetails: submission.methodology?.verification || null
+                       submission.methodology?.verification?.omitted_questions === false &&
+                       (submission.submission_type === 'custom' || submission.methodology?.verification?.modified_prompts === false),
+            verificationDetails: submission.methodology?.verification || null,
+            // Submission type: 'standard' (default) or 'custom'
+            submissionType: submission.submission_type || 'standard'
           }
           
           loadedData[submission.model_name] = modelData
@@ -171,7 +186,7 @@ const Leaderboard = () => {
         clearTimeout(timer)
       }
     }
-  }, [leaderboardView, domain, isLoading, passKData]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [leaderboardView, domain, isLoading, passKData, showStandard, showCustom]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save leaderboard state to localStorage
   useEffect(() => {
@@ -189,6 +204,25 @@ const Leaderboard = () => {
   useEffect(() => {
     localStorage.setItem('sortDirection', sortDirection)
   }, [sortDirection])
+
+  useEffect(() => {
+    localStorage.setItem('showStandard', showStandard)
+  }, [showStandard])
+
+  useEffect(() => {
+    localStorage.setItem('showCustom', showCustom)
+  }, [showCustom])
+
+  // Close filter info popup when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showFilterInfo && !event.target.closest('.filter-info-container')) {
+        setShowFilterInfo(false)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [showFilterInfo])
 
   const initializeChart = () => {
     const canvas = document.getElementById('passKChart')
@@ -226,6 +260,13 @@ const Leaderboard = () => {
       Object.keys(passKData).forEach(model => {
         const modelData = passKData[model]
         const domainData = modelData[domain]
+        
+        // Filter by submission type
+        const isStandard = modelData.submissionType === 'standard' || !modelData.submissionType
+        const isCustom = modelData.submissionType === 'custom'
+        if ((isStandard && !showStandard) || (isCustom && !showCustom)) {
+          return
+        }
         
         // Skip models that don't have data for this domain or only have pass^1 data
         if (!domainData || domainData[0] === null || domainData.every((val, index) => index === 0 ? val !== null : val === null)) {
@@ -505,19 +546,83 @@ const Leaderboard = () => {
             />
           </div>
         </div>
+
+        {/* Submission Type Filter */}
+        <div className="submission-type-filter">
+          <label className="checkbox-container">
+            <input 
+              type="checkbox" 
+              checked={showStandard}
+              onChange={(e) => setShowStandard(e.target.checked)}
+            />
+            <span className="checkbox-checkmark"></span>
+            <span className="checkbox-label">Standard</span>
+          </label>
+          <label className="checkbox-container">
+            <input 
+              type="checkbox" 
+              checked={showCustom}
+              onChange={(e) => setShowCustom(e.target.checked)}
+            />
+            <span className="checkbox-checkmark"></span>
+            <span className="checkbox-label">Custom</span>
+          </label>
+          <div className="filter-info-container">
+            <button 
+              className="filter-info-button"
+              onClick={() => setShowFilterInfo(!showFilterInfo)}
+              aria-label="What do Standard and Custom mean?"
+            >
+              <span className="info-icon">ⓘ</span>
+            </button>
+            {showFilterInfo && (
+              <div className="filter-info-popup">
+                <div className="filter-info-content">
+                  <button className="filter-info-close" onClick={() => setShowFilterInfo(false)}>×</button>
+                  <h4>Submission Types</h4>
+                  <div className="filter-info-item">
+                    <strong>Standard</strong>
+                    <p>Results using the default τ-bench scaffold: a base LLM with the standard tool set and prompts.</p>
+                  </div>
+                  <div className="filter-info-item">
+                    <strong>Custom</strong>
+                    <p>Results using modified scaffolds, such as multi-model routers, additional tools, custom prompting strategies, or other orchestration approaches.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Chart View */}
       {leaderboardView === 'chart' && (
-        <div className="reliability-visualization">
-          <div className="pass-k-chart-container">
-            <canvas id="passKChart" width="800" height="400"></canvas>
+        (!showStandard && !showCustom) ? (
+          <div className="filter-empty-state">
+            <div className="empty-icon">🔍</div>
+            <h3>No Results</h3>
+            <p>Please select at least one submission type filter (Standard or Custom) to view results.</p>
           </div>
-        </div>
+        ) : (
+          <div className="reliability-visualization">
+            <div className="pass-k-chart-container">
+              <canvas id="passKChart" width="800" height="400"></canvas>
+            </div>
+          </div>
+        )
       )}
 
       {/* Table View */}
       {leaderboardView === 'table' && (
+        <>
+        {/* Check if filters result in no data */}
+        {(!showStandard && !showCustom) ? (
+          <div className="filter-empty-state">
+            <div className="empty-icon">🔍</div>
+            <h3>No Results</h3>
+            <p>Please select at least one submission type filter (Standard or Custom) to view results.</p>
+          </div>
+        ) : (
         <div className="reliability-metrics">
         <div className="metrics-table-container">
           <table className="reliability-table">
@@ -559,6 +664,13 @@ const Leaderboard = () => {
                 // Calculate domain-specific scores for ranking
                 const modelStats = Object.entries(passKData)
                   .filter(([modelName, data]) => {
+                    // Filter by submission type first
+                    const isStandard = data.submissionType === 'standard' || !data.submissionType
+                    const isCustom = data.submissionType === 'custom'
+                    if ((isStandard && !showStandard) || (isCustom && !showCustom)) {
+                      return false
+                    }
+                    
                     // For overall domain, only include models that have data for all 3 domains
                     if (domain === 'overall') {
                       return data.overall.some(val => val !== null)
@@ -619,6 +731,24 @@ const Leaderboard = () => {
                   return (bValue - aValue) * multiplier
                 })
                 
+                // Show empty state if no results after filtering
+                if (modelStats.length === 0) {
+                  return (
+                    <tr className="empty-results-row">
+                      <td colSpan="9" className="empty-results-cell">
+                        <div className="empty-results-content">
+                          <span className="empty-icon">🔧</span>
+                          <span className="empty-text">
+                            {showCustom && !showStandard 
+                              ? "No custom submissions yet. Be the first to submit results with a custom scaffold!"
+                              : "No results match the current filters."}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                }
+                
                 return modelStats.map((model, index) => (
                    <tr key={model.name} className={`model-row ${index === 0 && model.hasCompleteData && sortColumn === 'pass1' && sortDirection === 'desc' ? 'top-performer' : ''} ${model.data.isNew ? 'new-model' : ''}`}>
                      {/* Rank */}
@@ -672,10 +802,13 @@ const Leaderboard = () => {
                           {(model.organization === 'Alibaba' || model.organization === 'Qwen') && (
                             <img src={`${import.meta.env.BASE_URL}qwen-color.png`} alt="Qwen" className="logo-img" />
                           )}
-                          {model.organization === 'Google' && (
-                            <img src={`${import.meta.env.BASE_URL}Google__G__logo.svg.png`} alt="Google" className="logo-img" />
-                          )}
-                         </div>
+                         {model.organization === 'Google' && (
+                           <img src={`${import.meta.env.BASE_URL}Google__G__logo.svg.png`} alt="Google" className="logo-img" />
+                         )}
+                         {model.organization === 'NVIDIA' && (
+                           <img src={`${import.meta.env.BASE_URL}Logo-nvidia-transparent-PNG.png`} alt="NVIDIA" className="logo-img" />
+                         )}
+                        </div>
                          <span className="org-name">{model.organization}</span>
                        </div>
                      </td>
@@ -749,6 +882,8 @@ const Leaderboard = () => {
           </span>
         </div>
         </div>
+        )}
+        </>
       )}
 
       {/* Submissions Notice */}
@@ -946,8 +1081,8 @@ const Leaderboard = () => {
                     <div className="verification-status">
                       <div className="verification-indicator">
                         {selectedSubmission.trajectories_available && 
-                         selectedSubmission.methodology.verification.modified_prompts === false && 
-                         selectedSubmission.methodology.verification.omitted_questions === false ? (
+                         selectedSubmission.methodology.verification.omitted_questions === false &&
+                         (selectedSubmission.submission_type === 'custom' || selectedSubmission.methodology.verification.modified_prompts === false) ? (
                           <span className="verified">✅ Verified</span>
                         ) : (
                           <span className="unverified">⚠️ Unverified</span>

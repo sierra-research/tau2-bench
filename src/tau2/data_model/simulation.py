@@ -41,6 +41,13 @@ class RunConfig(BaseModel):
             default=None,
         ),
     ]
+    task_split_name: Annotated[
+        Optional[str],
+        Field(
+            description="The task split to run the simulation on. If not provided, will load 'base' split.",
+            default="base",
+        ),
+    ]
     task_ids: Annotated[
         Optional[list[str]],
         Field(
@@ -151,6 +158,13 @@ class RunConfig(BaseModel):
         Field(
             description="The log level to use for the simulation",
             default=DEFAULT_LOG_LEVEL,
+        ),
+    ]
+    enforce_communication_protocol: Annotated[
+        bool,
+        Field(
+            description="Whether to enforce communication protocol rules (e.g., no mixed messages with text and tool calls)",
+            default=False,
         ),
     ]
 
@@ -305,6 +319,8 @@ class TerminationReason(str, Enum):
     AGENT_STOP = "agent_stop"
     MAX_STEPS = "max_steps"
     TOO_MANY_ERRORS = "too_many_errors"
+    AGENT_ERROR = "agent_error"
+    USER_ERROR = "user_error"
 
 
 class SimulationRun(BaseModel):

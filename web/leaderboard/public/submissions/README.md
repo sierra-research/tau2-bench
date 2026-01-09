@@ -2,6 +2,27 @@
 
 This directory contains model evaluation results for the tau2-bench leaderboard. Each JSON file represents one model's performance across the benchmark domains.
 
+## Submission Types: Standard vs Custom
+
+The leaderboard supports two types of submissions:
+
+| Type | Description | Requirements |
+|------|-------------|--------------|
+| **Standard** | Uses the default τ-bench scaffold (base LLM + standard tools/prompts) | Default - no extra documentation needed |
+| **Custom** | Uses modified scaffolds (multi-model routers, additional tools, custom prompting, etc.) | Requires detailed methodology documentation |
+
+### Standard Submissions
+If you're running τ-bench as documented without modifications, your submission is **standard**. You can omit the `submission_type` field (it defaults to `"standard"`).
+
+### Custom Submissions
+If you made **any** modifications to the evaluation setup, you must:
+1. Set `"submission_type": "custom"` in your JSON
+2. Provide detailed `methodology.notes` explaining your modifications
+3. Include a link to your implementation in `references`
+4. Set `methodology.verification.modified_prompts` appropriately
+
+See the [Custom Submissions](#custom-submission-requirements) section below for details.
+
 ## How to Submit Results
 
 1. **Evaluate your model** using the [tau2-bench framework](https://github.com/sierra-research/tau2-bench)
@@ -25,7 +46,7 @@ This directory contains model evaluation results for the tau2-bench leaderboard.
 
 ## JSON Schema
 
-Your submission must follow the schema defined in `schema.json`. Here's a quick example:
+Your submission must follow the schema defined in `schema.json`. Here's a quick example of a **standard** submission:
 
 ```json
 {
@@ -33,6 +54,7 @@ Your submission must follow the schema defined in `schema.json`. Here's a quick 
   "model_organization": "My Company",
   "submitting_organization": "My Company",
   "submission_date": "2025-01-15",
+  "submission_type": "standard",
   "contact_info": {
     "email": "contact@mycompany.com",
     "name": "John Doe",
@@ -88,6 +110,101 @@ Your submission must follow the schema defined in `schema.json`. Here's a quick 
   }
 }
 ```
+
+## Custom Submission Requirements
+
+If your submission uses a custom scaffold (`"submission_type": "custom"`), you **must** provide detailed documentation to help others understand your approach.
+
+### Required for Custom Submissions
+
+1. **Set the submission type:**
+   ```json
+   "submission_type": "custom"
+   ```
+
+2. **Detailed methodology notes** - Explain what you modified and why:
+   ```json
+   "methodology": {
+     "notes": "This submission uses a multi-model router that selects between GPT-4 and Claude based on task complexity. We added a custom reflection step after each tool call. The router is trained on a separate dataset of task classifications."
+   }
+   ```
+
+3. **Link to implementation** - Include a reference to your code:
+   ```json
+   "references": [
+     {
+       "title": "Custom Agent Implementation",
+       "url": "https://github.com/your-org/custom-tau-agent",
+       "type": "github"
+     }
+   ]
+   ```
+
+4. **Set verification fields appropriately:**
+   ```json
+   "methodology": {
+     "verification": {
+       "modified_prompts": true,
+       "omitted_questions": false,
+       "details": "Modified agent system prompt to include reflection instructions."
+     }
+   }
+   ```
+
+### Examples of Custom Modifications
+
+Custom submissions might include:
+- Multi-model routers or model ensembles
+- Additional tools beyond the standard τ-bench tool set
+- Modified agent orchestration or control flow
+- Any other modification to the default evaluation setup
+
+### Complete Custom Submission Example
+
+```json
+{
+  "model_name": "Custom-Multi-Agent-v1",
+  "model_organization": "Research Lab",
+  "submitting_organization": "Research Lab",
+  "submission_date": "2025-01-15",
+  "submission_type": "custom",
+  "contact_info": {
+    "email": "research@example.com"
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "references": [
+    {
+      "title": "Multi-Agent System Implementation",
+      "url": "https://github.com/research-lab/multi-agent-tau",
+      "type": "github"
+    },
+    {
+      "title": "Technical Blog Post",
+      "url": "https://blog.example.com/multi-agent-approach",
+      "type": "blog_post"
+    }
+  ],
+  "results": {
+    "retail": { "pass_1": 82.5, "pass_2": 78.1, "pass_3": 74.2, "pass_4": 71.0 },
+    "airline": { "pass_1": 68.3, "pass_2": 63.5, "pass_3": 59.8, "pass_4": 56.2 },
+    "telecom": { "pass_1": 75.1, "pass_2": 70.4, "pass_3": 66.8, "pass_4": 63.5 }
+  },
+  "methodology": {
+    "evaluation_date": "2025-01-10",
+    "tau2_bench_version": "0.2.0",
+    "user_simulator": "gpt-4o",
+    "notes": "This system uses a planning-execution-reflection loop with GPT-4 as the planner and Claude-3.5-Sonnet as the executor. A separate classifier routes complex tasks to a specialized reasoning pipeline. See our GitHub repo for complete implementation.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "Custom system prompts for planning, execution, and reflection phases. All τ-bench tasks were evaluated without omission."
+    }
+  }
+}
+```
+
+---
 
 ## Verification System
 
@@ -215,6 +332,8 @@ Your JSON file will be automatically validated against the schema when you submi
 - Scores are between 0-100 or `null`
 - Cost values are positive numbers or `null` (if provided)
 - Date format is YYYY-MM-DD
+- **`submission_type`** is `"standard"` or `"custom"` (defaults to `"standard"` if omitted)
+- **If custom:** detailed methodology notes and implementation links are provided
 - **Verification fields are included** in the methodology section
 - **Trajectory link is provided** in the pull request description (for verified submissions)
 

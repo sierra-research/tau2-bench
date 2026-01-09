@@ -82,6 +82,12 @@ def add_run_args(parser):
         help="The task set to run the simulation on. If not provided, will load default task set for the domain.",
     )
     parser.add_argument(
+        "--task-split-name",
+        type=str,
+        default="base",
+        help="The task split to run the simulation on. If not provided, will load 'base' split.",
+    )
+    parser.add_argument(
         "--task-ids",
         type=str,
         nargs="+",
@@ -129,6 +135,12 @@ def add_run_args(parser):
         default=DEFAULT_LOG_LEVEL,
         help=f"The log level to use for the simulation. Default is {DEFAULT_LOG_LEVEL}.",
     )
+    parser.add_argument(
+        "--enforce-communication-protocol",
+        action="store_true",
+        default=False,
+        help="Enforce communication protocol rules (e.g., no mixed messages with text and tool calls). Default is False.",
+    )
 
 
 def main():
@@ -143,6 +155,7 @@ def main():
             RunConfig(
                 domain=args.domain,
                 task_set_name=args.task_set_name,
+                task_split_name=args.task_split_name,
                 task_ids=args.task_ids,
                 num_tasks=args.num_tasks,
                 agent=args.agent,
@@ -158,12 +171,24 @@ def main():
                 max_concurrency=args.max_concurrency,
                 seed=args.seed,
                 log_level=args.log_level,
+                enforce_communication_protocol=args.enforce_communication_protocol,
             )
         )
     )
 
+    # Play command
+    play_parser = subparsers.add_parser(
+        "play", help="Play manual mode - interact with a domain as the agent"
+    )
+    play_parser.set_defaults(func=lambda args: run_manual_mode())
+
     # View command
     view_parser = subparsers.add_parser("view", help="View simulation results")
+    view_parser.add_argument(
+        "--dir",
+        type=str,
+        help="Directory containing simulation files. Defaults to data/simulations if not specified.",
+    )
     view_parser.add_argument(
         "--file",
         type=str,
@@ -296,6 +321,7 @@ def run_view_simulations(args):
         sim_file=args.file,
         only_show_failed=args.only_show_failed,
         only_show_all_failed=args.only_show_all_failed,
+        sim_dir=args.dir,
     )
 
 
@@ -357,6 +383,12 @@ def run_validate_submission(args):
     from tau2.scripts.leaderboard.prepare_submission import validate_submission
 
     validate_submission(submission_dir=args.submission_dir, mode=args.mode)
+
+
+def run_manual_mode():
+    from tau2.scripts.manual_mode import main as manual_main
+
+    manual_main()
 
 
 if __name__ == "__main__":

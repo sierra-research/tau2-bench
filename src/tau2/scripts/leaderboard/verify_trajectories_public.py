@@ -1,5 +1,6 @@
 from collections import defaultdict
 from pathlib import Path
+from typing import Optional
 
 from tau2.data_model.simulation import Results
 from tau2.registry import registry
@@ -17,10 +18,13 @@ def check_format(path: str | Path) -> tuple[Results | None, bool, str]:
 
 
 def check_tasks(results: Results) -> tuple[bool, str]:
-    """Checks that Results contains all the tasks for the specified domain."""
+    """Checks that Results contains all the tasks for the specified domain.
+    Uses the base task split by default.
+    """
     domain = results.info.environment_info.domain_name
-
-    domain_tasks = {task.id: task for task in registry.get_tasks_loader(domain)()}
+    tasks_loader = registry.get_tasks_loader(domain)
+    tasks_for_split = tasks_loader("base")
+    domain_tasks = {task.id: task for task in tasks_for_split}
     results_tasks = {task.id: task for task in results.tasks}
     domains_tasks_ids = set(domain_tasks.keys())
     results_tasks_ids = set(results_tasks.keys())

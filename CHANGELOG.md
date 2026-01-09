@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.2.1] - 2025-11-07
+### Added
+- Gymnasium-compatible interface for RL training with `AgentGymEnv` and `UserGymEnv`
+- Train/test task splits for all domains
+- Interactive play mode (`tau2 play`) supporting both agent and user roles
+- Possibility to strictly enforce communication protocol rules (e.g., no mixed messages with text and tool calls)
+
 ## [0.2.0] - 2025-10-06
 
 ### Added
