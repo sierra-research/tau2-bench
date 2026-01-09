@@ -165,6 +165,24 @@ def parse_text_tool_call(
     tool_name = tool_call["name"]
     tool_args = tool_call.get("arguments", {})
 
+    if isinstance(tool_args, str):
+        try:
+            parsed_args = json.loads(tool_args)
+            if not isinstance(parsed_args, dict):
+                logger.warning(
+                    "Parsed tool arguments is not a dict, using empty dict",
+                    parsed_value=parsed_args,
+                )
+                tool_args = {}
+            else:
+                tool_args = parsed_args
+        except json.JSONDecodeError:
+            logger.warning(
+                "Failed to parse tool arguments as JSON, using empty dict",
+                raw_args=tool_args,
+            )
+            tool_args = {}
+
     logger.info(
         "Parsed text-based tool call (model did not use native function calling)",
         tool_name=tool_name,
