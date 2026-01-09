@@ -27,7 +27,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     TAU2_DATA_DIR=/app/data \
     PORT=8001 \
     LOG_LEVEL=INFO \
-    TAU2_AGENT_MODEL=gemini-2.0-flash \
+    # Orchestrator model (internal, tau2-bench-agent pays for this)
+    TAU2_ORCHESTRATOR_MODEL=litellm/nebius/Qwen/Qwen3-Coder-480B-A35B-Instruct \
+    TAU2_ORCHESTRATOR_API_BASE=https://api.studio.nebius.com/v1/ \
     PYTHONPATH=/app/agents:/app/src \
     AGENTS_DIR=/app/agents \
     # Datadog LLM Observability (agentless mode)
@@ -66,6 +68,9 @@ COPY --chown=tau2agent:tau2agent pyproject.toml README.md ./
 RUN mkdir -p /app/agents
 COPY --chown=tau2agent:tau2agent tau2_agent/ ./agents/tau2_agent/
 
+# Copy shared utilities (card_url_utils, middleware, server_utils)
+COPY --chown=tau2agent:tau2agent shared_utils/ ./agents/shared_utils/
+
 # Create .adk directory inside agents for ADK artifact storage
 # ADK looks for .adk relative to AGENTS_DIR
 RUN mkdir -p /app/agents/.adk && chown tau2agent:tau2agent /app/agents/.adk
@@ -91,7 +96,7 @@ USER tau2agent
 EXPOSE 8001
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:8001/a2a/tau2_agent/.well-known/agent-card.json', timeout=5).raise_for_status()" || exit 1
+    CMD curl -f --max-time 5 http://localhost:8001/.well-known/agent-card.json || exit 1
 
 # AgentBeats-compatible entrypoint: accepts --host, --port, --card-url args
 # CARD_URL env var is read by server.py to update agent.json URL at startup

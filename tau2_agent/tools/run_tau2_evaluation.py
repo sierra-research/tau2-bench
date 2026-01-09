@@ -6,6 +6,7 @@ Persists evaluation results to EvaluationStore for post-hoc metrics emission.
 """
 
 import asyncio
+import atexit
 import os
 import time
 import uuid
@@ -61,6 +62,7 @@ class UserLLMAuthError(Exception):
         self.error = error
         super().__init__(str(error))
 
+
 # Dedicated executor for evaluation work to prevent contention with other async operations.
 # This isolates evaluation threads and allows multiple concurrent evaluations without
 # exhausting the default executor used by ADK's event loop.
@@ -71,6 +73,25 @@ _EVALUATION_EXECUTOR = ThreadPoolExecutor(
 )
 
 
+def _shutdown_executor():
+    """Clean up the evaluation executor on process exit."""
+    _EVALUATION_EXECUTOR.shutdown(wait=False)
+
+
+atexit.register(_shutdown_executor)
+
+# Provider prefix to environment variable mapping for auto-resolving API keys.
+# When USER_LLM_API_KEY is not set, we can infer the correct API key env var
+# from the model prefix (e.g., "nebius/..." uses NEBIUS_API_KEY).
+PROVIDER_API_KEY_MAP: dict[str, str] = {
+    "nebius/": "NEBIUS_API_KEY",
+    "openai/": "OPENAI_API_KEY",
+    "anthropic/": "ANTHROPIC_API_KEY",
+    "gemini/": "GOOGLE_API_KEY",
+    "google/": "GOOGLE_API_KEY",
+}
+
+
 @contextmanager
 def evaluation_span(
     evaluation_id: str,
@@ -79,26 +100,23 @@ def evaluation_span(
     num_tasks: int | None = None,
     num_trials: int = 1,
 ):
-    """Create a parent APM span for the entire evaluation.
+    """Create parent APM span for entire evaluation.
 
-    This groups all LLM calls, tool calls, and other operations under a single
-    trace that can be viewed cohesively in Datadog APM.
+    Groups all operations under a single trace for Datadog APM.
 
     Args:
-        evaluation_id: Unique identifier for this evaluation
-        domain: The tau2 domain being evaluated
-        agent_endpoint: The agent being evaluated
-        num_tasks: Number of tasks in the evaluation
-        num_trials: Number of trials per task
+        evaluation_id: Unique identifier for this evaluation.
+        domain: Tau2 domain being evaluated.
+        agent_endpoint: Agent being evaluated.
+        num_tasks: Number of tasks in the evaluation.
+        num_trials: Number of trials per task.
     """
-    # Try to import ddtrace - if not available, yield None and return
     try:
         from ddtrace import tracer
     except ImportError:
         yield None
         return
 
-    # Try to create the span - if it fails, yield None and return
     try:
         span = tracer.trace(
             "tau2.evaluation",
@@ -116,7 +134,6 @@ def evaluation_span(
         yield None
         return
 
-    # Yield the span and ensure it's finished properly
     try:
         yield span
     finally:
@@ -147,11 +164,10 @@ class RunTau2Evaluation(BaseTool):
     """
 
     def _get_declaration(self) -> types.FunctionDeclaration | None:
-        """
-        Create the FunctionDeclaration used by the ADK function-calling interface for this tool.
+        """Create the FunctionDeclaration for ADK function-calling interface.
 
         Returns:
-            function_declaration (types.FunctionDeclaration | None): A FunctionDeclaration describing the tool's name, description, and parameter schema (including `domain`, `agent_endpoint`, `user_llm`, `num_trials`, and `num_tasks`), or `None` if a declaration cannot be generated.
+            FunctionDeclaration with tool schema, or None if unavailable.
         """
         return types.FunctionDeclaration(
             name=self.name,
@@ -219,33 +235,108 @@ class RunTau2Evaluation(BaseTool):
         # OpenAI models (gpt-*, o1-*, etc.) - no prefix needed
         return model
 
-    def _get_user_llm_credentials(self) -> tuple[str, dict[str, Any]]:
-        """Get user LLM model and credentials from request headers.
+    def _resolve_provider_api_key(self, model: str) -> str | None:
+        """Resolve API key from model prefix using provider mapping.
 
-        Reads credentials from contextvars set by middleware. Credentials
-        are REQUIRED - raises MissingCredentialsError if not provided.
+        This enables provider-aware key resolution: users can specify just
+        their provider's API key (e.g., NEBIUS_API_KEY) and the system will
+        automatically use it when USER_LLM_MODEL starts with that provider prefix.
+
+        Args:
+            model: Model identifier (e.g., "nebius/moonshotai/Kimi-K2-Instruct")
+
+        Returns:
+            API key from the appropriate environment variable, or None if not found.
+        """
+        for prefix, env_var in PROVIDER_API_KEY_MAP.items():
+            if model.startswith(prefix):
+                key = os.environ.get(env_var)
+                if key:
+                    logger.debug(
+                        f"Resolved API key from {env_var} for model prefix '{prefix}'"
+                    )
+                    return key
+                logger.debug(
+                    f"Expected {env_var} for model prefix '{prefix}' but env var is not set"
+                )
+                break
+
+        # Default: try OPENAI_API_KEY for models without recognized prefix
+        if "/" not in model:
+            return os.environ.get("OPENAI_API_KEY")
+
+        return None
+
+    def _get_expected_key_env_var(self, model: str) -> str:
+        """Get the expected environment variable name for a model's API key.
+
+        Used for error messages to guide users on which env var to set.
+
+        Args:
+            model: Model identifier (e.g., "nebius/moonshotai/Kimi-K2-Instruct")
+
+        Returns:
+            Expected environment variable name (e.g., "NEBIUS_API_KEY").
+        """
+        for prefix, env_var in PROVIDER_API_KEY_MAP.items():
+            if model.startswith(prefix):
+                return env_var
+        return "OPENAI_API_KEY" if "/" not in model else "USER_LLM_API_KEY"
+
+    def _get_user_llm_credentials(self) -> tuple[str, dict[str, Any]]:
+        """Get user LLM model and credentials for user simulation.
+
+        Credentials are resolved in this priority:
+        1. Context variables (X-User-LLM-Model, X-User-LLM-API-Key headers)
+        2. Environment variables (USER_LLM_MODEL, USER_LLM_API_KEY)
+        3. Provider-aware resolution: infer API key from model prefix
+
+        Provider-aware resolution maps model prefix to env var:
+        - nebius/... -> NEBIUS_API_KEY
+        - openai/... or no prefix -> OPENAI_API_KEY
+        - anthropic/... -> ANTHROPIC_API_KEY
+        - gemini/... -> GOOGLE_API_KEY
 
         Returns:
             Tuple of (litellm_formatted_model, llm_args dict with api_key).
 
         Raises:
-            MissingCredentialsError: If X-User-LLM-Model or X-User-LLM-API-Key
-                headers are not provided.
+            MissingCredentialsError: If model or API key cannot be resolved.
         """
+        # 1. Try context variables (from middleware, highest priority)
         ctx_model = user_llm_model.get()
         ctx_api_key = user_llm_api_key.get()
 
-        if not ctx_model or not ctx_api_key:
+        # 2. Fall back to environment variables
+        model = ctx_model or os.environ.get("USER_LLM_MODEL")
+        api_key = ctx_api_key or os.environ.get("USER_LLM_API_KEY")
+
+        if not model:
             error = EvaluationError(
                 code=ErrorCode.MISSING_HEADER,
-                message="User LLM credentials required. Include X-User-LLM-Model and X-User-LLM-API-Key headers.",
+                message="User LLM model required. Set USER_LLM_MODEL env var or X-User-LLM-Model header.",
             )
             raise MissingCredentialsError(error)
 
-        # Format model name for LiteLLM
-        formatted_model = self._format_model_for_litellm(ctx_model)
+        # Format model name for LiteLLM (needed for provider-aware key resolution)
+        formatted_model = self._format_model_for_litellm(model)
 
-        llm_args: dict[str, Any] = {"api_key": ctx_api_key}
+        # 3. Provider-aware API key resolution (if not explicitly provided)
+        if not api_key:
+            api_key = self._resolve_provider_api_key(formatted_model)
+
+        if not api_key:
+            expected_var = self._get_expected_key_env_var(formatted_model)
+            error = EvaluationError(
+                code=ErrorCode.MISSING_HEADER,
+                message=(
+                    f"API key for model '{model}' not found. "
+                    f"Set {expected_var} env var, USER_LLM_API_KEY env var, or X-User-LLM-API-Key header."
+                ),
+            )
+            raise MissingCredentialsError(error)
+
+        llm_args: dict[str, Any] = {"api_key": api_key}
 
         # Set api_base only for providers requiring custom endpoints
         if formatted_model.startswith("nebius/"):
@@ -294,32 +385,14 @@ class RunTau2Evaluation(BaseTool):
     async def run_async(  # type: ignore[override]
         self, *, args: dict[str, Any], tool_context: ToolContext
     ) -> dict[str, Any]:
-        """
-        Invoke the tool via the ADK function-calling interface using the supplied arguments and context.
+        """Execute tau2-bench evaluation and persist results.
 
-        This method executes a tau2-bench evaluation and persists results to EvaluationStore.
-        Returns evaluation results as a dict for the LLM agent to process.
-
-        Note: ADK's tool execution framework awaits run_async directly, so this method
-        returns a dict rather than being an async generator. The A2A layer handles
-        SSE streaming of the agent's text responses automatically.
-
-        Parameters:
-            args (dict[str, Any]): Input fields expected by the tool. Recognized keys:
-                - domain (str): Evaluation domain (required).
-                - agent_endpoint (str): A2A endpoint URL of the agent to evaluate (required).
-                - user_llm (str): LLM model identifier for the user simulator (optional).
-                - num_trials (int): Number of trials per task (optional, default 1).
-                - num_tasks (int | None): Number of tasks to evaluate (optional).
-                - task_ids (list[str] | None): Specific task IDs to evaluate (optional).
-            tool_context (ToolContext): ADK-provided execution context for the tool.
+        Args:
+            args: Tool arguments (domain, agent_endpoint, num_trials, num_tasks, task_ids).
+            tool_context: ADK execution context.
 
         Returns:
-            dict[str, Any]: Evaluation results containing:
-                - status: "completed" or "failed"
-                - evaluation_id: Unique ID for this evaluation
-                - summary: Aggregated metrics (success_rate, total_tasks, etc.)
-                - tasks: List of evaluated tasks with results
+            Evaluation results with status, evaluation_id, summary, and tasks.
         """
         domain = args.get("domain")
         agent_endpoint = args.get("agent_endpoint")
@@ -331,19 +404,16 @@ class RunTau2Evaluation(BaseTool):
         num_tasks = args.get("num_tasks")
         task_ids = args.get("task_ids")
 
-        # Validate limits first (fail fast)
         try:
             self._validate_limits(num_tasks, num_trials)
         except LimitExceededError as e:
             return {"error": e.error.code.value, "message": e.error.message}
 
-        # Get user LLM credentials from request headers (required)
         try:
             user_llm, llm_args_user = self._get_user_llm_credentials()
         except MissingCredentialsError as e:
             return {"error": e.error.code.value, "message": e.error.message}
 
-        # Initialize EvaluationStore for persistence
         store: EvaluationStore | None = None
         try:
             store = create_store()
@@ -353,7 +423,6 @@ class RunTau2Evaluation(BaseTool):
         evaluation_id: str | None = None
 
         try:
-            # Create session in EvaluationStore
             request_data = {
                 "user_llm": user_llm,
                 "num_trials": num_trials,
@@ -378,7 +447,6 @@ class RunTau2Evaluation(BaseTool):
             else:
                 evaluation_id = generate_evaluation_id()
 
-            # Transition to WORKING state before starting evaluation
             if store and evaluation_id:
                 try:
                     store.update_progress(
@@ -389,7 +457,6 @@ class RunTau2Evaluation(BaseTool):
                 except Exception as e:
                     logger.warning(f"Failed to update progress to WORKING: {e}")
 
-            # Log evaluation start with structured fields for GCP
             log_evaluation_start(
                 domain=domain,
                 agent_endpoint=agent_endpoint,
@@ -399,10 +466,8 @@ class RunTau2Evaluation(BaseTool):
             )
             start_time = time.time()
 
-            # Store span context for use after span closes
             llmobs_span_ctx = None
 
-            # Wrap evaluation in APM span for cohesive tracing
             with evaluation_span(
                 evaluation_id=evaluation_id or "unknown",
                 domain=domain,
@@ -410,15 +475,13 @@ class RunTau2Evaluation(BaseTool):
                 num_tasks=num_tasks,
                 num_trials=num_trials,
             ) as span:
-                # Create LLMObs workflow span for evaluation metrics
                 with llmobs_evaluation_span(
                     evaluation_id=evaluation_id or "unknown",
                     domain=domain,
                     agent_endpoint=agent_endpoint,
                 ) as ctx:
-                    llmobs_span_ctx = ctx  # Capture for use after span closes
+                    llmobs_span_ctx = ctx
 
-                    # Run the evaluation
                     result = await self._execute(
                         _tool_context=tool_context,
                         domain=domain,
@@ -431,16 +494,18 @@ class RunTau2Evaluation(BaseTool):
                         llmobs_span_context=llmobs_span_ctx,
                     )
 
-                    # Add result metrics to span
                     if span and result.get("summary"):
-                        span.set_tag("success_rate", result["summary"].get("avg_reward", 0))
-                        span.set_tag("total_tasks", result["summary"].get("total_tasks", 0))
+                        span.set_tag(
+                            "success_rate", result["summary"].get("avg_reward", 0)
+                        )
+                        span.set_tag(
+                            "total_tasks", result["summary"].get("total_tasks", 0)
+                        )
                         span.set_tag(
                             "successful_tasks",
                             result["summary"].get("successful_simulations", 0),
                         )
 
-                    # Submit LLMObs evaluation summary inside the span context
                     submit_evaluation_summary(
                         evaluation_id=evaluation_id or "unknown",
                         domain=domain,
@@ -451,18 +516,19 @@ class RunTau2Evaluation(BaseTool):
                         span_context=llmobs_span_ctx,
                     )
 
-            # Build store_results for both store and metrics emission
             store_results = None
             if evaluation_id:
                 task_results = []
                 for sim in result.get("simulations", []):
                     reward_info = sim.get("reward_info", {})
                     reward = reward_info.get("reward", 0.0) if reward_info else 0.0
-                    task_results.append({
-                        "task_id": sim.get("task_id", "unknown"),
-                        "success": reward >= 0.7,
-                        "reward": reward,
-                    })
+                    task_results.append(
+                        {
+                            "task_id": sim.get("task_id", "unknown"),
+                            "success": reward >= 0.7,
+                            "reward": reward,
+                        }
+                    )
 
                 store_results = {
                     "success_rate": result["summary"]["successful_simulations"]
@@ -472,12 +538,10 @@ class RunTau2Evaluation(BaseTool):
                     "total_tasks": result["summary"]["total_tasks"],
                     "successful": result["summary"]["successful_simulations"],
                     "tasks": task_results,
-                    # Use full simulations data (with reasoning_content) for store
                     "simulations": result.get("_simulations_full", []),
                     "info": result.get("info"),
                 }
 
-            # Complete evaluation in store (if store is available)
             if store and evaluation_id and store_results:
                 try:
                     store.complete_evaluation(
@@ -487,8 +551,6 @@ class RunTau2Evaluation(BaseTool):
                 except Exception as e:
                     logger.warning(f"Failed to complete evaluation in store: {e}")
 
-            # Emit Datadog metrics regardless of store success
-            # This ensures metrics are sent before container scales down
             if evaluation_id and store_results:
                 try:
                     emit_evaluation_metrics(
@@ -500,7 +562,6 @@ class RunTau2Evaluation(BaseTool):
                 except Exception as e:
                     logger.warning(f"Failed to emit metrics: {e}")
 
-            # Log evaluation completion with structured fields for GCP
             duration_ms = (time.time() - start_time) * 1000
             success_rate = (
                 result["summary"]["successful_simulations"]
@@ -517,13 +578,11 @@ class RunTau2Evaluation(BaseTool):
                 successful_simulations=result["summary"]["successful_simulations"],
             )
 
-            # Add evaluation_id to result and remove internal fields
             result["evaluation_id"] = evaluation_id
-            result.pop("_simulations_full", None)  # Don't send full data to Datadog
+            result.pop("_simulations_full", None)
             return result
 
         except ValueError as e:
-            # Fail evaluation in store
             if store and evaluation_id:
                 try:
                     store.fail_evaluation(evaluation_id=evaluation_id, error=str(e))
@@ -538,7 +597,6 @@ class RunTau2Evaluation(BaseTool):
             return {"error": "INVALID_PARAMETERS", "message": str(e)}
 
         except UserLLMAuthError as e:
-            # Fail evaluation in store
             if store and evaluation_id:
                 try:
                     store.fail_evaluation(evaluation_id=evaluation_id, error=str(e))
@@ -553,7 +611,6 @@ class RunTau2Evaluation(BaseTool):
             return {"error": e.error.code.value, "message": e.error.message}
 
         except Exception as e:
-            # Fail evaluation in store
             if store and evaluation_id:
                 try:
                     store.fail_evaluation(
@@ -585,36 +642,32 @@ class RunTau2Evaluation(BaseTool):
         task_ids: list[str] | None = None,
         llmobs_span_context: Any | None = None,
     ) -> dict[str, Any]:
-        """
-        Run a tau2-bench evaluation for a given domain and A2A agent endpoint.
+        """Run tau2-bench evaluation for given domain and agent endpoint.
 
-        Parameters:
-            domain (str): Evaluation domain identifier (e.g., "airline", "retail", "telecom", "mock").
-            agent_endpoint (str): A2A endpoint URL of the agent under test.
-            user_llm (str): LLM model identifier for the user simulator (LiteLLM formatted).
-            llm_args_user (dict): LLM arguments including api_key for the user simulator.
-            num_trials (int): Number of trials to run per task; defaults to 1.
-            num_tasks (int | None): Optional number of tasks to evaluate; when None, uses domain defaults.
-            task_ids (list[str] | None): Optional explicit list of task IDs to run.
+        Args:
+            _tool_context: ADK tool context (unused).
+            domain: Evaluation domain (airline, retail, telecom, mock).
+            agent_endpoint: A2A endpoint URL of agent under test.
+            user_llm: LLM model for user simulator (LiteLLM formatted).
+            llm_args_user: LLM arguments including api_key.
+            num_trials: Number of trials per task (default 1).
+            num_tasks: Number of tasks to evaluate (None uses domain defaults).
+            task_ids: Specific task IDs to run (None runs all tasks).
+            llmobs_span_context: Datadog LLMObs span context for tracing.
 
         Returns:
-            dict[str, Any]: A result object with keys:
-                - status: "completed" on success.
-                - timestamp: evaluation timestamp from tau2 results.
-                - summary: dict with aggregated metrics
-                - tasks: list of per-task dicts
+            Results with status, timestamp, summary metrics, and task details.
 
         Raises:
-            ValueError: If the provided domain is not recognized by tau2's registry.
+            ValueError: If domain is not recognized.
+            UserLLMAuthError: If user LLM authentication fails.
         """
         try:
-            # Import tau2-bench components
             from tau2.data_model.simulation import RunConfig
             from tau2.metrics.agent_metrics import compute_metrics, is_successful
             from tau2.registry import registry
             from tau2.run import run_domain
 
-            # Validate domain using tau2's registry
             valid_domains = registry.get_domains()
             if domain not in valid_domains:
                 msg = f"Invalid domain: {domain}. Must be one of {valid_domains}"
@@ -628,13 +681,10 @@ class RunTau2Evaluation(BaseTool):
                 num_trials=num_trials,
             )
 
-            # Generate unique save_to path to prevent filename collisions when running
-            # concurrent evaluations. This avoids the interactive prompt in run.py that
-            # would block forever in headless mode asking about resuming existing runs.
-            # See: specs/007-datadog-project/resolve-tau2agent-concurrency.md
+            # Unique save_to path prevents concurrent evaluation filename collisions.
+            # Avoids blocking on run.py's interactive prompt for resuming existing runs.
             unique_run_id = f"tau2_eval_{uuid.uuid4().hex[:12]}"
 
-            # Create run configuration
             config = RunConfig(
                 domain=domain,
                 task_set_name=None,
@@ -642,8 +692,8 @@ class RunTau2Evaluation(BaseTool):
                 task_ids=task_ids,
                 num_tasks=num_tasks,
                 is_remote=False,
-                agent="a2a_agent",  # Use A2A client implementation
-                llm_agent=agent_endpoint,  # A2A agent endpoint
+                agent="a2a_agent",
+                llm_agent=agent_endpoint,
                 llm_args_agent={},
                 user="user_simulator",
                 llm_user=user_llm,
@@ -659,14 +709,13 @@ class RunTau2Evaluation(BaseTool):
                 a2a_debug=False,
             )
 
-            # Run evaluations in a dedicated thread pool to avoid blocking ADK's event loop.
-            # Using _EVALUATION_EXECUTOR instead of the default executor (None) prevents
-            # contention with other async operations and allows concurrent evaluations.
-            # See: specs/007-datadog-project/resolve-tau2agent-concurrency.md
+            # Dedicated executor prevents blocking ADK's event loop and allows
+            # concurrent evaluations without contention.
             loop = asyncio.get_running_loop()
-            results = await loop.run_in_executor(_EVALUATION_EXECUTOR, run_domain, config)
+            results = await loop.run_in_executor(
+                _EVALUATION_EXECUTOR, run_domain, config
+            )
 
-            # Use tau2's built-in metrics computation
             metrics = compute_metrics(results)
 
             total_simulations = len(results.simulations)
@@ -684,16 +733,13 @@ class RunTau2Evaluation(BaseTool):
                 total_simulations=total_simulations,
             )
 
-            # Build simulation data - full version for store, compact for tracing
-            simulations_data_full = []  # Full data for EvaluationStore
-            simulations_data_compact = []  # Compact data for Datadog traces
+            simulations_data_full = []
+            simulations_data_compact = []
             for sim in results.simulations:
-                # Full messages for EvaluationStore
                 full_messages = [
                     msg.model_dump(mode="json") if hasattr(msg, "model_dump") else msg
                     for msg in (sim.messages or [])
                 ]
-                # Compact messages for tracing (removes raw_data, reasoning_content)
                 compact_messages = [compact_message(msg) for msg in full_messages]
 
                 base_sim_data = {
@@ -710,10 +756,13 @@ class RunTau2Evaluation(BaseTool):
                         else sim.reward_info
                     ),
                 }
-                simulations_data_full.append({**base_sim_data, "messages": full_messages})
-                simulations_data_compact.append({**base_sim_data, "messages": compact_messages})
+                simulations_data_full.append(
+                    {**base_sim_data, "messages": full_messages}
+                )
+                simulations_data_compact.append(
+                    {**base_sim_data, "messages": compact_messages}
+                )
 
-                # Submit LLMObs evaluations for this simulation (real-time trace correlation)
                 submit_task_evaluations(
                     task_id=sim.task_id,
                     domain=domain,
@@ -724,7 +773,6 @@ class RunTau2Evaluation(BaseTool):
                     span_context=llmobs_span_context,
                 )
 
-            # Build result with compact simulations for Datadog traces
             result = {
                 "status": "completed",
                 "timestamp": results.timestamp,
@@ -749,14 +797,12 @@ class RunTau2Evaluation(BaseTool):
                     }
                     for task in results.tasks
                 ],
-                # Compact simulation data for Datadog traces (< 1MB limit)
                 "simulations": simulations_data_compact,
                 "info": {
                     "environment_info": {
                         "domain_name": domain,
                     },
                 },
-                # Full simulation data for EvaluationStore (not sent to Datadog)
                 "_simulations_full": simulations_data_full,
             }
             return result
@@ -766,11 +812,10 @@ class RunTau2Evaluation(BaseTool):
             raise
 
         except litellm.AuthenticationError as e:
-            # LiteLLM raises AuthenticationError for invalid API keys
             error = EvaluationError(
                 code=ErrorCode.USER_LLM_AUTH_FAILED,
                 message="User LLM authentication failed",
-                details={"model": user_llm},  # Never include API key
+                details={"model": user_llm},
             )
             logger.warning(
                 "User LLM authentication failed",
@@ -780,12 +825,11 @@ class RunTau2Evaluation(BaseTool):
             raise UserLLMAuthError(error) from e
 
         except Exception as e:
-            # Check for other auth-like errors (e.g., wrapped exceptions)
             if "Unauthorized" in str(e):
                 error = EvaluationError(
                     code=ErrorCode.USER_LLM_AUTH_FAILED,
                     message="User LLM authentication failed",
-                    details={"model": user_llm},  # Never include API key
+                    details={"model": user_llm},
                 )
                 logger.warning(
                     "User LLM authentication failed",

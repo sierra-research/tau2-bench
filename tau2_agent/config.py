@@ -10,6 +10,13 @@ import os
 from dataclasses import dataclass, field
 from typing import ClassVar
 
+# Orchestrator model defaults (internal, not user-provided)
+DEFAULT_ORCHESTRATOR_MODEL = "litellm/nebius/Qwen/Qwen3-Coder-480B-A35B-Instruct"
+"""Default model for tau2_agent orchestrator (costs borne by tau2-bench-agent)"""
+
+DEFAULT_ORCHESTRATOR_API_BASE = "https://api.studio.nebius.com/v1/"
+"""Default API base for Nebius orchestrator model"""
+
 
 @dataclass
 class EvaluationLimits:
@@ -20,45 +27,39 @@ class EvaluationLimits:
     """
 
     MAX_TASKS: ClassVar[int] = 30
-    """Maximum tasks per evaluation (Cloud Run 60-min timeout)"""
-
     MAX_TRIALS: ClassVar[int] = 3
-    """Maximum trials per task"""
-
     TIMEOUT_SECONDS: ClassVar[int] = 3600
-    """Cloud Run request timeout (60 minutes)"""
 
 
 @dataclass
 class ServerConfig:
     """Server configuration loaded from environment.
 
-    This dataclass encapsulates all server-side configuration for the tau2_agent
-    Cloud Run deployment. Values are loaded from environment variables with sensible
-    defaults for local development.
+    Encapsulates all server-side configuration for tau2_agent Cloud Run deployment.
+    Values are loaded from environment variables with defaults for local development.
 
     Attributes:
-        tau2_agent_model: Model for tau2_agent orchestrator LLM.
+        tau2_orchestrator_model: Model for orchestrator. Defaults to internal model
+            (costs borne by service), overridable via TAU2_ORCHESTRATOR_MODEL env var.
+        tau2_orchestrator_api_key: API key for orchestrator model (internal secret).
+        tau2_orchestrator_api_base: API base URL for orchestrator model.
         google_api_key: Gemini API key (from Secret Manager in production).
         port: Server port (Cloud Run sets PORT env var).
         log_level: Logging verbosity.
         service_api_keys: Optional list of keys for service access control.
     """
 
-    tau2_agent_model: str = "gemini-2.0-flash"
-    """Model for tau2_agent orchestrator LLM"""
-
-    google_api_key: str | None = None
-    """Gemini API key (from Secret Manager in production)"""
-
+    tau2_orchestrator_model: str = field(
+        default_factory=lambda: DEFAULT_ORCHESTRATOR_MODEL
+    )
+    tau2_orchestrator_api_key: str | None = field(default=None, repr=False)
+    tau2_orchestrator_api_base: str = field(
+        default_factory=lambda: DEFAULT_ORCHESTRATOR_API_BASE
+    )
+    google_api_key: str | None = field(default=None, repr=False)
     port: int = 8001
-    """Server port (Cloud Run sets PORT env var)"""
-
     log_level: str = "INFO"
-    """Logging verbosity"""
-
-    service_api_keys: list[str] = field(default_factory=list)
-    """Optional: list of keys for service access control"""
+    service_api_keys: list[str] = field(default_factory=list, repr=False)
 
     @classmethod
     def from_env(cls) -> ServerConfig:
@@ -70,8 +71,19 @@ class ServerConfig:
         service_keys_str = os.getenv("SERVICE_API_KEYS", "")
         service_keys = [k.strip() for k in service_keys_str.split(",") if k.strip()]
 
+        # Orchestrator model: prefer TAU2_ORCHESTRATOR_MODEL, fall back to TAU2_AGENT_MODEL for backward compat
+        orchestrator_model = (
+            os.getenv("TAU2_ORCHESTRATOR_MODEL")
+            or os.getenv("TAU2_AGENT_MODEL")
+            or DEFAULT_ORCHESTRATOR_MODEL
+        )
+
         return cls(
-            tau2_agent_model=os.getenv("TAU2_AGENT_MODEL", "gemini-2.0-flash"),
+            tau2_orchestrator_model=orchestrator_model,
+            tau2_orchestrator_api_key=os.getenv("TAU2_ORCHESTRATOR_API_KEY"),
+            tau2_orchestrator_api_base=os.getenv(
+                "TAU2_ORCHESTRATOR_API_BASE", DEFAULT_ORCHESTRATOR_API_BASE
+            ),
             google_api_key=os.getenv("GOOGLE_API_KEY"),
             port=int(os.getenv("PORT", "8001")),
             log_level=os.getenv("LOG_LEVEL", "INFO"),

@@ -1,30 +1,31 @@
 """
-User LLM credentials middleware for tau2_agent.
+Middleware for tau2_agent.
 
-This module provides HTTP middleware that extracts user LLM credentials
-from request headers and stores them in request-scoped context variables.
-Credentials are optional at the middleware level; individual tools validate
-if they require credentials (e.g., run_tau2_evaluation validates credentials
-because it needs them to call the user's LLM).
+This module provides:
+1. CredentialsMiddleware - Extracts user LLM credentials from HTTP headers
+2. RootA2AMiddleware - Re-exported from shared_utils for convenience
 
-Environment Variable Fallback:
-    When headers are not provided, the middleware falls back to environment
-    variables USER_LLM_MODEL and USER_LLM_API_KEY. This enables containerized
-    deployments (e.g., AgentBeats) where credentials are configured via env
-    vars rather than passed in each request.
+CredentialsMiddleware:
+    Extracts user LLM credentials from request headers and stores them in
+    request-scoped context variables. Credentials are optional at the middleware
+    level; individual tools validate if they require credentials.
+
+    Environment Variable Fallback:
+        When headers are not provided, falls back to USER_LLM_MODEL and
+        USER_LLM_API_KEY environment variables for containerized deployments.
 
 Security Note:
     API keys are NEVER logged. The middleware uses loguru for structured
     logging but explicitly excludes API key values from all log output.
 
 Usage:
-    from tau2_agent.middleware import CredentialsMiddleware
+    from tau2_agent.middleware import CredentialsMiddleware, RootA2AMiddleware
 
     app = FastAPI()
     app.add_middleware(CredentialsMiddleware)
 
-    # With optional service authentication:
-    app.add_middleware(CredentialsMiddleware, service_api_keys=["key1", "key2"])
+    # Wrap with RootA2AMiddleware as outermost layer
+    wrapped_app = RootA2AMiddleware(app, agent_name="tau2_agent")
 """
 
 import os
@@ -34,9 +35,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from shared_utils.middleware import RootA2AMiddleware
 from tau2_agent.context import request_id, user_llm_api_key, user_llm_model
 from tau2_agent.errors import ErrorCode, EvaluationError
 
+__all__ = ["CredentialsMiddleware", "RootA2AMiddleware"]
 
 # Paths that bypass credential and service auth validation (health checks, root, etc.)
 BYPASS_PATHS = frozenset({"/", "/health", "/healthz", "/ready", "/readiness"})
@@ -176,10 +179,7 @@ class CredentialsMiddleware(BaseHTTPMiddleware):
             return True
 
         # Bypass agent discovery endpoints (used by Cloud Run health probes)
-        if path.endswith(BYPASS_SUFFIXES):
-            return True
-
-        return False
+        return path.endswith(BYPASS_SUFFIXES)
 
     def _validate_service_auth(self, request: Request) -> JSONResponse | None:
         """Validate service authentication via Authorization header.

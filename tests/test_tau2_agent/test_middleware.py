@@ -1,4 +1,4 @@
-"""Unit tests for tau2_agent credentials middleware."""
+"""Unit tests for tau2_agent middleware (Credentials and RootA2A)."""
 
 import pytest
 from starlette.applications import Starlette
@@ -8,7 +8,7 @@ from starlette.testclient import TestClient
 
 from tau2_agent.context import request_id, user_llm_api_key, user_llm_model
 from tau2_agent.errors import ErrorCode
-from tau2_agent.middleware import CredentialsMiddleware
+from tau2_agent.middleware import CredentialsMiddleware, RootA2AMiddleware
 
 
 # Test app that echoes back context values
@@ -684,3 +684,219 @@ class TestOptionalServiceAuth:
         response_text = response.text
         # Token value should never appear in response
         assert "secret-attempt-123" not in response_text
+
+
+class TestRootA2AMiddlewarePathRewriting:
+    """Tests for RootA2AMiddleware path rewriting functionality."""
+
+    @pytest.fixture
+    def app_with_routes(self):
+        """Create a Starlette app with test routes."""
+
+        async def root_get(request):
+            return JSONResponse({"path": "/", "method": "GET"})
+
+        async def a2a_endpoint(request):
+            return JSONResponse({"path": request.url.path, "method": request.method})
+
+        return Starlette(
+            routes=[
+                Route("/", root_get, methods=["GET"]),
+                Route("/a2a/test_agent/", a2a_endpoint, methods=["POST"]),
+            ]
+        )
+
+    def test_post_root_rewritten_to_a2a_endpoint(self, app_with_routes):
+        """POST / should be rewritten to POST /a2a/{agent_name}/."""
+        wrapped = RootA2AMiddleware(app_with_routes, agent_name="test_agent")
+        client = TestClient(wrapped)
+
+        response = client.post("/")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["path"] == "/a2a/test_agent/"
+        assert data["method"] == "POST"
+
+    def test_get_root_not_rewritten(self, app_with_routes):
+        """GET / should NOT be rewritten (health checks, etc.)."""
+        wrapped = RootA2AMiddleware(app_with_routes, agent_name="test_agent")
+        client = TestClient(wrapped)
+
+        response = client.get("/")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["path"] == "/"
+        assert data["method"] == "GET"
+
+    def test_post_other_paths_not_rewritten(self, app_with_routes):
+        """POST /foo should NOT be rewritten."""
+
+        async def foo_post(request):
+            return JSONResponse({"path": request.url.path})
+
+        app_with_routes.routes.append(Route("/foo", foo_post, methods=["POST"]))
+        wrapped = RootA2AMiddleware(app_with_routes, agent_name="test_agent")
+        client = TestClient(wrapped)
+
+        response = client.post("/foo")
+
+        assert response.status_code == 200
+        assert response.json()["path"] == "/foo"
+
+    def test_post_a2a_endpoint_directly_still_works(self, app_with_routes):
+        """POST /a2a/{agent_name}/ should still work directly."""
+        wrapped = RootA2AMiddleware(app_with_routes, agent_name="test_agent")
+        client = TestClient(wrapped)
+
+        response = client.post("/a2a/test_agent/")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["path"] == "/a2a/test_agent/"
+
+
+class TestRootA2AMiddlewareSecurity:
+    """Security tests for RootA2AMiddleware."""
+
+    def test_agent_name_validation_rejects_path_traversal(self):
+        """agent_name with path traversal should be rejected."""
+
+        async def dummy(request):
+            return JSONResponse({})
+
+        app = Starlette(routes=[Route("/", dummy, methods=["POST"])])
+
+        with pytest.raises(ValueError, match="alphanumeric"):
+            RootA2AMiddleware(app, agent_name="test/../agent")
+
+    def test_agent_name_validation_rejects_spaces(self):
+        """agent_name with spaces should be rejected."""
+
+        async def dummy(request):
+            return JSONResponse({})
+
+        app = Starlette(routes=[Route("/", dummy, methods=["POST"])])
+
+        with pytest.raises(ValueError, match="alphanumeric"):
+            RootA2AMiddleware(app, agent_name="test agent")
+
+    def test_agent_name_validation_rejects_empty(self):
+        """Empty agent_name should be rejected."""
+
+        async def dummy(request):
+            return JSONResponse({})
+
+        app = Starlette(routes=[Route("/", dummy, methods=["POST"])])
+
+        with pytest.raises(ValueError, match="alphanumeric"):
+            RootA2AMiddleware(app, agent_name="")
+
+    def test_agent_name_validation_rejects_special_chars(self):
+        """agent_name with special characters should be rejected."""
+
+        async def dummy(request):
+            return JSONResponse({})
+
+        app = Starlette(routes=[Route("/", dummy, methods=["POST"])])
+
+        with pytest.raises(ValueError, match="alphanumeric"):
+            RootA2AMiddleware(app, agent_name="test@agent")
+
+    def test_agent_name_allows_underscore(self):
+        """agent_name with underscores should be allowed."""
+
+        async def dummy(request):
+            return JSONResponse({})
+
+        app = Starlette(routes=[Route("/", dummy, methods=["POST"])])
+
+        # Should not raise
+        middleware = RootA2AMiddleware(app, agent_name="test_agent_name")
+        assert middleware.agent_name == "test_agent_name"
+
+    def test_agent_name_allows_numbers(self):
+        """agent_name with numbers should be allowed."""
+
+        async def dummy(request):
+            return JSONResponse({})
+
+        app = Starlette(routes=[Route("/", dummy, methods=["POST"])])
+
+        # Should not raise
+        middleware = RootA2AMiddleware(app, agent_name="agent123")
+        assert middleware.agent_name == "agent123"
+
+
+class TestRootA2AMiddlewareWithCredentials:
+    """Tests for RootA2AMiddleware interaction with CredentialsMiddleware."""
+
+    def test_rewritten_path_goes_through_credentials_middleware(self):
+        """POST / rewritten to /a2a/... should go through CredentialsMiddleware."""
+
+        async def a2a_endpoint(request):
+            model = user_llm_model.get()
+            return JSONResponse({"model": model, "path": request.url.path})
+
+        app = Starlette(
+            routes=[
+                Route("/a2a/test_agent/", a2a_endpoint, methods=["POST"]),
+            ]
+        )
+
+        # Add CredentialsMiddleware to inner app
+        app.add_middleware(CredentialsMiddleware)
+
+        # Wrap with RootA2AMiddleware (must be outermost)
+        wrapped = RootA2AMiddleware(app, agent_name="test_agent")
+        client = TestClient(wrapped)
+
+        response = client.post(
+            "/",
+            headers={
+                "X-User-LLM-Model": "gpt-4o",
+                "X-User-LLM-API-Key": "sk-test",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["model"] == "gpt-4o"
+        assert data["path"] == "/a2a/test_agent/"
+
+    def test_root_post_not_bypassed_by_credentials_middleware(self):
+        """POST / should have credentials extracted (path rewritten before bypass check)."""
+
+        async def a2a_endpoint(request):
+            model = user_llm_model.get()
+            api_key = user_llm_api_key.get()
+            return JSONResponse({
+                "model": model,
+                "has_api_key": api_key is not None,
+            })
+
+        app = Starlette(
+            routes=[
+                Route("/a2a/test_agent/", a2a_endpoint, methods=["POST"]),
+            ]
+        )
+
+        app.add_middleware(CredentialsMiddleware)
+        wrapped = RootA2AMiddleware(app, agent_name="test_agent")
+        client = TestClient(wrapped)
+
+        response = client.post(
+            "/",
+            headers={
+                "X-User-LLM-Model": "claude-3-5-sonnet",
+                "X-User-LLM-API-Key": "sk-ant-test",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        # Credentials should be extracted because path is rewritten before
+        # CredentialsMiddleware sees it (so "/" bypass doesn't apply)
+        assert data["model"] == "claude-3-5-sonnet"
+        assert data["has_api_key"] is True
