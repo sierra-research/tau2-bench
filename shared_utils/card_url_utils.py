@@ -38,9 +38,14 @@ def update_agent_card_url(
         logger.warning(f"agent.json not found at {agent_json}")
         return card_url
 
-    data = json.loads(agent_json.read_text())
-    data["url"] = card_url
-    agent_json.write_text(json.dumps(data, indent=2))
-    logger.info(f"Updated agent.json URL to: {card_url}")
+    try:
+        data = json.loads(agent_json.read_text())
+        data["url"] = card_url
+        agent_json.write_text(json.dumps(data, indent=2))
+        logger.info(f"Updated agent.json URL to: {card_url}")
+    except OSError as e:
+        logger.error(f"Failed to read/write agent.json at {agent_json}: {e}")
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse agent.json at {agent_json}: {e}")
 
     return card_url
