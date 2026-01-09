@@ -6,6 +6,7 @@ Persists evaluation results to EvaluationStore for post-hoc metrics emission.
 """
 
 import asyncio
+import atexit
 import os
 import time
 import uuid
@@ -70,6 +71,14 @@ _EVALUATION_EXECUTOR = ThreadPoolExecutor(
     max_workers=10,
     thread_name_prefix="tau2_eval_",
 )
+
+
+def _shutdown_executor():
+    """Clean up the evaluation executor on process exit."""
+    _EVALUATION_EXECUTOR.shutdown(wait=False)
+
+
+atexit.register(_shutdown_executor)
 
 # Provider prefix to environment variable mapping for auto-resolving API keys.
 # When USER_LLM_API_KEY is not set, we can infer the correct API key env var
@@ -247,6 +256,9 @@ class RunTau2Evaluation(BaseTool):
                         f"Resolved API key from {env_var} for model prefix '{prefix}'"
                     )
                     return key
+                logger.debug(
+                    f"Expected {env_var} for model prefix '{prefix}' but env var is not set"
+                )
                 break
 
         # Default: try OPENAI_API_KEY for models without recognized prefix
