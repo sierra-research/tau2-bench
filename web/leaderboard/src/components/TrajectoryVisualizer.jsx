@@ -85,14 +85,18 @@ const TrajectoryVisualizer = () => {
         }
       }
       
-      // Sort submissions: those with trajectories first, then those without
+      // Sort submissions: new first, then those with trajectories, then alphabetically
       const sortedSubmissions = loadedSubmissions.sort((a, b) => {
-        // If both have trajectories or both don't have trajectories, sort by model name
-        if (a.hasTrajectories === b.hasTrajectories) {
-          return a.model_name.localeCompare(b.model_name)
+        // New submissions come first
+        if (a.is_new !== b.is_new) {
+          return (b.is_new ? 1 : 0) - (a.is_new ? 1 : 0)
         }
-        // Submissions with trajectories come first (true > false)
-        return b.hasTrajectories - a.hasTrajectories
+        // Then sort by trajectory availability
+        if (a.hasTrajectories !== b.hasTrajectories) {
+          return b.hasTrajectories - a.hasTrajectories
+        }
+        // Finally sort by model name
+        return a.model_name.localeCompare(b.model_name)
       })
       
       setSubmissions(sortedSubmissions)
@@ -130,6 +134,15 @@ const TrajectoryVisualizer = () => {
         ],
         'gpt-5': [
           'gpt-5_{domain}_default_gpt-4.1-2025-04-14_4trials.json'
+        ],
+        'qwen3-max-2025-10-30': [
+          '{domain}_llm_agent_qwen3-max-2025-10-30_user_simulator_gpt-4.1-2025-04-14.json'
+        ],
+        'Qwen3-Max-Thinking-Preview': [
+          '{domain}_llm_agent_qwen3-max-2025-10-30_user_simulator_gpt-4.1-2025-04-14.json'
+        ],
+        'Nemotron-Orchestrator-8B': [
+          'toolorchestra_{domain}_gpt-5_1trial.json'
         ]
       }
       
@@ -137,7 +150,17 @@ const TrajectoryVisualizer = () => {
       const modelKey = Object.keys(trajectoryPatterns).find(key => 
         key.toLowerCase() === submission.model_name.toLowerCase()
       )
-      const patterns = modelKey ? trajectoryPatterns[modelKey] : []
+      
+      // If no specific pattern found, try common generic patterns as fallback
+      let patterns = modelKey ? trajectoryPatterns[modelKey] : []
+      if (patterns.length === 0) {
+        // Try common naming patterns that might be used
+        patterns = [
+          `{domain}_llm_agent_${submission.model_name}_user_simulator_gpt-4.1-2025-04-14.json`,
+          `${submission.model_name}_{domain}_default_gpt-4.1-2025-04-14_4trials.json`,
+          `{domain}_${submission.model_name}_user_simulator_gpt-4.1-2025-04-14.json`
+        ]
+      }
       
       for (const domain of domains) {
         for (const pattern of patterns) {
@@ -532,7 +555,7 @@ const TrajectoryVisualizer = () => {
                 <p>This trajectory contains {selectedTrajectory.simulations?.length || 0} simulations across {selectedTrajectory.tasks?.length || 0} tasks. Select a simulation to view the conversation:</p>
                 
                 <div className="task-grid">
-                  {selectedTrajectory.simulations?.slice(0, 12).map((simulation, index) => {
+                  {selectedTrajectory.simulations?.slice(0, 50).map((simulation, index) => {
                     const task = selectedTrajectory.tasks?.find(t => t.id === simulation.task_id) || {}
                     const domain = task.user_scenario?.instructions?.domain || 'Unknown'
                     

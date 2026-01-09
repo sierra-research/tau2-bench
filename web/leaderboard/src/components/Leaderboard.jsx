@@ -143,9 +143,11 @@ const Leaderboard = () => {
             organization: submission.submitting_organization,
             userSimulator: submission.methodology?.user_simulator || null,
             // Add verification status
+            // For 'custom' submissions, we relax the modified_prompts constraint
+            // Custom submissions are allowed to modify prompts as long as they have trajectories and don't omit questions
             isVerified: submission.trajectories_available && 
-                       submission.methodology?.verification?.modified_prompts === false && 
-                       submission.methodology?.verification?.omitted_questions === false,
+                       submission.methodology?.verification?.omitted_questions === false &&
+                       (submission.submission_type === 'custom' || submission.methodology?.verification?.modified_prompts === false),
             verificationDetails: submission.methodology?.verification || null,
             // Submission type: 'standard' (default) or 'custom'
             submissionType: submission.submission_type || 'standard'
@@ -800,10 +802,13 @@ const Leaderboard = () => {
                           {(model.organization === 'Alibaba' || model.organization === 'Qwen') && (
                             <img src={`${import.meta.env.BASE_URL}qwen-color.png`} alt="Qwen" className="logo-img" />
                           )}
-                          {model.organization === 'Google' && (
-                            <img src={`${import.meta.env.BASE_URL}Google__G__logo.svg.png`} alt="Google" className="logo-img" />
-                          )}
-                         </div>
+                         {model.organization === 'Google' && (
+                           <img src={`${import.meta.env.BASE_URL}Google__G__logo.svg.png`} alt="Google" className="logo-img" />
+                         )}
+                         {model.organization === 'NVIDIA' && (
+                           <img src={`${import.meta.env.BASE_URL}Logo-nvidia-transparent-PNG.png`} alt="NVIDIA" className="logo-img" />
+                         )}
+                        </div>
                          <span className="org-name">{model.organization}</span>
                        </div>
                      </td>
@@ -1076,8 +1081,8 @@ const Leaderboard = () => {
                     <div className="verification-status">
                       <div className="verification-indicator">
                         {selectedSubmission.trajectories_available && 
-                         selectedSubmission.methodology.verification.modified_prompts === false && 
-                         selectedSubmission.methodology.verification.omitted_questions === false ? (
+                         selectedSubmission.methodology.verification.omitted_questions === false &&
+                         (selectedSubmission.submission_type === 'custom' || selectedSubmission.methodology.verification.modified_prompts === false) ? (
                           <span className="verified">✅ Verified</span>
                         ) : (
                           <span className="unverified">⚠️ Unverified</span>
