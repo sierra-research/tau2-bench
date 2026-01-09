@@ -1,5 +1,5 @@
 ---
-description: Create git commits following repository conventions and historical commit patterns.
+description: "Commit changes with optional push and PR creation. Usage: /commit [--push] [--pr]"
 ---
 
 The user input to you can be provided directly by the agent or as a command argument - you **MUST** consider it before proceeding with the prompt (if not empty).
@@ -7,6 +7,15 @@ The user input to you can be provided directly by the agent or as a command argu
 User input:
 
 $ARGUMENTS
+
+## Mode Detection
+
+Based on `$ARGUMENTS`:
+- No flags → commit only
+- `--push` → commit + push
+- `--pr` → commit + push + create PR
+
+Parse these flags first, then proceed with the workflow below.
 
 Given the optional user guidance in arguments, do this:
 
@@ -187,3 +196,81 @@ If user provided arguments (guidance):
 - **FOLLOW** repository's commit conventions strictly
 - **ASK** if uncertain about grouping or message style
 - **CREATE** atomic commits that can be reverted independently
+
+## Phase 6: Push and PR Creation (if requested)
+
+Only execute this phase if `--push` or `--pr` flags were detected.
+
+### 15. Prepare for Push
+
+1. **Check current branch**:
+   ```bash
+   CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+   DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+   ```
+
+2. **If on default branch, create feature branch**:
+   - Branch name format: `<type>/<short-description>` (e.g., `feat/add-user-auth`, `fix/login-redirect`)
+   - Use the primary commit type and a kebab-case summary
+   ```bash
+   git checkout -b <branch-name>
+   ```
+
+3. **Check for unpushed commits**:
+   ```bash
+   git log origin/$CURRENT_BRANCH..$CURRENT_BRANCH --oneline 2>/dev/null || echo "New branch"
+   ```
+
+### 16. Push to Remote
+
+```bash
+# For new branches
+git push --set-upstream origin <branch-name>
+
+# For existing branches
+git push
+```
+
+**Handle push failures**:
+- If rejected due to remote changes, inform user and suggest `git pull --rebase`
+- Never force push without explicit user request
+
+### 17. Create Pull Request (if `--pr`)
+
+1. **Verify gh authentication**:
+   ```bash
+   gh auth status
+   ```
+   If not authenticated, stop and inform user to run `gh auth login`.
+
+2. **Check for existing PR**:
+   ```bash
+   gh pr view --json url 2>/dev/null
+   ```
+   If PR exists, show URL and skip creation.
+
+3. **Create PR using gh CLI**:
+   ```bash
+   gh pr create --title "<type>(<scope>): <description>" --body "$(cat <<'EOF'
+   ## Summary
+
+   <1-3 bullet points describing changes - terse and factual>
+
+   ## Test Plan
+
+   - [ ] <verification steps>
+   EOF
+   )"
+   ```
+
+4. **PR title and body style**:
+   - Title matches the primary commit message
+   - Summary is terse (WHAT changed, not WHY)
+   - Test plan includes verification steps
+   - No verbose explanations or justifications
+
+### 18. Report Push/PR Status
+
+- Show pushed branch and remote URL
+- Show PR URL if created
+- Confirm successful completion
