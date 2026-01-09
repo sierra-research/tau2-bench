@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import ClassVar
 
 # Orchestrator model defaults (internal, not user-provided)
-DEFAULT_ORCHESTRATOR_MODEL = "nebius/Qwen/Qwen3-Coder-480B-A35B-Instruct"
+DEFAULT_ORCHESTRATOR_MODEL = "litellm/nebius/Qwen/Qwen3-Coder-480B-A35B-Instruct"
 """Default model for tau2_agent orchestrator (costs borne by tau2-bench-agent)"""
 
 DEFAULT_ORCHESTRATOR_API_BASE = "https://api.studio.nebius.com/v1/"
