@@ -51,36 +51,36 @@ Be helpful in explaining evaluation metrics and suggesting improvements.
 
 
 def create_model():
-    """
-    Create the LLM model for the tau2 agent orchestrator.
+    """Create the LLM model for the tau2 agent orchestrator.
 
-    Supports two model backends:
-    - Gemini (default): Uses ADK's native Gemini integration
-    - LiteLLM: For non-Gemini models (OpenAI, Anthropic, Nebius, etc.)
+    Uses internal TAU2_ORCHESTRATOR_MODEL and TAU2_ORCHESTRATOR_API_KEY.
+    Costs are borne by tau2-bench-agent, not evaluation submitters.
 
-    Model can be configured via TAU2_AGENT_MODEL env var:
-    - "gemini-2.0-flash" (default): Uses native Gemini
-    - "litellm/nebius/model-name": Uses LiteLLM with Nebius
-    - "litellm/openai/gpt-4o": Uses LiteLLM with OpenAI
-
-    Authentication:
-    - Gemini: GOOGLE_GENAI_API_KEY or Application Default Credentials
-    - LiteLLM: Provider-specific env vars (NEBIUS_API_KEY, OPENAI_API_KEY, etc.)
+    Supports Gemini (native ADK integration) and LiteLLM (for other providers).
 
     Returns:
-        Gemini or LiteLlm: ADK model instance.
+        Gemini or LiteLlm: Configured ADK model instance.
     """
-    model = os.getenv("TAU2_AGENT_MODEL", "gemini-2.0-flash")
+    from tau2_agent.config import ServerConfig
 
-    # Use LiteLLM for non-Gemini models
+    config = ServerConfig.from_env()
+    model = config.tau2_orchestrator_model
+
     if model.startswith(LITELLM_MODEL_PREFIX):
         litellm_model = model.removeprefix(LITELLM_MODEL_PREFIX)
-        logger.info(f"Using LiteLLM model: {litellm_model}")
-        return LiteLlm(model=litellm_model)
+        logger.info(f"Using LiteLLM orchestrator model: {litellm_model}")
 
-    # Strip 'gemini/' prefix if present (for consistency with LiteLLM naming)
-    model = model.removeprefix(GEMINI_MODEL_PREFIX)
-    return Gemini(model=model)
+        kwargs = {"model": litellm_model}
+        if config.tau2_orchestrator_api_key:
+            kwargs["api_key"] = config.tau2_orchestrator_api_key
+        if config.tau2_orchestrator_api_base:
+            kwargs["api_base"] = config.tau2_orchestrator_api_base
+
+        return LiteLlm(**kwargs)
+
+    gemini_model = model.removeprefix(GEMINI_MODEL_PREFIX)
+    logger.info(f"Using Gemini orchestrator model: {gemini_model}")
+    return Gemini(model=gemini_model)
 
 
 def _extract_tool_call(text: str) -> dict | None:
@@ -97,11 +97,11 @@ def _extract_tool_call(text: str) -> dict | None:
         A dict with "name" and optional "arguments" keys, or None if not found.
     """
     # Remove code block markers if present
-    cleaned = re.sub(r'```(?:tool_call|json)?\s*', '', text)
-    cleaned = re.sub(r'```', '', cleaned)
+    cleaned = re.sub(r"```(?:tool_call|json)?\s*", "", text)
+    cleaned = re.sub(r"```", "", cleaned)
 
     # Find all JSON-like objects in the text
-    json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+    json_pattern = r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}"
     matches = re.findall(json_pattern, cleaned, re.DOTALL)
 
     for match in matches:
@@ -128,27 +128,28 @@ def parse_text_tool_call(
     callback_context: CallbackContext,  # noqa: ARG001
     llm_response: LlmResponse,
 ) -> LlmResponse | None:
-    """
-    Parse a JSON-formatted text tool call from an LLM response and convert it into a function_call LlmResponse.
+    """Parse JSON-formatted text tool call from LLM response into function_call.
+
+    Converts text-based tool calls (JSON format) into native function_call format
+    for models that don't support native function calling. Passes through responses
+    that already contain native function_call.
 
     Args:
-        llm_response (LlmResponse): The model response to inspect for a JSON `tool_call` object; ignored if the response already contains a native function_call.
+        callback_context: ADK callback context (unused).
+        llm_response: The model response to parse.
 
     Returns:
-        LlmResponse | None: A new LlmResponse whose single part is a function_call constructed from the parsed `tool_call` (with a generated id), or `None` if no valid text-based tool call is found.
+        New LlmResponse with function_call part, or None if no text tool call found.
     """
     if not llm_response.content or not llm_response.content.parts:
         return None
 
-    # Check if response already has a native function_call - if so, pass through
     for part in llm_response.content.parts:
         if part.function_call:
             logger.debug(
                 "Response already contains native function_call, passing through"
             )
             return None
-
-    # No native function_call found - try to parse text-based tool call
     full_text = ""
     for part in llm_response.content.parts:
         if part.text:
@@ -157,10 +158,6 @@ def parse_text_tool_call(
     if not full_text:
         return None
 
-    # Extract tool call from text - supports multiple formats:
-    # 1. {"tool_call": {"name": "...", "arguments": {...}}}
-    # 2. ```tool_call\n{"name": "...", "arguments": {...}}```
-    # 3. {"name": "...", "arguments": {...}}
     tool_call = _extract_tool_call(full_text)
     if not tool_call:
         return None
@@ -174,16 +171,12 @@ def parse_text_tool_call(
         tool_args=tool_args,
     )
 
-    # Create a function_call Part
     function_call_part = types.Part.from_function_call(
         name=tool_name,
         args=tool_args,
     )
-    # ADK expects an id on function calls; set post-creation as from_function_call doesn't accept id
     assert function_call_part.function_call is not None
     function_call_part.function_call.id = str(uuid.uuid4())
-
-    # Return a new LlmResponse with the function call
     return LlmResponse(
         content=types.Content(
             role="model",
