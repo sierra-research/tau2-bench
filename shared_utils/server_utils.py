@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import aiofiles
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from loguru import logger
@@ -25,13 +26,29 @@ def add_root_agent_card(app: FastAPI, agent_name: str, agents_dir: str) -> None:
     @app.get("/.well-known/agent-card.json")
     async def root_agent_card():
         """Serve agent card at root for A2A discovery."""
-        if agent_json_path.exists():
-            data = json.loads(agent_json_path.read_text())
+        if not agent_json_path.exists():
+            logger.warning(f"Agent card not found at {agent_json_path}")
+            return JSONResponse(
+                content={"error": "agent.json not found"},
+                status_code=404,
+            )
+
+        try:
+            async with aiofiles.open(agent_json_path) as f:
+                content = await f.read()
+            data = json.loads(content)
             return JSONResponse(content=data)
-        logger.warning(f"Agent card not found at {agent_json_path}")
-        return JSONResponse(
-            content={"error": "agent.json not found"},
-            status_code=404,
-        )
+        except OSError as e:
+            logger.error(f"Failed to read agent card at {agent_json_path}: {e}")
+            return JSONResponse(
+                content={"error": "Failed to read agent.json"},
+                status_code=500,
+            )
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse agent card JSON at {agent_json_path}: {e}")
+            return JSONResponse(
+                content={"error": "Invalid agent.json format"},
+                status_code=500,
+            )
 
     logger.info("Added root agent card route at /.well-known/agent-card.json")
