@@ -9,6 +9,7 @@ import os
 from copy import deepcopy
 from typing import Callable, List, Optional
 
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import (
     AIMessage,
     HumanMessage,
@@ -35,7 +36,59 @@ from tau2.data_model.message import (
     ToolMessage,
     UserMessage,
 )
+from tau2.utils.llm_utils import get_response_cost, get_response_usage
 from tau2.environment.tool import Tool
+
+
+class CostTrackingCallback(BaseCallbackHandler):
+    """Callback to track LLM costs from LangChain calls."""
+
+    def __init__(self):
+        super().__init__()
+        self.last_cost = None
+        self.last_usage = None
+
+    def on_llm_end(self, response, **kwargs):
+        """Called when LLM call ends. Extract cost and usage from response."""
+        try:
+            # LangChain's ChatOpenAI uses LiteLLM, which stores cost in response_metadata
+            if hasattr(response, "response_metadata"):
+                metadata = response.response_metadata
+                if metadata:
+                    # Try to get cost
+                    if "cost" in metadata:
+                        self.last_cost = metadata["cost"]
+                    # Try to get usage
+                    if "usage" in metadata:
+                        self.last_usage = metadata["usage"]
+
+                    # Also check for LiteLLM response in _hidden_params
+                    if "_hidden_params" in metadata:
+                        hidden = metadata.get("_hidden_params", {})
+                        if "response" in hidden:
+                            from tau2.utils.llm_utils import (
+                                get_response_cost,
+                                get_response_usage,
+                            )
+
+                            try:
+                                litellm_response = hidden["response"]
+                                if self.last_cost is None:
+                                    self.last_cost = get_response_cost(litellm_response)
+                                if self.last_usage is None:
+                                    self.last_usage = get_response_usage(
+                                        litellm_response
+                                    )
+                            except Exception:
+                                pass
+        except Exception as e:
+            logger.debug(f"Error extracting cost from callback: {e}")
+
+    def reset(self):
+        """Reset tracked costs (call before each agent invocation)."""
+        self.last_cost = None
+        self.last_usage = None
+
 
 AGENT_INSTRUCTION = """
 You are a customer service agent that helps the user according to the <policy> provided below.
@@ -118,8 +171,13 @@ class LangChainAgent(LocalAgent[LangChainAgentState]):
             f"{[t.name for t in self.langchain_tools[:5]]}"
         )
 
+        # Create a callback handler to track LLM costs
+        self.cost_tracker = CostTrackingCallback()
+
         self.agent = create_react_agent(
-            self.langchain_llm, self.langchain_tools, prompt=self.system_prompt_text
+            self.langchain_llm,
+            self.langchain_tools,
+            prompt=self.system_prompt_text,
         )
 
     def _create_langchain_llm(self) -> ChatOpenAI:
@@ -262,6 +320,8 @@ class LangChainAgent(LocalAgent[LangChainAgentState]):
         # Priority: AIMessage with tool_calls > AIMessage with content
         content = None
         tool_calls = None
+        cost = None
+        usage = None
 
         # Find the last AIMessage with tool_calls first (highest priority)
         ai_msg_with_tools = None
@@ -284,6 +344,37 @@ class LangChainAgent(LocalAgent[LangChainAgentState]):
         target_msg = ai_msg_with_tools or ai_msg_with_content
 
         if target_msg:
+            # Extract cost and usage from response_metadata if available
+            # LangChain's ChatOpenAI stores LiteLLM response in response_metadata
+            if hasattr(target_msg, "response_metadata"):
+                metadata = target_msg.response_metadata
+                if metadata:
+                    # Try to extract cost from metadata
+                    # LiteLLM stores cost in various places depending on version
+                    if "cost" in metadata:
+                        cost = metadata["cost"]
+                    elif "_hidden_params" in metadata:
+                        # LiteLLM sometimes stores response in _hidden_params
+                        hidden = metadata.get("_hidden_params", {})
+                        if "response" in hidden:
+                            response = hidden["response"]
+                            try:
+                                cost = get_response_cost(response)
+                            except Exception:
+                                pass
+
+                    # Try to extract usage from metadata
+                    if "usage" in metadata:
+                        usage = metadata["usage"]
+                    elif "_hidden_params" in metadata:
+                        hidden = metadata.get("_hidden_params", {})
+                        if "response" in hidden:
+                            response = hidden["response"]
+                            try:
+                                usage = get_response_usage(response)
+                            except Exception:
+                                pass
+
             # Check for tool calls first (prioritize tool calls over content)
             if hasattr(target_msg, "tool_calls") and target_msg.tool_calls:
                 tool_calls = []
@@ -336,7 +427,11 @@ class LangChainAgent(LocalAgent[LangChainAgentState]):
             content = "I'm ready to help you."
 
         return AssistantMessage(
-            role="assistant", content=content, tool_calls=tool_calls or None
+            role="assistant",
+            content=content,
+            tool_calls=tool_calls or None,
+            cost=cost,
+            usage=usage,
         )
 
     def get_init_state(
@@ -389,6 +484,9 @@ class LangChainAgent(LocalAgent[LangChainAgentState]):
             lc_msg = self._tau2_to_langchain_message(message)
             if lc_msg:
                 state.langchain_messages.append(lc_msg)
+
+        # Reset cost tracker before invocation
+        self.cost_tracker.reset()
 
         # Invoke LangGraph agent with current message history
         # LangGraph's create_react_agent executes tools internally, but it should
@@ -495,6 +593,18 @@ class LangChainAgent(LocalAgent[LangChainAgentState]):
                     updated_langchain_messages
                 )
 
+            # Add cost and usage from callback tracker if not already set
+            if (
+                assistant_message.cost is None
+                and self.cost_tracker.last_cost is not None
+            ):
+                assistant_message.cost = self.cost_tracker.last_cost
+            if (
+                assistant_message.usage is None
+                and self.cost_tracker.last_usage is not None
+            ):
+                assistant_message.usage = self.cost_tracker.last_usage
+
             # Log what we extracted
             if assistant_message.is_tool_call():
                 logger.debug(
@@ -548,5 +658,7 @@ class LangChainAgent(LocalAgent[LangChainAgentState]):
         # Recreate LLM with new seed
         self.langchain_llm = self._create_langchain_llm()
         self.agent = create_react_agent(
-            self.langchain_llm, self.langchain_tools, prompt=self.system_prompt_text
+            self.langchain_llm,
+            self.langchain_tools,
+            prompt=self.system_prompt_text,
         )
