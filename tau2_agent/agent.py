@@ -167,7 +167,15 @@ def parse_text_tool_call(
 
     if isinstance(tool_args, str):
         try:
-            tool_args = json.loads(tool_args)
+            parsed_args = json.loads(tool_args)
+            if not isinstance(parsed_args, dict):
+                logger.warning(
+                    "Parsed tool arguments is not a dict, using empty dict",
+                    parsed_value=parsed_args,
+                )
+                tool_args = {}
+            else:
+                tool_args = parsed_args
         except json.JSONDecodeError:
             logger.warning(
                 "Failed to parse tool arguments as JSON, using empty dict",
