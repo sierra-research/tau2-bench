@@ -42,7 +42,6 @@ class ServerConfig:
         tau2_orchestrator_model: Model for orchestrator (internal, not user-provided).
         tau2_orchestrator_api_key: API key for orchestrator model (internal secret).
         tau2_orchestrator_api_base: API base URL for orchestrator model.
-        tau2_agent_model: Legacy model identifier (deprecated).
         google_api_key: Gemini API key (from Secret Manager in production).
         port: Server port (Cloud Run sets PORT env var).
         log_level: Logging verbosity.
@@ -56,7 +55,6 @@ class ServerConfig:
     tau2_orchestrator_api_base: str = field(
         default_factory=lambda: DEFAULT_ORCHESTRATOR_API_BASE
     )
-    tau2_agent_model: str = "gemini-2.0-flash"
     google_api_key: str | None = None
     port: int = 8001
     log_level: str = "INFO"
@@ -85,7 +83,6 @@ class ServerConfig:
             tau2_orchestrator_api_base=os.getenv(
                 "TAU2_ORCHESTRATOR_API_BASE", DEFAULT_ORCHESTRATOR_API_BASE
             ),
-            tau2_agent_model=os.getenv("TAU2_AGENT_MODEL", "gemini-2.0-flash"),
             google_api_key=os.getenv("GOOGLE_API_KEY"),
             port=int(os.getenv("PORT", "8001")),
             log_level=os.getenv("LOG_LEVEL", "INFO"),

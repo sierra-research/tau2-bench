@@ -30,12 +30,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     # Orchestrator model (internal, tau2-bench-agent pays for this)
     TAU2_ORCHESTRATOR_MODEL=litellm/nebius/Qwen/Qwen3-Coder-480B-A35B-Instruct \
     TAU2_ORCHESTRATOR_API_BASE=https://api.studio.nebius.com/v1/ \
-    # Legacy (deprecated, for backward compatibility)
-    TAU2_AGENT_MODEL=gemini-2.0-flash \
     PYTHONPATH=/app/agents:/app/src \
     AGENTS_DIR=/app/agents \
-    # AgentBeats compatibility: serve agent card at root path
-    AGENTBEATS_MODE=true \
     # Datadog LLM Observability (agentless mode)
     DD_TRACE_ENABLED=true \
     DD_LLMOBS_ENABLED=true \
@@ -100,7 +96,7 @@ USER tau2agent
 EXPOSE 8001
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:8001/.well-known/agent-card.json', timeout=5).raise_for_status()" || exit 1
+    CMD curl -f --max-time 5 http://localhost:8001/.well-known/agent-card.json || exit 1
 
 # AgentBeats-compatible entrypoint: accepts --host, --port, --card-url args
 # CARD_URL env var is read by server.py to update agent.json URL at startup
