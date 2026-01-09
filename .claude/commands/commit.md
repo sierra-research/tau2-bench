@@ -213,7 +213,8 @@ Only execute this phase if `--push` or `--pr` flags were detected.
    - Branch name format: `<type>/<short-description>` (e.g., `feat/add-user-auth`, `fix/login-redirect`)
    - Use the primary commit type and a kebab-case summary
    ```bash
-   git checkout -b <branch-name>
+   BRANCH_NAME="<type>/<short-description>"
+   git checkout -b "$BRANCH_NAME"
    ```
 
 3. **Check for unpushed commits**:
@@ -224,8 +225,8 @@ Only execute this phase if `--push` or `--pr` flags were detected.
 ### 16. Push to Remote
 
 ```bash
-# For new branches
-git push --set-upstream origin <branch-name>
+# For new branches (uses $BRANCH_NAME from step 2, or $CURRENT_BRANCH if not on default)
+git push --set-upstream origin "$BRANCH_NAME"
 
 # For existing branches
 git push
@@ -245,7 +246,7 @@ git push
 
 2. **Check for existing PR**:
    ```bash
-   gh pr view --json url 2>/dev/null
+   gh pr view --json url --jq .url 2>/dev/null
    ```
    If PR exists, show URL and skip creation.
 

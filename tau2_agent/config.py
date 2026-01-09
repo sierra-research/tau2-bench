@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import ClassVar
 
 # Orchestrator model defaults (internal, not user-provided)
-DEFAULT_ORCHESTRATOR_MODEL = "litellm/nebius/Qwen/Qwen3-Coder-480B-A35B-Instruct"
+DEFAULT_ORCHESTRATOR_MODEL = "nebius/Qwen/Qwen3-Coder-480B-A35B-Instruct"
 """Default model for tau2_agent orchestrator (costs borne by tau2-bench-agent)"""
 
 DEFAULT_ORCHESTRATOR_API_BASE = "https://api.studio.nebius.com/v1/"
@@ -51,14 +51,14 @@ class ServerConfig:
     tau2_orchestrator_model: str = field(
         default_factory=lambda: DEFAULT_ORCHESTRATOR_MODEL
     )
-    tau2_orchestrator_api_key: str | None = None
+    tau2_orchestrator_api_key: str | None = field(default=None, repr=False)
     tau2_orchestrator_api_base: str = field(
         default_factory=lambda: DEFAULT_ORCHESTRATOR_API_BASE
     )
-    google_api_key: str | None = None
+    google_api_key: str | None = field(default=None, repr=False)
     port: int = 8001
     log_level: str = "INFO"
-    service_api_keys: list[str] = field(default_factory=list)
+    service_api_keys: list[str] = field(default_factory=list, repr=False)
 
     @classmethod
     def from_env(cls) -> ServerConfig:
