@@ -29,7 +29,8 @@ RUN pip install --no-cache-dir \
     httpx>=0.28.0 \
     uvicorn>=0.34.0 \
     loguru>=0.7.3 \
-    ddtrace>=2.0.0
+    ddtrace>=2.0.0 \
+    aiofiles>=24.1.0
 
 # Create agents directory and copy agent source directly into it
 # (ADK validates symlinks don't resolve outside base directory)
