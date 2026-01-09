@@ -72,6 +72,9 @@ COPY --chown=tau2agent:tau2agent pyproject.toml README.md ./
 RUN mkdir -p /app/agents
 COPY --chown=tau2agent:tau2agent tau2_agent/ ./agents/tau2_agent/
 
+# Copy shared utilities (card_url_utils, middleware, server_utils)
+COPY --chown=tau2agent:tau2agent shared_utils/ ./agents/shared_utils/
+
 # Create .adk directory inside agents for ADK artifact storage
 # ADK looks for .adk relative to AGENTS_DIR
 RUN mkdir -p /app/agents/.adk && chown tau2agent:tau2agent /app/agents/.adk

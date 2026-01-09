@@ -36,6 +36,9 @@ RUN pip install --no-cache-dir \
 RUN mkdir -p /app/agents
 COPY kimi_litellm_agent/ ./agents/kimi_litellm_agent/
 
+# Copy shared utilities (card_url_utils, middleware, server_utils)
+COPY shared_utils/ ./agents/shared_utils/
+
 # Create .adk directory for ADK artifact storage
 RUN mkdir -p /app/.adk
 
