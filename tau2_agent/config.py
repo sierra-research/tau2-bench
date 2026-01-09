@@ -39,7 +39,8 @@ class ServerConfig:
     Values are loaded from environment variables with defaults for local development.
 
     Attributes:
-        tau2_orchestrator_model: Model for orchestrator (internal, not user-provided).
+        tau2_orchestrator_model: Model for orchestrator. Defaults to internal model
+            (costs borne by service), overridable via TAU2_ORCHESTRATOR_MODEL env var.
         tau2_orchestrator_api_key: API key for orchestrator model (internal secret).
         tau2_orchestrator_api_base: API base URL for orchestrator model.
         google_api_key: Gemini API key (from Secret Manager in production).

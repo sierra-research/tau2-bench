@@ -225,8 +225,9 @@ Only execute this phase if `--push` or `--pr` flags were detected.
 ### 16. Push to Remote
 
 ```bash
-# For new branches (uses $BRANCH_NAME from step 2, or $CURRENT_BRANCH if not on default)
-git push --set-upstream origin "$BRANCH_NAME"
+# For new branches (uses $BRANCH_NAME if set, falls back to $CURRENT_BRANCH)
+PUSH_BRANCH="${BRANCH_NAME:-$CURRENT_BRANCH}"
+git push --set-upstream origin "$PUSH_BRANCH"
 
 # For existing branches
 git push
