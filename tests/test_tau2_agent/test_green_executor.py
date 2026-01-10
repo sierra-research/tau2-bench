@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from a2a.types import DataPart, Part, TextPart
+from pydantic import ValidationError
 
 from tau2_agent.green_executor import (
     EvalConfig,
@@ -99,7 +100,7 @@ class TestEvalRequest:
             "config": {"domain": "mock"},
         }
 
-        with pytest.raises(Exception):  # ValidationError
+        with pytest.raises(ValidationError):
             EvalRequest.model_validate(json_data)
 
 
