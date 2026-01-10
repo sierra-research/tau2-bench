@@ -76,29 +76,40 @@ def llmobs_evaluation_span(
         yield None
         return
 
+    span_context = None
+    llmobs_workflow = None
+
     try:
         from ddtrace.llmobs import LLMObs
 
-        # Create a workflow span for the evaluation
-        with LLMObs.workflow(
+        llmobs_workflow = LLMObs.workflow(
             name=f"tau2.evaluation.{domain}",
             session_id=evaluation_id,
-        ) as span:
-            # Set span metadata
-            span.set_tag("evaluation_id", evaluation_id)
-            span.set_tag("domain", domain)
-            span.set_tag("agent_endpoint", agent_endpoint)
-
-            # Export the span context for use in evaluations
-            span_context = LLMObs.export_span(span=span)
-            yield span_context
-
+        )
+        span = llmobs_workflow.__enter__()
+        span.set_tag("evaluation_id", evaluation_id)
+        span.set_tag("domain", domain)
+        span.set_tag("agent_endpoint", agent_endpoint)
+        span_context = LLMObs.export_span(span=span)
     except ImportError:
         logger.debug("LLMObs not available, skipping evaluation span")
-        yield None
     except Exception as e:
         logger.warning(f"Failed to create LLMObs evaluation span: {e}")
-        yield None
+
+    # Single yield point: yield the span context (or None if setup failed)
+    exc_info = (None, None, None)
+    try:
+        yield span_context
+    except BaseException:
+        import sys
+        exc_info = sys.exc_info()
+        raise
+    finally:
+        if llmobs_workflow is not None:
+            try:
+                llmobs_workflow.__exit__(*exc_info)
+            except Exception:
+                pass
 
 
 def is_llmobs_enabled() -> bool:
@@ -111,6 +122,27 @@ def is_llmobs_enabled() -> bool:
         os.getenv("DD_TRACE_ENABLED", "false").lower() == "true"
         and os.getenv("DD_LLMOBS_ENABLED", "false").lower() == "true"
     )
+
+
+def _get_span_context(span_context: Any | None) -> Any | None:
+    """Get or resolve span context for LLMObs evaluations.
+
+    Args:
+        span_context: Optional span context from LLMObs.export_span().
+
+    Returns:
+        The provided span_context or current span context if available, else None.
+    """
+    from ddtrace.llmobs import LLMObs
+
+    if span_context is not None:
+        return span_context
+
+    try:
+        return LLMObs.export_span()
+    except Exception as e:
+        logger.debug(f"Could not export current span: {e}")
+        return None
 
 
 def submit_task_evaluations(
@@ -156,14 +188,7 @@ def submit_task_evaluations(
     try:
         from ddtrace.llmobs import LLMObs
 
-        # Get span context - use provided or try to export current span
-        ctx = span_context
-        if ctx is None:
-            try:
-                ctx = LLMObs.export_span()
-            except Exception as e:
-                logger.debug(f"Could not export current span: {e}")
-
+        ctx = _get_span_context(span_context)
         if ctx is None:
             logger.warning(
                 "No span context available for LLMObs evaluation submission. "
@@ -332,14 +357,7 @@ def submit_evaluation_summary(
     try:
         from ddtrace.llmobs import LLMObs
 
-        # Get span context - use provided or try to export current span
-        ctx = span_context
-        if ctx is None:
-            try:
-                ctx = LLMObs.export_span()
-            except Exception as e:
-                logger.debug(f"Could not export current span: {e}")
-
+        ctx = _get_span_context(span_context)
         if ctx is None:
             logger.warning(
                 "No span context available for LLMObs evaluation summary. "
