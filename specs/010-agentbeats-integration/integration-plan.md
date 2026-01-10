@@ -155,7 +155,7 @@ GET /a2a/kimi_litellm_agent/.well-known/agent-card.json
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `PORT` | Yes | Server port (default: 8001) |
-| `USER_LLM_MODEL` | Yes | Full LiteLLM path for user simulator (e.g., `nebius/moonshotai/Kimi-K2-Instruct`) |
+| `USER_LLM_MODEL` | Yes | Full LiteLLM path for user simulator (e.g., `nebius/Qwen/Qwen3-235B-A22B-Thinking-2507`) |
 | `USER_LLM_API_KEY` | Yes | API key for user simulator LLM provider |
 | `DD_TRACE_ENABLED` | No | Datadog tracing (default: false) |
 
@@ -169,7 +169,7 @@ GET /a2a/kimi_litellm_agent/.well-known/agent-card.json
 When using Nebius for both user simulator and purple agent, a single `NEBIUS_API_KEY` suffices:
 ```toml
 [green_agent]
-env = { USER_LLM_MODEL = "nebius/moonshotai/Kimi-K2-Instruct", USER_LLM_API_KEY = "${NEBIUS_API_KEY}" }
+env = { USER_LLM_MODEL = "nebius/Qwen/Qwen3-235B-A22B-Thinking-2507", USER_LLM_API_KEY = "${NEBIUS_API_KEY}" }
 
 [[participants]]
 env = { NEBIUS_API_KEY = "${NEBIUS_API_KEY}" }
@@ -219,7 +219,7 @@ docker compose -f docker-compose.agentbeats.yaml up -d
 docker compose -f docker-compose.agentbeats.yaml ps
 
 # Run evaluation (using Nebius Kimi K2 for user simulator)
-USER_LLM_MODEL=nebius/moonshotai/Kimi-K2-Instruct \
+USER_LLM_MODEL=nebius/Qwen/Qwen3-235B-A22B-Thinking-2507 \
 USER_LLM_API_KEY=<nebius-key> \
 python scripts/agentbeats_evaluate.py --domain mock
 

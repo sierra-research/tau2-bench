@@ -54,7 +54,7 @@ The user LLM model must be specified as a **full LiteLLM model path** with provi
 
 | Provider | Model Path Format | Example |
 |----------|-------------------|---------|
-| Nebius | `nebius/<org>/<model>` | `nebius/moonshotai/Kimi-K2-Instruct` |
+| Nebius | `nebius/<org>/<model>` | `nebius/Qwen/Qwen3-235B-A22B-Thinking-2507` |
 | Google Gemini | `gemini/<model>` | `gemini/gemini-2.0-flash` |
 | OpenAI | `<model>` (no prefix) | `gpt-4o` |
 | Anthropic | `anthropic/<model>` | `anthropic/claude-3-5-sonnet-20241022` |
@@ -67,7 +67,7 @@ Both agents can share the same `NEBIUS_API_KEY`:
 [green_agent]
 image = "ghcr.io/wutims/tau2-agent:latest"
 env = {
-  USER_LLM_MODEL = "nebius/moonshotai/Kimi-K2-Instruct",
+  USER_LLM_MODEL = "nebius/Qwen/Qwen3-235B-A22B-Thinking-2507",
   USER_LLM_API_KEY = "${NEBIUS_API_KEY}"
 }
 
@@ -148,7 +148,7 @@ Replace the template's `scenario.toml`:
 # For local testing, use `image` instead of `agentbeats_id`
 image = "ghcr.io/wutims/tau2-agent:latest"
 # User simulator LLM: full LiteLLM model path required
-env = { USER_LLM_MODEL = "nebius/moonshotai/Kimi-K2-Instruct", USER_LLM_API_KEY = "${NEBIUS_API_KEY}" }
+env = { USER_LLM_MODEL = "nebius/Qwen/Qwen3-235B-A22B-Thinking-2507", USER_LLM_API_KEY = "${NEBIUS_API_KEY}" }
 
 [[participants]]
 # Purple Agent: The agent being evaluated
@@ -287,7 +287,7 @@ Current `scenario.toml`:
 ```toml
 [green_agent]
 agentbeats_id = "019b950f-0087-7d42-ad31-8965c08d1ed7"
-env = { USER_LLM_MODEL = "nebius/moonshotai/Kimi-K2-Instruct", USER_LLM_API_KEY = "${NEBIUS_API_KEY}" }
+env = { USER_LLM_MODEL = "nebius/Qwen/Qwen3-235B-A22B-Thinking-2507", USER_LLM_API_KEY = "${NEBIUS_API_KEY}" }
 
 [[participants]]
 agentbeats_id = "019b9515-47bd-7e80-8ad3-86c33d0175c9"
@@ -394,7 +394,7 @@ The following features were added during implementation to enable successful end
 TAU2_AGENT_MODEL=gemini-2.0-flash
 
 # LiteLLM with Nebius
-TAU2_AGENT_MODEL=litellm/nebius/moonshotai/Kimi-K2-Instruct
+TAU2_AGENT_MODEL=litellm/nebius/Qwen/Qwen3-235B-A22B-Thinking-2507
 
 # LiteLLM with OpenAI
 TAU2_AGENT_MODEL=litellm/openai/gpt-4o
@@ -447,8 +447,8 @@ pull_policy: never
 
 # Key environment variables
 CARD_URL: http://green-agent:9009/a2a/tau2_agent  # Dynamic URL for Docker networking
-TAU2_AGENT_MODEL: litellm/nebius/moonshotai/Kimi-K2-Instruct  # Orchestrator model
-USER_LLM_MODEL: nebius/moonshotai/Kimi-K2-Instruct  # User simulator model
+TAU2_AGENT_MODEL: litellm/nebius/Qwen/Qwen3-235B-A22B-Thinking-2507  # Orchestrator model
+USER_LLM_MODEL: nebius/Qwen/Qwen3-235B-A22B-Thinking-2507  # User simulator model
 ```
 
 ### Verified End-to-End Workflow
