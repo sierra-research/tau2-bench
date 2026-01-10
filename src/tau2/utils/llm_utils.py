@@ -1,7 +1,20 @@
 import json
 import os
 import re
+import warnings
 from typing import Any
+
+# Suppress LiteLLM's Pydantic serialization warnings (issue #11759)
+# These occur because LiteLLM's Message/Choices classes delete attributes in __init__,
+# confusing Pydantic's serializer. The warnings are harmless - serialization still works.
+# We use a targeted filter to only suppress LiteLLM's internal class warnings,
+# preserving visibility of any issues in our own Pydantic models.
+warnings.filterwarnings(
+    "ignore",
+    message=r".*Expected `(Message|StreamingChoices|Choices)`.*",
+    category=UserWarning,
+    module=r"pydantic\..*",
+)
 
 import litellm
 from litellm import completion, completion_cost
