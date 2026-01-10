@@ -46,7 +46,9 @@ IMPORTANT: To use a tool, respond with a JSON object:
 For example, to run an evaluation:
 {"tool_call": {"name": "run_tau2_evaluation", "arguments": {"domain": "mock", "agent_endpoint": "http://localhost:8001/a2a/simple_nebius_agent", "num_tasks": 2}}}
 
-Be helpful in explaining evaluation metrics and suggesting improvements.
+ERROR HANDLING: If a tool returns an error response (containing "error" and "message" fields), report the error directly without offering troubleshooting suggestions. Do NOT apologize or offer to debug - just state the error and let the caller handle it.
+
+For successful evaluations, be helpful in explaining metrics and suggesting improvements.
 """
 
 
