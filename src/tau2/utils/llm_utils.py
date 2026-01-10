@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Any, Optional
+from typing import Any
 
 import litellm
 from litellm import completion, completion_cost
@@ -88,9 +88,13 @@ if not ALLOW_SONNET_THINKING:
 
 
 def _parse_ft_model_name(model: str) -> str:
-    """
-    Parse the ft model name from the litellm model name.
-    e.g: "ft:gpt-4.1-mini-2025-04-14:sierra::BSQA2TFg" -> "gpt-4.1-mini-2025-04-14"
+    """Parse the base model name from a LiteLLM fine-tuned model string.
+
+    Args:
+        model: A fine-tuned model identifier (e.g., "ft:gpt-4.1-mini-2025-04-14:sierra::BSQA2TFg").
+
+    Returns:
+        Base model name extracted from the identifier, or the original string if not a fine-tuned model.
     """
     pattern = r"ft:(?P<model>[^:]+):(?P<provider>\w+)::(?P<id>\w+)"
     match = re.match(pattern, model)
@@ -100,8 +104,13 @@ def _parse_ft_model_name(model: str) -> str:
 
 
 def get_response_cost(response: ModelResponse) -> float:
-    """
-    Get the cost of the response from the litellm completion.
+    """Calculate the cost of an LLM response.
+
+    Args:
+        response: A LiteLLM ModelResponse object from completion() call.
+
+    Returns:
+        Cost in USD as a float. Returns 0.0 if cost cannot be determined.
     """
     response.model = _parse_ft_model_name(
         response.model
@@ -115,6 +124,15 @@ def get_response_cost(response: ModelResponse) -> float:
 
 
 def get_response_usage(response: ModelResponse) -> dict | None:
+    """Extract token usage from an LLM response.
+
+    Args:
+        response: A LiteLLM ModelResponse object from completion() call.
+
+    Returns:
+        Dict with "completion_tokens" and "prompt_tokens" keys, or None if usage
+        information is not available.
+    """
     usage: Usage | None = response.get("usage")
     if usage is None:
         return None
@@ -127,8 +145,17 @@ def get_response_usage(response: ModelResponse) -> dict | None:
 def to_tau2_messages(
     messages: list[dict], ignore_roles: set[str] = set()
 ) -> list[Message]:
-    """
-    Convert a list of messages from a dictionary to a list of Tau2 messages.
+    """Convert message dictionaries to Tau2 message objects.
+
+    Args:
+        messages: List of message dicts with at least a "role" key.
+        ignore_roles: Set of role names to skip (e.g., {"system"}).
+
+    Returns:
+        List of typed message objects (UserMessage, AssistantMessage, ToolMessage, SystemMessage).
+
+    Raises:
+        ValueError: If an unknown role is encountered.
     """
     tau2_messages = []
     for message in messages:
@@ -149,8 +176,15 @@ def to_tau2_messages(
 
 
 def to_litellm_messages(messages: list[Message]) -> list[dict]:
-    """
-    Convert a list of Tau2 messages to a list of litellm messages.
+    """Convert Tau2 message objects to LiteLLM-compatible message dicts.
+
+    Tool calls are serialized to JSON strings as required by the OpenAI API format.
+
+    Args:
+        messages: List of Tau2 message objects.
+
+    Returns:
+        List of message dicts compatible with litellm.completion().
     """
     litellm_messages = []
     for message in messages:
@@ -197,18 +231,26 @@ def generate(
     tools: list[Tool] | None = None,
     tool_choice: str | None = None,
     **kwargs: Any,
-) -> UserMessage | AssistantMessage:
-    """
-    Generate a response from the model.
+) -> AssistantMessage:
+    """Generate a response from an LLM using LiteLLM.
+
+    Sends messages to the specified model and returns a structured response with
+    parsed tool calls, cost tracking, and token usage. Disables Sonnet thinking
+    if not explicitly enabled.
 
     Args:
-        model: The model to use.
-        messages: The messages to send to the model.
-        tools: The tools to use.
-        tool_choice: The tool choice to use.
-        **kwargs: Additional arguments to pass to the model.
+        model: Model identifier (e.g., "gpt-4-turbo", "claude-3-sonnet").
+        messages: Conversation history as Tau2 message objects.
+        tools: Optional list of tools the model can call.
+        tool_choice: How to handle tool calling ("auto", "required", or None).
+        **kwargs: Additional LiteLLM parameters (temperature, max_tokens, etc.).
+            Defaults num_retries to DEFAULT_MAX_RETRIES if not provided.
 
-    Returns: A tuple containing the message and the cost.
+    Returns:
+        AssistantMessage with parsed tool calls, cost, and usage information.
+
+    Raises:
+        Exception: If LiteLLM completion fails or output is unparseable.
     """
     if kwargs.get("num_retries") is None:
         kwargs["num_retries"] = DEFAULT_MAX_RETRIES
@@ -219,27 +261,22 @@ def generate(
     tools = [tool.openai_schema for tool in tools] if tools else None
     if tools and tool_choice is None:
         tool_choice = "auto"
-    try:
-        response = completion(
-            model=model,
-            messages=litellm_messages,
-            tools=tools,
-            tool_choice=tool_choice,
-            **kwargs,
-        )
-    except Exception as e:
-        logger.error(e)
-        raise e
+
+    response = completion(
+        model=model,
+        messages=litellm_messages,
+        tools=tools,
+        tool_choice=tool_choice,
+        **kwargs,
+    )
+
     cost = get_response_cost(response)
     usage = get_response_usage(response)
     response = response.choices[0]
-    try:
-        finish_reason = response.finish_reason
-        if finish_reason == "length":
-            logger.warning("Output might be incomplete due to token limit!")
-    except Exception as e:
-        logger.error(e)
-        raise e
+
+    if response.finish_reason == "length":
+        logger.warning("Output might be incomplete due to token limit!")
+
     assert response.message.role == "assistant", (
         "The response should be an assistant message"
     )
@@ -252,10 +289,9 @@ def generate(
             arguments=json.loads(tool_call.function.arguments),
         )
         for tool_call in tool_calls
-    ]
-    tool_calls = tool_calls or None
+    ] or None
 
-    message = AssistantMessage(
+    return AssistantMessage(
         role="assistant",
         content=content,
         tool_calls=tool_calls,
@@ -263,13 +299,17 @@ def generate(
         usage=usage,
         raw_data=response.to_dict(),
     )
-    return message
 
 
 def get_cost(messages: list[Message]) -> tuple[float, float] | None:
-    """
-    Get the cost of the interaction between the agent and the user.
-    Returns None if any message has no cost.
+    """Calculate total interaction cost split by agent and user.
+
+    Args:
+        messages: List of messages (ToolMessages are skipped).
+
+    Returns:
+        Tuple of (agent_cost, user_cost) in USD. Returns None if any message
+        lacks cost information.
     """
     agent_cost = 0
     user_cost = 0
@@ -288,8 +328,14 @@ def get_cost(messages: list[Message]) -> tuple[float, float] | None:
 
 
 def get_token_usage(messages: list[Message]) -> dict:
-    """
-    Get the token usage of the interaction between the agent and the user.
+    """Aggregate token usage across conversation messages.
+
+    Args:
+        messages: List of messages (ToolMessages are skipped).
+
+    Returns:
+        Dict with "completion_tokens" and "prompt_tokens" keys, summed across
+        all messages with available usage information.
     """
     usage = {"completion_tokens": 0, "prompt_tokens": 0}
     for message in messages:
