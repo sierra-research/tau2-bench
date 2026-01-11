@@ -161,8 +161,11 @@ gcloud builds submit \
 echo ""
 echo "Step 2: Deploying to Cloud Run..."
 
-# Secrets from Secret Manager; ENV vars use Dockerfile defaults
+# Secrets from Secret Manager
 SECRETS_STRING="GOOGLE_API_KEY=google-api-key:latest,DD_API_KEY=dd-api-key:latest,DD_SITE=dd-site:latest"
+
+# Enable Datadog tracing (disabled by default in Dockerfile for GHCR)
+ENV_VARS_STRING="DD_TRACE_ENABLED=true,DD_LLMOBS_ENABLED=true"
 
 gcloud run deploy "${SERVICE_NAME}" \
     --image "${IMAGE}" \
@@ -178,7 +181,8 @@ gcloud run deploy "${SERVICE_NAME}" \
     --min-instances 0 \
     --max-instances 10 \
     --service-account "${SA_EMAIL}" \
-    --set-secrets "${SECRETS_STRING}"
+    --set-secrets "${SECRETS_STRING}" \
+    --set-env-vars "${ENV_VARS_STRING}"
 
 echo ""
 echo "=== Deployment Complete ==="

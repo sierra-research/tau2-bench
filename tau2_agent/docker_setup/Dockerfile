@@ -32,9 +32,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     TAU2_ORCHESTRATOR_API_BASE=https://api.studio.nebius.com/v1/ \
     PYTHONPATH=/app/agents:/app/src \
     AGENTS_DIR=/app/agents \
-    # Datadog LLM Observability (agentless mode)
-    DD_TRACE_ENABLED=true \
-    DD_LLMOBS_ENABLED=true \
+    # Datadog LLM Observability (disabled by default, enabled in GCP deploy)
+    DD_TRACE_ENABLED=false \
+    DD_LLMOBS_ENABLED=false \
     DD_LLMOBS_AGENTLESS_ENABLED=true \
     DD_LLMOBS_ML_APP=tau2-bench-agent \
     DD_SERVICE=tau2-bench-agent \

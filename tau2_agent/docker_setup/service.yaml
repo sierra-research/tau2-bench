@@ -46,6 +46,11 @@ spec:
               memory: 2Gi
               cpu: "2"
           env:
+            # Enable Datadog tracing (disabled by default in Dockerfile for GHCR)
+            - name: DD_TRACE_ENABLED
+              value: "true"
+            - name: DD_LLMOBS_ENABLED
+              value: "true"
             # Secrets from Secret Manager (Dockerfile has all other defaults)
             - name: GOOGLE_API_KEY
               valueFrom:
