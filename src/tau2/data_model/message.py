@@ -58,6 +58,10 @@ class ToolCall(BaseModel):
         "assistant",
         description="The requestor of the tool call.",
     )
+    compare_args: Optional[list[str]] = Field(
+        default=None,
+        description="List of argument keys to compare. If None, compare all. If empty list, compare only tool name.",
+    )
 
     def __str__(self) -> str:
         lines = [f"ToolCall (from {self.requestor})"]
