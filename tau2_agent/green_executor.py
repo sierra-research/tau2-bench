@@ -90,12 +90,15 @@ class Tau2GreenAgent:
             updater: TaskUpdater for streaming status and artifacts.
 
         Raises:
-            ValueError: If 'agent' participant is missing or evaluation fails.
+            ValueError: If no participants provided or evaluation fails.
         """
-        agent_endpoint = request.participants.get("agent")
-        if not agent_endpoint:
-            msg = "Missing 'agent' in participants"
-            raise ValueError(msg)
+        logger.info("Parsed EvalRequest", participants=request.participants, config=request.config.model_dump())
+
+        if not request.participants:
+            raise ValueError("No participants provided")
+
+        participant_name, agent_endpoint = next(iter(request.participants.items()))
+        logger.info(f"Evaluating participant '{participant_name}'", endpoint=agent_endpoint)
 
         logger.info(
             "Starting green executor evaluation",
@@ -185,12 +188,12 @@ class Tau2GreenExecutor(AgentExecutor):
         """
         # Parse EvalRequest from A2A message
         request_text = context.get_user_input()
-        logger.debug("Received green executor request", input_length=len(request_text))
+        logger.info("Received green executor request", request_text=request_text[:500])
 
         try:
             request = EvalRequest.model_validate_json(request_text)
         except Exception as e:
-            logger.error("Failed to parse EvalRequest", error=str(e))
+            logger.error("Failed to parse EvalRequest", error=str(e), raw_input=request_text[:1000])
             msg = f"Invalid EvalRequest format: {e}"
             raise ValueError(msg) from e
 

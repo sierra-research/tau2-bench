@@ -157,15 +157,37 @@ class TestTau2GreenAgent:
 
     @pytest.mark.asyncio
     async def test_run_eval_missing_agent_raises(self, mock_updater):
-        """Should raise ValueError if agent is missing from participants."""
+        """Should raise ValueError if no participants provided."""
         agent = Tau2GreenAgent()
         request = EvalRequest(
-            participants={},  # Missing "agent" key
+            participants={},  # Empty participants
             config=EvalConfig(domain="mock"),
         )
 
-        with pytest.raises(ValueError, match="Missing 'agent' in participants"):
+        with pytest.raises(ValueError, match="No participants provided"):
             await agent.run_eval(request, mock_updater)
+
+    @pytest.mark.asyncio
+    async def test_run_eval_uses_first_participant(self, mock_updater, mock_tool_result):
+        """Should use first participant for evaluation."""
+        agent = Tau2GreenAgent()
+        request = EvalRequest(
+            participants={"kimi-agent": "http://localhost:9009/kimi"},  # Not "agent"
+            config=EvalConfig(domain="mock"),
+        )
+
+        with patch(
+            "tau2_agent.green_executor.RunTau2Evaluation"
+        ) as MockTool:
+            mock_instance = AsyncMock()
+            mock_instance.run_async = AsyncMock(return_value=mock_tool_result)
+            MockTool.return_value = mock_instance
+
+            await agent.run_eval(request, mock_updater)
+
+            # Verify tool was called with the first participant's endpoint
+            call_kwargs = mock_instance.run_async.call_args[1]
+            assert call_kwargs["args"]["agent_endpoint"] == "http://localhost:9009/kimi"
 
     @pytest.mark.asyncio
     async def test_run_eval_calls_tool(self, mock_updater, mock_tool_result):
