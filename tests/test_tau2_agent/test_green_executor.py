@@ -277,6 +277,44 @@ class TestTau2GreenAgent:
             with pytest.raises(ValueError, match="LIMIT_EXCEEDED"):
                 await agent.run_eval(request, mock_updater)
 
+    @pytest.mark.asyncio
+    async def test_run_eval_handles_none_summary_values(self, mock_updater):
+        """Should handle None values in summary without TypeError."""
+        agent = Tau2GreenAgent()
+        request = EvalRequest(
+            participants={"agent": "http://localhost:9009"},
+            config=EvalConfig(domain="mock"),
+        )
+
+        result_with_nones = {
+            "status": "completed",
+            "evaluation_id": "eval-456",
+            "summary": {
+                "total_simulations": None,
+                "total_tasks": None,
+                "successful_simulations": None,
+                "avg_reward": None,
+                "avg_agent_cost": None,
+            },
+        }
+
+        with patch(
+            "tau2_agent.green_executor.RunTau2Evaluation"
+        ) as MockTool:
+            mock_instance = AsyncMock()
+            mock_instance.run_async = AsyncMock(return_value=result_with_nones)
+            MockTool.return_value = mock_instance
+
+            await agent.run_eval(request, mock_updater)
+
+        mock_updater.add_artifact.assert_called_once()
+        call_kwargs = mock_updater.add_artifact.call_args[1]
+        parts = call_kwargs["parts"]
+
+        text_part = parts[0].root
+        assert "Pass Rate: 0/0 (0.0%)" in text_part.text
+        assert "Avg Agent Cost: $0.0000" in text_part.text
+
 
 class TestTau2GreenExecutor:
     """Tests for Tau2GreenExecutor A2A interface."""

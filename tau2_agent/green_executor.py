@@ -139,22 +139,23 @@ class Tau2GreenAgent:
             raise ValueError(error_msg)
 
         # Format human-readable summary
-        summary = result.get("summary", {})
-        total = summary.get("total_simulations", 0)
-        successful = summary.get("successful_simulations", 0)
-        avg_reward = summary.get("avg_reward", 0)
-        avg_cost = summary.get("avg_agent_cost", 0)
+        summary = result.get("summary") or {}
+        total = summary.get("total_simulations") or 0
+        successful = summary.get("successful_simulations") or 0
+        avg_reward = summary.get("avg_reward") or 0
+        avg_cost = summary.get("avg_agent_cost") or 0
 
+        total_tasks = summary.get("total_tasks") or 0
         summary_text = f"""Evaluation Results
 Domain: {request.config.domain}
-Tasks: {summary.get('total_tasks', 0)}
+Tasks: {total_tasks}
 Pass Rate: {successful}/{total} ({avg_reward:.1%})
 Avg Agent Cost: ${avg_cost:.4f}"""
 
         logger.info(
             "Evaluation completed successfully",
             domain=request.config.domain,
-            total_tasks=summary.get("total_tasks", 0),
+            total_tasks=total_tasks,
             pass_rate=f"{avg_reward:.1%}",
         )
 
