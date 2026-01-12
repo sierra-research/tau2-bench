@@ -12,6 +12,8 @@ from tau2_agent.green_executor import (
     EvalRequest,
     Tau2GreenAgent,
     Tau2GreenExecutor,
+    _build_task_results,
+    _extract_failure_insights,
     create_green_agent_card,
 )
 
@@ -124,6 +126,123 @@ class TestCreateGreenAgentCard:
         assert "AgentBeats" in card.description
 
 
+class TestExtractFailureInsights:
+    """Tests for _extract_failure_insights helper."""
+
+    def test_returns_empty_for_none_reward_info(self):
+        """Should return empty list for None reward_info."""
+        assert _extract_failure_insights(None) == []
+
+    def test_returns_empty_for_all_passed(self):
+        """Should return empty list when all checks pass."""
+        reward_info = {
+            "reward": 1.0,
+            "nl_assertions": [{"nl_assertion": "Test", "met": True}],
+            "db_check": {"db_match": True},
+        }
+        assert _extract_failure_insights(reward_info) == []
+
+    def test_extracts_failed_nl_assertions(self):
+        """Should extract failed NL assertions."""
+        reward_info = {
+            "nl_assertions": [
+                {"nl_assertion": "Agent should confirm booking", "met": False},
+                {"nl_assertion": "Agent should greet user", "met": True},
+            ],
+        }
+        insights = _extract_failure_insights(reward_info)
+        assert len(insights) == 1
+        assert "confirm booking" in insights[0]
+
+    def test_extracts_missing_communications(self):
+        """Should extract missing communication requirements."""
+        reward_info = {
+            "communicate_checks": [
+                {"info": "confirmation number", "met": False},
+            ],
+        }
+        insights = _extract_failure_insights(reward_info)
+        assert len(insights) == 1
+        assert "confirmation number" in insights[0]
+
+    def test_extracts_failed_actions(self):
+        """Should extract uncompleted actions."""
+        reward_info = {
+            "action_checks": [
+                {"action": {"name": "book_flight"}, "action_match": False},
+            ],
+        }
+        insights = _extract_failure_insights(reward_info)
+        assert len(insights) == 1
+        assert "book_flight" in insights[0]
+
+    def test_extracts_db_mismatch(self):
+        """Should extract DB state mismatch."""
+        reward_info = {
+            "db_check": {"db_match": False, "db_reward": 0.0},
+        }
+        insights = _extract_failure_insights(reward_info)
+        assert len(insights) == 1
+        assert "Database" in insights[0]
+
+
+class TestBuildTaskResults:
+    """Tests for _build_task_results helper."""
+
+    def test_builds_results_from_simulations(self):
+        """Should build task results with correct structure."""
+        simulations = [
+            {
+                "task_id": "task-1",
+                "termination_reason": "agent_stop",
+                "messages": [{"role": "user"}, {"role": "agent"}],
+                "reward_info": {"reward": 1.0},
+            },
+        ]
+        results = _build_task_results(simulations)
+
+        assert len(results) == 1
+        assert results[0]["task_id"] == "task-1"
+        assert results[0]["success"] is True
+        assert results[0]["reward"] == 1.0
+        assert results[0]["num_turns"] == 2
+        assert results[0]["termination_reason"] == "agent_stop"
+        assert "failure_insights" not in results[0]
+
+    def test_adds_failure_insights_for_failed_tasks(self):
+        """Should add failure_insights for tasks below threshold."""
+        simulations = [
+            {
+                "task_id": "task-2",
+                "termination_reason": "max_steps",
+                "messages": [],
+                "reward_info": {
+                    "reward": 0.5,
+                    "nl_assertions": [{"nl_assertion": "Test failed", "met": False}],
+                },
+            },
+        ]
+        results = _build_task_results(simulations)
+
+        assert results[0]["success"] is False
+        assert "failure_insights" in results[0]
+        assert len(results[0]["failure_insights"]) == 1
+
+    def test_handles_missing_reward_info(self):
+        """Should handle simulations without reward_info."""
+        simulations = [
+            {
+                "task_id": "task-3",
+                "termination_reason": "agent_error",
+                "messages": [],
+            },
+        ]
+        results = _build_task_results(simulations)
+
+        assert results[0]["success"] is False
+        assert results[0]["reward"] == 0.0
+
+
 class TestTau2GreenAgent:
     """Tests for Tau2GreenAgent evaluation execution."""
 
@@ -143,16 +262,35 @@ class TestTau2GreenAgent:
             "evaluation_id": "eval-123",
             "timestamp": "2024-01-01T00:00:00Z",
             "summary": {
-                "total_simulations": 5,
-                "total_tasks": 5,
-                "successful_simulations": 4,
-                "avg_reward": 0.8,
-                "avg_agent_cost": 0.0025,
+                "total_simulations": 2,
+                "total_tasks": 2,
+                "successful_simulations": 1,
+                "avg_reward": 0.5,
+                "pass_hat_k": {"1": 0.5},
             },
             "tasks": [
                 {"task_id": "task-1", "purpose": "Test task 1"},
+                {"task_id": "task-2", "purpose": "Test task 2"},
             ],
-            "simulations": [],
+            "simulations": [
+                {
+                    "task_id": "task-1",
+                    "termination_reason": "agent_stop",
+                    "messages": [{"role": "user"}, {"role": "agent"}],
+                    "reward_info": {"reward": 1.0},
+                },
+                {
+                    "task_id": "task-2",
+                    "termination_reason": "max_steps",
+                    "messages": [{"role": "user"}],
+                    "reward_info": {
+                        "reward": 0.0,
+                        "nl_assertions": [
+                            {"nl_assertion": "Agent should confirm booking", "met": False}
+                        ],
+                    },
+                },
+            ],
         }
 
     @pytest.mark.asyncio
@@ -248,10 +386,21 @@ class TestTau2GreenAgent:
         assert isinstance(parts[0].root, TextPart)
         assert isinstance(parts[1].root, DataPart)
 
-        # Verify DataPart contains the result
+        # Verify DataPart contains curated result (no agent_cost, has task_results)
         data_part = parts[1].root
         assert data_part.data["status"] == "completed"
         assert "summary" in data_part.data
+        assert "avg_agent_cost" not in data_part.data["summary"]
+        assert "task_results" in data_part.data
+
+        # Verify task_results structure
+        task_results = data_part.data["task_results"]
+        assert len(task_results) == 2
+        assert task_results[0]["task_id"] == "task-1"
+        assert task_results[0]["success"] is True
+        assert task_results[1]["task_id"] == "task-2"
+        assert task_results[1]["success"] is False
+        assert "failure_insights" in task_results[1]
 
     @pytest.mark.asyncio
     async def test_run_eval_handles_error_result(self, mock_updater):
@@ -294,7 +443,6 @@ class TestTau2GreenAgent:
                 "total_tasks": None,
                 "successful_simulations": None,
                 "avg_reward": None,
-                "avg_agent_cost": None,
             },
         }
 
@@ -313,7 +461,8 @@ class TestTau2GreenAgent:
 
         text_part = parts[0].root
         assert "Pass Rate: 0/0 (0.0%)" in text_part.text
-        assert "Avg Agent Cost: $0.0000" in text_part.text
+        # No agent cost in output anymore
+        assert "Avg Agent Cost" not in text_part.text
 
 
 class TestTau2GreenExecutor:

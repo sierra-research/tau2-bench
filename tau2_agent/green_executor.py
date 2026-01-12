@@ -75,6 +75,91 @@ def create_green_agent_card(base_url: str) -> AgentCard:
     )
 
 
+def _extract_failure_insights(reward_info: dict | None) -> list[str]:
+    """Extract actionable failure reasons from reward_info.
+
+    Args:
+        reward_info: RewardInfo dict from simulation result.
+
+    Returns:
+        List of failure reasons explaining why the task failed.
+    """
+    if not reward_info:
+        return []
+
+    insights = []
+
+    # Check NL assertions (natural language requirements)
+    nl_assertions = reward_info.get("nl_assertions") or []
+    for assertion in nl_assertions:
+        if not assertion.get("met", True):
+            insights.append(f"Failed: {assertion.get('nl_assertion', 'Unknown requirement')}")
+
+    # Check communicate requirements (info agent should have conveyed)
+    communicate_checks = reward_info.get("communicate_checks") or []
+    for check in communicate_checks:
+        if not check.get("met", True):
+            insights.append(f"Missing communication: {check.get('info', 'Unknown info')}")
+
+    # Check action requirements
+    action_checks = reward_info.get("action_checks") or []
+    for check in action_checks:
+        if not check.get("action_match", True):
+            action = check.get("action", {})
+            action_name = action.get("name", "Unknown action") if isinstance(action, dict) else str(action)
+            insights.append(f"Action not completed: {action_name}")
+
+    # Check environment assertions
+    env_assertions = reward_info.get("env_assertions") or []
+    for assertion in env_assertions:
+        if not assertion.get("met", True):
+            env_assert = assertion.get("env_assertion", {})
+            desc = env_assert.get("description", "Unknown") if isinstance(env_assert, dict) else str(env_assert)
+            insights.append(f"Environment check failed: {desc}")
+
+    # Check DB state
+    db_check = reward_info.get("db_check")
+    if db_check and not db_check.get("db_match", True):
+        insights.append("Database state does not match expected outcome")
+
+    return insights
+
+
+def _build_task_results(simulations: list[dict], threshold: float = 0.7) -> list[dict]:
+    """Build per-task results with success status and failure insights.
+
+    Args:
+        simulations: List of simulation dicts from evaluation result.
+        threshold: Reward threshold for success (default 0.7).
+
+    Returns:
+        List of task result dicts with actionable information.
+    """
+    task_results = []
+    for sim in simulations:
+        reward_info = sim.get("reward_info") or {}
+        reward = reward_info.get("reward", 0.0) if reward_info else 0.0
+        success = reward >= threshold
+
+        task_result: dict = {
+            "task_id": sim.get("task_id", "unknown"),
+            "success": success,
+            "reward": reward,
+            "termination_reason": sim.get("termination_reason", "unknown"),
+            "num_turns": len(sim.get("messages", [])),
+        }
+
+        # Add failure insights for failed tasks
+        if not success:
+            insights = _extract_failure_insights(reward_info)
+            if insights:
+                task_result["failure_insights"] = insights
+
+        task_results.append(task_result)
+
+    return task_results
+
+
 class Tau2GreenAgent:
     """Direct evaluation executor for AgentBeats.
 
@@ -143,14 +228,17 @@ class Tau2GreenAgent:
         total = summary.get("total_simulations") or 0
         successful = summary.get("successful_simulations") or 0
         avg_reward = summary.get("avg_reward") or 0
-        avg_cost = summary.get("avg_agent_cost") or 0
 
         total_tasks = summary.get("total_tasks") or 0
         summary_text = f"""Evaluation Results
 Domain: {request.config.domain}
 Tasks: {total_tasks}
-Pass Rate: {successful}/{total} ({avg_reward:.1%})
-Avg Agent Cost: ${avg_cost:.4f}"""
+Pass Rate: {successful}/{total} ({avg_reward:.1%})"""
+
+        # Add failed task summary if any failures
+        failed_count = total - successful
+        if failed_count > 0:
+            summary_text += f"\nFailed Tasks: {failed_count}"
 
         logger.info(
             "Evaluation completed successfully",
@@ -159,11 +247,30 @@ Avg Agent Cost: ${avg_cost:.4f}"""
             pass_rate=f"{avg_reward:.1%}",
         )
 
+        # Build curated output (no conversation traces, with failure insights)
+        simulations = result.get("simulations") or []
+        task_results = _build_task_results(simulations)
+
+        curated_result = {
+            "status": result.get("status", "completed"),
+            "evaluation_id": result.get("evaluation_id"),
+            "timestamp": result.get("timestamp"),
+            "summary": {
+                "total_simulations": total,
+                "total_tasks": total_tasks,
+                "successful_simulations": successful,
+                "avg_reward": avg_reward,
+                "pass_hat_k": summary.get("pass_hat_k"),
+            },
+            "tasks": result.get("tasks", []),
+            "task_results": task_results,
+        }
+
         # Add artifact with BOTH TextPart (human) and DataPart (structured)
         await updater.add_artifact(
             parts=[
                 Part(root=TextPart(text=summary_text)),
-                Part(root=DataPart(data=result)),
+                Part(root=DataPart(data=curated_result)),
             ],
             name="evaluation_results",
         )
