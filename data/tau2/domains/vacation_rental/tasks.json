@@ -411,5 +411,357 @@
             ]
         },
         "annotations": null
+    },
+    {
+        "id": "13",
+        "description": {
+            "purpose": "Validate get_host_profile tool retrieves host preferences",
+            "relevant_policies": null,
+            "notes": "Guest inquires about host flexibility. Agent must retrieve host profile."
+        },
+        "user_scenario": {
+            "persona": "You are planning ahead and want to understand your host's approach to emergencies before your trip.",
+            "instructions": {
+                "task_instructions": "Ask the agent about the cancellation flexibility for your upcoming stay at the Downtown Loft. You want to know if the host might be understanding about emergencies because you have an elderly parent whose health is unpredictable. Do not end the conversation until the agent tells you about the host's flexibility.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Inquiry about host flexibility for potential emergencies",
+                "known_info": "You are Takeshi Kobayashi. Your user ID is takeshi_kobayashi_9012. Your reservation is RES003 at the Downtown Loft.",
+                "unknown_info": "You don't know the host's specific policies."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "13_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES003"}, "info": null},
+                {"action_id": "13_1", "name": "get_listing_details", "arguments": {"listing_id": "LST002"}, "info": "Agent needs listing to identify host"},
+                {"action_id": "13_2", "name": "get_host_profile", "arguments": {"host_user_id": "host_ibrahim_alzahrani_1111"}, "info": "CRITICAL: Must retrieve host profile"}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent retrieves the host profile to answer flexibility question",
+                "Agent communicates that the host is understanding about medical emergencies"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "14",
+        "description": {
+            "purpose": "Validate get_guest_history tool retrieves repeat guest information",
+            "relevant_policies": null,
+            "notes": "Repeat guest mentions loyalty. Agent must verify via guest history."
+        },
+        "user_scenario": {
+            "persona": "You are a friendly repeat guest who values your relationship with this host.",
+            "instructions": {
+                "task_instructions": "You've stayed with Ibrahim's properties several times before. You have an upcoming reservation and would like to request an early check-in. Mention that you're a repeat guest. Do not end the conversation until the agent acknowledges your repeat guest status.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Request early check-in as a loyal repeat guest",
+                "known_info": "You are Aoife Ryan. Your user ID is aoife_ryan_3456. Your reservation is RES016 at the Downtown Loft.",
+                "unknown_info": "You don't know if early check-in is possible."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "14_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES016"}, "info": null},
+                {"action_id": "14_1", "name": "get_guest_history", "arguments": {"guest_user_id": "aoife_ryan_3456"}, "compare_args": ["guest_user_id"], "info": "CRITICAL: Must verify repeat guest claim"}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent looks up guest history to verify repeat guest claim",
+                "Agent acknowledges the guest's previous stays"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "15",
+        "description": {
+            "purpose": "Validate submit_issue_report tool creates issue correctly",
+            "relevant_policies": null,
+            "notes": "Guest reports cleanliness issue. Agent must create issue report."
+        },
+        "user_scenario": {
+            "persona": "You are a reasonable guest who wants fair treatment for a legitimate concern.",
+            "instructions": {
+                "task_instructions": "Report that the kitchen in your rental was not clean when you arrived. There were dirty dishes in the sink and crumbs on the counter. You took photos as evidence. Ask what can be done. Do not end the conversation until the agent confirms they have logged the issue.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Report cleanliness issue with evidence",
+                "known_info": "You are Emeka Eze. Your user ID is emeka_eze_5678. Your reservation is RES018 at the Cozy Beach Cottage.",
+                "unknown_info": "You don't know what resolution you might receive."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "15_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES018"}, "info": null},
+                {"action_id": "15_1", "name": "submit_issue_report", "arguments": {"reservation_id": "RES018", "issue_type": "cleanliness", "severity": "minor", "evidence_submitted": true}, "compare_args": ["reservation_id", "issue_type", "evidence_submitted"], "info": "CRITICAL: Must create issue report"}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent creates an issue report for the cleanliness problem",
+                "Agent confirms the issue has been logged"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "16",
+        "description": {
+            "purpose": "Validate validate_issue_evidence tool checks evidence status",
+            "relevant_policies": null,
+            "notes": "Guest follows up on previously reported issue. Agent must validate evidence."
+        },
+        "user_scenario": {
+            "persona": "You are following up on an issue you reported earlier and want to know the status.",
+            "instructions": {
+                "task_instructions": "You reported a cleanliness issue earlier with photos. You want to know if the evidence was reviewed and what the outcome is. Do not end the conversation until the agent tells you about the evidence validation result.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Follow up on cleanliness issue evidence review",
+                "known_info": "You are Frieda Schmidt. Your user ID is frieda_schmidt_1234. Your reservation is RES011. You reported issue ISS_RES011_001.",
+                "unknown_info": "You don't know the evidence validation outcome."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "16_0", "name": "validate_issue_evidence", "arguments": {"issue_id": "ISS_RES011_001"}, "info": "CRITICAL: Must validate issue evidence"}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent validates the issue evidence",
+                "Agent communicates the evidence status to the guest"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "17",
+        "description": {
+            "purpose": "Validate get_issue_details tool retrieves issue information",
+            "relevant_policies": null,
+            "notes": "Guest asks about existing issue status."
+        },
+        "user_scenario": {
+            "persona": "You want a status update on your reported issue.",
+            "instructions": {
+                "task_instructions": "You want to check on the status of the cleanliness issue you reported. Ask the agent for details about your issue. Do not end the conversation until the agent provides the issue details.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Check status of reported issue",
+                "known_info": "You are Frieda Schmidt. Your user ID is frieda_schmidt_1234. Your issue ID is ISS_RES011_001.",
+                "unknown_info": "You don't remember all the details of what you reported."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "17_0", "name": "get_issue_details", "arguments": {"issue_id": "ISS_RES011_001"}, "info": "CRITICAL: Must retrieve issue details"}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent retrieves the issue details",
+                "Agent communicates the issue status and type to the guest"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "18",
+        "description": {
+            "purpose": "Validate request_host_decision tool retrieves host's decision",
+            "relevant_policies": null,
+            "notes": "Guest requests exception. Agent must get host's decision."
+        },
+        "user_scenario": {
+            "persona": "You have a medical emergency and need to cancel outside normal policy.",
+            "instructions": {
+                "task_instructions": "You need to cancel your reservation due to a sudden medical emergency. You don't have documentation yet but will get it soon. Ask if the host might make an exception. Do not end the conversation until the agent tells you what the host's response would be.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Request cancellation exception for medical emergency",
+                "known_info": "You are Takeshi Kobayashi. Your user ID is takeshi_kobayashi_9012. Your reservation is RES003.",
+                "unknown_info": "You don't know if the host will make an exception."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "18_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES003"}, "info": null},
+                {"action_id": "18_1", "name": "get_listing_details", "arguments": {"listing_id": "LST002"}, "info": null},
+                {"action_id": "18_2", "name": "request_host_decision", "arguments": {"host_user_id": "host_ibrahim_alzahrani_1111", "situation_type": "cancellation_exception"}, "compare_args": ["host_user_id", "situation_type"], "info": "CRITICAL: Must request host decision"}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent requests the host's decision on the cancellation exception",
+                "Agent communicates the host's likely response to the guest"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "19",
+        "description": {
+            "purpose": "Validate process_goodwill_refund tool processes additional refund",
+            "relevant_policies": null,
+            "notes": "Host-approved goodwill refund for guest."
+        },
+        "user_scenario": {
+            "persona": "You are grateful for the host's understanding and want to finalize the refund.",
+            "instructions": {
+                "task_instructions": "The host has agreed to give you an additional goodwill refund of $100 due to your medical emergency. Ask the agent to process this refund. Do not end the conversation until the agent confirms the refund has been processed.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Process approved goodwill refund",
+                "known_info": "You are Takeshi Kobayashi. Your user ID is takeshi_kobayashi_9012. Your reservation is RES003. The host approved a $100 goodwill refund.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "19_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES003"}, "info": null},
+                {"action_id": "19_1", "name": "process_goodwill_refund", "arguments": {"reservation_id": "RES003", "amount": 100.0}, "compare_args": ["reservation_id"], "info": "CRITICAL: Must process goodwill refund"}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent processes the goodwill refund",
+                "Agent confirms the refund amount and success"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "20",
+        "description": {
+            "purpose": "Validate apply_service_credit tool applies credit to account",
+            "relevant_policies": null,
+            "notes": "Service credit offered as resolution."
+        },
+        "user_scenario": {
+            "persona": "You accept the service credit as a fair resolution.",
+            "instructions": {
+                "task_instructions": "The agent offered you a $50 service credit for your cleanliness issue. You accept this offer. Ask them to apply the credit. Do not end the conversation until the agent confirms the credit has been applied.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Accept and apply service credit offer",
+                "known_info": "You are Frieda Schmidt. Your user ID is frieda_schmidt_1234. You were offered a $50 service credit.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "20_0", "name": "apply_service_credit", "arguments": {"user_id": "frieda_schmidt_1234", "amount": 50.0}, "compare_args": ["user_id"], "info": "CRITICAL: Must apply service credit"}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent applies the service credit",
+                "Agent confirms the credit amount and that it's available for future bookings"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "21",
+        "description": {
+            "purpose": "Validate add_reservation_note tool adds documentation",
+            "relevant_policies": null,
+            "notes": "Agent documents decision on reservation."
+        },
+        "user_scenario": {
+            "persona": "You want confirmation that the exception granted is documented.",
+            "instructions": {
+                "task_instructions": "The host approved your early check-in request. Ask the agent to make a note of this approval so there's no confusion when you arrive. Do not end the conversation until the agent confirms they've added a note.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Document approved early check-in",
+                "known_info": "You are Aoife Ryan. Your user ID is aoife_ryan_3456. Your reservation is RES016. Early check-in was approved.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "21_0", "name": "add_reservation_note", "arguments": {"reservation_id": "RES016"}, "compare_args": ["reservation_id"], "info": "CRITICAL: Must add reservation note"}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent adds a note to the reservation",
+                "Agent confirms the note was added"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "22",
+        "description": {
+            "purpose": "Full nuance scenario: Repeat guest with medical emergency requests exception from flexible host",
+            "relevant_policies": null,
+            "notes": "Tests complete workflow: verify guest history, check host profile, request decision, process goodwill refund, document outcome."
+        },
+        "user_scenario": {
+            "persona": "You are a loyal repeat guest facing a genuine medical emergency. You've always had great experiences with this host and hope they'll be understanding.",
+            "instructions": {
+                "task_instructions": "You need to cancel your reservation due to a family medical emergency. You've stayed with Ibrahim several times before and always left great reviews. You have a doctor's note as documentation. Ask if the host can make an exception beyond the standard cancellation policy. If they can provide additional compensation, accept it gratefully. Do not end the conversation until the situation is fully resolved.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Cancel reservation due to family medical emergency",
+                "known_info": "You are Aoife Ryan. Your user ID is aoife_ryan_3456. Your reservation is RES016 at Ibrahim's Downtown Loft. You have documentation (doctor's note).",
+                "unknown_info": "You don't know exactly how much additional refund you might receive."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "22_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES016"}, "info": null},
+                {"action_id": "22_1", "name": "get_listing_details", "arguments": {"listing_id": "LST002"}, "info": null},
+                {"action_id": "22_2", "name": "get_guest_history", "arguments": {"guest_user_id": "aoife_ryan_3456"}, "compare_args": ["guest_user_id"], "info": "Agent should verify repeat guest status"},
+                {"action_id": "22_3", "name": "get_host_profile", "arguments": {"host_user_id": "host_ibrahim_alzahrani_1111"}, "info": "Agent should understand host preferences"},
+                {"action_id": "22_4", "name": "request_host_decision", "arguments": {"host_user_id": "host_ibrahim_alzahrani_1111", "situation_type": "cancellation_exception", "guest_context": "medical_emergency_with_documentation"}, "compare_args": ["host_user_id", "situation_type"], "info": "CRITICAL: Agent must request host decision"}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent verifies the guest is a repeat customer with Ibrahim",
+                "Agent checks Ibrahim's host profile and notes his flexibility",
+                "Agent requests the host's decision for the medical emergency",
+                "Agent communicates that Ibrahim approves full refund for documented medical emergencies",
+                "Agent handles the situation with empathy appropriate for a medical emergency"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "23",
+        "description": {
+            "purpose": "Full nuance scenario: New guest reports issue at strict host's property, evidence validated but host denies compensation",
+            "relevant_policies": null,
+            "notes": "Tests workflow with strict host: submit issue, validate evidence, check host profile, request decision (deny), offer alternative (service credit)."
+        },
+        "user_scenario": {
+            "persona": "You are a first-time guest who found a problem and want fair treatment. You're not unreasonable but expect some acknowledgment.",
+            "instructions": {
+                "task_instructions": "You arrived at your rental and found the bathroom wasn't properly cleaned. There was hair in the drain and water spots on the mirror. You took photos. Report this issue and ask for some compensation. If they can't give you a refund, ask if there's any other option. Do not end the conversation until you understand what resolution is available.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Report cleanliness issue and request compensation",
+                "known_info": "You are Sara Rezaei. Your user ID is sara_rezaei_7890. Your reservation is RES017 at the Urban Studio Apartment.",
+                "unknown_info": "You don't know the host's policies on compensation."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "23_0", "name": "get_reservation_details", "arguments": {"reservation_id": "RES017"}, "info": null},
+                {"action_id": "23_1", "name": "get_listing_details", "arguments": {"listing_id": "LST005"}, "info": null},
+                {"action_id": "23_2", "name": "submit_issue_report", "arguments": {"reservation_id": "RES017", "issue_type": "cleanliness", "severity": "minor", "evidence_submitted": true}, "compare_args": ["reservation_id", "issue_type"], "info": "Agent should create issue report"},
+                {"action_id": "23_3", "name": "get_host_profile", "arguments": {"host_user_id": "host_alessia_greco_2222"}, "info": "Agent should understand host's strict policies"},
+                {"action_id": "23_4", "name": "request_host_decision", "arguments": {"host_user_id": "host_alessia_greco_2222", "situation_type": "issue_compensation"}, "compare_args": ["host_user_id", "situation_type"], "info": "Agent requests host decision on compensation"}
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent creates an issue report for the cleanliness problem",
+                "Agent checks the host profile and understands Alessia's strict no-refund policy",
+                "Agent requests the host's decision on compensation",
+                "Agent communicates that monetary compensation is not available due to host policy",
+                "Agent offers an alternative resolution such as service credit",
+                "Agent handles the situation professionally despite the negative outcome"
+            ]
+        },
+        "annotations": null
     }
 ]
