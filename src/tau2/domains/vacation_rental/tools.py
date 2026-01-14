@@ -718,15 +718,17 @@ class VacationRentalTools(ToolKitBase):
         # Get host profile to check max goodwill percentage
         host_profile = self.db.host_profiles.get(listing.host_user_id)
         if host_profile:
-            max_goodwill = reservation.amount_paid * (
-                host_profile.flexibility_settings.max_goodwill_refund_pct / 100
+            max_goodwill_pct = host_profile.flexibility_settings.max_goodwill_refund_pct
+        else:
+            # Default cap when host profile is not available
+            max_goodwill_pct = 15
+
+        max_goodwill = reservation.amount_paid * (max_goodwill_pct / 100)
+        if amount > max_goodwill:
+            raise ValueError(
+                f"Goodwill refund amount ${amount:.2f} exceeds maximum "
+                f"goodwill limit of ${max_goodwill:.2f} ({max_goodwill_pct}%)"
             )
-            if amount > max_goodwill:
-                raise ValueError(
-                    f"Goodwill refund amount ${amount:.2f} exceeds host's maximum "
-                    f"goodwill limit of ${max_goodwill:.2f} "
-                    f"({host_profile.flexibility_settings.max_goodwill_refund_pct}%)"
-                )
 
         return {
             "success": True,
