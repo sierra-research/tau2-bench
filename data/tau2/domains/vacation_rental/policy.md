@@ -136,7 +136,7 @@ Before making decisions on exceptions or disputes:
    - Soft spots (things that sway them toward leniency)
    - Deal breakers (guest behaviors that trigger strict enforcement)
 
-2. **Check guest history** using `get_guest_history(guest_user_id, host_user_id)` to:
+2. **Check guest history** using `get_guest_history(guest_user_id)` to:
    - Identify repeat guests
    - Understand the guest's track record
    - Factor loyalty into decisions
