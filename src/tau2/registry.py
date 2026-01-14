@@ -42,6 +42,7 @@ from tau2.domains.telecom.environment import (
 from tau2.domains.vacation_rental.environment import (
     get_environment as vacation_rental_domain_get_environment,
     get_tasks as vacation_rental_domain_get_tasks,
+    get_tasks_split as vacation_rental_domain_get_tasks_split,
 )
 from tau2.environment.environment import Environment
 from tau2.user.base import BaseUser
@@ -249,7 +250,11 @@ try:
     )
 
     registry.register_domain(vacation_rental_domain_get_environment, "vacation_rental")
-    registry.register_tasks(vacation_rental_domain_get_tasks, "vacation_rental")
+    registry.register_tasks(
+        vacation_rental_domain_get_tasks,
+        "vacation_rental",
+        get_task_splits=vacation_rental_domain_get_tasks_split,
+    )
 
     logger.debug(
         f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}"
