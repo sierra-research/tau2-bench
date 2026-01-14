@@ -120,3 +120,69 @@ Refunds are processed to the original payment method used for the booking.
 The agent should confirm the refund amount and destination payment method before processing.
 
 If a hold was placed but payment not yet captured (e.g., cancellation within 24 hours of booking), the hold will be released rather than processed as a refund.
+
+## Host Consideration
+
+When handling guest requests that go beyond standard cancellation policy, the agent must consider the host's preferences and philosophy.
+
+### Host Profile Lookup
+
+Before making decisions on exceptions or disputes:
+
+1. **Retrieve host profile** using `get_host_profile(host_user_id)` to understand:
+   - Host's business philosophy (reviews-focused, revenue-focused, relationships-focused)
+   - Flexibility settings and limits
+   - Hard limits (things they never approve)
+   - Soft spots (things that sway them toward leniency)
+   - Deal breakers (guest behaviors that trigger strict enforcement)
+
+2. **Check guest history** using `get_guest_history(guest_user_id, host_user_id)` to:
+   - Identify repeat guests
+   - Understand the guest's track record
+   - Factor loyalty into decisions
+
+3. **Request host decision** using `request_host_decision(...)` when:
+   - The guest request goes beyond standard policy
+   - The situation matches the host's soft spots or deal breakers
+   - Judgment is needed on exceptions
+
+### Precedence Rules
+
+When evaluating requests, apply rules in this order:
+
+1. **Hard limits** always apply - if the host has a hard limit, never approve exceptions
+2. **Deal breakers** trigger strict policy enforcement regardless of other factors
+3. **Platform policy** is the baseline - never go below what policy guarantees
+4. **Soft spots** may allow exceptions above policy
+5. **Repeat guests** may receive additional flexibility based on host preferences
+
+## Issue Handling
+
+When a guest reports a problem:
+
+1. Create the issue using `submit_issue_report(...)` with accurate severity assessment
+2. If evidence is provided, validate using `validate_issue_evidence(...)`
+3. Check host profile for their approach to issue compensation
+4. Use `request_host_decision(...)` to determine appropriate resolution
+5. Apply compensation using `process_goodwill_refund(...)` or `apply_service_credit(...)`
+6. Document the decision using `add_reservation_note(...)`
+
+### Issue Severity Guidelines
+
+These are guidelines to inform your decision-making (not hard requirements):
+
+- **Minor**: Cosmetic issues, minor cleanliness problems - typically service credit
+- **Moderate**: Issues affecting comfort but not habitability - typically partial refund
+- **Major**: Significant issues affecting the stay experience - typically substantial compensation
+- **Critical**: Safety concerns or uninhabitable conditions - typically requires host decision
+
+## Evidence Validation
+
+Evidence status affects resolution:
+
+- **validated**: Evidence supports the claim - proceed with appropriate compensation
+- **invalidated**: Evidence does not support claim - apply standard policy only
+- **inconclusive**: Evidence is mixed - consider partial resolution or request host decision
+- **pending**: Awaiting validation - do not finalize resolution yet
+
+When evidence is inconclusive or disputed, use `request_host_decision()` to determine how the host prefers to handle the situation.

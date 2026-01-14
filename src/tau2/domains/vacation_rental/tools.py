@@ -3,6 +3,10 @@
 from datetime import datetime, timedelta
 
 from tau2.domains.vacation_rental.data_model import (
+    GuestHistory,
+    HostDecision,
+    HostProfile,
+    Issue,
     Listing,
     Reservation,
     User,
@@ -10,6 +14,17 @@ from tau2.domains.vacation_rental.data_model import (
 )
 from tau2.domains.vacation_rental.utils import CURRENT_TIME
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+
+VALID_ISSUE_TYPES = [
+    "property_condition",
+    "cleanliness",
+    "amenity_malfunction",
+    "not_as_described",
+    "rule_violation",
+    "safety_concern",
+    "cancellation_dispute",
+]
+VALID_SEVERITIES = ["minor", "moderate", "major", "critical"]
 
 
 class VacationRentalTools(ToolKitBase):
@@ -21,42 +36,35 @@ class VacationRentalTools(ToolKitBase):
         super().__init__(db)
 
     def _get_current_time(self) -> datetime:
-        """Get the current time for the domain."""
         return datetime.fromisoformat(CURRENT_TIME)
 
     def _get_user(self, user_id: str) -> User:
-        """Get user from database."""
         if user_id not in self.db.users:
             raise ValueError(f"User {user_id} not found")
         return self.db.users[user_id]
 
     def _get_reservation(self, reservation_id: str) -> Reservation:
-        """Get reservation from database."""
         if reservation_id not in self.db.reservations:
             raise ValueError(f"Reservation {reservation_id} not found")
         return self.db.reservations[reservation_id]
 
     def _get_listing(self, listing_id: str) -> Listing:
-        """Get listing from database."""
         if listing_id not in self.db.listings:
             raise ValueError(f"Listing {listing_id} not found")
         return self.db.listings[listing_id]
 
     def _calculate_nights(self, check_in_date: str, check_out_date: str) -> int:
-        """Calculate the number of nights between check-in and check-out."""
         check_in = datetime.strptime(check_in_date, "%Y-%m-%d")
         check_out = datetime.strptime(check_out_date, "%Y-%m-%d")
         return (check_out - check_in).days
 
     def _calculate_days_until_checkin(self, check_in_date: str) -> float:
-        """Calculate days until check-in from current time."""
         current = self._get_current_time()
         check_in = datetime.strptime(check_in_date, "%Y-%m-%d")
         delta = check_in - current
         return delta.total_seconds() / (24 * 3600)
 
     def _calculate_hours_since_booking(self, created_at: str) -> float:
-        """Calculate hours since booking was created."""
         current = self._get_current_time()
         created = datetime.fromisoformat(created_at)
         delta = current - created
@@ -418,6 +426,339 @@ class VacationRentalTools(ToolKitBase):
             "amount": amount,
             "message": f"Refund of ${amount:.2f} has been processed to payment method {payment_method_id}. "
             f"Please allow 10-15 business days for the refund to appear.",
+        }
+
+    # === Host Consideration Tools ===
+
+    @is_tool(ToolType.READ)
+    def get_host_profile(self, host_user_id: str) -> HostProfile:
+        """
+        Get the host's profile including their preferences, philosophy, and flexibility settings.
+
+        Use this to understand how a host approaches their business and what factors
+        might influence their decisions on exceptions or disputes.
+
+        Args:
+            host_user_id: The user ID of the host (e.g., 'host_ibrahim_alzahrani_1111')
+
+        Returns:
+            The host's profile including philosophy, flexibility settings, hard limits,
+            soft spots, and deal breakers.
+
+        Raises:
+            ValueError: If the host profile is not found.
+        """
+        if host_user_id not in self.db.host_profiles:
+            raise ValueError(f"Host profile for {host_user_id} not found")
+        return self.db.host_profiles[host_user_id]
+
+    @is_tool(ToolType.READ)
+    def get_guest_history(self, guest_user_id: str) -> GuestHistory:
+        """
+        Get a guest's stay history.
+
+        Use this to identify repeat guests and understand their track record
+        before making decisions that might be influenced by guest loyalty.
+
+        Args:
+            guest_user_id: The user ID of the guest
+
+        Returns:
+            Guest history including total stays, stays by host, issues reported,
+            and cancellation count.
+
+        Raises:
+            ValueError: If the guest history is not found.
+        """
+        if guest_user_id not in self.db.guest_history:
+            raise ValueError(f"Guest history for {guest_user_id} not found")
+        return self.db.guest_history[guest_user_id]
+
+    @is_tool(ToolType.READ)
+    def get_issue_details(self, issue_id: str) -> Issue:
+        """
+        Get the details of a reported issue.
+
+        Args:
+            issue_id: The issue ID (e.g., 'ISS_RES002_001')
+
+        Returns:
+            The issue details including type, severity, evidence status, and resolution.
+
+        Raises:
+            ValueError: If the issue is not found.
+        """
+        if issue_id not in self.db.issues:
+            raise ValueError(f"Issue {issue_id} not found")
+        return self.db.issues[issue_id]
+
+    def _get_evidence_recommendation(self, issue: Issue) -> str:
+        if issue.evidence_status == "validated":
+            return (
+                "Evidence supports claim. Consider significant compensation."
+                if issue.severity in ("major", "critical")
+                else "Evidence supports minor claim. Consider partial compensation or service credit."
+            )
+        if issue.evidence_status == "invalidated":
+            return "Evidence does not support claim. Apply standard policy."
+        if issue.evidence_status == "inconclusive":
+            return "Evidence is inconclusive. Consider partial resolution or escalate to host."
+        return "Awaiting evidence validation."
+
+    @is_tool(ToolType.READ)
+    def validate_issue_evidence(self, issue_id: str) -> dict:
+        """
+        Validate the evidence submitted for an issue.
+
+        This checks pre-populated validation results for the issue's evidence.
+        Use this after an issue is reported to determine if the claim is supported.
+
+        Args:
+            issue_id: The issue ID to validate evidence for
+
+        Returns:
+            A dictionary containing:
+            - evidence_status: 'validated', 'invalidated', 'inconclusive', or 'pending'
+            - validation_result: Details of what the evidence showed
+            - recommendation: Suggested action based on evidence
+
+        Raises:
+            ValueError: If the issue is not found.
+        """
+        if issue_id not in self.db.issues:
+            raise ValueError(f"Issue {issue_id} not found")
+
+        issue = self.db.issues[issue_id]
+
+        if not issue.evidence_submitted:
+            return {
+                "evidence_status": "pending",
+                "validation_result": "No evidence has been submitted for this issue.",
+                "recommendation": "Request evidence from the guest before proceeding.",
+            }
+
+        return {
+            "evidence_status": issue.evidence_status,
+            "validation_result": issue.validation_result,
+            "recommendation": self._get_evidence_recommendation(issue),
+        }
+
+    @is_tool(ToolType.READ)
+    def request_host_decision(
+        self,
+        host_user_id: str,
+        reservation_id: str,
+        situation_type: str,
+        guest_context: str | None = None,
+    ) -> HostDecision:
+        """
+        Request the host's decision for a specific situation.
+
+        This looks up pre-computed host decisions based on their profile and the
+        situation type. Use this when a guest request goes beyond standard policy
+        and host input is needed.
+
+        Args:
+            host_user_id: The host's user ID
+            reservation_id: The reservation in question
+            situation_type: Type of situation ('cancellation_exception', 'partial_refund',
+                           'issue_compensation', 'early_checkin_request', etc.)
+            guest_context: Optional context about the guest (e.g., 'repeat_guest',
+                          'has_documentation', 'medical_emergency_no_documentation')
+
+        Returns:
+            The host's decision including outcome, reasoning, and any conditions.
+
+        Raises:
+            ValueError: If no matching decision is found.
+        """
+        # Look for matching decision, preferring specific guest_context over default
+        for context in (guest_context, None):
+            for decision in self.db.host_decisions.values():
+                if (
+                    decision.host_user_id == host_user_id
+                    and decision.situation_type == situation_type
+                    and decision.guest_context == context
+                ):
+                    return decision
+
+        # Return defer_to_policy if no decision found
+        return HostDecision(
+            decision_id=f"HD_{host_user_id}_{situation_type}_default",
+            host_user_id=host_user_id,
+            situation_type=situation_type,
+            guest_context=guest_context,
+            decision="defer_to_policy",
+            reasoning="No specific host preference for this situation. Apply standard platform policy.",
+            conditions=[],
+        )
+
+    @is_tool(ToolType.WRITE)
+    def submit_issue_report(
+        self,
+        reservation_id: str,
+        issue_type: str,
+        description: str,
+        severity: str,
+        evidence_submitted: bool = False,
+    ) -> Issue:
+        """
+        Submit an issue report for a reservation.
+
+        Use this when a guest reports a problem with their stay. The issue will
+        be created and can then be validated and resolved.
+
+        Args:
+            reservation_id: The reservation ID
+            issue_type: Type of issue ('property_condition', 'cleanliness',
+                       'amenity_malfunction', 'not_as_described', 'rule_violation',
+                       'safety_concern', 'cancellation_dispute')
+            description: Description of the problem
+            severity: Severity level ('minor', 'moderate', 'major', 'critical')
+            evidence_submitted: Whether the guest has submitted evidence (photos, etc.)
+
+        Returns:
+            The created issue with its ID and initial status.
+
+        Raises:
+            ValueError: If the reservation is not found or issue_type/severity is invalid.
+        """
+        reservation = self._get_reservation(reservation_id)
+
+        if issue_type not in VALID_ISSUE_TYPES:
+            raise ValueError(f"Invalid issue_type. Must be one of: {VALID_ISSUE_TYPES}")
+
+        if severity not in VALID_SEVERITIES:
+            raise ValueError(f"Invalid severity. Must be one of: {VALID_SEVERITIES}")
+
+        # Generate issue ID
+        existing_issues = [
+            i for i in self.db.issues.keys() if i.startswith(f"ISS_{reservation_id}")
+        ]
+        issue_num = len(existing_issues) + 1
+        issue_id = f"ISS_{reservation_id}_{issue_num:03d}"
+
+        issue = Issue(
+            issue_id=issue_id,
+            reservation_id=reservation_id,
+            guest_user_id=reservation.guest_user_id,
+            reported_by="guest",
+            issue_type=issue_type,
+            description=description,
+            severity=severity,
+            evidence_submitted=evidence_submitted,
+            evidence_status="pending" if evidence_submitted else None,
+            status="open",
+            created_at=self._get_current_time().isoformat(),
+        )
+
+        self.db.issues[issue_id] = issue
+        return issue
+
+    @is_tool(ToolType.WRITE)
+    def process_goodwill_refund(
+        self, reservation_id: str, amount: float, justification: str
+    ) -> dict:
+        """
+        Process a goodwill refund beyond the standard cancellation policy.
+
+        Use this when a host has approved additional compensation beyond what
+        the cancellation policy provides. This is separate from the standard
+        cancel_reservation refund.
+
+        Args:
+            reservation_id: The reservation ID
+            amount: The goodwill refund amount in USD
+            justification: Reason for the goodwill refund (e.g., 'Host-approved
+                          exception for medical emergency')
+
+        Returns:
+            A dictionary containing success status and refund details.
+
+        Raises:
+            ValueError: If the reservation is not found or amount exceeds limits.
+        """
+        reservation = self._get_reservation(reservation_id)
+        listing = self._get_listing(reservation.listing_id)
+
+        # Get host profile to check max goodwill percentage
+        host_profile = self.db.host_profiles.get(listing.host_user_id)
+        if host_profile:
+            max_goodwill = reservation.amount_paid * (
+                host_profile.flexibility_settings.max_goodwill_refund_pct / 100
+            )
+            if amount > max_goodwill:
+                raise ValueError(
+                    f"Goodwill refund amount ${amount:.2f} exceeds host's maximum "
+                    f"goodwill limit of ${max_goodwill:.2f} "
+                    f"({host_profile.flexibility_settings.max_goodwill_refund_pct}%)"
+                )
+
+        return {
+            "success": True,
+            "reservation_id": reservation_id,
+            "goodwill_amount": amount,
+            "justification": justification,
+            "message": f"Goodwill refund of ${amount:.2f} has been processed. "
+            f"Reason: {justification}",
+        }
+
+    @is_tool(ToolType.WRITE)
+    def apply_service_credit(self, user_id: str, amount: float, reason: str) -> dict:
+        """
+        Apply a service credit to a user's account for future bookings.
+
+        Use this as an alternative to refunds, especially for minor issues
+        or when the host prefers to offer future value instead of cash refunds.
+
+        Args:
+            user_id: The user ID to credit
+            amount: The credit amount in USD
+            reason: Reason for the credit
+
+        Returns:
+            A dictionary containing success status and credit details.
+
+        Raises:
+            ValueError: If the user is not found.
+        """
+        user = self._get_user(user_id)
+
+        return {
+            "success": True,
+            "user_id": user_id,
+            "credit_amount": amount,
+            "reason": reason,
+            "message": f"Service credit of ${amount:.2f} has been applied to "
+            f"{user.name.first_name}'s account. This can be used on future bookings.",
+        }
+
+    @is_tool(ToolType.WRITE)
+    def add_reservation_note(self, reservation_id: str, note: str) -> dict:
+        """
+        Add a note to a reservation for documentation purposes.
+
+        Use this to document decisions, exceptions granted, or other important
+        information about the reservation.
+
+        Args:
+            reservation_id: The reservation ID
+            note: The note to add
+
+        Returns:
+            A dictionary confirming the note was added.
+
+        Raises:
+            ValueError: If the reservation is not found.
+        """
+        self._get_reservation(reservation_id)
+
+        return {
+            "success": True,
+            "reservation_id": reservation_id,
+            "note": note,
+            "timestamp": self._get_current_time().isoformat(),
+            "message": f"Note added to reservation {reservation_id}.",
         }
 
     @is_tool(ToolType.GENERIC)
