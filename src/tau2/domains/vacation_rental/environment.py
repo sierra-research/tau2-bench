@@ -1,5 +1,7 @@
 """Environment for the vacation rental domain."""
 
+from pathlib import Path
+
 from tau2.data_model.tasks import Task
 from tau2.domains.vacation_rental.data_model import VacationRentalDB
 from tau2.domains.vacation_rental.tools import VacationRentalTools
@@ -39,15 +41,35 @@ def get_environment(
     )
 
 
-def get_tasks(task_split_name: str | None = None) -> list[Task]:
+def get_tasks(task_split_name: str | None = "base") -> list[Task]:
     """Load vacation rental tasks.
 
     Args:
-        task_split_name: Optional task split name. If None, returns all tasks.
+        task_split_name: Task split name (base, train, test). If None, returns all tasks.
 
     Returns:
         List of Task objects.
     """
     tasks = load_file(VACATION_RENTAL_TASK_SET_PATH)
     tasks = [Task.model_validate(task) for task in tasks]
-    return tasks
+    if task_split_name is None:
+        return tasks
+    task_splits = get_tasks_split()
+    if task_split_name not in task_splits:
+        raise ValueError(
+            f"Invalid task split name: {task_split_name}. Valid splits are: {task_splits.keys()}"
+        )
+    return [task for task in tasks if task.id in task_splits[task_split_name]]
+
+
+def get_tasks_split() -> dict[str, list[str]]:
+    """Load the task splits for the vacation rental domain.
+
+    Returns:
+        Dictionary mapping split names to lists of task IDs.
+    """
+    split_file = (
+        Path(VACATION_RENTAL_TASK_SET_PATH).parent
+        / f"split_{Path(VACATION_RENTAL_TASK_SET_PATH).stem}.json"
+    )
+    return load_file(split_file)
