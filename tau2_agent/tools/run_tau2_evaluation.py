@@ -773,10 +773,41 @@ class RunTau2Evaluation(BaseTool):
                     span_context=llmobs_span_context,
                 )
 
+            # Compute average task difficulty (normalized 0-1)
+            difficulties = []
+            for task in results.tasks:
+                if task.evaluation_criteria:
+                    info = task.evaluation_criteria.info()
+                    num_communicate = (
+                        len(task.evaluation_criteria.communicate_info)
+                        if task.evaluation_criteria.communicate_info
+                        else 0
+                    )
+                    raw_diff = (
+                        info["num_agent_actions"]
+                        + info["num_nl_assertions"]
+                        + info["num_env_assertions"]
+                        + num_communicate
+                    )
+                    difficulties.append(raw_diff)
+
+            if difficulties:
+                min_d, max_d = min(difficulties), max(difficulties)
+                if max_d > min_d:
+                    avg_difficulty = sum(
+                        (d - min_d) / (max_d - min_d) for d in difficulties
+                    ) / len(difficulties)
+                else:
+                    avg_difficulty = 0.5
+            else:
+                avg_difficulty = None
+
             result = {
                 "status": "completed",
                 "timestamp": results.timestamp,
                 "summary": {
+                    "domain": domain,
+                    "num_trials": num_trials,
                     "total_simulations": total_simulations,
                     "total_tasks": len(results.tasks),
                     "successful_simulations": successful_sims,
@@ -785,6 +816,9 @@ class RunTau2Evaluation(BaseTool):
                         k: sanitize_float(v) for k, v in metrics.pass_hat_ks.items()
                     },
                     "avg_agent_cost": sanitize_float(metrics.avg_agent_cost),
+                    "avg_difficulty": (
+                        sanitize_float(avg_difficulty) if avg_difficulty is not None else None
+                    ),
                 },
                 "tasks": [
                     {
