@@ -289,7 +289,6 @@ def test_request_host_decision(environment: Environment):
         name="request_host_decision",
         arguments={
             "host_user_id": "host_001",
-            "reservation_id": "RES001",
             "situation_type": "cancellation_exception",
             "guest_context": "medical_emergency",
         },
@@ -306,7 +305,6 @@ def test_request_host_decision_default_fallback(environment: Environment):
         name="request_host_decision",
         arguments={
             "host_user_id": "host_001",
-            "reservation_id": "RES001",
             "situation_type": "late_checkout_request",
             "guest_context": "unknown",
         },
