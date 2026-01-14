@@ -85,8 +85,38 @@ The domain is designed to benchmark AI Agents in a controlled, realistic insuran
 ## Data Model
 The domain structure and database storage follows similar implementation as the rest of the other domains but with complex tasks.
 
+## Pre-requisites
+$env:TAU2_STRICT_REPLAY = "1"
+$env:OPENAI_API_KEY = "<your_api_key_here>"  # for agents requiring OpenAI access
 
-# Run Simulations/Evaluations
+## Build docker image
+docker build -t tau2-claims .
 
--Run this first
- `$env:TAU2_STRICT_REPLAY = "1"`
+
+## Run Simulations/Evaluations(Minimal Test run)
+
+### output file inside container
+docker run --rm `
+  tau2-claims tau2 run `
+  --domain claims `
+  --agent-llm gpt-4.1 `
+  --user-llm gpt-4.1 `
+  --num-trials 2 `
+  --task-ids LIFE-9 `
+  --max-concurrency 3 `
+  --save-to "claims_gpt-4.1_benchmark_LIFE-9_v1.json"
+
+### output persists in the host directory
+docker run --rm `
+  -v $(pwd):/outputs `
+  tau2-claims tau2 run `
+  --domain claims `
+  --agent-llm gpt-4.1 `
+  --user-llm gpt-4.1 `
+  --num-trials 2 `
+  --task-ids LIFE-9 `
+  --max-concurrency 3 `
+  --save-to /outputs/claims_gpt-4.1_benchmark_LIFE-9_v1.json
+
+
+
