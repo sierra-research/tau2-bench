@@ -31,6 +31,10 @@ from tau2.domains.telecom.environment import (
     get_tasks_small as telecom_domain_get_tasks_small,
     get_tasks_split as telecom_domain_get_tasks_split,
 )
+from tau2.domains.vacation_rental.environment import (
+    get_environment as vacation_rental_domain_get_environment,
+    get_tasks as vacation_rental_domain_get_tasks,
+)
 from tau2.environment.environment import Environment
 from tau2.user.base import BaseUser
 from tau2.user.user_simulator import DummyUser, UserSimulator
@@ -236,6 +240,9 @@ try:
         "telecom-workflow",
         get_task_splits=telecom_domain_get_tasks_split,
     )
+
+    registry.register_domain(vacation_rental_domain_get_environment, "vacation_rental")
+    registry.register_tasks(vacation_rental_domain_get_tasks, "vacation_rental")
 
     logger.debug(
         f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}"
