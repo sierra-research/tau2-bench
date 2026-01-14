@@ -1,5 +1,7 @@
 """Toolkit for the vacation rental domain."""
 
+import ast
+import operator
 from datetime import datetime, timedelta
 
 from tau2.domains.vacation_rental.data_model import (
@@ -163,6 +165,33 @@ class VacationRentalTools(ToolKitBase):
         """
         return CURRENT_TIME
 
+    def _safe_eval_expr(self, node: ast.expr) -> float:
+        """Safely evaluate an AST expression node containing only arithmetic operations."""
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, (int, float)):
+                return float(node.value)
+            raise ValueError(f"Unsupported constant type: {type(node.value)}")
+        elif isinstance(node, ast.BinOp):
+            ops: dict[type, operator] = {
+                ast.Add: operator.add,
+                ast.Sub: operator.sub,
+                ast.Mult: operator.mul,
+                ast.Div: operator.truediv,
+            }
+            op_func = ops.get(type(node.op))
+            if op_func is None:
+                raise ValueError(f"Unsupported operator: {type(node.op).__name__}")
+            left = self._safe_eval_expr(node.left)
+            right = self._safe_eval_expr(node.right)
+            return op_func(left, right)
+        elif isinstance(node, ast.UnaryOp):
+            if isinstance(node.op, ast.USub):
+                return -self._safe_eval_expr(node.operand)
+            elif isinstance(node.op, ast.UAdd):
+                return self._safe_eval_expr(node.operand)
+            raise ValueError(f"Unsupported unary operator: {type(node.op).__name__}")
+        raise ValueError(f"Unsupported expression type: {type(node).__name__}")
+
     @is_tool(ToolType.READ)
     def get_cancellation_policy_rules(self) -> dict:
         """
@@ -218,11 +247,16 @@ class VacationRentalTools(ToolKitBase):
             The result of the mathematical expression, rounded to 2 decimal places.
 
         Raises:
-            ValueError: If the expression contains invalid characters.
+            ValueError: If the expression contains invalid characters or is malformed.
         """
         if not all(char in "0123456789+-*/(). " for char in expression):
             raise ValueError("Invalid characters in expression")
-        return str(round(float(eval(expression, {"__builtins__": None}, {})), 2))
+        try:
+            tree = ast.parse(expression, mode="eval")
+            result = self._safe_eval_expr(tree.body)
+            return str(round(result, 2))
+        except SyntaxError as e:
+            raise ValueError(f"Invalid expression: {e}") from e
 
     @is_tool(ToolType.READ)
     def get_user_details(self, user_id: str) -> User:
