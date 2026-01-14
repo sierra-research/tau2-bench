@@ -581,7 +581,6 @@ class VacationRentalTools(ToolKitBase):
     def request_host_decision(
         self,
         host_user_id: str,
-        reservation_id: str,
         situation_type: str,
         guest_context: str | None = None,
     ) -> HostDecision:
@@ -594,7 +593,6 @@ class VacationRentalTools(ToolKitBase):
 
         Args:
             host_user_id: The host's user ID
-            reservation_id: The reservation in question
             situation_type: Type of situation ('cancellation_exception', 'partial_refund',
                            'issue_compensation', 'early_checkin_request', etc.)
             guest_context: Optional context about the guest (e.g., 'repeat_guest',
