@@ -21,7 +21,7 @@ from a2a.server.tasks import TaskUpdater
 from a2a.types import AgentCapabilities, AgentCard, DataPart, Part, TaskState, TextPart
 from a2a.utils import new_agent_text_message, new_task
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from tau2_agent.tools.run_tau2_evaluation import RunTau2Evaluation
 
@@ -34,7 +34,13 @@ class EvalConfig(BaseModel):
         num_tasks: Number of tasks to evaluate (None = all tasks).
         num_trials: Number of trials per task.
         task_ids: Optional list of specific task IDs to run.
+
+    Note:
+        Uses extra='forbid' to reject unknown fields and catch typos
+        (e.g., 'num_trial' instead of 'num_trials').
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     domain: str
     num_tasks: int | None = None
