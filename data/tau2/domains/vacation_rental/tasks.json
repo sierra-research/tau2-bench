@@ -1744,7 +1744,7 @@
                     "arguments": {
                         "reservation_id": "RES010",
                         "amount": 40.0,
-                        "reason": "Goodwill gesture for broken coffee maker and missing towels at check-in"
+                        "justification": "Goodwill gesture for broken coffee maker and missing towels at check-in"
                     },
                     "compare_args": [
                         "reservation_id"
@@ -2000,6 +2000,258 @@
                 "Agent transfers to human agent because safety issues require immediate human intervention",
                 "Agent does NOT try to resolve this through normal host decision flow",
                 "Agent communicates urgency and that a human will handle this immediately"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "32",
+        "description": {
+            "purpose": "Host Profile Test: Early check-in request from repeat guest to host who values relationships. Tests agent's ability to consult host profile and recognize repeat guest status.",
+            "relevant_policies": null,
+            "notes": "PAIRED with task 33. Same guest, same request type, different host = different outcome. Aoife has 4 stays with Ibrahim (repeat guest). Ibrahim's soft_spot includes repeat_guests."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Request early check-in for your upcoming stay at Ibrahim's Downtown Loft. You'd like to arrive at 11 AM instead of the standard 3 PM. Be polite but explain that your flight arrives early and you'd rather not wait around. Accept whatever the agent tells you about the host's decision.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Want to request early check-in for my upcoming stay at the Downtown Loft.",
+                "known_info": "You are Aoife Ryan. Your user id is aoife_ryan_3456. Your reservation is RES016 at the Downtown Loft in San Francisco, checking in March 15th.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "32_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES016"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "32_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST002"
+                    },
+                    "info": "Must identify the host to check their profile"
+                },
+                {
+                    "action_id": "32_2",
+                    "name": "get_guest_history",
+                    "arguments": {
+                        "guest_user_id": "aoife_ryan_3456"
+                    },
+                    "info": "CRITICAL: Agent must check guest history to identify repeat guest status"
+                },
+                {
+                    "action_id": "32_3",
+                    "name": "get_host_profile",
+                    "arguments": {
+                        "host_user_id": "host_ibrahim_alzahrani_1111"
+                    },
+                    "info": "Agent should consult host profile to understand their flexibility"
+                },
+                {
+                    "action_id": "32_4",
+                    "name": "request_host_decision",
+                    "arguments": {
+                        "host_user_id": "host_ibrahim_alzahrani_1111",
+                        "situation_type": "early_checkin_request",
+                        "guest_context": "repeat_guest"
+                    },
+                    "info": "CRITICAL: Agent must request host decision with correct guest_context"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent must identify Aoife as a repeat guest with Ibrahim (4 previous stays)",
+                "Agent must consult host profile before making a decision",
+                "Agent must request host decision with 'repeat_guest' context",
+                "Agent should communicate that the host has approved the early check-in request"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "33",
+        "description": {
+            "purpose": "Host Profile Test: Early check-in request to strict host who denies all exceptions. Tests agent's ability to apply different host preferences to same request type.",
+            "relevant_policies": null,
+            "notes": "PAIRED with task 32. Same guest, same request type, different host = different outcome. Aoife has 0 stays with Alessia. Alessia's profile has low risk tolerance and no flexibility on schedule."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Request early check-in for your upcoming stay at the Historic Townhouse. You'd like to arrive at 11 AM instead of the standard 3 PM. Be polite but explain that your flight arrives early. Accept whatever the agent tells you about the host's decision.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Want to request early check-in for my upcoming stay at the Historic Townhouse in Boston.",
+                "known_info": "You are Aoife Ryan. Your user id is aoife_ryan_3456. Your reservation is RES005 at the Historic Townhouse in Boston, checking in March 15th.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "33_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES005"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "33_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST006"
+                    },
+                    "info": "Must identify the host to check their profile"
+                },
+                {
+                    "action_id": "33_2",
+                    "name": "get_guest_history",
+                    "arguments": {
+                        "guest_user_id": "aoife_ryan_3456"
+                    },
+                    "info": "Agent checks guest history - will find 0 stays with Alessia"
+                },
+                {
+                    "action_id": "33_3",
+                    "name": "get_host_profile",
+                    "arguments": {
+                        "host_user_id": "host_alessia_greco_2222"
+                    },
+                    "info": "Agent should consult host profile - will see low risk tolerance"
+                },
+                {
+                    "action_id": "33_4",
+                    "name": "request_host_decision",
+                    "arguments": {
+                        "host_user_id": "host_alessia_greco_2222",
+                        "situation_type": "early_checkin_request",
+                        "guest_context": null
+                    },
+                    "info": "CRITICAL: Agent requests decision - Alessia denies all early check-ins"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent must check if Aoife is a repeat guest with Alessia (she is not)",
+                "Agent must consult host profile before making a decision",
+                "Agent must request host decision from Alessia",
+                "Agent should politely communicate that the host cannot accommodate early check-in",
+                "Agent should NOT offer workarounds or override the host's decision"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "34",
+        "description": {
+            "purpose": "Evidence Evaluation: Inconclusive evidence with reviews-focused host. Tests agent's ability to navigate ambiguity using host preferences.",
+            "relevant_policies": null,
+            "notes": "Uses existing ISS_RES010_002 (carpet stain, inconclusive evidence). Sara is a first-time guest. Ibrahim would approve 25% goodwill despite inconclusive evidence due to his reviews-first philosophy."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You reported a carpet stain issue at Ibrahim's Downtown Loft (issue ISS_RES010_002). You're following up to see what compensation you can get. You submitted photos but acknowledge the evidence might not be conclusive. Be honest about the situation. Do not end the conversation until you understand what compensation, if any, you will receive.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Following up on my carpet stain complaint. I'd like some compensation for the inconvenience.",
+                "known_info": "You are Sara Rezaei. Your user id is sara_rezaei_7890. Your reservation was RES010. The issue ID is ISS_RES010_002.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "34_0",
+                    "name": "get_issue_details",
+                    "arguments": {
+                        "issue_id": "ISS_RES010_002"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "34_1",
+                    "name": "validate_issue_evidence",
+                    "arguments": {
+                        "issue_id": "ISS_RES010_002"
+                    },
+                    "info": "Will return 'inconclusive' status"
+                },
+                {
+                    "action_id": "34_2",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES010"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "34_3",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST002"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "34_4",
+                    "name": "get_host_profile",
+                    "arguments": {
+                        "host_user_id": "host_ibrahim_alzahrani_1111"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "34_5",
+                    "name": "request_host_decision",
+                    "arguments": {
+                        "host_user_id": "host_ibrahim_alzahrani_1111",
+                        "situation_type": "issue_compensation",
+                        "guest_context": "disputed_evidence"
+                    },
+                    "info": "Ibrahim approves 25% goodwill for disputed evidence cases"
+                },
+                {
+                    "action_id": "34_6",
+                    "name": "process_goodwill_refund",
+                    "arguments": {
+                        "reservation_id": "RES010",
+                        "amount": 131.25,
+                        "justification": "Host-approved goodwill for inconclusive evidence case"
+                    },
+                    "compare_args": [
+                        "reservation_id",
+                        "amount"
+                    ],
+                    "info": "25% of $525 = $131.25"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent must validate evidence and recognize it's inconclusive",
+                "Agent must consult host profile for disputed evidence handling",
+                "Agent must request host decision with 'disputed_evidence' context",
+                "Agent should process goodwill refund of 25% ($131.25)",
+                "Agent should explain this is a goodwill gesture, not an admission of fault"
             ],
             "reward_basis": [
                 "ACTION"
