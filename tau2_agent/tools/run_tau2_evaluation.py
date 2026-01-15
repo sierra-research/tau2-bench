@@ -154,7 +154,8 @@ class RunTau2Evaluation(BaseTool):
     - agent_endpoint: A2A endpoint of agent to evaluate (e.g., https://agent.example.com)
     - num_trials: Number of trials per task (default: 1, max: 3)
     - num_tasks: Number of tasks to evaluate (default: all, max: 30)
-    - task_ids: Optional list of specific task IDs to run
+    - task_split: Task split to use (train, test, eval, base). Default: base
+    - task_ids: Optional list of specific task IDs to run (overrides task_split)
 
     Returns:
     - status: Evaluation completion status
@@ -190,6 +191,10 @@ class RunTau2Evaluation(BaseTool):
                     "num_tasks": types.Schema(
                         type=types.Type.INTEGER,
                         description="Number of tasks to evaluate (optional)",
+                    ),
+                    "task_split": types.Schema(
+                        type=types.Type.STRING,
+                        description="Task split to use: train, test, eval, or base (default: base)",
                     ),
                     "task_ids": types.Schema(
                         type=types.Type.ARRAY,
@@ -402,6 +407,7 @@ class RunTau2Evaluation(BaseTool):
 
         num_trials = args.get("num_trials", 1)
         num_tasks = args.get("num_tasks")
+        task_split = args.get("task_split")
         task_ids = args.get("task_ids")
 
         try:
@@ -490,6 +496,7 @@ class RunTau2Evaluation(BaseTool):
                         llm_args_user=llm_args_user,
                         num_trials=num_trials,
                         num_tasks=num_tasks,
+                        task_split=task_split,
                         task_ids=task_ids,
                         llmobs_span_context=llmobs_span_ctx,
                     )
@@ -639,6 +646,7 @@ class RunTau2Evaluation(BaseTool):
         llm_args_user: dict[str, Any],
         num_trials: int = 1,
         num_tasks: int | None = None,
+        task_split: str | None = None,
         task_ids: list[str] | None = None,
         llmobs_span_context: Any | None = None,
     ) -> dict[str, Any]:
@@ -652,7 +660,8 @@ class RunTau2Evaluation(BaseTool):
             llm_args_user: LLM arguments including api_key.
             num_trials: Number of trials per task (default 1).
             num_tasks: Number of tasks to evaluate (None uses domain defaults).
-            task_ids: Specific task IDs to run (None runs all tasks).
+            task_split: Task split to use (train, test, eval, base). Default: base.
+            task_ids: Specific task IDs to run (overrides task_split).
             llmobs_span_context: Datadog LLMObs span context for tracing.
 
         Returns:
@@ -688,7 +697,7 @@ class RunTau2Evaluation(BaseTool):
             config = RunConfig(
                 domain=domain,
                 task_set_name=None,
-                task_split_name=None if task_ids else "base",
+                task_split_name=None if task_ids else (task_split or "base"),
                 task_ids=task_ids,
                 num_tasks=num_tasks,
                 is_remote=False,
