@@ -21,6 +21,7 @@ from tau2.domains.airline_long.environment import get_tasks as airline_long_doma
 from tau2.domains.airline_long.environment import (
     get_tasks_split as airline_long_domain_get_tasks_split,
 )
+from tau2.domains.airline_long.user_simulator import NoisyUserSimulator
 from tau2.domains.mock.environment import get_environment as mock_domain_get_environment
 from tau2.domains.mock.environment import get_tasks as mock_domain_get_tasks
 from tau2.domains.retail.environment import (
@@ -212,6 +213,7 @@ try:
     registry = Registry()
     logger.debug("Registering default components...")
     registry.register_user(UserSimulator, "user_simulator")
+    registry.register_user(NoisyUserSimulator, "noisy_user_simulator")
     registry.register_user(DummyUser, "dummy_user")
     registry.register_agent(LLMAgent, "llm_agent")
     registry.register_agent(LLMGTAgent, "llm_agent_gt")
