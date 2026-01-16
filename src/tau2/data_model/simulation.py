@@ -351,6 +351,9 @@ class SimulationRun(BaseModel):
     messages: list[Message] = Field(
         description="The messages exchanged between the user, agent and environment."
     )
+    trajectory_length: Optional[int] = Field(
+        description="The length of the trajectory in tokens.", default=None
+    )
     trial: Optional[int] = Field(description="Trial number", default=None)
     seed: Optional[int] = Field(
         description="Seed used for the simulation.", default=None
@@ -434,6 +437,7 @@ class Results(BaseModel):
                 "user_cost": sim.user_cost,
                 "termination_reason": sim.termination_reason,
                 "duration": sim.duration,
+                "trajectory_length": sim.trajectory_length,
                 "num_messages": len(sim.messages),
                 "info_git_commit": self.info.git_commit,
                 "info_seed": self.info.seed,

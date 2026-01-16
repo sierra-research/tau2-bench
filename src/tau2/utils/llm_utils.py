@@ -3,6 +3,7 @@ import re
 from typing import Any, Optional
 
 import litellm
+import tiktoken
 from litellm import completion, completion_cost
 from litellm.caching.caching import Cache
 from litellm.main import ModelResponse, Usage
@@ -287,3 +288,21 @@ def get_token_usage(messages: list[Message]) -> dict:
         usage["completion_tokens"] += message.usage["completion_tokens"]
         usage["prompt_tokens"] += message.usage["prompt_tokens"]
     return usage
+
+
+_encoder = tiktoken.get_encoding("cl100k_base")
+
+
+def get_trajectory_length(messages: list[Message]) -> int:
+    """
+    Get the length of the trajectory in tokens using tiktoken cl100k_base encoding.
+    """
+    total_tokens = 0
+    for message in messages:
+        if message.content:
+            total_tokens += len(_encoder.encode(message.content))
+        if hasattr(message, "tool_calls") and message.tool_calls:
+            for tool_call in message.tool_calls:
+                total_tokens += len(_encoder.encode(tool_call.name))
+                total_tokens += len(_encoder.encode(json.dumps(tool_call.arguments)))
+    return total_tokens

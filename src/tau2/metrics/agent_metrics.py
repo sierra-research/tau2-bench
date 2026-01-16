@@ -19,11 +19,15 @@ class AgentMetrics(BaseModel):
     avg_reward: float
     pass_hat_ks: dict[int, float]
     avg_agent_cost: float
+    avg_total_time: float
+    avg_trajectory_length: float
 
     def as_dict(self) -> dict:
         data = {
             "avg_reward": self.avg_reward,
             "avg_agent_cost": self.avg_agent_cost,
+            "avg_total_time": self.avg_total_time,
+            "avg_trajectory_length": self.avg_trajectory_length,
         }
         for k, v in self.pass_hat_ks.items():
             data[f"pass_hat_{k}"] = v
@@ -116,10 +120,14 @@ def compute_metrics(results: Results) -> AgentMetrics:
             k = int(match.group(1))
             pass_hat_ks[k] = df_pass_hat_k[column].mean()
     avg_agent_cost = df.agent_cost.mean()
+    avg_total_time = df.duration.mean()
+    avg_trajectory_length = df.trajectory_length.mean()
     return AgentMetrics(
         avg_reward=avg_reward,
         pass_hat_ks=pass_hat_ks,
         avg_agent_cost=avg_agent_cost,
+        avg_total_time=avg_total_time,
+        avg_trajectory_length=avg_trajectory_length,
     )
 
 
@@ -129,6 +137,8 @@ def display_metrics(metrics: AgentMetrics) -> None:
     for k, pass_hat_k in metrics.pass_hat_ks.items():
         print(f"  k={k}: {pass_hat_k}")
     print(f"💰 Average agent cost: {metrics.avg_agent_cost}")
+    print(f"⏱️ Average total time: {metrics.avg_total_time:.2f}s")
+    print(f"📏 Average trajectory length: {metrics.avg_trajectory_length:.0f} tokens")
 
 
 if __name__ == "__main__":

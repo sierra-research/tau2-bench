@@ -191,6 +191,9 @@ class ConsoleDisplay:
             sim_info.append(f"{simulation.end_time}\n")
         sim_info.append("Duration: ", style="bold cyan")
         sim_info.append(f"{simulation.duration:.2f}s\n")
+        if simulation.trajectory_length is not None:
+            sim_info.append("Trajectory Length: ", style="bold cyan")
+            sim_info.append(f"{simulation.trajectory_length} tokens\n")
         sim_info.append("Termination Reason: ", style="bold cyan")
         sim_info.append(f"{simulation.termination_reason}\n")
         if simulation.agent_cost is not None:
@@ -350,6 +353,14 @@ class ConsoleDisplay:
         content.append("\n\n💰 Average Cost per Conversation: ", style="bold cyan")
         content.append(f"${metrics.avg_agent_cost:.4f}\n\n")
 
+        # Add average total time section
+        content.append("⏱️ Average Time per Conversation: ", style="bold cyan")
+        content.append(f"{metrics.avg_total_time:.2f}s\n\n")
+
+        # Add average trajectory length section
+        content.append("📏 Average Trajectory Length: ", style="bold cyan")
+        content.append(f"{metrics.avg_trajectory_length:.0f} tokens\n\n")
+
         # Create and display panel
         metrics_panel = Panel(
             content,
@@ -382,6 +393,8 @@ class MarkdownDisplay:
         output.append(f"**Task ID**: {sim.task_id}")
         output.append(f"**Trial**: {sim.trial}")
         output.append(f"**Duration**: {sim.duration:.2f}s")
+        if sim.trajectory_length is not None:
+            output.append(f"**Trajectory Length**: {sim.trajectory_length} tokens")
         output.append(f"**Termination**: {sim.termination_reason}")
         if sim.agent_cost is not None:
             output.append(f"**Agent Cost**: ${sim.agent_cost:.4f}")

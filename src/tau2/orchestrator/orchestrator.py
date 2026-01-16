@@ -21,7 +21,7 @@ from tau2.data_model.tasks import EnvFunctionCall, InitializationData, Task
 from tau2.environment.environment import Environment, EnvironmentInfo
 from tau2.user.base import BaseUser, UserError, is_valid_user_history_message
 from tau2.user.user_simulator import DummyUser, UserSimulator, UserState
-from tau2.utils.llm_utils import get_cost
+from tau2.utils.llm_utils import get_cost, get_trajectory_length
 from tau2.utils.utils import format_time, get_now
 
 
@@ -431,6 +431,7 @@ class Orchestrator:
             agent_cost, user_cost = None, None
         else:
             agent_cost, user_cost = res
+        trajectory_length = get_trajectory_length(messages)
         simulation_run = SimulationRun(
             id=str(uuid.uuid4()),
             task_id=self.task.id,
@@ -442,6 +443,7 @@ class Orchestrator:
             user_cost=user_cost,
             agent_cost=agent_cost,
             messages=messages,
+            trajectory_length=trajectory_length,
             seed=self.seed,
         )
         return simulation_run
