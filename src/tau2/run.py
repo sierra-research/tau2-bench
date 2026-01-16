@@ -105,7 +105,8 @@ def make_run_name(config: RunConfig) -> str:
     clean_llm_user_name = [x for x in config.llm_user.split("/") if x][-1]
     user_name = f"{config.user}_{clean_llm_user_name}"
 
-    return f"{get_now()}_{config.domain}_{agent_name}_{user_name}"
+    domain_part = f"{config.domain}_long" if config.long else config.domain
+    return f"{get_now()}_{domain_part}_{agent_name}_{user_name}"
 
 
 def run_domain(config: RunConfig) -> Results:
@@ -527,7 +528,7 @@ def run_task(
     simulation = orchestrator.run()
 
     reward_info = evaluate_simulation(
-        domain=domain,
+        domain=env_domain,
         task=task,
         simulation=simulation,
         evaluation_type=evaluation_type,
