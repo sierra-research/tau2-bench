@@ -167,6 +167,7 @@ def run_domain(config: RunConfig) -> Results:
         seed=config.seed,
         log_level=config.log_level,
         enforce_communication_protocol=config.enforce_communication_protocol,
+        long=config.long,
     )
     metrics = compute_metrics(simulation_results)
     ConsoleDisplay.display_agent_metrics(metrics)
@@ -193,6 +194,7 @@ def run_tasks(
     seed: Optional[int] = 300,
     log_level: Optional[str] = "INFO",
     enforce_communication_protocol: bool = False,
+    long: bool = False,
 ) -> Results:
     """
     Runs tasks for a given domain.
@@ -215,6 +217,7 @@ def run_tasks(
         seed (int): The seed to use for the simulation.
         log_level (str): The log level to use.
         enforce_communication_protocol (bool): Whether to enforce communication protocol rules.
+        long (bool): Whether to use the long variant of the domain (uses {domain}_long src directory).
     Returns:
         The simulation results and the annotations (if llm_review is True).
     """
@@ -368,6 +371,7 @@ def run_tasks(
                 evaluation_type=evaluation_type,
                 seed=seed,
                 enforce_communication_protocol=enforce_communication_protocol,
+                long=long,
             )
             simulation.trial = trial
             if console_display:
@@ -415,6 +419,7 @@ def run_task(
     evaluation_type: EvaluationType = EvaluationType.ALL,
     seed: Optional[int] = None,
     enforce_communication_protocol: bool = False,
+    long: bool = False,
 ) -> SimulationRun:
     """
     Runs tasks for a given domain.
@@ -434,6 +439,7 @@ def run_task(
          evaluation_type (EvaluationType): The type of evaluation to use.
          seed (int): The seed to use for the simulation.
          enforce_communication_protocol (bool): Whether to enforce communication protocol rules.
+         long (bool): Whether to use the long variant of the domain (uses {domain}_long src directory).
      Returns:
          The simulation run.
     """
@@ -443,10 +449,12 @@ def run_task(
     if max_errors <= 0:
         raise ValueError("Max errors must be greater than 0")
     global registry
+    # Use {domain}_long for environment when long=True
+    env_domain = f"{domain}_long" if long else domain
     logger.info(
-        f"STARTING SIMULATION: Domain: {domain}, Task: {task.id}, Agent: {agent}, User: {user}"
+        f"STARTING SIMULATION: Domain: {domain}, Task: {task.id}, Agent: {agent}, User: {user}, Long: {long}"
     )
-    environment_constructor = registry.get_env_constructor(domain)
+    environment_constructor = registry.get_env_constructor(env_domain)
     environment = environment_constructor()
     AgentConstructor = registry.get_agent_constructor(agent)
 

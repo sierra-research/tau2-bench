@@ -434,7 +434,7 @@ class AirlineTools(ToolKitBase):  # Tools
         self, origin: str, destination: str, date: str
     ) -> list[DirectFlight]:
         """
-        Search for direct flights between two cities on a specific date.
+        Search direct flights between two cities on a specific date. It provides information about departure and arrival times, flight number, and price per cabin.
 
         Args:
             origin: The origin city airport in three letters, such as 'JFK'.
@@ -442,7 +442,7 @@ class AirlineTools(ToolKitBase):  # Tools
             date: The date of the flight in the format 'YYYY-MM-DD', such as '2024-01-01'.
 
         Returns:
-            The direct flights between the two cities on the specific date.
+            The direct flights between the two cities on the specific date, providing information about departure and arrival times, flight number, and price per cabin.
         """
         return self._search_direct_flight(
             date=date, origin=origin, destination=destination
@@ -453,7 +453,7 @@ class AirlineTools(ToolKitBase):  # Tools
         self, origin: str, destination: str, date: str
     ) -> list[tuple[DirectFlight, DirectFlight]]:
         """
-        Search for one-stop flights between two cities on a specific date.
+        Search one-stop flights between two cities on a specific date. It provides information about departure and arrival times, flight number, and price per cabin.
 
         Args:
             origin: The origin city airport in three letters, such as 'JFK'.
@@ -597,7 +597,7 @@ class AirlineTools(ToolKitBase):  # Tools
         payment_id: str,
     ) -> Reservation:
         """
-        Update the flight information of a reservation.
+        Update the flight information of a reservation. If performing a downgrade, the refunded amount will be shown in the payment_id, baggages are automatically adjusted and accounted for in the refunded amount.
 
 
         Args:

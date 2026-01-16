@@ -721,7 +721,7 @@ class AirlineTools(ToolKitBase):  # Tools
         self, origin: str, destination: str, date: str
     ) -> str:
         """
-        Search for direct flights between two cities on a specific date.
+        Search direct flights between two cities on a specific date. It provides information about departure and arrival times, flight number, and price per cabin.
 
         Args:
             origin: The origin city airport in three letters, such as 'JFK'.
@@ -741,7 +741,7 @@ class AirlineTools(ToolKitBase):  # Tools
         self, origin: str, destination: str, date: str
     ) -> str:
         """
-        Search for one-stop flights between two cities on a specific date.
+        Search one-stop flights between two cities on a specific date. It provides information about departure and arrival times, flight number, and price per cabin.
 
         Args:
             origin: The origin city airport in three letters, such as 'JFK'.
@@ -889,7 +889,7 @@ class AirlineTools(ToolKitBase):  # Tools
         payment_id: str,
     ) -> str:
         """
-        Update the flight information of a reservation.
+        Update the flight information of a reservation. If performing a downgrade, the refunded amount will be shown in the payment_id, baggages are automatically adjusted and accounted for in the refunded amount.
 
 
         Args:

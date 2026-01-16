@@ -141,6 +141,12 @@ def add_run_args(parser):
         default=False,
         help="Enforce communication protocol rules (e.g., no mixed messages with text and tool calls). Default is False.",
     )
+    parser.add_argument(
+        "--long",
+        action="store_true",
+        default=False,
+        help="Use the long variant of the domain (uses {domain}_long src directory for environment, tools, etc.). Default is False.",
+    )
 
 
 def main():
@@ -172,6 +178,7 @@ def main():
                 seed=args.seed,
                 log_level=args.log_level,
                 enforce_communication_protocol=args.enforce_communication_protocol,
+                long=args.long,
             )
         )
     )

@@ -17,10 +17,6 @@ from tau2.domains.airline.environment import (
 from tau2.domains.airline_long.environment import (
     get_environment as airline_long_domain_get_environment,
 )
-from tau2.domains.airline_long.environment import get_tasks as airline_long_domain_get_tasks
-from tau2.domains.airline_long.environment import (
-    get_tasks_split as airline_long_domain_get_tasks_split,
-)
 from tau2.domains.airline_long.user_simulator import NoisyUserSimulator
 from tau2.domains.mock.environment import get_environment as mock_domain_get_environment
 from tau2.domains.mock.environment import get_tasks as mock_domain_get_tasks
@@ -229,12 +225,9 @@ try:
         get_task_splits=airline_domain_get_tasks_split,
     )
 
+    # airline_long is only registered as a domain (for environment lookup via --long flag)
+    # Tasks are loaded from the regular airline domain
     registry.register_domain(airline_long_domain_get_environment, "airline_long")
-    registry.register_tasks(
-        airline_long_domain_get_tasks,
-        "airline_long",
-        get_task_splits=airline_long_domain_get_tasks_split,
-    )
 
     registry.register_domain(retail_domain_get_environment, "retail")
     registry.register_tasks(

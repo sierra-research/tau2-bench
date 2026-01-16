@@ -167,6 +167,13 @@ class RunConfig(BaseModel):
             default=False,
         ),
     ]
+    long: Annotated[
+        bool,
+        Field(
+            description="Whether to use the long variant of the domain (uses {domain}_long src directory)",
+            default=False,
+        ),
+    ]
 
     def validate(self) -> None:
         """
