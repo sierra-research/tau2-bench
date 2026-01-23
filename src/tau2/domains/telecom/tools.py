@@ -1,6 +1,5 @@
 """Toolkit for the telecom system."""
 
-import uuid
 from collections import defaultdict
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
@@ -446,7 +445,7 @@ class TelecomTools(ToolKitBase):
             next_month = today.replace(day=1) + timedelta(days=32)
             next_month = next_month.replace(day=1)  # First day of next month
 
-            new_bill_id = f"B{uuid.uuid4().hex[:8]}"  # Simple ID generation
+            new_bill_id = f"B{customer_id}_{next_month.strftime('%Y%m')}"
             draft_bill = Bill(
                 bill_id=new_bill_id,
                 customer_id=customer_id,

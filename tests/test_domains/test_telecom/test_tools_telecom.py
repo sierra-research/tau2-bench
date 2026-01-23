@@ -182,6 +182,41 @@ class TestTelecomTools(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.tools.refuel_data("C1001", "L1004", 2.0)
 
+    def test_apply_one_time_charge_creates_deterministic_bill_id(self):
+        """Test that bill ID generation is deterministic for state replay."""
+        from copy import deepcopy
+
+        db1 = deepcopy(self.db)
+        db2 = deepcopy(self.db)
+        tools1 = TelecomTools(db1)
+        tools2 = TelecomTools(db2)
+
+        # Remove existing draft bills to force creation of new ones
+        customer1 = tools1.get_customer_by_id("C1001")
+        customer2 = tools2.get_customer_by_id("C1001")
+        for bill_id in list(customer1.bill_ids):
+            bill = tools1._get_bill_by_id(bill_id)
+            if bill and bill.status.value == "draft":
+                db1.bills.remove(bill)
+                customer1.bill_ids.remove(bill_id)
+        for bill_id in list(customer2.bill_ids):
+            bill = tools2._get_bill_by_id(bill_id)
+            if bill and bill.status.value == "draft":
+                db2.bills.remove(bill)
+                customer2.bill_ids.remove(bill_id)
+
+        # Call refuel_data which triggers _apply_one_time_charge
+        result1 = tools1.refuel_data("C1001", "L1001", 1.0)
+        result2 = tools2.refuel_data("C1001", "L1001", 1.0)
+
+        # Results should be identical since bill ID is now deterministic
+        self.assertEqual(result1, result2)
+
+        # Verify the new bill IDs are the same
+        new_bill_ids1 = [b.bill_id for b in db1.bills if "C1001" in b.bill_id]
+        new_bill_ids2 = [b.bill_id for b in db2.bills if "C1001" in b.bill_id]
+        self.assertEqual(new_bill_ids1, new_bill_ids2)
+
     def test_transfer_to_human_agents(self):
         """Test transferring to human agents."""
         result = self.tools.transfer_to_human_agents(
