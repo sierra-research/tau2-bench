@@ -141,6 +141,9 @@ const TrajectoryVisualizer = () => {
         'Qwen3-Max-Thinking-Preview': [
           '{domain}_llm_agent_qwen3-max-2025-10-30_user_simulator_gpt-4.1-2025-04-14.json'
         ],
+        'Qwen3-Max-Thinking': [
+          '{domain}_llm_agent_qwen3-max-2026-01-23_user_simulator_gpt-4.1-2025-04-14.json'
+        ],
         'Nemotron-Orchestrator-8B': [
           'toolorchestra_{domain}_gpt-5_1trial.json'
         ]
