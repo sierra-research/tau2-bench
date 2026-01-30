@@ -122,7 +122,8 @@ class Action(BaseModel):
       "requestor": "assistant",
       "name": "get_user_details",
       "arguments": { "user_id": "sophia_silva_7557", "note": "I need to get the user details for user_id: sophia_silva_7557" },
-      "compare_args": ["user_id"]
+      "compare_args": ["user_id"],
+      "allow_partial_match": True
     },
     A tool call can be compared with an action by comparing the arguments in compare_args.
     If compare_args is None, will check all the arguments.
@@ -144,6 +145,10 @@ class Action(BaseModel):
         description="The arguments to check in tool call. If None, will check all the arguments.",
         default=None,
     )
+    allow_partial_match: Optional[bool] = Field(
+        description="Whether to allow partial match when comparing with tool call.",
+        default=None,
+    )
 
     def __str__(self) -> str:
         lines = []
@@ -163,24 +168,51 @@ class Action(BaseModel):
             f"{self.name}({', '.join([f'{k}={v}' for k, v in self.arguments.items()])})"
         )
 
-    def compare_with_tool_call(self, tool_call: ToolCall) -> bool:
+    def compare_with_tool_call(
+        self, tool_call: ToolCall, partial: bool = False
+    ) -> bool | tuple[bool, float]:
         """
         Compare the action with a tool call.
         If the name is not the same, return False.
         If compare_args is None, will check all the arguments.
         Otherwise, will check only the arguments in compare_args.
         """
-        if self.name != tool_call.name:
-            return False
-        if self.compare_args is None:
-            compare_args = tool_call.arguments.keys()
+        if partial:
+            if self.name != tool_call.name:
+                return (False, 0.0)
+
+            if self.compare_args is None:
+                compare_args_pred = list(tool_call.arguments.keys())
+                compare_args_gold = list(self.arguments.keys())
+            else:
+                compare_args_pred = self.compare_args
+                compare_args_gold = self.compare_args
+
+            if not compare_args_pred and not compare_args_gold:
+                return (True, 1.0)
+
+            compare_args = set(compare_args_pred).intersection(set(compare_args_gold))
+            if not compare_args:
+                return (True, 1.0)
+
+            tool_args = {
+                k: v for k, v in tool_call.arguments.items() if k in compare_args_pred
+            }
+            action_args = {k: v for k, v in self.arguments.items() if k in compare_args_gold}
+            return (True, 1.0) if tool_args == action_args else (True, 0.5)
+
         else:
-            compare_args = self.compare_args
-        if len(compare_args) == 0:
-            return True
-        tool_args = {k: v for k, v in tool_call.arguments.items() if k in compare_args}
-        action_args = {k: v for k, v in self.arguments.items() if k in compare_args}
-        return tool_args == action_args
+            if self.name != tool_call.name:
+                return False
+            if self.compare_args is None:
+                compare_args = tool_call.arguments.keys()
+            else:
+                compare_args = self.compare_args
+            if len(compare_args) == 0:
+                return True
+            tool_args = {k: v for k, v in tool_call.arguments.items() if k in compare_args}
+            action_args = {k: v for k, v in self.arguments.items() if k in compare_args}
+            return tool_args == action_args
 
 
 class EnvFunctionCall(BaseModel):
