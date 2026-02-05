@@ -46,7 +46,7 @@ def check_and_load_submission_data(
     # Check that trajectory files directory exists
     trajectory_files_dir = Path(submission_dir) / TRAJECTORY_FILES_DIR_NAME
     if not trajectory_files_dir.exists():
-        return False, f"Trajectory files directory {trajectory_files_dir} not found"
+        return False, f"Trajectory files directory {trajectory_files_dir} not found", None
 
     # Get trajectory files
     trajectory_files = expand_paths([trajectory_files_dir], extension=".json")
@@ -159,12 +159,12 @@ def get_metrics(
         # Compute metrics for this trajectory file
         metrics = compute_metrics(results)
         domain_metrics[domain] = metrics
-        # Create DomainResults object
+        # Create DomainResults object (multiply by 100 to convert to percentage)
         domain_results[domain] = DomainResults(
-            pass_1=metrics.pass_hat_ks.get(1),
-            pass_2=metrics.pass_hat_ks.get(2),
-            pass_3=metrics.pass_hat_ks.get(3),
-            pass_4=metrics.pass_hat_ks.get(4),
+            pass_1=metrics.pass_hat_ks.get(1) * 100,
+            pass_2=metrics.pass_hat_ks.get(2) * 100,
+            pass_3=metrics.pass_hat_ks.get(3) * 100,
+            pass_4=metrics.pass_hat_ks.get(4) * 100,
             cost=metrics.avg_agent_cost,
         )
 
@@ -356,7 +356,13 @@ def prepare_submission(
     user_simulator = Prompt.ask(
         "Enter user simulator model", default=default_user_simulator
     )
-    organization = Prompt.ask("Enter organization name", default="My-Organization")
+    model_organization = Prompt.ask(
+        "Enter model organization (who developed the model)", default="My-Organization"
+    )
+    submitting_organization = Prompt.ask(
+        "Enter submitting organization (who ran the evaluation)",
+        default=model_organization,
+    )
     email = Prompt.ask("Enter contact email")
 
     # Optional information
@@ -401,7 +407,8 @@ def prepare_submission(
 
     submission = Submission(
         model_name=model_name,
-        organization=organization,
+        model_organization=model_organization,
+        submitting_organization=submitting_organization,
         submission_date=date.today(),
         contact_info=contact_info,
         results=results_obj,
