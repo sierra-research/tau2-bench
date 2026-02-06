@@ -1,12 +1,40 @@
 """Pydantic models for tau2-bench leaderboard submissions."""
 
 from datetime import date
-from typing import Optional
+from enum import Enum
+from typing import Literal, Optional
 
 from pydantic import Field
 
 from tau2.data_model.simulation import Results as TrajectoryResults
 from tau2.utils.pydantic_utils import BaseModelNoExtra
+
+
+class SubmissionType(str, Enum):
+    """Type of submission."""
+
+    STANDARD = "standard"
+    CUSTOM = "custom"
+
+
+class ReferenceType(str, Enum):
+    """Type of reference."""
+
+    PAPER = "paper"
+    BLOG_POST = "blog_post"
+    DOCUMENTATION = "documentation"
+    MODEL_CARD = "model_card"
+    GITHUB = "github"
+    HUGGINGFACE = "huggingface"
+    OTHER = "other"
+
+
+class Reference(BaseModelNoExtra):
+    """Reference to a paper, blog post, or other resource."""
+
+    title: str = Field(..., description="Title or description of the reference")
+    url: str = Field(..., description="URL to the reference")
+    type: Optional[ReferenceType] = Field(None, description="Type of reference")
 
 
 class ContactInfo(BaseModelNoExtra):
@@ -60,6 +88,21 @@ class Results(BaseModelNoExtra):
             raise ValueError(f"Invalid domain: {domain}")
 
 
+class Verification(BaseModelNoExtra):
+    """Verification details for result authenticity."""
+
+    modified_prompts: bool = Field(
+        ...,
+        description="Whether any modifications were made to user simulator or agent prompts",
+    )
+    omitted_questions: bool = Field(
+        ..., description="Whether any questions/tasks were omitted from the evaluation"
+    )
+    details: Optional[str] = Field(
+        None, description="Additional verification details or explanations"
+    )
+
+
 class Methodology(BaseModelNoExtra):
     """Information about how the evaluation was conducted."""
 
@@ -76,14 +119,21 @@ class Methodology(BaseModelNoExtra):
     notes: Optional[str] = Field(
         None, description="Additional notes about the evaluation methodology"
     )
+    verification: Optional[Verification] = Field(
+        None, description="Verification details for result authenticity"
+    )
 
 
 class Submission(BaseModelNoExtra):
     """Tau2-Bench Leaderboard Submission model."""
 
     model_name: str = Field(..., description="Name of the model being evaluated")
-    organization: str = Field(
+    model_organization: str = Field(
         ..., description="Organization or company that developed the model"
+    )
+    submitting_organization: str = Field(
+        ...,
+        description="Organization that actually ran the evaluation and submitted the results",
     )
     submission_date: date = Field(..., description="Date of submission")
     contact_info: ContactInfo = Field(..., description="Contact information")
@@ -91,6 +141,17 @@ class Submission(BaseModelNoExtra):
     is_new: bool = Field(
         False,
         description="Whether this model should be highlighted as new on the leaderboard",
+    )
+    submission_type: SubmissionType = Field(
+        SubmissionType.STANDARD,
+        description="Type of submission: 'standard' uses the default tau2-bench scaffold, 'custom' uses modified scaffolds",
+    )
+    trajectories_available: bool = Field(
+        False, description="Whether trajectory files are available for this submission"
+    )
+    references: Optional[list[Reference]] = Field(
+        None,
+        description="Links to papers, blog posts, documentation, or other resources about this model",
     )
     methodology: Optional[Methodology] = Field(
         None, description="Information about how the evaluation was conducted"
@@ -103,8 +164,10 @@ class Submission(BaseModelNoExtra):
             "examples": [
                 {
                     "model_name": "GPT-4.1",
-                    "organization": "OpenAI",
+                    "model_organization": "OpenAI",
+                    "submitting_organization": "OpenAI",
                     "submission_date": "2024-01-15",
+                    "submission_type": "standard",
                     "contact_info": {
                         "email": "researcher@openai.com",
                         "name": "Jane Doe",
@@ -132,11 +195,17 @@ class Submission(BaseModelNoExtra):
                         },
                     },
                     "is_new": True,
+                    "trajectories_available": True,
                     "methodology": {
                         "evaluation_date": "2024-01-10",
                         "tau2_bench_version": "1.0.0",
                         "user_simulator": "gpt-4.1",
                         "notes": "Evaluated using default configuration with 4 trials per task",
+                        "verification": {
+                            "modified_prompts": False,
+                            "omitted_questions": False,
+                            "details": "Standard evaluation with no modifications",
+                        },
                     },
                 }
             ]

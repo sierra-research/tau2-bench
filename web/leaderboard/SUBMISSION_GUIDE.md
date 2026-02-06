@@ -7,18 +7,29 @@ This repository supports community submissions to the leaderboard through pull r
 The leaderboard distinguishes between two types of submissions:
 
 ### Standard Submissions (Default)
-Standard submissions use the **default τ-bench scaffold**:
-- A base LLM as the agent
+Standard submissions evaluate a **general-purpose LLM** using the **default τ-bench scaffold**:
+- A general-purpose LLM as the agent (not specifically trained for this benchmark)
 - The standard tool set provided by τ-bench
 - Default prompts and evaluation protocol
+- No modifications to the evaluation setup
 
-If you're running τ-bench as documented without modifications, your submission is **standard**. You don't need to specify `submission_type` in your JSON (it defaults to `"standard"`).
+If you're evaluating an off-the-shelf LLM using τ-bench as documented without modifications, your submission is **standard**. You don't need to specify `submission_type` in your JSON (it defaults to `"standard"`).
 
 ### Custom Submissions
-Custom submissions use **modified scaffolds or approaches**, such as:
+Custom submissions include **any approach that differs from the standard evaluation**, such as:
+
+**Modified Scaffolds:**
 - Multi-model routers or model ensembles
 - Additional tools beyond the standard τ-bench tool set
 - Modified agent orchestration or control flow
+- Modified prompts or system instructions
+
+**Domain-Specific Training:**
+- Models trained or fine-tuned specifically on τ-bench domains (airline, retail, telecom customer service)
+- Models trained using τ-bench tasks, reward signals, or evaluation data
+- Models where training data significantly overlaps with τ-bench evaluation scenarios
+
+**Other Modifications:**
 - Any other modifications to the default evaluation setup
 
 **⚠️ Requirements for Custom Submissions:**
@@ -29,16 +40,18 @@ Custom submissions **must** include detailed methodology documentation:
 
 2. **Provide comprehensive `methodology.notes`** explaining:
    - What modifications were made to the standard scaffold
+   - If domain-trained: describe the training approach, data sources, and any overlap with τ-bench domains or tasks
    - Why these modifications were made
    - How the custom system works at a high level
 
 3. **Link to your implementation** in the `references` array:
    - Include a GitHub link to your code/fork
+   - Link to the paper describing your training methodology (if applicable)
    - Provide documentation or a blog post if available
 
 4. **Set `methodology.verification.modified_prompts` to `true`** if you modified any prompts
 
-Example methodology section for a custom submission:
+**Example 1:** Custom scaffold with modified prompts
 ```json
 {
   "submission_type": "custom",
@@ -58,6 +71,36 @@ Example methodology section for a custom submission:
       "title": "Our Custom Agent Implementation",
       "url": "https://github.com/example/custom-tau-agent",
       "type": "github"
+    }
+  ]
+}
+```
+
+**Example 2:** Domain-trained model
+```json
+{
+  "submission_type": "custom",
+  "methodology": {
+    "evaluation_date": "2025-01-15",
+    "tau2_bench_version": "0.2.0",
+    "user_simulator": "gpt-4o",
+    "notes": "This model was post-trained using RL on customer service scenarios including airline and retail domains. Training data was synthetically generated based on similar task distributions. The model uses the standard τ-bench scaffold without prompt modifications.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "Standard evaluation protocol. Model was trained on data overlapping with τ-bench domains."
+    }
+  },
+  "references": [
+    {
+      "title": "Our Training Methodology Paper",
+      "url": "https://arxiv.org/abs/xxxx.xxxxx",
+      "type": "paper"
+    },
+    {
+      "title": "Model Weights on HuggingFace",
+      "url": "https://huggingface.co/example/our-agent-model",
+      "type": "huggingface"
     }
   ]
 }
