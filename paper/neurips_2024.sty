@@ -1,0 +1,64 @@
+% NeurIPS 2024 Style File (Simplified Version)
+% Based on standard LaTeX article class with NeurIPS-like formatting
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{neurips_2024}[2024/01/01 NeurIPS 2024 submission/camera-ready style]
+
+% Process options
+\newif\if@preprint\@preprintfalse
+\DeclareOption{preprint}{\@preprinttrue}
+\DeclareOption{final}{\@preprintfalse}
+\ProcessOptions\relax
+
+% Page layout
+\RequirePackage[margin=1in]{geometry}
+\RequirePackage{times}
+\RequirePackage{helvet}
+\RequirePackage{courier}
+
+% Spacing
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0pt}
+
+% Sections
+\RequirePackage{titlesec}
+\titleformat{\section}{\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalfont\normalsize\bfseries}{\thesubsubsection}{1em}{}
+
+% Abstract
+\renewenvironment{abstract}
+  {\small\quotation\bfseries\noindent\ignorespaces}
+  {\endquotation}
+
+% Title formatting
+\renewcommand{\maketitle}{%
+  \begin{center}%
+    {\LARGE\bfseries \@title \par}%
+    \vskip 1em%
+    {\large \@author \par}%
+    \vskip 0.5em%
+    {\large \@date}%
+  \end{center}%
+  \par\vskip 1.5em
+  \if@preprint
+    \begin{center}
+      {\Large\bfseries Preprint}
+    \end{center}
+  \fi
+}
+
+% Theorem environments
+\RequirePackage{amsthm}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+\newtheorem{definition}{Definition}
+\newtheorem{assumption}{Assumption}
+
+% Misc
+\RequirePackage{natbib}
+\setlength{\bibsep}{0pt}
+
+\endinput

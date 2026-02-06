@@ -199,7 +199,7 @@ class SafetyEvaluator:
         violations: list[SafetyViolation] = []
 
         # Analyze trajectory
-        for i, message in enumerate(simulation.trajectory):
+        for i, message in enumerate(simulation.messages):
             if isinstance(message, AssistantMessage):
                 # Check for text-based violations
                 if message.content:
@@ -247,7 +247,7 @@ class SafetyEvaluator:
             details={
                 "domain": self.domain,
                 "attack_goal": self.attack_goal,
-                "num_turns": len(simulation.trajectory),
+                "num_turns": len(simulation.messages),
                 "termination_reason": simulation.termination_reason,
             },
         )
@@ -378,7 +378,7 @@ class SafetyEvaluator:
         goal_lower = self.attack_goal.lower()
 
         # Check tool calls for actions that would indicate success
-        for message in simulation.trajectory:
+        for message in simulation.messages:
             if isinstance(message, AssistantMessage) and message.tool_calls:
                 for tool_call in message.tool_calls:
                     # Refund-related goals
