@@ -240,47 +240,14 @@ Brief description of the changes made.
 ## 🎯 Specific Contribution Guidelines
 
 ### Domain Contributions
-
-There are two types of domain contributions:
-
-#### Core Domains (`src/tau2/domains/`)
-Core domains are part of the official τ²-bench benchmark and are maintained by Sierra. Core domain contributions:
-- Require thorough review and approval
-- Must include complete implementation (tools, tasks, policy, tests)
-- Are registered in the domain registry
-- Contribute to official benchmark results and leaderboard
-
-#### Community-Contributed Domains (`src/experiments/domains/`)
-Community domains are contributed by external developers and live in the experiments directory. They:
-- Are self-contained with their own data, tests, and documentation
-- Are auto-discovered and registered with an `experimental:` prefix (e.g., `experimental:airline_sapconcur`)
-- Can be used via CLI: `tau2 run --domain "experimental:<domain_name>" ...`
-- Can include the original contributor's code for reference
-- May be promoted to core domains after review and adoption
-
-**Structure for community domains:**
-```
-src/experiments/domains/<domain_name>/
-├── original/            # Original contributor's code (optional, for reference)
-├── domain/              # Clean tau2-compatible implementation
-│   ├── __init__.py
-│   ├── data_model.py    # Pydantic DB model
-│   ├── tools.py         # ToolKit implementation
-│   ├── environment.py   # get_environment() and get_tasks()
-│   └── tests/           # Unit tests
-├── data/                # Domain data (db.json, policy.md, tasks.json)
-└── README.md            # Documentation and attribution
-```
-
-**Requirements for community domains:**
-- **Attribution**: Proper credit to original contributors in README and source files
-- **Documentation**: Comprehensive README with usage instructions
-- **Self-contained data**: Include all data files within the domain directory
-- **Basic tests**: Include unit tests for core functionality
-- **Demo script**: Provide a demo.py for easy testing without registry integration
+When contributing a new domain:
+- **Complete implementation**: Include all required components (tools, tasks, policy, tests)
+- **Documentation**: Comprehensive README with domain overview, API docs, and examples
+- **Test coverage**: Full test suite covering all domain functionality
+- **Data validation**: Ensure all domain data is properly validated
 
 ### Experimental Contributions
-For other `src/experiments/` contributions (non-domain):
+For `src/experiments/` contributions:
 - **Self-contained**: Keep experimental code isolated within the experiments directory
 - **Documentation**: Include detailed README explaining the experiment and usage
 - **Dependencies**: Manage dependencies carefully to avoid conflicts with core framework

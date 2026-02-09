@@ -12,63 +12,6 @@ The `experiments/` folder is used for experimental features and research code th
 
 This directory is organized into subdirectories for different types of experimental components. Each subdirectory should contain its own README with specific documentation and usage instructions.
 
-```
-experiments/
-├── domains/              # Community-contributed domains
-├── hyperparam/           # Hyperparameter tuning experiments
-└── agentify_tau_bench/   # Agent framework experiments
-```
-
-### Community-Contributed Domains (`domains/`)
-
-The `domains/` subdirectory contains community-contributed tau2 domains that are not part of the core benchmark but follow tau2 domain conventions. These domains:
-
-- **Are self-contained**: Include their own data, tests, and documentation
-- **Follow tau2 conventions**: Implement `get_environment()`, `get_tasks()`, and proper tool structure
-- **Are auto-discovered**: Registered automatically with an `experimental:` prefix
-- **May include original code**: Can bundle the contributor's original code for reference
-
-#### Structure for Contributed Domains
-
-```
-domains/<domain_name>/
-├── original/            # Original contributor's code (optional, for reference)
-├── domain/              # Clean tau2-compatible implementation
-│   ├── __init__.py
-│   ├── data_model.py    # Pydantic DB model
-│   ├── tools.py         # ToolKit implementation
-│   ├── environment.py   # get_environment() and get_tasks()
-│   └── tests/           # Unit tests
-├── data/                # Domain data (db.json, policy.md, tasks.json)
-└── README.md            # Documentation and attribution
-```
-
-#### Using a Contributed Domain
-
-**Via CLI** (auto-discovered with `experimental:` prefix):
-```bash
-tau2 run --domain "experimental:<domain_name>" --agent-llm gpt-4o-mini --user-llm gpt-4o-mini
-```
-
-**Via Python** (direct import):
-```python
-from experiments.domains.<domain_name>.domain import (
-    get_environment,
-    get_tasks,
-)
-
-env = get_environment()
-tasks = get_tasks()
-```
-
-**Via Registry**:
-```python
-from tau2.registry import registry
-
-env_constructor = registry.get_env_constructor("experimental:<domain_name>")
-env = env_constructor()
-```
-
 ## Quick Start
 
 To contribute experimental code:
