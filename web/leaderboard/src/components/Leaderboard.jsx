@@ -808,6 +808,9 @@ const Leaderboard = () => {
                          {model.organization === 'NVIDIA' && (
                            <img src={`${import.meta.env.BASE_URL}Logo-nvidia-transparent-PNG.png`} alt="NVIDIA" className="logo-img" />
                          )}
+                         {model.organization === 'BIGAI' && (
+                           <img src={`${import.meta.env.BASE_URL}bigai.png`} alt="BIGAI" className="logo-img" />
+                         )}
                         </div>
                          <span className="org-name">{model.organization}</span>
                        </div>
