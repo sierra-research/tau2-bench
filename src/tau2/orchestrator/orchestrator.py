@@ -342,9 +342,10 @@ class Orchestrator:
 
         if self.solo_mode:
             assert self.environment.solo_mode, "Environment should be in solo mode"
-            assert isinstance(self.agent, LLMSoloAgent), (
-                "Agent must be a LLMSoloAgent in solo mode"
-            )
+            assert (
+                isinstance(self.agent, LLMSoloAgent)
+                or self.agent.__class__.__name__ == "GymAgent"
+            ), "Agent must be a LLMSoloAgent or GymAgent in solo mode"
             assert isinstance(self.user, DummyUser), (
                 "User must be a DummyUser in solo mode"
             )
@@ -457,29 +458,45 @@ class Orchestrator:
                     f"Last message should be of type AssistantMessage, UserMessage, or ToolMessage, got {type(last_message)}"
                 )
             self.trajectory = message_history
-
         else:
-            self.agent_state = self.agent.get_init_state()
             self.user_state = self.user.get_init_state()
             if not self.solo_mode:
                 first_message = deepcopy(DEFAULT_FIRST_AGENT_MESSAGE)
                 first_message.timestamp = get_now()
+                self.agent_state = self.agent.get_init_state(
+                    message_history=[first_message]
+                )
                 self.trajectory = [first_message]
                 self.message = first_message
                 self.from_role = Role.AGENT
                 self.to_role = Role.USER
             else:
-                first_message, agent_state = await self.agent.agenerate_next_message(
-                    None, self.agent_state
-                )
+                self.agent_state = self.agent.get_init_state()
+                (
+                    first_message,
+                    self.agent_state,
+                ) = await self.agent.agenerate_next_message(None, self.agent_state)
                 self.trajectory = [first_message]
                 self.message = first_message
-                self.from_role = Role.AGENT
-                self.to_role = Role.ENV
-                self.done = self.agent.is_stop(first_message)
-                if self.done:
-                    self.termination_reason = TerminationReason.AGENT_STOP
-
+                # In solo mode, there is no user, so if the message is not a tool call, then we end and report an agent error
+                if not first_message.is_tool_call():
+                    self.from_role = Role.AGENT
+                    self.to_role = Role.USER
+                    self.done = True
+                    if self.agent.is_stop(first_message):
+                        # If the agent is stopping (###STOP###)
+                        self.termination_reason = TerminationReason.AGENT_STOP
+                    else:
+                        self.termination_reason = TerminationReason.AGENT_ERROR
+                else:
+                    self.from_role = Role.AGENT
+                    self.to_role = Role.ENV
+                    self.done = self.agent.is_stop(first_message)
+                    if self.done:
+                        self.to_role = Role.USER  # FIXIT: For now, we assume last message cannot be to the environment
+                        self.termination_reason = TerminationReason.AGENT_STOP
+        if self.validate_communication:
+            self.check_communication_error()
         self.environment.sync_tools()
 
     def check_communication_error(self) -> None:
@@ -623,12 +640,35 @@ class Orchestrator:
         await self.ainitialize()
         while not self.done:
             await self.astep()
-            if self.step_count >= self.max_steps:
+            # Checking for maximum steps and errors only if the last message is not to the environment
+            if self.to_role == Role.ENV:
+                continue
+            if self.step_count >= self.max_steps and self.to_role != Role.ENV:
                 self.done = True
                 self.termination_reason = TerminationReason.MAX_STEPS
-            if self.num_errors >= self.max_errors:
+            if self.num_errors >= self.max_errors and self.to_role != Role.ENV:
                 self.done = True
                 self.termination_reason = TerminationReason.TOO_MANY_ERRORS
+        # Send stop signal to the agent, user, and environment
+        has_error = self.termination_reason in [
+            TerminationReason.USER_ERROR,
+            TerminationReason.AGENT_ERROR,
+        ]
+        last_msg_to_agent = None
+        last_msg_to_user = None
+        if self.to_role == Role.AGENT:
+            last_msg_to_agent = self.message
+        elif self.to_role == Role.USER:
+            last_msg_to_user = self.message
+        elif self.to_role == Role.ENV and not has_error:
+            raise ValueError(
+                "Environment should not receive the last message. Last message: "
+                + str(self.message)
+            )
+        self.agent.stop(last_msg_to_agent, self.agent_state)
+        self.user.stop(last_msg_to_user, self.user_state)
+
+        # Wrap up the simulation
         duration = time.perf_counter() - start
         messages = self.get_trajectory()
         res = get_cost(messages)
@@ -787,6 +827,10 @@ class Orchestrator:
                 self.to_role = Role.ENV
             else:
                 self.to_role = Role.USER
+                # In solo mode, there is no user, so if the message is not a tool call and not a stop, then we end and report an agent error
+                if self.solo_mode and not self.agent.is_stop(agent_msg):
+                    self.done = True
+                    self.termination_reason = TerminationReason.AGENT_ERROR
         # AGENT/USER -> ENV
         elif self.from_role in [Role.AGENT, Role.USER] and self.to_role == Role.ENV:
             if not self.message.is_tool_call():
@@ -794,6 +838,8 @@ class Orchestrator:
             tool_msgs = []
             for tool_call in self.message.tool_calls:
                 tool_msg = self.environment.get_response(tool_call)
+                if tool_msg.error:
+                    self.num_errors += 1
                 tool_msgs.append(tool_msg)
             assert len(self.message.tool_calls) == len(tool_msgs), (
                 "Number of tool calls and tool messages should be the same"
@@ -814,6 +860,8 @@ class Orchestrator:
             raise ValueError(
                 f"Invalid role combination. From role: {self.from_role}, To role: {self.to_role}"
             )
+        if self.validate_communication:
+            self.check_communication_error()
         self.step_count += 1
         self.environment.sync_tools()
 

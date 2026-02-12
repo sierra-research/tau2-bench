@@ -185,7 +185,12 @@ async def arun_domain(config: RunConfig, **kwargs: Any) -> Results:
         task_set_name = config.domain
     else:
         task_set_name = config.task_set_name
-    tasks = get_tasks(task_set_name, config.task_ids, config.num_tasks)
+    tasks = get_tasks(
+        task_set_name=task_set_name,
+        task_split_name=config.task_split_name,
+        task_ids=config.task_ids,
+        num_tasks=config.num_tasks,
+    )
     if "gt" in config.agent:
         total_num_tasks = len(tasks)
         tasks = [task for task in tasks if LLMGTAgent.check_valid_task(task)]
@@ -210,7 +215,7 @@ async def arun_domain(config: RunConfig, **kwargs: Any) -> Results:
     if save_to is None:
         save_to = make_run_name(config)
     save_to = DATA_DIR / "simulations" / f"{save_to}.json"
-    simulation_results = await run_tasks(
+    simulation_results = await arun_tasks(
         domain=config.domain,
         tasks=tasks,
         agent=config.agent,
@@ -228,6 +233,7 @@ async def arun_domain(config: RunConfig, **kwargs: Any) -> Results:
         max_concurrency=config.max_concurrency,
         seed=config.seed,
         log_level=config.log_level,
+        enforce_communication_protocol=config.enforce_communication_protocol,
         **kwargs,
     )
     metrics = compute_metrics(simulation_results)
@@ -483,6 +489,7 @@ async def arun_tasks(
     max_concurrency: int = 1,
     seed: Optional[int] = 300,
     log_level: Optional[str] = "INFO",
+    enforce_communication_protocol: bool = False,
     **kwargs: Any,
 ) -> Results:
     """
@@ -505,6 +512,7 @@ async def arun_tasks(
         max_concurrency (int): The maximum number of concurrent simulations to run.
         seed (int): The seed to use for the simulation.
         log_level (str): The log level to use.
+        enforce_communication_protocol (bool): Whether to enforce communication protocol rules.
     Returns:
         The simulation results and the annotations (if llm_review is True).
     """
@@ -646,7 +654,7 @@ async def arun_tasks(
         )
         ConsoleDisplay.console.print(console_text)
         try:
-            simulation = await run_task(
+            simulation = await arun_task(
                 domain=domain,
                 task=task,
                 agent=agent,
@@ -659,6 +667,7 @@ async def arun_tasks(
                 max_errors=max_errors,
                 evaluation_type=evaluation_type,
                 seed=seed,
+                enforce_communication_protocol=enforce_communication_protocol,
                 **kwargs,
             )
             simulation.trial = trial
@@ -868,6 +877,7 @@ async def arun_task(
     max_errors: int = 10,
     evaluation_type: EvaluationType = EvaluationType.ALL,
     seed: Optional[int] = None,
+    enforce_communication_protocol: bool = False,
     **kwargs: Any,
 ) -> SimulationRun:
     """
@@ -887,6 +897,7 @@ async def arun_task(
          max_errors (int): The maximum number of errors to allow in the simulation.
          evaluation_type (EvaluationType): The type of evaluation to use.
          seed (int): The seed to use for the simulation.
+         enforce_communication_protocol (bool): Whether to enforce communication protocol rules.
      Returns:
          The simulation run.
     """
@@ -970,6 +981,7 @@ async def arun_task(
         max_errors=max_errors,
         seed=seed,
         solo_mode=solo_mode,
+        validate_communication=enforce_communication_protocol,
     )
     simulation = await orchestrator.arun()
 
