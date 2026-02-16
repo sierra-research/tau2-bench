@@ -528,10 +528,10 @@ def run_task(
     )
     simulation = orchestrator.run()
 
+    # Disconnect from pctx (errors are caught and logged in the agent)
     if isinstance(agent, LLMPctxAgent):
         agent.disconnect()
 
-        # TODO: we need to insert the pctx callbacks as "tool_calls"
         # in the message history for eval, also given LLMPctxAgent
         # is making more requests to the llm the agent cost needs to be updated as well
         # perhaps this would be better to do within the orchestrator

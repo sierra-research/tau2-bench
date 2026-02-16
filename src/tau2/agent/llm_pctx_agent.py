@@ -13,7 +13,12 @@ from pctx_client import tool as pctx_tool
 from pctx_client.tool_descriptions import PRESCRIPTIVE_DESCRIPTIONS
 
 from tau2.agent.base import ValidAgentInputMessage
-from tau2.agent.llm_agent import LLMAgent, LLMAgentState, AGENT_INSTRUCTION, SYSTEM_PROMPT
+from tau2.agent.llm_agent import (
+    LLMAgent,
+    LLMAgentState,
+    AGENT_INSTRUCTION,
+    SYSTEM_PROMPT,
+)
 from tau2.data_model.message import (
     AssistantMessage,
     Message,
@@ -31,8 +36,15 @@ PCTX_FS_ADDENDUM = """
 Available functions in `{namespace}` namespace:
 {function_list}
 
-Use pctx_execute_typescript to call functions. Keep code simple - just call functions and return results.
-The environment handles all policy enforcement. Don't implement eligibility checks or calculations.""".strip()
+Use pctx_execute_typescript to call functions as `await {namespace}.functionName({{ args }})`.
+
+**Communication vs Action:**
+- When you need information from the user (dates, preferences, clarifications): ASK them, don't try to figure it out yourself
+- When you have specific information: use tools to get details or take actions
+- Don't do exhaustive searches - be conversational and gather requirements first
+
+Write operations (cancel/book/update/send_certificate) execute database changes.
+Multi-step pattern: gather info → verify policy → execute action → communicate result.""".strip()
 
 
 class LLMPctxAgent(LLMAgent):
@@ -66,8 +78,7 @@ class LLMPctxAgent(LLMAgent):
     def system_prompt(self) -> str:
         """Override to add fs mode context."""
         base_prompt = SYSTEM_PROMPT.format(
-            domain_policy=self.domain_policy,
-            agent_instruction=AGENT_INSTRUCTION
+            domain_policy=self.domain_policy, agent_instruction=AGENT_INSTRUCTION
         )
 
         if self.pctx_mode == "fs":
@@ -76,8 +87,7 @@ class LLMPctxAgent(LLMAgent):
             function_list = "\n".join([f"- {fn.__name__}" for fn in env_tools])
 
             fs_context = PCTX_FS_ADDENDUM.format(
-                namespace=self.env.domain_name,
-                function_list=function_list
+                namespace=self.env.domain_name, function_list=function_list
             )
             return base_prompt + "\n\n" + fs_context
 
@@ -212,14 +222,22 @@ class LLMPctxAgent(LLMAgent):
             }
 
     def connect(self):
-        self._run_in_loop(self.pctx.connect())
-        logger.debug(
-            f"[PCTX] - connected to server: session_id={self.pctx._session_id}"
-        )
+        try:
+            self._run_in_loop(self.pctx.connect())
+            logger.debug(
+                f"[PCTX] - connected to server: session_id={self.pctx._session_id}"
+            )
+        except Exception as e:
+            logger.error(f"[PCTX] - connect failed: {e}")
+            raise  # Re-raise to fail the task if we can't connect
 
     def disconnect(self):
-        self._run_in_loop(self.pctx.disconnect())
-        logger.debug(f"[PCTX] - disconnected from server")
+        try:
+            self._run_in_loop(self.pctx.disconnect())
+            logger.debug(f"[PCTX] - disconnected from server")
+        except Exception as e:
+            logger.warning(f"[PCTX] - disconnect failed (ignoring): {e}")
+            # Ignore disconnect errors - the session work is already done
 
     def generate_next_message(
         self, message: ValidAgentInputMessage, state: LLMAgentState
