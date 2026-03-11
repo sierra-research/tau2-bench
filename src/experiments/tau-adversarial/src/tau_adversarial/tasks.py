@@ -9,7 +9,15 @@ from pathlib import Path
 from typing import Optional
 
 from tau2.data_model.tasks import Task
-from tau2.utils import DATA_DIR
+
+
+def get_data_dir() -> Path:
+    """Get the data directory for adversarial tasks.
+
+    Returns:
+        Path to the data directory.
+    """
+    return Path(__file__).parent.parent.parent / "data"
 
 
 def get_adversarial_tasks_path(domain: str) -> Path:
@@ -21,7 +29,7 @@ def get_adversarial_tasks_path(domain: str) -> Path:
     Returns:
         Path to the adversarial tasks JSON file.
     """
-    return DATA_DIR / "tau2" / "domains" / domain / "tasks_adversarial.json"
+    return get_data_dir() / "domains" / domain / "tasks_adversarial.json"
 
 
 def load_adversarial_tasks(domain: str) -> list[Task]:
@@ -132,8 +140,11 @@ def get_all_adversarial_domains() -> list[str]:
     Returns:
         List of domain names that have adversarial tasks.
     """
-    domains_dir = DATA_DIR / "tau2" / "domains"
+    domains_dir = get_data_dir() / "domains"
     domains_with_adv = []
+
+    if not domains_dir.exists():
+        return domains_with_adv
 
     for domain_dir in domains_dir.iterdir():
         if domain_dir.is_dir():

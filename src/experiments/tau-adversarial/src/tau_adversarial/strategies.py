@@ -4,7 +4,7 @@ This module defines attack strategies that can be injected into user simulator
 instructions to test agent robustness against various adversarial behaviors.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 

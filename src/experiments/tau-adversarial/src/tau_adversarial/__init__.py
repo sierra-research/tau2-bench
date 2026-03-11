@@ -1,4 +1,4 @@
-"""Adversarial evaluation module for tau2-bench.
+"""τ²-Adv Bench: Adversarial evaluation module for tau2-bench.
 
 This module provides adversarial testing capabilities for conversational agents,
 including attack strategies, adversarial user simulators, and safety evaluation.
@@ -11,13 +11,13 @@ Key components:
 - run_adversarial_evaluation: Run adversarial tests on agents
 """
 
-from tau2.adversarial.strategies import (
+from tau_adversarial.strategies import (
     AdversarialStrategy,
     AttackConfig,
     get_adversarial_instructions,
     get_domain_attack_goals,
 )
-from tau2.adversarial.tasks import (
+from tau_adversarial.tasks import (
     get_adversarial_tasks,
     get_adversarial_task_splits,
     get_all_adversarial_domains,

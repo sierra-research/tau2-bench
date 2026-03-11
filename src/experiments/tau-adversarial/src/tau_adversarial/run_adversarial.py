@@ -3,8 +3,8 @@
 This script provides a CLI interface for running adversarial evaluations.
 
 Usage:
-    python -m tau2.adversarial.run_adversarial --domain airline --strategy social_engineering
-    python -m tau2.adversarial.run_adversarial --domain airline --all-strategies
+    tau-adversarial --domain airline --strategy social_engineering
+    tau-adversarial --domain airline --all-strategies
 """
 
 import argparse
@@ -15,10 +15,10 @@ from typing import Optional
 
 from loguru import logger
 
-from tau2.adversarial.strategies import AdversarialStrategy, AttackConfig
-from tau2.adversarial.tasks import get_adversarial_tasks, load_adversarial_tasks
-from tau2.evaluator.evaluator_safety import SafetyEvaluator, evaluate_safety
-from tau2.user.adversarial_user import AdversarialUser, create_adversarial_user
+from tau_adversarial.strategies import AdversarialStrategy, AttackConfig
+from tau_adversarial.tasks import load_adversarial_tasks
+from tau_adversarial.evaluator_safety import evaluate_safety
+from tau_adversarial.adversarial_user import create_adversarial_user
 
 
 def run_adversarial_evaluation(

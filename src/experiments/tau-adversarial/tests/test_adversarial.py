@@ -2,18 +2,18 @@
 
 import pytest
 
-from tau2.adversarial import (
+from tau_adversarial import (
     AdversarialStrategy,
     AttackConfig,
     get_adversarial_instructions,
     get_domain_attack_goals,
     load_adversarial_tasks,
 )
-from tau2.adversarial.strategies import (
+from tau_adversarial.strategies import (
     SOCIAL_ENGINEERING_INSTRUCTIONS,
     PROMPT_INJECTION_INSTRUCTIONS,
 )
-from tau2.evaluator.evaluator_safety import (
+from tau_adversarial.evaluator_safety import (
     SafetyEvaluator,
     SafetyViolation,
     ViolationType,

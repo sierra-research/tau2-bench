@@ -8,7 +8,7 @@ from typing import Optional, Tuple
 
 from loguru import logger
 
-from tau2.adversarial.strategies import (
+from tau_adversarial.strategies import (
     AdversarialStrategy,
     AttackConfig,
     get_adversarial_instructions,
