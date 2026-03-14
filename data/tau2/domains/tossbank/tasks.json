@@ -1,0 +1,474 @@
+[
+    {
+        "id": "0",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You are detail-oriented and want clear answers about all available options.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to know what savings accounts Toss Bank offers and their interest rates.",
+                "known_info": "You are Kim Minjun, email minjun.kim@example.com.",
+                "unknown_info": "You do not know your customer ID."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "0_0", "name": "find_customer_by_email", "arguments": {"email": "minjun.kim@example.com"}, "info": null},
+                {"action_id": "0_1", "name": "list_products", "arguments": {"category": "savings"}, "info": null}
+            ],
+            "communicate_info": ["List of available savings products with their interest rates"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "1",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want specific details about a fixed deposit product.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to know the interest rate and terms for the 12-month fixed deposit.",
+                "known_info": "You are Han Jihoon, phone 010-9012-3456.",
+                "unknown_info": "You do not know the product ID."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "1_0", "name": "find_customer_by_phone", "arguments": {"phone": "010-9012-3456"}, "info": null},
+                {"action_id": "1_1", "name": "get_product_details", "arguments": {"product_id": "P004"}, "info": null}
+            ],
+            "communicate_info": ["4.3% annual rate", "12 month term", "minimum 1,000,000 KRW"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "2",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want to understand the fee structure for transfers.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to know the transfer limits and fees, especially for external bank transfers.",
+                "known_info": "You are Lee Soyeon, email soyeon.lee@example.com.",
+                "unknown_info": "You do not remember your customer ID."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "2_0", "name": "find_customer_by_email", "arguments": {"email": "soyeon.lee@example.com"}, "info": null}
+            ],
+            "communicate_info": ["Internal transfers are free", "External transfers free up to 10 per month, then 500 KRW each", "External per-transaction limit is 50,000,000 KRW"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "3",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You are anxious about your eligibility and want a clear yes or no answer.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to know if you are eligible for a credit loan. You earn 80,000,000 KRW per year.",
+                "known_info": "You are Jung Eunji, email eunji.jung@example.com.",
+                "unknown_info": "You do not know your credit score."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "3_0", "name": "find_customer_by_email", "arguments": {"email": "eunji.jung@example.com"}, "info": null},
+                {"action_id": "3_1", "name": "get_customer_info", "arguments": {"customer_id": "C005"}, "info": null}
+            ],
+            "communicate_info": ["Customer is NOT eligible for credit loan", "Credit score 520 is below the minimum requirement of 600"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "4",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want a comparison to help decide between card options.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to compare the debit card and credit card options available at Toss Bank.",
+                "known_info": "You are Oh Minji, phone 010-0123-4567.",
+                "unknown_info": "You do not know the specific card names."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "4_0", "name": "find_customer_by_phone", "arguments": {"phone": "010-0123-4567"}, "info": null},
+                {"action_id": "4_1", "name": "list_products", "arguments": {"category": "card"}, "info": null}
+            ],
+            "communicate_info": ["Comparison of available card products including cashback rates and fees"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "5",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want to open an account and are ready to proceed.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to open a Toss High-Rate Savings account with an initial deposit of 500,000 KRW.",
+                "known_info": "You are Yoon Seojin, email seojin.yoon@example.com.",
+                "unknown_info": "You do not know the product ID."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "5_0", "name": "find_customer_by_email", "arguments": {"email": "seojin.yoon@example.com"}, "info": null},
+                {"action_id": "5_1", "name": "get_customer_info", "arguments": {"customer_id": "C007"}, "info": null},
+                {"action_id": "5_2", "name": "open_account", "arguments": {"customer_id": "C007", "product_id": "P002", "initial_deposit": 500000}, "info": null}
+            ],
+            "communicate_info": ["Account opened successfully", "4.0% interest rate"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "6",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want a quick transfer between your own accounts.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to transfer 2,000,000 KRW from your checking account to your savings account.",
+                "known_info": "You are Kim Minjun, phone 010-1234-5678.",
+                "unknown_info": "You do not remember your account numbers."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "6_0", "name": "find_customer_by_phone", "arguments": {"phone": "010-1234-5678"}, "info": null},
+                {"action_id": "6_1", "name": "get_customer_info", "arguments": {"customer_id": "C001"}, "info": null},
+                {"action_id": "6_2", "name": "transfer", "arguments": {"from_account_id": "A002", "to_account_id": "A001", "amount": 2000000}, "info": null}
+            ],
+            "communicate_info": ["Transfer completed successfully", "New balances for both accounts"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "7",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want to close an account you no longer use.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to close your savings account because you no longer need it.",
+                "known_info": "You are Hwang Junhyuk, email junhyuk.hwang@example.com.",
+                "unknown_info": "You do not remember your account number."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "7_0", "name": "find_customer_by_email", "arguments": {"email": "junhyuk.hwang@example.com"}, "info": null},
+                {"action_id": "7_1", "name": "get_customer_info", "arguments": {"customer_id": "C015"}, "info": null},
+                {"action_id": "7_2", "name": "get_account", "arguments": {"account_id": "A028"}, "info": null},
+                {"action_id": "7_3", "name": "close_account", "arguments": {"account_id": "A028", "reason": "no longer needed"}, "info": null}
+            ],
+            "communicate_info": ["Account closed successfully"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "8",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want to apply for a loan and expect to be approved given your good profile.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to apply for a credit loan of 30,000,000 KRW.",
+                "known_info": "You are Choi Hyunwoo, phone 010-4567-8901.",
+                "unknown_info": "You do not know the exact loan product details."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "8_0", "name": "find_customer_by_phone", "arguments": {"phone": "010-4567-8901"}, "info": null},
+                {"action_id": "8_1", "name": "get_customer_info", "arguments": {"customer_id": "C004"}, "info": null},
+                {"action_id": "8_2", "name": "get_product_details", "arguments": {"product_id": "P005"}, "info": null},
+                {"action_id": "8_3", "name": "apply_loan", "arguments": {"customer_id": "C004", "product_id": "P005", "amount": 30000000}, "info": null}
+            ],
+            "communicate_info": ["Loan approved", "Interest rate and terms"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "9",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want to update your contact information.",
+                "domain": "tossbank",
+                "reason_for_call": "You recently changed your phone number and want to update it to 010-1111-9999.",
+                "known_info": "You are Jang Hayoon, email hayoon.jang@example.com.",
+                "unknown_info": "You do not know your customer ID."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "9_0", "name": "find_customer_by_email", "arguments": {"email": "hayoon.jang@example.com"}, "info": null},
+                {"action_id": "9_1", "name": "update_customer_info", "arguments": {"customer_id": "C014", "field": "phone", "value": "010-1111-9999"}, "info": null}
+            ],
+            "communicate_info": ["Phone number updated successfully"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "10",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want to open a fixed deposit and are ready to proceed.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to open a 6-month fixed deposit with 10,000,000 KRW.",
+                "known_info": "You are Kwon Nayeon, phone 010-6666-7777.",
+                "unknown_info": "You do not know the product ID or exact interest rate."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "10_0", "name": "find_customer_by_phone", "arguments": {"phone": "010-6666-7777"}, "info": null},
+                {"action_id": "10_1", "name": "get_customer_info", "arguments": {"customer_id": "C016"}, "info": null},
+                {"action_id": "10_2", "name": "open_account", "arguments": {"customer_id": "C016", "product_id": "P003", "initial_deposit": 10000000}, "info": null}
+            ],
+            "communicate_info": ["Fixed deposit opened", "3.8% interest rate", "6 month term", "Maturity information"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "11",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want to review your recent transactions on your checking account.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to see your recent transactions on your checking account.",
+                "known_info": "You are Choi Hyunwoo, email hyunwoo.choi@example.com.",
+                "unknown_info": "You do not remember your checking account number."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "11_0", "name": "find_customer_by_email", "arguments": {"email": "hyunwoo.choi@example.com"}, "info": null},
+                {"action_id": "11_1", "name": "get_customer_info", "arguments": {"customer_id": "C004"}, "info": null},
+                {"action_id": "11_2", "name": "get_transaction_history", "arguments": {"account_id": "A009"}, "info": null}
+            ],
+            "communicate_info": ["List of recent transactions on checking account A009"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "12",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You are concerned about the penalty and want to understand exactly how much interest you would lose.",
+                "domain": "tossbank",
+                "reason_for_call": "You opened a 12-month fixed deposit about 2 months ago and are considering withdrawing early. You want to know the penalty.",
+                "known_info": "You are Lee Soyeon, phone 010-2345-6789.",
+                "unknown_info": "You do not remember the exact penalty rates."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "12_0", "name": "find_customer_by_phone", "arguments": {"phone": "010-2345-6789"}, "info": null},
+                {"action_id": "12_1", "name": "get_customer_info", "arguments": {"customer_id": "C002"}, "info": null},
+                {"action_id": "12_2", "name": "get_account", "arguments": {"account_id": "A005"}, "info": null}
+            ],
+            "communicate_info": ["Early withdrawal penalty applies", "1-3 months tier: 50% of contracted rate (4.3%)", "Effective rate would be approximately 2.15%"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "13",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You are a young person trying to get your first loan and are disappointed if rejected.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to apply for a credit loan. Your annual income is about 22,000,000 KRW.",
+                "known_info": "You are Moon Chaeyoung, email chaeyoung.moon@example.com.",
+                "unknown_info": "You do not know whether you need KYC verification."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "13_0", "name": "find_customer_by_email", "arguments": {"email": "chaeyoung.moon@example.com"}, "info": null},
+                {"action_id": "13_1", "name": "get_customer_info", "arguments": {"customer_id": "C018"}, "info": null}
+            ],
+            "communicate_info": ["KYC verification is not complete", "Income 22,000,000 KRW is below the minimum 24,000,000 KRW requirement", "Cannot proceed with loan application"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "14",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You need to make a large transfer urgently and are frustrated by limits.",
+                "domain": "tossbank",
+                "reason_for_call": "You need to transfer 60,000,000 KRW to another bank account urgently.",
+                "known_info": "You are Lim Taeyang, email taeyang.lim@example.com. You want to transfer from your savings account.",
+                "unknown_info": "You do not know the exact transfer limits."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "14_0", "name": "find_customer_by_email", "arguments": {"email": "taeyang.lim@example.com"}, "info": null},
+                {"action_id": "14_1", "name": "get_customer_info", "arguments": {"customer_id": "C011"}, "info": null},
+                {"action_id": "14_2", "name": "get_account", "arguments": {"account_id": "A023"}, "info": null}
+            ],
+            "communicate_info": ["External transfer per-transaction limit is 50,000,000 KRW", "Cannot transfer 60,000,000 KRW in a single transaction", "Could split into two transactions"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "15",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want to open another savings account and are surprised if told you cannot.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to open another savings account to separate your emergency fund.",
+                "known_info": "You are Park Jiwoo, phone 010-3456-7890.",
+                "unknown_info": "You do not know there is a limit on savings accounts."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "15_0", "name": "find_customer_by_phone", "arguments": {"phone": "010-3456-7890"}, "info": null},
+                {"action_id": "15_1", "name": "get_customer_info", "arguments": {"customer_id": "C003"}, "info": null}
+            ],
+            "communicate_info": ["Maximum 3 savings accounts per customer", "Customer already has 3 savings accounts", "Cannot open a 4th savings account"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "16",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You are interested in premium benefits and want to apply.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to apply for the Toss Premium Card.",
+                "known_info": "You are Oh Minji, email minji.oh@example.com.",
+                "unknown_info": "You do not know the eligibility requirements."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "16_0", "name": "find_customer_by_email", "arguments": {"email": "minji.oh@example.com"}, "info": null},
+                {"action_id": "16_1", "name": "get_customer_info", "arguments": {"customer_id": "C010"}, "info": null}
+            ],
+            "communicate_info": ["Premium card requires credit score >= 800 and income >= 60,000,000 KRW", "Customer credit score 690 is below requirement", "Customer income 35,000,000 KRW is below requirement", "Application cannot be approved"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "17",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want to consolidate your accounts and move money into a fixed deposit.",
+                "domain": "tossbank",
+                "reason_for_call": "You want to close your savings account A033 and open a new 12-month fixed deposit with the balance.",
+                "known_info": "You are Cho Wonjae, email wonjae.cho@example.com.",
+                "unknown_info": "You do not know the exact procedure for closing and opening accounts."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "17_0", "name": "find_customer_by_email", "arguments": {"email": "wonjae.cho@example.com"}, "info": null},
+                {"action_id": "17_1", "name": "get_customer_info", "arguments": {"customer_id": "C019"}, "info": null},
+                {"action_id": "17_2", "name": "get_account", "arguments": {"account_id": "A033"}, "info": null}
+            ],
+            "communicate_info": ["Account A033 has 31,000,000 KRW balance", "Balance must be 0 to close an account", "Need to transfer or withdraw funds first before closing"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "18",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You are confused about why your account is dormant and want help.",
+                "domain": "tossbank",
+                "reason_for_call": "You noticed your savings account seems to be inactive and you cannot make transfers from it. You want to understand why and how to fix it.",
+                "known_info": "You are Shin Yuna, phone 010-8901-2345.",
+                "unknown_info": "You do not know what dormant means or the reactivation process."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "18_0", "name": "find_customer_by_phone", "arguments": {"phone": "010-8901-2345"}, "info": null},
+                {"action_id": "18_1", "name": "get_customer_info", "arguments": {"customer_id": "C008"}, "info": null},
+                {"action_id": "18_2", "name": "get_account", "arguments": {"account_id": "A017"}, "info": null}
+            ],
+            "communicate_info": ["Account A017 is dormant", "Dormant due to no transactions for 12+ months", "Reactivation requires phone verification and ID upload"],
+            "nl_assertions": null
+        }
+    },
+    {
+        "id": "19",
+        "description": {"purpose": null, "relevant_policies": null, "notes": null},
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want to understand a fee charge on your account.",
+                "domain": "tossbank",
+                "reason_for_call": "You noticed a 500 KRW fee on your checking account and want to understand why you were charged.",
+                "known_info": "You are Choi Hyunwoo, phone 010-4567-8901. The fee appeared recently.",
+                "unknown_info": "You do not know how many free external transfers you get per month."
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {"action_id": "19_0", "name": "find_customer_by_phone", "arguments": {"phone": "010-4567-8901"}, "info": null},
+                {"action_id": "19_1", "name": "get_customer_info", "arguments": {"customer_id": "C004"}, "info": null},
+                {"action_id": "19_2", "name": "get_transaction_history", "arguments": {"account_id": "A009"}, "info": null}
+            ],
+            "communicate_info": ["The 500 KRW fee is for an external transfer", "Toss Bank provides 10 free external transfers per month", "The fee was charged because it was the 11th external transfer that month"],
+            "nl_assertions": null
+        }
+    }
+]
