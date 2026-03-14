@@ -39,6 +39,27 @@ from tau2.domains.telecom.environment import (
 from tau2.domains.telecom.environment import (
     get_tasks_split as telecom_domain_get_tasks_split,
 )
+from tau2.domains.tossbank.environment import (
+    get_environment as tossbank_domain_get_environment,
+)
+from tau2.domains.tossbank.environment import get_tasks as tossbank_domain_get_tasks
+from tau2.domains.tossbank.environment import (
+    get_tasks_split as tossbank_domain_get_tasks_split,
+)
+from tau2.domains.kakaobank.environment import (
+    get_environment as kakaobank_domain_get_environment,
+)
+from tau2.domains.kakaobank.environment import get_tasks as kakaobank_domain_get_tasks
+from tau2.domains.kakaobank.environment import (
+    get_tasks_split as kakaobank_domain_get_tasks_split,
+)
+from tau2.domains.kbank.environment import (
+    get_environment as kbank_domain_get_environment,
+)
+from tau2.domains.kbank.environment import get_tasks as kbank_domain_get_tasks
+from tau2.domains.kbank.environment import (
+    get_tasks_split as kbank_domain_get_tasks_split,
+)
 from tau2.environment.environment import Environment
 from tau2.user.base import BaseUser
 from tau2.user.user_simulator import DummyUser, UserSimulator
@@ -242,6 +263,28 @@ try:
         telecom_domain_get_tasks,
         "telecom-workflow",
         get_task_splits=telecom_domain_get_tasks_split,
+    )
+
+    # Korean Internet Bank domains
+    registry.register_domain(tossbank_domain_get_environment, "tossbank")
+    registry.register_tasks(
+        tossbank_domain_get_tasks,
+        "tossbank",
+        get_task_splits=tossbank_domain_get_tasks_split,
+    )
+
+    registry.register_domain(kakaobank_domain_get_environment, "kakaobank")
+    registry.register_tasks(
+        kakaobank_domain_get_tasks,
+        "kakaobank",
+        get_task_splits=kakaobank_domain_get_tasks_split,
+    )
+
+    registry.register_domain(kbank_domain_get_environment, "kbank")
+    registry.register_tasks(
+        kbank_domain_get_tasks,
+        "kbank",
+        get_task_splits=kbank_domain_get_tasks_split,
     )
 
     logger.debug(
