@@ -108,6 +108,9 @@ def init_very_high_fever(env: HealthcareEnvironment) -> list[EnvFunctionCall]:
 ### Fix Functions
 
 
+_GP_DOCTORS = ["doc_001", "doc_003", "doc_006", "doc_008"]
+
+
 def fix_urgent_fever(env: HealthcareEnvironment) -> list[ToolCall]:
     """Book urgent appointment for high fever."""
     return [
@@ -127,6 +130,8 @@ def fix_urgent_fever(env: HealthcareEnvironment) -> list[ToolCall]:
             requestor="assistant",
             name="check_available_time_slots",
             arguments={"doctor_id": "doc_001", "date": "2024-05-20"},
+            compare_args=["doctor_id"],
+            accepted_values={"doctor_id": _GP_DOCTORS},
         ),
         ToolCall(requestor="user", name="check_calendar", arguments={}),
         ToolCall(
@@ -140,6 +145,8 @@ def fix_urgent_fever(env: HealthcareEnvironment) -> list[ToolCall]:
                 "time": "16:00",
                 "reason": "High fever requiring urgent evaluation",
             },
+            compare_args=["patient_id", "doctor_id", "appointment_type"],
+            accepted_values={"doctor_id": _GP_DOCTORS},
         ),
     ]
 

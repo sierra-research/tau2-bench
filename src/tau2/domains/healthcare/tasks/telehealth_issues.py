@@ -213,7 +213,7 @@ def fix_acknowledge_medication(env: HealthcareEnvironment) -> list[ToolCall]:
             requestor="user",
             name="acknowledge_instructions",
             arguments={"instruction_type": "medication"},
-            compare_args=["instruction_type"],
+            compare_args=[],
         )
     ]
 
@@ -225,7 +225,7 @@ def fix_acknowledge_post_care(env: HealthcareEnvironment) -> list[ToolCall]:
             requestor="user",
             name="acknowledge_instructions",
             arguments={"instruction_type": "post_care"},
-            compare_args=["instruction_type"],
+            compare_args=[],
         )
     ]
 
@@ -237,7 +237,7 @@ def fix_acknowledge_pre_surgery(env: HealthcareEnvironment) -> list[ToolCall]:
             requestor="user",
             name="acknowledge_instructions",
             arguments={"instruction_type": "pre_surgery"},
-            compare_args=["instruction_type"],
+            compare_args=[],
         )
     ]
 

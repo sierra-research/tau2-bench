@@ -478,10 +478,10 @@ All healthcare workflows follow a structured confirmation process based on the h
 - Stroke symptoms (FAST: Face drooping, Arm weakness, Speech difficulty, Time to call 911)
 
 **Response:**
-1. Immediately advise patient to call 911 or go to emergency room
+1. Immediately transfer to nurse using `transfer_to_nurse` for clinical escalation
 2. Do not attempt to schedule appointment
 3. Do not try to provide medical advice
-4. Transfer to nurse only if patient refuses emergency care
+4. Do not delay the transfer to advise on 911 — the nurse will handle emergency escalation
 
 ## Scope Limitations
 

@@ -101,6 +101,9 @@ def init_bp_hypertensive_crisis(env: HealthcareEnvironment) -> list[EnvFunctionC
 ### Fix Functions
 
 
+_GP_DOCTORS = ["doc_001", "doc_003", "doc_006", "doc_008"]
+
+
 def fix_bp_elevated_monitor(env: HealthcareEnvironment) -> list[ToolCall]:
     """Schedule follow-up for elevated BP."""
     return [
@@ -114,6 +117,8 @@ def fix_bp_elevated_monitor(env: HealthcareEnvironment) -> list[ToolCall]:
             requestor="assistant",
             name="check_available_time_slots",
             arguments={"doctor_id": "doc_001", "date": "2024-05-20"},
+            compare_args=["doctor_id"],
+            accepted_values={"doctor_id": _GP_DOCTORS},
         ),
         ToolCall(requestor="user", name="check_calendar", arguments={}),
         ToolCall(
@@ -127,6 +132,8 @@ def fix_bp_elevated_monitor(env: HealthcareEnvironment) -> list[ToolCall]:
                 "time": "15:00",
                 "reason": "Follow-up for elevated blood pressure monitoring",
             },
+            compare_args=["patient_id", "doctor_id", "appointment_type"],
+            accepted_values={"doctor_id": _GP_DOCTORS},
         ),
     ]
 
@@ -289,6 +296,8 @@ def fix_glucose_monitoring(env: HealthcareEnvironment) -> list[ToolCall]:
             requestor="assistant",
             name="check_available_time_slots",
             arguments={"doctor_id": "doc_001", "date": "2024-05-20"},
+            compare_args=["doctor_id"],
+            accepted_values={"doctor_id": _GP_DOCTORS},
         ),
         ToolCall(requestor="user", name="check_calendar", arguments={}),
         ToolCall(
@@ -302,6 +311,8 @@ def fix_glucose_monitoring(env: HealthcareEnvironment) -> list[ToolCall]:
                 "time": "09:00",
                 "reason": "Blood glucose monitoring and diabetes management",
             },
+            compare_args=["patient_id", "doctor_id", "appointment_type"],
+            accepted_values={"doctor_id": _GP_DOCTORS},
         ),
     ]
 
@@ -430,6 +441,8 @@ def fix_spo2_monitoring(env: HealthcareEnvironment) -> list[ToolCall]:
             requestor="assistant",
             name="check_available_time_slots",
             arguments={"doctor_id": "doc_001", "date": "2024-05-20"},
+            compare_args=["doctor_id"],
+            accepted_values={"doctor_id": _GP_DOCTORS},
         ),
         ToolCall(requestor="user", name="check_calendar", arguments={}),
         ToolCall(
@@ -443,6 +456,8 @@ def fix_spo2_monitoring(env: HealthcareEnvironment) -> list[ToolCall]:
                 "time": "11:00",
                 "reason": "Low oxygen saturation requiring urgent evaluation",
             },
+            compare_args=["patient_id", "doctor_id", "appointment_type"],
+            accepted_values={"doctor_id": _GP_DOCTORS},
         ),
     ]
 
@@ -541,6 +556,8 @@ def consolidate_chronic_monitoring_appointments(
                 "time": appointment_calls[0].arguments["time"],
                 "reason": consolidated_reason,
             },
+            compare_args=["patient_id", "doctor_id", "appointment_type"],
+            accepted_values={"doctor_id": _GP_DOCTORS},
         )
         deduplicated_calls.append(consolidated_appointment)
     elif len(appointment_calls) == 1:

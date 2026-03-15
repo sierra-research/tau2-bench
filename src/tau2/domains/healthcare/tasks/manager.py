@@ -153,6 +153,9 @@ class TaskManager:
                 compare_args = getattr(tc, "compare_args", None)
                 if compare_args is not None:
                     action["compare_args"] = compare_args
+                accepted_values = getattr(tc, "accepted_values", None)
+                if accepted_values is not None:
+                    action["accepted_values"] = accepted_values
                 fix_actions.append(action)
 
         env_assertions, nl_assertions, communicate_info = self.get_env_assertions(

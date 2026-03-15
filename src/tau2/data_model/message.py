@@ -62,6 +62,10 @@ class ToolCall(BaseModel):
         default=None,
         description="List of argument keys to compare. If None, compare all. If empty list, compare only tool name.",
     )
+    accepted_values: Optional[dict[str, list]] = Field(
+        default=None,
+        description="For specific arguments, a list of accepted values (any match passes). Overrides exact equality for those arguments.",
+    )
 
     def __str__(self) -> str:
         lines = [f"ToolCall (from {self.requestor})"]
