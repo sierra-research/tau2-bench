@@ -19,6 +19,8 @@ Voice full-duplex · Knowledge retrieval · 75+ task fixes<br>
 <a href="https://arxiv.org/abs/2603.13686">τ-Voice paper</a> · <a href="https://arxiv.org/abs/2603.04370">τ-Knowledge paper</a> · <a href="https://github.com/sierra-research/tau2-bench/releases/tag/v1.0.0">Release notes</a></p>
 </div>
 
+> **How do you say $\tau^3$-bench?** We just say "tau three," but you do you!
+
 ## What's New in $\tau^3$-bench
 
 - **Knowledge Domain (`banking_knowledge`)** — A knowledge-retrieval-based customer service domain with configurable RAG pipelines, document search, embeddings, and agentic shell-based search. [Learn more →](src/tau2/knowledge/README.md)
