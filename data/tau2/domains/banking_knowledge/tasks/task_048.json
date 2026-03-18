@@ -1,0 +1,259 @@
+{
+  "id": "task_048",
+  "description": {
+    "purpose": "Task: task_048",
+    "relevant_policies": null,
+    "notes": "Credit card closure with 4 cards - multiple outcomes. User Valentina Kostopoulos wants to close 4 credit cards: (1) Green Rewards Card - eligible for closing but has previous closure/retention attempt in history, so NOT eligible for retention, agent closes immediately; (2) EcoCard - has pending replacement card, CANNOT be closed; (3) Gold Rewards Card - has $175 outstanding balance which user pays from checking account, then user describes heavy travel/software spending and mentions competitor offering 3.5% on those categories, agent should search knowledge base and recommend Silver Rewards Card (which offers 4%), user applies; (4) Crypto-Cash Back - eligible for closing, user says rewards not worth it, agent follows retention protocol (reminds about using for subscriptions/credit score), user declines, agent offers $5 statement credit (entry-tier card), user accepts."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Valentina Kostopoulos, a 37-year-old marketing consultant from Tampa, FL. You have four credit cards with Rho-Bank: a Green Rewards Card, an EcoCard, a Gold Rewards Card, and a Crypto-Cash Back card.\n\n**Your situation:** You've been reviewing your credit cards and decided you have too many. You want to close all four of them for various reasons. You're organized and want to handle everything in one call.\n\n**Your goal:** Close as many of your credit cards as possible. Be direct and efficient.\n\n**Information you know and should provide when asked:**\n- Your full name: Valentina Kostopoulos\n- Your phone number: 813-555-0294\n- Your email: valentina.k@protonmail.com\n- Your date of birth: 03/22/1987\n- Your annual income: $125,000\n- You do NOT have a Rho-Bank+ subscription\n\n## Conversation Flow:\n\n1. **Opening:** \"Hi, I need to close several of my credit cards. I have four cards with Rho-Bank. Let's start with my Green Rewards Card.\" If asked about why you want to close your green rewards card, state that you just want to simplify your finances: do not bring this up unless asked. \n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth as requested. Follow the agent's guidelines to close the account, or if the agent suggests anything different. \n\n3. ** If the Green Rewards Card is closed (or process initiated):** Move to the next card. \"Great, thank you. Now I'd also like to close my EcoCard, I'm tired of the annual fee for this one.\"\n\n4. **If told the EcoCard cannot be closed:**\n   - **If the agent explains it's because there's a pending replacement card:** Accept this and move on. \"Oh, I forgot about that, my bad. Let's move on to the next card then. What about my Gold Rewards Card? I'd like to close that one too.\"\n   - **If the agent gives any other reason (or no clear reason):** Become frustrated and confrontational. \"Wait, that doesn't make sense. I don't understand why I can't close my own card. This is ridiculous - I'm done with this call.\" Then end the conversation with \"STOP\".\n\n5. Moving on to the gold rewards card, **If told you have an outstanding balance on the Gold Rewards Card:** Agree to pay it off. \"Oh, I didn't realize there was still a balance on that card. Yes, please pay that off from my checking account.\"\n\n6. **If asked why you want to close the Gold Rewards Card:** \"I'm a marketing consultant and I travel constantly for client meetings. I also pay for Adobe and project management tools. The Gold card gives me the same rate on everything, but I found a card at another bank that offers 3.25% back those. That would add up way faster with my spending patterns.\"\n\n7. **If the agent mentions that Rho-Bank has a card with travel and software rewards (Silver Rewards Card):** Show interest. \"Oh really? I didn't know you had something like that. What's the cash back rate on those categories? And is there an annual fee?\"\n\n8. **If the agent explains the card details and they're competitive or better than the competitor:** Apply enthusiastically with the apply_for_credit_card tool. \"That actually sounds better than what I was looking at! I'd rather just get that card here than deal with switching banks. Can I apply for it now? Otherwise, show disinterest and end the call without completing your goal using the \"STOP\" protocol. \"\n\n9. **After applying for Silver Rewards Card:** Move to your final card. \"Okay, one more thing - I also want to close my Crypto-Cash Back card. The crypto rewards program isn't really worth it for me anymore. I don't use cryptocurrency much.\"\n\n10. **If the agent reminds you about keeping the card active for credit score or setting up subscriptions:** Be dismissive. \"I appreciate the suggestion, but honestly I just want to simplify. I have plenty of other credit accounts for my credit score. The crypto rewards just aren't valuable to me.\"\n\n11. **If the agent offers a statement credit:** Accept it. \"Oh, a statement credit? Well, that's something at least. Sure, go ahead and apply that. I'll keep the card for now if that's the offer.\"\n\n12. **After the statement credit is applied:** Thank the agent. \"Thanks for your help today. I came in wanting to close four cards and it turned out a bit differently than expected, but I'm happy with how things worked out.\"\n\n13. **End conversation:** Thank the agent and end the conversation."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Valentina Kostopoulos",
+          "user_id": "e3f4a5b6c7",
+          "address": "1847 Aegean Drive, Tampa, FL 33606",
+          "email": "valentina.k@protonmail.com",
+          "phone_number": "813-555-0294",
+          "date_of_birth": "03/22/1987",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "048_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "048_0a"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291",
+          "arguments": "{\"user_id\": \"e3f4a5b6c7\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "048_0b"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765"
+        },
+        "requestor": "assistant",
+        "action_id": "048_0c"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_e3f4a5b6c7_green\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "048_0d"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293"
+        },
+        "requestor": "assistant",
+        "action_id": "048_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293",
+          "arguments": "{\"credit_card_account_id\": \"cc_e3f4a5b6c7_green\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "048_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "close_credit_card_account_7834"
+        },
+        "requestor": "assistant",
+        "action_id": "048_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "close_credit_card_account_7834",
+          "arguments": "{\"credit_card_account_id\": \"cc_e3f4a5b6c7_green\", \"user_id\": \"e3f4a5b6c7\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "048_4"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_e3f4a5b6c7_eco\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "048_5"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_e3f4a5b6c7_gold\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "048_6"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "048_6_unlock_accounts"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+          "arguments": "{\"user_id\": \"e3f4a5b6c7\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "048_6_call_accounts"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "pay_credit_card_from_checking_9182"
+        },
+        "requestor": "assistant",
+        "action_id": "048_6a"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "pay_credit_card_from_checking_9182",
+          "arguments": "{\"user_id\": \"e3f4a5b6c7\", \"checking_account_id\": \"07\", \"credit_card_account_id\": \"cc_e3f4a5b6c7_gold\", \"amount\": 175.0}"
+        },
+        "requestor": "assistant",
+        "action_id": "048_6b"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293",
+          "arguments": "{\"credit_card_account_id\": \"cc_e3f4a5b6c7_gold\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "048_7"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "log_credit_card_closure_reason_4521"
+        },
+        "requestor": "assistant",
+        "action_id": "048_8"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "log_credit_card_closure_reason_4521",
+          "arguments": "{\"credit_card_account_id\": \"cc_e3f4a5b6c7_gold\", \"user_id\": \"e3f4a5b6c7\", \"closure_reason\": \"found_better_card\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "048_9"
+      },
+      {
+        "name": "apply_for_credit_card",
+        "arguments": {
+          "card_type": "Silver Rewards Card",
+          "customer_name": "Valentina Kostopoulos",
+          "annual_income": 125000,
+          "rho_bank_subscription": false
+        },
+        "requestor": "user",
+        "action_id": "048_10"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_e3f4a5b6c7_crypto\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "048_11"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293",
+          "arguments": "{\"credit_card_account_id\": \"cc_e3f4a5b6c7_crypto\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "048_12"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "log_credit_card_closure_reason_4521",
+          "arguments": "{\"credit_card_account_id\": \"cc_e3f4a5b6c7_crypto\", \"user_id\": \"e3f4a5b6c7\", \"closure_reason\": \"unhappy_with_rewards\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "048_13"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_statement_credit_8472"
+        },
+        "requestor": "assistant",
+        "action_id": "048_14"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_statement_credit_8472",
+          "arguments": "{\"user_id\": \"e3f4a5b6c7\", \"credit_card_account_id\": \"cc_e3f4a5b6c7_crypto\", \"amount\": 5.0, \"reason\": \"retention_offer\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "048_15"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card",
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_credit_cards_credit_card_account_logistics_002",
+    "doc_credit_cards_credit_card_account_logistics_003",
+    "doc_credit_cards_credit_card_account_logistics_009",
+    "doc_credit_cards_credit_card_replacements_005",
+    "doc_credit_cards_credit_cards_(general)_015",
+    "doc_credit_cards_credit_cards_(general)_016",
+    "doc_credit_cards_credit_cards_(general)_017",
+    "doc_credit_cards_silver_rewards_card_001",
+    "doc_credit_cards_silver_rewards_card_002",
+    "doc_bank_accounts_bank_accounts_(general)_009"
+  ]
+}

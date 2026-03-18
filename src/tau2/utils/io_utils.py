@@ -25,10 +25,23 @@ def expand_paths(paths: list[str], extension: str | None = None) -> list[str]:
         if path_obj.is_file():
             files.append(str(path_obj))
         elif path_obj.is_dir():
-            # Find all files in directory
-            for file_path in path_obj.rglob("*"):
-                if file_path.is_file():
-                    files.append(str(file_path))
+            # Special handling for simulations directory
+            if extension == ".json" and (
+                path_obj.name == "simulations"
+                or path_obj.parent.name == "tau2"
+                and path_obj.name == "simulations"
+            ):
+                # Look for new structure: simulations/<name>/results.json
+                for subdir in path_obj.iterdir():
+                    if subdir.is_dir():
+                        sim_file = subdir / "results.json"
+                        if sim_file.exists():
+                            files.append(str(sim_file))
+            else:
+                # Find all files in directory
+                for file_path in path_obj.rglob("*"):
+                    if file_path.is_file():
+                        files.append(str(file_path))
         else:
             # Try as glob pattern
             matched_files = glob.glob(path)

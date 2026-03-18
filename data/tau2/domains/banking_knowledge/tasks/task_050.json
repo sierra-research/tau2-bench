@@ -1,0 +1,153 @@
+{
+  "id": "task_050",
+  "description": {
+    "purpose": "Task: task_050",
+    "relevant_policies": null,
+    "notes": "Credit limit increase request - simple approval flow. User Sofia Papadopoulos requests a credit limit increase on her Gold Rewards Card. The agent verifies eligibility (account age, no pending disputes, no recent CLI requests, good payment history) and approves the increase."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Sofia Papadopoulos, a 38-year-old architect from Queens, NY. You have a Gold Rewards Card with Rho-Bank that you've had for over two years.\n\n**Your situation:** You've been using your Gold Rewards Card regularly and always pay on time. You have an upcoming renovation project and will need to make some large purchases, so you'd like to increase your credit limit.\n\n**Your goal:** Get a credit limit increase on your Gold Rewards Card.\n\n**Information you know and should provide when asked:**\n- Your full name: Sofia Papadopoulos\n- Your phone number: 347-555-0387\n- Your email: sofia.p@outlook.com\n- Your date of birth: 01/25/1986\n\n## Conversation Flow:\n\n1. **Opening:** \"Hi, I'd like to request a credit limit increase on my Gold Rewards Card. I have some large purchases coming up for a home renovation project.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth as requested.\n\n3. **If asked about the increase amount:** \"I'd like to increase my limit by $2,500 if possible. That should give me enough headroom for the renovation expenses.\"\n\n4. **If asked for a reason:** \"It's for an upcoming home renovation project. I'll be purchasing appliances, materials, and paying contractors over the next few months.\"\n\n5. **If the agent confirms the increase is approved:** Express gratitude. \"That's great news! Thank you so much for your help. I really appreciate how quick and easy that was.\"\n\n6. **End conversation:** Thank the agent and end the conversation politely. \"Thanks again. Have a great day!\""
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Sofia Papadopoulos",
+          "user_id": "584f9c5d00",
+          "address": "1456 Astoria Boulevard, Queens, NY 11102",
+          "email": "sofia.p@outlook.com",
+          "phone_number": "347-555-0387",
+          "date_of_birth": "01/25/1986",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "050_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "submit_credit_limit_increase_request_7392"
+        },
+        "requestor": "assistant",
+        "action_id": "050_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "submit_credit_limit_increase_request_7392",
+          "arguments": "{\"credit_card_account_id\": \"cc_584f9c5d00_gold\", \"user_id\": \"584f9c5d00\", \"requested_increase_amount\": 2500}"
+        },
+        "requestor": "assistant",
+        "action_id": "050_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "050_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291",
+          "arguments": "{\"user_id\": \"584f9c5d00\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "050_4"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765"
+        },
+        "requestor": "assistant",
+        "action_id": "050_5"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_584f9c5d00_gold\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "050_6"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_credit_limit_increase_history_4829"
+        },
+        "requestor": "assistant",
+        "action_id": "050_7"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_credit_limit_increase_history_4829",
+          "arguments": "{\"credit_card_account_id\": \"cc_584f9c5d00_gold\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "050_8"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_payment_history_6183"
+        },
+        "requestor": "assistant",
+        "action_id": "050_9"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_payment_history_6183",
+          "arguments": "{\"credit_card_account_id\": \"cc_584f9c5d00_gold\", \"months\": 3}"
+        },
+        "requestor": "assistant",
+        "action_id": "050_10"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "approve_credit_limit_increase_5847"
+        },
+        "requestor": "assistant",
+        "action_id": "050_11"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "approve_credit_limit_increase_5847",
+          "arguments": "{\"credit_card_account_id\": \"cc_584f9c5d00_gold\", \"user_id\": \"584f9c5d00\", \"new_credit_limit\": 7500}"
+        },
+        "requestor": "assistant",
+        "action_id": "050_12"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [],
+  "required_documents": [
+    "doc_credit_cards_credit_card_account_logistics_004",
+    "doc_credit_cards_credit_card_account_logistics_005",
+    "doc_credit_cards_credit_card_account_logistics_006",
+    "doc_credit_cards_credit_card_account_logistics_007",
+    "doc_credit_cards_credit_card_replacements_005",
+    "doc_credit_cards_credit_cards_(general)_016"
+  ]
+}

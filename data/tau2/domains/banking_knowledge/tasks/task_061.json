@@ -1,0 +1,124 @@
+{
+  "id": "task_061",
+  "description": {
+    "purpose": "Task: task_061",
+    "relevant_policies": null,
+    "notes": "ORDER-DEPENDENT MULTI-TASK WITH EARLY CLOSURE FEE: SAVINGS ACCOUNT OPENING + CHECKING ACCOUNT CLOSURE. Similar to task_060, but with an additional complication: the Green Account was opened within the 60-day early closure window, so a $25 early closure fee applies. The user has TWO checking accounts: (1) Green Account opened ~44 days ago with $0 balance, (2) Silver Account opened 10 days ago. User wants to CLOSE the Green Account AND open a savings account. CRITICAL DEPENDENCIES: (1) Per policy, personal savings requires a checking account that has been open for at least 14 days - agent must open savings FIRST before closing Green Account. (2) Per closure policy, mid-tier accounts (Green Account) have a $25 early closure fee if closed within 60 days. The fee is deducted directly from the account balance, so the account must have at least $25 before closing. The user solves this by depositing a $25 check into the Green Account before it can be closed."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Morgan Mitchell, a 34-year-old UX designer from Denver, CO. You have been a Rho-Bank customer for about 6 weeks. You currently have two checking accounts with Rho-Bank.\n\n**Your situation:** You have a Green (Checking) Account and a Silver (Checking) Account. You want to simplify your finances by closing the Green Account (you prefer to keep the Silver Account) and you also want to open a savings account to start building an emergency fund. The Green Account has no money in it - you already moved the funds out. You have very specific needs for your savings account. You also have a $25 check from a friend that you haven't deposited yet.\n\n**Your goal:** Close your Green checking account and open a savings account with a recommendation based on your detailed needs.\n\n**Verification info:**\n- Name: Morgan Mitchell | Phone: 303-555-0912 | Email: morgan.mitchell@gmail.com\n- DOB: 04/18/1990\n\n## Conversation Flow:\n\n1. **Opening - Lead with closing, mention savings briefly:** \"Hi, I need some help managing my accounts. I have two checking accounts with you - a Green Account and a Silver Account - and honestly, having two checking accounts is getting confusing. First, I want to close my Green Account and just keep the Silver one going forward. The Green Account is empty - I already moved the money out. And second, I've also been meaning to open a savings account.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address.\n\n3. **If the agent wants to address the savings account first:**\n   - **Initial pushback:** \"Wait, can we do the account closure first? I really want to get rid of that Green Account - it's been on my mind. The savings account can wait.\"\n   - **If the agent explains WHY savings must come first** (e.g., mentions the 14-day policy, explains that closing the Green Account first would make you ineligible for savings because the Silver Account is too new, or otherwise provides a logical reason for the order): \"Oh, I didn't realize that! Okay, that makes sense. Let's do the savings account first then. What do you need to know?\"\n   - **If the agent just insists without explaining** (e.g., \"Let's just do savings first\" or \"I'd prefer to start with savings\"): Push back again: \"But why? I really want to close that account first. Is there a reason we can't?\"\n   - **Key:** You want BOTH tasks accomplished, so once the agent provides a valid explanation for the order, accept it and proceed cooperatively. Don't be difficult just to be difficult - you just want to understand why.\n\n4. **When asked about your savings needs, reveal your requirements organically:**\n\n   - **Withdrawals (CRITERION 1):** \"I tend to tap into my savings pretty frequently - probably around 12 to 15 times a month. I know that might seem like a lot, but between occasional transfers and small purchases, it adds up. I don't want to get hit with fees every time.\"\n\n   - **Relationship bonus (CRITERION 2):** \"Since I already have checking accounts with you, is there some kind of loyalty bonus or extra interest rate for existing customers? I'd like to get rewarded for keeping all my banking with Rho-Bank.\"\n\n   - **Minimum balance (CRITERION 3):** \"I can realistically keep around $2,500 to $3,000 in there. Maybe $4,000 tops if I'm being optimistic. I definitely can't commit to keeping $10,000 or more just sitting in savings.\"\n\n   - **Daily compounding (CRITERION 4):** \"I want daily compounding - I've read that makes a real difference over time. Monthly compounding just doesn't feel as good to me.\"\n\n   - **ATM fee rebates (CRITERION 5):** \"Oh, and I use out-of-network ATMs sometimes when I'm traveling for work. It would be great if I could get those ATM fees reimbursed. Does any savings account offer that?\"\n\n   - **Savings goals tracking (CRITERION 6):** \"I'm trying to be more organized with my money. Do you have anything with built-in savings goals? Like where I can set targets and track my progress?\"\n\n   - **Red herring - Eco:** \"I care about the environment - do you have any green or eco-friendly savings options?\"\n\n   - **Red herring - Premium:** \"Also, I want something that's not too basic. What's your best premium savings account?\"\n\n5. **If given multiple options:** Push back. \"I don't really want to compare a bunch of options. Can you just tell me which ONE account fits everything I mentioned? I trust you to figure it out.\"\n\n6. **Accept the agent's recommendation:** \"That sounds perfect! Let's open that one.\"\n\n7. **If agent offers to transfer funds for the opening deposit:**\n   - Decline: \"No thanks, I'll fund it myself later. Let's just proceed and then close the Green Account.\"\n\n8. **After savings is opened, confirm closure:** \"Great! Now let's close that Green Account.\"\n\n9. **If the agent mentions an early closure fee or that the account needs funds:**\n   - Say: \"Oh, there's an early closure fee? How much is it?\"\n   - After they tell you: \"That's fine. Actually, I have a check for exactly $25 that I haven't deposited yet - it's from a friend who paid me back for lunch. Can I just deposit that into the Green Account to cover the fee?\"\n   - Use the deposit_check_3847 tool to deposit the $25 check into your Green Account (account_id: 61d4e5f6a7b8c901)\n   - After depositing: \"Okay, the check is deposited. Now can we close the account?\"\n\n10. **If the agent does NOT mention the early closure fee and tries to close the account with $0 balance:**\n   - The tool should fail or the agent should catch this. If the agent asks you to add funds:\n   - \"Oh, I need money in there? How much? I have a $25 check I can deposit.\"\n   - Deposit the check and proceed.\n\n11. **After the Green Account is closed and confirmed:**\n   - Say: \"Perfect! That's everything I needed. Thank you so much for your help today!\"\n   - **IMMEDIATELY end the conversation with the STOP protocol: ###STOP###**\n   - Do NOT ask any follow-up questions about fees, confirmations, or anything else.\n   - The conversation is COMPLETE once the Green Account closure is confirmed."
+  },
+  "initial_state": {
+    "initialization_data": null,
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Morgan Mitchell",
+          "user_id": "mm61b4c8d3",
+          "address": "7832 Aspen Ridge Lane, Denver, CO 80210",
+          "email": "morgan.mitchell@gmail.com",
+          "phone_number": "303-555-0912",
+          "date_of_birth": "04/18/1990",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "061_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "061_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+          "arguments": "{\"user_id\": \"mm61b4c8d3\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "061_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821"
+        },
+        "requestor": "assistant",
+        "action_id": "061_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821",
+          "arguments": "{\"user_id\": \"mm61b4c8d3\", \"account_type\": \"savings\", \"account_class\": \"Silver Plus Account\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "061_4"
+      },
+      {
+        "name": "give_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "deposit_check_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "061_5"
+      },
+      {
+        "name": "call_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "deposit_check_3847",
+          "arguments": "{\"account_id\": \"61d4e5f6a7b8c901\", \"check_amount\": 25}"
+        },
+        "requestor": "user",
+        "action_id": "061_6"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "close_bank_account_7392"
+        },
+        "requestor": "assistant",
+        "action_id": "061_7"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "close_bank_account_7392",
+          "arguments": "{\"account_id\": \"61d4e5f6a7b8c901\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "061_8"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_002",
+    "doc_bank_accounts_bank_accounts_(general)_005",
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_bank_accounts_bank_accounts_(general)_011",
+    "doc_savings_accounts_silver_plus_account_001",
+    "doc_savings_accounts_silver_plus_account_002",
+    "doc_savings_accounts_silver_plus_account_004",
+    "doc_savings_accounts_gold_account_001",
+    "doc_savings_accounts_green_account_(savings)_001",
+    "doc_savings_accounts_bronze_account_001",
+    "doc_savings_accounts_silver_account_001",
+    "doc_checking_accounts_green_account_(checking)_001"
+  ]
+}

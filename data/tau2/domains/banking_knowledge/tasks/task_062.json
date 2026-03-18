@@ -1,0 +1,162 @@
+{
+  "id": "task_062",
+  "description": {
+    "purpose": "Task: task_062",
+    "relevant_policies": null,
+    "notes": "FOUR-TASK ORDER-DEPENDENT CHALLENGE: User wants to (1) Close personal savings, (2) Open business checking, (3) Close personal checking, (4) Open personal savings. User presents tasks in WRONG order that would cause all 4 to fail. CRITICAL DEPENDENCIES: Business checking requires NO accounts with CLOSED status - any closure first blocks it. Personal savings requires checking account open 14+ days - user's older checking (Evergreen, 8 months) qualifies but newer checking (Light Blue, 12 days) does NOT. If agent follows user's order: Close savings \u2192 CLOSED account exists \u2192 Business checking blocked forever. Even if agent skips to personal checking closure \u2192 Only 12-day-old account remains \u2192 Personal savings blocked. THE ONLY VALID ORDER: (1) Open business checking first (no closed accounts yet), (2) Open personal savings (while Evergreen still exists), (3) Close old personal savings, (4) Close Evergreen checking. Agent must recognize the dependency chain and reorder ALL four tasks."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Jordan Chen, a 36-year-old marketing consultant from Seattle, WA. You just formed an LLC for your freelance consulting business and want to reorganize your banking.\n\n**Your situation:** You have three accounts with Rho-Bank. \n\nYou want to simplify by closing some accounts and setting up business banking.\n\n**Your goal:** Complete a full banking reorganization: close accounts you don't need, open business checking for your new LLC, and upgrade to a better savings account.\n\n**Verification info:**\n- Name: Jordan Chen | Email: jordan.chen@consulting.io\n- DOB: 03/15/1988 | Address: 4521 Pine Street, Seattle, WA 98101\n\n## Conversation Flow:\n\n1. **Opening - Present ALL FOUR tasks in this specific order (closures first):** \"Hi there! I need help with a pretty big banking overhaul. So here's what I want to do:\n   - First, I want to close my Bronze savings account \n   - Second, I need to open a business checking account for my new LLC - I just got my business registered\n   - Third, I want to close my Evergreen checking account \n   - And fourth, I'd like to open a new personal savings account \n   Can you help me with all of this?\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address.\n\n3. **If the agent suggests a different order:**\n   - Initially push back slightly: \"Wait, why can't we just do the closures first? That's the logical order - clean up before adding new stuff.\"\n   - If the agent explains the dependencies for why you have to do it this way, accept: \"Oh wow, I had no idea! That's... complicated. Okay, you're the expert - let's do it your way. Do not accept the different order unless the agent explains the dependencies. If the agent acquiesces and does it in your suggested order, continue with the conversation. \"\n\n4. **For business checking selection:**\n   - When asked about needs: \"For the business checking, I just need something basic to start. Low fees, ability to accept client payments, maybe 50-100 transactions a month. Nothing fancy.\"\n   - If agent asks follow-up questions or presents options, progressively reveal these criteria:\n     - **Zero monthly fees (CRITERION 1):** \"I really don't want any monthly maintenance fees at all - even waivable ones. I want genuinely $0 fees.\"\n     - **No minimum balance (CRITERION 2):** \"I'm just starting out, so I can't commit to keeping a minimum balance. Some months the account might be pretty low.\"\n     - **Not startup-specific (CRITERION 3):** If agent suggests Sky Blue, say: \"I saw something about startup accounts having a free trial period that expires? I want a regular business account that stays free, not one where fees kick in later.\"\n   - Accept Navy Blue when recommended: \"Navy Blue sounds perfect for what I need. Let's go with that.\"\n\n 5. **For personal savings selection - reveal requirements organically:**\n   - **Minimum balance (CRITERION 1):** \"I can probably keep around $2,500 to $3,000 in savings. I don't have a ton of extra cash sitting around.\"\n   - **Withdrawal frequency (CRITERION 2):** \"I might need to dip into it 10-15 times a month - is that okay? I know some accounts limit withdrawals.\"\n   - **Interest compounding (CRITERION 3):** \"I want daily compounding for the interest. Monthly just doesn't add up as fast.\"\n   - **Relationship bonus (CRITERION 4):** \"Since I have checking accounts with you, is there a loyalty bonus or extra interest?\"\n   - **ATM rebates (CRITERION 5):** \"I use random ATMs sometimes when I'm meeting clients. Do any savings accounts reimburse those fees?\"\n   - If recommended Silver Plus Account: \"Silver Plus sounds perfect. Let's do that one.\"\n\n6. **After agent opens business checking:** \"Great, that went through?\"\n\n7. **After agent opens personal savings:** \"Awesome! So now I have the new savings. What about closing my old accounts?\"\n\n7b. **If agent offers to transfer funds for the opening deposit:**\n   - Decline: \"No thanks, I'll fund it myself later.\"\n\n8. **For closing Bronze savings:**\n   - \"Yes, close the Bronze savings. The $150 in there - can you transfer that to my new Silver Plus savings?\"\n   - After transfer and closure: \"Perfect. \"\n\n9. **For closing Evergreen checking:**\n   - \"Now let's close the Evergreen. Transfer the $3,500 to... actually, split it - put $2,500 in my new Silver Plus savings and $1,000 in my new business checking. Then close the Evergreen.\"\n   - After transfers and closure: \"Great! \"\n\n ###STOP###\n\n"
+  },
+  "initial_state": {
+    "initialization_data": null,
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Jordan Chen",
+          "user_id": "jc61f7a8d2",
+          "address": "4521 Pine Street, Seattle, WA 98101",
+          "email": "jordan.chen@consulting.io",
+          "phone_number": "206-555-0847",
+          "date_of_birth": "03/15/1988",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "062_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "062_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+          "arguments": "{\"user_id\": \"jc61f7a8d2\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "062_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821"
+        },
+        "requestor": "assistant",
+        "action_id": "062_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821",
+          "arguments": "{\"user_id\": \"jc61f7a8d2\", \"account_type\": \"business_checking\", \"account_class\": \"Navy Blue\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "062_4"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821",
+          "arguments": "{\"user_id\": \"jc61f7a8d2\", \"account_type\": \"savings\", \"account_class\": \"Silver Plus Account\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "062_5"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "transfer_funds_between_bank_accounts_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "062_6"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "transfer_funds_between_bank_accounts_7291",
+          "arguments": "{\"source_account_id\": \"61c9d8e7f6a5b432\", \"destination_account_id\": \"354e3d677cba2b12\", \"amount\": 150}"
+        },
+        "requestor": "assistant",
+        "action_id": "062_7"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "close_bank_account_7392"
+        },
+        "requestor": "assistant",
+        "action_id": "062_8"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "close_bank_account_7392",
+          "arguments": "{\"account_id\": \"61c9d8e7f6a5b432\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "062_9"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "transfer_funds_between_bank_accounts_7291",
+          "arguments": "{\"source_account_id\": \"61a8b7c6d5e4f321\", \"destination_account_id\": \"354e3d677cba2b12\", \"amount\": 2500}"
+        },
+        "requestor": "assistant",
+        "action_id": "062_10"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "transfer_funds_between_bank_accounts_7291",
+          "arguments": "{\"source_account_id\": \"61a8b7c6d5e4f321\", \"destination_account_id\": \"e22d00f03a5d044e\", \"amount\": 1000}"
+        },
+        "requestor": "assistant",
+        "action_id": "062_11"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "close_bank_account_7392",
+          "arguments": "{\"account_id\": \"61a8b7c6d5e4f321\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "062_12"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_002",
+    "doc_bank_accounts_bank_accounts_(general)_003",
+    "doc_bank_accounts_bank_accounts_(general)_005",
+    "doc_bank_accounts_bank_accounts_(general)_006",
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_savings_accounts_silver_plus_account_001",
+    "doc_savings_accounts_silver_plus_account_002",
+    "doc_savings_accounts_silver_plus_account_004",
+    "doc_business_checking_accounts_navy_blue_001",
+    "doc_business_checking_accounts_lime_green_001",
+    "doc_business_checking_accounts_true_blue_001",
+    "doc_business_checking_accounts_sky_blue_001",
+    "doc_business_checking_accounts_cobalt_blue_001",
+    "doc_business_checking_accounts_world_blue_001",
+    "doc_business_checking_accounts_beige_001",
+    "doc_business_checking_accounts_hunter_green_001"
+  ]
+}

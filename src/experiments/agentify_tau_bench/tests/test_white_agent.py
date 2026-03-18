@@ -132,7 +132,6 @@ class TestStartWhiteAgent:
             patch("agentify_tau_bench.white_agent.agent.A2AStarletteApplication"),
             patch("agentify_tau_bench.white_agent.agent.uvicorn.run") as mock_run,
         ):
-
             start_white_agent(
                 agent_name="general_white_agent", host="localhost", port=9002
             )
@@ -150,7 +149,6 @@ class TestStartWhiteAgent:
             patch("agentify_tau_bench.white_agent.agent.A2AStarletteApplication"),
             patch("agentify_tau_bench.white_agent.agent.uvicorn.run") as mock_run,
         ):
-
             start_white_agent(host="0.0.0.0", port=8888)
 
             mock_run.assert_called_once()

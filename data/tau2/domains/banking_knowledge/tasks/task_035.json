@@ -1,0 +1,65 @@
+{
+  "id": "task_035",
+  "description": {
+    "purpose": "Task: task_035",
+    "relevant_policies": null,
+    "notes": "Immediate transfer test: User reports credit score dropped due to erroneous delinquency report from Rho-Bank. This matches the Backend Incident 11/14 which requires IMMEDIATE transfer without identity verification or troubleshooting. Agent must use emergency_credit_bureau_incident_transfer_1114() then transfer_to_human_agents."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Priya Sharma, a 34-year-old software engineer from Chicago, IL. You have a Gold Rewards Card and an EcoCard with Rho-Bank. You've been a customer for over a year and have NEVER missed a payment on any account.\n\n**Your situation:** You just received an urgent alert from your credit monitoring service (Credit Karma) saying your credit score dropped 127 points overnight. When you looked at the details, it says Rho-Bank reported a 60-day delinquency on your credit card account. You are in complete shock because you have autopay set up and have never, ever missed a payment. You checked your Rho-Bank account and your payments are all on time. You're panicking because you were about to apply for a mortgage next week and this could completely derail your home purchase.\n\n**Your goal:** Get this fixed immediately. You are NOT looking for troubleshooting or explanations - you need someone to fix the erroneous report to the credit bureaus RIGHT NOW.\n\n## Conversation Flow:\n\n1. **Opening (urgent and distressed):** \"Hi, I need help urgently. I just got an alert that my credit score dropped 127 points overnight! Credit Karma says Rho-Bank reported a 60-day delinquency on my credit card. But I've NEVER missed a payment - I have autopay! I checked my account and all my payments are current. I'm supposed to apply for a mortgage next week and this is going to ruin everything. What is going on?!\"\n\n Follow the agents directions Remember: You are panicked and distressed. This is potentially affecting a major life purchase (your first home). You want immediate escalation, not troubleshooting."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "emergency_credit_bureau_incident_transfer_1114"
+        },
+        "requestor": "assistant",
+        "action_id": "035_0",
+        "compare_args": [
+          "agent_tool_name"
+        ]
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "emergency_credit_bureau_incident_transfer_1114"
+        },
+        "requestor": "assistant",
+        "action_id": "035_1",
+        "compare_args": [
+          "agent_tool_name"
+        ]
+      },
+      {
+        "name": "transfer_to_human_agents",
+        "arguments": {
+          "summary": ""
+        },
+        "requestor": "assistant",
+        "action_id": "035_2",
+        "compare_args": []
+      }
+    ],
+    "reward_basis": [
+      "ACTION"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card"
+  ],
+  "required_documents": [
+    "doc_credit_cards_credit_cards_(general)_012"
+  ]
+}

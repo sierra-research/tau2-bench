@@ -230,6 +230,102 @@ class RewardType(str, Enum):
     COMMUNICATE = "COMMUNICATE"
 
 
+class TaskIssueStatus(str, Enum):
+    """Status of a task issue."""
+
+    OPEN = "open"
+    RESOLVED = "resolved"
+    WONT_FIX = "wont_fix"
+
+
+class TaskIssue(BaseModel):
+    """
+    An issue or discussion point about a task.
+    Used to track potential problems, decisions made, and their resolutions.
+    """
+
+    id: str = Field(description="Unique identifier for the issue.")
+    title: str = Field(description="Short summary of the issue.")
+    description: Annotated[
+        Optional[str],
+        Field(
+            description="Detailed description of the issue or discussion point.",
+            default=None,
+        ),
+    ]
+    status: Annotated[
+        TaskIssueStatus,
+        Field(
+            description="Current status of the issue.",
+            default=TaskIssueStatus.OPEN,
+        ),
+    ]
+    resolution: Annotated[
+        Optional[str],
+        Field(
+            description="Explanation of how/why the issue was resolved or won't be fixed.",
+            default=None,
+        ),
+    ]
+    created_at: Annotated[
+        Optional[str],
+        Field(
+            description="ISO date (YYYY-MM-DD) when the issue was created.",
+            default=None,
+        ),
+    ]
+    resolved_at: Annotated[
+        Optional[str],
+        Field(
+            description="ISO date (YYYY-MM-DD) when the issue was resolved.",
+            default=None,
+        ),
+    ]
+    author_email: Annotated[
+        Optional[str],
+        Field(
+            description="Email of the person who raised this issue.",
+            default=None,
+        ),
+    ]
+    pr_link: Annotated[
+        Optional[str],
+        Field(
+            description="Link to the PR that fixes this issue.",
+            default=None,
+        ),
+    ]
+    simulation_file: Annotated[
+        Optional[str],
+        Field(
+            description="Relative path to a simulation result file demonstrating the issue (e.g., 'task_issues/task_0_issue_001.json').",
+            default=None,
+        ),
+    ]
+
+    def __str__(self) -> str:
+        lines = []
+        status_icon = {"open": "🔴", "resolved": "✅", "wont_fix": "⚪"}.get(
+            self.status.value, ""
+        )
+        lines.append(f"{status_icon} [{self.id}] {self.title}")
+        if self.description:
+            lines.append(f"  Description: {self.description}")
+        if self.resolution:
+            lines.append(f"  Resolution: {self.resolution}")
+        if self.created_at:
+            lines.append(f"  Created: {self.created_at}")
+        if self.resolved_at:
+            lines.append(f"  Resolved: {self.resolved_at}")
+        if self.author_email:
+            lines.append(f"  Author: {self.author_email}")
+        if self.pr_link:
+            lines.append(f"  PR: {self.pr_link}")
+        if self.simulation_file:
+            lines.append(f"  Simulation: {self.simulation_file}")
+        return "\n".join(lines)
+
+
 class EvaluationCriteria(BaseModel):
     """
     Evaluation criteria for a particular task. This will be sent to the evaluator.
@@ -436,6 +532,29 @@ class Task(BaseModel):
             default=None,
         ),
     ]
+    issues: Annotated[
+        Optional[list[TaskIssue]],
+        Field(
+            description="List of issues, discussions, or notes about this task.",
+            default=None,
+        ),
+    ]
+    required_documents: Annotated[
+        Optional[list[str]],
+        Field(
+            description="List of document titles required to solve the task (knowledge domain).",
+            default=None,
+        ),
+    ]
+    user_tools: Annotated[
+        Optional[list[str]],
+        Field(
+            description="List of user tool names available to the user simulator for this task. "
+            "If None, all domain user tools are available (backward compatible). "
+            "If empty list, no user tools are available.",
+            default=None,
+        ),
+    ]
 
     def __str__(self) -> str:
         lines = []
@@ -451,6 +570,9 @@ class Task(BaseModel):
         if self.evaluation_criteria is not None:
             lines.append("Evaluation Criteria:")
             lines.append(textwrap.indent(str(self.evaluation_criteria), "\t"))
+        if self.issues is not None and len(self.issues) > 0:
+            lines.append("Issues:")
+            lines.extend([textwrap.indent(str(issue), "\t") for issue in self.issues])
         return "\n".join(lines)
 
 

@@ -1,0 +1,99 @@
+{
+  "id": "task_058",
+  "description": {
+    "purpose": "Task: task_058",
+    "relevant_policies": null,
+    "notes": "SAVINGS + CREDIT CARD OPTIMIZATION CHALLENGE (HARD MODE): User with existing Light Blue checking account wants to open a credit card AND a savings account to maximize NET annual yield on a $20,000 deposit held for one year. THE TRIPLE TRAP: (1) Agent cannot just pick highest base APY account - Gold Account (5.5%) is NOT optimal. (2) Agent cannot just pick $0 fee card - Bronze/Silver Rewards cards are NOT optimal. (3) Agent must discover that EcoCard's massive +2.2% bonus to Silver Account makes Silver (4.0% base) beat Gold (5.5% base) AFTER the card bonus. OPTIMAL SOLUTION: EcoCard (~$50 fee) + Silver Account (4.0% base + 2.2% bonus = 6.2%) = $1,240 interest - $50 fee = $1,190 net yield. COMPARISON TRAP PATHS: Bronze + Gold = 5.5% + 0.15% = 5.65% = $1,130 (worse). Silver Card + Gold = 5.5% + 0.2% = 5.7% = $1,140 (worse). EcoCard + Gold = 5.5% + 0.6% = 6.1% = $1,220 - $50 = $1,170 (close but worse). Agent must search KB for ALL credit card APY bonuses to each savings account to find the hidden gem: EcoCard + Silver Account."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Taylor Brooks, a 32-year-old accountant from Portland, OR. You're financially savvy and want to make the most of your money.\n\n**Your situation:** You already have a Light Blue checking account with Rho-Bank, (opened about a year ago). You've saved up $20,000 and want to:\n1. Open a credit card with Rho-Bank\n2. Open a savings account with Rho-Bank\n3. Deposit the $20,000 into the savings account and leave it untouched for one year\n\nYou want to maximize your NET annual return - that means interest earned MINUS any credit card annual fees. You are not interested in any way of opening a new checking account, no matter what.\n\n**Tools available to you:** You have access to the `apply_for_credit_card` tool that allows you to apply for credit cards. When you decide to apply for a card, immediately use this tool on your own with the card type, your name (Taylor Brooks), your annual income (85000), and rho_bank_subscription (false). Do not ask the agent for instructions on how to apply - just use the tool directly.\n\n**Verification info:**\n- Name: Taylor Brooks | Email: taylor.brooks@gmail.com\n- DOB: 09/12/1993 | Address: 2156 Hawthorne Boulevard, Portland, OR 97214\n\n## Conversation Flow:\n\n1. **Opening - State your goal clearly:** \"Hi! I already have a Light Blue checking account with you guys. I've saved up $20,000 and I want to put it to work. I'm looking to open both a credit card and a savings account. My goal is to maximize the total money I'll earn over one year - that means the interest I earn minus any annual fees. Can you help me find the best combination?\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address.\n\n3. **Reveal your requirements organically when asked:**\n\n   - **Credit card usage:** \"I don't plan to spend a lot on the credit card - maybe $1000-2000 a month on groceries and gas.\"\n\n   - **Deposit amount:** \"I have exactly $20,000 to put in savings. I won't be adding or withdrawing for a full year.\"\n\n   - **Preference for Premium:** \"I've heard premium cards sometimes have better perks. What about your top-tier cards?\"\n\n4. **If given multiple options:** Push back. \"Honestly, I don't want to compare a bunch of options. Can you just tell me which ONE combination of credit card and savings account will give me the highest net return? I trust you to figure it out.\"\n\n5. **Accept the agent's recommendation:** When the agent recommends the EcoCard and Silver Account combination, accept and immediately apply for the EcoCard using your `apply_for_credit_card` tool with card_type='EcoCard', customer_name='Taylor Brooks', annual_income=85000, rho_bank_subscription=false. Say: \"That sounds perfect! Let me apply for that EcoCard now. And please open the Silver Account for me.\"\n\n6. **After applying for the credit card:**\n   - \"Great! Can you just open the savings account for now? I'll fund it myself with the $20,000 later on, so no need to take care of it in this conversation.\"\n\n7. **After agent confirms the savings account is open - ONLY then conclude:**\n   \"Perfect! So I've applied for the EcoCard and the savings account is ready for my deposit. Thanks for finding the best combination for me - I really appreciate you doing the math on the net returns!\" ###STOP###"
+  },
+  "initial_state": {
+    "initialization_data": {
+      "users": {
+        "tb58a3c9d2": {
+          "name": "Taylor Brooks",
+          "user_id": "tb58a3c9d2",
+          "address": "2156 Hawthorne Boulevard, Portland, OR 97214",
+          "email": "taylor.brooks@gmail.com",
+          "phone_number": "503-555-0847",
+          "date_of_birth": "09/12/1993"
+        }
+      },
+      "accounts": {
+        "chk_tb58a3c9d2": {
+          "account_id": "chk_tb58a3c9d2",
+          "user_id": "tb58a3c9d2",
+          "class": "checking",
+          "level": "Light Blue Account",
+          "date_opened": "11/01/2024",
+          "status": "OPEN",
+          "current_holdings": "2500.00"
+        }
+      }
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Taylor Brooks",
+          "user_id": "tb58a3c9d2",
+          "address": "2156 Hawthorne Boulevard, Portland, OR 97214",
+          "email": "taylor.brooks@gmail.com",
+          "phone_number": "503-555-0847",
+          "date_of_birth": "09/12/1993",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "058_0"
+      },
+      {
+        "name": "apply_for_credit_card",
+        "arguments": {
+          "card_type": "EcoCard",
+          "customer_name": "Taylor Brooks",
+          "annual_income": 85000,
+          "rho_bank_subscription": false
+        },
+        "requestor": "user",
+        "action_id": "058_1"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821"
+        },
+        "requestor": "assistant",
+        "action_id": "058_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821",
+          "arguments": "{\"user_id\": \"tb58a3c9d2\", \"account_type\": \"savings\", \"account_class\": \"Silver Account\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "058_4"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card"
+  ],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_002",
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_credit_cards_ecocard_001",
+    "doc_savings_accounts_silver_account_001",
+    "doc_savings_accounts_silver_account_006"
+  ]
+}

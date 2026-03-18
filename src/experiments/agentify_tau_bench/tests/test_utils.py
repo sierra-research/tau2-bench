@@ -122,7 +122,6 @@ class TestA2AUtils:
             patch("agentify_tau_bench.utils.a2a_utils.get_agent_card") as mock_get_card,
             patch("agentify_tau_bench.utils.a2a_utils.A2AClient") as mock_client_class,
         ):
-
             mock_get_card.return_value = MagicMock()
             mock_client = AsyncMock()
             mock_client.send_message.return_value = mock_response
@@ -142,7 +141,6 @@ class TestA2AUtils:
             patch("agentify_tau_bench.utils.a2a_utils.get_agent_card") as mock_get_card,
             patch("agentify_tau_bench.utils.a2a_utils.A2AClient") as mock_client_class,
         ):
-
             mock_get_card.return_value = MagicMock()
             mock_client = AsyncMock()
             mock_client.send_message.return_value = mock_response

@@ -1,0 +1,183 @@
+{
+  "id": "task_047",
+  "description": {
+    "purpose": "Task: task_047",
+    "relevant_policies": null,
+    "notes": "Credit card closure with two cards - retention on both. User Margot Bellamy wants to close her Silver Zoom Card because she found a competitor card (Global Business Travel Plus) that offers 3.5% on travel and advertising with no foreign transaction fees and a $275 annual fee. The agent must: (1) Verify the user, (2) Check closure eligibility for Silver Zoom - account has $0 balance, no disputes, no replacement cards so eligible, (3) Check for previous retention attempts using get_closure_reason_history_8293 (none found), (4) Log the closure reason as 'found_better_card' using log_credit_card_closure_reason_4521, (5) Ask what features attracted them to the competitor, (6) Per the retention protocol for 'found_better_card': recognize that Rho-Bank's Business Platinum Rewards Card offers BETTER benefits (4% on travel, software, and media vs 3.5%, plus 0% foreign transaction fees, and first year annual fee waived for new applicants), (7) Recommend the Business Platinum Rewards Card, (8) Customer agrees and applies for Business Platinum Rewards Card, (9) Customer then mentions they also want to close their personal Platinum Rewards Card because the annual fee is too high, (10) Check closure eligibility for Platinum Rewards - account has $0 balance so eligible, (11) Check for previous retention attempts for Platinum Rewards (none found), (12) Log the closure reason as 'annual_fee', (13) Per the retention protocol for 'annual_fee': check customer tenure - customer has been a cardholder since 06/20/2024 (less than 2 years) so NOT eligible for annual fee waiver, (14) Recommend downgrading to Bronze Rewards Card, (15) Customer declines the downgrade, (16) Per Step 5 of the retention protocol, offer the elite-tier retention bonus ($50 statement credit or 5,000 bonus points), (17) Customer accepts the $50 statement credit, (18) Apply statement credit using apply_statement_credit_8472 with reason 'retention_offer'."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Margot Bellamy, a 35-year-old logistics manager from Denver, CO. You have a Silver Zoom Card for your delivery business and a personal Platinum Rewards Card with Rho-Bank.\n\n**Your situation:** You've been looking at other credit card options for your business. You found the Global Business Travel Plus card from a competitor bank, which offers 3.5% rewards on travel and advertising purchases, no foreign transaction fees, and a $275 annual fee. You want to close your Silver Zoom Card because this competitor card seems better for your business travel needs. You're also frustrated with the annual fee on your personal Platinum Rewards Card - it feels too expensive for what you're getting.\n\n**Your goal:** First, express that you want to close your Silver Zoom Card because you found a better card elsewhere. If the agent recommends a Rho-Bank business card that offers better rewards than the competitor (higher than 3.5% on travel/advertising AND no foreign fees), you'll be convinced to apply for it instead. After that, mention you also want to close your Platinum Rewards Card because the annual fee is too high. If the agent offers to downgrade the card, decline because you don't want to lose your rewards rate. However, if they offer a statement credit, accept it.\n\n**Tools available to you:** You have access to the `apply_for_credit_card` tool that allows you to apply for credit cards. When you decide to apply for a card, immediately use this tool on your own with the card type, your name (Margot Bellamy), your annual income (135000), and rho_bank_subscription (false). Do not ask the agent for instructions on how to apply - just use the tool directly.\n\n**Information you know and should provide when asked:**\n- Your full name: Margot Bellamy\n- Your phone number: 303-555-0419\n- Your email: margot.bellamy@gmail.com\n- Your date of birth: 07/18/1989\n- Your annual income: $135,000\n- You do NOT have a Rho-Bank+ subscription\n\n## Conversation Flow:\n\n1. **Opening:** \"Hi, I'd like to close my Silver Zoom Card. I've found a business card at another bank that seems to have better rewards for my needs.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth as requested.\n\n3. **When asked why you want to close or what attracted you to the competitor:** \"I've been looking at the Global Business Travel Plus card. They're offering 3.5% back on travel and advertising purchases, plus no foreign transaction fees. I do a lot of international shipping for my delivery business and I travel for vendor meetings. The Silver Zoom Card is fine for fuel but doesn't help me with the travel and advertising side of things.\"\n\n4. **If the agent recommends a Rho-Bank business card with better benefits than 3.5% and no foreign fees:** Show interest and ask about the annual fee. \"Wait, Rho-Bank has a business card with 4% back on those categories AND no foreign fees? That's actually better than what I found. What's the annual fee situation?\"\n\n5. **If the annual fee is waived for the first year or reasonable:** Accept and immediately apply using your `apply_for_credit_card` tool with card_type='Business Platinum Rewards Card', customer_name='Margot Bellamy', annual_income=135000, rho_bank_subscription=false. Say: \"Oh, the first year fee is waived? That's perfect - I'd rather not deal with switching banks if I can get better rewards here. Let me apply for that Business Platinum Rewards Card.\"\n\n6. **After applying for the Business Platinum Rewards Card:** Bring up your second concern. \"Actually, while we're on the topic of cards, I've also been thinking about closing my personal Platinum Rewards Card. The annual fee on that one is really bothering me. I don't use it as much as I used to.\"\n\n7. **If the agent offers to downgrade to a no-fee card:** Decline politely. \"Hmm, I'm not sure about downgrading. The Bronze Card only gets 1% back, right? That's a pretty big step down from what I have now. I'd rather just close it than drop to such low rewards.\"\n\n8. **If the agent offers a statement credit:** Accept it. \"A $50 statement credit? Actually, that would help offset the annual fee a bit. Yeah, go ahead and apply that. I'll keep the card for now.\"\n\n9. **After the statement credit is applied:** Thank the agent. \"Thank you! That worked out better than I expected. I came in planning to close two cards and instead I'm getting a new business card and keeping my Platinum with a credit. I appreciate your help.\"\n\n10. **End conversation:** Thank the agent and end the conversation."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Margot Bellamy",
+          "user_id": "c7d8e9f0a1",
+          "address": "2847 Lavender Lane, Denver, CO 80202",
+          "email": "margot.bellamy@gmail.com",
+          "phone_number": "303-555-0419",
+          "date_of_birth": "07/18/1989",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "047_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "047_0a"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291",
+          "arguments": "{\"user_id\": \"c7d8e9f0a1\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "047_0b"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765"
+        },
+        "requestor": "assistant",
+        "action_id": "047_0c"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_c7d8e9f0a1_szoom\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "047_0d"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293"
+        },
+        "requestor": "assistant",
+        "action_id": "047_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293",
+          "arguments": "{\"credit_card_account_id\": \"cc_c7d8e9f0a1_szoom\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "047_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "log_credit_card_closure_reason_4521"
+        },
+        "requestor": "assistant",
+        "action_id": "047_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "log_credit_card_closure_reason_4521",
+          "arguments": "{\"credit_card_account_id\": \"cc_c7d8e9f0a1_szoom\", \"user_id\": \"c7d8e9f0a1\", \"closure_reason\": \"found_better_card\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "047_4"
+      },
+      {
+        "name": "apply_for_credit_card",
+        "arguments": {
+          "card_type": "Business Platinum Rewards Card",
+          "customer_name": "Margot Bellamy",
+          "annual_income": 135000,
+          "rho_bank_subscription": false
+        },
+        "requestor": "user",
+        "action_id": "047_5"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_c7d8e9f0a1_plat\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "047_5a"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293",
+          "arguments": "{\"credit_card_account_id\": \"cc_c7d8e9f0a1_plat\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "047_6"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "log_credit_card_closure_reason_4521",
+          "arguments": "{\"credit_card_account_id\": \"cc_c7d8e9f0a1_plat\", \"user_id\": \"c7d8e9f0a1\", \"closure_reason\": \"annual_fee\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "047_7"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_statement_credit_8472"
+        },
+        "requestor": "assistant",
+        "action_id": "047_8"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_statement_credit_8472",
+          "arguments": "{\"user_id\": \"c7d8e9f0a1\", \"credit_card_account_id\": \"cc_c7d8e9f0a1_plat\", \"amount\": 50.0, \"reason\": \"retention_offer\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "047_9"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card",
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_credit_cards_credit_card_account_logistics_002",
+    "doc_credit_cards_credit_card_account_logistics_003",
+    "doc_credit_cards_credit_card_account_logistics_008",
+    "doc_credit_cards_credit_card_replacements_002",
+    "doc_credit_cards_credit_card_replacements_005",
+    "doc_credit_cards_credit_cards_(general)_016",
+    "doc_credit_cards_credit_cards_(general)_017",
+    "doc_credit_cards_platinum_rewards_card_001",
+    "doc_business_credit_cards_business_platinum_rewards_card_001",
+    "doc_business_credit_cards_business_platinum_rewards_card_002",
+    "doc_business_credit_cards_business_platinum_rewards_card_008",
+    "doc_business_credit_cards_business_platinum_rewards_card_011"
+  ]
+}

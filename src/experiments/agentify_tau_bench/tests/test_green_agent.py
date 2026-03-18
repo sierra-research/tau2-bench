@@ -82,10 +82,9 @@ class TestAskAgentToSolve:
                 "agentify_tau_bench.green_agent.agent.get_text_parts"
             ) as mock_get_text,
         ):
-
             mock_send.return_value = mock_response
             mock_get_text.return_value = [
-                f'<json>{json.dumps({"name": RESPOND_ACTION_NAME, "arguments": {"content": "Hello"}})}</json>'
+                f"<json>{json.dumps({'name': RESPOND_ACTION_NAME, 'arguments': {'content': 'Hello'}})}</json>"
             ]
 
             await ask_agent_to_solve("http://white-agent", mock_env)
@@ -127,7 +126,6 @@ class TestTauGreenAgentExecutor:
                 "agentify_tau_bench.green_agent.agent.ask_agent_to_solve"
             ) as mock_ask,
         ):
-
             mock_env = MagicMock()
             mock_gym_make.return_value = mock_env
             mock_get_task_ids.return_value = ["task1"]
@@ -166,7 +164,6 @@ class TestStartGreenAgent:
             patch("agentify_tau_bench.green_agent.agent.A2AStarletteApplication"),
             patch("agentify_tau_bench.green_agent.agent.uvicorn.run") as mock_run,
         ):
-
             mock_load.return_value = {"name": "test_agent", "description": "Test"}
 
             start_green_agent(agent_name="tau_green_agent", host="localhost", port=9001)

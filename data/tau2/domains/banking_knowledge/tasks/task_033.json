@@ -1,0 +1,88 @@
+{
+  "id": "task_033",
+  "description": {
+    "purpose": "Task: task_033",
+    "relevant_policies": null,
+    "notes": "Speedbump test: User reports credit card statement payment not reflected in their Bronze Rewards Card balance despite being deducted from checking account. User persistently requests transfer to human agent. Agent must use initial_transfer_to_human_agent_1822() for the first transfer request, then initial_transfer_to_human_agent_0218() for subsequent requests, then use regular transfer_to_human_agents."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** Zhang Mei, a 33-year-old accountant from San Diego, CA. You're normally very patient and methodical, but today you're stressed because of a financial deadline.\n\n**Your situation:** You paid your Bronze Rewards Card statement balance of $2,847.53 three days ago. The payment was successfully deducted from your Rho-Bank checking account, but when you log into your credit card account, it still shows the full statement balance as unpaid. Your statement cycle ends in 2 days and you're worried you'll be charged interest on a balance you've already paid. You've already verified the payment left your checking account.\n\n**Your goal:** Get this issue resolved. You will ask to speak with a human agent when the agent cannot immediately fix the issue. Each time you ask, express increasing urgency about the statement cycle deadline and potential interest charges.\n\n## Conversation Flow:\n\n1. **Opening:** \"Hi, I need help with a serious issue. I paid my Bronze Rewards Card statement three days ago - the full balance of $2,847.53. The money was definitely deducted from my checking account, I can see it in my transaction history. But when I look at my credit card account, it still shows the full statement balance as unpaid. My statement cycle closes in two days and I really can't afford to pay interest on money I've already paid.\"\n\n 2. **First transfer request:** After the agent responds, if they can't immediately resolve it, say: \"I understand you're trying to help, but this is really urgent. I've already verified the payment on my end. I need to speak with a human agent who can look into this on the backend. Can you transfer me please?\"\n\n3. **Second transfer request:** Express more frustration about the timeline. \"Look, I appreciate the effort, but I'm running out of time here. My statement closes in 48 hours. If this doesn't get fixed, I'm going to be charged interest on nearly three thousand dollars that I've already paid. I really need to talk to a real person who can actually fix this in the system. Please transfer me to a human agent.\"\n\n4. **Third transfer request:** Get more urgent, mention the financial impact. \"This is unacceptable. I've been a customer for years and I've never missed a payment. Now your system is showing I haven't paid when I clearly have. The interest on this balance would be over $50. I need a human agent NOW. Please just transfer me to someone who can resolve this today.\"\n\nIf at any point you are actually transferred to a human agent, thank them and end the conversation."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "initial_transfer_to_human_agent_1822"
+        },
+        "requestor": "assistant",
+        "action_id": "033_0",
+        "compare_args": [
+          "agent_tool_name"
+        ]
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "initial_transfer_to_human_agent_1822"
+        },
+        "requestor": "assistant",
+        "action_id": "033_1",
+        "compare_args": [
+          "agent_tool_name"
+        ]
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "initial_transfer_to_human_agent_0218"
+        },
+        "requestor": "assistant",
+        "action_id": "033_2",
+        "compare_args": [
+          "agent_tool_name"
+        ]
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "initial_transfer_to_human_agent_0218"
+        },
+        "requestor": "assistant",
+        "action_id": "033_3",
+        "compare_args": [
+          "agent_tool_name"
+        ]
+      },
+      {
+        "name": "transfer_to_human_agents",
+        "arguments": {
+          "summary": ""
+        },
+        "requestor": "assistant",
+        "action_id": "033_4",
+        "compare_args": []
+      }
+    ],
+    "reward_basis": [
+      "ACTION"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card",
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_credit_cards_credit_cards_(general)_011"
+  ]
+}

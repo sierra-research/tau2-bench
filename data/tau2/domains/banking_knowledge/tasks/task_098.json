@@ -1,0 +1,134 @@
+{
+  "id": "task_098",
+  "description": {
+    "purpose": "Task: task_098",
+    "relevant_policies": null,
+    "notes": "CHECKING ACCOUNT REFERRAL OPTIMIZATION - MULTI-ACCOUNT COMPARISON WITH ROLLING WINDOW EDGE CASE. Customer wants to refer their roommate who will deposit ~$600. Customer has TWO checking accounts (Green Fee-Free Account, Light Green Account) but can refer to ANY account type. Agent must compare ALL available checking account referral programs to find the best combined bonus. KEY COMPLEXITY: (1) Agent must search KB to find referral terms for each account type including Blue Account. (2) Agent must discover the 9-day rolling window limit (max 2 referrals per 9-day period). (3) Customer has 2 past referrals: one from 10 days ago (already aged out) and one from 4 days ago (still in window). (4) Customer is NOW barely eligible for 1 more referral. (5) Agent must compare combined bonuses: Blue ($35+$30=$65, requires $500), Green Fee-Free ($20+$35=$55, requires $300), Light Green ($15+$25=$40, requires $100). (6) Given friend's $600 deposit, all accounts qualify, but Blue Account offers the BEST combined bonus at $65. (7) Agent must verify rolling window status before submitting. ANSWER: Blue Account is optimal."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Park Joon-ho, a 31-year-old software developer living in Portland, OR. Your friend (you call her your 'roommate' casually but she actually lives across town at 2156 Pine Avenue, Portland, OR 97205 - she just moved there from her parents' place in Seattle last month) just started her first job and wants to open a bank account. You want to refer her to get the best possible combined bonus for both of you.\n\n**Verification info:**\n- Name: Park Joon-ho | Phone: 503-555-8847 | Email: joonho.park@gmail.com\n- DOB: 03/22/1994 | Address: 847 Oak Street, Apt 12, Portland, OR 97201\n\n**Tool usage:** You have access to `submit_referral`. Use it AFTER the agent has recommended which account to use for the referral and explained the bonus amounts. Call it with your user_id (pj94k7x3m2) and the account_type the agent recommended. IMPORTANT: When specifying account_type, always include the word \"Account\" at the end (e.g., \"Blue Account\" not \"Blue\").\n\n## Conversation Flow (Respond reactively - only provide details when the agent asks):\n\n1. **Opening:** \"Hey! My roommate just got her first real job and she's going to deposit her first paycheck - around $600 I think. I want to refer her to open one of the accounts you guys offer. Which one should I use to get us the best combined referral bonus - like, the total of what I get plus what she gets?\"\n\n2. **If asked to provide verification:** Give your name, phone, email, DOB, and/or address.\n\n3. **If agent asks about your accounts:** \"I have a Green Fee-Free Account and I just opened a Light Green Account a few weeks ago.\"\n\n4. **If agent asks about checking account balances:** \"The Green Fee-Free has about $1,200 and the Light Green has around $350.\"\n\n5. **If agent asks about referral history:** \"Oh yeah, I referred my cousin about a week ago - maybe 9 days? And I referred my coworker a few days before that.\"\n\n6. **If agent asks about Light Green account opening date:** \"I opened the Light Green Account around late October, so like 3 weeks ago.\"\n\n7. **If agent asks about the roommate's address or if you live together:** \"Oh no, she doesn't live with me - I just call her my roommate because we were roommates in college. She actually lives across town.\"\n\n8. **If agent says you would be automatically denied or cannot submit a referral** (e.g., due to rolling window limits, address restrictions, or any other reason): Accept this and say \"Oh, that's disappointing. I guess I'll have to wait then. Thanks for letting me know.\" ###STOP### Do NOT submit a referral.\n\n9. **If agent recommends a specific account as the best option:** \"That makes sense - sounds like the best deal for both of us. Let me submit that referral now.\" Then use the submit_referral tool with user_id=\"pj94k7x3m2\" and the account_type the agent recommended.\n\n10. **After submitting the referral:** \"Awesome, thanks for the help! I'll tell her to use that referral when she applies.\" ###STOP###"
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": {
+        "users": {
+          "data": {
+            "pj94k7x3m2": {
+              "name": "Park Joon-ho",
+              "user_id": "pj94k7x3m2",
+              "address": "847 Oak Street, Apt 12, Portland, OR 97201",
+              "email": "joonho.park@gmail.com",
+              "phone_number": "503-555-8847",
+              "date_of_birth": "03/22/1994"
+            }
+          }
+        },
+        "accounts": {
+          "data": {
+            "chk_pj94k7x3m2_greenfeefree": {
+              "account_id": "chk_pj94k7x3m2_greenfeefree",
+              "user_id": "pj94k7x3m2",
+              "class": "checking",
+              "level": "Green Fee-Free Account",
+              "date_opened": "09/14/2025",
+              "status": "OPEN",
+              "current_holdings": "1200.00"
+            },
+            "chk_pj94k7x3m2_lightgreen": {
+              "account_id": "chk_pj94k7x3m2_lightgreen",
+              "user_id": "pj94k7x3m2",
+              "class": "checking",
+              "level": "Light Green Account",
+              "date_opened": "10/24/2025",
+              "status": "OPEN",
+              "current_holdings": "350.00"
+            }
+          }
+        },
+        "referrals": {
+          "data": {
+            "6ae698e8c7bce01e": {
+              "referral_id": "6ae698e8c7bce01e",
+              "referrer_id": "pj94k7x3m2",
+              "referred_account_type": "Green Fee-Free Account",
+              "referral_status": "COMPLETE",
+              "date": "11/04/2025"
+            },
+            "fc7713e0c262e1e2": {
+              "referral_id": "fc7713e0c262e1e2",
+              "referrer_id": "pj94k7x3m2",
+              "referred_account_type": "Light Green Account",
+              "referral_status": "IN_PROGRESS",
+              "date": "11/10/2025"
+            }
+          }
+        }
+      }
+    }
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Park Joon-ho",
+          "user_id": "pj94k7x3m2",
+          "address": "847 Oak Street, Apt 12, Portland, OR 97201",
+          "email": "joonho.park@gmail.com",
+          "phone_number": "503-555-8847",
+          "date_of_birth": "03/22/1994",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "098_0"
+      },
+      {
+        "name": "get_referrals_by_user",
+        "arguments": {
+          "user_id": "pj94k7x3m2"
+        },
+        "requestor": "assistant",
+        "action_id": "098_1"
+      },
+      {
+        "name": "submit_referral",
+        "arguments": {
+          "user_id": "pj94k7x3m2",
+          "account_type": "Blue Account"
+        },
+        "requestor": "user",
+        "action_id": "098_2"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "call_discoverable_user_tool",
+    "submit_referral"
+  ],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_047",
+    "doc_bank_accounts_bank_accounts_(general)_048",
+    "doc_checking_accounts_blue_account_001",
+    "doc_checking_accounts_blue_account_010",
+    "doc_checking_accounts_green_fee-free_account_001",
+    "doc_checking_accounts_green_fee-free_account_007",
+    "doc_checking_accounts_light_green_account_001",
+    "doc_checking_accounts_dark_green_account_001",
+    "doc_checking_accounts_dark_green_account_010",
+    "doc_checking_accounts_purple_account_001",
+    "doc_checking_accounts_purple_account_011",
+    "doc_checking_accounts_gold_years_account_001",
+    "doc_checking_accounts_gold_years_account_010",
+    "doc_checking_accounts_light_blue_account_001",
+    "doc_checking_accounts_light_blue_account_007",
+    "doc_checking_accounts_bluest_account_001",
+    "doc_checking_accounts_bluest_account_003",
+    "doc_checking_accounts_green_account_(checking)_001",
+    "doc_checking_accounts_evergreen_account_001"
+  ]
+}

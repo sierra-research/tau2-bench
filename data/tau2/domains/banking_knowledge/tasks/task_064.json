@@ -1,0 +1,88 @@
+{
+  "id": "task_064",
+  "description": {
+    "purpose": "Task: task_064",
+    "relevant_policies": null,
+    "notes": "SAVINGS + CREDIT CARD OPTIMIZATION CHALLENGE (SUBSCRIPTION ADVANTAGE): User with existing Light Blue checking account AND active Rho-Bank+ subscription wants to open a credit card AND a savings account to maximize NET annual yield on a $30,000 deposit held for one year. KEY CONSTRAINTS FROM USER: (1) User needs 10+ withdrawals per month - blocks Bronze (6), Green (8). (2) User HAS Rho-Bank+ subscription - UNLOCKS Gold Rewards Card ($0 fee). (3) User is uncomfortable with cryptocurrency - blocks Crypto-Cash Back Card. (4) User wants card annual fee under $100 - blocks Platinum Rewards ($200). REMAINING OPTIONS: Silver, Silver Plus, Gold, Gold Plus for savings. Bronze Rewards, Silver Rewards, Gold Rewards, EcoCard for cards. THE TRAP: Agent might think EcoCard + Silver (6.2% - $50 = $1,810) is optimal due to EcoCard's famous +2.2% bonus. OR Agent picks Silver Rewards + Gold (5.7% = $1,710) as 'highest base APY + no fee card'. BUT Gold Rewards Card (unlocked by subscription) gives +0.35% bonus to Gold Plus Account - the LARGEST card bonus to Gold Plus. OPTIMAL SOLUTION: Gold Rewards Card ($0 fee given Rho-bank+) + Gold Plus Account (6.0% base + 0.35% bonus = 6.35%) = $1,905 net yield. Agent must recognize that subscription unlocks Gold Rewards AND search card bonuses across ALL viable accounts including Gold Plus."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Jordan Lee, a 35-year-old software engineer from Denver, CO. You're financially savvy and like to optimize everything - even small differences in returns matter to you.\n\n**Your situation:** You already have a Light Blue checking account with Rho-Bank (opened about a year ago). You also have an active Rho-Bank+ subscription that you use for other banking perks. You've saved up $30,000 and want to:\n1. Open a credit card with Rho-Bank\n2. Open a savings account with Rho-Bank\n3. Deposit the $30,000 into the savings account and leave it untouched for one year\n\nYou want to maximize your NET annual return - that means interest earned MINUS any credit card annual fees. Even a couple dollar difference matters to you. You are not interested in opening a new checking account, no matter what.\n\n**Verification info:**\n- Name: Jordan Lee | Phone: 303-555-0472 | Email: jordan.lee@gmail.com\n- DOB: 05/22/1990 | Address: 1847 Pearl Street, Denver, CO 80203\n- Annual Income: $120,000\n\n## Conversation Flow:\n\n1. **Opening - State your goal clearly:** \"Hi! I already have a Light Blue checking account with you. I've saved up $30,000 and I want to put it to work. I'm looking to open both a credit card and a savings account. My goal is to maximize the total money I'll earn over one year - that means the interest I earn minus any annual fees. Even a difference of $50-100 matters to me. Can you help me find the best combination?\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address.\n\n3. **Reveal your requirements organically when asked:**\n\n   - **Deposit amount:** \"I have exactly $30,000 to put in savings. I won't be adding or withdrawing the principal for a full year.\"\n\n   - **Credit card usage:** \"I don't plan to spend a ton on the credit card - maybe $1,500-2,000 a month on regular expenses.\"\n\n   - **Withdrawal frequency (IMPORTANT - mention this proactively):** \"Oh, one important thing - I need to be able to access my savings fairly regularly. I pay a lot of bills from savings and probably need to make about 10-12 withdrawals per month. Is that going to be a problem with any accounts?\"\n\n   - **Rho-Bank+ subscription (IMPORTANT - mention this proactively):** \"By the way, I already have a Rho-Bank+ subscription - I signed up for it last year for the other banking perks. Does that help me with any credit card options?\"\n\n   - **Cryptocurrency concerns (IMPORTANT - be firm):** \"I've seen you have some crypto-related cards, but honestly I'm not comfortable with cryptocurrency. Privacy concerns, volatility - it's just not for me. I'd rather stick with traditional rewards.\"\n\n   - **Annual fees:** \"I don't want to pay a crazy amount in annual fees. Anything under $100 is fine, but $200 is too much - that would eat into my returns too much on $30,000: even if it ends up being better as a net positive I still don't feel comfortable with it. \"\"\n\n4. **If given multiple options:** Push back. \"Honestly, I don't want to compare a bunch of options. With my requirements - the frequent withdrawals, my Rho-Bank+ subscription, no crypto, reasonable fees - which ONE combination of credit card and savings account will give me the absolute highest net return? I trust you to figure it out. Every dollar counts.\"\n\n5. **Accept the agent's recommendation:** \"That sounds perfect. Let's do it - open both for me!\"\n\n6. **Apply for the credit card:** Once the agent confirms the recommended credit card, use your `apply_for_credit_card` tool to submit the application with:\n   - card_type: The card name the agent recommended\n   - customer_name: \"Jordan Lee\"\n   - annual_income: 120000\n   - rho_bank_subscription: true\n\n7. **After agent opens the accounts:**\n   - \"Great! Can you just open the accounts for now? I'll fund the savings account myself with the $30,000.\"\n\n8. **After agent confirms both accounts are open - ONLY then conclude:**\n   \"Perfect! So I've got the credit card open and the savings account ready for my deposit. Thanks for finding the best combination given my requirements - I really appreciate you factoring in my Rho-Bank+ subscription and checking which accounts allow enough monthly withdrawals!\" ###STOP###"
+  },
+  "initial_state": {
+    "initialization_data": null,
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Jordan Lee",
+          "user_id": "jl72b4e9d1",
+          "address": "1847 Pearl Street, Denver, CO 80203",
+          "email": "jordan.lee@gmail.com",
+          "phone_number": "303-555-0472",
+          "date_of_birth": "05/22/1990",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "064_0"
+      },
+      {
+        "name": "apply_for_credit_card",
+        "arguments": {
+          "card_type": "Gold Rewards Card",
+          "customer_name": "Jordan Lee",
+          "annual_income": 120000,
+          "rho_bank_subscription": true
+        },
+        "requestor": "user",
+        "action_id": "064_1"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821"
+        },
+        "requestor": "assistant",
+        "action_id": "064_2"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821",
+          "arguments": "{\"user_id\": \"jl72b4e9d1\", \"account_type\": \"savings\", \"account_class\": \"Gold Plus Account\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "064_3"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card"
+  ],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_002",
+    "doc_savings_accounts_gold_plus_account_001",
+    "doc_savings_accounts_gold_plus_account_002",
+    "doc_savings_accounts_gold_plus_account_009",
+    "doc_savings_accounts_gold_account_001",
+    "doc_savings_accounts_gold_account_014",
+    "doc_savings_accounts_silver_plus_account_001",
+    "doc_savings_accounts_silver_plus_account_009",
+    "doc_savings_accounts_silver_account_001",
+    "doc_savings_accounts_green_account_(savings)_001",
+    "doc_savings_accounts_bronze_account_001",
+    "doc_credit_cards_gold_rewards_card_001",
+    "doc_credit_cards_silver_rewards_card_001",
+    "doc_credit_cards_bronze_rewards_card_001",
+    "doc_credit_cards_ecocard_001",
+    "doc_credit_cards_platinum_rewards_card_001"
+  ]
+}

@@ -10,7 +10,13 @@
     "github": "example-org"
   },
   "is_new": true,
-  "trajectories_available": false,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "example-model_airline_gpt-5.2_4trials.json",
+    "retail": "example-model_retail_gpt-5.2_4trials.json",
+    "telecom": "example-model_telecom_gpt-5.2_4trials.json",
+    "banking_knowledge": "example-model_banking_knowledge_gpt-5.2_4trials.json"
+  },
   "references": [
     {
       "title": "Example Model Paper (arXiv preprint)",
@@ -33,30 +39,41 @@
       "pass_1": 78.5,
       "pass_2": 72.1,
       "pass_3": 67.8,
-      "pass_4": 64.2
+      "pass_4": 64.2,
+      "cost": 0.12345
     },
     "airline": {
       "pass_1": 61.2,
       "pass_2": 55.8,
       "pass_3": 51.4,
-      "pass_4": 47.9
+      "pass_4": 47.9,
+      "cost": 0.09876
     },
     "telecom": {
       "pass_1": 45.6,
-      "pass_2": null,
-      "pass_3": null,
-      "pass_4": null
+      "pass_2": 40.2,
+      "pass_3": 36.1,
+      "pass_4": 32.8,
+      "cost": 0.15432
+    },
+    "banking_knowledge": {
+      "pass_1": 22.3,
+      "pass_2": 15.1,
+      "pass_3": 10.8,
+      "pass_4": 8.2,
+      "cost": 1.23456,
+      "retrieval_config": "terminal"
     }
   },
   "methodology": {
     "evaluation_date": "2025-01-10",
     "tau2_bench_version": "v2.0",
-    "user_simulator": "gpt-4o",
-    "notes": "Example submission showing complete evaluation on retail and airline domains, partial evaluation on telecom (Pass@1 only). This is a STANDARD submission using the default tau2-bench scaffold. If you modified the scaffold (e.g., multi-model router, custom tools, modified prompts), set submission_type to 'custom' and provide detailed notes here explaining your modifications.",
+    "user_simulator": "gpt-5.2",
+    "notes": "Example submission showing complete evaluation on all four domains. This is a STANDARD submission using the default tau2-bench scaffold. If you modified the scaffold (e.g., multi-model router, custom tools, modified prompts), set submission_type to 'custom' and provide detailed notes here explaining your modifications. Banking domain evaluated with [describe retrieval configuration, e.g., terminal-based agentic search, BM25, embedding-based retrieval with model name].",
     "verification": {
       "modified_prompts": false,
-      "omitted_questions": true,
-      "details": "Example template - partial evaluation on telecom domain"
+      "omitted_questions": false,
+      "details": "Example template - full evaluation on all domains"
     }
   }
 }

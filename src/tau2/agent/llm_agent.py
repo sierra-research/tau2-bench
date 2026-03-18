@@ -1,11 +1,11 @@
-from copy import deepcopy
-from typing import List, Optional
+from typing import Generic, List, Optional, TypeVar
 
 from loguru import logger
 from pydantic import BaseModel
 
-from tau2.agent.base import (
-    LocalAgent,
+from tau2.agent.base.llm_config import LLMConfigMixin
+from tau2.agent.base_agent import (
+    HalfDuplexAgent,
     ValidAgentInputMessage,
     is_valid_agent_history_message,
 )
@@ -48,24 +48,32 @@ class LLMAgentState(BaseModel):
     messages: list[APICompatibleMessage]
 
 
-class LLMAgent(LocalAgent[LLMAgentState]):
+LLMAgentStateType = TypeVar("LLMAgentStateType", bound="LLMAgentState")
+
+
+class LLMAgent(
+    LLMConfigMixin, HalfDuplexAgent[LLMAgentStateType], Generic[LLMAgentStateType]
+):
     """
-    An LLM agent that can be used to solve a task.
+    A half-duplex LLM agent for turn-based conversations.
     """
 
     def __init__(
         self,
         tools: List[Tool],
         domain_policy: str,
-        llm: Optional[str] = None,
+        llm: str,
         llm_args: Optional[dict] = None,
     ):
         """
         Initialize the LLMAgent.
         """
-        super().__init__(tools=tools, domain_policy=domain_policy)
-        self.llm = llm
-        self.llm_args = deepcopy(llm_args) if llm_args is not None else {}
+        super().__init__(
+            tools=tools,
+            domain_policy=domain_policy,
+            llm=llm,
+            llm_args=llm_args,
+        )
 
     @property
     def system_prompt(self) -> str:
@@ -75,7 +83,7 @@ class LLMAgent(LocalAgent[LLMAgentState]):
 
     def get_init_state(
         self, message_history: Optional[list[Message]] = None
-    ) -> LLMAgentState:
+    ) -> LLMAgentStateType:
         """Get the initial state of the agent.
 
         Args:
@@ -95,11 +103,23 @@ class LLMAgent(LocalAgent[LLMAgentState]):
         )
 
     def generate_next_message(
-        self, message: ValidAgentInputMessage, state: LLMAgentState
-    ) -> tuple[AssistantMessage, LLMAgentState]:
+        self, message: ValidAgentInputMessage, state: LLMAgentStateType
+    ) -> tuple[AssistantMessage, LLMAgentStateType]:
         """
         Respond to a user or tool message.
         """
+        assistant_message = self._generate_next_message(message, state)
+        state.messages.append(assistant_message)
+        return assistant_message, state
+
+    def _generate_next_message(
+        self, message: ValidAgentInputMessage, state: LLMAgentStateType
+    ) -> AssistantMessage:
+        """
+        Generate the next message from a user or tool message.
+        """
+        if isinstance(message, UserMessage) and message.is_audio:
+            raise ValueError("User message cannot be audio. Use VoiceLLMAgent instead.")
         if isinstance(message, MultiToolMessage):
             state.messages.extend(message.tool_messages)
         else:
@@ -109,19 +129,10 @@ class LLMAgent(LocalAgent[LLMAgentState]):
             model=self.llm,
             tools=self.tools,
             messages=messages,
+            call_name="agent_response",
             **self.llm_args,
         )
-        state.messages.append(assistant_message)
-        return assistant_message, state
-
-    def set_seed(self, seed: int):
-        """Set the seed for the LLM."""
-        if self.llm is None:
-            raise ValueError("LLM is not set")
-        cur_seed = self.llm_args.get("seed", None)
-        if cur_seed is not None:
-            logger.warning(f"Seed is already set to {cur_seed}, resetting it to {seed}")
-        self.llm_args["seed"] = seed
+        return assistant_message
 
 
 AGENT_GT_INSTRUCTION = """
@@ -152,9 +163,11 @@ SYSTEM_PROMPT_GT = """
 """.strip()
 
 
-class LLMGTAgent(LocalAgent[LLMAgentState]):
+class LLMGTAgent(
+    LLMConfigMixin, HalfDuplexAgent[LLMAgentStateType], Generic[LLMAgentStateType]
+):
     """
-    An GroundTruth agent that can be used to solve a task.
+    A GroundTruth agent that can be used to solve a task.
     This agent will receive the expected actions.
     """
 
@@ -163,7 +176,7 @@ class LLMGTAgent(LocalAgent[LLMAgentState]):
         tools: List[Tool],
         domain_policy: str,
         task: Task,
-        llm: Optional[str] = None,
+        llm: str,
         llm_args: Optional[dict] = None,
         provide_function_args: bool = True,
     ):
@@ -171,13 +184,16 @@ class LLMGTAgent(LocalAgent[LLMAgentState]):
         Initialize the LLMAgent.
         If provide_function_args is True, the resolution steps will include the function arguments.
         """
-        super().__init__(tools=tools, domain_policy=domain_policy)
+        super().__init__(
+            tools=tools,
+            domain_policy=domain_policy,
+            llm=llm,
+            llm_args=llm_args,
+        )
         assert self.check_valid_task(task), (
             f"Task {task.id} is not valid. Cannot run GT agent."
         )
         self.task = task
-        self.llm = llm
-        self.llm_args = deepcopy(llm_args) if llm_args is not None else {}
         self.provide_function_args = provide_function_args
 
     @classmethod
@@ -203,7 +219,7 @@ class LLMGTAgent(LocalAgent[LLMAgentState]):
 
     def get_init_state(
         self, message_history: Optional[list[Message]] = None
-    ) -> LLMAgentState:
+    ) -> LLMAgentStateType:
         """Get the initial state of the agent.
 
         Args:
@@ -223,8 +239,8 @@ class LLMGTAgent(LocalAgent[LLMAgentState]):
         )
 
     def generate_next_message(
-        self, message: ValidAgentInputMessage, state: LLMAgentState
-    ) -> tuple[AssistantMessage, LLMAgentState]:
+        self, message: ValidAgentInputMessage, state: LLMAgentStateType
+    ) -> tuple[AssistantMessage, LLMAgentStateType]:
         """
         Respond to a user or tool message.
         """
@@ -237,19 +253,11 @@ class LLMGTAgent(LocalAgent[LLMAgentState]):
             model=self.llm,
             tools=self.tools,
             messages=messages,
+            call_name="agent_gt_response",
             **self.llm_args,
         )
         state.messages.append(assistant_message)
         return assistant_message, state
-
-    def set_seed(self, seed: int):
-        """Set the seed for the LLM."""
-        if self.llm is None:
-            raise ValueError("LLM is not set")
-        cur_seed = self.llm_args.get("seed", None)
-        if cur_seed is not None:
-            logger.warning(f"Seed is already set to {cur_seed}, resetting it to {seed}")
-        self.llm_args["seed"] = seed
 
     def make_agent_instructions_from_actions(self) -> str:
         """
@@ -310,7 +318,9 @@ SYSTEM_PROMPT_SOLO = """
 """.strip()
 
 
-class LLMSoloAgent(LocalAgent[LLMAgentState]):
+class LLMSoloAgent(
+    LLMConfigMixin, HalfDuplexAgent[LLMAgentStateType], Generic[LLMAgentStateType]
+):
     """
     An LLM agent that can be used to solve a task without any interaction with the customer.
     The task need to specify a ticket format.
@@ -325,19 +335,22 @@ class LLMSoloAgent(LocalAgent[LLMAgentState]):
         tools: List[Tool],
         domain_policy: str,
         task: Task,
-        llm: Optional[str] = None,
+        llm: str,
         llm_args: Optional[dict] = None,
     ):
         """
         Initialize the LLMAgent.
         """
-        super().__init__(tools=tools, domain_policy=domain_policy)
+        super().__init__(
+            tools=tools,
+            domain_policy=domain_policy,
+            llm=llm,
+            llm_args=llm_args,
+        )
         assert self.check_valid_task(task), (
             f"Task {task.id} is not valid. Cannot run GT agent."
         )
         self.task = task
-        self.llm = llm
-        self.llm_args = llm_args if llm_args is not None else {}
         self.add_stop_tool()
         self.validate_tools()
 
@@ -419,7 +432,7 @@ class LLMSoloAgent(LocalAgent[LLMAgentState]):
 
     def get_init_state(
         self, message_history: Optional[list[Message]] = None
-    ) -> LLMAgentState:
+    ) -> LLMAgentStateType:
         """Get the initial state of the agent.
 
         Args:
@@ -439,8 +452,8 @@ class LLMSoloAgent(LocalAgent[LLMAgentState]):
         )
 
     def generate_next_message(
-        self, message: Optional[ValidAgentInputMessage], state: LLMAgentState
-    ) -> tuple[AssistantMessage, LLMAgentState]:
+        self, message: Optional[ValidAgentInputMessage], state: LLMAgentStateType
+    ) -> tuple[AssistantMessage, LLMAgentStateType]:
         """
         Respond to a user or tool message.
         """
@@ -458,6 +471,7 @@ class LLMSoloAgent(LocalAgent[LLMAgentState]):
             tools=self.tools,
             messages=messages,
             tool_choice="required",
+            call_name="agent_solo_response",
             **self.llm_args,
         )
         if not assistant_message.is_tool_call():
@@ -466,11 +480,65 @@ class LLMSoloAgent(LocalAgent[LLMAgentState]):
         state.messages.append(assistant_message)
         return assistant_message, state
 
-    def set_seed(self, seed: int):
-        """Set the seed for the LLM."""
-        if self.llm is None:
-            raise ValueError("LLM is not set")
-        cur_seed = self.llm_args.get("seed", None)
-        if cur_seed is not None:
-            logger.warning(f"Seed is already set to {cur_seed}, resetting it to {seed}")
-        self.llm_args["seed"] = seed
+
+# =============================================================================
+# AGENT FACTORY FUNCTIONS
+# =============================================================================
+
+
+def create_llm_agent(tools, domain_policy, **kwargs):
+    """Factory function for LLMAgent.
+
+    Args:
+        tools: Environment tools the agent can call.
+        domain_policy: Policy text the agent must follow.
+        **kwargs: Additional arguments. Supports:
+            - llm (str): LLM model name.
+            - llm_args (dict): Additional LLM arguments.
+    """
+    return LLMAgent(
+        tools=tools,
+        domain_policy=domain_policy,
+        llm=kwargs.get("llm"),
+        llm_args=kwargs.get("llm_args"),
+    )
+
+
+def create_llm_gt_agent(tools, domain_policy, **kwargs):
+    """Factory function for LLMGTAgent.
+
+    Args:
+        tools: Environment tools the agent can call.
+        domain_policy: Policy text the agent must follow.
+        **kwargs: Additional arguments. Supports:
+            - llm (str): LLM model name.
+            - llm_args (dict): Additional LLM arguments.
+            - task (Task): The task to solve (required for GT agent).
+    """
+    return LLMGTAgent(
+        tools=tools,
+        domain_policy=domain_policy,
+        llm=kwargs.get("llm"),
+        llm_args=kwargs.get("llm_args"),
+        task=kwargs.get("task"),
+    )
+
+
+def create_llm_solo_agent(tools, domain_policy, **kwargs):
+    """Factory function for LLMSoloAgent.
+
+    Args:
+        tools: Environment tools the agent can call.
+        domain_policy: Policy text the agent must follow.
+        **kwargs: Additional arguments. Supports:
+            - llm (str): LLM model name.
+            - llm_args (dict): Additional LLM arguments.
+            - task (Task): The task to solve (required for solo agent).
+    """
+    return LLMSoloAgent(
+        tools=tools,
+        domain_policy=domain_policy,
+        llm=kwargs.get("llm"),
+        llm_args=kwargs.get("llm_args"),
+        task=kwargs.get("task"),
+    )

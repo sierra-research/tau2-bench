@@ -1,46 +1,82 @@
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "tau2"
 version = "0.2.1-dev"
-description = "The tau2 package"
+description = "tau-bench: Benchmarking tool-agent-user interaction in real-world domains"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12,<3.14"
 license = "MIT"
 authors = [
     { name = "Victor Barres", email = "victor.barres@gmail.com" },
     { name = "Honghua Dong", email = "dhh19951@gmail.com" }
 ]
 dependencies = [
-    "fs",
     "rich",
-    "ruff>=0.9.1",
-    "watchdog>=6.0.0",
-    "plotly>=6.0.0",
-    "scikit-learn>=1.6.1",
     "tabulate>=0.9.0",
     "fastapi>=0.115.11",
     "uvicorn>=0.34.0",
-    "pydantic-argparse>=0.10.0",
-    "pytest>=8.3.5",
     "pandas>=2.2.3",
     "psutil>=7.0.0",
     "loguru>=0.7.3",
     "docstring-parser>=0.16",
-    "litellm>=1.65.0",
+    "litellm>=1.80.15",
     "tenacity>=9.0.0",
-    "matplotlib>=3.10.1",
-    "seaborn>=0.13.2",
-    "redis>=5.2.1",
     "deepdiff>=8.4.2",
     "addict>=2.4.0",
     "PyYAML>=6.0.2",
     "toml>=0.10.2",
-    "langfuse>=2.60.7",
+    "python-dotenv>=1.0.0",
+    "typer>=0.12.5",
+    "requests>=2.31.0",
+    "numpy>=1.24.0",
+    "httpx>=0.24.0",
+]
+
+[project.optional-dependencies]
+voice = [
+    "elevenlabs>=1.54.0",
+    "deepgram-sdk>=3.7.3",
+    "websockets>=13.0",
+    "pyaudio>=0.2.14",
+    "jiwer>=3.0.0",
+    "scipy>=1.10.0",
+    "pydub>=0.25.0",
+    "tqdm>=4.0",
+    "aiohttp>=3.0",
+    "google-genai>=1.0.0",
+    "boto3>=1.35.0",
+    "aws-sdk-bedrock-runtime>=0.3.0",
+    "google-cloud-aiplatform>=1.38.0",
+    "google-auth>=2.23.0",
+]
+knowledge = [
+    "rank-bm25>=0.2.2",
+    "openai>=1.0.0",
+]
+gym = [
     "gymnasium>=1.2.2",
 ]
+dev = [
+    "pytest>=8.3.5",
+    "ruff>=0.9.1",
+    "pre-commit>=4.0.0",
+]
+experiments = [
+    "plotly>=6.0.0",
+    "matplotlib>=3.10.1",
+    "seaborn>=0.13.2",
+    "scikit-learn>=1.6.1",
+]
+all = [
+    "tau2[voice,knowledge,gym,dev,experiments]",
+]
+[project.urls]
+Homepage = "https://taubench.com/"
+Repository = "https://github.com/sierra-research/tau2-bench"
+
 [project.scripts]
 tau2 = "tau2.cli:main"
 
@@ -50,10 +86,14 @@ filterwarnings = [
     "ignore:Pydantic serializer warnings:UserWarning:pydantic.*:",
 ]
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "full_duplex_integration: marks tests as full-duplex integration tests requiring OpenAI Realtime API and TTS (deselect with '-m \"not full_duplex_integration\"')",
+]
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F"]
-ignore = ["E501", "F401", "F541"]
+select = ["E4", "E7", "E9", "F", "I"]
+ignore = ["E501", "F541"]
 
 [tool.ruff]
 line-length = 88
+exclude = ["*.ipynb"]

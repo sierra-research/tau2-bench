@@ -1,4 +1,5 @@
 import pandas as pd
+from loguru import logger
 
 from tau2.data_model.simulation import Results, RewardInfo, RewardType
 from tau2.environment.toolkit import ToolType
@@ -88,6 +89,8 @@ def analyze_reward_actions(reward_info: RewardInfo) -> pd.DataFrame:
     """
     Analyze the actions taken by the agent and the user.
     """
+    if reward_info is None:
+        return None
     reward_breakdown = reward_info.reward_breakdown
     if reward_breakdown is None:
         return None
@@ -127,12 +130,36 @@ def result_reward_actions_analysis(results: Results):
     """
     Analyze the actions taken by the agent and the user.
     """
+    if results.simulations is None:
+        logger.warning("Results has no simulations - skipping reward actions analysis")
+        return None
     dfs = []
+    skipped_count = 0
     for simulation in results.simulations:
+        if simulation.reward_info is None:
+            skipped_count += 1
+            continue
         reward_actions_analysis = analyze_reward_actions(simulation.reward_info)
         if reward_actions_analysis is None:
             continue
         reward_actions_analysis["task_id"] = simulation.task_id
         reward_actions_analysis["trial"] = simulation.trial
         dfs.append(reward_actions_analysis)
+    if skipped_count > 0:
+        llm = (
+            getattr(results.info.agent_info, "llm", "unknown")
+            if results.info
+            else "unknown"
+        )
+        domain = (
+            getattr(results.info.environment_info, "domain_name", "unknown")
+            if results.info
+            else "unknown"
+        )
+        logger.warning(
+            f"Skipped {skipped_count}/{len(results.simulations)} simulations with missing reward_info "
+            f"for {llm}/{domain}"
+        )
+    if not dfs:
+        return None
     return pd.concat(dfs)

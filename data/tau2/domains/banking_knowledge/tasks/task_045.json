@@ -1,0 +1,178 @@
+{
+  "id": "task_045",
+  "description": {
+    "purpose": "Task: task_045",
+    "relevant_policies": null,
+    "notes": "Credit card closure with outstanding balance, 'found better card' retention, and final retention offer. User Yuki Nakamura wants to close their Business Silver Rewards Card because they found a competitor card (Pursuit Ink Business Preferred) that offers 3x points on travel and advertising plus no foreign transaction fees. The agent must: (1) Verify the user, (2) Check closure eligibility - find $125.00 outstanding balance, (3) Process payment from checking account to pay off balance, (4) Check for previous retention attempts using get_closure_reason_history_8293 (none found), (5) Log the closure reason as 'found_better_card' using log_credit_card_closure_reason_4521, (6) Ask what features attracted them to the competitor, (7) Search the knowledge base and identify that Rho-Bank's Business Platinum Rewards Card is the correct alternative (4% on travel, software, AND media/advertising, plus 0% foreign transaction fees - matching both key features the customer wants), (8) Customer declines the upgrade after hearing the correct recommendation, (9) Per Step 5 of the retention protocol, offer the mid-tier retention bonus ($20 statement credit or 2,000 bonus points), (10) Customer accepts the $20 statement credit, (11) Apply statement credit using apply_statement_credit_8472 with reason 'retention_offer'. CRITICAL: The agent MUST recommend the Business Platinum Rewards Card specifically - if the agent recommends any other card (Business Gold, Business Bronze, etc.), the customer will become frustrated and hang up, causing task failure. Only Business Platinum matches both the customer's requirements (advertising/media rewards AND no foreign transaction fees)."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Yuki Nakamura, a 33-year-old marketing manager from Portland, OR. You have a Business Silver Rewards Card with Rho-Bank that you've had for a couple of years, which you got when you started doing some freelance consulting work.\n\n**Your situation:** You've been looking at other credit card options and found the Pursuit Ink Business Preferred card, which offers 3x points on travel, shipping, and advertising purchases, plus no foreign transaction fees. It seems similar to your Business Silver Rewards Card but with slightly better perks for your consulting work. You don't use your Rho-Bank business card that much anymore and want to simplify your finances.\n\n**Your goal:** Express that you want to close your Business Silver Rewards Card because you found a better card elsewhere and don't use it much. If the agent mentions you have an outstanding balance, agree to pay it off. If the agent recommends the correct alternative Rho-Bank card (the Business Platinum Rewards Card), acknowledge it sounds good but politely decline because you've already made up your mind. If the agent offers any other card that doesn't match what you need, become frustrated because they offered you a worse card and end the call. However, if the agent offers you a statement credit as a final retention offer, you will accept it and keep the card.\n\n**Information you know and should provide when asked:**\n- Your full name: Yuki Nakamura\n- Your phone number: 503-555-0842\n- Your email: yuki.nakamura@simba.com\n- Your date of birth: 05/12/1991\n\n## Conversation Flow, if it applies, otherwise, follow the agent's guidance:\n\n1. **Opening:** \"Hi, I'd like to close my Business Silver Rewards Card. I found a better card at another bank and I don't really use this one much anymore.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth as requested.\n\n3. **If you are told about an outstanding balance:** Act surprised but agree to pay it. \"Oh, I didn't realize there was still a balance. Yes, please pay that off from my checking account.\"\n\n4. **If asked about the competitor card:** Explain what attracted you clearly. \"I've been looking at the Pursuit Ink Business Preferred. It has 3x points on travel AND advertising purchases, plus no foreign transaction fees. Those two things are what I really need for my consulting work - I do a lot of online advertising and occasionally travel for client meetings.\"\n\n5. **If the agent recommends the Business Platinum Rewards Card:** Acknowledge that it sounds like a good match but decline anyway. \"Hmm, that does sound like it would work for what I need - the advertising rewards and no foreign fees are exactly what I was looking for. But honestly, I've already gone through the application process with Pursuit and I'd rather not deal with applying for another new card. I think I'd still prefer to just close this account.\"\n\n6. **If the agent recommends a different card (Business Gold, Business Bronze, etc.):** Become frustrated and end the call immediately. \"Wait, that card doesn't even have what I'm looking for. I literally just told you I need advertising rewards and no foreign fees. You're trying to push me into a worse card than what I already found? This is exactly why I'm leaving. I'm done with this conversation. Goodbye.\" Then end the conversation using the 'STOP' protocol.\n\n7. **If the agent offers a statement credit or bonus points as a retention offer:** Only accept if the agent has ALREADY presented you with an alternative Rho-Bank card recommendation earlier in the conversation. If they jump straight to offering a credit without first showing you comparable card options, become offended and end the call: \"Seriously? I just told you I found a card with better travel and advertising rewards, and your response is to offer me twenty bucks? You didn't even try to show me if Rho-Bank has anything that could compete. That's honestly insulting - it's like you're not even listening to why I'm leaving. I'm done here. Goodbye.\" Then end the conversation using the STOP protocol. However, if they already recommended the Business Platinum (or another card) and you declined it, then accept: \"A statement credit? Sure, that sounds good. Go ahead and apply that, I'll keep the card.\"\n\n8. **After the statement credit is applied:** Thank the agent. \"Thanks for working with me on this. I appreciate the credit.\"\n\n9. **End conversation:** Thank the agent and end the conversation once the statement credit has been applied."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Yuki Nakamura",
+          "user_id": "224959b99e",
+          "address": "3421 Sakura Avenue, Portland, OR 97205",
+          "email": "yuki.nakamura@simba.com",
+          "phone_number": "503-555-0842",
+          "date_of_birth": "05/12/1991",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "045_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "045_0a"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291",
+          "arguments": "{\"user_id\": \"224959b99e\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "045_0b"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765"
+        },
+        "requestor": "assistant",
+        "action_id": "045_0c"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_224959b99e_bsilver\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "045_0d"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "045_0e"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+          "arguments": "{\"user_id\": \"224959b99e\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "045_0f"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "pay_credit_card_from_checking_9182"
+        },
+        "requestor": "assistant",
+        "action_id": "045_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "pay_credit_card_from_checking_9182",
+          "arguments": "{\"user_id\": \"224959b99e\", \"checking_account_id\": \"05\", \"credit_card_account_id\": \"cc_224959b99e_bsilver\", \"amount\": 125.0}"
+        },
+        "requestor": "assistant",
+        "action_id": "045_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293"
+        },
+        "requestor": "assistant",
+        "action_id": "045_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293",
+          "arguments": "{\"credit_card_account_id\": \"cc_224959b99e_bsilver\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "045_4"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "log_credit_card_closure_reason_4521"
+        },
+        "requestor": "assistant",
+        "action_id": "045_5"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "log_credit_card_closure_reason_4521",
+          "arguments": "{\"credit_card_account_id\": \"cc_224959b99e_bsilver\", \"user_id\": \"224959b99e\", \"closure_reason\": \"found_better_card\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "045_6"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_statement_credit_8472"
+        },
+        "requestor": "assistant",
+        "action_id": "045_7"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_statement_credit_8472",
+          "arguments": "{\"user_id\": \"224959b99e\", \"credit_card_account_id\": \"cc_224959b99e_bsilver\", \"amount\": 20.0, \"reason\": \"retention_offer\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "045_8"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card",
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_credit_cards_credit_card_account_logistics_002",
+    "doc_credit_cards_credit_card_account_logistics_003",
+    "doc_credit_cards_credit_card_account_logistics_009",
+    "doc_credit_cards_credit_card_replacements_005",
+    "doc_credit_cards_credit_cards_(general)_016",
+    "doc_credit_cards_credit_cards_(general)_017",
+    "doc_business_credit_cards_business_platinum_rewards_card_001",
+    "doc_business_credit_cards_business_platinum_rewards_card_002",
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_business_credit_cards_business_platinum_rewards_card_008",
+    "doc_credit_cards_credit_card_replacements_002"
+  ]
+}

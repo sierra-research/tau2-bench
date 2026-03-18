@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>τ-voice · Blog Figure – Landscape</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: #006838;
+      --green-tint: rgba(79, 175, 98, 0.2);
+      --charcoal: #302E2D;
+      --text: rgba(17, 17, 17, 0.72);
+      --text-label: #716F6C;
+      --bone: #FAFBFF;
+      --page-bg: #F3F9FE;
+      --taupe: #625E5B;
+      --gray: #C1BCB7;
+      --gray-light: rgba(69, 132, 198, 0.2);
+      --gray-dark: #898683;
+      --orange: #F96205;
+      --orange-mid: #EC881B;
+      --blue: #345EB2;
+      --blue-accent: #4584C6;
+      --blue-light: #DBEBFD;
+      --purple: #A673DE;
+      --purple-light: rgba(166, 115, 222, 0.25);
+      --yellow: rgba(235, 235, 152, 0.35);
+      --red: #FF5224;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--sans);
+      color: var(--text);
+      background: #fafbfc;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      padding: 20px 16px 24px;
+    }
+
+    .figure-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* ── Shared track-row layout ── */
+    .track-area {
+      position: relative;
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+
+    .track-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-label);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+
+    .track-row {
+      display: flex;
+    }
+
+    .track-label {
+      width: 80px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 8px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-label);
+    }
+
+    .track-accent { display: none; }
+
+    .track-content {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .track-content::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: rgba(0,0,0,0.05);
+    }
+
+    /* Speech blocks */
+    .speech {
+      position: absolute;
+      border-radius: 5px;
+      cursor: default;
+    }
+
+    .speech::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 4px;
+      right: 4px;
+      height: 1px;
+      background: rgba(0,0,0,0.06);
+    }
+
+    .speech-user {
+      top: 3px; bottom: 3px;
+      background: var(--page-bg);
+      border: 1.5px solid var(--gray-light);
+    }
+
+    .speech-agent {
+      top: 3px; bottom: 3px;
+      background: rgba(79, 175, 98, 0.08);
+      border: 1.5px solid rgba(79, 175, 98, 0.3);
+    }
+
+    /* Waveform bars */
+    .bar {
+      position: absolute;
+      width: 2px;
+      border-radius: 1px;
+    }
+
+    .bar-user { background: var(--blue); }
+    .bar-agent { background: var(--green); }
+
+    /* Effect markers */
+    .effect-marker {
+      position: absolute;
+      top: 3px;
+      bottom: 3px;
+      border-radius: 14px;
+    }
+
+    .effect-frame-drop {
+      background: rgba(255, 82, 36, 0.2);
+      border: 1px solid rgba(255, 82, 36, 0.4);
+    }
+
+    .effect-burst {
+      background: var(--purple-light);
+      border: 1px solid rgba(166, 115, 222, 0.5);
+    }
+
+    .effect-oot {
+      background: var(--yellow);
+      border: 1px solid rgba(17, 17, 17, 0.15);
+    }
+
+    .noise-bar {
+      position: absolute;
+      width: 2px;
+      border-radius: 1px;
+      background: rgba(17, 17, 17, 0.12);
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    /* Ruler */
+    .ruler {
+      display: flex;
+    }
+
+    .ruler-spacer {
+      width: 80px;
+      flex-shrink: 0;
+    }
+
+    .ruler-track {
+      flex: 1;
+      position: relative;
+      height: 18px;
+      border-top: 1px solid rgba(0,0,0,0.08);
+    }
+
+    .ruler-mark {
+      position: absolute;
+      top: 0;
+      width: 1px;
+      height: 4px;
+      background: rgba(0,0,0,0.15);
+      transform: translateX(-50%);
+    }
+
+    .ruler-mark::after {
+      content: attr(data-time);
+      position: absolute;
+      top: 6px;
+      left: 0;
+      font-size: 8px;
+      font-family: var(--mono);
+      color: var(--text-label);
+      white-space: nowrap;
+      transform: translateX(-50%);
+    }
+
+    /* ── Layout: main on top, insets side-by-side below ── */
+    .main-timeline {
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .insets {
+      display: flex;
+      flex-direction: row;
+      gap: 16px;
+    }
+
+    .inset {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .inset-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--green);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .inset-label::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--red);
+      flex-shrink: 0;
+    }
+
+    .inset .track-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Inset-specific narrower labels */
+    .inset .track-label,
+    .inset .turn-label {
+      width: 64px;
+      font-size: 9px;
+      padding: 0 6px;
+    }
+
+    .inset .ruler-spacer {
+      width: 64px;
+    }
+
+    /* Zoom brackets */
+    .zoom-bracket {
+      position: absolute;
+      border: 2px solid var(--red);
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0.7;
+    }
+
+    .zoom-label {
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--red);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 1;
+    }
+
+    /* ── Inset B: Turn-taking detail ── */
+    .turn-row {
+      display: flex;
+      border-bottom: 1px solid var(--gray-light);
+    }
+
+    .turn-row:last-child { border-bottom: none; }
+
+    .turn-label {
+      width: 64px;
+      flex-shrink: 0;
+      padding: 4px 6px;
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-label);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .turn-content {
+      flex: 1;
+      position: relative;
+      min-height: 32px;
+      overflow: hidden;
+    }
+
+    .turn-block {
+      position: absolute;
+      top: 3px;
+      bottom: 3px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      padding: 0 4px;
+      font-size: 8px;
+      font-weight: 500;
+      color: #fff;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .turn-block-user {
+      background: var(--blue-light);
+      color: var(--text);
+      border: 1px solid rgba(69, 132, 198, 0.3);
+    }
+
+    .turn-block-agent {
+      background: var(--green-tint);
+      color: var(--text);
+      border: 1px solid rgba(79, 175, 98, 0.3);
+    }
+
+    .turn-block-oot {
+      background: var(--yellow);
+      color: var(--text);
+      border: 1.5px solid rgba(17, 17, 17, 0.2);
+    }
+
+    /* Annotation callouts */
+    .callout {
+      position: absolute;
+      font-size: 8px;
+      font-weight: 600;
+      white-space: nowrap;
+      z-index: 10;
+    }
+
+    .callout-green { color: var(--green); }
+    .callout-orange { color: var(--red); }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 8px;
+      padding: 4px 10px;
+      justify-content: center;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 9px;
+      color: var(--text-label);
+    }
+
+    .legend-swatch {
+      width: 10px;
+      height: 7px;
+      border-radius: 2px;
+    }
+
+    /* Track heights — compact */
+    .h-speech { height: 42px; }
+    .h-effects { height: 20px; }
+    .h-detail { height: 26px; }
+    .h-noise { height: 22px; }
+
+    @media (max-width: 900px) {
+      .insets { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+<div class="figure-container">
+
+  <!-- ═══════════════════════════════════════
+       MAIN TIMELINE
+       ═══════════════════════════════════════ -->
+  <div class="main-timeline">
+    <div class="track-area" id="mainTimeline">
+      <div class="track-header">Speech Activity Timeline · retail · 6:08</div>
+
+      <!-- User track -->
+      <div class="track-row">
+        <div class="track-label">User</div>
+        <div class="track-content h-speech" id="userTrack"></div>
+      </div>
+
+      <!-- Effects track -->
+      <div class="track-row">
+        <div class="track-label">Effects</div>
+        <div class="track-content h-effects" id="effectsTrack"></div>
+      </div>
+
+      <!-- Agent track -->
+      <div class="track-row">
+        <div class="track-label">Agent</div>
+        <div class="track-content h-speech" id="agentTrack"></div>
+      </div>
+
+      <!-- Ruler -->
+      <div class="ruler">
+        <div class="ruler-spacer"></div>
+        <div class="ruler-track" id="mainRuler"></div>
+      </div>
+
+      <!-- Legend -->
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background: var(--blue-light); border: 1px solid rgba(69,132,198,0.3)"></div>User Speech</div>
+        <div class="legend-item"><div class="legend-swatch" style="background: var(--green-tint); border: 1px solid rgba(79,175,98,0.3)"></div>Agent Speech</div>
+        <div class="legend-item"><div class="legend-swatch" style="background: rgba(255,82,36,0.2); border: 1px solid rgba(255,82,36,0.4)"></div>Frame Drop</div>
+        <div class="legend-item"><div class="legend-swatch" style="background: var(--purple-light); border: 1px solid rgba(166,115,222,0.5)"></div>Burst Noise</div>
+        <div class="legend-item"><div class="legend-swatch" style="background: var(--yellow); border: 1px solid rgba(17,17,17,0.15)"></div>Non-Agent-Directed</div>
+      </div>
+    </div>
+
+    <!-- Zoom brackets (drawn by JS) -->
+    <div id="zoomBracketA" class="zoom-bracket" style="display:none"><span class="zoom-label">A</span></div>
+    <div id="zoomBracketB" class="zoom-bracket" style="display:none"><span class="zoom-label">B</span></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       INSETS — side by side
+       ═══════════════════════════════════════ -->
+  <div class="insets">
+
+    <!-- INSET A: User audio pipeline decomposition -->
+    <div class="inset">
+      <div class="inset-label">A · User Audio Pipeline (32 s–68 s)</div>
+      <div class="track-area">
+        <div class="track-header">What the agent hears — decomposed</div>
+
+        <div class="track-row">
+          <div class="track-label">Speech</div>
+          <div class="track-content h-detail" id="insetASpeech"></div>
+        </div>
+
+        <div class="track-row">
+          <div class="track-label">Bg Noise</div>
+          <div class="track-content h-noise" id="insetABgNoise"></div>
+        </div>
+
+        <div class="track-row">
+          <div class="track-label">Bursts</div>
+          <div class="track-content h-detail" id="insetABurst"></div>
+        </div>
+
+        <div class="track-row">
+          <div class="track-label">Non-Agent</div>
+          <div class="track-content h-detail" id="insetAOot"></div>
+        </div>
+
+        <div class="track-row">
+          <div class="track-label">Mixed</div>
+          <div class="track-content h-detail" id="insetAMixed"></div>
+        </div>
+
+        <div class="ruler">
+          <div class="ruler-spacer"></div>
+          <div class="ruler-track" id="insetARuler"></div>
+        </div>
+
+        <div class="legend">
+          <div class="legend-item"><div class="legend-swatch" style="background: var(--blue-light); border: 1px solid rgba(69,132,198,0.3)"></div>Clean Speech</div>
+          <div class="legend-item"><div class="legend-swatch" style="background: rgba(17,17,17,0.08)"></div>Bg Noise</div>
+          <div class="legend-item"><div class="legend-swatch" style="background: var(--purple-light); border: 1px solid rgba(166,115,222,0.5)"></div>Burst</div>
+          <div class="legend-item"><div class="legend-swatch" style="background: var(--yellow); border: 1px solid rgba(17,17,17,0.15)"></div>Non-Agent</div>
+          <div class="legend-item"><div class="legend-swatch" style="background: var(--blue-light); border: 1px solid rgba(69,132,198,0.3)"></div>Mixed</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSET B: Turn-taking interaction -->
+    <div class="inset">
+      <div class="inset-label">B · Turn-Taking Detail (130 s–175 s)</div>
+      <div class="track-area">
+        <div class="track-header">Agent resilience & user interruption</div>
+
+        <div class="turn-row">
+          <div class="turn-label">User</div>
+          <div class="turn-content" id="insetBUser" style="height: 36px"></div>
+        </div>
+
+        <div class="turn-row">
+          <div class="turn-label">Events</div>
+          <div class="turn-content" id="insetBEvents" style="height: 34px"></div>
+        </div>
+
+        <div class="turn-row">
+          <div class="turn-label">Agent</div>
+          <div class="turn-content" id="insetBAgent" style="height: 36px"></div>
+        </div>
+
+        <div class="ruler">
+          <div class="ruler-spacer"></div>
+          <div class="ruler-track" id="insetBRuler"></div>
+        </div>
+
+        <div class="legend" style="margin-top: auto;">
+          <div class="legend-item"><div class="legend-swatch" style="background: var(--blue-light); border: 1px solid rgba(69,132,198,0.3)"></div>User Speech</div>
+          <div class="legend-item"><div class="legend-swatch" style="background: var(--green-tint); border: 1px solid rgba(79,175,98,0.3)"></div>Agent Speech</div>
+          <div class="legend-item"><div class="legend-swatch" style="background: var(--yellow); border: 1px solid rgba(17,17,17,0.15)"></div>Non-Agent (ignored)</div>
+          <div class="legend-item"><span style="display:inline-block; width:2px; height:8px; background:var(--red); border-radius:1px"></span>Agent yields</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  function seededRand(seed) {
+    let s = seed;
+    return function() { s = (s * 16807) % 2147483647; return s / 2147483647; };
+  }
+
+  // ═══════════════════════════════════════
+  // MAIN TIMELINE (0–368s)
+  // ═══════════════════════════════════════
+  const totalDur = 368;
+
+  const userSegs = [
+    { s: 0, e: 18 },
+    { s: 32, e: 48 },
+    { s: 55, e: 62 },
+    { s: 78, e: 86 },
+    { s: 105, e: 115 },
+    { s: 135, e: 142 },
+    { s: 158, e: 162 },
+    { s: 195, e: 210 },
+    { s: 245, e: 260 },
+    { s: 290, e: 302 },
+    { s: 340, e: 355 },
+  ];
+
+  const agentSegs = [
+    { s: 18, e: 32 },
+    { s: 48, e: 55 },
+    { s: 62, e: 78 },
+    { s: 86, e: 105 },
+    { s: 115, e: 135 },
+    { s: 142, e: 158 },
+    { s: 166, e: 195 },
+    { s: 210, e: 245 },
+    { s: 260, e: 290 },
+    { s: 302, e: 340 },
+    { s: 355, e: 368 },
+  ];
+
+  const effects = [
+    { type: 'frame_drop', s: 25, w: 0.3 },
+    { type: 'frame_drop', s: 72, w: 0.5 },
+    { type: 'frame_drop', s: 112, w: 0.2 },
+    { type: 'frame_drop', s: 188, w: 0.4 },
+    { type: 'frame_drop', s: 250, w: 0.3 },
+    { type: 'frame_drop', s: 310, w: 0.5 },
+    { type: 'burst', s: 50, w: 2 },
+    { type: 'burst', s: 175, w: 1.5 },
+    { type: 'burst', s: 280, w: 2.5 },
+    { type: 'oot', s: 49, w: 3 },
+    { type: 'oot', s: 148, w: 1 },
+    { type: 'oot', s: 230, w: 1.5 },
+    { type: 'oot', s: 320, w: 1 },
+  ];
+
+  const BAR_SPACING_PX = 4;
+
+  function addSpeechBlocks(container, segs, type, dur, estW) {
+    const rand = seededRand(type === 'user' ? 42 : 137);
+    const estContainerW = estW || 1000;
+    segs.forEach(seg => {
+      const el = document.createElement('div');
+      el.className = `speech speech-${type}`;
+      const leftPct = seg.s / dur * 100;
+      const widthPct = (seg.e - seg.s) / dur * 100;
+      el.style.left = leftPct + '%';
+      el.style.width = widthPct + '%';
+      el.style.overflow = 'hidden';
+      container.appendChild(el);
+
+      const segDurSec = seg.e - seg.s;
+      const estBlockW = widthPct / 100 * estContainerW;
+      const barCount = Math.max(4, Math.floor(estBlockW / BAR_SPACING_PX));
+
+      for (let i = 0; i < barCount; i++) {
+        const t = i / barCount;
+        const edgeFade = Math.min(t * 5, (1 - t) * 5, 1);
+        const syllableRate = 3.5 + rand() * 1.5;
+        const syllablePhase = rand() * Math.PI * 2;
+        const syllable = 0.35 + 0.65 * Math.pow(Math.abs(Math.sin(t * segDurSec * syllableRate + syllablePhase)), 0.6);
+        const micro = 0.6 + rand() * 0.4;
+        const amp = edgeFade * syllable * micro;
+        const heightPct = Math.max(6, amp * 80);
+
+        const bar = document.createElement('div');
+        bar.className = `bar bar-${type}`;
+        bar.style.height = heightPct + '%';
+        bar.style.left = (i * BAR_SPACING_PX) + 'px';
+        bar.style.top = ((50 - heightPct / 2)) + '%';
+        el.appendChild(bar);
+      }
+    });
+  }
+
+  function addEffects(container, effects, dur) {
+    effects.forEach(e => {
+      const el = document.createElement('div');
+      const cls = e.type === 'burst' ? 'effect-burst' :
+                  e.type === 'oot' ? 'effect-oot' : 'effect-frame-drop';
+      el.className = `effect-marker ${cls}`;
+      el.style.left = (e.s / dur * 100) + '%';
+      el.style.width = Math.max(0.15, (e.w / dur * 100)) + '%';
+      container.appendChild(el);
+    });
+  }
+
+  function addRuler(container, dur, step, offset) {
+    const off = offset || 0;
+    for (let t = 0; t <= dur; t += step) {
+      const mark = document.createElement('div');
+      mark.className = 'ruler-mark';
+      mark.style.left = (t / dur * 100) + '%';
+      mark.dataset.time = Math.round(t + off) + 's';
+      container.appendChild(mark);
+    }
+  }
+
+  // Background noise on user track
+  const mainUserTrack = document.getElementById('userTrack');
+  const noiseRand = seededRand(777);
+  for (let i = 0; i < 300; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'noise-bar';
+    bar.style.height = (2 + noiseRand() * 10) + 'px';
+    bar.style.left = (i / 300 * 100) + '%';
+    mainUserTrack.appendChild(bar);
+  }
+
+  addSpeechBlocks(mainUserTrack, userSegs, 'user', totalDur, 1000);
+  addSpeechBlocks(document.getElementById('agentTrack'), agentSegs, 'agent', totalDur, 1000);
+  addEffects(document.getElementById('effectsTrack'), effects, totalDur);
+  addRuler(document.getElementById('mainRuler'), totalDur, 30);
+
+  // ═══════════════════════════════════════
+  // INSET A: User audio pipeline (32s–68s)
+  // ═══════════════════════════════════════
+  const insetAStart = 32, insetAEnd = 68, insetADur = 36;
+  const INSET_EST_W = 450;
+
+  const insetASpeechSegs = [
+    { s: 34, e: 48 },
+    { s: 55, e: 62 },
+  ];
+
+  function remap(segs, ws, dur) {
+    return segs.map(seg => ({ s: Math.max(0, seg.s - ws), e: Math.min(dur, seg.e - ws) }))
+               .filter(s => s.e > 0 && s.s < dur);
+  }
+
+  addSpeechBlocks(document.getElementById('insetASpeech'), remap(insetASpeechSegs, insetAStart, insetADur), 'user', insetADur, INSET_EST_W);
+
+  // Background noise
+  const bgNoiseEl = document.getElementById('insetABgNoise');
+  const rand = seededRand(999);
+  for (let i = 0; i < 100; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'noise-bar';
+    bar.style.height = (3 + rand() * 10) + 'px';
+    bar.style.left = (i / 100 * 100) + '%';
+    bgNoiseEl.appendChild(bar);
+  }
+  const bgLabel = document.createElement('span');
+  bgLabel.style.cssText = 'position:absolute; left:4px; top:1px; font-size:8px; font-weight:500; color:var(--text-label); opacity:0.8; white-space:nowrap; z-index:2; background:rgba(255,255,255,0.7); padding:0 2px; border-radius:2px;';
+  bgLabel.textContent = '🏙 busy street';
+  bgNoiseEl.appendChild(bgLabel);
+
+  function addLightWaveform(container, startSec, durSec, color, seed) {
+    const r = seededRand(seed);
+    const startRel = (startSec - insetAStart) / insetADur;
+    const estW = durSec / insetADur * INSET_EST_W;
+    const count = Math.max(4, Math.floor(estW / 4));
+    for (let i = 0; i < count; i++) {
+      const t = i / count;
+      const edgeFade = Math.min(t * 4, (1 - t) * 4, 1);
+      const amp = edgeFade * (0.5 + r() * 0.5);
+      const heightPct = Math.max(8, amp * 70);
+      const bar = document.createElement('div');
+      bar.style.cssText = `position:absolute; width:2px; border-radius:1px; background:${color};`
+        + `height:${heightPct}%; left:${(startRel * 100 + t * durSec / insetADur * 100)}%;`
+        + `top:${50 - heightPct / 2}%;`;
+      container.appendChild(bar);
+    }
+  }
+
+  // Burst noise
+  const burstEl = document.getElementById('insetABurst');
+  const burstStartSec = 50, burstDurSec = 2.5;
+  const burstStartRel = (burstStartSec - insetAStart) / insetADur;
+  const burstWidthRel = burstDurSec / insetADur;
+  const burstBlock = document.createElement('div');
+  burstBlock.className = 'effect-marker effect-burst';
+  burstBlock.style.left = (burstStartRel * 100) + '%';
+  burstBlock.style.width = (burstWidthRel * 100) + '%';
+  burstBlock.style.top = '3px'; burstBlock.style.bottom = '3px';
+  burstBlock.style.overflow = 'visible';
+  burstEl.appendChild(burstBlock);
+  addLightWaveform(burstEl, burstStartSec, burstDurSec, 'rgba(166,115,222,0.35)', 333);
+  const burstLabel = document.createElement('span');
+  burstLabel.style.cssText = 'position:absolute; left:calc(100% + 3px); top:50%; transform:translateY(-50%); font-size:8px; font-weight:600; color:var(--purple); white-space:nowrap;';
+  burstLabel.textContent = '🔊 car horn';
+  burstBlock.appendChild(burstLabel);
+
+  // Non-agent-directed speech
+  const ootEl = document.getElementById('insetAOot');
+  const ootStartSec = 49, ootDurSec = 3;
+  const ootStartRel = (ootStartSec - insetAStart) / insetADur;
+  const ootWidthRel = ootDurSec / insetADur;
+  const ootBlock = document.createElement('div');
+  ootBlock.className = 'effect-marker effect-oot';
+  ootBlock.style.left = (ootStartRel * 100) + '%';
+  ootBlock.style.width = (ootWidthRel * 100) + '%';
+  ootBlock.style.top = '3px'; ootBlock.style.bottom = '3px';
+  ootBlock.style.overflow = 'visible';
+  const ootLabel2 = document.createElement('span');
+  ootLabel2.style.cssText = 'position:absolute; left:calc(100% + 3px); top:50%; transform:translateY(-50%); font-size:8px; font-weight:500; color:var(--text-label); white-space:nowrap;';
+  ootLabel2.textContent = '🗣 "Hold on"';
+  ootBlock.appendChild(ootLabel2);
+  ootEl.appendChild(ootBlock);
+  addLightWaveform(ootEl, ootStartSec, ootDurSec, 'rgba(17,17,17,0.2)', 555);
+
+  // Mixed output
+  const mixedEl = document.getElementById('insetAMixed');
+  addSpeechBlocks(mixedEl, remap(insetASpeechSegs, insetAStart, insetADur), 'user', insetADur, INSET_EST_W);
+  addLightWaveform(mixedEl, burstStartSec, burstDurSec, 'rgba(166,115,222,0.25)', 333);
+  addLightWaveform(mixedEl, ootStartSec, ootDurSec, 'rgba(17,17,17,0.15)', 555);
+  const rand2 = seededRand(888);
+  for (let i = 0; i < 60; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'noise-bar';
+    bar.style.height = (2 + rand2() * 6) + 'px';
+    bar.style.left = (i / 60 * 100) + '%';
+    bar.style.opacity = '0.5';
+    mixedEl.appendChild(bar);
+  }
+
+  addRuler(document.getElementById('insetARuler'), insetADur, 5, insetAStart);
+
+  // ═══════════════════════════════════════
+  // INSET B: Turn-taking detail (130s–175s)
+  // ═══════════════════════════════════════
+  const insetBStart = 130, insetBEnd = 175, insetBDur = 45;
+
+  const userB = document.getElementById('insetBUser');
+  const eventsB = document.getElementById('insetBEvents');
+  const agentB = document.getElementById('insetBAgent');
+
+  function addTurnBlock(container, s, e, cls, text) {
+    const el = document.createElement('div');
+    el.className = `turn-block ${cls}`;
+    el.style.left = ((s - insetBStart) / insetBDur * 100) + '%';
+    el.style.width = ((e - s) / insetBDur * 100) + '%';
+    el.textContent = text;
+    container.appendChild(el);
+  }
+
+  function addCallout(container, x, text, cls, yPx) {
+    const callout = document.createElement('div');
+    callout.className = `callout ${cls}`;
+    callout.style.left = ((x - insetBStart) / insetBDur * 100) + '%';
+    callout.style.top = yPx + 'px';
+    callout.textContent = text;
+    callout.style.transform = 'translateX(-50%)';
+    container.appendChild(callout);
+  }
+
+  addTurnBlock(userB, 132, 143, 'turn-block-user', '"Check my return"');
+  addTurnBlock(userB, 146, 152, 'turn-block-oot', '"One sec."');
+  addTurnBlock(userB, 158, 166, 'turn-block-user', '"Enough, thanks."');
+
+  const ootLabel = document.createElement('div');
+  ootLabel.className = 'effect-marker effect-oot';
+  ootLabel.style.left = ((146 - insetBStart) / insetBDur * 100) + '%';
+  ootLabel.style.width = ((152 - 146) / insetBDur * 100) + '%';
+  ootLabel.style.top = '16px'; ootLabel.style.bottom = '3px';
+  eventsB.appendChild(ootLabel);
+
+  addCallout(eventsB, 149, 'agent ignores ✓', 'callout-green', 1);
+
+  const intLine = document.createElement('div');
+  intLine.style.cssText = `position:absolute; left:${((162 - insetBStart) / insetBDur * 100)}%; top:12px; bottom:0; width:2px; background:var(--red); opacity:0.6; z-index:10;`;
+  eventsB.appendChild(intLine);
+  addCallout(eventsB, 162, 'agent yields', 'callout-orange', 1);
+
+  addTurnBlock(agentB, 142, 162, 'turn-block-agent', '"Let me look that up… placed March 2nd, schedu—"');
+  addTurnBlock(agentB, 166, 175, 'turn-block-agent', '"Anything else?"');
+
+  addRuler(document.getElementById('insetBRuler'), insetBDur, 5, insetBStart);
+
+  // ═══════════════════════════════════════
+  // Zoom brackets on main timeline
+  // ═══════════════════════════════════════
+  function drawZoomBrackets() {
+    const wrapper = document.querySelector('.main-timeline');
+    const userTrack = document.getElementById('userTrack');
+    const effectsTrack = document.getElementById('effectsTrack');
+    const agentTrack = document.getElementById('agentTrack');
+    if (!wrapper || !userTrack) return;
+
+    const wRect = wrapper.getBoundingClientRect();
+    const uRect = userTrack.getBoundingClientRect();
+    const aRect = agentTrack.getBoundingClientRect();
+
+    const bracketA = document.getElementById('zoomBracketA');
+    const xA1 = uRect.left + (insetAStart / totalDur) * uRect.width - wRect.left;
+    const xA2 = uRect.left + (insetAEnd / totalDur) * uRect.width - wRect.left;
+    bracketA.style.display = 'block';
+    bracketA.style.left = xA1 + 'px';
+    bracketA.style.width = (xA2 - xA1) + 'px';
+    bracketA.style.top = (uRect.top - wRect.top) + 'px';
+    bracketA.style.height = uRect.height + 'px';
+
+    const bracketB = document.getElementById('zoomBracketB');
+    const xB1 = uRect.left + (insetBStart / totalDur) * uRect.width - wRect.left;
+    const xB2 = uRect.left + (insetBEnd / totalDur) * uRect.width - wRect.left;
+    bracketB.style.display = 'block';
+    bracketB.style.left = xB1 + 'px';
+    bracketB.style.width = (xB2 - xB1) + 'px';
+    bracketB.style.top = (uRect.top - wRect.top) + 'px';
+    bracketB.style.height = (aRect.bottom - uRect.top) + 'px';
+  }
+
+  requestAnimationFrame(drawZoomBrackets);
+  window.addEventListener('resize', () => requestAnimationFrame(drawZoomBrackets));
+})();
+</script>
+</body>
+</html>

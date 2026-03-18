@@ -1,0 +1,121 @@
+{
+  "id": "task_038",
+  "description": {
+    "purpose": "Task: task_038",
+    "relevant_policies": null,
+    "notes": "Complex multi-transaction dispute with ambiguity test: User Fatima Al-Hassan has 5 Amazon transactions on her Silver Rewards Card but only wants to dispute 3 of them. The user is deliberately vague about which transactions she means (just says 'the Amazon charges'), forcing the agent to clarify which specific ones are problems - agent must NOT assume all Amazon transactions should be disputed. The 2 legitimate transactions ($42.17 on 10/12 and $67.89 on 10/18) should NOT be disputed. Additionally: 1) Agent must initiate card cancellation and reissuance (not already cancelled), 2) Each disputed transaction has a different dispute reason with different provisional credit eligibility - one is fraudulent (eligible), one is goods not as described (NOT eligible), one is duplicate charge (eligible). Agent must gather all required information, order the replacement card, unlock file_credit_card_transaction_dispute_4829, and file all 3 disputes correctly with the appropriate provisional credit eligibility for each."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Fatima Al-Hassan, a 31-year-old small business owner from Detroit, MI. You have a Silver Rewards Card with Rho-Bank.\n\n**Your situation:** You've been having a series of problems with some of your Amazon orders and you just noticed some concerning charges on your credit card statement. \n\n**Your goal:** Dispute 3 specific Amazon transactions on your Silver Rewards Card AND get your card cancelled and reissued because of the fraud.\n\n**Information you know and should provide when asked:**\n- Your full name: Fatima Al-Hassan\n- Your phone number: 313-555-0246\n- Your email: coffeelover_fati@protonmail.com\n**Shipping preference for replacement card:**\n- You want the replacement card shipped to your WORK address, not your home address\n- Your work address is: 2500 Woodward Avenue, Suite 300, Detroit, MI 48201: do not provide this information during verification.\n\n**The three transactions you want to dispute IF you see it: if you do not see the transactions then therefore you must have misremembered and you do not go down that troubleshooting pathway.**\n1. **Amazon charge for $89.99 on 10/05/2025** - This is FRAUD. You did NOT make this purchase at all. Someone must have stolen your card information. You have no idea what this charge is for.\n2. **Amazon charge for $124.50 on 10/08/2025** - You DID make this purchase (a wireless keyboard), but they sent you the completely wrong item (a cheap phone case). You tried contacting Amazon twice but they keep saying it's past the return window.\n3. **Amazon charge for $89.99 on 10/10/2025** - This is a DUPLICATE charge. It's the exact same amount as the fraudulent charge from 10/05. You think their system accidentally charged you twice for whatever the fraudster ordered.\n\n**The two transactions that are FINE (do NOT dispute these):**\n- **Amazon charge for $42.17 on 10/12/2025** - This was a book you ordered. You received it and it's fine.\n- **Amazon charge for $67.89 on 10/18/2025** - This was some household supplies. No issues with this order.\n\n## Conversation Flow:\n\n1. **Opening (BE VAGUE):** \"Hi, I need help with some Amazon charges on my card. I'm seeing some charges I have problems with and I want to dispute them.\"\n\n2. **When agent asks for clarification about which charges:** Be vague at first. Say something like: \"The Amazon ones. There's a few of them I have issues with.\" Do NOT specify exactly which ones yet. Only provide specific details (dates, exact amounts) when the agent lists out the transactions and asks you to confirm which specific ones are problems.\n\n3. **Provide verification info when asked:** Give your name, phone number, email as requested.\n\n4. **If the agent shows you ALL your Amazon transactions and asks which ones:** Clarify each one:\n   - For the $89.99 on 10/05: \"That one I didn't make at all. I have no idea what it is - someone must have my card info. That's fraud.\"\n   - For the $124.50 on 10/08: \"That one I did order - I bought a wireless keyboard - but they sent me completely the wrong thing. I got some cheap phone case instead. I tried calling them twice but they said it's too late to return.\"\n   - For the $89.99 on 10/10: \"This one looks like a duplicate of that first fraudulent one. Same exact amount, just charged again a few days later.\"\n\"\n\n 5. **Card action:** When asked about what to do with the card, say: \"I want to cancel this card and get a new one. If someone has my card info I don't want them charging more stuff.\"\n\n6. **Shipping address preference:** If asked about shipping, say: \"Actually, can you send it to my work address instead? I'm at work during the day when packages come, and I've had issues with package theft at my apartment. My work address is 2500 Woodward Avenue, Suite 300, Detroit, MI 48201.\"\n\n8. **Merchant contact:** When asked if you contacted the merchant:\n   - For the fraud ($89.99 on 10/05): \"No, I didn't contact Amazon about that one. I didn't make that purchase - why would I call them about something a fraudster ordered?\"\n   - For the wrong item ($124.50): \"Yes, I called Amazon twice. They said it's past the return window and won't help me.\"\n   - For the duplicate ($89.99 on 10/10): \"No, I haven't contacted them about this one either - it's clearly their system error or fraud.\"\n\n9. **Resolution requested:** \"I want a full refund for all three.\"\n\n10. **When issue was noticed:** \"I noticed all of this today when I was reviewing my statement.\"\n\n11. **End conversation:** Once all three disputes are filed and the replacement card is ordered, thank the agent and end the conversation."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Fatima Al-Hassan",
+          "user_id": "890389b165",
+          "address": "1923 Oak Park Boulevard, Detroit, MI 48226",
+          "email": "coffeelover_fati@protonmail.com",
+          "phone_number": "313-555-0246",
+          "date_of_birth": "12/05/1993",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "038_0"
+      },
+      {
+        "name": "give_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "get_card_last_4_digits"
+        },
+        "requestor": "assistant",
+        "action_id": "038_1"
+      },
+      {
+        "name": "call_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "get_card_last_4_digits",
+          "arguments": "{\"credit_card_account_id\": \"cc_890389b165_silver\"}"
+        },
+        "requestor": "user",
+        "action_id": "038_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "order_replacement_credit_card_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "038_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "order_replacement_credit_card_7291",
+          "arguments": "{\"credit_card_account_id\": \"cc_890389b165_silver\", \"user_id\": \"890389b165\", \"shipping_address\": \"2500 Woodward Avenue, Suite 300, Detroit, MI 48201\", \"reason\": \"fraud_suspected\", \"expedited_shipping\": true}"
+        },
+        "requestor": "assistant",
+        "action_id": "038_4"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829"
+        },
+        "requestor": "assistant",
+        "action_id": "038_5"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_e45e7acb56a0\", \"card_action\": \"cancel_and_reissue\", \"card_last_4_digits\": \"5320\", \"full_name\": \"Fatima Al-Hassan\", \"user_id\": \"890389b165\", \"phone\": \"313-555-0246\", \"email\": \"coffeelover_fati@protonmail.com\", \"address\": \"1923 Oak Park Boulevard, Detroit, MI 48226\", \"contacted_merchant\": false, \"purchase_date\": \"10/05/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"unauthorized_fraudulent_charge\", \"resolution_requested\": \"full_refund\", \"partial_refund_amount\": null, \"eligible_for_provisional_credit\": true}"
+        },
+        "requestor": "assistant",
+        "action_id": "038_6"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_28cb62125078\", \"card_action\": \"cancel_and_reissue\", \"card_last_4_digits\": \"5320\", \"full_name\": \"Fatima Al-Hassan\", \"user_id\": \"890389b165\", \"phone\": \"313-555-0246\", \"email\": \"coffeelover_fati@protonmail.com\", \"address\": \"1923 Oak Park Boulevard, Detroit, MI 48226\", \"contacted_merchant\": true, \"purchase_date\": \"10/08/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"goods_services_not_as_described\", \"resolution_requested\": \"full_refund\", \"partial_refund_amount\": null, \"eligible_for_provisional_credit\": false}"
+        },
+        "requestor": "assistant",
+        "action_id": "038_7"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_2017c3b2b119\", \"card_action\": \"cancel_and_reissue\", \"card_last_4_digits\": \"5320\", \"full_name\": \"Fatima Al-Hassan\", \"user_id\": \"890389b165\", \"phone\": \"313-555-0246\", \"email\": \"coffeelover_fati@protonmail.com\", \"address\": \"1923 Oak Park Boulevard, Detroit, MI 48226\", \"contacted_merchant\": false, \"purchase_date\": \"10/10/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"duplicate_charge\", \"resolution_requested\": \"full_refund\", \"partial_refund_amount\": null, \"eligible_for_provisional_credit\": false}"
+        },
+        "requestor": "assistant",
+        "action_id": "038_8"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card",
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_credit_cards_credit_card_replacements_001",
+    "doc_credit_cards_credit_cards_(general)_013",
+    "doc_credit_cards_credit_cards_(general)_014",
+    "doc_credit_cards_credit_cards_(general)_015"
+  ]
+}

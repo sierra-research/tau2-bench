@@ -317,6 +317,56 @@
     }
   },
   {
+    "id": "update_task_with_user_tools",
+    "description": {
+      "purpose": "Test user tool calling with check_notifications and dismiss_notification",
+      "notes": "The user checks their notification inbox, sees a task assigned to them, asks the agent to mark it completed, then dismisses the notification."
+    },
+    "user_scenario": {
+      "persona": "Professional and direct communicator who writes in a clear and concise style",
+      "instructions": "You just received a notification about a task. First, use the check_notifications tool to see your notifications. You will see that task_1 ('Test task') has been assigned to you. Tell the agent you have completed this task and ask them to update the status to completed. After the agent confirms, use dismiss_notification to dismiss the notification 'notif_1'."
+    },
+    "ticket": "User checks their notifications, sees task_1 was assigned, and asks the agent to mark task_1 as completed.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "add_notification",
+          "arguments": {
+            "notification_id": "notif_1",
+            "message": "Task 'Test task' has been assigned to you.",
+            "task_id": "task_1"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "update_1",
+          "name": "update_task_status",
+          "arguments": {
+            "task_id": "task_1",
+            "status": "completed"
+          },
+          "info": "Update the task status to completed"
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_notification_status",
+          "arguments": {"notification_id": "notif_1", "expected_status": "read"},
+          "assert_value": true
+        }
+      ],
+      "nl_assertions": [
+        "The agent confirmed the task status was updated successfully"
+      ],
+      "reward_basis": ["DB", "ACTION", "ENV_ASSERTION"]
+    }
+  },
+  {
     "id": "impossible_task_1",
     "description": {
       "purpose": "Test delete_task functionality",

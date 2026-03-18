@@ -1,6 +1,6 @@
-# τ²-bench Web Interface
+# τ-bench Web Interface
 
-![τ²-bench Leaderboard](public/leaderboard.png)
+![τ-bench Leaderboard](public/leaderboard.png)
 
 ## 🚀 Quick Start
 
@@ -32,15 +32,15 @@
 
 ## 📊 Submitting to the Leaderboard
 
-We welcome community submissions! The leaderboard now accepts model evaluation results through pull requests.
+We welcome community submissions! The leaderboard accepts model evaluation results through pull requests for both **text** (standard) and **voice** (audio-native) modalities.
 
 ### How to Submit
 
-1. **Evaluate your model** using [tau2-bench](https://github.com/sierra-research/tau2-bench)
+1. **Evaluate your model** using [tau-bench](https://github.com/sierra-research/tau2-bench)
 2. **Create a JSON submission** following our schema (see `public/submissions/schema.json`)
 3. **Submit a pull request** with your results file and trajectory links for verification
 
-### Quick Example
+### Quick Example (Text)
 
 ```json
 {
@@ -53,22 +53,11 @@ We welcome community submissions! The leaderboard now accepts model evaluation r
     "name": "Research Team"
   },
   "trajectories_available": true,
-  "references": [
-    {
-      "title": "Model Technical Paper",
-      "url": "https://arxiv.org/abs/2401.00000",
-      "type": "paper"
-    },
-    {
-      "title": "Model Documentation",
-      "url": "https://docs.example.com/model",
-      "type": "documentation"
-    }
-  ],
   "results": {
     "retail": {"pass_1": 75.2, "pass_2": 68.1, "pass_3": null, "pass_4": null},
     "airline": {"pass_1": 61.2, "pass_2": null, "pass_3": null, "pass_4": null},
-    "telecom": {"pass_1": 45.6, "pass_2": null, "pass_3": null, "pass_4": null}
+    "telecom": {"pass_1": 45.6, "pass_2": null, "pass_3": null, "pass_4": null},
+    "banking_knowledge": {"pass_1": 22.5, "pass_2": 17.3, "pass_3": null, "pass_4": null, "retrieval_config": "terminal"}
   },
   "methodology": {
     "evaluation_date": "2025-01-10",
@@ -78,6 +67,42 @@ We welcome community submissions! The leaderboard now accepts model evaluation r
       "modified_prompts": false,
       "omitted_questions": true,
       "details": "Only evaluated Pass@1 for all domains"
+    }
+  }
+}
+```
+
+### Quick Example (Voice)
+
+```json
+{
+  "model_name": "My-Voice-Model",
+  "model_organization": "My Organization",
+  "submitting_organization": "My Organization",
+  "submission_date": "2026-03-11",
+  "modality": "voice",
+  "contact_info": {
+    "email": "contact@myorg.com"
+  },
+  "trajectories_available": false,
+  "results": {
+    "retail": {"pass_1": 43.9},
+    "airline": {"pass_1": 40.0},
+    "telecom": {"pass_1": 21.1}
+  },
+  "voice_config": {
+    "provider": "openai",
+    "model": "gpt-realtime-1.5",
+    "tick_duration_seconds": 0.2,
+    "max_steps_seconds": 600,
+    "user_tts_provider": "elevenlabs/eleven_v3"
+  },
+  "methodology": {
+    "evaluation_date": "2026-03-01",
+    "user_simulator": "gpt-4.1-2025-04-14",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false
     }
   }
 }

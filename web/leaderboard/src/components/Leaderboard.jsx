@@ -1,20 +1,34 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import './Leaderboard.css'
 
+const BENCHMARK_VALUES = new Set(['text', 'voice'])
+
+const getBenchmarkFromHash = () => {
+  const hash = window.location.hash.slice(1)
+  const [route, queryString = ''] = hash.split('?')
+  if (route !== 'leaderboard') return null
+
+  const value = new URLSearchParams(queryString).get('benchmark')
+  return BENCHMARK_VALUES.has(value) ? value : null
+}
+
 const Leaderboard = () => {
-  // Chart state for leaderboard
-  const [chartInstance, setChartInstance] = useState(null)
-  // Add leaderboard view state with localStorage persistence
-  const [leaderboardView, setLeaderboardView] = useState(() => {
-    return localStorage.getItem('leaderboardView') || 'table'
+  // Benchmark selector: 'text' (τ-bench) or 'voice' (τ-voice)
+  const [benchmark, setBenchmark] = useState(() => {
+    const fromHash = getBenchmarkFromHash()
+    if (fromHash) return fromHash
+
+    const fromStorage = localStorage.getItem('benchmark')
+    return BENCHMARK_VALUES.has(fromStorage) ? fromStorage : 'text'
   })
   // Add unified domain selection state with localStorage persistence
   const [domain, setDomain] = useState(() => {
     return localStorage.getItem('domain') || 'overall'
   })
-  // Add sorting state for table with localStorage persistence
-  const [sortColumn, setSortColumn] = useState(() => {
-    return localStorage.getItem('sortColumn') || 'pass1'
+  // Selected pass^k metric (1-4) with localStorage persistence
+  const [selectedPassK, setSelectedPassK] = useState(() => {
+    const stored = localStorage.getItem('selectedPassK')
+    return stored ? parseInt(stored) : 1
   })
   const [sortDirection, setSortDirection] = useState(() => {
     return localStorage.getItem('sortDirection') || 'desc'
@@ -28,8 +42,14 @@ const Leaderboard = () => {
     const stored = localStorage.getItem('showCustom')
     return stored === null ? false : stored === 'true'
   })
+  // Legacy submissions toggle
+  const [showLegacy, setShowLegacy] = useState(() => {
+    return localStorage.getItem('showLegacy') === 'true'
+  })
   // Info tooltip state
   const [showFilterInfo, setShowFilterInfo] = useState(false)
+  // Expanded rows state (set of model names)
+  const [expandedRows, setExpandedRows] = useState(new Set())
   
   // Add state for dynamically loaded data
   const [passKData, setPassKData] = useState({})
@@ -42,9 +62,9 @@ const Leaderboard = () => {
   const [selectedSubmission, setSelectedSubmission] = useState(null)
   const [modalClosing, setModalClosing] = useState(false)
 
-  // Function to handle model click and show details
-  const handleModelClick = (modelName) => {
-    const submissionData = fullSubmissionData[modelName]
+  // Function to handle model click and show details (keyed by submissionDir)
+  const handleModelClick = (submissionKey) => {
+    const submissionData = fullSubmissionData[submissionKey]
     if (submissionData) {
       setSelectedSubmission(submissionData)
       setShowModal(true)
@@ -58,7 +78,7 @@ const Leaderboard = () => {
       setShowModal(false)
       setSelectedSubmission(null)
       setModalClosing(false)
-    }, 300) // Match the CSS animation duration
+    }, 200) // Match the CSS animation duration (0.2s)
   }
 
   // Function to load submission data from JSON files
@@ -74,26 +94,30 @@ const Leaderboard = () => {
       }
       
       const manifest = await manifestResponse.json()
-      const submissionDirs = manifest.submissions || []
+      const currentDirs = manifest.submissions || []
+      const legacyDirs = manifest.legacy_submissions || []
+      const voiceDirs = manifest.voice_submissions || []
       
       const loadedData = {}
       const fullSubmissions = {}
       
-      // Load each submission from its directory
-      for (const submissionDir of submissionDirs) {
+      // Helper to load a submission directory
+      const loadSubmission = async (submissionDir, isLegacy, modality = 'text') => {
         try {
           const response = await fetch(`${import.meta.env.BASE_URL}submissions/${submissionDir}/submission.json`)
           if (!response.ok) {
             console.warn(`Failed to load ${submissionDir}: ${response.status}`)
-            continue
+            return
           }
           
           const submission = await response.json()
           
-          // Store full submission data for modal display
-          fullSubmissions[submission.model_name] = {
+          // Store full submission data for modal display (keyed by submissionDir to avoid collisions)
+          fullSubmissions[submissionDir] = {
             ...submission,
-            submissionDir // Include directory name for potential trajectory access
+            submissionDir,
+            isLegacy,
+            modality
           }
           
           // Convert JSON format to internal format
@@ -115,48 +139,83 @@ const Leaderboard = () => {
             submission.results.telecom?.pass_3 || null,
             submission.results.telecom?.pass_4 || null
           ]
+          const bankingData = [
+            submission.results.banking_knowledge?.pass_1 || null,
+            submission.results.banking_knowledge?.pass_2 || null,
+            submission.results.banking_knowledge?.pass_3 || null,
+            submission.results.banking_knowledge?.pass_4 || null
+          ]
           
-          // Calculate overall averages (only if all 3 domains have data)
+          // Calculate overall averages (only if all 4 domains have data)
           const hasRetailData = submission.results.retail?.pass_1 !== null && submission.results.retail?.pass_1 !== undefined
           const hasAirlineData = submission.results.airline?.pass_1 !== null && submission.results.airline?.pass_1 !== undefined
           const hasTelecomData = submission.results.telecom?.pass_1 !== null && submission.results.telecom?.pass_1 !== undefined
+          const hasBankingData = submission.results.banking_knowledge?.pass_1 !== null && submission.results.banking_knowledge?.pass_1 !== undefined
           
-          const overallData = (hasRetailData && hasAirlineData && hasTelecomData) 
+          const overallData = (hasRetailData && hasAirlineData && hasTelecomData && hasBankingData) 
             ? [0, 1, 2, 3].map(passIndex => {
-                const values = [retailData[passIndex], airlineData[passIndex], telecomData[passIndex]].filter(val => val !== null)
+                const values = [retailData[passIndex], airlineData[passIndex], telecomData[passIndex], bankingData[passIndex]].filter(val => val !== null)
                 return values.length > 0 ? values.reduce((sum, val) => sum + val, 0) / values.length : null
               })
             : [null, null, null, null] // No overall score if missing any domain
           
           const modelData = {
+            modelName: submission.model_name,
+            submissionDir,
+            modality,
             retail: retailData,
             airline: airlineData,
             telecom: telecomData,
+            banking_knowledge: bankingData,
             overall: overallData,
             // Cost information for each domain
             costs: {
               retail: submission.results.retail?.cost || null,
               airline: submission.results.airline?.cost || null,
-              telecom: submission.results.telecom?.cost || null
+              telecom: submission.results.telecom?.cost || null,
+              banking_knowledge: submission.results.banking_knowledge?.cost || null
             },
-            isNew: submission.is_new || false,
+            isLegacy,
             organization: submission.submitting_organization,
+            reasoningEffort: submission.reasoning_effort || null,
             userSimulator: submission.methodology?.user_simulator || null,
+            bankingRetrievalConfig: submission.results.banking_knowledge?.retrieval_config || null,
+            // Voice-specific fields
+            voiceConfig: submission.voice_config || null,
             // Add verification status
             // For 'custom' submissions, we relax the modified_prompts constraint
             // Custom submissions are allowed to modify prompts as long as they have trajectories and don't omit questions
-            isVerified: submission.trajectories_available && 
-                       submission.methodology?.verification?.omitted_questions === false &&
-                       (submission.submission_type === 'custom' || submission.methodology?.verification?.modified_prompts === false),
+            // For voice submissions, trajectories are never available so skip that check
+            isVerified: modality === 'voice'
+              ? (submission.methodology?.verification?.omitted_questions === false &&
+                 (submission.submission_type === 'custom' || submission.methodology?.verification?.modified_prompts === false))
+              : (submission.trajectories_available && 
+                 submission.methodology?.verification?.omitted_questions === false &&
+                 (submission.submission_type === 'custom' || submission.methodology?.verification?.modified_prompts === false)),
             verificationDetails: submission.methodology?.verification || null,
             // Submission type: 'standard' (default) or 'custom'
             submissionType: submission.submission_type || 'standard'
           }
           
-          loadedData[submission.model_name] = modelData
+          loadedData[submissionDir] = modelData
         } catch (error) {
           console.warn(`Error loading ${submissionDir}:`, error)
         }
+      }
+      
+      // Load current text submissions
+      for (const dir of currentDirs) {
+        await loadSubmission(dir, false, 'text')
+      }
+      
+      // Load legacy text submissions
+      for (const dir of legacyDirs) {
+        await loadSubmission(dir, true, 'text')
+      }
+      
+      // Load voice submissions
+      for (const dir of voiceDirs) {
+        await loadSubmission(dir, false, 'voice')
       }
       
       setPassKData(loadedData)
@@ -174,32 +233,50 @@ const Leaderboard = () => {
     loadSubmissionData()
   }, [])
 
-  // Initialize chart when leaderboard view is active and chart view is selected
-  useEffect(() => {
-    if (leaderboardView === 'chart' && !isLoading && Object.keys(passKData).length > 0) {
-      // Small delay to ensure DOM is ready
-      const timer = setTimeout(() => {
-        initializeChart()
-      }, 200)
-      
-      return () => {
-        clearTimeout(timer)
-      }
-    }
-  }, [leaderboardView, domain, isLoading, passKData, showStandard, showCustom]) // eslint-disable-line react-hooks/exhaustive-deps
-
   // Save leaderboard state to localStorage
   useEffect(() => {
-    localStorage.setItem('leaderboardView', leaderboardView)
-  }, [leaderboardView])
+    localStorage.setItem('benchmark', benchmark)
+  }, [benchmark])
+
+  // Keep benchmark in URL for shareable deep links, e.g. #leaderboard?benchmark=voice
+  useEffect(() => {
+    if (!window.location.hash.startsWith('#leaderboard')) return
+
+    const hash = window.location.hash.slice(1)
+    const [route, queryString = ''] = hash.split('?')
+    const params = new URLSearchParams(queryString)
+    params.set('benchmark', benchmark)
+
+    const nextHash = `${route}?${params.toString()}`
+    if (hash !== nextHash) {
+      window.history.replaceState(null, '', `#${nextHash}`)
+    }
+  }, [benchmark])
+
+  // React to manual hash edits or browser navigation events.
+  useEffect(() => {
+    const syncBenchmarkFromHash = () => {
+      const fromHash = getBenchmarkFromHash()
+      if (fromHash) {
+        setBenchmark(prev => (prev === fromHash ? prev : fromHash))
+      }
+    }
+
+    window.addEventListener('hashchange', syncBenchmarkFromHash)
+    window.addEventListener('popstate', syncBenchmarkFromHash)
+    return () => {
+      window.removeEventListener('hashchange', syncBenchmarkFromHash)
+      window.removeEventListener('popstate', syncBenchmarkFromHash)
+    }
+  }, [])
 
   useEffect(() => {
     localStorage.setItem('domain', domain)
   }, [domain])
 
   useEffect(() => {
-    localStorage.setItem('sortColumn', sortColumn)
-  }, [sortColumn])
+    localStorage.setItem('selectedPassK', selectedPassK)
+  }, [selectedPassK])
 
   useEffect(() => {
     localStorage.setItem('sortDirection', sortDirection)
@@ -213,6 +290,10 @@ const Leaderboard = () => {
     localStorage.setItem('showCustom', showCustom)
   }, [showCustom])
 
+  useEffect(() => {
+    localStorage.setItem('showLegacy', showLegacy)
+  }, [showLegacy])
+
   // Close filter info popup when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -224,236 +305,59 @@ const Leaderboard = () => {
     return () => document.removeEventListener('click', handleClickOutside)
   }, [showFilterInfo])
 
-  const initializeChart = () => {
-    const canvas = document.getElementById('passKChart')
-    if (!canvas) return
-
-    // Destroy existing chart if it exists
-    if (chartInstance) {
-      if (chartInstance.cleanupListeners) {
-        chartInstance.cleanupListeners()
+  // Handle benchmark toggle with domain reset
+  const handleBenchmarkChange = (newBenchmark) => {
+    setBenchmark(newBenchmark)
+    setExpandedRows(new Set())
+    if (newBenchmark === 'voice') {
+      // Voice doesn't have banking_knowledge or a meaningful overall (no banking)
+      // Reset to 'overall' which will show avg of available domains
+      if (domain === 'banking_knowledge') {
+        setDomain('overall')
       }
-      chartInstance.destroy()
+      // Voice only has pass^1
+      setSelectedPassK(1)
     }
+  }
 
-    const ctx = canvas.getContext('2d')
-    
-    const modelColors = {
-      'Claude-3.7-Sonnet': '#059669',
-      'GPT-4.1': '#3b82f6',
-      'o4-mini': '#8b5cf6',
-      'GPT-4.1-mini': '#f59e0b',
-      'Claude Opus 4.1': '#06b6d4',
-      'GPT-5': '#991b1b',
-      'Kimi-k2': '#7c3aed',
-      'o3': '#1e40af',
-      'Claude Opus 4': '#0891b2',
-      'Claude Sonnet 4': '#047857',
-      'DeepSeek-V3-0324': '#dc2626',
-      'Qwen3-235B-A22B': '#ea580c',
-      'Gemini-2.5-Flash': '#16a34a'
-    }
+  // Handle sort direction toggle on the score column
+  const handleSort = () => {
+    setSortDirection(sortDirection === 'desc' ? 'asc' : 'desc')
+  }
 
-    const createDatasets = () => {
-      const datasets = []
-
-      Object.keys(passKData).forEach(model => {
-        const modelData = passKData[model]
-        const domainData = modelData[domain]
-        
-        // Filter by submission type
-        const isStandard = modelData.submissionType === 'standard' || !modelData.submissionType
-        const isCustom = modelData.submissionType === 'custom'
-        if ((isStandard && !showStandard) || (isCustom && !showCustom)) {
-          return
-        }
-        
-        // Skip models that don't have data for this domain or only have pass^1 data
-        if (!domainData || domainData[0] === null || domainData.every((val, index) => index === 0 ? val !== null : val === null)) {
-          return
-        }
-        
-        const color = modelColors[model]
-        const chartData = domainData.map(val => val === null ? NaN : val)
-        
-        datasets.push({
-          label: `${model}${modelData.isNew ? ' 🆕' : ''}`,
-          data: chartData,
-          borderColor: color,
-          backgroundColor: color + '20',
-          fill: false,
-          tension: 0.1,
-          pointRadius: modelData.isNew ? 8 : 6,
-          pointHoverRadius: modelData.isNew ? 10 : 8,
-          borderWidth: modelData.isNew ? 4 : 3,
-          spanGaps: false
-        })
-      })
-
-      return datasets
-    }
-
-    // Calculate dynamic max value for y-axis
-    const calculateMaxValue = (datasets) => {
-      let maxValue = 0
-      datasets.forEach(dataset => {
-        dataset.data.forEach(value => {
-          if (!isNaN(value) && value > maxValue) {
-            maxValue = value
-          }
-        })
-      })
-      
-      // Add 10% padding above the max value, with a minimum of 80, but cap at 100
-      const paddedMax = Math.max(80, Math.ceil(maxValue * 1.1))
-      // Cap at 100 since success rates can't exceed 100%
-      const cappedMax = Math.min(100, paddedMax)
-      // Round up to nearest 10 for cleaner axis
-      return Math.ceil(cappedMax / 10) * 10
-    }
-
-    const datasets = createDatasets()
-    const dynamicMaxValue = calculateMaxValue(datasets)
-
-    const chart = new window.Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: ['Pass^1', 'Pass^2', 'Pass^3', 'Pass^4'],
-        datasets: datasets
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-          mode: 'index',
-          intersect: false,
-        },
-        plugins: {
-          title: {
-            display: true,
-            text: 'Pass^k Performance Analysis',
-            font: {
-              size: 18,
-              weight: 'bold'
-            },
-            padding: 20
-          },
-          legend: {
-            display: true,
-            position: 'top',
-            labels: {
-              usePointStyle: true,
-              padding: 15,
-              font: {
-                size: 12
-              }
-            }
-          },
-          tooltip: {
-            mode: 'index',
-            intersect: false,
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            titleColor: 'white',
-            bodyColor: 'white',
-            borderColor: '#065f46',
-            borderWidth: 1,
-            callbacks: {
-              label: function(context) {
-                const drop = context.parsed.y
-                const baseline = context.dataset.data[0]
-                const dropPercent = ((baseline - drop) / baseline * 100).toFixed(1)
-                return `${context.dataset.label}: ${drop.toFixed(1)}% (↓${dropPercent}%)`
-              }
-            }
-          }
-        },
-        scales: {
-          x: {
-            display: true,
-            title: {
-              display: true,
-              text: 'Number of Attempts (k)',
-              font: {
-                size: 14,
-                weight: 'bold'
-              }
-            },
-            grid: {
-              color: '#e2e8f0'
-            }
-          },
-          y: {
-            display: true,
-            title: {
-              display: true,
-              text: 'Success Rate (%)',
-              font: {
-                size: 14,
-                weight: 'bold'
-              }
-            },
-            min: 0,
-            max: dynamicMaxValue,
-            grid: {
-              color: '#e2e8f0'
-            },
-            ticks: {
-              callback: function(value) {
-                return value + '%'
-              }
-            }
-          }
-        },
-        elements: {
-          line: {
-            tension: 0.1
-          },
-          point: {
-            hoverRadius: 8
-          }
-        }
+  // Toggle row expansion
+  const toggleExpand = (modelName) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev)
+      if (next.has(modelName)) {
+        next.delete(modelName)
+      } else {
+        next.add(modelName)
       }
+      return next
     })
-
-    setChartInstance(chart)
   }
-
-  // Handle column sorting
-  const handleSort = (column) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'desc' ? 'asc' : 'desc')
-    } else {
-      setSortColumn(column)
-      setSortDirection('desc')
-    }
-  }
-
-  // Clean up chart instance on unmount
-  useEffect(() => {
-    return () => {
-      if (chartInstance) {
-        chartInstance.destroy()
-      }
-    }
-  }, [chartInstance])
 
   // Loading and error states
   if (isLoading) {
     return (
+      <div className="leaderboard-wrapper">
       <div className="leaderboard-container">
-        <h2 className="leaderboard-title">τ-bench Leaderboard</h2>
+        <h2 className="leaderboard-title">Leaderboard</h2>
         <div className="loading-state">
           <div className="loading-spinner"></div>
           <p>Loading leaderboard data...</p>
         </div>
+      </div>
       </div>
     )
   }
 
   if (loadError) {
     return (
+      <div className="leaderboard-wrapper">
       <div className="leaderboard-container">
-        <h2 className="leaderboard-title">τ-bench Leaderboard</h2>
+        <h2 className="leaderboard-title">Leaderboard</h2>
         <div className="error-state">
           <p>Error loading leaderboard data: {loadError}</p>
           <button onClick={loadSubmissionData} className="retry-button">
@@ -461,87 +365,106 @@ const Leaderboard = () => {
           </button>
         </div>
       </div>
+      </div>
     )
   }
 
   if (Object.keys(passKData).length === 0) {
     return (
+      <div className="leaderboard-wrapper">
       <div className="leaderboard-container">
-        <h2 className="leaderboard-title">τ-bench Leaderboard</h2>
+        <h2 className="leaderboard-title">Leaderboard</h2>
         <div className="empty-state">
           <p>No leaderboard data available.</p>
         </div>
       </div>
+      </div>
     )
   }
 
+  const hasUnverifiedSubmission = Object.values(passKData).some(data => {
+    // Filter by benchmark modality
+    if (data.modality !== benchmark) return false
+    if (data.isLegacy && !showLegacy) return false
+    const isStandard = data.submissionType === 'standard' || !data.submissionType
+    const isCustom = data.submissionType === 'custom'
+    if ((isStandard && !showStandard) || (isCustom && !showCustom)) return false
+    if (domain === 'overall') {
+      if (!data.overall.some(val => val !== null)) return false
+    } else {
+      if (!data[domain].some(val => val !== null)) return false
+    }
+    return !data.isVerified
+  })
+
+  // Determine domains available for current benchmark
+  const isVoice = benchmark === 'voice'
+  const availableDomains = isVoice
+    ? [
+        { key: 'overall', label: '📊 Overall' },
+        { key: 'retail', label: '🛍️ Retail' },
+        { key: 'airline', label: '✈️ Airline' },
+        { key: 'telecom', label: '📱 Telecom' },
+      ]
+    : [
+        { key: 'overall', label: '📊 Overall' },
+        { key: 'banking_knowledge', label: '🏦 Banking' },
+        { key: 'retail', label: '🛍️ Retail' },
+        { key: 'airline', label: '✈️ Airline' },
+        { key: 'telecom', label: '📱 Telecom' },
+      ]
+
+  // For voice overall, only average the 3 non-banking domains
+  const voiceDomains = ['retail', 'airline', 'telecom']
+
   return (
+    <div className="leaderboard-wrapper">
     <div className="leaderboard-container">
-      <h2 className="leaderboard-title">τ-bench Leaderboard</h2>
+      {/* Benchmark Selector */}
+      <div className="benchmark-selector">
+        <div className="benchmark-toggle-container">
+          <button
+            className={`benchmark-toggle-option ${benchmark === 'text' ? 'active' : ''}`}
+            onClick={() => handleBenchmarkChange('text')}
+          >
+            <span className="benchmark-icon">📝</span> τ-bench
+          </button>
+          <button
+            className={`benchmark-toggle-option ${benchmark === 'voice' ? 'active' : ''}`}
+            onClick={() => handleBenchmarkChange('voice')}
+          >
+            <span className="benchmark-icon">🎙️</span> τ-voice
+          </button>
+          <div
+            className="benchmark-toggle-slider"
+            style={{
+              transform: benchmark === 'text' ? 'translateX(0%)' : 'translateX(100%)'
+            }}
+          />
+        </div>
+      </div>
+
+      <h2 className="leaderboard-title">{isVoice ? 'τ-voice Leaderboard' : 'τ-bench Leaderboard'}</h2>
 
       {/* Combined Controls Row */}
       <div className="leaderboard-controls">
-        {/* Modern View Toggle Switch */}
-        <div className="view-toggle-switch">
-          <div className="toggle-container">
-            <button 
-              className={`toggle-option ${leaderboardView === 'table' ? 'active' : ''}`}
-              onClick={() => setLeaderboardView('table')}
-            >
-              📋 Table
-            </button>
-            <button 
-              className={`toggle-option ${leaderboardView === 'chart' ? 'active' : ''}`}
-              onClick={() => setLeaderboardView('chart')}
-            >
-              📊 Chart
-            </button>
-            <div 
-              className="toggle-slider"
-              style={{
-                transform: leaderboardView === 'chart' ? 'translateX(100%)' : 'translateX(0%)'
-              }}
-            />
-          </div>
-        </div>
-
         {/* Domain Toggle Switch */}
         <div className="domain-toggle-switch">
-          <div className="toggle-container domain-toggle-container">
-            <button 
-              className={`toggle-option domain-toggle-option ${domain === 'overall' ? 'active' : ''}`}
-              onClick={() => setDomain('overall')}
-            >
-              📊 Overall
-            </button>
-            <button 
-              className={`toggle-option domain-toggle-option ${domain === 'retail' ? 'active' : ''}`}
-              onClick={() => setDomain('retail')}
-            >
-              🛍️ Retail
-            </button>
-            <button 
-              className={`toggle-option domain-toggle-option ${domain === 'airline' ? 'active' : ''}`}
-              onClick={() => setDomain('airline')}
-            >
-              ✈️ Airline
-            </button>
-            <button 
-              className={`toggle-option domain-toggle-option ${domain === 'telecom' ? 'active' : ''}`}
-              onClick={() => setDomain('telecom')}
-            >
-              📱 Telecom
-            </button>
+          <div className="toggle-container domain-toggle-container" style={{ '--domain-count': availableDomains.length }}>
+            {availableDomains.map(d => (
+              <button
+                key={d.key}
+                className={`toggle-option domain-toggle-option ${domain === d.key ? 'active' : ''}`}
+                onClick={() => setDomain(d.key)}
+              >
+                {d.label}
+              </button>
+            ))}
             <div 
               className="toggle-slider domain-toggle-slider"
               style={{
-                transform: (() => {
-                  if (domain === 'overall') return 'translateX(0%)';
-                  if (domain === 'retail') return 'translateX(100%)';
-                  if (domain === 'airline') return 'translateX(200%)';
-                  if (domain === 'telecom') return 'translateX(300%)';
-                  return 'translateX(0%)';
-                })()
+                width: `calc((100% - 8px) / ${availableDomains.length})`,
+                transform: `translateX(${availableDomains.findIndex(d => d.key === domain) * 100}%)`
               }}
             />
           </div>
@@ -567,11 +490,22 @@ const Leaderboard = () => {
             <span className="checkbox-checkmark"></span>
             <span className="checkbox-label">Custom</span>
           </label>
+          {!isVoice && (
+            <label className="checkbox-container">
+              <input 
+                type="checkbox" 
+                checked={showLegacy}
+                onChange={(e) => setShowLegacy(e.target.checked)}
+              />
+              <span className="checkbox-checkmark"></span>
+              <span className="checkbox-label">Legacy (v1)</span>
+            </label>
+          )}
           <div className="filter-info-container">
             <button 
               className="filter-info-button"
               onClick={() => setShowFilterInfo(!showFilterInfo)}
-              aria-label="What do Standard and Custom mean?"
+              aria-label="What do Standard, Custom, and Legacy mean?"
             >
               <span className="info-icon">ⓘ</span>
             </button>
@@ -588,6 +522,10 @@ const Leaderboard = () => {
                     <strong>Custom</strong>
                     <p>Results using modified scaffolds, such as multi-model routers, additional tools, custom prompting strategies, or other orchestration approaches.</p>
                   </div>
+                  <div className="filter-info-item">
+                    <strong>Legacy (v1)</strong>
+                    <p>Submissions from the original τ-bench v1 task set. These results are not directly comparable to current submissions due to task fixes in airline and retail domains.</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -595,32 +533,12 @@ const Leaderboard = () => {
         </div>
       </div>
 
-      {/* Chart View */}
-      {leaderboardView === 'chart' && (
-        (!showStandard && !showCustom) ? (
-          <div className="filter-empty-state">
-            <div className="empty-icon">🔍</div>
-            <h3>No Results</h3>
-            <p>Please select at least one submission type filter (Standard or Custom) to view results.</p>
-          </div>
-        ) : (
-          <div className="reliability-visualization">
-            <div className="pass-k-chart-container">
-              <canvas id="passKChart" width="800" height="400"></canvas>
-            </div>
-          </div>
-        )
-      )}
-
       {/* Table View */}
-      {leaderboardView === 'table' && (
-        <>
-        {/* Check if filters result in no data */}
-        {(!showStandard && !showCustom) ? (
+      {(!showStandard && !showCustom && (isVoice || !showLegacy)) ? (
           <div className="filter-empty-state">
             <div className="empty-icon">🔍</div>
             <h3>No Results</h3>
-            <p>Please select at least one submission type filter (Standard or Custom) to view results.</p>
+            <p>Please select at least one submission type filter (Standard, Custom, or Legacy) to view results.</p>
           </div>
         ) : (
         <div className="reliability-metrics">
@@ -630,33 +548,38 @@ const Leaderboard = () => {
               <tr>
                 <th>Rank</th>
                 <th>Model</th>
-                 <th>Submitting Org</th>
+                <th>{domain === 'banking_knowledge' ? 'Retrieval' : 'Submitting Org'}</th>
+                {isVoice ? (
+                  <th>Provider</th>
+                ) : (
+                  <th>Reasoning</th>
+                )}
                 <th>User Sim</th>
-                <th 
-                  className={`sortable ${sortColumn === 'pass1' ? 'active' : ''}`}
-                  onClick={() => handleSort('pass1')}
-                >
-                  Pass^1 {sortColumn === 'pass1' && (sortDirection === 'desc' ? '↓' : '↑')}
+                <th className="passk-header-cell">
+                  <div className="passk-header-toggle">
+                    {isVoice ? (
+                      <button className="passk-header-btn active">Pass^1</button>
+                    ) : (
+                      [1, 2, 3, 4].map(k => (
+                        <button
+                          key={k}
+                          className={`passk-header-btn ${selectedPassK === k ? 'active' : ''}`}
+                          onClick={() => setSelectedPassK(k)}
+                        >
+                          Pass^{k}
+                        </button>
+                      ))
+                    )}
+                    <button 
+                      className="passk-sort-btn"
+                      onClick={handleSort}
+                      title={sortDirection === 'desc' ? 'Sorted descending' : 'Sorted ascending'}
+                    >
+                      {sortDirection === 'desc' ? '↓' : '↑'}
+                    </button>
+                  </div>
                 </th>
-                <th 
-                  className={`sortable ${sortColumn === 'pass2' ? 'active' : ''}`}
-                  onClick={() => handleSort('pass2')}
-                >
-                  Pass^2 {sortColumn === 'pass2' && (sortDirection === 'desc' ? '↓' : '↑')}
-                </th>
-                <th 
-                  className={`sortable ${sortColumn === 'pass3' ? 'active' : ''}`}
-                  onClick={() => handleSort('pass3')}
-                >
-                  Pass^3 {sortColumn === 'pass3' && (sortDirection === 'desc' ? '↓' : '↑')}
-                </th>
-                <th 
-                  className={`sortable ${sortColumn === 'pass4' ? 'active' : ''}`}
-                  onClick={() => handleSort('pass4')}
-                >
-                  Pass^4 {sortColumn === 'pass4' && (sortDirection === 'desc' ? '↓' : '↑')}
-                </th>
-                <th>Avg Cost</th>
+                <th className="expand-header"></th>
               </tr>
             </thead>
             <tbody>
@@ -664,22 +587,44 @@ const Leaderboard = () => {
                 // Calculate domain-specific scores for ranking
                 const modelStats = Object.entries(passKData)
                   .filter(([modelName, data]) => {
-                    // Filter by submission type first
+                    // Filter by benchmark modality
+                    if (data.modality !== benchmark) {
+                      return false
+                    }
+                    // Filter out legacy submissions unless toggled on
+                    if (data.isLegacy && !showLegacy) {
+                      return false
+                    }
+                    
+                    // Filter by submission type
                     const isStandard = data.submissionType === 'standard' || !data.submissionType
                     const isCustom = data.submissionType === 'custom'
                     if ((isStandard && !showStandard) || (isCustom && !showCustom)) {
                       return false
                     }
                     
-                    // For overall domain, only include models that have data for all 3 domains
+                    // For voice overall, compute from 3 domains only
+                    if (isVoice && domain === 'overall') {
+                      return voiceDomains.some(d => data[d]?.some(val => val !== null))
+                    }
+                    
+                    // For overall domain, only include models that have data for all 4 domains
                     if (domain === 'overall') {
                       return data.overall.some(val => val !== null)
                     }
                     // For individual domains, only include models that have data for that domain
                     return data[domain].some(val => val !== null)
                   })
-                  .map(([modelName, data]) => {
-                  const domainData = data[domain]
+                  .map(([submissionKey, data]) => {
+                  // For voice overall, compute average across 3 domains
+                  const domainData = (isVoice && domain === 'overall')
+                    ? [0, 1, 2, 3].map(passIndex => {
+                        const values = voiceDomains
+                          .map(d => data[d]?.[passIndex])
+                          .filter(v => v !== null && v !== undefined)
+                        return values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null
+                      })
+                    : data[domain]
                   const pass1Score = domainData[0]
                   const hasCompleteData = domainData.every(val => val !== null)
                   const hasAnyData = domainData.some(val => val !== null)
@@ -688,7 +633,8 @@ const Leaderboard = () => {
                     : null
                   
                   return {
-                    name: modelName,
+                    key: submissionKey,
+                    displayName: data.modelName,
                     data: data,
                     domainData: domainData,
                     pass1Score,
@@ -699,33 +645,21 @@ const Leaderboard = () => {
                   }
                 })
                 
-                // Sort by selected column and direction
+                // Sort by selected pass^k metric and direction
+                const passIndex = selectedPassK - 1
                 modelStats.sort((a, b) => {
                   // First priority: models with any data for this domain
                   if (a.hasAnyData && !b.hasAnyData) return -1
                   if (!a.hasAnyData && b.hasAnyData) return 1
                   if (!a.hasAnyData && !b.hasAnyData) return 0
                   
-                  // Second priority: complete data first for pass2-4
-                  if (sortColumn !== 'pass1') {
-                    if (a.hasCompleteData && !b.hasCompleteData) return -1
-                    if (!a.hasCompleteData && b.hasCompleteData) return 1
-                  }
+                  const aValue = a.domainData[passIndex]
+                  const bValue = b.domainData[passIndex]
                   
-                  let aValue, bValue
-                  if (sortColumn === 'pass1') {
-                    aValue = a.pass1Score
-                    bValue = b.pass1Score
-                  } else {
-                    const passIndex = parseInt(sortColumn.replace('pass', '')) - 1
-                    aValue = a.domainData[passIndex]
-                    bValue = b.domainData[passIndex]
-                    
-                    // Handle null values (missing data)
-                    if (aValue === null && bValue === null) return 0
-                    if (aValue === null) return 1
-                    if (bValue === null) return -1
-                  }
+                  // Handle null values (missing data)
+                  if (aValue === null && bValue === null) return 0
+                  if (aValue === null) return 1
+                  if (bValue === null) return -1
                   
                   const multiplier = sortDirection === 'desc' ? 1 : -1
                   return (bValue - aValue) * multiplier
@@ -735,7 +669,7 @@ const Leaderboard = () => {
                 if (modelStats.length === 0) {
                   return (
                     <tr className="empty-results-row">
-                      <td colSpan="9" className="empty-results-cell">
+                      <td colSpan="7" className="empty-results-cell">
                         <div className="empty-results-content">
                           <span className="empty-icon">🔧</span>
                           <span className="empty-text">
@@ -749,29 +683,22 @@ const Leaderboard = () => {
                   )
                 }
                 
-                return modelStats.map((model, index) => (
-                   <tr key={model.name} className={`model-row ${index === 0 && model.hasCompleteData && sortColumn === 'pass1' && sortDirection === 'desc' ? 'top-performer' : ''} ${model.data.isNew ? 'new-model' : ''}`}>
+                return modelStats.map((model, index) => {
+                  const isExpanded = expandedRows.has(model.key)
+                  return (
+                   <React.Fragment key={model.key}>
+                   <tr className={`model-row ${model.data.isLegacy ? 'legacy-model' : ''} ${isExpanded ? 'expanded' : ''}`}>
                      {/* Rank */}
-                     <td className={`rank-cell ${index === 0 ? 'gold-medal' : index === 1 ? 'silver-medal' : index === 2 ? 'bronze-medal' : ''}`}>
-                       {index === 0 && model.hasAnyData ? (
-                         <span className="medal-icon">🥇</span>
-                       ) : index === 1 && model.hasAnyData ? (
-                         <span className="medal-icon">🥈</span>
-                       ) : index === 2 && model.hasAnyData ? (
-                         <span className="medal-icon">🥉</span>
-                       ) : (
-                         <span className="rank-number">#{index + 1}</span>
-                       )}
+                     <td className="rank-cell">
+                       <span className={`rank-number ${!model.data.isLegacy && index === 0 ? 'rank-gold' : !model.data.isLegacy && index === 1 ? 'rank-silver' : !model.data.isLegacy && index === 2 ? 'rank-bronze' : ''}`}>
+                         #{index + 1}
+                       </span>
                      </td>
                      {/* Model Name */}
                      <td className="model-info">
-                       <div 
-                         className="model-name clickable-model" 
-                         onClick={() => handleModelClick(model.name)}
-                         title="Click to view submission details"
-                       >
-                         {model.name}
-                         {model.data.isNew && <span className="new-badge">NEW</span>}
+                       <div className="model-name">
+                         {model.displayName}
+                         {model.data.isLegacy && <span className="legacy-badge">v1</span>}
                          {!model.data.isVerified && (
                            <span className="unverified-badge" title="Unverified submission - see details for more information">
                              ⚠️
@@ -780,8 +707,21 @@ const Leaderboard = () => {
                        </div>
                      </td>
                      
-                     {/* Organization */}
+                     {/* Organization / Retrieval Config (banking) */}
                      <td className="organization-info">
+                       {domain === 'banking_knowledge' ? (
+                         model.data.bankingRetrievalConfig ? (
+                           <span className={`retrieval-badge retrieval-${model.data.bankingRetrievalConfig}`}>
+                             🔍 {model.data.bankingRetrievalConfig === 'terminal' ? 'Terminal'
+                               : model.data.bankingRetrievalConfig === 'text-emb-3-large' ? 'text-emb-3-large'
+                               : model.data.bankingRetrievalConfig === 'qwen3-emb' ? 'Qwen3-Emb'
+                               : model.data.bankingRetrievalConfig === 'bm25' ? 'BM25'
+                               : model.data.bankingRetrievalConfig}
+                           </span>
+                         ) : (
+                           <span className="no-data">—</span>
+                         )
+                       ) : (
                        <div className="org-container">
                          <div className="company-logo">
                           {model.organization === 'Anthropic' && (
@@ -811,7 +751,31 @@ const Leaderboard = () => {
                         </div>
                          <span className="org-name">{model.organization}</span>
                        </div>
+                       )}
                      </td>
+
+                     {/* Reasoning Effort / Voice Provider */}
+                     {isVoice ? (
+                       <td className="reasoning-info">
+                         {model.data.voiceConfig?.provider ? (
+                           <span className="voice-provider-badge">
+                             {model.data.voiceConfig.provider}
+                           </span>
+                         ) : (
+                           <span className="no-data">—</span>
+                         )}
+                       </td>
+                     ) : (
+                       <td className="reasoning-info">
+                         {model.data.reasoningEffort ? (
+                           <span className={`reasoning-badge reasoning-${model.data.reasoningEffort}`}>
+                             {model.data.reasoningEffort}
+                           </span>
+                         ) : (
+                           <span className="no-data">—</span>
+                         )}
+                       </td>
+                     )}
                      
                      {/* User Simulator */}
                      <td className="user-sim-info">
@@ -821,70 +785,127 @@ const Leaderboard = () => {
                          <span className="no-data">—</span>
                        )}
                      </td>
-                     {/* Pass^1 */}
-                     <td className="metric-cell">
-                       {model.pass1Score !== null ? (
-                         <span className="metric-value">{model.pass1Score.toFixed(1)}%</span>
-                       ) : (
-                         <span className="no-data">No Data</span>
-                       )}
-                     </td>
-                     {/* Pass^2-4 */}
-                     {[1, 2, 3].map(passIndex => {
-                       const value = model.domainData[passIndex]
-                       
-                       return (
-                         <td key={passIndex} className="metric-cell">
-                           {value !== null ? (
-                             <span className="metric-value">{value.toFixed(1)}%</span>
-                           ) : model.hasAnyData ? (
-                             <span className="missing-data">—</span>
-                           ) : (
-                             <span className="no-data">No Data</span>
-                           )}
-                         </td>
-                       )
-                     })}
-                     
-                     {/* Average Cost */}
-                     <td className="cost-cell">
+                     {/* Score (selected Pass^k) */}
+                     <td className="metric-cell score-cell">
                        {(() => {
-                         if (domain === 'overall') {
-                           // Calculate average cost across all three domains
-                           const domains = ['retail', 'airline', 'telecom']
-                           const costs = domains.map(d => model.data.costs[d]).filter(cost => cost !== null && cost !== undefined)
-                           if (costs.length > 0) {
-                             const avgCost = costs.reduce((sum, cost) => sum + cost, 0) / costs.length
-                             return <span className="cost-value">${avgCost.toFixed(3)}</span>
-                           } else {
-                             return <span className="no-data">—</span>
-                           }
+                         const value = model.domainData[selectedPassK - 1]
+                         if (value !== null) {
+                           return (
+                             <div className="score-bar-container">
+                               <div className="score-bar-track">
+                                 <div 
+                                   className="score-bar-fill"
+                                   style={{ width: `${Math.min(value, 100)}%` }}
+                                 />
+                               </div>
+                               <span className="score-bar-value">{value.toFixed(1)}%</span>
+                             </div>
+                           )
                          } else {
-                           const domainCost = model.data.costs[domain]
-                           if (domainCost !== null && domainCost !== undefined) {
-                             return <span className="cost-value">${domainCost.toFixed(3)}</span>
-                           } else {
-                             return <span className="no-data">—</span>
-                           }
+                           return <span className="no-data">—</span>
                          }
                        })()}
                      </td>
+                     {/* Expand Toggle */}
+                     <td className="expand-cell" onClick={() => toggleExpand(model.key)}>
+                       <span className={`expand-caret ${isExpanded ? 'open' : ''}`}>▶</span>
+                     </td>
                   </tr>
-                ))
+                  {/* Expandable Domain Breakdown Row */}
+                  {isExpanded && (
+                    <tr className="domain-detail-row">
+                      <td colSpan="7" className="domain-detail-cell">
+                        <div className="domain-breakdown">
+                          {(isVoice
+                            ? [
+                                { key: 'retail', label: 'Retail', icon: '🛍️', desc: 'Order cancellations, returns, exchanges, address changes, and product inquiries.' },
+                                { key: 'airline', label: 'Airline', icon: '✈️', desc: 'Flight bookings, modifications, cancellations, refunds, baggage, and compensation.' },
+                                { key: 'telecom', label: 'Telecom', icon: '📱', desc: 'Technical support for connectivity issues, bill payments, and plan management.' },
+                              ]
+                            : [
+                                { key: 'retail', label: 'Retail', icon: '🛍️', desc: 'Order cancellations, returns, exchanges, address changes, and product inquiries.' },
+                                { key: 'airline', label: 'Airline', icon: '✈️', desc: 'Flight bookings, modifications, cancellations, refunds, baggage, and compensation.' },
+                                { key: 'telecom', label: 'Telecom', icon: '📱', desc: 'Technical support for connectivity issues, bill payments, and plan management.' },
+                                { key: 'banking_knowledge', label: 'Banking', icon: '🏦', desc: 'Banking customer service with knowledge retrieval over policy documents.' },
+                              ]
+                          ).map(({ key, label, icon, desc }) => {
+                            const value = model.data[key]?.[selectedPassK - 1]
+                            const submissionInfo = fullSubmissionData[model.key]
+                            const hasTraj = submissionInfo?.trajectories_available && submissionInfo?.trajectory_files?.[key]
+                            const retrievalConfig = key === 'banking_knowledge' ? model.data.bankingRetrievalConfig : null
+                            const retrievalLabel = retrievalConfig === 'terminal' ? 'Terminal'
+                              : retrievalConfig === 'text-emb-3-large' ? 'text-emb-3-large'
+                              : retrievalConfig === 'qwen3-emb' ? 'Qwen3-Emb'
+                              : retrievalConfig === 'bm25' ? 'BM25'
+                              : retrievalConfig
+                            return (
+                              <div key={key} className="domain-breakdown-card">
+                                <div className="domain-card-header">
+                                  <span className="domain-breakdown-label">
+                                    <span className="domain-breakdown-icon">{icon}</span>
+                                    {label}
+                                  </span>
+                                  {retrievalConfig && (
+                                    <span className={`retrieval-badge retrieval-${retrievalConfig}`} title={`Retrieval: ${retrievalLabel}`}>
+                                      🔍 {retrievalLabel}
+                                    </span>
+                                  )}
+                                  <span className="domain-info-icon" data-tooltip={desc}>ⓘ</span>
+                                </div>
+                                <div className="domain-card-body">
+                                  {value !== null && value !== undefined ? (
+                                    <div className="score-bar-container">
+                                      <div className="score-bar-track">
+                                        <div 
+                                          className="score-bar-fill domain-bar-fill"
+                                          style={{ width: `${Math.min(value, 100)}%` }}
+                                        />
+                                      </div>
+                                      <span className="score-bar-value">{value.toFixed(1)}%</span>
+                                    </div>
+                                  ) : (
+                                    <span className="no-data domain-no-data">—</span>
+                                  )}
+                                </div>
+                                {hasTraj && (
+                                  <a
+                                    className="view-trajectories-link"
+                                    href={`#trajectory-visualizer?model=${encodeURIComponent(submissionInfo.submissionDir)}&domain=${key}`}
+                                  >
+                                    View trajectories →
+                                  </a>
+                                )}
+                              </div>
+                            )
+                          })}
+                          <button
+                            className="submission-details-btn"
+                            onClick={() => handleModelClick(model.key)}
+                          >
+                            <span className="submission-details-btn-icon">📋</span>
+                            <span className="submission-details-btn-label">Details</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
+                  )
+                })
               })()}
             </tbody>
           </table>
         </div>
+        {hasUnverifiedSubmission && (
         <div className="verification-note">
           <span className="note-icon">⚠️</span>
           <span className="note-text">
-            The warning icon indicates unverified submissions. Click on any model name to view full verification details.
+            The warning icon indicates unverified submissions. Expand a row and click "Submission details" to view full verification information.
           </span>
         </div>
+        )}
         </div>
         )}
-        </>
-      )}
 
       {/* Submissions Notice */}
       <div className="submissions-notice">
@@ -917,211 +938,147 @@ const Leaderboard = () => {
 
       {/* Submission Details Modal */}
       {showModal && selectedSubmission && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className={`modal-content ${modalClosing ? 'closing' : ''}`} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Submission Details</h2>
-              <button className="modal-close" onClick={closeModal}>×</button>
+        <div className="sd-modal-overlay" onClick={closeModal}>
+          <div className={`sd-modal ${modalClosing ? 'closing' : ''}`} onClick={(e) => e.stopPropagation()}>
+            <div className="sd-modal-header">
+              <h3>{selectedSubmission.model_name}</h3>
+              <button className="sd-modal-close" onClick={closeModal}>✕</button>
             </div>
-            
-            <div className="modal-body">
-              <div className="submission-details">
-                {/* Basic Information */}
-                <div className="detail-section">
-                  <h3>Basic Information</h3>
-                  <div className="detail-grid">
-                    <div className="detail-item">
-                      <label>Model Name:</label>
-                      <span>{selectedSubmission.model_name}</span>
-                    </div>
-                    <div className="detail-item">
-                      <label>Model Organization:</label>
-                      <span>{selectedSubmission.model_organization}</span>
-                    </div>
-                    <div className="detail-item">
-                      <label>Submitting Organization:</label>
-                      <span>{selectedSubmission.submitting_organization}</span>
-                    </div>
-                    <div className="detail-item">
-                      <label>Submission Date:</label>
-                      <span>{selectedSubmission.submission_date}</span>
-                    </div>
-                    <div className="detail-item">
-                      <label>Is New:</label>
-                      <span>{selectedSubmission.is_new ? 'Yes' : 'No'}</span>
-                    </div>
-                  </div>
-                </div>
+            <div className="sd-modal-body">
+              <table className="sd-table">
+                <tbody>
+                  {/* Submission Info */}
+                  <tr className="sd-section-header"><td colSpan="2">SUBMISSION</td></tr>
+                  <tr><td>Model Organization</td><td>{selectedSubmission.model_organization}</td></tr>
+                  <tr><td>Submitting Organization</td><td>{selectedSubmission.submitting_organization}</td></tr>
+                  <tr><td>Submission Date</td><td>{selectedSubmission.submission_date}</td></tr>
+                  <tr><td>Type</td><td>{selectedSubmission.submission_type || 'standard'}</td></tr>
+                  <tr><td>Modality</td><td>{selectedSubmission.modality || 'text'}</td></tr>
 
-                {/* Contact Information */}
-                <div className="detail-section">
-                  <h3>Contact Information</h3>
-                  <div className="detail-grid">
-                    <div className="detail-item">
-                      <label>Email:</label>
-                      <span>{selectedSubmission.contact_info?.email || 'N/A'}</span>
-                    </div>
-                    <div className="detail-item">
-                      <label>Name:</label>
-                      <span>{selectedSubmission.contact_info?.name || 'N/A'}</span>
-                    </div>
-                    {selectedSubmission.contact_info?.github && (
-                      <div className="detail-item">
-                        <label>GitHub:</label>
-                        <span>{selectedSubmission.contact_info.github}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* References */}
-                {selectedSubmission.references && selectedSubmission.references.length > 0 && (
-                  <div className="detail-section">
-                    <h3>References & Documentation</h3>
-                    <div className="references-list">
-                      {selectedSubmission.references.map((ref, index) => (
-                        <div key={index} className="reference-item">
-                          <div className="reference-header">
-                            <span className={`reference-type ${ref.type || 'other'}`}>
-                              {ref.type === 'paper' && '📄'}
-                              {ref.type === 'blog_post' && '📝'}
-                              {ref.type === 'documentation' && '📚'}
-                              {ref.type === 'model_card' && '🗂️'}
-                              {ref.type === 'github' && '🔗'}
-                              {ref.type === 'huggingface' && '🤗'}
-                              {(!ref.type || ref.type === 'other') && '🌐'}
-                              <span className="reference-type-text">
-                                {ref.type?.replace('_', ' ').toUpperCase() || 'OTHER'}
-                              </span>
-                            </span>
-                          </div>
-                          <a 
-                            href={ref.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="reference-link"
-                          >
-                            {ref.title}
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Performance Results */}
-                <div className="detail-section">
-                  <h3>Performance Results</h3>
-                  {selectedSubmission.results && (
-                    <div className="results-tables">
-                      {Object.entries(selectedSubmission.results).map(([domain, results]) => (
-                        <div key={domain} className="domain-results">
-                          <h4>{domain.charAt(0).toUpperCase() + domain.slice(1)} Domain</h4>
-                          <div className="results-grid">
-                            {[1, 2, 3, 4].map(pass => (
-                              <div key={pass} className="result-item">
-                                <label>Pass^{pass}:</label>
-                                <span>
-                                  {results[`pass_${pass}`] !== null && results[`pass_${pass}`] !== undefined 
-                                    ? `${results[`pass_${pass}`].toFixed(1)}%` 
-                                    : 'N/A'}
-                                </span>
-                              </div>
-                            ))}
-                            {results.cost && (
-                              <div className="result-item">
-                                <label>Cost:</label>
-                                <span>${results.cost.toFixed(3)}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  {/* Contact */}
+                  <tr className="sd-section-header"><td colSpan="2">CONTACT</td></tr>
+                  {selectedSubmission.contact_info?.name && (
+                    <tr><td>Name</td><td>{selectedSubmission.contact_info.name}</td></tr>
                   )}
-                </div>
+                  <tr><td>Email</td><td>{selectedSubmission.contact_info?.email || '—'}</td></tr>
+                  {selectedSubmission.contact_info?.github && (
+                    <tr><td>GitHub</td><td>{selectedSubmission.contact_info.github}</td></tr>
+                  )}
 
-                {/* Methodology */}
-                {selectedSubmission.methodology && (
-                  <div className="detail-section">
-                    <h3>Methodology</h3>
-                    <div className="detail-grid">
+                  {/* Voice Config */}
+                  {selectedSubmission.voice_config && (
+                    <>
+                      <tr className="sd-section-header"><td colSpan="2">VOICE CONFIGURATION</td></tr>
+                      <tr><td>Provider</td><td>{selectedSubmission.voice_config.provider}</td></tr>
+                      <tr><td>Model</td><td>{selectedSubmission.voice_config.model}</td></tr>
+                      {selectedSubmission.voice_config.tick_duration_seconds != null && (
+                        <tr><td>Tick Duration</td><td>{selectedSubmission.voice_config.tick_duration_seconds}s</td></tr>
+                      )}
+                      {selectedSubmission.voice_config.max_steps_seconds != null && (
+                        <tr><td>Max Duration</td><td>{selectedSubmission.voice_config.max_steps_seconds}s</td></tr>
+                      )}
+                      {selectedSubmission.voice_config.user_tts_provider && (
+                        <tr><td>User TTS</td><td>{selectedSubmission.voice_config.user_tts_provider}</td></tr>
+                      )}
+                    </>
+                  )}
+
+                  {/* Methodology */}
+                  {selectedSubmission.methodology && (
+                    <>
+                      <tr className="sd-section-header"><td colSpan="2">METHODOLOGY</td></tr>
+                      {selectedSubmission.methodology.user_simulator && (
+                        <tr><td>User Simulator</td><td>{selectedSubmission.methodology.user_simulator}</td></tr>
+                      )}
                       {selectedSubmission.methodology.evaluation_date && (
-                        <div className="detail-item">
-                          <label>Evaluation Date:</label>
-                          <span>{selectedSubmission.methodology.evaluation_date}</span>
-                        </div>
+                        <tr><td>Evaluation Date</td><td>{selectedSubmission.methodology.evaluation_date}</td></tr>
                       )}
                       {selectedSubmission.methodology.tau2_bench_version && (
-                        <div className="detail-item">
-                          <label>Tau2-Bench Version:</label>
-                          <span>{selectedSubmission.methodology.tau2_bench_version}</span>
-                        </div>
-                      )}
-                      {selectedSubmission.methodology.user_simulator && (
-                        <div className="detail-item">
-                          <label>User Simulator:</label>
-                          <span>{selectedSubmission.methodology.user_simulator}</span>
-                        </div>
+                        <tr><td>Bench Version</td><td>{selectedSubmission.methodology.tau2_bench_version}</td></tr>
                       )}
                       {selectedSubmission.methodology.notes && (
-                        <div className="detail-item full-width">
-                          <label>Notes:</label>
-                          <p className="notes-text">{selectedSubmission.methodology.notes}</p>
-                        </div>
+                        <tr><td>Notes</td><td className="sd-wrap">{selectedSubmission.methodology.notes}</td></tr>
                       )}
-                    </div>
-                  </div>
-                )}
+                    </>
+                  )}
 
-                {/* Verification Status */}
-                {selectedSubmission.methodology?.verification && (
-                  <div className="detail-section">
-                    <h3>Verification Status</h3>
-                    <div className="verification-status">
-                      <div className="verification-indicator">
-                        {selectedSubmission.trajectories_available && 
-                         selectedSubmission.methodology.verification.omitted_questions === false &&
-                         (selectedSubmission.submission_type === 'custom' || selectedSubmission.methodology.verification.modified_prompts === false) ? (
-                          <span className="verified">✅ Verified</span>
-                        ) : (
-                          <span className="unverified">⚠️ Unverified</span>
-                        )}
-                      </div>
-                      <div className="detail-grid">
-                        <div className="detail-item">
-                          <label>Trajectories Available:</label>
-                          <span>{selectedSubmission.trajectories_available ? 'Yes' : 'No'}</span>
-                        </div>
-                        <div className="detail-item">
-                          <label>Modified Prompts:</label>
-                          <span>
-                            {selectedSubmission.methodology.verification.modified_prompts === true ? 'Yes' : 
-                             selectedSubmission.methodology.verification.modified_prompts === false ? 'No' : 'Unknown'}
-                          </span>
-                        </div>
-                        <div className="detail-item">
-                          <label>Omitted Questions:</label>
-                          <span>
-                            {selectedSubmission.methodology.verification.omitted_questions === true ? 'Yes' : 
-                             selectedSubmission.methodology.verification.omitted_questions === false ? 'No' : 'Unknown'}
-                          </span>
-                        </div>
-                        {selectedSubmission.methodology.verification.details && (
-                          <div className="detail-item full-width">
-                            <label>Verification Details:</label>
-                            <p className="notes-text">{selectedSubmission.methodology.verification.details}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                  {/* Results */}
+                  {selectedSubmission.results && Object.entries(selectedSubmission.results).map(([dmn, res]) => (
+                    <React.Fragment key={dmn}>
+                      <tr className="sd-section-header">
+                        <td colSpan="2">{dmn.toUpperCase()} RESULTS</td>
+                      </tr>
+                      {[1, 2, 3, 4].map(k => (
+                        <tr key={k}>
+                          <td>Pass^{k}</td>
+                          <td>{res[`pass_${k}`] != null ? `${res[`pass_${k}`].toFixed(1)}%` : '—'}</td>
+                        </tr>
+                      ))}
+                      {res.cost != null && (
+                        <tr><td>Avg Cost</td><td>${res.cost.toFixed(3)}</td></tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+
+                  {/* Verification */}
+                  {selectedSubmission.methodology?.verification && (
+                    <>
+                      <tr className="sd-section-header"><td colSpan="2">VERIFICATION</td></tr>
+                      <tr>
+                        <td>Status</td>
+                        <td>
+                          {(() => {
+                            const isVoiceSub = selectedSubmission.modality === 'voice'
+                            const verified = isVoiceSub
+                              ? (selectedSubmission.methodology.verification.omitted_questions === false &&
+                                 (selectedSubmission.submission_type === 'custom' || selectedSubmission.methodology.verification.modified_prompts === false))
+                              : (selectedSubmission.trajectories_available && 
+                                 selectedSubmission.methodology.verification.omitted_questions === false &&
+                                 (selectedSubmission.submission_type === 'custom' || selectedSubmission.methodology.verification.modified_prompts === false))
+                            return verified
+                              ? <span className="sd-badge sd-verified">Verified</span>
+                              : <span className="sd-badge sd-unverified">Unverified</span>
+                          })()}
+                        </td>
+                      </tr>
+                      <tr><td>Trajectories</td><td>{selectedSubmission.trajectories_available ? 'Yes' : 'No'}</td></tr>
+                      <tr>
+                        <td>Modified Prompts</td>
+                        <td>{selectedSubmission.methodology.verification.modified_prompts === true ? 'Yes' : selectedSubmission.methodology.verification.modified_prompts === false ? 'No' : '—'}</td>
+                      </tr>
+                      <tr>
+                        <td>Omitted Questions</td>
+                        <td>{selectedSubmission.methodology.verification.omitted_questions === true ? 'Yes' : selectedSubmission.methodology.verification.omitted_questions === false ? 'No' : '—'}</td>
+                      </tr>
+                      {selectedSubmission.methodology.verification.details && (
+                        <tr><td>Details</td><td className="sd-wrap">{selectedSubmission.methodology.verification.details}</td></tr>
+                      )}
+                    </>
+                  )}
+
+                  {/* References */}
+                  {selectedSubmission.references && selectedSubmission.references.length > 0 && (
+                    <>
+                      <tr className="sd-section-header"><td colSpan="2">REFERENCES</td></tr>
+                      {selectedSubmission.references.map((ref, i) => (
+                        <tr key={i}>
+                          <td>{ref.type?.replace('_', ' ') || 'link'}</td>
+                          <td>
+                            <a href={ref.url} target="_blank" rel="noopener noreferrer" className="sd-link">
+                              {ref.title}
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       )}
+    </div>
     </div>
   )
 }

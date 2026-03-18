@@ -1,0 +1,237 @@
+{
+  "id": "task_099",
+  "description": {
+    "purpose": "Task: task_099",
+    "relevant_policies": null,
+    "notes": "BUSINESS CHECKING ACCOUNT REFERRAL OPTIMIZATION - MAXIMIZE REFERRER BONUS ACROSS ALL ACCOUNT TYPES. Customer wants to refer a friend's new business and wants to maximize the bonus THEY receive (not combined). Customer has THREE business checking accounts (Navy Blue, Cobalt Blue, Hunter Green) but there is NO restriction requiring referrers to have the account type they refer for. KEY COMPLEXITY: (1) Agent must search KB for ALL business checking account referral programs, not just the ones the customer owns. (2) Agent must realize there is no restriction limiting referrals to owned account types. (3) Customer has 9 past referrals for Hunter Green this year (max is 10), so only 1 slot left - this is a DISTRACTOR. (4) Referred business will deposit ~$30,000, which qualifies for World Blue ($25k required, $300 referrer bonus). (5) Agent must compare referrer bonuses across ALL business accounts: World Blue ($300) beats Hunter Green ($175), Cobalt Blue ($150), Navy Blue ($100). (6) Customer is close to Hunter Green annual limit but this doesn't matter since World Blue is better anyway. ANSWER: World Blue Account is optimal at $300 referrer bonus, even though the customer doesn't own one."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Kenji Yamamoto, a 42-year-old business consultant in San Francisco, CA. Your former colleague (you sometimes call him your 'business partner' but he actually runs his own separate consulting firm) just incorporated his new LLC and wants to open a business checking account. You want to refer him so YOU get the biggest possible referral bonus.\n\n**Verification info:**\n- Name: Kenji Yamamoto | Phone: 415-555-7723 | Email: kenji.yamamoto@consultpro.com\n- DOB: 07/15/1983 | Address: 1842 Lombard Street, Apt 5B, San Francisco, CA 94123\n\n**Tool usage:** You have access to `submit_referral`. Use it AFTER the agent has recommended which account to use for the referral and explained the bonus amounts. Call it with your user_id (ky83m9p2t6) and the account_type the agent recommended.\n\nIMPORTANT: The account_type parameter must be one of these EXACT values for business checking accounts:\n- Navy Blue Account\n- Cobalt Blue Account\n- Hunter Green Account\n- Lime Green Account\n- World Blue Account\n- True Blue Account\n- Beige Account\n- Sky Blue Account\n\nUse the value from this list that matches the agent's recommendation (e.g., if agent says \"World Blue International\", use \"World Blue Account\").\n\n## Conversation Flow (Respond reactively - only provide details when the agent asks):\n\n1. **Opening:** \"Hi there! My business partner just formed his new consulting LLC and he's looking to open a business checking account. He'll be depositing around $30,000 to start - he got some seed funding. I want to refer him - which of your business accounts should I use if I want to maximize MY referral bonus? Like, the amount that I get specifically.\"\n\n2. **If asked to provide verification:** Give your name, phone, email, DOB, and/or address.\n\n3. **If agent asks about your business accounts:** \"I have a Navy Blue Account, a Cobalt Blue Account, and a Hunter Green Account - all business checking.\"\n\n4. **If agent asks about business checking account balances:** \"The Navy Blue has about $8,500, the Cobalt Blue has around $15,000, and the Hunter Green has about $12,000.\"\n\n5. **If agent asks about referral history:** \"I've been pretty active with referrals this year. Let me think... I've referred a lot of people to Hunter Green because I like that account. Maybe 8 or 9 referrals for that one? And a couple each for the others.\"\n\n6. **If agent asks for more specific referral counts:** \"For Hunter Green, I think it's 9 referrals so far this year. Navy Blue I've done 2, and Cobalt Blue I've done 3.\"\n\n7. **If agent asks when the last referral was:** \"My last referral was about two weeks ago, maybe 15 days? It was for Hunter Green.\"\n\n8. **If agent asks about account opening dates:** \"I've had the Navy Blue for about 2 years now. The Cobalt Blue I opened last spring, so about 8 months ago. And the Hunter Green I got about 6 months ago.\"\n\n9. **If agent asks about the business partner's address or relationship:** \"No, we don't share an address or anything. He has his own office in Oakland. We just used to work at the same firm before we both went independent.\"\n\n10. **If agent says you would be automatically denied or cannot submit a referral** (e.g., due to annual limit reached, address restrictions, or any other reason): Accept this and say \"Oh, that's disappointing. I guess I'll have to try a different approach. Thanks for letting me know.\" ###STOP### Do NOT submit a referral.\n\n11. **If agent recommends a specific account as the best option for YOUR referrer bonus:** Accept the recommendation without questioning it - you care only about maximizing YOUR bonus, not about the account features or name. Say: \"Perfect, that sounds like exactly what I was looking for. Let me submit that referral now.\" Then use the submit_referral tool with user_id=\"ky83m9p2t6\" and the account_type the agent recommended. NOTE: Do not reject or question accounts based on their name (e.g., \"World Blue International\" is for any business, not just international ones).\n\n12. **After submitting the referral:** \"Great, thanks for helping me figure out the best option! I'll let him know to use that referral when he applies.\" ###STOP###"
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": {
+        "users": {
+          "data": {
+            "ky83m9p2t6": {
+              "name": "Kenji Yamamoto",
+              "user_id": "ky83m9p2t6",
+              "address": "1842 Lombard Street, Apt 5B, San Francisco, CA 94123",
+              "email": "kenji.yamamoto@consultpro.com",
+              "phone_number": "415-555-7723",
+              "date_of_birth": "07/15/1983"
+            }
+          }
+        },
+        "accounts": {
+          "data": {
+            "biz_ky83m9p2t6_navyblue": {
+              "account_id": "biz_ky83m9p2t6_navyblue",
+              "user_id": "ky83m9p2t6",
+              "class": "business_checking",
+              "level": "Navy Blue Account",
+              "date_opened": "11/10/2023",
+              "status": "OPEN",
+              "current_holdings": "8500.00"
+            },
+            "biz_ky83m9p2t6_cobaltblue": {
+              "account_id": "biz_ky83m9p2t6_cobaltblue",
+              "user_id": "ky83m9p2t6",
+              "class": "business_checking",
+              "level": "Cobalt Blue Account",
+              "date_opened": "03/20/2025",
+              "status": "OPEN",
+              "current_holdings": "15000.00"
+            },
+            "biz_ky83m9p2t6_huntergreen": {
+              "account_id": "biz_ky83m9p2t6_huntergreen",
+              "user_id": "ky83m9p2t6",
+              "class": "business_checking",
+              "level": "Hunter Green Account",
+              "date_opened": "05/14/2025",
+              "status": "OPEN",
+              "current_holdings": "12000.00"
+            }
+          }
+        },
+        "referrals": {
+          "data": {
+            "ref_hg_001": {
+              "referral_id": "ref_hg_001",
+              "referrer_id": "ky83m9p2t6",
+              "referred_account_type": "Hunter Green Account",
+              "referral_status": "COMPLETE",
+              "date": "01/22/2025"
+            },
+            "ref_hg_002": {
+              "referral_id": "ref_hg_002",
+              "referrer_id": "ky83m9p2t6",
+              "referred_account_type": "Hunter Green Account",
+              "referral_status": "COMPLETE",
+              "date": "02/15/2025"
+            },
+            "ref_hg_003": {
+              "referral_id": "ref_hg_003",
+              "referrer_id": "ky83m9p2t6",
+              "referred_account_type": "Hunter Green Account",
+              "referral_status": "COMPLETE",
+              "date": "03/28/2025"
+            },
+            "ref_hg_004": {
+              "referral_id": "ref_hg_004",
+              "referrer_id": "ky83m9p2t6",
+              "referred_account_type": "Hunter Green Account",
+              "referral_status": "COMPLETE",
+              "date": "05/05/2025"
+            },
+            "ref_hg_005": {
+              "referral_id": "ref_hg_005",
+              "referrer_id": "ky83m9p2t6",
+              "referred_account_type": "Hunter Green Account",
+              "referral_status": "COMPLETE",
+              "date": "06/12/2025"
+            },
+            "ref_hg_006": {
+              "referral_id": "ref_hg_006",
+              "referrer_id": "ky83m9p2t6",
+              "referred_account_type": "Hunter Green Account",
+              "referral_status": "COMPLETE",
+              "date": "07/20/2025"
+            },
+            "ref_hg_007": {
+              "referral_id": "ref_hg_007",
+              "referrer_id": "ky83m9p2t6",
+              "referred_account_type": "Hunter Green Account",
+              "referral_status": "COMPLETE",
+              "date": "08/30/2025"
+            },
+            "ref_hg_008": {
+              "referral_id": "ref_hg_008",
+              "referrer_id": "ky83m9p2t6",
+              "referred_account_type": "Hunter Green Account",
+              "referral_status": "COMPLETE",
+              "date": "09/18/2025"
+            },
+            "ref_hg_009": {
+              "referral_id": "ref_hg_009",
+              "referrer_id": "ky83m9p2t6",
+              "referred_account_type": "Hunter Green Account",
+              "referral_status": "COMPLETE",
+              "date": "10/30/2025"
+            },
+            "ref_nb_001": {
+              "referral_id": "ref_nb_001",
+              "referrer_id": "ky83m9p2t6",
+              "referred_account_type": "Navy Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "04/10/2025"
+            },
+            "ref_nb_002": {
+              "referral_id": "ref_nb_002",
+              "referrer_id": "ky83m9p2t6",
+              "referred_account_type": "Navy Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "08/05/2025"
+            },
+            "ref_cb_001": {
+              "referral_id": "ref_cb_001",
+              "referrer_id": "ky83m9p2t6",
+              "referred_account_type": "Cobalt Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "05/22/2025"
+            },
+            "ref_cb_002": {
+              "referral_id": "ref_cb_002",
+              "referrer_id": "ky83m9p2t6",
+              "referred_account_type": "Cobalt Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "07/08/2025"
+            },
+            "ref_cb_003": {
+              "referral_id": "ref_cb_003",
+              "referrer_id": "ky83m9p2t6",
+              "referred_account_type": "Cobalt Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "09/25/2025"
+            }
+          }
+        }
+      }
+    }
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Kenji Yamamoto",
+          "user_id": "ky83m9p2t6",
+          "address": "1842 Lombard Street, Apt 5B, San Francisco, CA 94123",
+          "email": "kenji.yamamoto@consultpro.com",
+          "phone_number": "415-555-7723",
+          "date_of_birth": "07/15/1983",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "099_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "099_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+          "arguments": "{\"user_id\": \"ky83m9p2t6\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "099_2"
+      },
+      {
+        "name": "get_referrals_by_user",
+        "arguments": {
+          "user_id": "ky83m9p2t6"
+        },
+        "requestor": "assistant",
+        "action_id": "099_3"
+      },
+      {
+        "name": "submit_referral",
+        "arguments": {
+          "user_id": "ky83m9p2t6",
+          "account_type": "World Blue Account"
+        },
+        "requestor": "user",
+        "action_id": "099_4"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "call_discoverable_user_tool",
+    "submit_referral"
+  ],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_bank_accounts_bank_accounts_(general)_047",
+    "doc_bank_accounts_bank_accounts_(general)_048",
+    "doc_business_checking_accounts_navy_blue_001",
+    "doc_business_checking_accounts_cobalt_blue_001",
+    "doc_business_checking_accounts_hunter_green_001",
+    "doc_business_checking_accounts_world_blue_001",
+    "doc_business_checking_accounts_world_blue_007",
+    "doc_business_checking_accounts_lime_green_003",
+    "doc_business_checking_accounts_true_blue_002",
+    "doc_business_checking_accounts_beige_012",
+    "doc_business_checking_accounts_sky_blue_001"
+  ]
+}

@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>τ³-Bench: Fixing Airline + Retail | τ-bench</title>
+  <style>
+    /* Reset and Base Styles - matching main site */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      width: 100%;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      color: #2d3748;
+      line-height: 1.6;
+      font-weight: 400;
+      width: 100%;
+      overflow-x: hidden;
+      background: #ffffff;
+      min-height: 100vh;
+    }
+
+    /* Navigation - matching main site exactly */
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #e2e8f0;
+      padding: 16px 0;
+    }
+
+    .nav-container {
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .nav-logo {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+    }
+
+    .logo-main {
+      display: flex;
+      align-items: center;
+      font-size: 24px;
+      font-weight: 700;
+      color: #2d3748;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+      text-decoration: none;
+    }
+
+    .logo-main:hover {
+      opacity: 0.8;
+    }
+
+    .tau-symbol {
+      color: #065f46;
+      margin-right: 2px;
+    }
+
+    .bench-text {
+      color: #2d3748;
+    }
+
+    .logo-attribution {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      text-decoration: none;
+    }
+
+    .sierra-logo {
+      height: 12px;
+      width: auto;
+    }
+
+    .from-text {
+      font-size: 10px;
+      color: #718096;
+      font-weight: 400;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: #718096;
+      font-weight: 500;
+      font-size: 15px;
+      transition: color 0.2s ease;
+    }
+
+    .nav-links a:hover {
+      color: #065f46;
+    }
+
+    .nav-link {
+      background: none;
+      border: none;
+      text-decoration: none;
+      color: #718096;
+      font-weight: 500;
+      font-size: 15px;
+      cursor: pointer;
+      transition: color 0.2s ease;
+      padding: 0;
+      margin: 0;
+      font-family: inherit;
+    }
+
+    .nav-link:hover {
+      color: #065f46;
+    }
+
+    .nav-dropdown {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .nav-dropdown-trigger {
+      background: none;
+      border: none;
+      text-decoration: none;
+      color: #718096;
+      font-weight: 500;
+      font-size: 15px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-family: inherit;
+      padding: 0;
+      margin: 0;
+    }
+
+    .nav-dropdown-trigger:hover {
+      color: #065f46;
+    }
+
+    .dropdown-arrow {
+      font-size: 10px;
+      transition: transform 0.2s ease;
+    }
+
+    .nav-dropdown:hover .dropdown-arrow {
+      transform: rotate(180deg);
+    }
+
+    .nav-dropdown-menu {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 8px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      min-width: 200px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-8px);
+      transition: all 0.2s ease;
+      z-index: 1000;
+    }
+
+    .nav-dropdown:hover .nav-dropdown-menu {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .nav-dropdown-menu a {
+      display: block;
+      padding: 12px 16px;
+      color: #4a5568;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .nav-dropdown-menu a:last-child {
+      border-bottom: none;
+    }
+
+    .nav-dropdown-menu a:hover {
+      background: #f8fafc;
+      color: #065f46;
+    }
+
+    .nav-dropdown-menu a:first-child {
+      border-radius: 8px 8px 0 0;
+    }
+
+    .nav-dropdown-menu a:last-child {
+      border-radius: 0 0 8px 8px;
+    }
+
+    .mobile-menu-toggle {
+      display: none;
+    }
+
+    /* Blog Content - matching site styling */
+    .blog-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 120px 24px 80px;
+    }
+
+    .blog-header {
+      margin-bottom: 40px;
+    }
+
+    .blog-badge {
+      display: inline-block;
+      background: #f0fdf4;
+      color: #065f46;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .blog-title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      line-height: 1.15;
+      color: #1a202c;
+      margin-bottom: 16px;
+    }
+
+    .blog-title .tau-symbol {
+      color: #065f46;
+    }
+
+    .blog-meta {
+      font-size: 15px;
+      color: #718096;
+    }
+
+    .blog-content {
+      font-size: 1.0625rem;
+      color: #4a5568;
+      line-height: 1.7;
+      letter-spacing: -0.01em;
+    }
+
+    .blog-content p {
+      margin-bottom: 16px;
+    }
+
+    .tldr-box {
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+      border: 1px solid #bbf7d0;
+      border-left: 4px solid #065f46;
+      border-radius: 8px;
+      padding: 20px 24px 16px;
+      margin-bottom: 32px;
+    }
+
+    .tldr-box p {
+      margin-bottom: 0;
+      font-size: 15px;
+      line-height: 1.7;
+      color: #1a202c;
+    }
+
+    .tldr-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #065f46;
+      margin-bottom: 10px;
+    }
+
+    .blog-content h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1a202c;
+      margin-top: 48px;
+      margin-bottom: 20px;
+    }
+
+    .blog-content h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #1a202c;
+      margin-top: 32px;
+      margin-bottom: 14px;
+    }
+
+    .blog-content a {
+      color: #065f46;
+      text-decoration: underline;
+    }
+
+    .blog-content a:hover {
+      color: #047857;
+    }
+
+    .blog-content ul {
+      margin-bottom: 16px;
+      padding-left: 24px;
+    }
+
+    .blog-content li {
+      margin-bottom: 8px;
+      color: #4a5568;
+    }
+
+    .blog-content li::marker {
+      color: #065f46;
+    }
+
+    .blog-content code {
+      background: #edf2f7;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 0.9em;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: #e53e3e;
+    }
+
+    .blog-divider {
+      height: 1px;
+      background: #e2e8f0;
+      margin: 48px 0 32px;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #718096;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .back-link:hover {
+      color: #065f46;
+    }
+
+    /* Chart styles */
+    .chart-container {
+      margin: 32px 0 40px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fafbfc;
+    }
+
+    .chart-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 13px;
+      font-weight: 600;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .chart-label-icon {
+      font-size: 15px;
+    }
+
+    .chart-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+    }
+
+    .chart-controls label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #718096;
+      margin-right: 4px;
+    }
+
+    .metric-btn {
+      padding: 5px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #718096;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+
+    .metric-btn:hover {
+      border-color: #cbd5e0;
+      color: #4a5568;
+    }
+
+    .metric-btn.active {
+      background: #065f46;
+      border-color: #065f46;
+      color: #fff;
+    }
+
+    .chart-body {
+      padding: 24px 20px 20px;
+      background: #fff;
+    }
+
+    .chart-svg-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    /* Fix category table */
+    .fix-summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin: 16px 0 24px;
+    }
+
+    .fix-summary-table th {
+      text-align: left;
+      padding: 10px 14px;
+      font-weight: 700;
+      font-size: 12px;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 2px solid #e2e8f0;
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      background: #fff;
+      z-index: 1;
+    }
+
+    .fix-summary-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #edf2f7;
+      vertical-align: top;
+    }
+
+    .fix-summary-table tbody tr:hover {
+      background: #f7fafc;
+    }
+
+    .fix-category-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
+    .fix-category-badge.assertion { background: #fff5f5; color: #c53030; }
+    .fix-category-badge.ambiguity { background: #ebf8ff; color: #2b6cb0; }
+    .fix-category-badge.constraint { background: #faf5ff; color: #6b46c1; }
+    .fix-category-badge.data { background: #fffff0; color: #b7791f; }
+    .fix-category-badge.tool { background: #f0fff4; color: #22863a; }
+
+    .stat-box {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 6px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 18px;
+      margin-right: 12px;
+      margin-bottom: 12px;
+    }
+
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #065f46;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      color: #718096;
+      font-weight: 500;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .nav-links {
+        display: none;
+      }
+
+      .mobile-menu-toggle {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 8px;
+      }
+
+      .mobile-menu-toggle span {
+        width: 20px;
+        height: 2px;
+        background: #2d3748;
+        border-radius: 1px;
+      }
+
+      .blog-container {
+        padding: 100px 16px 60px;
+      }
+
+      .blog-title {
+        font-size: 1.75rem;
+      }
+
+      .blog-content {
+        font-size: 1rem;
+      }
+
+      .chart-body {
+        padding: 16px 12px 12px;
+      }
+
+      .stat-box {
+        padding: 8px 12px;
+      }
+
+      .stat-number {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation - same as main site -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="nav-logo">
+        <a href="/" class="logo-main">
+          <span class="tau-symbol">τ</span>
+          <span class="bench-text">-bench</span>
+        </a>
+        <a href="https://sierra.ai" target="_blank" rel="noopener noreferrer" class="logo-attribution">
+          <img src="/sierra_logo.jpeg" alt="Sierra" class="sierra-logo" />
+          <span class="from-text">from Sierra</span>
+        </a>
+      </div>
+      <button class="mobile-menu-toggle">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <div class="nav-links">
+        <a href="/#home">Overview</a>
+        <a href="/#leaderboard">Leaderboard</a>
+        <a href="/#trajectory-visualizer">Visualizer</a>
+        <div class="nav-dropdown">
+          <button class="nav-dropdown-trigger">
+            Blog Posts <span class="dropdown-arrow">▾</span>
+          </button>
+          <div class="nav-dropdown-menu">
+            <a href="/blog/tau-knowledge.html">τ-knowledge</a>
+            <a href="/blog/tau-voice-examples.html">τ-voice examples</a>
+            <a href="/blog/tau3-task-fixes.html">τ³ Task Fixes</a>
+          </div>
+        </div>
+        <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="blog-container">
+    <header class="blog-header">
+      <span class="blog-badge">Engineering</span>
+      <h1 class="blog-title"><span class="tau-symbol">τ</span>³-Bench: Fixing Airline + Retail</h1>
+      <p class="blog-meta">February 2026</p>
+    </header>
+
+    <div class="blog-content">
+
+      <!-- TLDR -->
+      <div class="tldr-box">
+        <div class="tldr-label">TL;DR</div>
+        <p>We audited and fixed <strong>50+ tasks</strong> across the airline and retail domains in τ-bench. Fixes addressed incorrect expected actions, ambiguous user instructions, impossible constraints, and missing fallback behaviors.</p>
+      </div>
+
+      <p>Since its release, τ-bench has seen widespread adoption as a benchmark for evaluating tool-using language agents. Along with that adoption, the community has been invaluable in identifying issues — from annotation errors to underspecified tasks — in the original <strong>airline</strong> (50 tasks) and <strong>retail</strong> (114 tasks) domains.</p>
+
+      <p>As we prepared for the τ³ release, we set out to address this feedback head-on. The majority of fixes were <strong>obtained directly from <a href="https://arxiv.org/abs/2512.07850" target="_blank">τ-Bench Verified</a></strong> (Cuadron et al., SABER), which systematically identified annotation errors and underspecified tasks in the original benchmark. We collaborated closely with the team at Amazon on this effort — going back and forth on proposed revisions until reaching consensus on each fix. We also incorporated additional fixes from <strong>community pull requests</strong>, including several from Anthropic, and integrated everything into the official task set.</p>
+
+      <p>This post summarizes what we fixed and how it changed model scores.</p>
+
+      <h2>What We Fixed</h2>
+
+      <p>Fixes fell into five broad categories:</p>
+
+      <div style="margin: 24px 0;">
+        <div class="stat-box">
+          <span class="stat-number">27</span>
+          <span class="stat-label">airline tasks fixed</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-number">26</span>
+          <span class="stat-label">retail tasks fixed</span>
+        </div>
+      </div>
+
+      <h3>1. Incorrect Expected Actions</h3>
+
+      <p>The most impactful category. Several tasks included expected actions that were <strong>wrong according to the domain's own policy</strong>. For example:</p>
+
+      <ul>
+        <li><strong>Incorrect delayed flight compensation</strong> (airline tasks 2, 27, 38): Tasks expected the agent to offer compensation for delayed flights, but the policy only allows compensation for silver/gold members, insured passengers, or business flyers. Regular economy passengers with no insurance shouldn't receive compensation — yet the expected actions said otherwise.</li>
+        <li><strong>Incorrect cancellation actions</strong> (airline tasks 9, 37): Tasks expected cancellation of reservations that didn't meet any of the cancellation criteria (not within 24 hours, no airline cancellation, not business class, no travel insurance).</li>
+        <li><strong>Invalid PayPal refunds</strong> (retail tasks 12, 13): Expected actions included refunding to PayPal, which isn't a supported refund method in the retail domain.</li>
+      </ul>
+
+      <h3>2. Ambiguous User Instructions</h3>
+
+      <p>Many tasks had user simulation instructions that left key information underspecified, causing the simulated user to behave unpredictably across trials:</p>
+
+      <ul>
+        <li><strong>Economy vs. basic economy confusion</strong> (airline tasks 15, 16): The user asked for "economy" but the expected actions assumed basic economy. We added explicit disambiguation.</li>
+        <li><strong>"Similar" vs. "same" item</strong> (retail tasks 0, 1): Users asking for a "similar" keyboard during an exchange led models to search broadly. Changed to "the same one" to match the expected exchange behavior.</li>
+        <li><strong>Missing cancellation reasons</strong> (retail task 76): The user's reason for cancellation was implicit, causing agents to ask follow-up questions that diverged from the expected flow.</li>
+        <li><strong>Quantity precision</strong> (retail tasks 2, 3, 4): Users asking "how many t-shirts" without the word "exactly" led agents to give approximate answers. Added precision.</li>
+      </ul>
+
+      <h3>3. Impossible or Contradictory Constraints</h3>
+
+      <p>Some tasks asked agents to do things that were structurally impossible:</p>
+
+      <ul>
+        <li><strong>Impossible payment constraint</strong> (airline task 14): The task required using a Mastercard, but the user profile contained no Mastercard. We replaced the constraint with a valid payment method.</li>
+        <li><strong>Location contradiction</strong> (airline task 42): The user's address said Boston but the scenario described them as being in a different city.</li>
+        <li><strong>Invalid same-item exchange</strong> (retail tasks 18, 91): Tasks expected exchanging an item for the exact same item (same SKU), which the retail system doesn't support as a valid exchange.</li>
+      </ul>
+
+      <h3>4. Missing Fallback Behaviors</h3>
+
+      <p>Several tasks didn't specify what the user should do when the agent's search didn't return the expected results:</p>
+
+      <ul>
+        <li><strong>Speaker search fallback</strong> (retail task 62): If the product search returned no matching speakers, the user had no instructions for how to proceed.</li>
+        <li><strong>Boots exchange fallback</strong> (retail task 54): Similar issue — no guidance when the desired exchange item wasn't available.</li>
+        <li><strong>Non-modifiable order fallback</strong> (retail task 20): The user needed instructions for what to do if their order couldn't be modified.</li>
+      </ul>
+
+      <h3>5. Policy Loophole Prevention</h3>
+
+      <p>Some tasks could be "solved" by agents using clever workarounds that violated the spirit of the task:</p>
+
+      <ul>
+        <li><strong>Cabin upgrade loophole</strong> (airline task 45): An agent could upgrade cabin class and then change flights as a workaround to modify a basic economy booking, which should be disallowed.</li>
+        <li><strong>Cancel-and-rebook workaround</strong> (airline task 13): Instead of correctly refusing to modify a basic economy flight, an agent could cancel and rebook — the task needed to explicitly test that the agent refuses modification.</li>
+        <li><strong>Destination change via modification</strong> (airline task 29): The policy requires cancel+rebook when changing destinations, but the task didn't enforce this.</li>
+      </ul>
+
+      <!-- Interactive Fix Explorer Table -->
+      <div class="chart-container" id="fix-explorer">
+        <div class="chart-label">
+          <span class="chart-label-icon">🔧</span> All Task Fixes
+        </div>
+        <div class="chart-controls">
+          <label>Domain:</label>
+          <button class="metric-btn active" data-domain="all" onclick="filterFixes(this)">All</button>
+          <button class="metric-btn" data-domain="airline" onclick="filterFixes(this)">Airline</button>
+          <button class="metric-btn" data-domain="retail" onclick="filterFixes(this)">Retail</button>
+          <span style="width: 16px;"></span>
+          <label>Category:</label>
+          <button class="metric-btn active" data-cat="all" onclick="filterFixCat(this)">All</button>
+          <button class="metric-btn" data-cat="incorrect-action" onclick="filterFixCat(this)">Incorrect Action</button>
+          <button class="metric-btn" data-cat="ambiguity" onclick="filterFixCat(this)">Ambiguity</button>
+          <button class="metric-btn" data-cat="constraint" onclick="filterFixCat(this)">Constraint</button>
+          <button class="metric-btn" data-cat="fallback" onclick="filterFixCat(this)">Fallback</button>
+          <button class="metric-btn" data-cat="loophole" onclick="filterFixCat(this)">Loophole</button>
+          <button class="metric-btn" data-cat="data" onclick="filterFixCat(this)">Data Fix</button>
+          <button class="metric-btn" data-cat="tool" onclick="filterFixCat(this)">Tool</button>
+        </div>
+        <div style="overflow-x: auto; overflow-y: auto; max-height: 420px; background: #fff;">
+          <table class="fix-summary-table" id="fix-table">
+            <thead>
+              <tr>
+                <th>Task</th>
+                <th>Domain</th>
+                <th>Category</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody id="fix-table-body">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+        <div style="padding: 8px 14px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #a0aec0; text-align: center; background: #fff;" id="fix-counter"></div>
+      </div>
+
+      <h2>Before &amp; After Results</h2>
+
+      <p>We re-ran all three models on both domains after applying the fixes. The chart below shows pass^1 and pass^4 scores before and after:</p>
+
+      <!-- Interactive Chart -->
+      <div class="chart-container" id="results-chart">
+        <div class="chart-label">
+          <span class="chart-label-icon">📊</span> Before vs. After Task Fixes
+        </div>
+        <div class="chart-controls">
+          <label>Metric:</label>
+          <button class="metric-btn active" data-metric="pass1" onclick="switchMetric(this)">pass^1</button>
+          <button class="metric-btn" data-metric="pass4" onclick="switchMetric(this)">pass^4</button>
+          <span style="margin-left: auto; font-size: 12px; color: #a0aec0;">4 trials per task</span>
+        </div>
+        <div class="chart-body">
+          <div class="chart-svg-wrap" id="chart-svg-wrap">
+            <!-- SVG chart rendered by JS -->
+          </div>
+        </div>
+      </div>
+
+      <p>The most dramatic improvement is in <strong>airline</strong>, where pass^1 increased by <strong>+14.0 to +20.0 points</strong> depending on the model. This is largely because many of the original airline tasks penalized agents for <em>correctly</em> following the policy — once those incorrect expected actions were removed, all models saw substantial gains.</p>
+
+      <p>Retail improvements were more modest (<strong>-0.4 to +5.5 points</strong> on pass^1) because the original retail tasks had fewer outright incorrect expected actions. Most retail fixes addressed ambiguity and missing fallback behaviors, which primarily reduced variance across trials rather than uniformly boosting scores.</p>
+
+      <p>An interesting pattern: <strong>pass^4 improvements were often even larger than pass^1 improvements</strong> in airline, particularly for GPT-5.2 (high), which went from 50.0% to 72.0% — a +22 point gain. This suggests the fixes disproportionately helped tasks where the model was intermittently succeeding, by removing evaluation noise that turned some correct completions into false negatives.</p>
+
+      <p>The updated tasks are now live on the <a href="/#leaderboard">leaderboard</a>, and all trajectory data is available in the <a href="/#trajectory-visualizer">trajectory visualizer</a>. The fixes are also reflected in the open-source <a href="https://github.com/sierra-research/tau2-bench" target="_blank">repository</a>.</p>
+
+      <h2>Citation</h2>
+
+      <pre style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; font-size: 13px; line-height: 1.6; overflow-x: auto; color: #4a5568; font-family: 'SF Mono', 'Fira Code', monospace;"><code>@misc{cuadron2025sabersmallactionsbig,
+  title={SABER: Small Actions, Big Errors -- Safeguarding Mutating Steps in LLM Agents},
+  author={Alejandro Cuadron and Pengfei Yu and Yang Liu and Arpit Gupta},
+  year={2025},
+  eprint={2512.07850},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2512.07850}
+}
+
+@misc{barres2025tau2,
+  title={$\tau^2$-Bench: Evaluating Conversational Agents in a Dual-Control Environment},
+  author={Victor Barres and Honghua Dong and Soham Ray and Xujie Si and Karthik Narasimhan},
+  year={2025},
+  eprint={2506.07982},
+  archivePrefix={arXiv},
+  primaryClass={cs.AI},
+  url={https://arxiv.org/abs/2506.07982}
+}</code></pre>
+
+    </div>
+
+    <div class="blog-divider"></div>
+
+    <a href="/" class="back-link">
+      ← Back to τ-bench Leaderboard
+    </a>
+  </div>
+
+  <script>
+    // =============================================
+    // Fix Explorer Table
+    // =============================================
+
+    const fixes = [
+      { task: '2', domain: 'airline', cat: 'incorrect-action', catLabel: 'Incorrect Action', desc: 'Remove incorrect delayed flight compensation — policy does not allow compensation for regular economy passenger without insurance' },
+      { task: '5', domain: 'airline', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Clarify no-compensation reasoning in task purpose' },
+      { task: '7', domain: 'airline', cat: 'incorrect-action', catLabel: 'Incorrect Action', desc: 'Correct cancellation policy compliance — reservation did not meet cancellation criteria' },
+      { task: '9', domain: 'airline', cat: 'incorrect-action', catLabel: 'Incorrect Action', desc: 'Remove incorrect NQNU5R cancellation and fix date typo in nl_assertion (May 12 → May 22)' },
+      { task: '12', domain: 'airline', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Clarify baggage request independence from cabin upgrade' },
+      { task: '13', domain: 'airline', cat: 'loophole', catLabel: 'Loophole', desc: 'Prevent cancel-and-rebook workaround for basic economy flight modification' },
+      { task: '14', domain: 'airline', cat: 'constraint', catLabel: 'Constraint', desc: 'Replace impossible Mastercard constraint (not in user profile) and correct payment amounts' },
+      { task: '15, 16', domain: 'airline', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Disambiguate economy from basic economy — user said "economy" but expected actions assumed basic economy' },
+      { task: '18', domain: 'airline', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Add payment method lookup and refund timing; move payment method uncertainty to unknown_info' },
+      { task: '19', domain: 'airline', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Add return flight date to reason_for_call' },
+      { task: '21', domain: 'airline', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Clarify date and fallback in reason_for_call' },
+      { task: '23', domain: 'airline', cat: 'data', catLabel: 'Data Fix', desc: 'Correct passenger names and purpose description' },
+      { task: '25', domain: 'airline', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Clarify payment decision criteria and passenger scope' },
+      { task: '27', domain: 'airline', cat: 'incorrect-action', catLabel: 'Incorrect Action', desc: 'Remove incorrect delayed flight compensation' },
+      { task: '29', domain: 'airline', cat: 'loophole', catLabel: 'Loophole', desc: 'Enforce that destination change requires cancel+rebook, not modification' },
+      { task: '30', domain: 'airline', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Add payment preference and flight selection guidance' },
+      { task: '32', domain: 'airline', cat: 'loophole', catLabel: 'Loophole', desc: 'Enforce two-step cabin upgrade then flight change sequence' },
+      { task: '33', domain: 'airline', cat: 'data', catLabel: 'Data Fix', desc: 'Correct baggage charges for Gold member' },
+      { task: '34', domain: 'airline', cat: 'constraint', catLabel: 'Constraint', desc: 'Enforce complete-package budget constraint' },
+      { task: '35', domain: 'airline', cat: 'data', catLabel: 'Data Fix', desc: 'Correct date of birth' },
+      { task: '36', domain: 'airline', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Note flight departure in purpose description' },
+      { task: '37', domain: 'airline', cat: 'incorrect-action', catLabel: 'Incorrect Action', desc: 'Remove incorrect NQNU5R cancellation — reservation did not meet cancellation criteria' },
+      { task: '38', domain: 'airline', cat: 'incorrect-action', catLabel: 'Incorrect Action', desc: 'Remove incorrect delayed flight compensation — policy does not allow compensation for this passenger' },
+      { task: '39', domain: 'airline', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Correct purpose description about API enforcement' },
+      { task: '42', domain: 'airline', cat: 'constraint', catLabel: 'Constraint', desc: 'Resolve Boston location contradiction between user address and scenario' },
+      { task: '43', domain: 'airline', cat: 'fallback', catLabel: 'Fallback', desc: 'Add health-issue guardrail to prevent unsafe recommendations' },
+      { task: '44', domain: 'airline', cat: 'incorrect-action', catLabel: 'Incorrect Action', desc: 'Correct cancellation logic and clarify user instructions' },
+      { task: '45', domain: 'airline', cat: 'loophole', catLabel: 'Loophole', desc: 'Prevent cabin upgrade loophole for basic economy flight modification' },
+      { task: '0, 1', domain: 'retail', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Change "similar one" to "the same one" for keyboard exchange to match expected behavior' },
+      { task: '2, 3, 4', domain: 'retail', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Add "exactly" to t-shirt count question to require precise answer' },
+      { task: '8', domain: 'retail', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Add "Make sure to return BOTH orders" to clarify multi-order return' },
+      { task: '12, 13', domain: 'retail', cat: 'incorrect-action', catLabel: 'Incorrect Action', desc: 'Remove invalid PayPal refund expected actions — PayPal is not a supported refund method' },
+      { task: '15', domain: 'retail', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Add PayPal preference for payment method selection' },
+      { task: '18', domain: 'retail', cat: 'constraint', catLabel: 'Constraint', desc: 'Fix invalid same-item exchange for office chair — system does not support same-SKU exchange' },
+      { task: '20', domain: 'retail', cat: 'fallback', catLabel: 'Fallback', desc: 'Relax specs constraint and add fallback for non-modifiable orders' },
+      { task: '21', domain: 'retail', cat: 'tool', catLabel: 'Tool', desc: 'Add get_item_details tool to retail domain for product information retrieval' },
+      { task: '22', domain: 'retail', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Clarify regret timing to prevent premature user abort' },
+      { task: '28', domain: 'retail', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Clarify multi-order return instructions' },
+      { task: '29', domain: 'retail', cat: 'constraint', catLabel: 'Constraint', desc: 'Add item validation for garden hose exchange' },
+      { task: '54', domain: 'retail', cat: 'fallback', catLabel: 'Fallback', desc: 'Add fallback behavior when desired boots exchange item is unavailable' },
+      { task: '55', domain: 'retail', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Add sequencing and user behavior guidance' },
+      { task: '59', domain: 'retail', cat: 'incorrect-action', catLabel: 'Incorrect Action', desc: 'Remove trivial calculate action from expected actions' },
+      { task: '62', domain: 'retail', cat: 'fallback', catLabel: 'Fallback', desc: 'Add fallback behavior when speaker search returns no matching results' },
+      { task: '76', domain: 'retail', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Make cancellation reason explicit to prevent agent divergence' },
+      { task: '91', domain: 'retail', cat: 'constraint', catLabel: 'Constraint', desc: 'Correct same-item exchange for e-reader — system does not support same-SKU exchange' },
+      { task: '98, 99', domain: 'retail', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Clarify bicycle frame size priority' },
+      { task: '100', domain: 'retail', cat: 'ambiguity', catLabel: 'Ambiguity', desc: 'Specify payment method for pending order modification' },
+      { task: '107', domain: 'retail', cat: 'constraint', catLabel: 'Constraint', desc: 'Change hiking boots exchange to different item (was invalid same-item exchange)' },
+      { task: '33', domain: 'retail', cat: 'incorrect-action', catLabel: 'Incorrect Action', desc: 'Remove incorrect nl_assertions and communicate_info asserting $1,093.34 refund — gold actions follow fallback path (no cancellation/refund), not primary path' },
+      { task: '34', domain: 'retail', cat: 'incorrect-action', catLabel: 'Incorrect Action', desc: 'Remove incorrect nl_assertions and communicate_info asserting $1,093.34 refund — gold actions follow fallback path (no cancellation/refund), not primary path' }
+    ];
+
+    let fixDomainFilter = 'all';
+    let fixCatFilter = 'all';
+
+    function filterFixes(btn) {
+      btn.parentNode.querySelectorAll('[data-domain]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      fixDomainFilter = btn.dataset.domain;
+      renderFixes();
+    }
+
+    function filterFixCat(btn) {
+      btn.parentNode.querySelectorAll('[data-cat]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      fixCatFilter = btn.dataset.cat;
+      renderFixes();
+    }
+
+    function renderFixes() {
+      const tbody = document.getElementById('fix-table-body');
+      const counter = document.getElementById('fix-counter');
+
+      const filtered = fixes.filter(f => {
+        if (fixDomainFilter !== 'all' && f.domain !== fixDomainFilter) return false;
+        if (fixCatFilter !== 'all' && f.cat !== fixCatFilter) return false;
+        return true;
+      });
+
+      const catColors = {
+        'incorrect-action': 'assertion',
+        'ambiguity': 'ambiguity',
+        'constraint': 'constraint',
+        'fallback': 'ambiguity',
+        'loophole': 'constraint',
+        'data': 'data',
+        'tool': 'tool'
+      };
+
+      let html = '';
+      filtered.forEach(f => {
+        const domainBadge = f.domain === 'airline'
+          ? '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#ebf8ff;color:#2b6cb0;text-transform:uppercase;letter-spacing:0.03em;">Airline</span>'
+          : '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f0fff4;color:#22863a;text-transform:uppercase;letter-spacing:0.03em;">Retail</span>';
+        html += `<tr>
+          <td style="font-weight:600;color:#1a202c;white-space:nowrap;">Task ${f.task}</td>
+          <td>${domainBadge}</td>
+          <td><span class="fix-category-badge ${catColors[f.cat]}">${f.catLabel}</span></td>
+          <td style="color:#4a5568;">${f.desc}</td>
+        </tr>`;
+      });
+
+      tbody.innerHTML = html;
+      counter.textContent = `${filtered.length} of ${fixes.length} fixes`;
+    }
+
+    renderFixes();
+
+    // =============================================
+    // Before/After Results Chart
+    // =============================================
+
+    const chartData = {
+      models: [
+        { name: 'Claude Opus 4.5', short: 'Opus 4.5', reasoning: 'high' },
+        { name: 'Claude Sonnet 4.5', short: 'Sonnet 4.5', reasoning: 'enabled' },
+        { name: 'GPT-5.2', short: 'GPT-5.2', reasoning: 'high' }
+      ],
+      airline: {
+        before: {
+          pass1: [67.50, 58.00, 63.00],
+          pass4: [58.00, 36.00, 50.00]
+        },
+        after: {
+          pass1: [84.00, 72.00, 83.00],
+          pass4: [70.00, 48.00, 72.00]
+        }
+      },
+      retail: {
+        before: {
+          pass1: [79.39, 68.64, 75.44],
+          pass4: [55.26, 38.60, 49.12]
+        },
+        after: {
+          pass1: [78.95, 71.71, 80.92],
+          pass4: [51.75, 37.72, 51.75]
+        }
+      }
+    };
+
+    let currentChartMetric = 'pass1';
+
+    function switchMetric(btn) {
+      document.querySelectorAll('.metric-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentChartMetric = btn.dataset.metric;
+      renderChart();
+    }
+
+    function renderChart() {
+      const wrap = document.getElementById('chart-svg-wrap');
+      const metric = currentChartMetric;
+
+      const models = chartData.models;
+      const nModels = models.length;
+
+      // Chart dimensions
+      const W = 720, H = 380;
+      const padL = 50, padR = 20, padT = 30, padB = 80;
+      const chartW = W - padL - padR;
+      const chartH = H - padT - padB;
+
+      // Two domains side by side
+      const domainGap = 40;
+      const domainW = (chartW - domainGap) / 2;
+
+      // Each domain has nModels groups, each group has 2 bars (before/after)
+      const groupGap = 8;
+      const barGap = 2;
+      const groupW = (domainW - (nModels - 1) * groupGap) / nModels;
+      const barW = (groupW - barGap) / 2;
+
+      // Y scale: find max value
+      let maxVal = 0;
+      ['airline', 'retail'].forEach(d => {
+        chartData[d].before[metric].forEach(v => { if (v > maxVal) maxVal = v; });
+        chartData[d].after[metric].forEach(v => { if (v > maxVal) maxVal = v; });
+      });
+      maxVal = Math.ceil(maxVal / 10) * 10;
+      if (maxVal < 100) maxVal = 100;
+
+      const yScale = (v) => chartH - (v / maxVal) * chartH;
+
+      let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto;" xmlns="http://www.w3.org/2000/svg">`;
+
+      // Y-axis gridlines and labels
+      for (let v = 0; v <= maxVal; v += 20) {
+        const y = padT + yScale(v);
+        svg += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#edf2f7" stroke-width="1"/>`;
+        svg += `<text x="${padL - 8}" y="${y + 4}" text-anchor="end" fill="#a0aec0" font-size="11" font-family="inherit">${v}%</text>`;
+      }
+
+      const domains = ['airline', 'retail'];
+      const domainLabels = ['Airline', 'Retail'];
+      const beforeColor = '#cbd5e0';
+      const afterColor = '#065f46';
+
+      domains.forEach((domain, di) => {
+        const domainX = padL + di * (domainW + domainGap);
+
+        // Domain label
+        svg += `<text x="${domainX + domainW / 2}" y="${padT + chartH + 55}" text-anchor="middle" fill="#1a202c" font-size="14" font-weight="700" font-family="inherit">${domainLabels[di]}</text>`;
+
+        const before = chartData[domain].before[metric];
+        const after = chartData[domain].after[metric];
+
+        models.forEach((model, mi) => {
+          const groupX = domainX + mi * (groupW + groupGap);
+
+          // Before bar
+          const bH = (before[mi] / maxVal) * chartH;
+          const bY = padT + chartH - bH;
+          svg += `<rect x="${groupX}" y="${bY}" width="${barW}" height="${bH}" fill="${beforeColor}" rx="2"/>`;
+          // Before label
+          svg += `<text x="${groupX + barW / 2}" y="${bY - 4}" text-anchor="middle" fill="#a0aec0" font-size="9.5" font-family="inherit">${before[mi].toFixed(1)}</text>`;
+
+          // After bar
+          const aH = (after[mi] / maxVal) * chartH;
+          const aY = padT + chartH - aH;
+          svg += `<rect x="${groupX + barW + barGap}" y="${aY}" width="${barW}" height="${aH}" fill="${afterColor}" rx="2"/>`;
+          // After label
+          svg += `<text x="${groupX + barW + barGap + barW / 2}" y="${aY - 4}" text-anchor="middle" fill="#065f46" font-size="9.5" font-weight="600" font-family="inherit">${after[mi].toFixed(1)}</text>`;
+
+          // Model label (rotated)
+          const labelX = groupX + groupW / 2;
+          const labelY = padT + chartH + 14;
+          const labelText = model.short + (model.reasoning !== 'high' ? ` (${model.reasoning})` : '');
+          svg += `<text x="${labelX}" y="${labelY}" text-anchor="end" transform="rotate(-30, ${labelX}, ${labelY})" fill="#718096" font-size="10" font-family="inherit">${labelText}</text>`;
+        });
+      });
+
+      // Legend
+      const legX = W - padR - 160;
+      const legY = padT + 2;
+      svg += `<rect x="${legX}" y="${legY}" width="12" height="12" fill="${beforeColor}" rx="2"/>`;
+      svg += `<text x="${legX + 16}" y="${legY + 10}" fill="#718096" font-size="11" font-family="inherit">Before fixes</text>`;
+      svg += `<rect x="${legX + 90}" y="${legY}" width="12" height="12" fill="${afterColor}" rx="2"/>`;
+      svg += `<text x="${legX + 106}" y="${legY + 10}" fill="#065f46" font-size="11" font-weight="600" font-family="inherit">After fixes</text>`;
+
+      svg += '</svg>';
+      wrap.innerHTML = svg;
+    }
+
+    // Initial render
+    renderChart();
+
+    // Mobile menu toggle
+    document.querySelector('.mobile-menu-toggle')?.addEventListener('click', function() {
+      const nav = document.querySelector('.nav-links');
+      if (nav) {
+        nav.style.display = nav.style.display === 'flex' ? 'none' : 'flex';
+        nav.style.position = 'absolute';
+        nav.style.top = '100%';
+        nav.style.right = '0';
+        nav.style.background = 'white';
+        nav.style.flexDirection = 'column';
+        nav.style.padding = '16px';
+        nav.style.gap = '16px';
+        nav.style.borderRadius = '0 0 8px 8px';
+        nav.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+        nav.style.borderTop = '1px solid #e2e8f0';
+      }
+    });
+  </script>
+</body>
+</html>

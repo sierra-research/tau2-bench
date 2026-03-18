@@ -1,0 +1,85 @@
+{
+  "id": "task_031",
+  "description": {
+    "purpose": "Task: task_031",
+    "relevant_policies": null,
+    "notes": "Credit card transaction dispute test: User Fatima Al-Hassan wants to file a dispute for a Marriott Hotels transaction on her Silver Rewards Card. She did not receive the services as described (booked a king room, got a standard double). Agent must gather all required information, give the user the get_card_last_4_digits tool to retrieve their card digits, unlock file_credit_card_transaction_dispute_4829, determine provisional credit eligibility based on guidelines, and file the dispute correctly."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Fatima Al-Hassan, a 31-year-old small business owner from Detroit, MI. You have a Silver Rewards Card with Rho-Bank.\n\n**Your situation:** About two weeks ago, you booked a hotel room at Marriott Hotels using your Silver Rewards Card. You specifically booked and paid for a king suite, but when you arrived at the hotel, they gave you a standard double room and said they were overbooked. They refused to refund the difference or give you the room you paid for. You tried calling the hotel directly twice after your stay, but they keep saying it's \"not their policy\" to refund. You're frustrated and want Rho-Bank to help you get your money back.\n\n**Your goal:** File a dispute for the Marriott Hotels transaction and get a full refund: you remember the transaction being around 160 dollars. \n\n**Information you know and should provide when asked:**\n- Your full name: Fatima Al-Hassan\n- Your phone number: 313-555-0246\n- Your email is coffeelover_fati@protonmail.com\n- You DID try to contact the merchant first (twice!) but they refused to help\n- You noticed the issue today (do not specify a date, just say \"today\").\n- Resolution you want: full refund. \n- You want to keep your card active (don't cancel and reissue)\n- Your Silver Rewards Card account ID is: cc_890389b165_silver\n\n## Conversation Flow:\n\n1. **Opening:** \"Hi, I need to file a dispute for a charge on my credit card. I stayed at a Marriott hotel but when I got there, they gave me a standard double room instead. I've called the hotel twice and they refuse to help me. I want my money back.\"\n\n2. **Provide information as requested:** When the agent asks for your details, provide them, do not provide extra information. \n\n3. **Clarify dispute reason when asked:** \"The problem is that I paid for one thing but got something completely different. They gave me a much cheaper room than what I paid for.\"\n\n4. **Confirm contact with merchant if this is brought up:** \"Yes, I called them twice. Once right after checkout and again a few days later. Both times they said it's not their policy to give refunds. That's why I'm coming to you.\"\n\n5. **Resolution preference:** \"I want a full refund. I paid for a king suite and got a standard double - I shouldn't have to pay the premium rate for the budget room I actually got.\"\n\n6. **Card action:** \"I want to keep my card active. This isn't a fraud situation, just a merchant that won't do the right thing.\"\n\n7. **Card last 4 digits:** If the agent asks for your card's last 4 digits and you don't have your card, say you don't have it on you. If the agent gives you a tool to look up your card digits, use it with your Silver Rewards Card account ID (cc_890389b165_silver).\n\n8. If the dispute is filed on your behalf, thank the agent and end the conversation."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Fatima Al-Hassan",
+          "user_id": "890389b165",
+          "address": "1923 Oak Park Boulevard, Detroit, MI 48226",
+          "email": "coffeelover_fati@protonmail.com",
+          "phone_number": "313-555-0246",
+          "date_of_birth": "12/05/1993",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "031_0"
+      },
+      {
+        "name": "give_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "get_card_last_4_digits"
+        },
+        "requestor": "assistant",
+        "action_id": "031_1"
+      },
+      {
+        "name": "call_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "get_card_last_4_digits",
+          "arguments": "{\"credit_card_account_id\": \"cc_890389b165_silver\"}"
+        },
+        "requestor": "user",
+        "action_id": "031_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829"
+        },
+        "requestor": "assistant",
+        "action_id": "031_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_adea68821a1d\", \"card_action\": \"keep_active\", \"card_last_4_digits\": \"5320\", \"full_name\": \"Fatima Al-Hassan\", \"user_id\": \"890389b165\", \"phone\": \"313-555-0246\", \"email\": \"coffeelover_fati@protonmail.com\", \"address\": \"1923 Oak Park Boulevard, Detroit, MI 48226\", \"contacted_merchant\": true, \"purchase_date\": \"11/07/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"goods_services_not_as_described\", \"resolution_requested\": \"full_refund\", \"partial_refund_amount\": null, \"eligible_for_provisional_credit\": false}"
+        },
+        "requestor": "assistant",
+        "action_id": "031_4"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card",
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_credit_cards_credit_cards_(general)_013",
+    "doc_credit_cards_credit_cards_(general)_014",
+    "doc_credit_cards_credit_cards_(general)_015"
+  ]
+}

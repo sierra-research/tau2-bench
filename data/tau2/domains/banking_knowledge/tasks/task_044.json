@@ -1,0 +1,133 @@
+{
+  "id": "task_044",
+  "description": {
+    "purpose": "Task: task_044",
+    "relevant_policies": null,
+    "notes": "Credit card closure with 'found better card' retention protocol - agent recommends internal upgrade. User Sofia Papadopoulos wants to close her Gold Rewards Card because she found a competitor card (Capital One Venture X) that offers high rewards (8% cash back, no foreign transaction fees, $195 annual fee). The agent must: (1) Verify the user, (2) Check closure eligibility - account has $0 balance so eligible, (3) Check for previous retention attempts using get_closure_reason_history_8293 (none found), (4) Log the closure reason as 'found_better_card' using log_credit_card_closure_reason_4521, (5) Ask what features attracted them to the competitor, (6) Per the retention protocol for 'found_better_card': recognize that Rho-Bank's Platinum Rewards Card offers BETTER benefits (10% cash back vs 8%, plus no foreign transaction fees, enhanced fraud protection, free virtual cards, and first year annual fee waived for new applicants), (7) Recommend the Platinum Rewards Card to the customer instead of leaving. Customer then applies for the Platinum Rewards Card and stays with Rho-Bank."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Sofia Papadopoulos, a 39-year-old restaurant owner from Queens, NY. You have a Gold Rewards Card with Rho-Bank.\n\n**Your situation:** You've been considering closing your Gold Rewards Card because you found a card at a competitor bank (Capital Two Venture X) that seems to offer much better rewards - 8% cash back on all purchases, no foreign transaction fees, and they're offering a sign-up bonus. The annual fee is $195 which seems reasonable for the rewards. You travel to Greece regularly to visit family and the no foreign transaction fees is important to you.\n\n**Your goal:** Express that you want to close your card because you found a better deal elsewhere. If the agent asks what attracted you to the competitor, explain the specific features. You are NOT aware of any other Rho-Bank cards - only mention or consider cards that the agent brings up first.\n\n**Information you know and should provide when asked:**\n- Your full name: Sofia Papadopoulos\n- Your phone number: 347-555-0387\n- Your email: sofia.p@outlook.com\n- Your date of birth: 01/25/1986\n- Your annual income: $145,000\n- You do NOT have a Rho-Bank+ subscription\n\n**What would make you stay:**\nYou would be willing to stay with Rho-Bank if the agent presents a card that has BETTER qualities than the competitor card you found:\n- Cash back rate higher than 8%\n- No foreign transaction fees (this is essential for your Greece trips)\n- Annual fee that is waived or comparable\n\nIf the agent presents a card meeting these criteria, you will be interested and apply for it. If the agent cannot present a better alternative, proceed with closing your account.\n\n## Conversation Flow:\n\n1. **Opening:** \"Hi, I'd like to close my Gold Rewards Card. I've found a card at another bank that has much better rewards.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth as requested.\n\n3. **When asked why you want to close or what attracted you to the competitor:** \"I've been looking at the Capital Two Venture X card. They offer 8% cash back on everything, which is way better than what I'm getting now. Plus there are no foreign transaction fees, and I travel to Greece at least twice a year to see my family. The annual fee is $195 but the rewards seem worth it.\"\n\n4. **If the agent mentions Rho-Bank has a card with similar or better benefits:** Show surprise and interest. \"Wait, Rho-Bank has a card like that? I had no idea. What's it called?\"\n\n5. **Evaluate the card the agent presents:** If the agent describes a card with a cash back rate higher than 8% AND no foreign transaction fees, show genuine interest and ask about the annual fee.\n\n6. **If the annual fee is waived or reasonable:** \"Oh, that's a great deal. Honestly, if I can get better rewards here and not have to deal with switching banks, that sounds perfect.\"\n\n7. **IMPORTANT - Deciding whether to apply:**\n   - If the agent presents a card that beats the competitor (higher than 8% cash back, no foreign fees, reasonable annual fee): Accept enthusiastically and apply for that card using the corresponding apply for credit card tool. Provide your information: customer name Sofia Papadopoulos, annual income $145,000, and you do NOT have a Rho-Bank+ subscription.\n   - If the agent does NOT present a better alternative: Politely decline and ask to proceed with closing your Gold Rewards Card.\n\n8. **After the application is processed (if you applied):** Thank the agent. \"Thank you so much! I'm really glad I called. I almost went to a competitor when I had a better option right here.\"\n\n9. **End conversation:** Thank the agent and end the conversation."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Sofia Papadopoulos",
+          "user_id": "584f9c5d00",
+          "address": "1456 Astoria Boulevard, Queens, NY 11102",
+          "email": "sofia.p@outlook.com",
+          "phone_number": "347-555-0387",
+          "date_of_birth": "01/25/1986",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "044_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "044_0a"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291",
+          "arguments": "{\"user_id\": \"584f9c5d00\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "044_0b"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765"
+        },
+        "requestor": "assistant",
+        "action_id": "044_0c"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_584f9c5d00_gold\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "044_0d"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293"
+        },
+        "requestor": "assistant",
+        "action_id": "044_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293",
+          "arguments": "{\"credit_card_account_id\": \"cc_584f9c5d00_gold\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "044_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "log_credit_card_closure_reason_4521"
+        },
+        "requestor": "assistant",
+        "action_id": "044_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "log_credit_card_closure_reason_4521",
+          "arguments": "{\"credit_card_account_id\": \"cc_584f9c5d00_gold\", \"user_id\": \"584f9c5d00\", \"closure_reason\": \"found_better_card\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "044_4"
+      },
+      {
+        "name": "apply_for_credit_card",
+        "arguments": {
+          "card_type": "Platinum Rewards Card",
+          "customer_name": "Sofia Papadopoulos",
+          "annual_income": 145000,
+          "rho_bank_subscription": false
+        },
+        "requestor": "user",
+        "action_id": "044_5"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card",
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_credit_cards_credit_card_account_logistics_002",
+    "doc_credit_cards_credit_card_account_logistics_003",
+    "doc_credit_cards_credit_card_replacements_005",
+    "doc_credit_cards_credit_cards_(general)_016",
+    "doc_credit_cards_platinum_rewards_card_001",
+    "doc_credit_cards_platinum_rewards_card_002"
+  ]
+}

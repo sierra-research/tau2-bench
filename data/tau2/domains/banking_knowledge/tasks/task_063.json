@@ -1,0 +1,85 @@
+{
+  "id": "task_063",
+  "description": {
+    "purpose": "Task: task_063",
+    "relevant_policies": null,
+    "notes": "SAVINGS + CREDIT CARD OPTIMIZATION CHALLENGE (CONSTRAINED MODE): User with existing Light Blue checking account wants to open a credit card AND a savings account to maximize NET annual yield on an $8,000 deposit held for one year. KEY CONSTRAINTS FROM USER: (1) User REQUIRES paper statements mailed - blocks Green Account (paperless required). (2) User has only $8,000 - blocks Gold Account ($10k minimum). (3) User has credit score of 700 - blocks Platinum Rewards Card (requires 750). (4) User only trusts cards that verify creditworthiness - blocks EcoCard (has NO credit score requirement, designed for thin credit files). REMAINING OPTIONS: Bronze Account (2.0%), Silver Account (2.5% tier 1), Silver Plus Account (3.0% tier 1). THE TRAP: Crypto-Cash Back Card has +0.50% bonus to Silver Account - the LARGEST card bonus available. Agent might think Silver + Crypto-Cash Back (3.0%) beats Silver Plus + smaller bonus. BUT Silver Plus's higher base APY means Silver Plus + Silver Rewards (3.15%) still wins. OPTIMAL SOLUTION: Silver Rewards Card + Silver Plus Account (3.0% base + 0.15% bonus = 3.15%) = $252 net yield. COMPARISON: Crypto-Cash Back + Silver = 2.5% + 0.50% = 3.0% = $240 (worse by $12). Agent must search each card's credit score requirements AND compare card bonuses across multiple accounts."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Taylor Brooks, a 32-year-old accountant from Portland, OR. You're financially savvy and want to make the most of your money - even small differences in returns matter to you. You have a credit score of 700, which you're proud of.\n\n**Your situation:** You already have a Light Blue checking account with Rho-Bank (opened about a year ago). You've saved up $8,000 and want to:\n1. Open a credit card with Rho-Bank\n2. Open a savings account with Rho-Bank\n3. Deposit the $8,000 into the savings account and leave it untouched for one year\n\nYou want to maximize your annual return on the savings account. Even a $10-15 difference matters to you. You are not interested in opening a new checking account, no matter what.\n\n**Your specific requirements:**\n- You NEED paper statements mailed to you - your accountant requires physical copies for tax filing and you don't trust purely digital records\n- Your credit score is 700 - mention this when discussing card eligibility\n- You only trust credit cards that actually verify creditworthiness - you've worked hard to build your credit and don't want cards designed for people with no credit history (those feel like red flags to you)\n\n**Verification info:**\n- Name: Taylor Brooks | Phone: 503-555-0847 | Email: taylor.brooks@gmail.com\n- DOB: 09/12/1993 | Address: 2156 Hawthorne Boulevard, Portland, OR 97214\n\n## Conversation Flow:\n\n1. **Opening - State your goal clearly:** \"Hi! I already have a Light Blue checking account with you. I've saved up $8,000 and I want to put it to work. I'm looking to open both a credit card and a savings account. My goal is to maximize the interest I'll earn over one year. Even a small difference of $10-15 matters to me. Can you help me find the best combination?\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address.\n\n3. **Reveal your requirements organically when asked:**\n\n   - **Credit card usage:** \"I don't plan to spend a lot on the credit card - maybe $500-1000 a month on groceries and gas.\"\n\n   - **Deposit amount:** \"I have exactly $8,000 to put in savings. I won't be adding or withdrawing for a full year.\"\n\n   - **Paper statements (IMPORTANT - mention this proactively):** \"Oh, one important thing - I absolutely need paper statements mailed to me. My accountant requires physical copies for tax filing, and I don't fully trust purely digital records. Is that an option with your savings accounts?\"\n\n   - **Credit score (IMPORTANT - mention proactively):** \"My credit score is around 700. I've worked really hard to build that up over the years. I only want a card that actually checks credit - I don't trust those 'no credit check' cards. They feel like red flags to me, like they're designed for people who can't get approved anywhere else. I want a real credit card that values my creditworthiness.\"\n\n4. **If given multiple options:** Push back. \"Honestly, I don't want to compare a bunch of options. With my requirements - paper statements, my 700 credit score, $8,000 deposit - which ONE combination of credit card and savings account will give me the absolute highest return? I trust you to figure it out. Every dollar counts.\"\n\n5. **Accept the agent's recommendation:** \"That sounds perfect. Let's do it - open both for me! My annual income is about $85,000 and I don't have a Rho-Bank+ subscription, if you need that info for the credit card.\"\n\n6. **If the agent says you need to apply for the credit card yourself (online, separately, etc.):** \"Oh okay, let me figure this out...\" Then call the apply_for_credit_card tool yourself with these parameters:\n   - card_type: Use whatever card the agent recommended\n   - customer_name: \"Taylor Brooks\"\n   - annual_income: 85000\n   - rho_bank_subscription: false\n\n7. **After the credit card application is submitted (either by you or the agent):** \"Great! Now let's get the savings account opened with my $8,000 deposit.\"\n\n8. **After agent confirms the savings account is open - ONLY then conclude:**\n   \"Perfect! So I've got the credit card application submitted and the savings account open with my deposit. Thanks for finding the best combination given my requirements - I really appreciate you checking which cards work with my credit score and which accounts allow paper statements!\" ###STOP###"
+  },
+  "initial_state": {
+    "initialization_data": null,
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Taylor Brooks",
+          "user_id": "tb58a3c9d2",
+          "address": "2156 Hawthorne Boulevard, Portland, OR 97214",
+          "email": "taylor.brooks@gmail.com",
+          "phone_number": "503-555-0847",
+          "date_of_birth": "09/12/1993",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "063_0"
+      },
+      {
+        "name": "apply_for_credit_card",
+        "arguments": {
+          "card_type": "Silver Rewards Card",
+          "customer_name": "Taylor Brooks",
+          "annual_income": 85000,
+          "rho_bank_subscription": false
+        },
+        "requestor": "user",
+        "action_id": "063_1"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821"
+        },
+        "requestor": "assistant",
+        "action_id": "063_2"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821",
+          "arguments": "{\"user_id\": \"tb58a3c9d2\", \"account_type\": \"savings\", \"account_class\": \"Silver Plus Account\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "063_3"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card"
+  ],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_002",
+    "doc_savings_accounts_silver_plus_account_001",
+    "doc_savings_accounts_silver_plus_account_002",
+    "doc_savings_accounts_silver_plus_account_009",
+    "doc_savings_accounts_green_account_(savings)_001",
+    "doc_savings_accounts_green_account_(savings)_003",
+    "doc_savings_accounts_gold_account_001",
+    "doc_savings_accounts_bronze_account_001",
+    "doc_savings_accounts_silver_account_001",
+    "doc_credit_cards_silver_rewards_card_001",
+    "doc_credit_cards_bronze_rewards_card_001",
+    "doc_credit_cards_platinum_rewards_card_001",
+    "doc_credit_cards_ecocard_001"
+  ]
+}
