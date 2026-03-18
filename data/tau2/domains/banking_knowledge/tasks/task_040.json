@@ -1,0 +1,201 @@
+{
+  "id": "task_040",
+  "description": {
+    "purpose": "Task: task_040",
+    "relevant_policies": null,
+    "notes": "Complex multi-card dispute with 8 transactions across two cards: 4 from Gold Rewards Card and 4 from Business Gold Rewards Card. User Kwame Asante needs to dispute transactions on both cards for different reasons. CRITICAL TWIST: There is an existing resolved dispute from September 2025 that already received provisional credit. This counts against the provisional_credit_max_disputes_in_period = 3 limit, meaning only 2 more disputes can receive provisional credit (not 4). The 8 disputed transactions have different dispute reasons: 2 fraud (eligible), 2 duplicate (eligible), 1 goods not as described (not eligible), 1 incorrect amount (not eligible), 1 cancelled subscription (not eligible), 1 refund not processed (not eligible). The 4 reason-eligible transactions are: txn_25e23705f61f ($523.45 duplicate on business card), txn_fd4c3871654e ($412.34 fraud on business card), txn_a1b2c3d4e503 ($342.50 fraud on gold card), txn_a1b2c3d4e510 ($189.99 duplicate on gold card). Only the 2 highest-value can get provisional credit: txn_25e23705f61f ($523.45) and txn_fd4c3871654e ($412.34). Agent must check dispute history using get_user_dispute_history_7291 to see the existing dispute and calculate remaining provisional credit eligibility. Agent must request both cards' last 4 digits from user since disputes span two cards."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Kwame Asante, a 41-year-old software developer from Philadelphia, PA. You have two credit cards with Rho-Bank: a Gold Rewards Card (personal) and a Business Gold Rewards Card (for your consulting business).\n\n**Your situation:** You've been reviewing statements for both your credit cards and found problems on each. Your personal Gold card has some issues with subscriptions and utilities, plus some fraud. Your Business Gold card has problems with vendors and suppliers, including fraud and duplicate charges.\n\n**Your goal:** Dispute 8 specific transactions across both cards (4 on each) and get provisional credit where eligible.\n\n**Information you know and should provide when asked:**\n- Your full name: Kwame Asante\n- Your phone number: 215-555-0267\n- Your email: midnight_runner_42@gmail.com\n- Your date of birth: 11/22/1983\n\n**GOLD REWARDS CARD DISPUTES (4 transactions):**\n1. **American Airlines $342.50 on 10/10/2025** - FRAUD. You did NOT book this flight. Someone must have your card info. You have never flown American Airlines.\n2. **Best Buy $189.99 on 10/28/2025** - DUPLICATE CHARGE. You bought headphones but got charged twice. The store manager confirmed the duplicate and said to dispute with bank.\n3. **PECO Energy $124.56 on 10/22/2025** - INCORRECT AMOUNT. Your usual bill is around $100. They overcharged you by $24.56 this month. PECO confirmed the billing error.\n4. **Spotify $10.99 on 11/05/2025** - CANCELLED SUBSCRIPTION. You cancelled Spotify Premium two months ago but they keep charging you. You've contacted them 3 times.\n\n**BUSINESS GOLD REWARDS CARD DISPUTES (4 transactions):**\n1. **Uline $412.34 on 10/19/2025** - FRAUD. You never ordered from Uline. This is completely unauthorized. Someone must have gotten your business card info.\n2. **Grainger $523.45 on 10/26/2025** - DUPLICATE CHARGE. You ordered industrial supplies but got charged twice. Grainger confirmed the duplicate and said to dispute with bank.\n3. **Best Buy $649.99 on 10/20/2025** - GOODS NOT AS DESCRIBED. You ordered a laptop for work but received a refurbished model instead of new. Best Buy refused to exchange it saying it was final sale.\n4. **Comcast $189.99 on 10/30/2025** - REFUND NOT PROCESSED. You downgraded your business internet plan and were promised a partial refund weeks ago. Never received it despite multiple calls.\n\n## Conversation Flow:\n\n1. **Opening (mention BOTH cards):** \"Hi, I need help disputing some charges. I have issues on two different cards - my personal Gold card and my Business Gold card. There's been some fraud and other problems on both of them.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth as requested.\n\n3. **When asked to clarify which transactions:** List them out by card. \"On my personal Gold card, there's a fraudulent American Airlines charge, a duplicate from Best Buy, a PECO overcharge, and Spotify keeps charging me after I cancelled. On my business card, there's fraud from Uline, a duplicate from Grainger, a wrong item from Best Buy, and a missing refund from Comcast.\"\n\n4. **If asked about contacting merchants:**\n   - American Airlines fraud: \"No, I didn't contact them. I never booked that flight - why would I call about something I didn't buy?\"\n   - Best Buy duplicate (Gold): \"Yes, the store manager confirmed it was a duplicate.\"\n   - PECO incorrect amount: \"Yes, PECO confirmed the billing error.\"\n   - Spotify cancelled subscription: \"Yes, I've contacted them 3 times about this.\"\n   - Uline fraud: \"No, I never ordered from them - that's fraud.\"\n   - Grainger duplicate: \"Yes, Grainger confirmed the duplicate charge.\"\n   - Best Buy (Business) wrong item: \"Yes, I tried but they said final sale.\"\n   - Comcast refund: \"Yes, I've called multiple times about my missing refund.\"\n\n5. **Card action:** \"I want to keep both cards active. The fraud seems isolated and I need both cards for daily use.\"\n\n6. **IMPORTANT - Provisional credit:** If the agent mentions provisional credit or asks about it, say: \"Yes, I'd like provisional credit on whatever qualifies. The Grainger and Uline charges are the biggest ones hurting my business cash flow right now - those are on my business card. Please prioritize those if there's any limit.\"\n\n7. **When issues were noticed:** \"I noticed all of this today when going through my statements: do not make up a date or respond with any other date, just mention that it was noticed today and you forget today's date. \"\n\n8. **End conversation:** Once all eight disputes are filed across both cards, thank the agent and end the conversation."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": {
+        "transaction_disputes": {
+          "data": {
+            "dsp_ed3ab3dce038": {
+              "dispute_id": "dsp_ed3ab3dce038",
+              "transaction_id": "txn_8d1aa1219382",
+              "user_id": "01f21c9970",
+              "card_action": "keep_active",
+              "card_last_4_digits": "1652",
+              "full_name": "Kwame Asante",
+              "phone": "215-555-0267",
+              "email": "midnight_runner_42@gmail.com",
+              "address": "4532 Magnolia Lane, Philadelphia, PA 19103",
+              "contacted_merchant": true,
+              "purchase_date": "10/02/2025",
+              "issue_noticed_date": "09/15/2025",
+              "dispute_reason": "duplicate_charge",
+              "resolution_requested": "full_refund",
+              "partial_refund_amount": null,
+              "eligible_for_provisional_credit": true,
+              "provisional_credit_given": true,
+              "submitted_at": "09/20/2025",
+              "status": "APPROVED"
+            }
+          }
+        }
+      },
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Kwame Asante",
+          "user_id": "01f21c9970",
+          "address": "4532 Magnolia Lane, Philadelphia, PA 19103",
+          "email": "midnight_runner_42@gmail.com",
+          "phone_number": "215-555-0267",
+          "date_of_birth": "11/22/1983",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "040_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "040_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291",
+          "arguments": "{\"user_id\": \"01f21c9970\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "040_2"
+      },
+      {
+        "name": "give_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "get_card_last_4_digits"
+        },
+        "requestor": "assistant",
+        "action_id": "040_3"
+      },
+      {
+        "name": "call_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "get_card_last_4_digits",
+          "arguments": "{\"credit_card_account_id\": \"cc_01f21c9970_gold\"}"
+        },
+        "requestor": "user",
+        "action_id": "040_4"
+      },
+      {
+        "name": "call_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "get_card_last_4_digits",
+          "arguments": "{\"credit_card_account_id\": \"cc_01f21c9970_bgold\"}"
+        },
+        "requestor": "user",
+        "action_id": "040_5"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829"
+        },
+        "requestor": "assistant",
+        "action_id": "040_6"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_25e23705f61f\", \"card_action\": \"keep_active\", \"card_last_4_digits\": \"0581\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": true, \"purchase_date\": \"10/26/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"duplicate_charge\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": true}"
+        },
+        "requestor": "assistant",
+        "action_id": "040_7"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_fd4c3871654e\", \"card_action\": \"keep_active\", \"card_last_4_digits\": \"0581\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": false, \"purchase_date\": \"10/19/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"unauthorized_fraudulent_charge\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": true}"
+        },
+        "requestor": "assistant",
+        "action_id": "040_8"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_a1b2c3d4e503\", \"card_action\": \"keep_active\", \"card_last_4_digits\": \"1652\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": false, \"purchase_date\": \"10/10/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"unauthorized_fraudulent_charge\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": false}"
+        },
+        "requestor": "assistant",
+        "action_id": "040_9"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_a1b2c3d4e510\", \"card_action\": \"keep_active\", \"card_last_4_digits\": \"1652\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": true, \"purchase_date\": \"10/28/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"duplicate_charge\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": false}"
+        },
+        "requestor": "assistant",
+        "action_id": "040_10"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_a1b2c3d4e508\", \"card_action\": \"keep_active\", \"card_last_4_digits\": \"1652\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": true, \"purchase_date\": \"10/22/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"incorrect_amount\", \"resolution_requested\": \"partial_refund\", \"partial_refund_amount\": 24.56, \"eligible_for_provisional_credit\": false}"
+        },
+        "requestor": "assistant",
+        "action_id": "040_11"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_a1b2c3d4e513\", \"card_action\": \"keep_active\", \"card_last_4_digits\": \"1652\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": true, \"purchase_date\": \"11/05/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"canceled_subscription_still_charging\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": false}"
+        },
+        "requestor": "assistant",
+        "action_id": "040_12"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_bc21d98cc4e4\", \"card_action\": \"keep_active\", \"card_last_4_digits\": \"0581\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": true, \"purchase_date\": \"10/20/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"goods_services_not_as_described\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": false}"
+        },
+        "requestor": "assistant",
+        "action_id": "040_13"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_3ef1a3e9bf56\", \"card_action\": \"keep_active\", \"card_last_4_digits\": \"0581\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": true, \"purchase_date\": \"10/30/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"refund_never_processed\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": false}"
+        },
+        "requestor": "assistant",
+        "action_id": "040_14"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card",
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_credit_cards_credit_cards_(general)_013",
+    "doc_credit_cards_credit_cards_(general)_014",
+    "doc_credit_cards_credit_cards_(general)_015",
+    "doc_credit_cards_credit_cards_(general)_016"
+  ]
+}

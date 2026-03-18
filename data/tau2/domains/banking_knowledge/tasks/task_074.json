@@ -1,0 +1,160 @@
+{
+  "id": "task_074",
+  "description": {
+    "purpose": "Task: task_074",
+    "relevant_policies": null,
+    "notes": "ATM FEE DISPUTE RESOLUTION: User Ahmad Razali bin Mohd Yusof has four checking accounts (Purple Account, Light Blue Account, Dark Green Account, and Evergreen Account) with 20 total fee errors (5 per account). The agent must verify the user, retrieve transaction history for all four accounts, cross-reference with documented fee structures, identify all incorrect fees, and apply NET credits accounting for both overcharges AND undercharges/missing fees. PURPLE ACCOUNT ERRORS (chk_ar72c5d8e3_1) - 5 errors: (1) $2.50 fee charged on Rho-Bank ATM withdrawal which should be free, (2) $8.00 foreign ATM fee charged on London withdrawal when Purple has $0 foreign fee, (3) $10.50 foreign ATM fee charged on Malaysia withdrawal when Purple has $0 foreign fee, (4) $3.50 fee charged instead of $2.50 AND missing $2.50 rebate, (5) Duplicate $2.50 fee on 11/15 withdrawal. LIGHT BLUE ACCOUNT ERRORS (chk_ar72c5d8e3_2) - 5 errors: (1) $2.50 fee charged on Rho-Bank ATM which should be free, (2) $2.50 fee charged on 1st free domestic withdrawal, (3) $4.00 fee charged on 1st free foreign withdrawal, (4) MISSING $2.50 fee on 11/10 after free allowance, (5) $5.50 foreign fee charged instead of $4.00. DARK GREEN ACCOUNT ERRORS (chk_ar72c5d8e3_3) - 5 errors: (1) $1.50 fee charged on Rho-Bank ATM which should be free, (2) $0.50 fee charged when $1.50 minimum should apply, (3) $4.00 fee charged using 2% when should be 1% ($2.00), (4) $10.00 fee charged without $6.00 max on foreign, (5) MISSING $1.75 fee on 11/13 withdrawal. EVERGREEN ACCOUNT ERRORS (chk_ar72c5d8e3_4) - 5 errors: (1) $1.50 fee charged on Rho-Bank ATM which should be free, (2) $4.00 fee charged without $2.50 max, (3) $2.00 fee charged when $3.00 minimum should apply, (4) $10.50 fee charged using 3% when should be 2% ($7.00), (5) MISSING $1.80 fee on 11/12 withdrawal. NET CREDITS: Purple = $27.00, Light Blue = $8.00 ($10.50 overcharges minus $2.50 missing fee), Dark Green = $4.75 ($7.50 overcharges minus $2.75 undercharges/missing), Evergreen = $3.70 ($6.50 overcharges minus $2.80 undercharges/missing)."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Ahmad Razali bin Mohd Yusof, a 35-year-old professional living in Denver, CO. You're detail-oriented and noticed discrepancies when reviewing your November bank statements.\n\n**Your situation:** You have four checking accounts with Rho-Bank - a Purple Account, a Light Blue Account, a Dark Green Account, and an Evergreen Account. You were looking at your November transaction history and some of the ATM fees don't look right to you. You're not exactly sure what's wrong, but the amounts seem off based on what you remember about your account benefits.\n\n**Verification info:**\n- Name: Ahmad Razali bin Mohd Yusof | Phone: 303-555-0821 | Email: ahmad.razali@gmail.com\n- DOB: 06/15/1989 | Address: 1245 Pioneer Road, Denver, CO 80203\n\n## Conversation Flow:\n\n1. **Opening - Express concern about fees:** \"Hi, I've been going through my bank statements and something seems off with my ATM fees. I have four checking accounts with you - a Purple Account, a Light Blue Account, a Dark Green Account, and an Evergreen Account - and some of the fees charged in November don't look right. Can you help me figure out what's going on?\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address.\n\n3. **If asked for more details about the issue:** \"Honestly, I'm not totally sure what's wrong - that's why I'm calling. The amounts just seem higher than I expected based on what I remember about my account benefits. Can you pull up my transaction history and review the ATM fees from November? I'd really appreciate a second set of eyes on this.\"\n\n4. **If the agent finds errors:** Express relief. \"Oh wow, so there ARE errors? I knew something was off. What can be done to fix this?\"\n\n5. **If agent offers to apply credits:** \"Yes, please go ahead and apply credits for all the incorrect charges. I want to make sure everything is corrected. If the agent does not offer, then get angry and request to speak to a real human.\"\n\n6. **If credits are applied:** \"Thank you so much for looking into this and fixing everything. Can you confirm the total amount that was credited back to each account?\"\n\n7. **Closing - after agent confirms credits:** \"Perfect, I really appreciate you taking the time to review all those transactions and get this sorted out. Is there anything else I need to do on my end?\" After agent confirms: \"Great, thanks again for your help!\" ###STOP###"
+  },
+  "initial_state": {
+    "initialization_data": null,
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Ahmad Razali bin Mohd Yusof",
+          "user_id": "ar72c5d8e3",
+          "address": "1245 Pioneer Road, Denver, CO 80203",
+          "email": "ahmad.razali@gmail.com",
+          "phone_number": "303-555-0821",
+          "date_of_birth": "06/15/1989",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "074_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "074_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+          "arguments": "{\"user_id\": \"ar72c5d8e3\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "074_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173"
+        },
+        "requestor": "assistant",
+        "action_id": "074_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173",
+          "arguments": "{\"account_id\": \"chk_ar72c5d8e3_1\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "074_4"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173",
+          "arguments": "{\"account_id\": \"chk_ar72c5d8e3_2\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "074_5"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173",
+          "arguments": "{\"account_id\": \"chk_ar72c5d8e3_3\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "074_6"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173",
+          "arguments": "{\"account_id\": \"chk_ar72c5d8e3_4\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "074_7"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_checking_account_credit_5829"
+        },
+        "requestor": "assistant",
+        "action_id": "074_8"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_checking_account_credit_5829",
+          "arguments": "{\"account_id\": \"chk_ar72c5d8e3_1\", \"amount\": 27.00, \"credit_type\": \"fee_refund\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "074_9"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_checking_account_credit_5829",
+          "arguments": "{\"account_id\": \"chk_ar72c5d8e3_2\", \"amount\": 8.00, \"credit_type\": \"fee_refund\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "074_10"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_checking_account_credit_5829",
+          "arguments": "{\"account_id\": \"chk_ar72c5d8e3_3\", \"amount\": 4.75, \"credit_type\": \"fee_refund\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "074_11"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_checking_account_credit_5829",
+          "arguments": "{\"account_id\": \"chk_ar72c5d8e3_4\", \"amount\": 3.70, \"credit_type\": \"fee_refund\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "074_12"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [],
+  "required_documents": [
+    "doc_checking_accounts_purple_account_001",
+    "doc_checking_accounts_purple_account_004",
+    "doc_checking_accounts_light_blue_account_001",
+    "doc_checking_accounts_light_blue_account_004",
+    "doc_checking_accounts_light_blue_account_006",
+    "doc_checking_accounts_dark_green_account_001",
+    "doc_checking_accounts_dark_green_account_002",
+    "doc_checking_accounts_evergreen_account_001",
+    "doc_checking_accounts_evergreen_account_002",
+    "doc_checking_accounts_evergreen_account_008",
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_bank_accounts_bank_accounts_(general)_017",
+    "doc_bank_accounts_bank_accounts_(general)_018"
+  ]
+}

@@ -35,12 +35,12 @@ def mock_toolkit_class() -> Callable[[], ToolKitBase]:
         def __init__(self):
             self.val = 0
 
-        @is_tool(ToolType.READ)
+        @is_tool(ToolType.WRITE)
         def tool1(self, param1: int) -> str:
             self.val += param1
             return str(self.val)
 
-        @is_tool(ToolType.READ)
+        @is_tool(ToolType.WRITE)
         def tool2(self, param2: int) -> str:
             self.val += param2
             return str(self.val)
@@ -54,12 +54,12 @@ def mock_user_toolkit_class() -> Callable[[], ToolKitBase]:
         def __init__(self):
             self.val = 0
 
-        @is_tool(ToolType.READ)
+        @is_tool(ToolType.WRITE)
         def tool1(self, param1: int) -> str:
             self.val += param1
             return str(self.val)
 
-        @is_tool(ToolType.READ)
+        @is_tool(ToolType.WRITE)
         def tool4(self, param4: int) -> str:
             self.val += param4
             return str(self.val)
@@ -72,7 +72,7 @@ def super_mock_toolkit_class(
     mock_toolkit_class: Callable[[], ToolKitBase],
 ) -> Callable[[], ToolKitBase]:
     class SuperMockToolkit(mock_toolkit_class):
-        @is_tool(ToolType.READ)
+        @is_tool(ToolType.WRITE)
         def tool3(self, param3: int) -> str:
             self.val += param3
             return str(self.val)

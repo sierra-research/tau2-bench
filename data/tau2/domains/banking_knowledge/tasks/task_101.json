@@ -1,0 +1,327 @@
+{
+  "id": "task_101",
+  "description": {
+    "purpose": "Task: task_101",
+    "relevant_policies": null,
+    "notes": "MULTI-REFERRAL OPTIMIZATION WITH ROLLING WINDOW CONSTRAINT - COVERAGE TESTING. Customer wants to make FOUR referrals but CAN ONLY SUBMIT 2 due to rolling 9-day window limit (applies across ALL account types). KEY COMPLEXITY: (1) ROLLING WINDOW: Only 2 referrals allowed per 9-day window across all checking accounts. Agent MUST identify this and recommend TOP 1 personal + TOP 1 business by combined bonus. (2) Annual limits block obvious choices: Dark Green (5/5), Gold Years (6/6), Light Green (3/3), Blue (5/5). (3) Sky Blue blocked for Ember Analytics (5 years old, need <4 years) but available for TechFlow Labs (2 years old). (4) KB DISCOVERY: Green Fee-Free and Purple have ZERO referrals in history - must discover via KB. CORRECT ANSWER: Submit 1 personal + 1 business: (1) Vikram \u2192 Purple ($80 - highest personal), (2) TechFlow Labs \u2192 Sky Blue ($400 - highest business). Total: $480. Other referrals (Maya \u2192 Green Fee-Free $55, Ember \u2192 Lime Green $350) must wait 9 days."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Nalini Krishnamurthy, a 45-year-old venture capitalist based in Boulder, CO. You've been extremely active with Rho-Bank's referral program all year - you joke that you've probably referred half of Boulder at this point. Now it's mid-November and you have four more people you want to refer before year-end: your college-age niece Maya, your retired father Vikram, and two startups you're advising - Ember Analytics (a more established one) and TechFlow Labs (a newer one).\n\n**Verification info:**\n- Name: Nalini Krishnamurthy | Phone: 303-555-4721 | Email: nalini.k@bouldercap.vc\n- DOB: 06/18/1980 | Address: 2847 Mapleton Avenue, Boulder, CO 80304\n\n**Tool usage:** You have access to `submit_referral`. Use it AFTER the agent has recommended accounts for your referrals. Call it with your user_id (nk80d5r2j7) and the account_type the agent recommended. IMPORTANT: When specifying account_type, always include the word \"Account\" at the end.\n\n## Conversation Flow (Respond reactively - only provide details when the agent asks, follow the agent's direction):\n\n1. **Opening:** \"Hi! I've got kind of a complicated situation. I want to refer four different people before the year ends, and I want to make sure I'm getting the best possible combined bonus for each one. Can you help me figure out the optimal accounts to use for each referral?\"\n\n2. **If asked who you want to refer:** \"Okay, so: First, my niece Maya - she's 19, just started her sophomore year at CU Boulder, and she's going to deposit about $300 from her part-time job. Second, my father Vikram - he's 71, just retired last year, and wants to deposit around $1,200 from his pension. Third, there's a startup I'm advising called Ember Analytics - they incorporated about 5 years ago and are looking to deposit about $18,000 from their latest funding round. Fourth, another startup I work with called TechFlow Labs - they're newer, incorporated about 2 years ago, and want to deposit around $12,000.\"\n\n3. **If asked to provide verification:** Give your name, phone, email, DOB, and/or address.\n\n4. **If agent asks about your accounts:** \"I have a Purple Account for personal and a True Blue Account for business.\"\n\n5. **If agent asks about account balances:** \"I don't quite remember, can you look it up for me?\"\n\n6. **If agent asks about referral history this year:** \"Oh boy, I've been really active. Let me think... I've referred a LOT of people this year. Honestly, I can't even count them all.\"\"\n\n10. **If agent asks about Ember Analytics' company age:** \"They incorporated in November 2020, so that's... about 5 years now. They're past the early startup phase but still growing fast.\"\n\n11. **If agent asks about TechFlow Labs' company age:** \"TechFlow incorporated in early 2023, so they're about 2 years old. Still very much in startup mode.\"\n\n13a. **If agent mentions a rolling window limit (e.g., only 2 referrals in 9 days):** \"Oh, I didn't realize there was a limit on how many I could do at once. If I can only do 2 right now, I'd like to do one personal and one business referral - which ones give the best combined bonus for each category?\" Then when submitting, ONLY submit the 2 referrals the agent recommends for NOW. Do NOT suggest specific accounts - wait for the agent's recommendation and accept it.\n\n14. **If agent explains that some accounts are blocked due to annual limits or eligibility:** \"Ugh, really? That's disappointing. Okay, so what accounts CAN I use then?\" (Do NOT suggest alternatives - wait for agent to recommend.)\n\n15. **If agent says any specific referral cannot be submitted due to all options being blocked:** Accept WITHOUT questioning. Say \"That's frustrating, but if there's no option, there's no option.\" Do NOT submit a referral for that person. Continue with other referrals.\"\n\n To submit:\n - Call submit_referral with user_id=\"nk80d5r2j7\" and the account_type the agent specified for each\n    - Submit EXACTLY what the agent recommended \n\n17. **If agent recommends all 4 referrals without mentioning rolling window:** \"Okay, let me submit these now.\" Then submit ALL 4 referrals with whatever accounts the agent recommended. \n\n19. **After submitting referrals:** \"Thanks for helping me figure this out! I'll let them know which accounts to apply for.\" ###STOP###"
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": {
+        "users": {
+          "data": {
+            "nk80d5r2j7": {
+              "name": "Nalini Krishnamurthy",
+              "user_id": "nk80d5r2j7",
+              "address": "2847 Mapleton Avenue, Boulder, CO 80304",
+              "email": "nalini.k@bouldercap.vc",
+              "phone_number": "303-555-4721",
+              "date_of_birth": "06/18/1980"
+            }
+          }
+        },
+        "accounts": {
+          "data": {
+            "chk_nk80d5r2j7_purple": {
+              "account_id": "chk_nk80d5r2j7_purple",
+              "user_id": "nk80d5r2j7",
+              "class": "checking",
+              "level": "Purple Account",
+              "date_opened": "03/15/2022",
+              "status": "OPEN",
+              "current_holdings": "8500.00"
+            },
+            "biz_nk80d5r2j7_trueblue": {
+              "account_id": "biz_nk80d5r2j7_trueblue",
+              "user_id": "nk80d5r2j7",
+              "class": "business_checking",
+              "level": "True Blue Account",
+              "date_opened": "06/20/2023",
+              "status": "OPEN",
+              "current_holdings": "45000.00"
+            }
+          }
+        },
+        "referrals": {
+          "data": {
+            "ref_blue_001": {
+              "referral_id": "ref_blue_001",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "01/15/2025"
+            },
+            "ref_blue_002": {
+              "referral_id": "ref_blue_002",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "02/22/2025"
+            },
+            "ref_blue_003": {
+              "referral_id": "ref_blue_003",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "04/10/2025"
+            },
+            "ref_blue_004": {
+              "referral_id": "ref_blue_004",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "06/18/2025"
+            },
+            "ref_blue_005": {
+              "referral_id": "ref_blue_005",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "08/05/2025"
+            },
+            "ref_lightgreen_001": {
+              "referral_id": "ref_lightgreen_001",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Light Green Account",
+              "referral_status": "COMPLETE",
+              "date": "02/10/2025"
+            },
+            "ref_lightgreen_002": {
+              "referral_id": "ref_lightgreen_002",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Light Green Account",
+              "referral_status": "COMPLETE",
+              "date": "05/15/2025"
+            },
+            "ref_lightgreen_003": {
+              "referral_id": "ref_lightgreen_003",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Light Green Account",
+              "referral_status": "COMPLETE",
+              "date": "07/22/2025"
+            },
+            "ref_darkgreen_001": {
+              "referral_id": "ref_darkgreen_001",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Dark Green Account",
+              "referral_status": "COMPLETE",
+              "date": "01/28/2025"
+            },
+            "ref_darkgreen_002": {
+              "referral_id": "ref_darkgreen_002",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Dark Green Account",
+              "referral_status": "COMPLETE",
+              "date": "03/05/2025"
+            },
+            "ref_darkgreen_003": {
+              "referral_id": "ref_darkgreen_003",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Dark Green Account",
+              "referral_status": "COMPLETE",
+              "date": "05/20/2025"
+            },
+            "ref_darkgreen_004": {
+              "referral_id": "ref_darkgreen_004",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Dark Green Account",
+              "referral_status": "COMPLETE",
+              "date": "07/30/2025"
+            },
+            "ref_darkgreen_005": {
+              "referral_id": "ref_darkgreen_005",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Dark Green Account",
+              "referral_status": "COMPLETE",
+              "date": "09/12/2025"
+            },
+            "ref_goldyears_001": {
+              "referral_id": "ref_goldyears_001",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Gold Years Account",
+              "referral_status": "COMPLETE",
+              "date": "02/05/2025"
+            },
+            "ref_goldyears_002": {
+              "referral_id": "ref_goldyears_002",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Gold Years Account",
+              "referral_status": "COMPLETE",
+              "date": "04/18/2025"
+            },
+            "ref_goldyears_003": {
+              "referral_id": "ref_goldyears_003",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Gold Years Account",
+              "referral_status": "COMPLETE",
+              "date": "06/25/2025"
+            },
+            "ref_goldyears_004": {
+              "referral_id": "ref_goldyears_004",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Gold Years Account",
+              "referral_status": "COMPLETE",
+              "date": "08/10/2025"
+            },
+            "ref_goldyears_005": {
+              "referral_id": "ref_goldyears_005",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Gold Years Account",
+              "referral_status": "COMPLETE",
+              "date": "10/02/2025"
+            },
+            "ref_goldyears_006": {
+              "referral_id": "ref_goldyears_006",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Gold Years Account",
+              "referral_status": "COMPLETE",
+              "date": "10/25/2025"
+            },
+            "ref_skyblue_001": {
+              "referral_id": "ref_skyblue_001",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Sky Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "01/20/2025"
+            },
+            "ref_skyblue_002": {
+              "referral_id": "ref_skyblue_002",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Sky Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "02/28/2025"
+            },
+            "ref_skyblue_003": {
+              "referral_id": "ref_skyblue_003",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Sky Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "04/05/2025"
+            },
+            "ref_skyblue_004": {
+              "referral_id": "ref_skyblue_004",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Sky Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "05/18/2025"
+            },
+            "ref_skyblue_005": {
+              "referral_id": "ref_skyblue_005",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Sky Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "07/02/2025"
+            },
+            "ref_skyblue_006": {
+              "referral_id": "ref_skyblue_006",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Sky Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "08/25/2025"
+            },
+            "ref_skyblue_007": {
+              "referral_id": "ref_skyblue_007",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Sky Blue Account",
+              "referral_status": "COMPLETE",
+              "date": "10/10/2025"
+            },
+            "ref_limegreen_001": {
+              "referral_id": "ref_limegreen_001",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Lime Green Account",
+              "referral_status": "COMPLETE",
+              "date": "03/30/2025"
+            },
+            "ref_limegreen_002": {
+              "referral_id": "ref_limegreen_002",
+              "referrer_id": "nk80d5r2j7",
+              "referred_account_type": "Lime Green Account",
+              "referral_status": "COMPLETE",
+              "date": "09/05/2025"
+            }
+          }
+        }
+      }
+    }
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Nalini Krishnamurthy",
+          "user_id": "nk80d5r2j7",
+          "address": "2847 Mapleton Avenue, Boulder, CO 80304",
+          "email": "nalini.k@bouldercap.vc",
+          "phone_number": "303-555-4721",
+          "date_of_birth": "06/18/1980",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "101_0"
+      },
+      {
+        "name": "get_referrals_by_user",
+        "arguments": {
+          "user_id": "nk80d5r2j7"
+        },
+        "requestor": "assistant",
+        "action_id": "101_1"
+      },
+      {
+        "name": "submit_referral",
+        "arguments": {
+          "user_id": "nk80d5r2j7",
+          "account_type": "Purple Account"
+        },
+        "requestor": "user",
+        "action_id": "101_2"
+      },
+      {
+        "name": "submit_referral",
+        "arguments": {
+          "user_id": "nk80d5r2j7",
+          "account_type": "Sky Blue Account"
+        },
+        "requestor": "user",
+        "action_id": "101_3"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "call_discoverable_user_tool",
+    "submit_referral"
+  ],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_047",
+    "doc_bank_accounts_bank_accounts_(general)_048",
+    "doc_checking_accounts_dark_green_account_001",
+    "doc_checking_accounts_dark_green_account_010",
+    "doc_checking_accounts_gold_years_account_001",
+    "doc_checking_accounts_gold_years_account_010",
+    "doc_checking_accounts_green_fee-free_account_001",
+    "doc_checking_accounts_green_fee-free_account_007",
+    "doc_checking_accounts_purple_account_001",
+    "doc_checking_accounts_purple_account_011",
+    "doc_checking_accounts_light_blue_account_001",
+    "doc_checking_accounts_light_blue_account_007",
+    "doc_business_checking_accounts_sky_blue_001",
+    "doc_business_checking_accounts_sky_blue_002",
+    "doc_business_checking_accounts_sky_blue_010",
+    "doc_business_checking_accounts_lime_green_001",
+    "doc_business_checking_accounts_lime_green_003",
+    "doc_business_checking_accounts_hunter_green_001",
+    "doc_business_checking_accounts_hunter_green_010",
+    "doc_business_checking_accounts_cobalt_blue_001",
+    "doc_business_checking_accounts_cobalt_blue_005"
+  ]
+}

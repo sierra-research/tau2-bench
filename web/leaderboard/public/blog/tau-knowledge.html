@@ -1,0 +1,2873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>τ-knowledge | τ-bench</title>
+  <style>
+    /* Reset and Base Styles - matching main site */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      width: 100%;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      color: #2d3748;
+      line-height: 1.6;
+      font-weight: 400;
+      width: 100%;
+      overflow-x: hidden;
+      background: #ffffff;
+      min-height: 100vh;
+    }
+
+    /* Navigation - matching main site exactly */
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #e2e8f0;
+      padding: 16px 0;
+    }
+
+    .nav-container {
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .nav-logo {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+    }
+
+    .logo-main {
+      display: flex;
+      align-items: center;
+      font-size: 24px;
+      font-weight: 700;
+      color: #2d3748;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+      text-decoration: none;
+    }
+
+    .logo-main:hover {
+      opacity: 0.8;
+    }
+
+    .tau-symbol {
+      color: #065f46;
+      margin-right: 2px;
+    }
+
+    .bench-text {
+      color: #2d3748;
+    }
+
+    .logo-attribution {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      text-decoration: none;
+    }
+
+    .sierra-logo {
+      height: 12px;
+      width: auto;
+    }
+
+    .from-text {
+      font-size: 10px;
+      color: #718096;
+      font-weight: 400;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: #718096;
+      font-weight: 500;
+      font-size: 15px;
+      transition: color 0.2s ease;
+    }
+
+    .nav-links a:hover {
+      color: #065f46;
+    }
+
+    .nav-link {
+      background: none;
+      border: none;
+      text-decoration: none;
+      color: #718096;
+      font-weight: 500;
+      font-size: 15px;
+      cursor: pointer;
+      transition: color 0.2s ease;
+      padding: 0;
+      margin: 0;
+      font-family: inherit;
+    }
+
+    .nav-link:hover {
+      color: #065f46;
+    }
+
+    .nav-dropdown {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .nav-dropdown-trigger {
+      background: none;
+      border: none;
+      text-decoration: none;
+      color: #718096;
+      font-weight: 500;
+      font-size: 15px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-family: inherit;
+      padding: 0;
+      margin: 0;
+    }
+
+    .nav-dropdown-trigger:hover {
+      color: #065f46;
+    }
+
+    .dropdown-arrow {
+      font-size: 10px;
+      transition: transform 0.2s ease;
+    }
+
+    .nav-dropdown:hover .dropdown-arrow {
+      transform: rotate(180deg);
+    }
+
+    .nav-dropdown-menu {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 8px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      min-width: 160px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-8px);
+      transition: all 0.2s ease;
+      z-index: 1000;
+    }
+
+    .nav-dropdown:hover .nav-dropdown-menu {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .nav-dropdown-menu a {
+      display: block;
+      padding: 12px 16px;
+      color: #4a5568;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .nav-dropdown-menu a:last-child {
+      border-bottom: none;
+    }
+
+    .nav-dropdown-menu a:hover {
+      background: #f8fafc;
+      color: #065f46;
+    }
+
+    .nav-dropdown-menu a:first-child {
+      border-radius: 8px 8px 0 0;
+    }
+
+    .nav-dropdown-menu a:last-child {
+      border-radius: 0 0 8px 8px;
+    }
+
+    .mobile-menu-toggle {
+      display: none;
+    }
+
+    /* Blog Content - matching site styling */
+    .blog-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 120px 24px 80px;
+    }
+
+    .blog-header {
+      margin-bottom: 40px;
+    }
+
+    .blog-badge {
+      display: inline-block;
+      background: #f0fdf4;
+      color: #065f46;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .blog-title {
+      font-size: 3rem;
+      font-weight: 800;
+      line-height: 1.1;
+      color: #1a202c;
+      margin-bottom: 16px;
+    }
+
+    .blog-title .tau-symbol {
+      color: #065f46;
+    }
+
+    .blog-meta {
+      font-size: 15px;
+      color: #718096;
+    }
+
+    .blog-content {
+      font-size: 1.0625rem;
+      color: #4a5568;
+      line-height: 1.7;
+      letter-spacing: -0.01em;
+    }
+
+    .blog-content p {
+      margin-bottom: 16px;
+    }
+
+    .tldr-box {
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+      border: 1px solid #bbf7d0;
+      border-left: 4px solid #065f46;
+      border-radius: 8px;
+      padding: 20px 24px 16px;
+      margin-bottom: 32px;
+    }
+
+    .tldr-box p {
+      margin-bottom: 0;
+      font-size: 15px;
+      line-height: 1.7;
+      color: #1a202c;
+    }
+
+    .tldr-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #065f46;
+      margin-bottom: 10px;
+    }
+
+    .blog-content h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1a202c;
+      margin-top: 48px;
+      margin-bottom: 20px;
+    }
+
+    .blog-content a {
+      color: #065f46;
+      text-decoration: underline;
+    }
+
+    .blog-content a:hover {
+      color: #047857;
+    }
+
+    .blog-content ul {
+      margin-bottom: 16px;
+      padding-left: 24px;
+    }
+
+    .blog-content li {
+      margin-bottom: 8px;
+      color: #4a5568;
+    }
+
+    .blog-content li::marker {
+      color: #065f46;
+    }
+
+    .blog-divider {
+      height: 1px;
+      background: #e2e8f0;
+      margin: 48px 0 32px;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #718096;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .back-link:hover {
+      color: #065f46;
+    }
+
+    /* ============================================ */
+    /* Interactive Components                        */
+    /* ============================================ */
+
+    /* --- Shared demo wrapper --- */
+    .demo-block {
+      margin: 32px 0 40px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fafbfc;
+    }
+
+    .demo-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 13px;
+      font-weight: 600;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .demo-label-icon {
+      font-size: 15px;
+    }
+
+    /* --- KB Document Browser --- */
+    .kb-browser {
+      display: flex;
+      height: 520px;
+      background: #fff;
+    }
+
+    .kb-sidebar {
+      width: 260px;
+      min-width: 260px;
+      border-right: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      background: #fafbfc;
+    }
+
+    .kb-filter-bar {
+      display: flex;
+      gap: 4px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+      background: #fff;
+    }
+
+    .kb-filter-btn {
+      padding: 3px 9px;
+      border: 1px solid #e2e8f0;
+      border-radius: 5px;
+      background: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      color: #a0aec0;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .kb-filter-btn:hover {
+      border-color: #cbd5e0;
+      color: #4a5568;
+    }
+
+    .kb-filter-btn.active {
+      background: #065f46;
+      border-color: #065f46;
+      color: #fff;
+    }
+
+    .kb-doc-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 0;
+    }
+
+    .kb-doc-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: all 0.12s ease;
+    }
+
+    .kb-doc-item:hover {
+      background: #f0fdf4;
+    }
+
+    .kb-doc-item.active {
+      background: #f0fdf4;
+      border-left-color: #065f46;
+    }
+
+    .kb-doc-item-icon {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      margin-top: 1px;
+    }
+
+    .kb-doc-item-icon.product { background: #f0fff4; }
+    .kb-doc-item-icon.policy { background: #ebf5ff; }
+    .kb-doc-item-icon.tool { background: #faf5ff; }
+
+    .kb-doc-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .kb-doc-item-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #1a202c;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .kb-doc-item.active .kb-doc-item-title {
+      color: #065f46;
+    }
+
+    .kb-doc-item-cat {
+      font-size: 10.5px;
+      color: #a0aec0;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .kb-reader {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+      min-width: 0;
+    }
+
+    .kb-reader-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1a202c;
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+
+    .kb-reader-cat-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 16px;
+    }
+
+    .kb-reader-cat-badge.product { background: #f0fff4; color: #22863a; }
+    .kb-reader-cat-badge.policy { background: #ebf5ff; color: #2962ff; }
+    .kb-reader-cat-badge.tool { background: #faf5ff; color: #8a2be2; }
+
+    .kb-reader-body {
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: #4a5568;
+    }
+
+    .kb-reader-body h2 {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: #1a202c;
+      margin: 18px 0 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #edf2f7;
+    }
+
+    .kb-reader-body h2:first-child {
+      margin-top: 0;
+    }
+
+    .kb-reader-body ul, .kb-reader-body ol {
+      padding-left: 20px;
+      margin: 6px 0 12px;
+    }
+
+    .kb-reader-body li {
+      margin-bottom: 4px;
+      font-size: 13.5px;
+    }
+
+    .kb-reader-body p {
+      margin: 0 0 10px;
+    }
+
+    .kb-reader-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 13px;
+    }
+
+    .kb-reader-body th,
+    .kb-reader-body td {
+      text-align: left;
+      padding: 6px 10px;
+      border-bottom: 1px solid #edf2f7;
+    }
+
+    .kb-reader-body th {
+      font-weight: 600;
+      color: #2d3748;
+      background: #f8fafc;
+    }
+
+    .kb-reader-body code {
+      background: #edf2f7;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 12px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: #e53e3e;
+    }
+
+    .kb-reader-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #a0aec0;
+      font-size: 14px;
+    }
+
+    .kb-doc-counter {
+      padding: 8px 14px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 11px;
+      color: #a0aec0;
+      text-align: center;
+      background: #fff;
+    }
+
+    /* --- Task Explorer (Accordion) --- */
+    .task-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      overflow: hidden;
+      transition: box-shadow 0.2s ease;
+    }
+
+    .task-card:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    .task-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      cursor: pointer;
+      user-select: none;
+      background: #fff;
+      transition: background 0.15s ease;
+    }
+
+    .task-card-header:hover {
+      background: #f8fafc;
+    }
+
+    .task-card-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a202c;
+    }
+
+    .task-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .task-tag.recommendation {
+      background: #ebf8ff;
+      color: #2b6cb0;
+    }
+
+    .task-tag.procedural {
+      background: #faf5ff;
+      color: #6b46c1;
+    }
+
+    .task-tag.sequencing {
+      background: #fff5f5;
+      color: #c53030;
+    }
+
+    .task-chevron {
+      font-size: 12px;
+      color: #a0aec0;
+      transition: transform 0.2s ease;
+    }
+
+    .task-card.open .task-chevron {
+      transform: rotate(180deg);
+    }
+
+    .task-card-body {
+      display: none;
+      padding: 0 18px 18px;
+      border-top: 1px solid #edf2f7;
+    }
+
+    .task-card.open .task-card-body {
+      display: block;
+    }
+
+    .task-section {
+      margin-top: 14px;
+    }
+
+    .task-section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #a0aec0;
+      margin-bottom: 8px;
+    }
+
+    .task-section-content {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: #4a5568;
+    }
+
+    .task-section-content em {
+      color: #718096;
+    }
+
+    .task-actions {
+      background: #f7fafc;
+      border-radius: 6px;
+      padding: 14px 16px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12.5px;
+      line-height: 1.7;
+      color: #2d3748;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .task-actions .action-line {
+      margin-bottom: 2px;
+    }
+
+    .task-actions .action-num {
+      color: #a0aec0;
+      margin-right: 6px;
+      user-select: none;
+    }
+
+    .task-actions .action-fn {
+      color: #2b6cb0;
+    }
+
+    .task-actions .action-comment {
+      color: #a0aec0;
+      font-style: italic;
+    }
+
+    .task-meta-row {
+      display: flex;
+      gap: 16px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .task-meta-item {
+      font-size: 12.5px;
+      color: #718096;
+    }
+
+    .task-meta-item strong {
+      color: #4a5568;
+    }
+
+    /* --- Results Dashboard --- */
+    .results-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+    }
+
+    .results-controls label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #718096;
+      margin-right: 4px;
+    }
+
+    .metric-btn {
+      padding: 5px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #718096;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+
+    .metric-btn:hover {
+      border-color: #cbd5e0;
+      color: #4a5568;
+    }
+
+    .metric-btn.active {
+      background: #065f46;
+      border-color: #065f46;
+      color: #fff;
+    }
+
+    .results-table-wrap {
+      padding: 16px 20px 20px;
+      overflow-x: auto;
+    }
+
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .results-table th {
+      text-align: left;
+      padding: 8px 12px;
+      font-weight: 700;
+      font-size: 12px;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 2px solid #e2e8f0;
+      white-space: nowrap;
+    }
+
+    .results-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid #edf2f7;
+      white-space: nowrap;
+    }
+
+    .results-table tbody tr:hover {
+      background: #f7fafc;
+    }
+
+    .results-table .model-cell {
+      font-weight: 600;
+      color: #1a202c;
+    }
+
+    .results-table .reasoning-cell {
+      color: #a0aec0;
+      font-size: 12px;
+    }
+
+    .results-table .score-cell {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12.5px;
+      color: #4a5568;
+    }
+
+    .results-table .best-score {
+      font-weight: 700;
+      color: #065f46;
+    }
+
+    .results-table .delta {
+      font-size: 11px;
+      color: #a0aec0;
+      margin-left: 3px;
+    }
+
+    .results-table .section-sep td {
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    /* --- Conversation Trace Viewer --- */
+    .convo-viewer {
+      padding: 20px;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+
+    .convo-task-label {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .convo-task-badge {
+      display: inline-block;
+      background: #edf2f7;
+      color: #4a5568;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 12px;
+    }
+
+    .convo-msg {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+      align-items: flex-start;
+    }
+
+    .convo-msg.user {
+      flex-direction: row;
+    }
+
+    .convo-msg.agent {
+      flex-direction: row;
+    }
+
+    .convo-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .convo-msg.user .convo-avatar {
+      background: #ebf8ff;
+      color: #2b6cb0;
+    }
+
+    .convo-msg.agent .convo-avatar {
+      background: #f0fdf4;
+      color: #065f46;
+    }
+
+    .convo-bubble {
+      max-width: 88%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+
+    .convo-msg.user .convo-bubble {
+      background: #ebf8ff;
+      color: #2d3748;
+      border-bottom-left-radius: 4px;
+    }
+
+    .convo-msg.agent .convo-bubble {
+      background: #f0fdf4;
+      color: #2d3748;
+      border-bottom-left-radius: 4px;
+    }
+
+    .convo-tool-calls {
+      margin-bottom: 6px;
+    }
+
+    .convo-tool-line {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11.5px;
+      color: #8a2be2;
+      padding: 2px 0;
+      cursor: pointer;
+    }
+
+    .convo-tool-icon {
+      font-size: 10px;
+      color: #a0aec0;
+    }
+
+    .convo-tool-line:hover {
+      color: #6b21a8;
+    }
+
+    .convo-text strong {
+      font-weight: 600;
+    }
+
+    .convo-narrator {
+      text-align: center;
+      margin: 12px 0;
+      font-size: 12px;
+      color: #a0aec0;
+      font-style: italic;
+    }
+
+    /* --- Task Anatomy: Conversation Trace --- */
+    .anatomy-viewer {
+      padding: 20px;
+    }
+
+    .anatomy-task-label {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .anatomy-task-badge {
+      display: inline-block;
+      background: #edf2f7;
+      color: #4a5568;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 12px;
+    }
+
+    .anatomy-msg {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+      align-items: flex-start;
+    }
+
+    .anatomy-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .anatomy-msg.user .anatomy-avatar {
+      background: #ebf8ff;
+      color: #2b6cb0;
+    }
+
+    .anatomy-msg.agent .anatomy-avatar {
+      background: #f0fdf4;
+      color: #065f46;
+    }
+
+    .anatomy-bubble {
+      max-width: 88%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+
+    .anatomy-msg.user .anatomy-bubble {
+      background: #ebf8ff;
+      color: #2d3748;
+      border-bottom-left-radius: 4px;
+    }
+
+    .anatomy-msg.agent .anatomy-bubble {
+      background: #f0fdf4;
+      color: #2d3748;
+      border-bottom-left-radius: 4px;
+    }
+
+    .anatomy-skill-badges {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+
+    .anatomy-skill-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 10px;
+      border-radius: 10px;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .anatomy-skill-badge.search {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .anatomy-skill-badge.policy {
+      background: #ede9fe;
+      color: #5b21b6;
+    }
+
+    .anatomy-skill-badge.tools {
+      background: #ffedd5;
+      color: #c2410c;
+    }
+
+    .anatomy-skill-badge.verify {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .anatomy-skill-badge.sequence {
+      background: #fce7f3;
+      color: #9d174d;
+    }
+
+    .anatomy-tool-calls {
+      margin-bottom: 6px;
+    }
+
+    .anatomy-tool-line {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11.5px;
+      color: #8a2be2;
+      padding: 2px 0;
+    }
+
+    .anatomy-tool-icon {
+      font-size: 10px;
+      color: #a0aec0;
+    }
+
+    .anatomy-tool-result {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      color: #718096;
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 4px;
+      margin: 4px 0 6px;
+      line-height: 1.5;
+    }
+
+    .anatomy-tool-result .result-success {
+      color: #065f46;
+      font-weight: 600;
+    }
+
+    .anatomy-tool-result .result-denied {
+      color: #c53030;
+      font-weight: 600;
+    }
+
+    .anatomy-text {
+      margin-top: 2px;
+    }
+
+    .anatomy-text strong {
+      font-weight: 600;
+    }
+
+    /* KB search results panel */
+    .anatomy-kb-results {
+      margin: 4px 0 6px;
+      padding: 6px 10px;
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 6px;
+      border-left: 3px solid #3b82f6;
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: #4a5568;
+    }
+
+    .anatomy-kb-results .kb-result-title {
+      font-weight: 600;
+      color: #1e40af;
+    }
+
+    .anatomy-kb-results .kb-result-snippet {
+      color: #718096;
+      font-size: 11px;
+    }
+
+    .anatomy-kb-results .kb-policy-highlight {
+      background: #fef3c7;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-weight: 600;
+      color: #92400e;
+    }
+
+    /* Failure mode annotations */
+    .anatomy-failure-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: #fff5f5;
+      border: 1px solid #fed7d7;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #c53030;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .anatomy-failure-toggle:hover {
+      background: #fee2e2;
+    }
+
+    .anatomy-failure-chevron {
+      margin-left: auto;
+      transition: transform 0.2s ease;
+      font-size: 10px;
+    }
+
+    .anatomy-failure-toggle.open .anatomy-failure-chevron {
+      transform: rotate(90deg);
+    }
+
+    .anatomy-failure-panel {
+      display: none;
+      margin-top: 6px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: #fff5f5;
+      border: 1px solid #fed7d7;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: #742a2a;
+    }
+
+    @keyframes anatomyFadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .anatomy-failure-panel.open {
+      display: block;
+      animation: anatomyFadeIn 0.2s ease;
+    }
+
+    .anatomy-failure-example {
+      margin-top: 6px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      background: rgba(197, 48, 48, 0.06);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      color: #991b1b;
+    }
+
+    /* Divider between conversation sections */
+    .anatomy-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 18px 0;
+      color: #a0aec0;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .anatomy-divider::before,
+    .anatomy-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e2e8f0;
+    }
+
+    /* Outcome indicators at bottom */
+    .anatomy-outcomes {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      padding: 0 40px;
+    }
+
+    .anatomy-outcome-card {
+      flex: 1;
+      padding: 14px 16px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .anatomy-outcome-card.pass {
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      border: 2px solid #86efac;
+    }
+
+    .anatomy-outcome-card.fail {
+      background: linear-gradient(135deg, #fff5f5 0%, #fee2e2 100%);
+      border: 2px solid #fca5a5;
+    }
+
+    .anatomy-outcome-icon {
+      font-size: 22px;
+      margin-bottom: 4px;
+    }
+
+    .anatomy-outcome-label {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .anatomy-outcome-card.pass .anatomy-outcome-label {
+      color: #065f46;
+    }
+
+    .anatomy-outcome-card.fail .anatomy-outcome-label {
+      color: #991b1b;
+    }
+
+    .anatomy-outcome-stat {
+      font-size: 11px;
+      color: #718096;
+      margin-top: 2px;
+    }
+
+    /* ============================================ */
+    /* Findings Bar Charts                           */
+    /* ============================================ */
+    .findings-charts-wrap {
+      display: flex;
+      gap: 0;
+    }
+
+    .findings-chart-panel {
+      flex: 1;
+      min-width: 0;
+      padding: 26px 28px 24px;
+    }
+
+    .findings-chart-panel:first-child {
+      border-right: 1px solid #edf2f7;
+    }
+
+    .findings-chart-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1a202c;
+      margin-bottom: 3px;
+      letter-spacing: -0.01em;
+    }
+
+    .findings-chart-subtitle {
+      font-size: 11.5px;
+      color: #94a3b8;
+      margin-bottom: 22px;
+    }
+
+    /* Horizontal bar rows */
+    .findings-hbar-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .findings-hbar-label {
+      flex-shrink: 0;
+      text-align: right;
+      padding-right: 14px;
+    }
+
+    .findings-hbar-label-main {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #334155;
+      line-height: 1.15;
+    }
+
+    .findings-hbar-label-sub {
+      font-size: 10px;
+      font-weight: 500;
+      color: #94a3b8;
+      line-height: 1.15;
+      margin-top: 1px;
+    }
+
+    .findings-hbar-track {
+      flex: 1;
+      height: 30px;
+      background: #f1f5f9;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .findings-hbar-fill {
+      height: 100%;
+      border-radius: 6px;
+      min-width: 2px;
+    }
+
+    .findings-hbar-val {
+      flex-shrink: 0;
+      width: 52px;
+      text-align: right;
+      padding-left: 10px;
+      font-size: 13.5px;
+      font-weight: 700;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      letter-spacing: -0.03em;
+    }
+
+    .findings-chart-note {
+      margin-top: 18px;
+      font-size: 12px;
+      color: #475569;
+      line-height: 1.55;
+      padding: 10px 14px;
+      background: #f0fdf4;
+      border-radius: 8px;
+      border-left: 3px solid #065f46;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .nav-links {
+        display: none;
+      }
+
+      .mobile-menu-toggle {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 8px;
+      }
+
+      .mobile-menu-toggle span {
+        width: 20px;
+        height: 2px;
+        background: #2d3748;
+        border-radius: 1px;
+      }
+
+      .blog-container {
+        padding: 100px 16px 60px;
+      }
+
+      .blog-title {
+        font-size: 2rem;
+      }
+
+      .blog-content {
+        font-size: 1rem;
+      }
+
+      .kb-browser {
+        flex-direction: column;
+        height: auto;
+      }
+
+      .kb-sidebar {
+        width: 100%;
+        min-width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #e2e8f0;
+        max-height: 240px;
+      }
+
+      .kb-reader {
+        padding: 18px 16px;
+      }
+
+      .results-table {
+        font-size: 12px;
+      }
+
+      .anatomy-viewer {
+        padding: 14px;
+      }
+
+      .anatomy-bubble {
+        max-width: 92%;
+      }
+
+      .anatomy-outcomes {
+        flex-direction: column;
+        padding: 0 8px;
+      }
+
+      .anatomy-kb-results {
+        font-size: 10.5px;
+      }
+
+      .anatomy-skill-badges {
+        gap: 4px;
+      }
+
+      .anatomy-skill-badge {
+        font-size: 9.5px;
+        padding: 2px 7px;
+      }
+
+      .findings-charts-wrap {
+        flex-direction: column;
+      }
+
+      .findings-chart-panel:first-child {
+        border-right: none;
+        border-bottom: 1px solid #edf2f7;
+      }
+
+      .findings-chart-panel {
+        padding: 20px 16px;
+      }
+
+      .findings-hbar-label {
+        width: 80px !important;
+        padding-right: 10px;
+      }
+
+      .findings-hbar-val {
+        width: 46px;
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation - same as main site -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="nav-logo">
+        <a href="/" class="logo-main">
+          <span class="tau-symbol">τ</span>
+          <span class="bench-text">-bench</span>
+        </a>
+        <a href="https://sierra.ai" target="_blank" rel="noopener noreferrer" class="logo-attribution">
+          <img src="/sierra_logo.jpeg" alt="Sierra" class="sierra-logo" />
+          <span class="from-text">from Sierra</span>
+        </a>
+      </div>
+      <button class="mobile-menu-toggle">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <div class="nav-links">
+        <a href="/#home">Overview</a>
+        <a href="/#leaderboard">Leaderboard</a>
+        <a href="/#trajectory-visualizer">Visualizer</a>
+        <div class="nav-dropdown">
+          <button class="nav-dropdown-trigger">
+            Blog Posts <span class="dropdown-arrow">▾</span>
+          </button>
+          <div class="nav-dropdown-menu">
+            <a href="/blog/tau-knowledge.html">τ-knowledge</a>
+            <a href="/blog/tau-voice-examples.html">τ-voice examples</a>
+            <a href="/blog/tau3-task-fixes.html">τ³ Task Fixes</a>
+          </div>
+        </div>
+        <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="blog-container">
+    <header class="blog-header">
+      <span class="blog-badge">Research</span>
+      <h1 class="blog-title"><span class="tau-symbol">τ</span>-knowledge</h1>
+      <p class="blog-meta">February 2026</p>
+    </header>
+
+    <div class="blog-content">
+
+      <!-- TLDR -->
+      <div class="tldr-box">
+        <div class="tldr-label">TL;DR</div>
+        <p><strong>τ-knowledge</strong> is a benchmark for evaluating AI agents in <strong>knowledge-intensive customer support</strong>. It pairs a realistic fintech knowledge base (<strong>698 documents</strong> across 21 product categories, ~195K tokens) with tasks requiring multi-step reasoning, policy application, and tool use. The best model, <strong>GPT-5.2 with high reasoning</strong>, achieves only <strong>~26% pass^1</strong>. Current frontier models still fail at retrieving, interpreting, and acting on messy real-world documentation.</p>
+      </div>
+
+      <p>Modern agents are no longer deployed with everything they need neatly stuffed into context. Instead, they are expected to operate over <strong>large, messy, and constantly evolving knowledge bases</strong>: internal documentation, policy manuals, tool descriptions, product catalogs, and procedural guides.</p>
+
+      <p>These knowledge bases have several properties that make them uniquely difficult for agents:</p>
+
+      <ul>
+        <li>Information is <strong>unstructured</strong> and spread across long documents</li>
+        <li>Policies are <strong>procedural</strong>, conditional, and easy to misapply</li>
+        <li>Content is often <strong>time-sensitive</strong>, with exceptions and promotions that change behavior</li>
+        <li>Product names and internal terms are <strong>out-of-distribution</strong>, breaking embedding-based assumptions</li>
+        <li>Some tools are <strong>discoverable</strong>, referenced only in KB documents rather than given to the agent directly</li>
+      </ul>
+
+      <p>Despite how common this setting is in real deployments, existing benchmarks rarely capture it. Most evaluations isolate retrieval (e.g., QA over documents) or isolate tool use — without requiring agents to <strong>reason over private knowledge bases while coordinating tools in a live user interaction</strong>.</p>
+
+      <h2>Introducing τ-Knowledge</h2>
+
+      <p>To address this gap, we introduce <strong>τ-Knowledge</strong>, an extension of τ-Bench that evaluates agents in <strong>knowledge-grounded, human-facing environments</strong>.</p>
+
+      <p>τ-Knowledge introduces a new domain: <strong>τ-Banking</strong>, a fintech-inspired customer support setting where task success depends on correctly interpreting and operationalizing information from a natural-language knowledge base. Unlike factoid-style RAG benchmarks where retrieving the right document largely determines the answer, τ-Banking requires agents to coordinate knowledge-base evidence with tool outputs over long-horizon conversations to produce <strong>verifiable, database-level state changes</strong>.</p>
+
+      <p>Crucially, τ-Knowledge is <strong>agnostic to the retrieval mechanism</strong>. It supports and evaluates arbitrary strategies for searching and interacting with a corpus — including dense and sparse retrieval, hybrid approaches, long-context processing, and even filesystem-based exploration via terminal commands. This flexibility lets it evaluate emerging paradigms beyond traditional semantic retrieval.</p>
+
+      <!-- ===== INTERACTIVE: Task Anatomy Conversation ===== -->
+      <div class="demo-block" id="task-anatomy">
+        <div class="demo-label">
+          <span class="demo-label-icon">🧩</span> Anatomy of a τ-Banking Task &nbsp;·&nbsp; Click failure annotations to explore
+        </div>
+        <div class="anatomy-viewer">
+          <div class="anatomy-task-label">
+            <span class="anatomy-task-badge">Dispute + Credit Limit Increase · Based on Tasks 53 &amp; 27</span>
+          </div>
+
+          <!-- Turn 1: User -->
+          <div class="anatomy-msg user">
+            <div class="anatomy-avatar">U</div>
+            <div class="anatomy-bubble">
+              <div class="anatomy-text">There's this <strong>transaction I want to dispute</strong>. I also want to file a <strong>credit limit increase</strong> request.</div>
+            </div>
+          </div>
+
+          <!-- Turn 2: Agent searches KB -->
+          <div class="anatomy-msg agent">
+            <div class="anatomy-avatar">A</div>
+            <div class="anatomy-bubble">
+              <div class="anatomy-skill-badges">
+                <span class="anatomy-skill-badge search">🔍 KB Search</span>
+                <span class="anatomy-skill-badge policy">📋 Policy</span>
+              </div>
+              <div class="anatomy-tool-calls">
+                <div class="anatomy-tool-line"><span class="anatomy-tool-icon">🔍</span> kb_search("file dispute transaction policy procedure...")</div>
+                <div class="anatomy-tool-line"><span class="anatomy-tool-icon">🔍</span> kb_search("credit limit increase eligibility requirements...")</div>
+              </div>
+              <div class="anatomy-kb-results">
+                <div><span class="kb-result-title">1. Credit Limit Increase Policy</span></div>
+                <div class="kb-result-snippet">...Credit limit requests will be <span class="kb-policy-highlight">rejected if there are pending disputes</span> on record...</div>
+                <div><span class="kb-result-title">2. How to File a Transaction Dispute</span></div>
+                <div class="kb-result-snippet">...To file a dispute, use <code>file_dispute</code> with user_id, txn_id, reason...</div>
+              </div>
+              <div class="anatomy-text">Sure! Let me look into that for you. I found an important detail: <strong>credit limit requests are automatically rejected if there are pending disputes on record</strong>. So I'll process your credit limit increase first, then file the dispute.</div>
+
+              <div class="anatomy-failure-toggle" onclick="toggleFailure(this)">
+                <span>✗</span> How agents fail: <strong>miss critical policy dependency</strong> <span class="anatomy-failure-chevron">▸</span>
+              </div>
+              <div class="anatomy-failure-panel">
+                Agent only searches for "how to file a dispute" and never searches for credit limit policies. It files the dispute first (following the user's order) — then the credit limit increase is <strong>automatically denied</strong> by the system because of the pending dispute.
+                <div class="anatomy-failure-example">kb_search("file dispute") → finds dispute tool<br>→ Files dispute first (as user requested)<br>→ request_credit_limit_increase(...)<br>→ <strong>DENIED: pending dispute on record</strong> ✗</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Turn 3: User confirms -->
+          <div class="anatomy-msg user">
+            <div class="anatomy-avatar">U</div>
+            <div class="anatomy-bubble">
+              <div class="anatomy-text">Sure, that makes sense. Go ahead.</div>
+            </div>
+          </div>
+
+          <!-- Turn 4: Agent processes credit limit increase FIRST -->
+          <div class="anatomy-msg agent">
+            <div class="anatomy-avatar">A</div>
+            <div class="anatomy-bubble">
+              <div class="anatomy-skill-badges">
+                <span class="anatomy-skill-badge tools">🔧 Tool Discovery</span>
+                <span class="anatomy-skill-badge sequence">🧮 Sequencing</span>
+              </div>
+              <div class="anatomy-tool-calls">
+                <div class="anatomy-tool-line"><span class="anatomy-tool-icon">🔓</span> unlock_discoverable_agent_tool("request_credit_limit_increase_4829")</div>
+                <div class="anatomy-tool-line"><span class="anatomy-tool-icon">⚙️</span> call_discoverable_agent_tool("request_credit_limit_increase_4829", {user_id: "ab12c3", amount: 5000})</div>
+              </div>
+              <div class="anatomy-tool-result">→ {status: <span class="result-success">"APPROVED"</span>, new_limit: "$15,000"}</div>
+              <div class="anatomy-text">Great news — your credit limit increase has been <strong>approved</strong>! New limit: $15,000. Now let me file that dispute.</div>
+
+              <div class="anatomy-failure-toggle" onclick="toggleFailure(this)">
+                <span>✗</span> How agents fail: <strong>skip tool unlock step</strong> <span class="anatomy-failure-chevron">▸</span>
+              </div>
+              <div class="anatomy-failure-panel">
+                Many tools in τ-Banking are <strong>discoverable</strong> — they must be unlocked via the KB before use. Agents that skip the unlock call get an error, and some then hallucinate a success response to the user.
+                <div class="anatomy-failure-example">call_discoverable_agent_tool(<br>&nbsp;&nbsp;"request_credit_limit_increase_4829", {...})<br>→ <strong>ERROR: Tool not unlocked</strong><br>→ Agent tells user "Your request has been<br>&nbsp;&nbsp;submitted!" (hallucinated) ✗</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Turn 5: Agent files the dispute -->
+          <div class="anatomy-msg agent">
+            <div class="anatomy-avatar">A</div>
+            <div class="anatomy-bubble">
+              <div class="anatomy-skill-badges">
+                <span class="anatomy-skill-badge tools">🔧 Tool Calling</span>
+              </div>
+              <div class="anatomy-tool-calls">
+                <div class="anatomy-tool-line"><span class="anatomy-tool-icon">🔓</span> unlock_discoverable_agent_tool("file_dispute_8291")</div>
+                <div class="anatomy-tool-line"><span class="anatomy-tool-icon">⚙️</span> call_discoverable_agent_tool("file_dispute_8291", {user_id: "ab12c3", txn_id: "txn_9f2a", reason: "unauthorized_charge"})</div>
+              </div>
+              <div class="anatomy-tool-result">→ {dispute_id: "dsp_7a3p...", status: <span class="result-success">"UNDER_REVIEW"</span>}</div>
+              <div class="anatomy-text">Done! Your dispute for transaction txn_9f2a has been filed and is now <strong>under review</strong>. You'll get a notification when it's resolved.</div>
+            </div>
+          </div>
+
+          <div class="anatomy-divider">Later in the conversation</div>
+
+          <!-- Turn 6: User claims disputes approved -->
+          <div class="anatomy-msg user">
+            <div class="anatomy-avatar">U</div>
+            <div class="anatomy-bubble">
+              <div class="anatomy-text">I just got a notification that my dispute was <strong>approved</strong>! Can you apply the credit?</div>
+            </div>
+          </div>
+
+          <!-- Turn 7: Agent verifies claim -->
+          <div class="anatomy-msg agent">
+            <div class="anatomy-avatar">A</div>
+            <div class="anatomy-bubble">
+              <div class="anatomy-skill-badges">
+                <span class="anatomy-skill-badge verify">🔎 Verify Claims</span>
+              </div>
+              <div class="anatomy-tool-calls">
+                <div class="anatomy-tool-line"><span class="anatomy-tool-icon">⚙️</span> call_discoverable_agent_tool("get_dispute_status_3847", {dispute_id: "dsp_7a3p"})</div>
+              </div>
+              <div class="anatomy-tool-result">→ {dispute_id: "dsp_7a3p...", status: <span class="result-denied">"UNDER_REVIEW"</span>} ← not approved yet!</div>
+              <div class="anatomy-text">I checked your dispute status and it's actually still <strong>under review</strong> — it hasn't been approved yet. I'll apply the credit as soon as it's officially resolved on our end.</div>
+
+              <div class="anatomy-failure-toggle" onclick="toggleFailure(this)">
+                <span>✗</span> How agents fail: <strong>over-trust user claims</strong> <span class="anatomy-failure-chevron">▸</span>
+              </div>
+              <div class="anatomy-failure-panel">
+                Agents often take user assertions at face value without verifying against the system. When a user claims "my dispute was approved," many agents immediately apply credits — even though the dispute is still under review.
+                <div class="anatomy-failure-example">User: "My dispute was approved!"<br>→ Agent skips verification<br>→ apply_dispute_credit(dispute_id: "dsp_7a3p")<br>→ <strong>Credit applied for unapproved dispute</strong> ✗</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Outcome indicators -->
+          <div class="anatomy-outcomes">
+            <div class="anatomy-outcome-card pass">
+              <div class="anatomy-outcome-icon">✅</div>
+              <div class="anatomy-outcome-label">Task Pass</div>
+              <div class="anatomy-outcome-stat">All skills correct → right DB state</div>
+            </div>
+            <div class="anatomy-outcome-card fail">
+              <div class="anatomy-outcome-icon">❌</div>
+              <div class="anatomy-outcome-label">Task Fail</div>
+              <div class="anatomy-outcome-stat">Any failure → wrong state (best: ~26%)</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <!-- END Task Anatomy Conversation -->
+
+      <h2>What Makes τ-Banking Hard?</h2>
+
+      <p>The τ-Banking knowledge base contains <strong>698 documents</strong> spanning 21 product categories and roughly <strong>195K tokens</strong>. Coverage includes personal and business checking accounts, tiered savings accounts, rewards credit cards, buy-now-pay-later plans, and more. Documents detail not only customer-facing product specifications — APY rates, fees, cashback structures — but also <strong>internal agent protocols</strong>: procedures for ordering replacement cards, eligibility requirements for account closure, referral program rules, identity verification workflows, and more.</p>
+
+      <p>Each task averages <strong>18.6 required documents</strong> and <strong>9.5 required tool calls</strong>, with some tasks requiring up to 33 tool calls. Three design elements make τ-Banking uniquely challenging:</p>
+
+      <ul>
+        <li><strong>Discoverable tools.</strong> Many tools are not available to the agent by default — they are referenced only implicitly within knowledge base documents. To use a discoverable tool, the agent must first locate its documentation, then unlock and invoke it. This mirrors real-world deployments where agent capabilities are defined by accessible documentation rather than hard-coded interfaces.</li>
+        <li><strong>Flow-based user simulation.</strong> Each task defines conditional rules that prescribe the simulated user's behavior at evaluation-critical junctures — steering conversations toward edge cases, testing whether the agent correctly refuses ineligible requests, or introducing mid-conversation state changes that require adaptation.</li>
+        <li><strong>Objective verification.</strong> Task success is not judged by conversational quality. Instead, each task specifies a target database state, and an agent succeeds only if its sequence of actions produces the correct final system state.</li>
+      </ul>
+
+      <!-- ===== INTERACTIVE: Knowledge Base Explorer ===== -->
+      <div class="demo-block" id="kb-explorer">
+        <div class="demo-label">
+          <span class="demo-label-icon">📄</span> Knowledge Base Document Browser &nbsp;·&nbsp; <span id="kb-doc-count-label">12 documents</span>
+        </div>
+        <div class="kb-browser">
+          <div class="kb-sidebar">
+            <div class="kb-filter-bar">
+              <button class="kb-filter-btn active" data-cat="all" onclick="filterDocs(this)">All</button>
+              <button class="kb-filter-btn" data-cat="product" onclick="filterDocs(this)">Product</button>
+              <button class="kb-filter-btn" data-cat="policy" onclick="filterDocs(this)">Policy</button>
+              <button class="kb-filter-btn" data-cat="tool" onclick="filterDocs(this)">Tool</button>
+            </div>
+            <div class="kb-doc-list" id="kb-doc-list"></div>
+            <div class="kb-doc-counter" id="kb-doc-counter">12 of 12 documents</div>
+          </div>
+          <div class="kb-reader" id="kb-reader">
+            <div class="kb-reader-empty">← Select a document to read</div>
+          </div>
+        </div>
+      </div>
+      <!-- END KB Explorer -->
+
+      <h2>How We Built It</h2>
+
+      <p>We generated the knowledge base and benchmark tasks through a <strong>multi-stage process</strong> that combines LLM generation with human refinement. Throughout the pipeline, we vary LLM usage across four models (GPT-5, GPT-5.2, Claude-4.5-Opus, and Gemini-3-Pro) to induce diversity in wording, style, and document structure:</p>
+
+      <ul>
+        <li><strong>Stage 1: Structured database generation.</strong> We first construct a structured knowledge base using LLMs. This begins by generating business categories (e.g., credit cards, savings accounts), features within each category (e.g., card tiers, account protocols), and concrete variable values (e.g., annual fees, cashback rates). The result is a structured database where each feature is a collection of typed variables.</li>
+        <li><strong>Stage 2: Structured → unstructured conversion.</strong> We convert the structured database into a realistic unstructured document corpus. For each feature, we generate plausible document titles (e.g., "Bronze Rewards Card Overview," "How do I view my monthly cashback?"), allocate variables to documents, and use an LLM to write natural-language articles. This transforms the structured database into documentation resembling real customer service knowledge bases.</li>
+        <li><strong>Stage 3: Task and database creation.</strong> After initial knowledge base construction, the tasks and the database are co-constructed manually with LLM assistance to mirror common fintech customer service flows — such as ordering replacement cards, disputing transactions, and recommending accounts. Each task is built around a specific workflow, with knowledge articles and tools updated to support it.</li>
+        <li><strong>Stage 4: Human-in-the-loop refinement.</strong> As tasks are created, we iteratively refine the structured knowledge base by adding, removing, or modifying variables to meet new task requirements, then selectively re-run the generation pipeline for affected portions. Manual editing is also performed to improve clarity and realism.</li>
+        <li><strong>Stage 5: Review.</strong> All tasks and associated gold document sets are independently audited by two reviewers not involved in task creation. Reviewers verify that the expected final state is correct, the gold document set is complete and minimal, and the task can be completed using only those documents and documented tools.</li>
+      </ul>
+
+      <p>This pipeline is highly scalable, minimizes unintended collisions between features, and simplifies task creation by letting each task be expressed as a set of constraints over knowledge base variables — constraints that can be validated directly against the structured database.</p>
+
+      <!-- ===== INTERACTIVE: Task Explorer ===== -->
+      <div class="demo-block" id="task-explorer">
+        <div class="demo-label">
+          <span class="demo-label-icon">🧪</span> Sample Tasks from τ-Banking
+        </div>
+        <div style="padding: 16px 20px;">
+
+          <!-- Task 1 -->
+          <div class="task-card" onclick="toggleTask(this)">
+            <div class="task-card-header">
+              <div class="task-card-title">
+                <span class="task-tag recommendation">Recommendation</span>
+                Multi-Constraint Product Recommendation
+              </div>
+              <span class="task-chevron">▾</span>
+            </div>
+            <div class="task-card-body">
+              <div class="task-meta-row">
+                <span class="task-meta-item"><strong>Checking candidates:</strong> 8</span>
+                <span class="task-meta-item"><strong>Savings candidates:</strong> 7</span>
+                <span class="task-meta-item"><strong>Active promotions to evaluate:</strong> 4</span>
+                <span class="task-meta-item"><strong>Required tool calls:</strong> 6</span>
+              </div>
+              <div class="task-section">
+                <div class="task-section-title">User Scenario</div>
+                <div class="task-section-content">
+                  <p>Yumi Tanaka, a small creative design studio owner, wants <strong>one</strong> business checking and <strong>one</strong> business savings account recommendation that meet all her constraints — no options to compare, just the best fit.</p>
+                  <p>Her checking requirements: mobile deposit ≥ $10K/day, zero overdraft fees, minimum balance &lt; $10K, APY ≥ 1%.</p>
+                  <p>Her savings requirements: same-day ACH transfers, minimum balance &lt; $50K, wire fees ≤ $15.</p>
+                  <p><em>After filtering, 3 checking and 3 savings accounts remain. The agent must then check <strong>time-sensitive promotion policies</strong> (with varying date ranges) to break the tie — using the correct simulation date of 11/14/2025.</em></p>
+                </div>
+              </div>
+              <div class="task-section">
+                <div class="task-section-title">Expected Action Sequence</div>
+                <div class="task-actions"><div class="action-line"><span class="action-num"> 1.</span> <span class="action-fn">log_verification</span>(name="Yumi Tanaka", user_id="yt71c9e4f2", ...)</div><div class="action-line"><span class="action-num"> 2.</span> <span class="action-fn">unlock_discoverable_agent_tool</span>("get_all_user_accounts_by_user_id_3847")</div><div class="action-line"><span class="action-num"> 3.</span> <span class="action-fn">call_discoverable_agent_tool</span>("get_all_user_accounts_by_user_id_3847", {user_id: "yt71c9e4f2"})</div><div class="action-line"><span class="action-num"> 4.</span> <span class="action-fn">unlock_discoverable_agent_tool</span>("open_bank_account_4821")</div><div class="action-line"><span class="action-num"> 5.</span> <span class="action-fn">call_discoverable_agent_tool</span>("open_bank_account_4821", {user_id: "yt71c9e4f2", account_type: "business_checking", account_class: "Sky Blue"})</div><div class="action-line"><span class="action-num"> 6.</span> <span class="action-fn">call_discoverable_agent_tool</span>("open_bank_account_4821", {user_id: "yt71c9e4f2", account_type: "business_savings", account_class: "Gold Saver Account"})</div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Task 2 -->
+          <div class="task-card" onclick="toggleTask(this)">
+            <div class="task-card-header">
+              <div class="task-card-title">
+                <span class="task-tag procedural">Procedural</span>
+                Credit Card Retention Protocol
+              </div>
+              <span class="task-chevron">▾</span>
+            </div>
+            <div class="task-card-body">
+              <div class="task-meta-row">
+                <span class="task-meta-item"><strong>Protocol steps:</strong> 4</span>
+                <span class="task-meta-item"><strong>Required tool calls:</strong> 15</span>
+                <span class="task-meta-item"><strong>Customer tenure:</strong> 3 years</span>
+              </div>
+              <div class="task-section">
+                <div class="task-section-title">User Scenario</div>
+                <div class="task-section-content">
+                  <p>Yuki Nakamura wants to close her Platinum Rewards Card because the annual fee is too high. The agent must follow the full <strong>Credit Card Retention Protocol</strong> from the knowledge base:</p>
+                  <p>(1) Verify closure eligibility — checking disputes, pending replacements, account age, and discovering a <strong>$75 outstanding balance</strong> that must be paid first. (2) Check for previous retention attempts in the past year. (3) Ask why and log the reason. (4) Since her reason is "annual fee" and she's been a customer for 3+ years, offer to <strong>waive the annual fee for one year</strong>.</p>
+                  <p><em>If she accepts the waiver (she will), apply the flag with the correct expiration date. Failure to execute any step, or executing steps out of order, results in task failure.</em></p>
+                </div>
+              </div>
+              <div class="task-section">
+                <div class="task-section-title">Expected Action Sequence</div>
+                <div class="task-actions"><div class="action-line"><span class="action-num"> 1.</span> <span class="action-fn">log_verification</span>(...) </div><div class="action-line"><span class="action-num"> 2.</span> <span class="action-fn">unlock</span> + <span class="action-fn">call</span> get_user_dispute_history_7291 <span class="action-comment">// check pending disputes</span></div><div class="action-line"><span class="action-num"> 4.</span> <span class="action-fn">unlock</span> + <span class="action-fn">call</span> get_pending_replacement_orders_5765 <span class="action-comment">// check replacements</span></div><div class="action-line"><span class="action-num"> 6.</span> <span class="action-fn">unlock</span> + <span class="action-fn">call</span> get_all_user_accounts_by_user_id_3847 <span class="action-comment">// find $75 balance</span></div><div class="action-line"><span class="action-num"> 8.</span> <span class="action-fn">unlock</span> + <span class="action-fn">call</span> pay_credit_card_from_checking_9182 <span class="action-comment">// pay off balance</span></div><div class="action-line"><span class="action-num">10.</span> <span class="action-fn">unlock</span> + <span class="action-fn">call</span> get_closure_reason_history_8293 <span class="action-comment">// check previous attempts</span></div><div class="action-line"><span class="action-num">12.</span> <span class="action-fn">unlock</span> + <span class="action-fn">call</span> log_credit_card_closure_reason_4521 <span class="action-comment">// log reason: annual_fee</span></div><div class="action-line"><span class="action-num">14.</span> <span class="action-fn">unlock</span> + <span class="action-fn">call</span> apply_credit_card_account_flag_6147 <span class="action-comment">// waive annual fee</span></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Task 3 -->
+          <div class="task-card" onclick="toggleTask(this)">
+            <div class="task-card-header">
+              <div class="task-card-title">
+                <span class="task-tag sequencing">Sequencing</span>
+                Operation Sequencing with Dependencies
+              </div>
+              <span class="task-chevron">▾</span>
+            </div>
+            <div class="task-card-body">
+              <div class="task-meta-row">
+                <span class="task-meta-item"><strong>User-requested operations:</strong> 4</span>
+                <span class="task-meta-item"><strong>Required tool calls:</strong> 13</span>
+                <span class="task-meta-item"><strong>Hidden dependencies:</strong> 3</span>
+              </div>
+              <div class="task-section">
+                <div class="task-section-title">User Scenario</div>
+                <div class="task-section-content">
+                  <p>Jordan Chen wants a full banking reorganization: (1) close Bronze savings, (2) open business checking, (3) close Evergreen checking, (4) open personal savings.</p>
+                  <p><strong>Following the user's order would fail entirely.</strong> Closing any account first creates a CLOSED status that blocks the business checking application (policy: "no accounts with status CLOSED"). And closing Evergreen checking leaves only a 12-day-old account, failing the 14-day tenure requirement for opening savings.</p>
+                  <p><em>The agent must independently discover these dependencies from separate KB documents, reorder all four operations, explain the constraints to the user, and execute 13 tool calls in the correct sequence: opens first, then closures.</em></p>
+                </div>
+              </div>
+              <div class="task-section">
+                <div class="task-section-title">Expected Action Sequence</div>
+                <div class="task-actions"><div class="action-line"><span class="action-num"> 1.</span> <span class="action-fn">log_verification</span>(...)</div><div class="action-line"><span class="action-num"> 2.</span> <span class="action-fn">unlock</span> + <span class="action-fn">call</span> get_all_user_accounts_by_user_id_3847</div><div class="action-line"><span class="action-num"> 4.</span> <span class="action-fn">unlock</span> + <span class="action-fn">call</span> open_bank_account_4821 → <strong>business_checking: "Navy Blue"</strong> <span class="action-comment">// open first!</span></div><div class="action-line"><span class="action-num"> 6.</span> <span class="action-fn">call</span> open_bank_account_4821 → <strong>savings: "Silver Plus"</strong> <span class="action-comment">// open second!</span></div><div class="action-line"><span class="action-num"> 7.</span> <span class="action-fn">unlock</span> + <span class="action-fn">call</span> transfer_funds_between_bank_accounts_7291 <span class="action-comment">// drain Bronze</span></div><div class="action-line"><span class="action-num"> 9.</span> <span class="action-fn">unlock</span> + <span class="action-fn">call</span> close_bank_account_7392 <span class="action-comment">// close Bronze savings</span></div><div class="action-line"><span class="action-num">11.</span> <span class="action-fn">call</span> transfer × 2 <span class="action-comment">// drain Evergreen to savings + biz checking</span></div><div class="action-line"><span class="action-num">13.</span> <span class="action-fn">call</span> close_bank_account_7392 <span class="action-comment">// close Evergreen last</span></div></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <!-- END Task Explorer -->
+
+      <h2>Experiments</h2>
+
+      <p>We evaluate a diverse set of frontier language models — <strong>GPT-5.2</strong>, <strong>Claude-4.5-Opus</strong>, <strong>Claude-4.5-Sonnet</strong>, <strong>Gemini-3-Pro</strong>, and <strong>Gemini-3-Flash</strong> — across multiple retrieval configurations:</p>
+
+      <ul>
+        <li><strong>Dense retrieval</strong> with text-embedding-3-large and Qwen3-Embedding-8B</li>
+        <li><strong>Sparse retrieval</strong> with BM25</li>
+        <li><strong>Terminal use</strong>, where the knowledge base is exported as files and the agent navigates via shell commands (grep, cat, find, etc.)</li>
+        <li><strong>Golden retriever</strong>, where ground-truth documents are placed directly in context, removing retrieval from the evaluation</li>
+      </ul>
+
+      <p>We use the <strong>pass^k</strong> metric, defined as the probability that a task is successfully completed in all <em>k</em> independent trials, evaluating up to <em>k</em> = 4.</p>
+
+      <!-- ===== INTERACTIVE: Results Dashboard ===== -->
+      <div class="demo-block" id="results-dashboard">
+        <div class="demo-label">
+          <span class="demo-label-icon">📊</span> Results Dashboard
+        </div>
+        <div class="results-controls">
+          <label>Metric:</label>
+          <button class="metric-btn active" data-metric="pass1" onclick="switchMetric(this)">pass^1</button>
+          <button class="metric-btn" data-metric="pass2" onclick="switchMetric(this)">pass^2</button>
+          <button class="metric-btn" data-metric="pass3" onclick="switchMetric(this)">pass^3</button>
+          <button class="metric-btn" data-metric="pass4" onclick="switchMetric(this)">pass^4</button>
+        </div>
+        <div class="results-table-wrap">
+          <table class="results-table" id="results-table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Reasoning</th>
+                <th>Gold</th>
+                <th>text-emb-3-large</th>
+                <th>Qwen3-Emb</th>
+                <th>BM25</th>
+                <th>Terminal</th>
+              </tr>
+            </thead>
+            <tbody id="results-tbody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <!-- END Results Dashboard -->
+
+      <h2>Key Findings</h2>
+
+      <!-- ===== INTERACTIVE: Findings Bar Charts ===== -->
+      <div class="demo-block" id="findings-charts">
+        <div class="demo-label">
+          <span class="demo-label-icon">📊</span> Key Comparisons
+        </div>
+        <div class="findings-charts-wrap">
+          <!-- Chart 1: Domain Difficulty Comparison -->
+          <div class="findings-chart-panel">
+            <div class="findings-chart-title">Best pass^1 by τ-Bench Domain</div>
+            <div class="findings-chart-subtitle">Best model per domain · higher is easier</div>
+
+            <div class="findings-hbar-row">
+              <div class="findings-hbar-label" style="width: 100px;">
+                <div class="findings-hbar-label-main">τ-telecom</div>
+                <div class="findings-hbar-label-sub">Qwen3.5</div>
+              </div>
+              <div class="findings-hbar-track">
+                <div class="findings-hbar-fill" style="width: 97.81%; background: linear-gradient(90deg, #34d399, #10b981);"></div>
+              </div>
+              <div class="findings-hbar-val" style="color: #065f46;">97.8</div>
+            </div>
+
+            <div class="findings-hbar-row">
+              <div class="findings-hbar-label" style="width: 100px;">
+                <div class="findings-hbar-label-main">τ-airline</div>
+                <div class="findings-hbar-label-sub">Opus 4.5</div>
+              </div>
+              <div class="findings-hbar-track">
+                <div class="findings-hbar-fill" style="width: 84%; background: linear-gradient(90deg, #6ee7b7, #34d399);"></div>
+              </div>
+              <div class="findings-hbar-val" style="color: #065f46;">84.0</div>
+            </div>
+
+            <div class="findings-hbar-row">
+              <div class="findings-hbar-label" style="width: 100px;">
+                <div class="findings-hbar-label-main">τ-retail</div>
+                <div class="findings-hbar-label-sub">Qwen3.5</div>
+              </div>
+              <div class="findings-hbar-track">
+                <div class="findings-hbar-fill" style="width: 82.89%; background: linear-gradient(90deg, #6ee7b7, #34d399);"></div>
+              </div>
+              <div class="findings-hbar-val" style="color: #065f46;">82.9</div>
+            </div>
+
+            <div class="findings-hbar-row">
+              <div class="findings-hbar-label" style="width: 100px;">
+                <div class="findings-hbar-label-main" style="color: #c2410c;">τ-banking</div>
+                <div class="findings-hbar-label-sub">GPT-5.2</div>
+              </div>
+              <div class="findings-hbar-track">
+                <div class="findings-hbar-fill" style="width: 25.52%; background: linear-gradient(90deg, #fdba74, #f97316);"></div>
+              </div>
+              <div class="findings-hbar-val" style="color: #c2410c;">25.5</div>
+            </div>
+
+            <div class="findings-chart-note">
+              τ-banking is <strong>3–4× harder</strong> than existing τ-bench domains — even for the best frontier models.
+            </div>
+          </div>
+
+          <!-- Chart 2: Retrieval Method Comparison -->
+          <div class="findings-chart-panel">
+            <div class="findings-chart-title">Average pass^1 by Retrieval Method</div>
+            <div class="findings-chart-subtitle">Mean across 6 model configurations on τ-banking</div>
+
+            <div class="findings-hbar-row">
+              <div class="findings-hbar-label" style="width: 110px;">
+                <div class="findings-hbar-label-main" style="color: #065f46;">Terminal</div>
+              </div>
+              <div class="findings-hbar-track">
+                <div class="findings-hbar-fill" style="width: 80.4%; background: linear-gradient(90deg, #34d399, #059669);"></div>
+              </div>
+              <div class="findings-hbar-val" style="color: #065f46;">20.1</div>
+            </div>
+
+            <div class="findings-hbar-row">
+              <div class="findings-hbar-label" style="width: 110px;">
+                <div class="findings-hbar-label-main">Qwen3-Emb</div>
+              </div>
+              <div class="findings-hbar-track">
+                <div class="findings-hbar-fill" style="width: 70.6%; background: linear-gradient(90deg, #e2e8f0, #cbd5e1);"></div>
+              </div>
+              <div class="findings-hbar-val" style="color: #64748b;">17.7</div>
+            </div>
+
+            <div class="findings-hbar-row">
+              <div class="findings-hbar-label" style="width: 110px;">
+                <div class="findings-hbar-label-main">BM25</div>
+              </div>
+              <div class="findings-hbar-track">
+                <div class="findings-hbar-fill" style="width: 67.2%; background: linear-gradient(90deg, #e2e8f0, #cbd5e1);"></div>
+              </div>
+              <div class="findings-hbar-val" style="color: #64748b;">16.8</div>
+            </div>
+
+            <div class="findings-hbar-row">
+              <div class="findings-hbar-label" style="width: 110px;">
+                <div class="findings-hbar-label-main">text-emb-3-large</div>
+              </div>
+              <div class="findings-hbar-track">
+                <div class="findings-hbar-fill" style="width: 66.0%; background: linear-gradient(90deg, #e2e8f0, #cbd5e1);"></div>
+              </div>
+              <div class="findings-hbar-val" style="color: #64748b;">16.5</div>
+            </div>
+
+            <div class="findings-chart-note">
+              Terminal-based retrieval achieves the highest pass^1 in <strong>5 of 6</strong> model configurations, outperforming standard retrieval methods by 2.4–3.6 percentage points on average.
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- END Findings Bar Charts -->
+
+      <p><strong>τ-Knowledge is hard.</strong> The best-performing configuration — GPT-5.2 with high reasoning — achieves only <strong>25.52% pass^1</strong>. Performance degrades sharply with increasing <em>k</em>: GPT-5.2-High drops to just 13.40% pass^4. Even when gold documents are provided directly in context, the highest-scoring model (Claude-4.5-Opus-High) achieves only <strong>39.69% pass^1</strong>, falling to 26.80% pass^4. This demonstrates that success requires not just finding the right documents, but carefully <em>reasoning</em> over them.</p>
+
+      <p><strong>Reliability and efficiency diverge.</strong> Some models that underperform at pass^1 exhibit much higher consistency. For example, Claude-4.5-Sonnet underperforms Claude-4.5-Opus at pass^1 but shows a smaller reliability decline across trials, overtaking Opus at pass^4 (10.31% vs 9.28%). Meanwhile, analyzing task durations reveals dramatic differences in <strong>solution efficiency</strong>: Claude models achieve performance comparable to GPT models while completing tasks with significantly shorter durations. This stems from both reduced total token generation for Claude compared to GPT (0.7M vs 1.2M) and fewer tool calls, with Claude-4.5-Opus issuing fewer retrieval calls on average per task (<strong>8.7</strong>) compared to GPT-5.2 high reasoning (<strong>18.5</strong>).</p>
+
+      <p><strong>Freeform search strategies outperform traditional retrieval.</strong> Terminal-based retrieval — where agents navigate the knowledge base via shell commands (grep, cat, find, etc.) — achieves the highest pass^1 in 5 of 6 model configurations, outperforming standard retrieval methods by 2.4–3.6 percentage points on average. This suggests that giving agents more flexible, freeform search strategies yields better results than constrained retrieval pipelines. We also observe meaningful differences in search frequency — dense retrieval averages 9.9–10.1 searches per task compared to 11.4 for BM25 and 14.5 grep calls in terminal-use — with a median turn time increase of 6.6 seconds for terminal-use relative to dense retrieval configurations.</p>
+
+      <h2>How Agents Fail</h2>
+
+      <p>Our qualitative analysis of agent trajectories reveals four recurring failure modes:</p>
+
+      <ul>
+        <li><strong>Complex product interdependencies.</strong> Products and policies are deeply interdependent, requiring multi-hop reasoning across documents. Agents frequently chase promotional bonuses while missing that alternative products offer better base rates — recommending suboptimal product combinations despite satisfying surface-level incentives.</li>
+        <li><strong>Implicit subtask ordering.</strong> Some tasks involve hidden dependencies between actions. For instance, filing a dispute before requesting a credit limit increase — because the bank policy automatically rejects credit limit requests when disputes are pending. Agents tend to execute actions in the order presented by the user rather than reasoning about these constraints.</li>
+        <li><strong>Overtrusting user assertions.</strong> Agents take user-provided statements at face value without verifying them against the system state. For example, when a user claims "all my disputes have been approved," many agents proceed to apply credits without checking the actual dispute status.</li>
+        <li><strong>Search inefficiency and assumptions.</strong> Rather than clarifying ambiguity through targeted questions or searches, agents make unwarranted assumptions. When a user asks "which account has the highest referral bonus" without specifying an account type, agents often immediately assume credit cards — despite available documentation covering referral programs for other account types.</li>
+      </ul>
+
+      <!-- ===== INTERACTIVE: Conversation Trace ===== -->
+      <div class="demo-block" id="convo-trace">
+        <div class="demo-label">
+          <span class="demo-label-icon">💬</span> Sample Conversation Trace
+        </div>
+        <div class="convo-viewer">
+          <div class="convo-task-label">
+            <span class="convo-task-badge">Task 077 · Lost Wallet with Multiple Cards · GPT-5.2 High</span>
+          </div>
+
+          <!-- Turn 1: User -->
+          <div class="convo-msg user">
+            <div class="convo-avatar">U</div>
+            <div class="convo-bubble">
+              <div class="convo-text">Hi, I think I might have lost my wallet with both of my debit cards in it. I have two checking accounts — my Bluest Account and my Light Green Account. I've been looking everywhere...</div>
+            </div>
+          </div>
+
+          <!-- Turn 2: Agent (search + response) -->
+          <div class="convo-msg agent">
+            <div class="convo-avatar">A</div>
+            <div class="convo-bubble">
+              <div class="convo-tool-calls">
+                <div class="convo-tool-line"><span class="convo-tool-icon">🔍</span> KB_search("lost wallet debit card freeze lock replace...")</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">🔍</span> KB_search("close debit card procedure close_debit_card card_id...")</div>
+              </div>
+              <div class="convo-text">I can help you secure both debit cards right away. Since you're not 100% sure the wallet is gone, the best immediate step is to <strong>freeze</strong> both debit cards...</div>
+            </div>
+          </div>
+
+          <!-- Turn 3: User -->
+          <div class="convo-msg user">
+            <div class="convo-avatar">U</div>
+            <div class="convo-bubble">
+              <div class="convo-text">Yes, please freeze <strong>BOTH</strong> cards right away. For verification: Email: jinhai.liang@techventures.com, DOB: 04/12/2002, Phone: 312-555-0847</div>
+            </div>
+          </div>
+
+          <!-- Turn 4: Agent (verification + freeze) -->
+          <div class="convo-msg agent">
+            <div class="convo-avatar">A</div>
+            <div class="convo-bubble">
+              <div class="convo-tool-calls">
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> get_user_information_by_email("jinhai.liang@...")</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> log_verification(name="Liang Jinhai", user_id="lj82d4f1a9", ...)</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">🔓</span> unlock get_all_user_accounts_by_user_id_3847</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> call get_all_user_accounts_by_user_id_3847</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">🔓</span> unlock get_debit_cards_by_account_id_7823</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">🔓</span> unlock freeze_debit_card_3892</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> get_debit_cards... × 2 (for each account)</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> freeze_debit_card_3892(card_id="dbc_lj82d4f1a9_bluest")</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> freeze_debit_card_3892(card_id="dbc_538bfb9cba")</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> get_credit_card_accounts_by_user(user_id="lj82d4f1a9")</div>
+              </div>
+              <div class="convo-text">Done — I've <strong>frozen BOTH debit cards</strong>. I also see you have a <strong>Silver Rewards credit card</strong>. Was that card also in the wallet?</div>
+            </div>
+          </div>
+
+          <!-- Turn 5: User -->
+          <div class="convo-msg user">
+            <div class="convo-avatar">U</div>
+            <div class="convo-bubble">
+              <div class="convo-text">Oh wow, I completely forgot — yes, my Silver Rewards credit card was in my wallet too!</div>
+            </div>
+          </div>
+
+          <!-- Turn 6: Agent (credit card) -->
+          <div class="convo-msg agent">
+            <div class="convo-avatar">A</div>
+            <div class="convo-bubble">
+              <div class="convo-tool-calls">
+                <div class="convo-tool-line"><span class="convo-tool-icon">🔍</span> KB_search("lock credit card freeze credit card temporarily...")</div>
+              </div>
+              <div class="convo-text">Since your Silver Rewards credit card was also in the wallet, the safest move is to <strong>replace the credit card</strong>...</div>
+            </div>
+          </div>
+
+          <!-- Turn 7: User -->
+          <div class="convo-msg user">
+            <div class="convo-avatar">U</div>
+            <div class="convo-bubble">
+              <div class="convo-text">Yes, please do that. Replacement reason: <strong>Lost</strong>. Shipping address: 1420 Lake Shore Drive, Chicago, IL 60610. Shipping speed: <strong>Standard</strong> please.</div>
+            </div>
+          </div>
+
+          <!-- Turn 8: Agent (order replacement) -->
+          <div class="convo-msg agent">
+            <div class="convo-avatar">A</div>
+            <div class="convo-bubble">
+              <div class="convo-tool-calls">
+                <div class="convo-tool-line"><span class="convo-tool-icon">🔓</span> unlock order_replacement_credit_card_7291</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> get_pending_replacement_orders_5765(...)</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> order_replacement_credit_card_7291(credit_card_account_id="cc_lj82d4f1a9_silver", reason="lost", ...)</div>
+              </div>
+              <div class="convo-text">All set — I've placed a replacement order for your Silver Rewards credit card.</div>
+            </div>
+          </div>
+
+          <!-- Turn 9: User (escalation) -->
+          <div class="convo-msg user">
+            <div class="convo-avatar">U</div>
+            <div class="convo-bubble">
+              <div class="convo-text">I've now looked absolutely everywhere... My wallet is definitely gone. I need to <strong>cancel both debit cards completely</strong> and get new ones for each account.</div>
+            </div>
+          </div>
+
+          <!-- Turn 10: Agent (KB search + plan) -->
+          <div class="convo-msg agent">
+            <div class="convo-avatar">A</div>
+            <div class="convo-bubble">
+              <div class="convo-tool-calls">
+                <div class="convo-tool-line"><span class="convo-tool-icon">🔍</span> KB_search("Bluest Account tier premium debit card replacement...")</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">🔍</span> KB_search("checking account tier mapping entry tier mid tier...")</div>
+              </div>
+              <div class="convo-text">Your Light Green Account is Entry Tier with a 48-hour waiting period after closure before ordering a replacement...</div>
+            </div>
+          </div>
+
+          <!-- Turn 11: User -->
+          <div class="convo-msg user">
+            <div class="convo-avatar">U</div>
+            <div class="convo-bubble">
+              <div class="convo-text">Let's do <strong>Option A</strong> — close both debit cards now. For Bluest: Ship to 1420 Lake Shore Drive, Classic design, Standard shipping.</div>
+            </div>
+          </div>
+
+          <!-- Turn 12: Agent (cancel + order) -->
+          <div class="convo-msg agent">
+            <div class="convo-avatar">A</div>
+            <div class="convo-bubble">
+              <div class="convo-tool-calls">
+                <div class="convo-tool-line"><span class="convo-tool-icon">🔓</span> unlock unfreeze_debit_card_3893</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">🔓</span> unlock close_debit_card_4721</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">🔓</span> unlock get_bank_account_transactions_9173</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">🔓</span> unlock order_debit_card_5739</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> get_bank_account_transactions × 2</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> unfreeze_debit_card_3893 × 2</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> close_debit_card_4721(card_id="dbc_lj82d4f1a9_bluest", reason="lost")</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> close_debit_card_4721(card_id="dbc_538bfb9cba", reason="lost")</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> order_debit_card_5739(account_id="chk_lj82d4f1a9", delivery_option="STANDARD", card_design="CLASSIC", ...)</div>
+              </div>
+              <div class="convo-text">Done. Both debit cards permanently cancelled. Bluest replacement ordered.</div>
+            </div>
+          </div>
+
+          <!-- Turn 13: User -->
+          <div class="convo-msg user">
+            <div class="convo-avatar">U</div>
+            <div class="convo-bubble">
+              <div class="convo-text">Great news — my <strong>Bluest Account replacement card just arrived</strong>. Can you help me activate it?</div>
+            </div>
+          </div>
+
+          <!-- Turn 14: Agent (activate) -->
+          <div class="convo-msg agent">
+            <div class="convo-avatar">A</div>
+            <div class="convo-bubble">
+              <div class="convo-tool-calls">
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> get_debit_cards_by_account_id_7823(...)</div>
+                <div class="convo-tool-line"><span class="convo-tool-icon">🔓</span> unlock activate_debit_card_8292</div>
+              </div>
+              <div class="convo-text">I located your new Bluest replacement debit card (ending 7260). Please share the last 4 digits, expiration date, CVV, and your desired PIN to activate.</div>
+            </div>
+          </div>
+
+          <!-- Turn 15: User -->
+          <div class="convo-msg user">
+            <div class="convo-avatar">U</div>
+            <div class="convo-bubble">
+              <div class="convo-text">Last 4 digits: <strong>7260</strong>, expiration: <strong>11/29</strong>, CVV: <strong>741</strong>. PIN: <strong>5739</strong>.</div>
+            </div>
+          </div>
+
+          <!-- Turn 16: Agent (final activation) -->
+          <div class="convo-msg agent">
+            <div class="convo-avatar">A</div>
+            <div class="convo-bubble">
+              <div class="convo-tool-calls">
+                <div class="convo-tool-line"><span class="convo-tool-icon">⚙️</span> activate_debit_card_8292(card_id="dbc_8eed7b16caeb", last_4="7260", exp="11/29", cvv="741", pin="5739")</div>
+              </div>
+              <div class="convo-text">Your Bluest replacement debit card is now <strong>activated</strong> and ready to use.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <!-- END Conversation Trace -->
+
+      <h2>Why Solution Efficiency Matters</h2>
+
+      <p>A central theme of our findings is that <strong>solution efficiency</strong> — the ability to reach correct, policy-compliant outcomes with minimal time, tool calls, and conversational backtracking — should be a first-class evaluation metric for human-facing agents. Extra turns translate into longer resolution times, higher cognitive burden, and reduced trust, especially for time-sensitive support scenarios like a lost credit card or unrecognized transactions.</p>
+
+      <p>Progress on human-facing agents should be measured not only by final task success but also by how efficiently agents achieve it.</p>
+
+      <h2>Looking Forward</h2>
+
+      <p>The scores on τ-knowledge are low, and we believe that's the point. With the best frontier model reaching only ~26% pass^1, there is enormous room for improvement. Unlike web search, where the corpus is functionally unbounded, τ-knowledge evaluates agents over a <strong>finite, closed knowledge base</strong>. This is how search actually works in most real-world deployments: customer support agents, internal tools, enterprise platforms, and regulated industries all operate over bounded, curated documentation. An agent that can't reliably navigate a few hundred documents has no business being trusted with open-ended retrieval.</p>
+
+      <p>We invite model providers and agent developers to use τ-knowledge as a meaningful measure of an agent's ability to search, reason, and act over unstructured but finite data. The benchmark is open, the tasks are verifiable, and the gap between current performance and reliable deployment is clear.</p>
+
+      <p>For full details, see our <a href="https://arxiv.org/abs/2506.07982">paper</a> and <a href="https://github.com/sierra-research/tau2-bench">code</a>.</p>
+    </div>
+
+    <div class="blog-divider"></div>
+
+    <a href="/" class="back-link">
+      ← Back to τ-bench Leaderboard
+    </a>
+  </div>
+
+  <script>
+    // =============================================
+    // Knowledge Base Document Browser
+    // =============================================
+    const kbDocs = [
+      {
+        id: 'green-checking',
+        title: 'Green Account (Checking) at a Glance',
+        category: 'product',
+        catLabel: 'Product',
+        icon: '🏦',
+        content: `<h2>Highlights</h2>
+<ul>
+<li>No overdraft fees and no overdraft coverage; transactions that exceed your available balance are declined</li>
+<li>Earn 0.11% APY on your checking balance</li>
+<li>Get direct deposits up to 1 day early</li>
+<li>Mobile check deposits up to $3,000 per day</li>
+<li>Boost a linked savings account's APY: Gold +0.75% or Silver +0.25%</li>
+</ul>
+<h2>Fees and Limits</h2>
+<table>
+<tr><th>Item</th><th>Amount</th></tr>
+<tr><td>Monthly maintenance fee</td><td>$22.50</td></tr>
+<tr><td>Minimum daily balance to waive fee</td><td>$1,350</td></tr>
+<tr><td>Paper statement fee (monthly)</td><td>$2.50</td></tr>
+<tr><td>Out-of-network ATM withdrawal fee</td><td>$3.00</td></tr>
+<tr><td>Returned deposit fee</td><td>$17.50</td></tr>
+<tr><td>Incoming domestic wire (receive)</td><td>$15.00</td></tr>
+<tr><td>APY on balance</td><td>0.11%</td></tr>
+<tr><td>Daily mobile check deposit limit</td><td>$3,000</td></tr>
+<tr><td>Early direct deposit</td><td>Up to 1 day early</td></tr>
+</table>
+<h2>Referral Program</h2>
+<ul>
+<li>You earn: $20 per successful referral</li>
+<li>They receive: $30 welcome bonus</li>
+<li>Maximum referrals per year: 5</li>
+<li>Qualifying deposit required: $500 within 60 days</li>
+<li>Account tenure requirement: 30 days since becoming a Rho-Bank checking customer</li>
+</ul>
+<h2>Important Details</h2>
+<ul>
+<li>To avoid the monthly maintenance fee, maintain a minimum daily balance of $1,350 each statement cycle</li>
+<li>If you opt for paper statements, a $2.50 monthly fee applies</li>
+<li>Using a non-network ATM incurs a $3.00 fee; the ATM owner may charge additional fees</li>
+<li>Deposited checks returned unpaid result in a $17.50 fee</li>
+<li>Receiving a domestic wire transfer costs $15.00</li>
+<li>Early direct deposit availability depends on when your payer submits the deposit; funds can post up to 1 day early</li>
+<li>Savings APY boosts apply when you link an eligible Gold or Silver Savings Account: +0.75% or +0.25% respectively</li>
+</ul>`
+      },
+      {
+        id: 'bluest-account',
+        title: 'Bluest Account at a Glance',
+        category: 'product',
+        catLabel: 'Product',
+        icon: '🏦',
+        content: `<h2>Key Figures</h2>
+<table>
+<tr><th>Item</th><th>Value</th></tr>
+<tr><td>Minimum opening deposit</td><td>$75,000</td></tr>
+<tr><td>Minimum daily balance to maintain benefits</td><td>$112,500</td></tr>
+<tr><td>Annual Percentage Yield (APY)</td><td>2.25%</td></tr>
+<tr><td>Complimentary domestic wire transfers per month</td><td>10</td></tr>
+<tr><td>International wire fee (outbound)</td><td>$12.50 per transfer</td></tr>
+<tr><td>Complimentary personal check orders per year</td><td>3</td></tr>
+<tr><td>ATM fee rebates cap per month</td><td>Up to $50</td></tr>
+<tr><td>Safe deposit box rental discount</td><td>75%</td></tr>
+<tr><td>Incoming domestic wire fee</td><td>$0.00</td></tr>
+<tr><td>Mobile check deposit limit (daily)</td><td>$10,000</td></tr>
+<tr><td>Early direct deposit</td><td>2 day(s) before payday</td></tr>
+</table>
+<h2>How to Use This Summary</h2>
+<ul>
+<li>Use the APY and balance details to plan how you keep funds in the account</li>
+<li>Track monthly caps for ATM rebates and complimentary wires so you can maximize value</li>
+<li>Remember that incoming domestic wires are credited without an incoming fee</li>
+<li>If you need higher-volume check usage, note your complimentary orders per year</li>
+<li>Get paid 2 day(s) early with direct deposit</li>
+</ul>`
+      },
+      {
+        id: 'gold-rewards',
+        title: 'Gold Rewards Card: Apply for a Premium Credit Card',
+        category: 'product',
+        catLabel: 'Product',
+        icon: '💳',
+        content: `<h2>Eligibility and Key Terms</h2>
+<ul>
+<li>Minimum credit score required: 720</li>
+<li>Rho\u2011Bank+ premium subscription required: Yes</li>
+<li>Annual fee: $0.00</li>
+<li>Cash back on all purchases: 2.5%</li>
+<li>APR on carried balances: 17.99%</li>
+<li>Foreign transaction fee: 0%</li>
+<li>Late payment fee: $32.50</li>
+<li>Minimum rewards needed to redeem: $15</li>
+<li>Purchase protection: 105 days from purchase, up to $7,500 per covered claim</li>
+<li>Virtual card management available: Yes</li>
+</ul>
+<h2>Credit Limits</h2>
+<p>Approved credit limits typically range from $17,500 to $112,500. Your initial limit is determined during underwriting based on your credit profile and supplied financial information.</p>
+<h2>How to Apply</h2>
+<ol>
+<li>Confirm you have an active Rho\u2011Bank+ subscription (required: Yes).</li>
+<li>Prepare documentation typically requested during credit evaluation (e.g., government ID, income details, and address verification).</li>
+<li>Complete the application in your Rho\u2011Bank dashboard and consent to a credit pull (minimum score: 720).</li>
+<li>Review key terms before submission.</li>
+<li>Submit and monitor your application status.</li>
+<li>Upon approval, your initial limit will be set within $17,500–$112,500.</li>
+</ol>
+<h2>After Approval</h2>
+<ul>
+<li>If enabled on your account, you can create and manage virtual cards immediately.</li>
+<li>Purchases made after activation begin earning cash back at 2.5% and are covered by purchase protection for 105 days up to $7,500 per claim.</li>
+</ul>`
+      },
+      {
+        id: 'diamond-elite',
+        title: 'Diamond Elite Savings Account: Complete Guide',
+        category: 'product',
+        catLabel: 'Product',
+        icon: '💎',
+        content: `<h2>What You Earn</h2>
+<p>Your balance accrues at 7.5% APY.</p>
+<h2>Deposits</h2>
+<p>Mobile check deposits are permitted up to $100,000 per day.</p>
+<h2>Transfers and Payments</h2>
+<ul>
+<li>You can transfer out up to $500,000 per day</li>
+<li>External bank transfers complete in 0 business days</li>
+<li>All wire transfer fees are waived</li>
+</ul>
+<h2>Quick Reference</h2>
+<table>
+<tr><th>Category</th><th>Detail</th></tr>
+<tr><td>APY</td><td>7.5%</td></tr>
+<tr><td>Mobile deposit daily limit</td><td>$100,000</td></tr>
+<tr><td>Max daily outbound transfers</td><td>$500,000</td></tr>
+<tr><td>Monthly maintenance fee</td><td>$0.00</td></tr>
+<tr><td>Monthly withdrawal limit</td><td>Unlimited</td></tr>
+<tr><td>Wire transfer fees</td><td>Waived</td></tr>
+<tr><td>Private banker access</td><td>Yes</td></tr>
+<tr><td>Investment advisory included</td><td>Yes</td></tr>
+<tr><td>Exclusive event access</td><td>Yes</td></tr>
+</table>`
+      },
+      {
+        id: 'crypto-cashback',
+        title: 'Crypto-Cash Back: Getting Started with Crypto Rewards',
+        category: 'product',
+        catLabel: 'Product',
+        icon: '₿',
+        content: `<h2>Before You Begin</h2>
+<ul>
+<li>Confirm that crypto redemptions are available on your account: Yes</li>
+<li>Note that purchase protection on this card is: No</li>
+</ul>
+<h2>How to Start Earning Rewards You Can Redeem in Crypto</h2>
+<ol>
+<li>Make eligible purchases with your card. You earn rewards at 2.0% on those transactions.</li>
+<li>Track your reward balance in the app. You can prepare for crypto redemption once your balance reaches at least $30.</li>
+<li>If you prefer to segregate spending for specific projects or merchants, use virtual cards (when available) to organize and monitor reward accrual.</li>
+</ol>
+<h2>When You're Ready to Redeem</h2>
+<ul>
+<li>Verify your reward balance has met the $30 requirement</li>
+<li>Proceed to the crypto redemption flow in the app to choose your cryptocurrency and destination wallet</li>
+</ul>
+<h2>Common Questions at Setup</h2>
+<table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>How much do I earn per purchase?</td><td>2.0%</td></tr>
+<tr><td>What is the minimum balance to redeem to crypto?</td><td>$30</td></tr>
+<tr><td>Can I organize spending with virtual cards?</td><td>Yes</td></tr>
+</table>`
+      },
+      {
+        id: 'rho-bank-plus',
+        title: 'Rho Bank Plus: Premium Membership Overview and Benefits',
+        category: 'product',
+        catLabel: 'Product',
+        icon: '⭐',
+        content: `<h2>What You Pay</h2>
+<p>Your Rho Bank Plus membership is billed at $4.99 each month.</p>
+<h2>What's Included Each Month</h2>
+<table>
+<tr><th>Benefit</th><th>Monthly Inclusion</th></tr>
+<tr><td>Professional research reports</td><td>6 new reports</td></tr>
+<tr><td>Financial advisor consultation</td><td>2 hours of complimentary time</td></tr>
+<tr><td>Out-of-network ATM fee reimbursements</td><td>Up to $32 in eligible fee reimbursements</td></tr>
+</table>
+<h2>Research Reports</h2>
+<ul>
+<li>Access new professional research reports as they are released, up to 6 per month</li>
+<li>Download reports from your Rho-Bank account to review forecasts, methodologies, and investment theses</li>
+<li>You can save reports to your library for later reference and compare month-over-month updates</li>
+</ul>
+<h2>Financial Advisor Consultations</h2>
+<ul>
+<li>You receive 2 hours of complimentary consultation time each month</li>
+<li>Use your time for portfolio check-ins, allocation discussions, or strategy reviews</li>
+<li>Book sessions from your Rho-Bank account; you will see your remaining monthly hours before confirming an appointment</li>
+</ul>
+<h2>ATM Fee Reimbursements</h2>
+<ul>
+<li>We reimburse eligible out-of-network ATM operator fees charged to your Rho-Bank debit card, up to $32 per month</li>
+<li>Reimbursements apply only to fees charged by the ATM operator; currency conversion or other third-party charges may not be eligible</li>
+</ul>`
+      },
+      {
+        id: 'split-the-bill',
+        title: 'Split-the-Bill: Complete Guide',
+        category: 'product',
+        catLabel: 'Product',
+        icon: '🤝',
+        content: `<h2>Key Limits and Timelines</h2>
+<table>
+<tr><th>Limit</th><th>Value</th></tr>
+<tr><td>Maximum participants per group</td><td>30</td></tr>
+<tr><td>Maximum total amount that can be split</td><td>$5,500</td></tr>
+<tr><td>Payment due date after creation</td><td>16 days</td></tr>
+<tr><td>Automatic reminder cadence</td><td>Every 4 days</td></tr>
+</table>
+<h2>Creating and Sending a Split</h2>
+<ul>
+<li>Confirm the total you intend to split is at or below $5,500. If it exceeds this limit, reduce the total or break it into multiple splits.</li>
+<li>Add participants up to the cap of 30. You can invite fewer; you cannot exceed this cap.</li>
+<li>Set each member's share according to your preferred method, then review and send the request.</li>
+</ul>
+<h2>Tracking Collection Status</h2>
+<ul>
+<li>After sending, monitor each participant's status in the split details. You'll see who has paid and who is outstanding.</li>
+<li>Automatic reminders go out on a recurring basis every 4 days. You can also nudge members manually if needed.</li>
+</ul>
+<h2>Due Dates and What Happens Next</h2>
+<ul>
+<li>Each member's payment is due within 16 days from creation</li>
+<li>Before the due date, outstanding members will continue to receive reminders at the 4-day interval</li>
+<li>If the due date passes, review outstanding balances and decide whether to extend, resend, or resolve the split</li>
+</ul>`
+      },
+      {
+        id: 'retention-protocol',
+        title: 'Internal: Credit Card Retention Protocol',
+        category: 'policy',
+        catLabel: 'Policy',
+        icon: '📋',
+        content: `<h2>Step 1: Verify Closure Eligibility</h2>
+<p>Before attempting retention, confirm the customer is eligible to close their account. Check these in order:</p>
+<ol>
+<li><strong>Pending disputes:</strong> The account must not have any active or pending transaction disputes.</li>
+<li><strong>No pending replacement cards:</strong> If a replacement has been ordered and not yet received or activated, a closure cannot proceed.</li>
+<li><strong>Minimum account age:</strong> The account must be open for at least 60 days.</li>
+<li><strong>Outstanding balance:</strong> The account must have no outstanding balance.</li>
+</ol>
+<h2>Step 2: Check for Previous Retention Attempts (Abuse Prevention)</h2>
+<p>Use the <code>get_closure_reason_history_8293</code> tool to determine whether this specific credit card account has any closure reason records within the past year. If records exist for this account within that time frame, skip retention offers and proceed directly to processing the closure.</p>
+<h2>Step 3: Understand and Log the Reason</h2>
+<p>Ask the customer why they want to close their account. Then log it using <code>log_credit_card_closure_reason_4521</code>.</p>
+<p>Accepted reasons: <code>annual_fee</code>, <code>not_using_card</code>, <code>found_better_card</code>, <code>unhappy_with_rewards</code>, <code>simplifying_finances</code>, <code>negative_experience</code>, <code>other</code></p>
+<h2>Step 4: Address the Concern</h2>
+<ul>
+<li><strong>Annual fee concerns:</strong> If they have been a customer for 2+ years, offer to waive their annual fee for one year as a loyalty benefit. If less than 2 years, offer a permanent downgrade to a no-annual-fee card while preserving account history.</li>
+<li><strong>Not using the card:</strong> Remind them of benefits they may be missing and suggest setting up a recurring subscription to keep the card active.</li>
+<li><strong>Found a better card:</strong> Ask what features attracted them. If Rho-Bank offers a card with similar or better benefits, offer to help them apply instead of closing the current account.</li>
+<li><strong>Unhappy with rewards:</strong> Check enrollment in available bonus categories and suggest ways to maximize rewards based on spending patterns.</li>
+<li><strong>Negative experience:</strong> Apologize and gather details. Escalate to a supervisor if warranted.</li>
+</ul>
+<h2>Step 5: Make a Retention Offer</h2>
+<ul>
+<li><strong>Entry-tier cards:</strong> Offer 500 bonus points or a $5 statement credit</li>
+<li><strong>Mid-tier cards:</strong> Offer 2,000 bonus points or a $20 statement credit</li>
+<li><strong>Premium and above:</strong> Offer 5,000 bonus points or a $50 statement credit</li>
+</ul>
+<h2>Step 6: Accept the Decision</h2>
+<p>If the customer declines the retention offer (or was ineligible due to prior attempts), thank them for being a Rho-Bank customer and proceed with closure. Do not apply pressure.</p>
+<h2>Important Reminders</h2>
+<ul>
+<li>Inform the customer they have 45 days after submitting the closure request to redeem unredeemed rewards; after that, rewards are forfeited.</li>
+<li>If the annual fee posted recently, advise that a full refund may be available if the closure occurs within 37 days of the fee being charged.</li>
+</ul>`
+      },
+      {
+        id: 'closing-accounts',
+        title: 'Internal: Closing Personal Checking Accounts',
+        category: 'policy',
+        catLabel: 'Policy',
+        icon: '📋',
+        content: `<h2>Pre-Closure Requirements</h2>
+<p>Verify all of the following before closing:</p>
+<ul>
+<li>If an early closure fee applies, the account balance must be at least the fee amount; otherwise, account balance must be $0</li>
+<li>Account status is OPEN</li>
+<li>No pending transactions for this account</li>
+</ul>
+<h2>Tier-Specific Closure Requirements</h2>
+<table>
+<tr><th>Tier</th><th>Accounts</th><th>Early Closure Fee</th><th>Window</th><th>Notice Period</th></tr>
+<tr><td>Entry</td><td>Light Blue, Light Green, Green Fee-Free</td><td>$15</td><td>30 days</td><td>0 days</td></tr>
+<tr><td>Mid</td><td>Blue Account, Green Account</td><td>$25</td><td>60 days</td><td>3 days</td></tr>
+<tr><td>Premium</td><td>Evergreen Account</td><td>$50</td><td>90 days</td><td>7 days</td></tr>
+<tr><td>Elite</td><td>Bluest Account</td><td>$100</td><td>180 days</td><td>14 days</td></tr>
+</table>
+<h2>Closure Procedure</h2>
+<ol>
+<li>Verify pre-closure requirements are met</li>
+<li>Determine the account tier and applicable fees/notice period</li>
+<li>Use <code>close_bank_account_7392</code> to close the account</li>
+</ol>`
+      },
+      {
+        id: 'cli-processing',
+        title: 'Internal: Processing CLI Approvals and Denials',
+        category: 'policy',
+        catLabel: 'Policy',
+        icon: '📋',
+        content: `<h2>Purpose</h2>
+<p>This document outlines the step-by-step workflow for agents to process credit limit increase (CLI) requests, including verification and final decision. These steps MUST be followed in the exact order listed.</p>
+<h2>Step 0: Confirm Requested Amount is Within Limits</h2>
+<p>Before submitting any CLI request, verify that the customer's requested increase amount is within the maximum allowed for their card tier. If the requested amount exceeds the limit, inform the customer of the maximum allowed.</p>
+<h2>Step 1: Submit the CLI Request</h2>
+<p>Once the customer has confirmed a valid increase amount, submit the request using <code>submit_credit_limit_increase_request_7392</code>. This creates a formal record before eligibility checks.</p>
+<h2>Step 2: Verify Basic Eligibility</h2>
+<p>After submitting the request, verify ALL of the following eligibility criteria:</p>
+<ol>
+<li><strong>Account Age:</strong> Verify the account has been open for the minimum required days for their card tier</li>
+<li><strong>Cooldown Period:</strong> Use <code>get_credit_limit_increase_history_4829</code> to check for recent requests</li>
+<li><strong>No Pending Disputes:</strong> Verify no active disputes</li>
+<li><strong>No Pending Replacement Cards:</strong> Verify no outstanding replacement card orders</li>
+<li><strong>Account Good Standing:</strong> The account must be current with no past-due balance</li>
+<li><strong>Credit Utilization:</strong> Verify current utilization is below the maximum threshold for their card tier</li>
+</ol>
+<h2>Step 3: Verify Payment History</h2>
+<p>Check payment history meets tier requirements. Entry-tier requires 6 consecutive months on-time; Mid and Premium require 3 months.</p>
+<h2>Step 4: Process the Decision</h2>
+<ul>
+<li><strong>If approved:</strong> Use <code>approve_credit_limit_increase_5847</code> to apply the increase</li>
+<li><strong>If denied:</strong> Use <code>deny_credit_limit_increase_5848</code> to record denial with reason</li>
+</ul>
+<h2>Step 5: Communicate the Decision</h2>
+<p>Inform the customer of the decision and provide next steps. For approvals, confirm the new credit limit. For denials, explain the reason and when they may reapply.</p>`
+      },
+      {
+        id: 'replacement-card',
+        title: 'How to Order a Replacement Credit Card (Internal)',
+        category: 'tool',
+        catLabel: 'Tool',
+        icon: '🔧',
+        content: `<h2>Before You Order</h2>
+<ul>
+<li>Verify the customer's identity using standard verification procedures</li>
+<li>Look up the customer's credit card account</li>
+<li>Confirm the shipping address with the customer</li>
+<li>Ask for the replacement reason: <code>fraud_suspected</code>, <code>lost</code>, <code>stolen</code>, <code>damaged</code>, <code>expired</code>, or <code>other</code></li>
+<li>Ask whether they want expedited shipping</li>
+<li>Confirm eligibility for replacement before proceeding</li>
+</ul>
+<h2>Shipping Selection</h2>
+<table>
+<tr><th>Speed</th><th>Timeline</th><th>Fee Details</th></tr>
+<tr><td>Standard</td><td>7–10 business days</td><td>No fee</td></tr>
+<tr><td>Expedited</td><td>2–3 business days</td><td>Varies by tier</td></tr>
+</table>
+<p><strong>Expedited fees by tier:</strong></p>
+<ul>
+<li>Entry-tier (Bronze Rewards, EcoCard, Business Bronze): $15.00</li>
+<li>Mid-tier (Silver Rewards, Business Silver, Green Rewards, Silver Zoom): $10.00</li>
+<li>Premium-tier and above (Gold, Platinum, Diamond Elite): $0.00 (complimentary)</li>
+</ul>
+<h2>Tool Workflow</h2>
+<ol>
+<li><strong>Unlock the tool:</strong> Use <code>unlock_discoverable_agent_tool</code> with tool_name: <code>order_replacement_credit_card_7291</code></li>
+<li><strong>Call the tool:</strong> Use <code>call_discoverable_agent_tool</code> with tool_name: <code>order_replacement_credit_card_7291</code> and include: account_id, reason, shipping_address, shipping_speed, expedited_fee_acknowledgement, and notes</li>
+</ol>
+<h2>After You Submit the Order</h2>
+<ul>
+<li>The old card is automatically cancelled for security and will no longer work for new purchases</li>
+<li>Communicate the expected delivery window based on the selected method</li>
+<li>Advise the customer to watch for email notifications when the order is placed and when the card ships</li>
+<li>If the reason was fraud_suspected or stolen, remind the customer to review recent transactions and dispute any unauthorized charges</li>
+</ul>`
+      },
+      {
+        id: 'auto-sweep',
+        title: 'Automatic Sweep: How Nightly Fund Transfers Work',
+        category: 'tool',
+        catLabel: 'Tool',
+        icon: '🔧',
+        content: `<h2>When Transfers Run</h2>
+<ul>
+<li>Your sweep executes at 11:00 PM</li>
+<li>The program evaluates your checking balance at that time to determine any excess funds</li>
+</ul>
+<h2>How the Sweep Amount is Determined</h2>
+<ul>
+<li>The system identifies available excess above your configured target minimum in checking</li>
+<li>That excess is transferred to your linked savings as a consolidated sweep</li>
+</ul>
+<h2>What Happens If Funds Are Needed Back</h2>
+<p>Reverse sweeps are available. When enabled, if your checking balance drops below your target minimum after the nightly sweep, funds can be returned from savings to restore the target, subject to availability.</p>
+<h2>Posting Order and Next-Cycle Adjustments</h2>
+<ul>
+<li>Transactions posted before the sweep run are included in the calculation</li>
+<li>Items that post after the run are reflected in the next cycle's evaluation</li>
+</ul>`
+      },
+    ];
+
+    let kbActiveFilter = 'all';
+    let kbActiveDoc = null;
+
+    function filterDocs(btn) {
+      document.querySelectorAll('.kb-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      kbActiveFilter = btn.dataset.cat;
+      renderDocList();
+    }
+
+    function selectDoc(id) {
+      kbActiveDoc = id;
+      // Update list highlight
+      document.querySelectorAll('.kb-doc-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.id === id);
+      });
+      // Render content
+      const doc = kbDocs.find(d => d.id === id);
+      if (!doc) return;
+      const reader = document.getElementById('kb-reader');
+      reader.innerHTML = `
+        <div class="kb-reader-title">${doc.title}</div>
+        <span class="kb-reader-cat-badge ${doc.category}">${doc.catLabel}</span>
+        <div class="kb-reader-body">${doc.content}</div>
+      `;
+    }
+
+    function renderDocList() {
+      const list = document.getElementById('kb-doc-list');
+      const filtered = kbActiveFilter === 'all'
+        ? kbDocs
+        : kbDocs.filter(d => d.category === kbActiveFilter);
+
+      list.innerHTML = filtered.map(doc => `
+        <div class="kb-doc-item${kbActiveDoc === doc.id ? ' active' : ''}" data-id="${doc.id}" onclick="selectDoc('${doc.id}')">
+          <div class="kb-doc-item-icon ${doc.category}">${doc.icon}</div>
+          <div class="kb-doc-item-info">
+            <div class="kb-doc-item-title">${doc.title}</div>
+            <div class="kb-doc-item-cat">${doc.catLabel}</div>
+          </div>
+        </div>
+      `).join('');
+
+      document.getElementById('kb-doc-counter').textContent = filtered.length + ' of ' + kbDocs.length + ' documents';
+    }
+
+    // Initialize
+    renderDocList();
+    selectDoc(kbDocs[0].id);
+
+    // =============================================
+    // Task Accordion
+    // =============================================
+    function toggleTask(card) {
+      // Close others
+      document.querySelectorAll('.task-card').forEach(c => {
+        if (c !== card) c.classList.remove('open');
+      });
+      card.classList.toggle('open');
+    }
+
+    // =============================================
+    // Results Dashboard
+    // =============================================
+    const resultsData = [
+      // [model, reasoning, {pass1: [gold, emb3, qwen, bm25, terminal], pass2: [...], ...}]
+      {
+        model: "GPT-5.2", reasoning: "High", sep: false,
+        pass1: [32.73, 23.45, 24.74, 24.48, 25.52],
+        pass2: [24.23, 15.98, 17.01, 16.49, 16.84],
+        pass3: [20.36, 13.14, 14.43, 12.63, 11.86],
+        pass4: [18.56, 11.34, 13.40, 10.31, 9.28],
+      },
+      {
+        model: "GPT-5.2", reasoning: "None", sep: true,
+        pass1: [15.72, 8.25, 12.37, 9.54, 11.60],
+        pass2: [9.45, 5.33, 7.22, 5.33, 6.01],
+        pass3: [7.22, 4.38, 5.15, 3.61, 3.61],
+        pass4: [6.19, 4.12, 4.12, 3.09, 2.06],
+      },
+      {
+        model: "Claude-4.5-Opus", reasoning: "High", sep: false,
+        pass1: [39.69, 18.30, 19.59, 17.78, 24.74],
+        pass2: [31.62, 10.82, 12.03, 10.65, 14.95],
+        pass3: [28.35, 7.47, 9.54, 7.73, 11.34],
+        pass4: [26.80, 6.19, 8.25, 6.19, 9.28],
+      },
+      {
+        model: "Claude-4.5-Sonnet", reasoning: "High", sep: true,
+        pass1: [33.76, 17.53, 17.78, 16.75, 22.42],
+        pass2: [25.09, 9.97, 10.48, 8.08, 14.09],
+        pass3: [21.13, 6.96, 8.25, 4.64, 11.86],
+        pass4: [19.59, 5.15, 7.22, 3.09, 10.31],
+      },
+      {
+        model: "Gemini-3-Pro", reasoning: "High", sep: false,
+        pass1: [33.25, 12.89, 12.89, 13.66, 15.72],
+        pass2: [21.48, 7.04, 6.87, 8.08, 8.08],
+        pass3: [16.24, 4.64, 4.64, 6.44, 5.41],
+        pass4: [13.40, 3.09, 3.09, 5.15, 4.12],
+      },
+      {
+        model: "Gemini-3-Flash", reasoning: "High", sep: false,
+        pass1: [36.34, 18.56, 18.56, 18.56, 20.62],
+        pass2: [27.32, 10.31, 10.31, 10.14, 10.31],
+        pass3: [22.68, 6.96, 6.44, 7.22, 6.44],
+        pass4: [19.59, 5.15, 4.12, 6.19, 4.12],
+      },
+    ];
+
+    let currentMetric = 'pass1';
+
+    function switchMetric(btn) {
+      document.querySelectorAll('.metric-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMetric = btn.dataset.metric;
+      renderResults();
+    }
+
+    function renderResults() {
+      const tbody = document.getElementById('results-tbody');
+      const cols = ['Gold', 'text-emb-3-large', 'Qwen3-Emb', 'BM25', 'Terminal'];
+
+      // Find best non-gold score
+      let bestNonGold = 0;
+      let bestGold = 0;
+      resultsData.forEach(row => {
+        const scores = row[currentMetric];
+        if (scores[0] > bestGold) bestGold = scores[0];
+        for (let i = 1; i < scores.length; i++) {
+          if (scores[i] > bestNonGold) bestNonGold = scores[i];
+        }
+      });
+
+      let html = '';
+      resultsData.forEach((row, idx) => {
+        const scores = row[currentMetric];
+        const sepClass = row.sep ? ' section-sep' : '';
+
+        html += `<tr class="${sepClass}">`;
+        html += `<td class="model-cell">${row.model}</td>`;
+        html += `<td class="reasoning-cell">${row.reasoning}</td>`;
+
+        scores.forEach((score, ci) => {
+          const isBest = (ci === 0 && score === bestGold) || (ci > 0 && score === bestNonGold);
+          const bestClass = isBest ? ' best-score' : '';
+          const delta = ci > 0 ? `<span class="delta">(${(score - scores[0]).toFixed(1)})</span>` : '';
+          html += `<td class="score-cell${bestClass}">${score.toFixed(2)}${delta}</td>`;
+        });
+
+        html += '</tr>';
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    // Initial render
+    renderResults();
+
+    // =============================================
+    // Task Anatomy: Failure Mode Toggles
+    // =============================================
+    function toggleFailure(toggle) {
+      const panel = toggle.nextElementSibling;
+      const isOpen = toggle.classList.contains('open');
+      // Close all other panels
+      document.querySelectorAll('.anatomy-failure-toggle.open').forEach(t => {
+        if (t !== toggle) {
+          t.classList.remove('open');
+          t.nextElementSibling.classList.remove('open');
+        }
+      });
+      toggle.classList.toggle('open', !isOpen);
+      panel.classList.toggle('open', !isOpen);
+    }
+  </script>
+</body>
+</html>

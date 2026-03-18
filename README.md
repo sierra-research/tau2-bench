@@ -1,474 +1,184 @@
-# $\tau^2$-Bench: Evaluating Conversational Agents in a Dual-Control Environment
+# $\tau$-Bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains
 
-[![python](https://img.shields.io/badge/Python-3.10%2B-blue.svg?style=flat&logo=python&logoColor=white)](https://www.python.org)
+[![python](https://img.shields.io/badge/Python-3.12%2B-blue.svg?style=flat&logo=python&logoColor=white)](https://www.python.org)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![arXiv](http://img.shields.io/badge/cs.AI-arXiv%3A2506.07982-B31B1B.svg?logo=arxiv&logoColor=red)](https://arxiv.org/abs/2506.07982)
-[![blog](https://img.shields.io/badge/blog-tau2--bench-green)](https://sierra.ai/blog/benchmarking-agents-in-collaborative-real-world-scenarios)
+[![arXiv](https://img.shields.io/badge/cs.AI-arXiv%3A2506.07982-B31B1B.svg?logo=arxiv&logoColor=red)](https://arxiv.org/abs/2506.07982)
+[![blog](https://img.shields.io/badge/blog-tau--bench-green)](https://sierra.ai/blog/benchmarking-agents-in-collaborative-real-world-scenarios)
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/sierra.svg?style=social&label=Follow%20%40SierraPlatform)](https://x.com/SierraPlatform/status/1932464265207889974)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?logo=linkedin&logoColor=white)](https://www.linkedin.com/posts/sierra_last-year-we-introduced-%F0%9D%9C%8F-bench-a-benchmark-activity-7338229693898231809-F8L4?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAdc8goBmhEsiEo1_t_XSJbAnY4_zMfAWcE)
 [![Leaderboard](https://img.shields.io/badge/🏆_Live_Leaderboard-taubench.com-brightgreen?style=flat)](https://taubench.com)
 
 <div align="center">
-<img src="figs/overview.png" width="95%" alt="System Overview"><br>
-<em>Figure 1: τ²-bench allows users to interact with the agent and the environment</em>
+<img src="figs/traj.png" width="95%" alt="Trajectory">
 </div>
 
 <div align="center">
-<img src="figs/traj.png" width="95%" alt="Trajectory"><br>
-<em>Figure 2: Trajectory of a conversation between an agent and a user</em>
+<h3>🚀 τ³-bench is here!</h3>
+<p>From text-only to multimodal, knowledge-aware agent evaluation.<br>
+Voice full-duplex · Knowledge retrieval · 75+ task fixes<br>
+<a href="https://arxiv.org/abs/2603.13686">τ-Voice paper</a> · <a href="https://arxiv.org/abs/2603.04370">τ-Knowledge paper</a> · <a href="https://github.com/sierra-research/tau2-bench/releases/tag/v1.0.0">Release notes</a></p>
 </div>
 
-## 🆕 What's New
+> **How do you say $\tau^3$-bench?** We just say "tau three," but you do you!
 
-### 🤖 Reinforcement Learning Support (New!)
-τ²-bench now supports RL training with a Gymnasium-compatible interface:
+## What's New in $\tau^3$-bench
 
-- **🏋️ Train RL Agents**: Use the gym interface to train agents with popular RL frameworks. 
-- **🎮 Play as Agent or User**: Interactive mode lets you control either the agent or the user in conversations
-- **📊 Train/Test Splits**: To help support experiments around training Agents and evaluating them, all domains include standardized task splits for proper train/test evaluation.
+- **Knowledge Domain (`banking_knowledge`)** — A knowledge-retrieval-based customer service domain with configurable RAG pipelines, document search, embeddings, and agentic shell-based search. [Learn more →](src/tau2/knowledge/README.md)
+- **Voice Full-Duplex (Audio Native)** — End-to-end voice evaluation with realtime providers (OpenAI, Gemini, xAI). [Learn more →](src/tau2/voice/README.md)
+- **Task Quality (75+ fixes)** — Removed incorrect expected actions, clarified ambiguous instructions, fixed impossible constraints, and added missing fallback behaviors across airline, retail, and banking domains.
+- **Updated Leaderboard** — Now includes voice and knowledge results. Compare model performance at [taubench.com](https://taubench.com). [Submit your results →](docs/leaderboard-submission.md)
 
-> **⚠️ IMPORTANT FOR BACKWARD COMPATIBILITY**: If you are just evaluating an agent (not training), you **MUST** use the `base` task split to evaluate on the complete task set that matches the original τ²-bench structure. This ensures your results are comparable to previous evaluations and maintains consistency with the established benchmark. (If you don't specify a task split, it will default to `base`.)
-- **🔧 Gymnasium Compatible**: Standard gym interface works with existing RL tools and libraries
+See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-[**→ See Gym Documentation**](src/tau2/gym/README.md) | [**→ Try CLI Play Mode**](#interactive-play-mode)
+> **Backward compatibility note**: If you are evaluating an agent (not training), use the `base` task split to evaluate on the complete task set that matches the original τ-bench structure. This is the default.
 
-### 🏆 Live Leaderboard (v0.2.0)
-The τ²-bench leaderboard is now live at **[taubench.com](https://taubench.com)**! 
-
-- **📊 Interactive Rankings**: Compare model performance across all domains
-- **📱 Mobile-Friendly**: View results on any device  
-- **🔍 Detailed Analysis**: Explore trajectories and conversation flows
-- **📥 Easy Submission**: Submit your results directly through the interface
-
-[**→ Visit the Leaderboard**](https://taubench.com) | [**→ Submit Your Results**](#leaderboard-submission)
+> **Upgrading from $\tau^2$-bench?** Installation now uses `uv` instead of `pip install -e .`, and Python `>=3.12, <3.14` is required (was `>=3.10`). Some internal APIs have been refactored — see [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Overview
 
-$\tau^2$-bench implements a simulation framework for evaluating customer service agents across various domains.
-
-**$\tau^2$-bench is the new iteration of the original $\tau$-bench**, featuring code fixes and an additional telecom domain.
+$\tau$-bench is a simulation framework for evaluating customer service agents across multiple domains. It supports text-based half-duplex (turn-based) evaluation and voice full-duplex (simultaneous) evaluation using real-time audio APIs.
 
 Each domain specifies:
-- a policy that the agent must follow
-- a set of tools that the agent can use
-- a set of tasks to evaluate the agent's performance
-- Optionally: A set of tools that the user simulator can use
+- A **policy** that the agent must follow
+- A set of **tools** that the agent can use
+- A set of **tasks** to evaluate the agent's performance
+- Optionally: a set of **user tools** for the user simulator
 
-Domains are:
-- `mock`
-- `airline`
-- `retail`
-- `telecom`
+**Available domains**: `mock` · `airline` · `retail` · `telecom` · `banking_knowledge`
 
-All the information that an agent developer needs to build an agent for a domain can be accessed through the domain's API docs. See [View domain documentation](#view-domain-documentation) for more details.
-
-## Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/sierra-research/tau2-bench
-cd tau2-bench
-```
-
-2. Create a new environment (optional)
-
-$\tau^2$-bench requires Python 3.10 or higher. You may create and activate a new environment:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
-
-3. Install tau2
-
-```bash
-pip install -e .
-```
-
-This will enable you to run the `tau2` command.
-
-**Note:** If you use `pip install .` (without `-e`), you'll need to set the `TAU2_DATA_DIR` environment variable to point to your data directory:
-
-```bash
-export TAU2_DATA_DIR=/path/to/your/tau2-bench/data
-```
-
-**Check your data directory setup:**
-
-After installation, you can verify that your data directory is correctly configured by running:
-
-```bash
-tau2 check-data
-```
-
-This command will check if the data directory exists and print instructions if it is missing.
-
-To remove all the generated files and the virtual environment, run:
-```bash
-make clean
-```
+| Mode | Description |
+|------|-------------|
+| **Text (half-duplex)** | Turn-based chat with tool use |
+| **Voice (full-duplex)** | End-to-end audio via realtime providers (OpenAI, Gemini, xAI) |
 
 ## Quick Start
 
-### Setup LLM API keys
-
-We use [LiteLLM](https://github.com/BerriAI/litellm) to manage LLM APIs, so you can use any LLM provider supported by LiteLLM.
-
-To provide your API keys, copy `.env.example` as `.env` and edit it to include your API keys.
-
-### Run agent evaluation
-
-To run a test evaluation on only 5 tasks with 1 trial per task, run:
+### 1. Install
 
 ```bash
-tau2 run \ 
---domain airline \
---agent-llm gpt-4.1 \
---user-llm gpt-4.1 \
---num-trials 1 \
---num-tasks 5
+git clone https://github.com/sierra-research/tau2-bench
+cd tau2-bench
+uv sync                        # core only (text-mode: airline, retail, telecom, mock)
 ```
 
-Results will be saved in `data/tau2/simulations/`.
-
-> **💡 Tip**: For full agent evaluation that matches the original τ²-bench methodology, remove `--num-tasks` and use `--task-split base` to evaluate on the complete task set.
-
-## Command Line Interface
-
-The `tau2` command provides a unified interface for all functionality:
-
-### Running Benchmark 
-```bash
-tau2 run \
-  --domain <domain> \
-  --agent-llm <llm_name> \
-  --user-llm <llm_name> \
-  --num-trials <trial_count> \
-  --task-ids <task_ids> \
-  --max-concurrency <concurrent_sims> \
-  ...
-```
-
-### Interactive Play Mode
-```bash
-tau2 play
-```
-Experience τ²-bench from either perspective! The play mode allows you to:
-- **Play as Agent**: Manually control the agent's responses and tool calls
-- **Play as User**: Control the user while an LLM agent handles requests (available in domains with user tools like telecom)
-- **Understand tasks** by walking through scenarios step-by-step
-- **Test strategies** before implementing them in code
-- **Choose task splits** to practice on training data or test on held-out tasks
-
-This is perfect for:
-- Getting familiar with domain policies and tools from both perspectives
-- Debugging task scenarios and conversation flows
-- Developing intuition for agent strategies
-- Testing user behavior and agent responses
-- Training yourself before training your model!
-
-See the [Gym Documentation](src/tau2/gym/README.md) for more details on using the gymnasium interface programmatically, including the `AgentGymEnv` (play as agent) and `UserGymEnv` (play as user).
-
-### Viewing Results
-```bash
-tau2 view
-```
-This tool allows you to:
-- Browse simulation files (in `data/tau2/simulations/`)
-- View agent performance metrics
-- View a particular simulation
-- View task details
-
-### View domain documentation
-```bash
-tau2 domain <domain>
-```
-Visit http://127.0.0.1:8004/redoc to see the domain policy and API documentation.
-
-![domain_viewer1](figs/domain_viewer.png)
-
-### Check data configuration
-```bash
-tau2 check-data
-```
-This command checks if your data directory is properly configured and all required files are present.
-
-## Leaderboard Submission
-
-To submit your agent results to the τ²-bench leaderboard, you need to prepare a valid submission package that meets specific requirements.
-
-### Requirements for Valid Submissions
-
-Your trajectory runs must follow these constraints:
-
-1. **Complete domain coverage**: Include results for all three domains:
-   - `retail`
-   - `airline` 
-   - `telecom`
-
-2. **Consistent model configuration**: All trajectory files must use:
-   - The same agent LLM with identical arguments across all domains
-   - The same user simulator LLM with identical arguments across all domains
-
-3. **One result per domain**: Each domain should appear exactly once in your submission
-
-4. **All tasks completed**: Run evaluation on all tasks within each domain (don't use `--task-ids` or `--num-tasks` filters)
-
-> **📝 Note**: For consistency with the original τ²-bench evaluation methodology, use the `base` task split when evaluating your agent to ensure you're testing on the complete, standard task set.
-
-### Preparing Your Submission
-
-#### Step 1: Run Evaluations
-First, run your agent evaluation on all domains with consistent settings:
+Optional extras (install what you need):
 
 ```bash
-# Example: Run complete evaluation for all domains
-tau2 run --domain retail --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4 --save-to my_model_retail
-tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4 --save-to my_model_airline  
-tau2 run --domain telecom --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4 --save-to my_model_telecom
+uv sync --extra voice          # + voice/audio-native features
+uv sync --extra knowledge      # + banking_knowledge domain (retrieval pipeline)
+uv sync --extra gym            # + gymnasium RL interface
+uv sync --extra dev            # + pytest, ruff, pre-commit (required for contributing)
+uv sync --all-extras           # everything
 ```
 
-**Important**: Use identical `--agent-llm`, `--user-llm`, and their arguments across all runs.
+This requires [uv](https://docs.astral.sh/uv/getting-started/installation/). Voice features also need system dependencies (`brew install portaudio ffmpeg` on macOS). See the [full installation guide](docs/getting-started.md) for details.
 
-#### Step 2: Prepare Submission Package
-Use the submission preparation tool to create your leaderboard submission:
+### 2. Set up API keys
 
 ```bash
-tau2 submit prepare data/tau2/simulations/my_model_*.json --output ./my_submission
+cp .env.example .env
+# Edit .env with your API keys (uses LiteLLM — any supported provider works)
 ```
 
-This command will:
-- Verify all trajectory files are valid
-- Check that submission requirements are met
-- Compute performance metrics (Pass^k rates)
-- Prompt for required metadata (model name, organization, contact email)
-- Create a structured submission directory with:
-  - `submission.json`: Metadata and metrics
-  - `trajectories/`: Your trajectory files
-
-#### Step 3: Validate Your Submission
-Before submitting, validate your submission package:
+### 3. Run an evaluation
 
 ```bash
-tau2 submit validate ./my_submission
+tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 \
+  --num-trials 1 --num-tasks 5
 ```
 
-This will verify:
-- All required files are present
-- Trajectory files are valid
-- Domain coverage is complete
-- Model configurations are consistent
+Results are saved to `data/simulations/`. Use `tau2 view` to browse them.
 
-### Additional Options
+> **Tip**: Run `tau2 intro` for an overview of available domains, commands, and examples.
 
-#### Skip Verification (if needed)
-```bash
-tau2 submit prepare data/tau2/simulations/my_model_*.json --output ./my_submission --no-verify
-```
+## Documentation
 
-#### Verify Individual Trajectory Files
-```bash
-tau2 submit verify-trajs data/tau2/simulations/my_model_*.json
-```
+### Getting Started
 
-### Submitting to the Leaderboard
+| Document | Description |
+|----------|-------------|
+| [Getting Started](docs/getting-started.md) | Installation, API keys, first run, output structure, configuration |
+| [CLI Reference](docs/cli-reference.md) | All `tau2` commands and options |
 
-Once your submission package is prepared and validated:
+### Core Concepts
 
-1. Review the generated `submission.json` file
-2. Follow the submission guidelines in [web/leaderboard/public/submissions/README.md](web/leaderboard/public/submissions/README.md) to create a Pull Request
-3. Keep your `trajectories/` directory for reference
+| Document | Description |
+|----------|-------------|
+| [Agent Developer Guide](src/tau2/agent/README.md) | Build and evaluate your own agent |
+| [Domains](src/tau2/domains/README.md) | Domain structure, data format, and available domains |
+| [Orchestrator & Communication Modes](src/tau2/orchestrator/README.md) | Half-duplex and full-duplex orchestration |
 
-The leaderboard will display your model's Pass^k success rates (k=1,2,3,4) across all domains.
+### Knowledge Retrieval
 
-## Experiments
+| Document | Description |
+|----------|-------------|
+| [Knowledge Retrieval](src/tau2/knowledge/README.md) | Retrieval pipeline configs, embeddings, RAG, and sandbox setup for the `banking_knowledge` domain |
 
-### Experimental Code Directory
+### Voice & Audio
 
-The `@experiments/` directory contains experimental features and research code that extends beyond the core tau2 benchmark. This directory is designed for community contributions of innovative approaches, prototypes, and new features that are not part of the core evaluation framework.
+| Document | Description |
+|----------|-------------|
+| [Voice (Full-Duplex)](src/tau2/voice/README.md) | Providers, speech complexity, CLI options, and output structure for voice evaluation |
+| [Audio Native Architecture](src/tau2/voice/audio_native/README.md) | Internal architecture for adding or modifying realtime provider adapters |
 
-- **Purpose**: Research code and experimental features
-- **Location**: `src/experiments/`
-- **Usage**: Each experimental component has its own README with documentation
-- **Status**: Experimental code is provided as-is and may not be fully tested or supported
+### RL & Training
 
-For more details, see the [experiments README](src/experiments/README.md).
+| Document | Description |
+|----------|-------------|
+| [Gym Interface](src/tau2/gym/README.md) | Gymnasium-compatible environment, play mode, train/test splits |
 
-### Running Ablation Studies (No User, or Agent with Oracle Plan)
-`telecom` domain enables running ablation studies.
+### Leaderboard & Experiments
 
-1. Running an LLM in `no-user` mode. In this mode, the LLM is given all the tools and the information upfront.
-Just choose `llm_agent_solo` as the agent and `dummy_user` as the user.
+| Document | Description |
+|----------|-------------|
+| [Leaderboard Submission](docs/leaderboard-submission.md) | How to submit results to [taubench.com](https://taubench.com) |
+| [Experiments](src/experiments/README.md) | Experimental features and research code |
 
-```bash
-tau2 run \
-  --domain telecom \
-  --agent llm_agent_solo \
-  --agent-llm gpt-4.1 \
-  --user dummy_user \
-  ...
-```
+### Project
 
-2. Running an LLM in `oracle-plan` mode. In this mode, the LLM is given an oracle plan ahead of time alleviating the need for action planning.
-Just choose `llm_agent_gt` as the agent.
-
-```bash
-tau2 run \
-  --domain telecom \
-  --agent llm_agent_gt \
-  --agent-llm gpt-4.1 \
-  --user-llm gpt-4.1 \
-  ...
-```
-
-### Running Telecom Domain with Workflow Policy
-To test the impact of policy format, we provide an additional "workflow" policy for the telecom domain.
-To run using this policy, use the `telecom-workflow` domain.
-
-```bash
-tau2 run \
-  --domain telecom-workflow \
-  --agent-llm gpt-4.1 \
-  --user-llm gpt-4.1 \
-  ...
-```
-
-## Domains
-
-For all the details see the domains [README](src/tau2/domains/README.md).
-
-### Basics
-
-- Code is located in `src/tau2/domains/`
-- Data is located in `data/tau2/domains/`
-- Each domain has its own configuration and task definitions
-
-#### View domain-specific policy and API docs:
-Run the following command to see the domain policy and API documentation.
-```bash
-tau2 env <domain>
-```
-
-Then visit http://127.0.0.1:8004/redoc
-
-### Environment CLI (beta)
-
-An interactive command-line interface for directly querying and testing domain environments. Features:
-- Interactive query interface with domain-specific tools
-- Support for multiple domains (airline, mock, etc.)
-- Session management with history
-
-To use:
-```bash
-make env-cli
-```
-
-Available commands:
-- `:q` - quit the program
-- `:d` - change domain
-- `:n` - start new session (clears history)
-
-Example usage:
-```bash
-$ make env-cli
-
-Welcome to the Environment CLI!
-Connected to airline domain.
-
-Query (:n new session, :d change domain, :q quit)> What flights are available from SF to LA tomorrow?
-Assistant: Let me check the flight availability for you...
-[Flight details will appear here]
-```
-
-The Environment CLI is useful for:
-- Testing domain tools and queries
-- Debugging environment responses
-- Exploring available domain functionality
-- Quick domain interaction without starting the full server stack
-
-
-## Run tests
-To run the test suite use the command
-
-```sh
-make test
-```
-
-## Config
-
-To configure the framework, see the [config](src/tau2/config.py) file.
-
-### LLM Calls caching
-LLM call caching is disabled by default.
-
-To enable LLM calls caching:
-    - Make sure `redis` is running.
-    - Update the redis config in `config.py` if necessary.
-    - Set `LLM_CACHE_ENABLED` to `True` in `config.py`
-
-
-## Evaluate Your Own Agent
-For local or remote agent evaluation, see our [agent developer guide](src/tau2/agent/README.md).
+| Document | Description |
+|----------|-------------|
+| [Contributing](CONTRIBUTING.md) | How to contribute to τ-bench |
+| [Changelog](CHANGELOG.md) | Version history and release notes |
 
 ## Contributing
 
-We welcome contributions to τ²-bench! Whether you're fixing bugs, adding new features, creating new domains, or contributing experimental research code, please see our [Contributing Guide](CONTRIBUTING.md) for detailed guidelines on:
-
-- **Opening issues** before starting work
-- **Branch naming conventions** and development workflow  
-- **Code quality standards** and testing requirements
-- **Pull request guidelines** for clean, reviewable contributions
-- **Domain and experimental contributions** specific guidelines
-
-For experimental features and research code, check out the [`@experiments/`](src/experiments/) directory.
-
-## Orchestration Sequence Diagram
-
-```mermaid
-sequenceDiagram
-    participant O as Orchestrator
-    participant A as Agent
-    participant U as UserSimulator
-    participant E as Environment
-
-    Note over O: Initialize(task)
-    rect rgb(100, 150, 150)
-        O->>A: get_init_state_info(message_history)
-        A->>O: agent_state_info
-        O->>U: get_init_state_info(message_history)
-        U->>O: user_state_info
-        O->>E: set_state(initialization_data, initialization_actions, message_history)
-    end
-    Note over O: Start simulation
-    loop Pass messages between Agent, User, and Environment
-
-        alt Agent/Env to User
-            rect rgb(200, 150, 150)
-            O->>U: generate_next_message(msg, user_state_info)
-            U-->>O: (user_msg, user_state_info)
-            end
-            Note over O: Check if user_msg is STOP
-        else User/Env to Agent
-            rect rgb(100, 200, 100)
-            O->>A: generate_next_message(msg, agent_state_info)
-            A-->>O: (assistant_msg, agent_state_info)
-            Note over O: Check if too many errors
-            end
-        else User/Agent to Environment
-            rect rgb(150, 150, 200)
-            O->>E: get_response(tool_call)
-            E-->>O: tool_message
-            end
-        end
-        Note over O: Check if max turns reached.
-    end
-    Note over O: Return simulation run
-```
+We welcome contributions! Whether you're fixing bugs, adding features, creating domains, or contributing research code, see our [Contributing Guide](CONTRIBUTING.md) for guidelines.
 
 ## Citation
 
+If you use a specific component of $\tau^3$-bench, please cite the corresponding paper below.
+
+### Knowledge Domain (`banking_knowledge`)
+
 ```bibtex
+@article{shi2026tau,
+  title={$\tau$-Knowledge: Evaluating Conversational Agents over Unstructured Knowledge},
+  author={Shi, Quan and Zytek, Alexandra and Razavi, Pedram and Narasimhan, Karthik and Barres, Victor},
+  journal={arXiv preprint arXiv:2603.04370},
+  year={2026}
+}
+```
+
+### Voice Full-Duplex Benchmark
+
+```bibtex
+
+@misc{ray2026tauvoicebenchmarkingfullduplexvoice,
+      title={$\tau$-Voice: Benchmarking Full-Duplex Voice Agents on Real-World Domains},
+      author={Soham Ray and Keshav Dhandhania and Victor Barres and Karthik Narasimhan},
+      year={2026},
+      eprint={2603.13686},
+      archivePrefix={arXiv},
+      primaryClass={cs.SD},
+      url={https://arxiv.org/abs/2603.13686},
+}
+```
+
+### Core $\tau$-Bench
+
+```bibtex
+
 @misc{barres2025tau2,
       title={$\tau^2$-Bench: Evaluating Conversational Agents in a Dual-Control Environment}, 
       author={Victor Barres and Honghua Dong and Soham Ray and Xujie Si and Karthik Narasimhan},
@@ -477,5 +187,30 @@ sequenceDiagram
       archivePrefix={arXiv},
       primaryClass={cs.AI},
       url={https://arxiv.org/abs/2506.07982}, 
+}
+
+@misc{yao2024tau,
+      title={$\tau$-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains}, 
+      author={Shunyu Yao and Noah Shinn and Pedram Razavi and Karthik Narasimhan},
+      year={2024},
+      eprint={2406.12045},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2406.12045}, 
+}
+```
+
+### Task Fixes
+
+```bibtex
+
+@misc{cuadron2025sabersmallactionsbig,
+      title={SABER: Small Actions, Big Errors -- Safeguarding Mutating Steps in LLM Agents},
+      author={Alejandro Cuadron and Pengfei Yu and Yang Liu and Arpit Gupta},
+      year={2025},
+      eprint={2512.07850},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2512.07850},
 }
 ```

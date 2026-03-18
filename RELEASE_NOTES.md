@@ -1,6 +1,6 @@
 # Release Notes
 
-Welcome to the τ²-bench release notes! Here you'll find user-friendly summaries of what's new, what's changed, and what you need to know for each release.
+Welcome to the τ-bench release notes! Here you'll find user-friendly summaries of what's new, what's changed, and what you need to know for each release.
 
 ## Version 0.2.1 - Reinforcement Learning Support 🤖
 
@@ -8,13 +8,13 @@ Welcome to the τ²-bench release notes! Here you'll find user-friendly summarie
 
 ### 🎮 Gymnasium Integration
 
-τ²-bench now supports reinforcement learning with a standard Gymnasium-compatible interface!
+τ-bench now supports reinforcement learning with a standard Gymnasium-compatible interface!
 
 #### 🌟 What's New
 - **Train RL Agents**: Use `AgentGymEnv` and `UserGymEnv` with popular RL frameworks
 - **Interactive Play Mode**: New `tau2 play` command lets you control the agent or user manually
 - **Train/Test Splits**: Standardized task splits across all domains for proper evaluation
-- **Backward Compatible**: Use `base` task split to evaluate on the complete original τ²-bench task set
+- **Backward Compatible**: Use `base` task split to evaluate on the complete original τ-bench task set
 - **Enforce Communication Protocol**: Optionally enforce communication protocol rules (e.g., no mixed messages with text and tool calls)
 
 #### 🚀 Getting Started
@@ -36,7 +36,7 @@ See the [Gym Documentation](src/tau2/gym/README.md) for detailed usage examples 
 
 ### 🌟 Major New Feature: Live Leaderboard
 
-We're excited to announce the biggest addition to τ²-bench since launch - a comprehensive web-based leaderboard system that's now live!
+We're excited to announce the biggest addition to τ-bench since launch - a comprehensive web-based leaderboard system that's now live!
 
 #### 🚀 What's New
 - **Interactive Leaderboard**: Browse and compare model performance across all domains
@@ -55,7 +55,7 @@ We're excited to announce the biggest addition to τ²-bench since launch - a co
 - Real-time leaderboard updates with new submissions
 
 #### 🌍 Community Impact
-The leaderboard at **tau-bench.com** makes τ²-bench results accessible to:
+The leaderboard at **tau-bench.com** makes τ-bench results accessible to:
 - Researchers comparing agent performance
 - Industry practitioners evaluating models
 - Academic institutions teaching agent evaluation
@@ -133,7 +133,7 @@ These fixes significantly improve the reliability of evaluations, especially whe
 
 ### 🌟 Installation Made Easy
 
-This release focuses on making τ²-bench easier to install and configure for everyone.
+This release focuses on making τ-bench easier to install and configure for everyone.
 
 #### New Installation Features
 - **Default editable install**: `pip install -e .` is now the recommended method
@@ -180,9 +180,9 @@ Fixed critical issues with the domain documentation viewer:
 
 **Release Date**: June 12, 2025
 
-### What is τ²-bench?
+### What is τ-bench?
 
-τ²-bench is a comprehensive framework for evaluating conversational agents in realistic, dual-control environments. This groundbreaking release provides everything you need to benchmark your AI agents across multiple customer service domains.
+τ-bench is a comprehensive framework for evaluating conversational agents in realistic, dual-control environments. This groundbreaking release provides everything you need to benchmark your AI agents across multiple customer service domains.
 
 ### 🌟 Core Features
 
@@ -246,4 +246,4 @@ tau2 run --domain airline --agent-llm gpt-4 --user-llm gpt-4 --num-trials 1 --nu
 
 ---
 
-*Ready to benchmark your conversational agents? Visit [tau-bench.com](https://tau-bench.com) to see the leaderboard and get started with τ²-bench today!*
+*Ready to benchmark your conversational agents? Visit [tau-bench.com](https://tau-bench.com) to see the leaderboard and get started with τ-bench today!*

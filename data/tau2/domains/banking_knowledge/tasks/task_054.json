@@ -1,0 +1,244 @@
+{
+  "id": "task_054",
+  "description": {
+    "purpose": "Task: task_054",
+    "relevant_policies": null,
+    "notes": "THREE-WAY CONFLICT + OVER-LIMIT CLI REQUEST: Credit Limit Increase + Transaction Dispute + Replacement Card. User Sofia Papadopoulos requests ALL THREE: (1) CLI on her Gold Rewards Card with an INITIAL request of $4,000 (80% increase) which EXCEEDS the 50% premium-tier maximum, (2) dispute a fraudulent CloudSync transaction, and (3) order a replacement card due to the fraud. The agent must: (A) recognize that BOTH filing a dispute AND ordering a replacement card will block CLI eligibility, (B) recognize that $4,000 exceeds the 50% limit and have user adjust to $2,500 BEFORE submitting, (C) process the CLI FIRST, then handle the dispute and replacement. This tests the agent's ability to recognize multi-way policy conflicts, enforce tier-specific CLI limits before submitting, and sequence operations correctly."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Sofia Papadopoulos, a 38-year-old architect from Queens, NY. You have a Gold Rewards Card with Rho-Bank.\n\n**Your situation:** You noticed a fraudulent charge on your Gold Rewards Card from \"CloudSync Storage\" for $487.50 - a service you've never used. You're worried your card information was compromised, so you want to dispute the charge AND get a replacement card to be safe. Additionally, you've been meaning to request a credit limit increase because you have a home renovation project coming up and need more headroom for large purchases.\n\n**Your goal:** Get ALL THREE things done: (1) dispute the fraudulent charge, (2) get a replacement card, and (3) get a credit limit increase.\n\n**Information you know and should provide when asked:**\n- Your full name: Sofia Papadopoulos\n- Your phone number: 347-555-0387\n- Your email: sofia.p@outlook.com\n- Your date of birth: 01/25/1986\n- Your address: 1456 Astoria Boulevard, Queens, NY 11102\n- The fraudulent transaction: CloudSync Storage, $487.50, about 3 days ago\n- You have NEVER used CloudSync Storage - this is definitely fraud\n- You want a replacement card because your card info was clearly compromised\n- You INITIALLY want a credit limit increase of $4,000 (from $5,000 to $9,000) for your renovation project - If the agent tells you this exceeds the maximum allowed, you will agree to reduce it to $2,500 (from $5,000 to $7,500)\n\n## Conversation Flow:\n\n1. **Opening - State ALL THREE requests, prioritizing the fraud:** \"Hi, I need help with a few things on my Gold Rewards Card. Most urgently, there's a fraudulent charge from CloudSync Storage for $487.50 that I need to dispute right away - I've never used that service and I'm worried about my card security. I'd also like a replacement card sent to me since my card info was clearly compromised. Oh, and I've also been meaning to request a credit limit increase for a renovation project, but let's handle the fraud situation first since that's the priority. Can you help me with all of this?\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address as requested.\n\n3. **If the agent mentions there's a conflict between the requests:** Immediately ask if you can reorder to get all three done. \"Wait, really? You're saying filing the dispute or getting the replacement card would block the credit limit increase? I had no idea they were connected! Is there a way to do all three? Can we do the credit limit increase FIRST before the fraud stuff, so I can still get everything done?\"\n\n4. **If the agent agrees to process CLI first (or recommends it):** Confirm you want to proceed that way. \"Yes, let's do that - credit limit increase first, then handle the dispute and replacement card after. I want to make sure everything gets taken care of properly.\"\n\n5. **When asked about CLI amount:** \"I'd like to increase my limit by $4,000 - so from $5,000 to $9,000. I have a big renovation project coming up.\"\n\n6. **If the agent says $4,000 exceeds the maximum:** Accept the adjustment. \"Oh, I see. So the maximum increase is 50%? Okay, let's go with $2,500 then - that would bring me to $7,500. I've been paying on time every month so hopefully that qualifies me.\"\n\n7. **If the CLI is approved:** Express gratitude. \"Great, thank you! Now can we take care of that fraudulent charge and get me a new card?\"\n\n8. **For the dispute, provide details when asked:**\n   - Did you contact the merchant? \"No, I haven't contacted them. I've never even heard of CloudSync Storage - this is clearly fraud, not a merchant issue.\"\n   - When did you notice the issue? \"I noticed it on November 12th, 2025 when I was reviewing my statement.\"\n   - What resolution do you want? \"I want a full refund. I didn't authorize this charge at all.\"\n\n9. **For the replacement card:** \"Yes, please send me a new card with a new number. I want to make sure whoever got my card info can't use it again. Just send it to my address on file.\"\n\n10. **After all three are complete:** \"Thank you so much for walking me through all of that! I really appreciate you explaining why we had to do things in a specific order. You've been incredibly helpful!\"\n\n**IMPORTANT:** You must state ALL THREE requests in your opening message. Be cooperative and receptive when the agent explains the conflict. Do not push back on the suggested order - you want all three things done and are happy to do them in whatever order works best."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": {
+        "credit_card_accounts": {
+          "data": {
+            "cc_584f9c5d00_gold": {
+              "account_id": "cc_584f9c5d00_gold",
+              "user_id": "584f9c5d00",
+              "card_type": "Gold Rewards Card",
+              "date_of_account_open": "03/20/2023",
+              "current_balance": "$487.50",
+              "credit_limit": "$5,000.00",
+              "reward_points": "8742 points",
+              "account_status": "ACTIVE",
+              "past_due_amount": "$0.00",
+              "card_last_4_digits": "7823"
+            }
+          }
+        },
+        "credit_card_transaction_history": {
+          "data": {
+            "txn_584f9c5d00_001": {
+              "transaction_id": "txn_584f9c5d00_001",
+              "user_id": "584f9c5d00",
+              "credit_card_account_id": "cc_584f9c5d00_gold",
+              "credit_card_type": "Gold Rewards Card",
+              "merchant_name": "CloudSync Storage",
+              "transaction_amount": "$487.50",
+              "transaction_date": "11/11/2025",
+              "category": "Technology",
+              "status": "COMPLETED",
+              "rewards_earned": "487 points"
+            },
+            "txn_584f9c5d00_002": {
+              "transaction_id": "txn_584f9c5d00_002",
+              "user_id": "584f9c5d00",
+              "credit_card_account_id": "cc_584f9c5d00_gold",
+              "credit_card_type": "Gold Rewards Card",
+              "merchant_name": "Home Depot",
+              "transaction_amount": "$234.67",
+              "transaction_date": "11/05/2025",
+              "category": "Home Improvement",
+              "status": "COMPLETED",
+              "rewards_earned": "234 points"
+            }
+          }
+        },
+        "credit_limit_increase_requests": {
+          "data": {}
+        },
+        "transaction_disputes": {
+          "data": {}
+        },
+        "credit_card_orders": {
+          "data": {}
+        }
+      },
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Sofia Papadopoulos",
+          "user_id": "584f9c5d00",
+          "address": "1456 Astoria Boulevard, Queens, NY 11102",
+          "email": "sofia.p@outlook.com",
+          "phone_number": "347-555-0387",
+          "date_of_birth": "01/25/1986",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "054_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "submit_credit_limit_increase_request_7392"
+        },
+        "requestor": "assistant",
+        "action_id": "054_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "submit_credit_limit_increase_request_7392",
+          "arguments": "{\"credit_card_account_id\": \"cc_584f9c5d00_gold\", \"user_id\": \"584f9c5d00\", \"requested_increase_amount\": 2500}"
+        },
+        "requestor": "assistant",
+        "action_id": "054_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "054_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291",
+          "arguments": "{\"user_id\": \"584f9c5d00\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "054_4"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765"
+        },
+        "requestor": "assistant",
+        "action_id": "054_5"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_584f9c5d00_gold\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "054_6"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_credit_limit_increase_history_4829"
+        },
+        "requestor": "assistant",
+        "action_id": "054_7"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_credit_limit_increase_history_4829",
+          "arguments": "{\"credit_card_account_id\": \"cc_584f9c5d00_gold\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "054_8"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_payment_history_6183"
+        },
+        "requestor": "assistant",
+        "action_id": "054_9"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_payment_history_6183",
+          "arguments": "{\"credit_card_account_id\": \"cc_584f9c5d00_gold\", \"months\": 3}"
+        },
+        "requestor": "assistant",
+        "action_id": "054_10"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "approve_credit_limit_increase_5847"
+        },
+        "requestor": "assistant",
+        "action_id": "054_11"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "approve_credit_limit_increase_5847",
+          "arguments": "{\"credit_card_account_id\": \"cc_584f9c5d00_gold\", \"user_id\": \"584f9c5d00\", \"new_credit_limit\": 7500}"
+        },
+        "requestor": "assistant",
+        "action_id": "054_12"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "order_replacement_credit_card_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "054_13"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "order_replacement_credit_card_7291",
+          "arguments": "{\"credit_card_account_id\": \"cc_584f9c5d00_gold\", \"user_id\": \"584f9c5d00\", \"shipping_address\": \"1456 Astoria Boulevard, Queens, NY 11102\", \"reason\": \"fraud_suspected\", \"expedited_shipping\": true}"
+        },
+        "requestor": "assistant",
+        "action_id": "054_14"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829"
+        },
+        "requestor": "assistant",
+        "action_id": "054_15"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_584f9c5d00_001\", \"card_action\": \"cancel_and_reissue\", \"card_last_4_digits\": \"7823\", \"full_name\": \"Sofia Papadopoulos\", \"user_id\": \"584f9c5d00\", \"phone\": \"347-555-0387\", \"email\": \"sofia.p@outlook.com\", \"address\": \"1456 Astoria Boulevard, Queens, NY 11102\", \"contacted_merchant\": false, \"purchase_date\": \"11/11/2025\", \"issue_noticed_date\": \"11/12/2025\", \"dispute_reason\": \"unauthorized_fraudulent_charge\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": true}"
+        },
+        "requestor": "assistant",
+        "action_id": "054_16"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [],
+  "required_documents": [
+    "doc_credit_cards_credit_card_account_logistics_004",
+    "doc_credit_cards_credit_card_account_logistics_005",
+    "doc_credit_cards_credit_card_account_logistics_006",
+    "doc_credit_cards_credit_card_account_logistics_007",
+    "doc_credit_cards_credit_cards_(general)_014",
+    "doc_credit_cards_credit_cards_(general)_015",
+    "doc_credit_cards_credit_cards_(general)_016",
+    "doc_credit_cards_credit_card_replacements_001",
+    "doc_credit_cards_credit_card_replacements_005"
+  ]
+}

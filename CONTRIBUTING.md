@@ -1,6 +1,6 @@
-# Contributing to τ²-Bench
+# Contributing to τ-Bench
 
-Thank you for your interest in contributing to τ²-bench! This document provides guidelines to help you make clean, reviewable contributions that can be easily integrated into the project.
+Thank you for your interest in contributing to τ-bench! This document provides guidelines to help you make clean, reviewable contributions that can be easily integrated into the project.
 
 ## 🚀 Quick Start
 
@@ -105,22 +105,31 @@ new-stuff
 git clone https://github.com/your-username/tau2-bench.git
 cd tau2-bench
 
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install in development mode
-pip install -e .
+# Install with dev tools (pytest, ruff, pre-commit — required for committing)
+uv sync --extra dev
 
 # Verify installation
-tau2 check-data
+uv run tau2 check-data
 ```
 
+Install additional extras as needed for the area you're working on:
+
+```bash
+uv sync --extra voice          # voice/audio-native features
+uv sync --extra knowledge      # banking_knowledge domain (retrieval pipeline)
+uv sync --extra gym            # gymnasium RL interface
+uv sync --extra experiments    # plotting libs for src/experiments/
+uv sync --all-extras           # everything
+```
+
+This requires [uv](https://docs.astral.sh/uv/getting-started/installation/). The Python version (3.12) is pinned via `.python-version` — uv will download it automatically if needed.
+
 ### 2. Development Dependencies
-The project uses several tools for code quality:
+The project uses several tools for code quality (included in the `dev` extra):
+- **uv**: Package and project management
 - **Ruff**: Linting and code formatting
 - **pytest**: Testing framework
-- **PDM**: Package management
+- **pre-commit**: Git hook management
 
 ### 3. Environment Variables
 Copy `.env.example` to `.env` and configure your API keys for testing.
@@ -254,11 +263,16 @@ For `src/experiments/` contributions:
 - **Status clarity**: Clearly mark experimental status and limitations
 
 ### Agent Contributions
-When contributing new agent implementations:
-- **Interface compliance**: Follow the base agent interface
-- **Configuration**: Support standard configuration patterns
-- **Error handling**: Robust error handling and logging
-- **Documentation**: Clear usage examples and configuration options
+
+There are two types of agent contributions:
+
+#### Core Agents (`src/tau2/agent/`)
+Core agents are part of the official tau2 framework and are maintained by Sierra. Core agent contributions:
+- Require thorough review and approval
+- Must implement `HalfDuplexAgent` or `FullDuplexAgent`
+- Are registered in `src/tau2/registry.py`
+- See `src/tau2/agent/README.md` for the full developer guide
+
 
 ## 🤝 Getting Help
 
@@ -278,4 +292,4 @@ Contributors who make significant contributions may be:
 - Added to the project's contributor list
 - Mentioned in release notes
 
-Thank you for contributing to τ²-bench! Your efforts help advance the field of conversational AI evaluation.
+Thank you for contributing to τ-bench! Your efforts help advance the field of conversational AI evaluation.

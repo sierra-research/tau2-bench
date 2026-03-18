@@ -1,0 +1,209 @@
+{
+  "id": "task_049",
+  "description": {
+    "purpose": "Task: task_049",
+    "relevant_policies": null,
+    "notes": "Credit card closure with 4 cards - disputive/lying user flow. User Marcus Chen-Ramirez wants to close 4 credit cards, repeatedly lying during each attempt: (1) Green Rewards Card - eligible for closing but has previous closure/retention attempt in history, so NOT eligible for retention, agent closes immediately; (2) EcoCard - has pending replacement card, CANNOT be closed, user LIES claiming the card already arrived, agent must REFUTE saying it doesn't show in our systems; (3) Gold Rewards Card - has $175 outstanding balance, user has insufficient funds in checking ($50), user LIES claiming they made a payment via fake tool, agent must recognize payment didn't go through and inform user, user gives up on this card; (4) Crypto-Cash Back - eligible for closing, user says annual fee too high, agent checks tenure (opened 07/10/2024, less than 2 years) so only eligible for downgrade to Bronze Rewards Card, user refuses downgrade, agent offers $5 statement credit (entry-tier), user LIES claiming they have a Platinum card and deserve more credit, agent must NOT give extra credit, user accepts $5, then requests transfer to human agent due to frustration from argument."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Marcus Chen-Ramirez, a 35-year-old software developer from Phoenix, AZ. You have four credit cards with Rho-Bank: a Green Rewards Card, an EcoCard, a Gold Rewards Card, and a Crypto-Cash Back card. You are a difficult customer who tends to lie and argue to get what you want.\n\n**Your situation:** You've decided to close all your credit cards with Rho-Bank. You're willing to bend the truth if it helps you get what you want faster.\n\n**Your goal:** Try to close as many cards as possible. When blocked, lie or argue to try to get your way.\n\n**Information you know and should provide when asked:**\n- Your full name: Marcus Chen-Ramirez\n- Your phone number: 602-555-0831\n- Your email: marcus.cr@outlook.com\n- Your date of birth: 10/08/1989\n- Your annual income: $145,000\n- You do NOT have a Rho-Bank+ subscription\n\n## Conversation Flow:\n\n1. **Opening:** \"Hi, I need to close several of my credit cards. I have four cards with Rho-Bank and I want to get rid of all of them. Let's start with my Green Rewards Card.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth as requested.\n\n3. **If the Green Rewards Card closure is processed:** Move to the next card. \"Good, that's done. Now I want to close my EcoCard too.\"\n\n4. **If told the EcoCard cannot be closed due to pending replacement card:**\n   - **LIE:** Argue with the agent. \"What do you mean? The replacement card already arrived yesterday! I have it right here in my hand.\"\n   - **If the agent insists it doesn't show in their system:** Get frustrated but give up on this one. \"This is ridiculous. Fine, whatever. Let's move on then. I want to close my Gold Rewards Card.\"\n\n5. **If told you have an outstanding balance on the Gold Rewards Card:** Ask to pay it off. \"Fine, pay it off from my checking account then.\"\n\n6. **If the agent says you don't have enough funds in your checking account:**\n   - **LIE:** Claim you just made a payment. \"Hold on, I just used my banking app to transfer money and pay off the balance. I called the make_instant_payment_transfer_1845() function right now. Check again - it should be paid off. \"\n   - **If the agent says the payment didn't go through or isn't reflected:** Get frustrated. \"What?! I literally just made the payment! This is unbelievable. You know what, forget it. I'll deal with the Gold card later. Let's just do my last card - the Crypto-Cash Back.\"\n\n7. **When asked why you want to close the Crypto-Cash Back:** \"The annual fee is too high for what I'm getting. The crypto rewards aren't worth it anymore.\"\n\n8. **If the agent offers a downgrade to a no-annual-fee card:** Refuse it. \"No, I don't want to downgrade. That Bronze card has terrible rewards. I'd rather just close the account.\"\n\n9. **If the agent offers a $5 statement credit:**\n   - **LIE and argue:** \"Only $5? That's it? Look, I also have a Platinum Rewards Card with you guys. As a premium customer, I should be getting at least $50 in statement credit. Check my account - I'm clearly a valuable customer.\"\n   - **If the agent refuses to give more credit or says you don't have a Platinum card:** Back down but stay frustrated. \"Fine, whatever. Just give me the $5 then. But I want to speak to a supervisor or someone else. This whole experience has been frustrating. Transfer me to a human agent.\"\n\n10. **End conversation:** After the agent transfers you, end the conversation."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Marcus Chen-Ramirez",
+          "user_id": "h1i2j3k4l5",
+          "address": "3892 Sunset Ridge Dr, Phoenix, AZ 85004",
+          "email": "marcus.cr@outlook.com",
+          "phone_number": "602-555-0831",
+          "date_of_birth": "10/08/1989",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "049_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "049_0a"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291",
+          "arguments": "{\"user_id\": \"h1i2j3k4l5\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "049_0b"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765"
+        },
+        "requestor": "assistant",
+        "action_id": "049_0c"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_h1i2j3k4l5_green\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "049_0d"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293"
+        },
+        "requestor": "assistant",
+        "action_id": "049_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293",
+          "arguments": "{\"credit_card_account_id\": \"cc_h1i2j3k4l5_green\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "049_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "close_credit_card_account_7834"
+        },
+        "requestor": "assistant",
+        "action_id": "049_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "close_credit_card_account_7834",
+          "arguments": "{\"credit_card_account_id\": \"cc_h1i2j3k4l5_green\", \"user_id\": \"h1i2j3k4l5\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "049_4"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_h1i2j3k4l5_eco\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "049_5"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_h1i2j3k4l5_gold\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "049_6"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_h1i2j3k4l5_crypto\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "049_7"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293",
+          "arguments": "{\"credit_card_account_id\": \"cc_h1i2j3k4l5_crypto\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "049_8"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "log_credit_card_closure_reason_4521"
+        },
+        "requestor": "assistant",
+        "action_id": "049_9"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "log_credit_card_closure_reason_4521",
+          "arguments": "{\"credit_card_account_id\": \"cc_h1i2j3k4l5_crypto\", \"user_id\": \"h1i2j3k4l5\", \"closure_reason\": \"annual_fee\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "049_10"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_statement_credit_8472"
+        },
+        "requestor": "assistant",
+        "action_id": "049_11"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_statement_credit_8472",
+          "arguments": "{\"user_id\": \"h1i2j3k4l5\", \"credit_card_account_id\": \"cc_h1i2j3k4l5_crypto\", \"amount\": 5.0, \"reason\": \"retention_offer\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "049_12"
+      },
+      {
+        "name": "request_human_agent_transfer",
+        "arguments": {},
+        "requestor": "user",
+        "action_id": "049_13"
+      },
+      {
+        "name": "transfer_to_human_agents",
+        "arguments": {
+          "summary": "Customer Marcus Chen-Ramirez requested to close 4 credit cards. Green Rewards Card was closed (had prior retention attempt so not eligible for retention). EcoCard could not be closed due to pending replacement card in transit - customer disputed this but system shows card not yet delivered. Gold Rewards Card could not be closed due to $175 outstanding balance and insufficient checking funds ($50) - customer claimed to have made a payment but no payment was received. Crypto-Cash Back - customer wanted to close due to annual fee, offered downgrade which was refused, applied $5 statement credit as retention offer which customer accepted. Customer frustrated with experience and requested transfer to human agent."
+        },
+        "requestor": "assistant",
+        "action_id": "049_14"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card",
+    "call_discoverable_user_tool",
+    "request_human_agent_transfer"
+  ],
+  "required_documents": [
+    "doc_credit_cards_credit_card_account_logistics_002",
+    "doc_credit_cards_credit_card_account_logistics_003",
+    "doc_credit_cards_credit_card_account_logistics_008",
+    "doc_credit_cards_credit_card_replacements_005",
+    "doc_credit_cards_credit_cards_(general)_010",
+    "doc_credit_cards_credit_cards_(general)_015",
+    "doc_credit_cards_credit_cards_(general)_016",
+    "doc_credit_cards_credit_cards_(general)_017"
+  ]
+}

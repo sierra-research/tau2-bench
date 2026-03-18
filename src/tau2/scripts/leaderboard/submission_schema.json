@@ -3,17 +3,22 @@
   "title": "Tau2-Bench Leaderboard Submission",
   "description": "Schema for submitting model results to the tau2-bench leaderboard",
   "type": "object",
-  "required": ["model_name", "organization", "submission_date", "contact_info", "results"],
+  "required": ["model_name", "model_organization", "submitting_organization", "submission_date", "contact_info", "results"],
   "properties": {
     "model_name": {
       "type": "string",
       "description": "Name of the model being evaluated",
       "examples": ["GPT-4.1", "Claude-3.7-Sonnet", "Custom-Model-v1.0"]
     },
-    "organization": {
+    "model_organization": {
       "type": "string",
       "description": "Organization or company that developed the model",
       "examples": ["OpenAI", "Anthropic", "Google", "My Company"]
+    },
+    "submitting_organization": {
+      "type": "string",
+      "description": "Organization that actually ran the evaluation and submitted the results",
+      "examples": ["Sierra", "Anthropic", "OpenAI", "Independent Researcher"]
     },
     "submission_date": {
       "type": "string",
@@ -22,7 +27,6 @@
     },
     "contact_info": {
       "type": "object",
-      "required": ["email"],
       "properties": {
         "email": {
           "type": "string",
@@ -44,6 +48,59 @@
       "description": "Whether this model should be highlighted as new on the leaderboard",
       "default": false
     },
+    "submission_type": {
+      "type": "string",
+      "enum": ["standard", "custom"],
+      "description": "Type of submission: 'standard' uses the default tau2-bench scaffold (base LLM + standard tools/prompts), 'custom' uses modified scaffolds (multi-model routers, additional tools, custom prompting, etc.). Custom submissions require detailed methodology documentation.",
+      "default": "standard"
+    },
+    "modality": {
+      "type": "string",
+      "enum": ["text", "voice"],
+      "description": "Evaluation modality: 'text' for standard text-based half-duplex evaluation, 'voice' for audio-native full-duplex evaluation",
+      "default": "text"
+    },
+    "trajectories_available": {
+      "type": "boolean",
+      "description": "Whether trajectory files are available for this submission",
+      "default": false
+    },
+    "trajectory_files": {
+      "type": "object",
+      "description": "Mapping of domain name to trajectory filename in the trajectories/ directory",
+      "properties": {
+        "airline": { "type": "string", "description": "Filename of the airline trajectory file" },
+        "retail": { "type": "string", "description": "Filename of the retail trajectory file" },
+        "telecom": { "type": "string", "description": "Filename of the telecom trajectory file" },
+        "banking_knowledge": { "type": "string", "description": "Filename of the banking_knowledge trajectory file" }
+      },
+      "additionalProperties": false
+    },
+    "references": {
+      "type": "array",
+      "description": "Links to papers, blog posts, documentation, or other resources about this model",
+      "items": {
+        "type": "object",
+        "required": ["title", "url"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title or description of the reference"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to the reference"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["paper", "blog_post", "documentation", "model_card", "github", "huggingface", "other"],
+            "description": "Type of reference"
+          }
+        }
+      },
+      "default": []
+    },
     "results": {
       "type": "object",
       "description": "Performance results for each domain",
@@ -56,8 +113,39 @@
         },
         "telecom": {
           "$ref": "#/definitions/domain_results"
+        },
+        "banking_knowledge": {
+          "$ref": "#/definitions/banking_knowledge_results"
         }
       },
+      "additionalProperties": false
+    },
+    "voice_config": {
+      "type": "object",
+      "description": "Voice-specific configuration for audio-native evaluations. Required when modality is 'voice'.",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "Audio-native provider (e.g. 'openai', 'gemini', 'xai')"
+        },
+        "model": {
+          "type": "string",
+          "description": "Audio-native model identifier (e.g. 'gpt-realtime-1.5')"
+        },
+        "tick_duration_seconds": {
+          "type": ["number", "null"],
+          "description": "Duration of each simulation tick in seconds"
+        },
+        "max_steps_seconds": {
+          "type": ["number", "null"],
+          "description": "Maximum simulation duration in seconds"
+        },
+        "user_tts_provider": {
+          "type": ["string", "null"],
+          "description": "User simulator TTS provider and model (e.g. 'elevenlabs/eleven_v3')"
+        }
+      },
+      "required": ["provider", "model"],
       "additionalProperties": false
     },
     "methodology": {
@@ -80,6 +168,25 @@
         "notes": {
           "type": "string",
           "description": "Additional notes about the evaluation methodology"
+        },
+        "verification": {
+          "type": "object",
+          "description": "Verification details for result authenticity",
+          "required": ["modified_prompts", "omitted_questions"],
+          "properties": {
+            "modified_prompts": {
+              "type": "boolean",
+              "description": "Whether any modifications were made to user simulator or agent prompts"
+            },
+            "omitted_questions": {
+              "type": "boolean", 
+              "description": "Whether any questions/tasks were omitted from the evaluation"
+            },
+            "details": {
+              "type": "string",
+              "description": "Additional verification details or explanations"
+            }
+          }
         }
       }
     }
@@ -119,6 +226,47 @@
           "description": "Average cost in USD to run one trajectory in this domain (optional)"
         }
       },
+      "additionalProperties": false
+    },
+    "banking_knowledge_results": {
+      "type": "object",
+      "description": "Results for the banking_knowledge domain. Requires a retrieval_config field specifying the retrieval method used.",
+      "properties": {
+        "pass_1": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Pass^1 success rate percentage"
+        },
+        "pass_2": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Pass^2 success rate percentage"
+        },
+        "pass_3": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Pass^3 success rate percentage"
+        },
+        "pass_4": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Pass^4 success rate percentage"
+        },
+        "cost": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Average cost in USD to run one trajectory in this domain (optional)"
+        },
+        "retrieval_config": {
+          "type": "string",
+          "description": "Retrieval method used for knowledge base access (e.g., 'terminal', 'text-emb-3-large', 'qwen3-emb', 'bm25')"
+        }
+      },
+      "required": ["retrieval_config"],
       "additionalProperties": false
     }
   }

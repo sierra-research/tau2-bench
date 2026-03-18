@@ -1,6 +1,6 @@
 # Changelog & Release Automation Guide
 
-This guide explains how to automate changelog generation and release management for τ²-bench using modern CI/CD tools.
+This guide explains how to automate changelog generation and release management for τ-bench using modern CI/CD tools.
 
 ## Overview
 
@@ -84,7 +84,7 @@ git commit -m "feat!: redesign agent configuration API"
 
 ### Configuration
 
-The workflow is configured in `.github/workflows/release.yml`:
+Configure these options in your repository's release workflow:
 
 ```yaml
 # Key configuration options
@@ -208,7 +208,7 @@ git log --oneline -10
 npx commitizen init cz-conventional-changelog --save-dev --save-exact
 
 # Test release please locally (requires npx)
-npx release-please release-pr --repo-url=https://github.com/your-org/tau2-bench
+npx release-please release-pr --repo-url=https://github.com/your-org/tau-bench
 ```
 
 ## Advanced Configuration
@@ -274,7 +274,7 @@ To automatically publish to PyPI on release:
 3. **Uncomment Publishing Step**: Enable the PyPI publishing section in the workflow
 
 ```yaml
-# Uncomment these lines in .github/workflows/release.yml
+# Enable a publish step like this in your release workflow
 - name: Publish to PyPI
   if: ${{ steps.release.outputs.release_created }}
   env:

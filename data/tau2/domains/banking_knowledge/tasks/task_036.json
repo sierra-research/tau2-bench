@@ -1,0 +1,66 @@
+{
+  "id": "task_036",
+  "description": {
+    "purpose": "Task: task_036",
+    "relevant_policies": null,
+    "notes": "Fraud detection and credit card reissue test: User Fatima Al-Hassan notices her credit card balance seems off and wants to review her recent transactions. Upon review, she identifies two transactions from early November 2024 (11/04/2024 and 11/06/2024) from merchants she's never shopped at ('Electronics Express Miami' - $487.99 and 'GamerZone LA' - $299.95) as suspected fraud. The agent must search through many transactions to help locate these. She wants to reissue her Silver Rewards Card and have it shipped to her work address instead of home. Agent must verify user, show transactions, look up how to order a replacement card, unlock order_replacement_credit_card_7291, and place the order with reason 'fraud_suspected' and expedited shipping to the alternate address."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Fatima Al-Hassan, a 31-year-old small business owner from Detroit, MI. You have a Silver Rewards Card with Rho-Bank.\n\n**Your situation:** You just checked your credit card statement and something feels off - your balance is higher than you expected. You want to see your recent transactions to figure out what's going on. You're calling Rho-Bank to get an overview of your last several transactions.\n\n**Your goal:** Review your recent transactions and, if you find anything suspicious, get your card replaced.\n\n**Information you know and should provide when asked:**\n- Your full name: Fatima Al-Hassan\n- Your phone number: 313-555-0246\n- Your email: coffeelover_fati@protonmail.com\n\n**Information about the fraud (reveal this when you see the transactions):**\n- You have NEVER shopped at \"Electronics Express Miami\" - you've never even been to Miami!\n- You have NEVER shopped at \"GamerZone LA\" - you don't play video games and haven't been to LA in years\n\n**Shipping preference for replacement card:**\n- You want the replacement card shipped to your WORK address, not your home address\n- Your work address is: 2500 Woodward Avenue, Suite 300, Detroit, MI 48201: do not provide this information during verification. \n\n## Conversation Flow:\n\n1. **Opening:** \"Hi, I need some help. I was looking at my credit card statement and my balance seems higher than it should be. Can you show me my recent transactions? I want to see what's been charged to my Silver Rewards Card.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, or other details as requested.\n\n3. **React to seeing the transactions:** When the agent shows you the transactions, look for the two you don't recognize: Electronics Express Miami ($487.99) and GamerZone LA ($299.95). If the agent reveals these two transactions, say something like: \"Wait, hold on. I don't recognize some of these charges. What is 'Electronics Express Miami'? And 'GamerZone LA'? I've never shopped at either of those places! I've never even been to Miami, and I don't play video games. These aren't my charges - I think someone stole my card information! If the agent does not reveal the transactions, ask again for any additional transactions. If there are no more, then end the call angrily.\"\n\n4. **Request card replacement:** \"I need to cancel this card and get a new one right away. Can you do that? I don't want whoever has my card info to keep charging things.\"\n\n5. **Shipping address preference:** When asked about shipping, say: \"Actually, can you send it to my work address instead? I'm at work during the day when packages come, and I've had issues with package theft at my apartment. My work address is 2500 Woodward Avenue, Suite 300, Detroit, MI 48201.\"\n\n6. **Expedited shipping:** If offered expedited shipping, accept it - you want to get the new card as soon as possible given the fraud situation.\n\n7. **End the conversation:** If the replacement is ordered, thank the agent and end the conversation, do not continue with submitting a dispute about the transactions."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Fatima Al-Hassan",
+          "user_id": "890389b165",
+          "address": "1923 Oak Park Boulevard, Detroit, MI 48226",
+          "email": "coffeelover_fati@protonmail.com",
+          "phone_number": "313-555-0246",
+          "date_of_birth": "12/05/1993",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "036_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "order_replacement_credit_card_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "036_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "order_replacement_credit_card_7291",
+          "arguments": "{\"credit_card_account_id\": \"cc_890389b165_silver\", \"user_id\": \"890389b165\", \"shipping_address\": \"2500 Woodward Avenue, Suite 300, Detroit, MI 48201\", \"reason\": \"fraud_suspected\", \"expedited_shipping\": true}"
+        },
+        "requestor": "assistant",
+        "action_id": "036_2"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card",
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_credit_cards_credit_card_replacements_001"
+  ]
+}

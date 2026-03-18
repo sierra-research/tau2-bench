@@ -1,7 +1,5 @@
 """Tests for UserGymEnv - playing as the user against an automated agent."""
 
-import pytest
-
 from tau2.data_model.message import UserMessage
 from tau2.gym.gym_agent import UserGymEnv
 

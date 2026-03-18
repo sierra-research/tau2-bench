@@ -1,0 +1,117 @@
+{
+  "id": "task_071",
+  "description": {
+    "purpose": "Task: task_071",
+    "relevant_policies": null,
+    "notes": "BUSINESS CHECKING AND SAVINGS ACCOUNT SELECTION WITH CONFLICTING PROMOTIONS: Customer wants to open BOTH a new business checking account AND a business savings account with specific requirements that narrow each field to exactly 3 accounts. For CHECKING: (Sky Blue, Lime Green, Hunter Green). For SAVINGS: (Gold Saver, Silver Plus Saver, Gold Plus Saver). The customer already has an existing business checking account (Cobalt Blue, opened 09/15/2025) which qualifies them for a business savings account (requires 30+ days with business checking). The challenge is that FOUR promotion policies exist in the knowledge base - two for checking and two for savings: (1) EXPIRED checking promotion (10/12/2025-11/12/2025) prioritizes Lime Green > Hunter Green, (2) ACTIVE checking promotion (11/01/2025-11/30/2025) prioritizes Sky Blue > Lime Green, (3) EXPIRED savings promotion (10/12/2025-11/12/2025) prioritizes Gold Plus Saver > Silver Plus Saver, (4) ACTIVE savings promotion (11/01/2025-11/30/2025) prioritizes Gold Saver > Silver Plus Saver. The agent must correctly identify which promotions are active based on the current date (11/14/2025) and recommend Sky Blue for checking and Gold Saver for savings."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Yumi Tanaka, a 35-year-old owner of a small creative design studio called \"Aurora Design Co\" based in Portland, OR. You've had a personal Green Account with Rho-Bank for about 3 years and have roughly $3,150 in it. You also opened a Cobalt Blue business checking account about 2 months ago for your studio. Your business has been growing and you want to open an additional business checking account with better features, and you also want to start building business savings. You're practical and want the agent to just tell you what to do.\n\n**Your goal:** Get ONE recommendation each for a new business checking account AND a business savings account that meet all your requirements. You want the agent to recommend single accounts for each - not give you options to choose from.\n\n**Verification info:**\n- Name: Yumi Tanaka | Phone: 503-555-0741 | Email: yumi.tanaka@aurora.io\n- DOB: 08/23/1990 | Address: 2847 Willamette Street, Portland, OR 97202\n- Existing accounts: Green Account (personal checking, balance ~$3,150), Cobalt Blue (business checking, opened ~2 months ago, balance ~$12,500)\n\n## Conversation Flow:\n\n1. **Opening - State your goal clearly:** \"Hi there! I run a small creative design studio and I'm looking to open a new business checking account with better features than my current Cobalt Blue, and I also want to open a business savings account to start building reserves. I have specific requirements for both and I'm hoping you can just tell me which accounts are the right fit - I don't want to compare a bunch of options.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address.\n\n3. **Reveal your business CHECKING requirements organically:**\n   - Start with mobile deposit needs: \"For the new checking account, I frequently receive large checks from clients - sometimes $8,000 or $10,000 at a time - and I need to deposit them quickly without going to a branch. I need an account that lets me deposit at least $10,000 per day via mobile deposit.\"\n   - Then overdraft protection: \"I absolutely cannot have overdraft fees. My cash flow fluctuates with client payments, and I've been burned by overdraft charges before at other banks. Zero overdraft fees is non-negotiable for me.\"\n   - Then the balance reality: \"I'm a small studio, not some huge corporation. I can't commit to keeping $10,000 or more in the account at all times. If there's a minimum balance requirement, it needs to be reasonable - under ten grand.\"\n   - Then interest: \"I'd also like to earn decent interest on whatever I keep in there. At least 1% APY would be nice - I know it's a checking account, but every bit helps.\"\n\n4. **Reveal your business SAVINGS requirements:**\n   - Same-day transfers: \"For the savings account, I need to be able to move money between my checking and savings quickly - same-day ACH transfers are really important for managing my cash flow.\"\n   - Balance flexibility: \"Similar to checking, I can't commit to keeping $50,000 or more in savings. I'm building up reserves, but I need something realistic for a small studio.\"\n   - Wire transfer costs: \"And if I ever need to wire funds from savings, I don't want to pay more than $15 per wire. Those fees add up.\"\n\n5. **If the agent tries to give you multiple options:** Push back firmly. \"Look, I appreciate the thoroughness, but I really don't want to compare options. You know more about these accounts than I do. Which ONE checking account and which ONE savings account best fit everything I just told you? Just give me your recommendations and I'll go with them.\"\n\n6. **When the agent recommends accounts:** \n   - If they recommend ONE of each confidently: \"Alright, those both sound good. Let's set them up!\"\n   - Accept the recommendations and proceed with opening both accounts.\n\n7. **After the accounts are opened:** \"Perfect, thanks for making that easy. I think I'm all set for now!\""
+  },
+  "initial_state": {
+    "initialization_data": null,
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Yumi Tanaka",
+          "user_id": "yt71c9e4f2",
+          "address": "2847 Willamette Street, Portland, OR 97202",
+          "email": "yumi.tanaka@aurora.io",
+          "phone_number": "503-555-0741",
+          "date_of_birth": "08/23/1990",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "071_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "071_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+          "arguments": "{\"user_id\": \"yt71c9e4f2\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "071_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821"
+        },
+        "requestor": "assistant",
+        "action_id": "071_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821",
+          "arguments": "{\"user_id\": \"yt71c9e4f2\", \"account_type\": \"business_checking\", \"account_class\": \"Sky Blue\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "071_4"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821",
+          "arguments": "{\"user_id\": \"yt71c9e4f2\", \"account_type\": \"business_savings\", \"account_class\": \"Gold Saver Account\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "071_5"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_003",
+    "doc_bank_accounts_bank_accounts_(general)_004",
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_bank_accounts_bank_accounts_(general)_013",
+    "doc_bank_accounts_bank_accounts_(general)_014",
+    "doc_bank_accounts_bank_accounts_(general)_015",
+    "doc_bank_accounts_bank_accounts_(general)_016",
+    "doc_business_checking_accounts_sky_blue_001",
+    "doc_business_checking_accounts_sky_blue_007",
+    "doc_business_checking_accounts_sky_blue_010",
+    "doc_business_checking_accounts_lime_green_001",
+    "doc_business_checking_accounts_lime_green_007",
+    "doc_business_checking_accounts_hunter_green_001",
+    "doc_business_checking_accounts_hunter_green_010",
+    "doc_business_checking_accounts_navy_blue_001",
+    "doc_business_checking_accounts_true_blue_001",
+    "doc_business_checking_accounts_world_blue_001",
+    "doc_business_checking_accounts_beige_001",
+    "doc_business_checking_accounts_cobalt_blue_001",
+    "doc_business_savings_accounts_gold_saver_account_001",
+    "doc_business_savings_accounts_gold_saver_account_006",
+    "doc_business_savings_accounts_silver_plus_saver_001",
+    "doc_business_savings_accounts_silver_plus_saver_006",
+    "doc_business_savings_accounts_gold_plus_saver_001",
+    "doc_business_savings_accounts_gold_plus_saver_006",
+    "doc_business_savings_accounts_bronze_saver_account_001",
+    "doc_business_savings_accounts_silver_saver_account_001",
+    "doc_business_savings_accounts_platinum_reserve_account_001",
+    "doc_business_savings_accounts_emerald_saver_001",
+    "doc_business_savings_accounts_diamond_vault_001"
+  ]
+}

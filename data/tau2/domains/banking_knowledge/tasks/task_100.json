@@ -1,0 +1,121 @@
+{
+  "id": "task_100",
+  "description": {
+    "purpose": "Task: task_100",
+    "relevant_policies": null,
+    "notes": "BUSINESS CHECKING ACCOUNT REFERRAL - TENURE ELIGIBILITY TRAP. Customer OWNS a World Blue Account but CANNOT refer for World Blue due to tenure requirements. KEY COMPLEXITY: (1) Customer opened their first checking account only 65 days ago. (2) World Blue requires 90 days of tenure to participate in referral program - customer has only 65 days. (3) Customer OWNS World Blue, which is a DISTRACTOR - owning an account doesn't waive tenure requirements. (4) Hunter Green only requires 60 days tenure - customer qualifies for this even though they don't own it. (5) Customer's partner will deposit $30,000 which qualifies for World Blue's $25k requirement, but customer still can't refer for World Blue due to tenure. (6) Agent must realize that owning World Blue doesn't help - tenure requirements still apply. (7) Best actual option is Hunter Green at $175 (highest bonus among 60-day tenure accounts that customer qualifies for). ANSWER: Hunter Green Account is optimal at $175 referrer bonus - customer doesn't qualify for World Blue's higher bonus despite OWNING a World Blue account."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Tomoko Ishikawa, a 38-year-old software consultant in Seattle, WA. Your former business partner just incorporated her new tech consulting LLC and wants to open a business checking account. You want to refer her so YOU get the biggest possible referral bonus.\n\n**Verification info:**\n- Name: Tomoko Ishikawa | Phone: 206-555-3891 | Email: tomoko.ishikawa@seattletechconsult.com\n- DOB: 04/22/1987 | Address: 2847 Aurora Avenue North, Apt 12C, Seattle, WA 98103\n\n**Tool usage:** You have access to `submit_referral`. Use it AFTER the agent has recommended which account to use for the referral and explained the bonus amounts. Call it with your user_id (ti87k4x9m2) and the account_type the agent recommended.\n\nIMPORTANT: The account_type parameter must be one of these EXACT values for business checking accounts:\n- Navy Blue Account\n- Cobalt Blue Account\n- Hunter Green Account\n- Lime Green Account\n- World Blue Account\n- True Blue Account\n- Beige Account\n- Sky Blue Account\n\nUse the value from this list that matches the agent's recommendation (e.g., if agent says \"World Blue International\", use \"World Blue Account\").\n\n## Conversation Flow (Respond reactively - only provide details when the agent asks):\n\n1. **Opening:** \"Hi! My former business partner just incorporated her new tech consulting LLC and she needs to open a business checking account. She's going to deposit around $31,000 from her startup funding. I want to refer her to get the referral bonus.  I want to get the biggest bonus possible for ME.\"\n\n2. **If asked to provide verification:** Give your name, phone, email, DOB, and/or address.\n\n3. **If agent asks about your business accounts:** \"I have a World Blue Account and a Cobalt Blue Account - both business checking.\"\n\n4. **If agent asks about business checking account balances:** \"The World Blue has about $28,000 and the Cobalt Blue has around $15,000.\"\n\n5. **If agent asks how long you've been a customer or when you opened your accounts (proactively mention this):** \"I opened my first account with Rho-Bank back in mid-July this year. So it's been... let me think... about four months now? Maybe a bit more.\"\n\n7. **If agent asks about referral history:** \"I haven't done any referrals yet actually - this would be my first one! That's why I want to make sure I'm getting the best bonus possible.\"\n\n8. **If agent asks about the business partner's address or relationship:** \"No, we don't live together or share an address. She has her own apartment in Bellevue. We used to work at the same company before we both went independent.\"\n\n9. **If agent mentions tenure requirements or that you don't qualify for World Blue referrals:** \"Wait, really? But I HAVE a World Blue Account! How can I not refer someone for the same account I already have? That doesn't make sense.\"\n\n10. **If agent explains that tenure requirements apply regardless of account ownership:** \"Oh wow, I didn't realize that. So even though I own a World Blue, I still need to wait longer before I can refer someone for it? That's frustrating but okay.\"\n\n11. **If agent says you would be automatically denied or cannot submit a referral for ANY account**: Accept this and say \"Oh, that's really disappointing. I guess I'll have to wait and try again later. Thanks for letting me know before I wasted my time.\" ###STOP### Do NOT submit a referral.\n\n12. **If agent recommends a specific account that you DO qualify for RIGHT NOW, submit the referral immediately:** You want to get this done today — don't choose to wait for a future date even if a higher bonus might become available later. Say \"Alright, let me do that then.\" Then use the submit_referral tool with user_id=\"ti87k4x9m2\" and the account_type the agent recommended.\n\n13. **After submitting the referral:** \"Thanks for that.\" ###STOP###"
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": {
+        "users": {
+          "data": {
+            "ti87k4x9m2": {
+              "name": "Tomoko Ishikawa",
+              "user_id": "ti87k4x9m2",
+              "address": "2847 Aurora Avenue North, Apt 12C, Seattle, WA 98103",
+              "email": "tomoko.ishikawa@seattletechconsult.com",
+              "phone_number": "206-555-3891",
+              "date_of_birth": "04/22/1987"
+            }
+          }
+        },
+        "accounts": {
+          "data": {
+            "biz_ti87k4x9m2_worldblue": {
+              "account_id": "biz_ti87k4x9m2_worldblue",
+              "user_id": "ti87k4x9m2",
+              "class": "business_checking",
+              "level": "World Blue Account",
+              "date_opened": "09/10/2025",
+              "status": "OPEN",
+              "current_holdings": "28000.00"
+            },
+            "biz_ti87k4x9m2_cobaltblue": {
+              "account_id": "biz_ti87k4x9m2_cobaltblue",
+              "user_id": "ti87k4x9m2",
+              "class": "business_checking",
+              "level": "Cobalt Blue Account",
+              "date_opened": "10/01/2025",
+              "status": "OPEN",
+              "current_holdings": "15000.00"
+            }
+          }
+        },
+        "referrals": {
+          "data": {}
+        }
+      }
+    }
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Tomoko Ishikawa",
+          "user_id": "ti87k4x9m2",
+          "address": "2847 Aurora Avenue North, Apt 12C, Seattle, WA 98103",
+          "email": "tomoko.ishikawa@seattletechconsult.com",
+          "phone_number": "206-555-3891",
+          "date_of_birth": "04/22/1987",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "100_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "100_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+          "arguments": "{\"user_id\": \"ti87k4x9m2\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "100_2"
+      },
+      {
+        "name": "submit_referral",
+        "arguments": {
+          "user_id": "ti87k4x9m2",
+          "account_type": "Hunter Green Account"
+        },
+        "requestor": "user",
+        "action_id": "100_3"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "call_discoverable_user_tool",
+    "submit_referral"
+  ],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_bank_accounts_bank_accounts_(general)_047",
+    "doc_bank_accounts_bank_accounts_(general)_048",
+    "doc_business_checking_accounts_navy_blue_001",
+    "doc_business_checking_accounts_cobalt_blue_005",
+    "doc_business_checking_accounts_hunter_green_001",
+    "doc_business_checking_accounts_world_blue_001",
+    "doc_business_checking_accounts_world_blue_007",
+    "doc_business_checking_accounts_lime_green_003",
+    "doc_business_checking_accounts_true_blue_002",
+    "doc_business_checking_accounts_beige_012",
+    "doc_business_checking_accounts_sky_blue_001"
+  ]
+}
