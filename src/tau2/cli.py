@@ -219,6 +219,30 @@ def add_run_args(parser):
         default=False,
         help="Enforce communication protocol rules (e.g., no mixed messages with text and tool calls). Default is False.",
     )
+    # AVER robustness mode (routes to src/experiments/tau-robustness/)
+    parser.add_argument(
+        "--mode",
+        type=str,
+        choices=["standard", "robustness"],
+        default="standard",
+        help="Evaluation mode. 'robustness' enables AVER error injection. Default: standard.",
+    )
+    parser.add_argument(
+        "--injection-rate", type=float, default=1.0,
+        help="Injection probability for eligible tool calls (robustness mode). Default: 1.0.",
+    )
+    parser.add_argument(
+        "--injection-seed", type=int, default=42,
+        help="Seed for injection randomness (robustness mode). Default: 42.",
+    )
+    parser.add_argument(
+        "--max-injections", type=int, default=1,
+        help="Max injections per simulation (robustness mode). Default: 1.",
+    )
+    parser.add_argument(
+        "--persistent", action="store_true",
+        help="Persistent injection mode — retry returns same corrupted data (robustness mode).",
+    )
     parser.add_argument(
         "--user-persona",
         type=json.loads,
@@ -577,6 +601,10 @@ def main():
     add_run_args(run_parser)
 
     def run_command(args):
+        if args.mode == "robustness":
+            from tau_robustness.run import run_robustness_from_args
+            return run_robustness_from_args(args)
+
         user_persona_config = None
         if args.user_persona:
             user_persona_config = PersonaConfig.from_dict(args.user_persona)  # noqa: F841

@@ -1,0 +1,422 @@
+domain: airline
+
+injections:
+  # --- Task-blocking injections ---
+  #
+  # Enforcement types:
+  #   API-enforced:  The write tool rejects the call or the call produces wrong DB state.
+  #   Policy-enforced: The airline API has NO precondition checks (policy.md explicitly
+  #                    states "The API does not check these for the agent"). The agent
+  #                    must refuse based on policy interpretation of the (corrupted) data.
+  #                    A well-prompted agent following policy will fail; a robust agent
+  #                    that detects the data conflict and re-fetches will succeed.
+
+  # A1: Block update_reservation_flights by flipping cabin to basic_economy
+  # ENFORCEMENT: Policy-enforced — API accepts any cabin, but policy forbids
+  # modifying basic_economy reservations.
+  # Policy: basic_economy reservations cannot have their flights modified.
+  # Agent sees basic_economy, refuses to modify → reward=0.0 if task requires flight update.
+  - id: airline_block_update_cabin_flip
+    type: status_flip
+    target_tool: get_reservation_details
+    description: >
+      An economy or business reservation incorrectly shows as "basic_economy".
+      Agent refuses to modify flights because policy forbids basic_economy modifications.
+      Real-world cause: cabin class data sync lag between booking and reservation system.
+    difficulty: 2
+    mutations:
+      - field_path: cabin
+        action: flip
+        flip_map:
+          "economy": "basic_economy"
+          "business": "basic_economy"
+    precondition:
+      cabin: "economy"
+    task_keywords:
+      - "change"
+      - "modify"
+      - "upgrade"
+      - "flight"
+      - "reservation"
+      - "switch"
+      - "rebook"
+    detection_signals:
+      - "basic economy"
+      - "cannot be modified"
+      - "not eligible"
+      - "cabin class"
+      - "verify"
+      - "double-check"
+    recovery_signals:
+      - "get_reservation_details"
+      - "verify cabin"
+      - "check reservation"
+      - "let me re-check"
+    blocks_actions:
+      - "update_reservation_flights"
+      - "update_reservation_baggages"
+      - "update_reservation_passengers"
+
+  # A2: Block cancel_reservation by removing business-class cancellation grounds
+  # Policy: business reservations can always be cancelled.
+  # Flipping business → economy means agent must find other grounds (24h, insurance, etc.)
+  - id: airline_block_cancel_cabin_flip
+    type: status_flip
+    target_tool: get_reservation_details
+    description: >
+      A business class reservation incorrectly shows as "economy".
+      Agent loses the "business class always cancellable" grounds and may refuse
+      cancellation if no other eligibility applies (24h window, insurance, airline-cancelled).
+      Real-world cause: cabin upgrade not persisted in reservation system.
+    difficulty: 3
+    mutations:
+      - field_path: cabin
+        action: flip
+        flip_map:
+          "business": "economy"
+    precondition:
+      cabin: "business"
+    task_keywords:
+      - "cancel"
+      - "reservation"
+      - "refund"
+      - "trip"
+    detection_signals:
+      - "economy"
+      - "cabin class"
+      - "not business"
+      - "cannot cancel"
+      - "verify"
+    recovery_signals:
+      - "get_reservation_details"
+      - "verify cabin"
+      - "check reservation"
+      - "confirm class"
+    blocks_actions:
+      - "cancel_reservation"
+      - "send_certificate"
+
+  # A3: Block cancel_reservation by flipping insurance yes → no
+  # Policy: insured passengers can cancel for covered reasons (health, weather).
+  # Flipping insurance to "no" removes that cancellation ground.
+  - id: airline_block_cancel_insurance_flip
+    type: status_flip
+    target_tool: get_reservation_details
+    description: >
+      A reservation with travel insurance incorrectly shows insurance as "no".
+      Agent may refuse cancellation for health/weather reasons because no insurance
+      coverage is visible. Real-world cause: insurance purchase transaction rollback.
+    difficulty: 3
+    mutations:
+      - field_path: insurance
+        action: flip
+        flip_map:
+          "yes": "no"
+    precondition:
+      insurance: "yes"
+    task_keywords:
+      - "cancel"
+      - "insurance"
+      - "refund"
+      - "health"
+      - "medical"
+      - "weather"
+      - "compensation"
+      - "certificate"
+      - "delay"
+    detection_signals:
+      - "no insurance"
+      - "not covered"
+      - "insurance"
+      - "coverage"
+      - "verify"
+    recovery_signals:
+      - "get_reservation_details"
+      - "verify insurance"
+      - "check coverage"
+      - "do you have insurance"
+    blocks_actions:
+      - "cancel_reservation"
+      - "send_certificate"
+
+  # A4: Block all modifications by showing reservation as "cancelled"
+  # The reservation status field is Optional[Literal["cancelled"]], default None.
+  # If status shows "cancelled", agent will refuse any modification or cancellation.
+  - id: airline_block_all_cancelled_status
+    type: status_flip
+    target_tool: get_reservation_details
+    description: >
+      An active reservation incorrectly shows status as "cancelled".
+      Agent refuses all modifications, cancellation, and baggage changes because
+      the reservation appears already cancelled.
+      Real-world cause: cancelled status flag set by duplicate webhook from
+      payment processor reversal that was later rolled back.
+    difficulty: 2
+    mutations:
+      - field_path: status
+        action: set
+        value: "cancelled"
+    precondition:
+      status: null
+    task_keywords:
+      - "change"
+      - "modify"
+      - "cancel"
+      - "flight"
+      - "reservation"
+      - "upgrade"
+      - "baggage"
+      - "passenger"
+    detection_signals:
+      - "cancelled"
+      - "already cancelled"
+      - "no longer active"
+      - "status"
+      - "verify"
+    recovery_signals:
+      - "get_reservation_details"
+      - "check reservation"
+      - "still active"
+      - "verify status"
+    blocks_actions:
+      - "update_reservation_flights"
+      - "cancel_reservation"
+      - "update_reservation_baggages"
+      - "update_reservation_passengers"
+
+  # A5: Block update_reservation_flights for business cabin reservations
+  # Complements A1 which only targets economy → basic_economy.
+  # This flips business → basic_economy so flight modification tasks on business
+  # class reservations are also blocked.
+  - id: airline_block_update_business_cabin_flip
+    type: status_flip
+    target_tool: get_reservation_details
+    description: >
+      A business class reservation incorrectly shows as "basic_economy".
+      Agent refuses to modify flights because policy forbids basic_economy modifications.
+      Real-world cause: legacy fare bucket mapping error in GDS sync.
+    difficulty: 2
+    mutations:
+      - field_path: cabin
+        action: flip
+        flip_map:
+          "business": "basic_economy"
+    precondition:
+      cabin: "business"
+    task_keywords:
+      - "change"
+      - "modify"
+      - "upgrade"
+      - "flight"
+      - "reservation"
+      - "switch"
+      - "rebook"
+    detection_signals:
+      - "basic economy"
+      - "cannot be modified"
+      - "not eligible"
+      - "cabin class"
+      - "verify"
+    recovery_signals:
+      - "get_reservation_details"
+      - "verify cabin"
+      - "check reservation"
+    blocks_actions:
+      - "update_reservation_flights"
+      - "update_reservation_baggages"
+      - "update_reservation_passengers"
+
+  # A6: Block compensation by flipping membership gold → regular
+  # Policy: only silver/gold members or insured/business passengers get compensation.
+  # Flipping gold → regular removes membership-based eligibility.
+  - id: airline_block_compensation_membership_flip
+    type: status_flip
+    target_tool: get_user_details
+    description: >
+      A gold member incorrectly shows as "regular" membership.
+      Agent may deny compensation for delayed/cancelled flights because
+      regular members without insurance in economy are not eligible.
+      Real-world cause: loyalty tier sync lag after quarterly status review.
+    difficulty: 3
+    mutations:
+      - field_path: membership
+        action: flip
+        flip_map:
+          "gold": "regular"
+          "silver": "regular"
+    precondition:
+      membership: "gold"
+    task_keywords:
+      - "compensation"
+      - "certificate"
+      - "delay"
+      - "cancelled"
+      - "complaint"
+      - "refund"
+    detection_signals:
+      - "regular member"
+      - "not eligible"
+      - "membership"
+      - "compensation"
+      - "verify"
+    recovery_signals:
+      - "get_user_details"
+      - "verify membership"
+      - "check membership"
+      - "gold member"
+    blocks_actions:
+      - "send_certificate"
+
+  # A7: Block book_reservation by adding phantom payment method
+  # book_reservation validates payment_id against user.payment_methods in the DB.
+  # A phantom gift card with high balance entices the agent to use it, but
+  # the DB doesn't have it → ValueError("Payment method not found").
+  # ENFORCEMENT: API-enforced (book_reservation checks DB for payment_id).
+  - id: airline_block_book_phantom_payment
+    type: phantom
+    target_tool: get_user_details
+    description: >
+      User's payment methods include a phantom gift card with $500 balance
+      that doesn't exist in the database. Agent selects this attractive
+      high-balance card for booking, but book_reservation raises
+      "Payment method not found" when it validates against the real DB.
+      Real-world cause: payment processor reversal removed the card
+      after the user profile was cached.
+    difficulty: 3
+    mutations:
+      - field_path: payment_methods.gift_card_9999999
+        action: set
+        value:
+          source: "gift_card"
+          id: "gift_card_9999999"
+          amount: 500.0
+    task_keywords:
+      - "book"
+      - "reservation"
+      - "flight"
+      - "payment"
+      - "certificate"
+      - "gift card"
+    detection_signals:
+      - "payment method not found"
+      - "invalid payment"
+      - "gift card"
+      - "not found"
+      - "doesn't exist"
+      - "payment failed"
+    recovery_signals:
+      - "get_user_details"
+      - "different payment"
+      - "another payment"
+      - "credit card"
+      - "try again"
+    blocks_actions:
+      - "book_reservation"
+
+  # A8: Block update_reservation_flights by corrupting search results
+  # search_direct_flight returns available_seats per cabin. If economy shows 0 seats,
+  # agent concludes no availability and tells user the flight is full.
+  # ENFORCEMENT: policy-enforced (agent won't book unavailable flights).
+  - id: airline_block_flight_seats_full
+    type: corrupt_field
+    target_tool: search_direct_flight
+    description: >
+      Direct flight search results show 0 available economy seats on all flights.
+      Agent cannot find available flights for the user's route and cabin class,
+      and either tells the user no flights are available or suggests alternatives
+      that don't match the task requirements.
+      Real-world cause: seat inventory sync lag with fare filing system.
+    difficulty: 2
+    mutations:
+      - field_path: 0.available_seats.economy
+        action: set
+        value: 0
+    task_keywords:
+      - "change"
+      - "modify"
+      - "book"
+      - "flight"
+      - "reservation"
+      - "rebook"
+      - "switch"
+    detection_signals:
+      - "no seats"
+      - "fully booked"
+      - "not available"
+      - "no availability"
+      - "sold out"
+    recovery_signals:
+      - "search_direct_flight"
+      - "search_onestop_flight"
+      - "try another"
+      - "check again"
+    blocks_actions:
+      - "update_reservation_flights"
+      - "book_reservation"
+
+  # --- Cosmetic / fallback injections (no blocks_actions) ---
+
+  # A10: Wrong Membership Level — regular shown as gold (cosmetic)
+  - id: airline_wrong_membership
+    type: corrupt_field
+    target_tool: get_user_details
+    description: >
+      User's membership level shows "gold" but is actually "regular".
+      Causes wrong baggage allowance, priority access, and cancellation rules.
+      Real-world cause: loyalty system sync delay.
+    difficulty: 3
+    mutations:
+      - field_path: membership
+        action: set
+        value: "gold"
+    precondition:
+      membership: "regular"
+    task_keywords:
+      - "book"
+      - "reservation"
+      - "cancel"
+      - "modify"
+      - "baggage"
+      - "membership"
+    detection_signals:
+      - "membership"
+      - "gold"
+      - "not eligible"
+      - "baggage"
+      - "allowance"
+    recovery_signals:
+      - "get_user_details"
+      - "verify membership"
+      - "regular"
+      - "check membership"
+    blocks_actions: []
+
+  # A8: Phantom Reservation — fake reservation ID in user's list
+  - id: airline_phantom_reservation
+    type: phantom
+    target_tool: get_user_details
+    description: >
+      User's reservation list includes a reservation ID that doesn't exist.
+      Real-world cause: cancelled reservation not cleaned up, stale index.
+    difficulty: 2
+    mutations:
+      - field_path: reservations
+        action: append
+        value: "ZZZZ99"
+    task_keywords:
+      - "reservation"
+      - "book"
+      - "cancel"
+      - "flight"
+      - "trip"
+    detection_signals:
+      - "not found"
+      - "doesn't exist"
+      - "invalid reservation"
+      - "ZZZZ99"
+    recovery_signals:
+      - "which reservation"
+      - "other reservation"
+      - "skip"
+      - "get_user_details"
+    blocks_actions: []
