@@ -70,6 +70,13 @@ DEFAULT_TEXT_STREAMING_CONFIG = {
     "chunk_size": DEFAULT_TEXT_STREAMING_CHUNK_SIZE,
 }
 
+# VOICE USER SIMULATOR VERSION
+# Bump this when any component of the voice user simulator changes
+# (LLM, TTS, decision models, presets, system prompts, effects pipeline).
+# Each version is anchored to a git tag: voice-user-sim-<version>
+VOICE_USER_SIMULATOR_VERSION = "v1.0"
+VOICE_USER_SIMULATOR_DECISION_MODEL = "gpt-4.1"
+
 # AUDIO NATIVE (Full-duplex voice using DiscreteTimeAudioNativeAgent)
 # Agent and user implementations for audio-native mode
 DEFAULT_AUDIO_NATIVE_AGENT_IMPLEMENTATION = "discrete_time_audio_native_agent"

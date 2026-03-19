@@ -147,7 +147,8 @@ class Methodology(BaseModelStrict):
     )
     user_simulator: Optional[str] = Field(
         None,
-        description="Model used for user simulation during evaluation",
+        description="For text: model name (e.g. 'gpt-4.1-2025-04-14'). "
+        "For voice: version identifier (e.g. 'v1.0') anchored to git tag voice-user-sim-<version>.",
     )
     notes: Optional[str] = Field(
         None, description="Additional notes about the evaluation methodology"

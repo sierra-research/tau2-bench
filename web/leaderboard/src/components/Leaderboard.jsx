@@ -780,7 +780,17 @@ const Leaderboard = () => {
                      {/* User Simulator */}
                      <td className="user-sim-info">
                        {model.data.userSimulator ? (
-                         <span className="user-sim-name">{model.data.userSimulator}</span>
+                         isVoice && model.data.userSimulator.startsWith('v') ? (
+                           <a
+                             href={`https://github.com/sierra-research/tau2-bench/tree/voice-user-sim-${model.data.userSimulator}`}
+                             target="_blank"
+                             rel="noopener noreferrer"
+                             className="user-sim-name user-sim-version-link"
+                             title="View voice user simulator source at this version"
+                           >{model.data.userSimulator}</a>
+                         ) : (
+                           <span className="user-sim-name">{model.data.userSimulator}</span>
+                         )
                        ) : (
                          <span className="no-data">—</span>
                        )}
@@ -988,7 +998,17 @@ const Leaderboard = () => {
                     <>
                       <tr className="sd-section-header"><td colSpan="2">METHODOLOGY</td></tr>
                       {selectedSubmission.methodology.user_simulator && (
-                        <tr><td>User Simulator</td><td>{selectedSubmission.methodology.user_simulator}</td></tr>
+                        <tr><td>User Simulator</td><td>
+                          {selectedSubmission.modality === 'voice' && selectedSubmission.methodology.user_simulator.startsWith('v') ? (
+                            <a
+                              href={`https://github.com/sierra-research/tau2-bench/tree/voice-user-sim-${selectedSubmission.methodology.user_simulator}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >{selectedSubmission.methodology.user_simulator}</a>
+                          ) : (
+                            selectedSubmission.methodology.user_simulator
+                          )}
+                        </td></tr>
                       )}
                       {selectedSubmission.methodology.evaluation_date && (
                         <tr><td>Evaluation Date</td><td>{selectedSubmission.methodology.evaluation_date}</td></tr>
