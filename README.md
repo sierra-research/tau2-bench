@@ -16,7 +16,7 @@
 <h3>🚀 τ³-bench is here!</h3>
 <p>From text-only to multimodal, knowledge-aware agent evaluation.<br>
 Voice full-duplex · Knowledge retrieval · 75+ task fixes<br>
-<a href="https://arxiv.org/abs/2603.13686">τ-Voice paper</a> · <a href="https://arxiv.org/abs/2603.04370">τ-Knowledge paper</a> · <a href="https://github.com/sierra-research/tau2-bench/releases/tag/v1.0.0">Release notes</a></p>
+<a href="https://arxiv.org/abs/2603.13686">τ-Voice paper</a> · <a href="https://arxiv.org/abs/2603.04370">τ-Knowledge paper</a> · <a href="https://arxiv.org/abs/2512.07850">Task fixes paper</a> · <a href="https://github.com/sierra-research/tau2-bench/releases/tag/v1.0.0">Release notes</a></p>
 </div>
 
 > **How do you say $\tau^3$-bench?** We just say "tau three," but you do you!
@@ -25,7 +25,7 @@ Voice full-duplex · Knowledge retrieval · 75+ task fixes<br>
 
 - **Knowledge Domain (`banking_knowledge`)** — A knowledge-retrieval-based customer service domain with configurable RAG pipelines, document search, embeddings, and agentic shell-based search. [Learn more →](src/tau2/knowledge/README.md)
 - **Voice Full-Duplex (Audio Native)** — End-to-end voice evaluation with realtime providers (OpenAI, Gemini, xAI). [Learn more →](src/tau2/voice/README.md)
-- **Task Quality (75+ fixes)** — Removed incorrect expected actions, clarified ambiguous instructions, fixed impossible constraints, and added missing fallback behaviors across airline, retail, and banking domains.
+- **Task Quality (75+ fixes)** — Removed incorrect expected actions, clarified ambiguous instructions, fixed impossible constraints, and added missing fallback behaviors across airline, retail, and banking domains. Based on analysis from [SABER](https://arxiv.org/abs/2512.07850) (Cuadron et al., 2025). [Learn more →](https://taubench.com/blog/tau3-task-fixes.html)
 - **Updated Leaderboard** — Now includes voice and knowledge results. Compare model performance at [taubench.com](https://taubench.com). [Submit your results →](docs/leaderboard-submission.md)
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
@@ -204,13 +204,11 @@ If you use a specific component of $\tau^3$-bench, please cite the corresponding
 
 ```bibtex
 
-@misc{cuadron2025sabersmallactionsbig,
-      title={SABER: Small Actions, Big Errors -- Safeguarding Mutating Steps in LLM Agents},
+@inproceedings{cuadron2026saber,
+      title={{SABER}: Small Actions, Big Errors {\textemdash} Safeguarding Mutating Steps in {LLM} Agents},
       author={Alejandro Cuadron and Pengfei Yu and Yang Liu and Arpit Gupta},
-      year={2025},
-      eprint={2512.07850},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2512.07850},
+      booktitle={ICLR 2026 Workshop on Memory for LLM-Based Agentic Systems},
+      year={2026},
+      url={https://openreview.net/forum?id=En2z9dckgP},
 }
 ```
