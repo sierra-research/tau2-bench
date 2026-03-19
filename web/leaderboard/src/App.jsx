@@ -172,7 +172,7 @@ function App() {
                       <button onClick={() => navigateTo('leaderboard')} className="btn-secondary">
                         View Leaderboard
                       </button>
-                      <a href="https://github.com/sierra-research/tau2-bench?tab=readme-ov-file#leaderboard-submission" target="_blank" rel="noopener noreferrer">
+                      <a href="https://github.com/sierra-research/tau2-bench/blob/main/docs/leaderboard-submission.md" target="_blank" rel="noopener noreferrer">
                         <button className="btn-secondary">Submit Results</button>
                       </a>
                     </div>

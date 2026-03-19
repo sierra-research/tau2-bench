@@ -927,7 +927,7 @@ const Leaderboard = () => {
           </p>
           <div className="submission-links">
             <a 
-              href="https://github.com/sierra-research/tau2-bench/blob/main/web/leaderboard/SUBMISSION_GUIDE.md" 
+              href="https://github.com/sierra-research/tau2-bench/blob/main/docs/leaderboard-submission.md" 
               target="_blank" 
               rel="noopener noreferrer" 
               className="submissions-link primary"

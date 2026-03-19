@@ -220,12 +220,17 @@ class Submission(BaseModel):
     trajectories_available: bool = Field(
         False, description="Whether trajectory files are available for this submission"
     )
+    submission_type: str = Field(
+        "standard",
+        description="Type of submission: 'standard' or 'custom'",
+    )
     references: list[ReferenceInfo] = Field(
         default_factory=list,
         description="Links to papers, blog posts, documentation, or other resources",
     )
-    notes: Optional[str] = Field(
-        None, description="Additional notes about the submission"
+    trajectory_files: Optional[dict[str, str]] = Field(
+        None,
+        description="Mapping of domain name to trajectory filename (e.g. {'retail': 'my-model_retail_...json'})",
     )
     methodology: Optional[Methodology] = Field(
         None, description="Information about how the evaluation was conducted"

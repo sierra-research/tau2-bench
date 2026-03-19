@@ -41,7 +41,6 @@ from tau2.data_model.simulation import (
 )
 from tau2.domains.banking_knowledge.retrieval import get_all_variant_names
 from tau2.run import get_options, run_domain
-from tau2.scripts.leaderboard.verify_trajectories import VerificationMode
 
 
 def get_all_retrieval_config_names():
@@ -883,13 +882,6 @@ def main():
         "submission_dir",
         help="Path to the submission directory to validate",
     )
-    submit_validate_parser.add_argument(
-        "--mode",
-        type=VerificationMode,
-        choices=[mode.value for mode in VerificationMode],
-        default=VerificationMode.PUBLIC,
-        help=f"Verification mode. Default is '{VerificationMode.PUBLIC.value}'",
-    )
     submit_validate_parser.set_defaults(func=lambda args: run_validate_submission(args))
 
     # Submit verify-trajs subcommand
@@ -900,13 +892,6 @@ def main():
         "paths",
         nargs="+",
         help="Paths to trajectory files, directories, or glob patterns",
-    )
-    submit_verify_parser.add_argument(
-        "--mode",
-        type=VerificationMode,
-        choices=[mode.value for mode in VerificationMode],
-        default=VerificationMode.PUBLIC,
-        help=f"Verification mode. Default is '{VerificationMode.PUBLIC.value}'",
     )
     submit_verify_parser.set_defaults(func=lambda args: run_verify_trajectories(args))
 
@@ -953,11 +938,14 @@ def run_verify_trajectories(args):
 
     from loguru import logger
 
-    from tau2.scripts.leaderboard.verify_trajectories import verify_trajectories
+    from tau2.scripts.leaderboard.verify_trajectories import (
+        VerificationMode,
+        verify_trajectories,
+    )
 
     logger.configure(handlers=[{"sink": sys.stderr, "level": "ERROR"}])
 
-    verify_trajectories(args.paths, args.mode)
+    verify_trajectories(args.paths, VerificationMode.PUBLIC)
 
 
 def run_evaluate_trajectories(args):
@@ -1041,7 +1029,7 @@ def run_validate_submission(args):
     """Run the validate submission command."""
     from tau2.scripts.leaderboard.prepare_submission import validate_submission
 
-    validate_submission(submission_dir=args.submission_dir, mode=args.mode)
+    validate_submission(submission_dir=args.submission_dir)
 
 
 def run_manual_mode():

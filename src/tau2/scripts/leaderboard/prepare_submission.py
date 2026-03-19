@@ -165,7 +165,7 @@ def validate_submission(
         )
         return
 
-    verify_trajectories(submission_data.trajectory_files, mode=VerificationMode.PUBLIC)
+    verify_trajectories(submission_data.trajectory_files, mode=mode)
     console.print("✅ Submission validation successful!", style="green")
     console.print("📋 Validating submission metrics...", style="bold")
     validate_submission_metrics(
@@ -224,7 +224,6 @@ def validate_submission_metrics(
     """
     Validate the submission metrics.
     """
-    num_warnings = 0
     warnings = []
     _, computed_domain_results, default_model, default_user_simulator = get_metrics(
         submitted_results
@@ -233,7 +232,6 @@ def validate_submission_metrics(
         warnings.append(
             f"Model name {submission.model_name} does not match model used for the trajectories set {default_model}"
         )
-        num_warnings += 1
     if (
         submission.methodology
         and submission.methodology.user_simulator != default_user_simulator
@@ -241,31 +239,35 @@ def validate_submission_metrics(
         warnings.append(
             f"User simulator {submission.methodology.user_simulator} does not match user simulator used for the trajectories set {default_user_simulator}"
         )
-        num_warnings += 1
     for domain, computed_results in computed_domain_results.items():
-        submitted_results = submission.results.get_domain_results(domain)
-        if submitted_results.pass_1 != computed_results.pass_1:
+        domain_results = submission.results.get_domain_results(domain)
+        if domain_results is None:
+            warnings.append(
+                f"Domain {domain} found in trajectories but missing from submission.json"
+            )
+            continue
+        if domain_results.pass_1 != computed_results.pass_1:
             warnings.append(
                 f"Pass^1 for {domain} does not match computed results {computed_results.pass_1}"
             )
-        if submitted_results.pass_2 != computed_results.pass_2:
+        if domain_results.pass_2 != computed_results.pass_2:
             warnings.append(
                 f"Pass^2 for {domain} does not match computed results {computed_results.pass_2}"
             )
-        if submitted_results.pass_3 != computed_results.pass_3:
+        if domain_results.pass_3 != computed_results.pass_3:
             warnings.append(
                 f"Pass^3 for {domain} does not match computed results {computed_results.pass_3}"
             )
-        if submitted_results.pass_4 != computed_results.pass_4:
+        if domain_results.pass_4 != computed_results.pass_4:
             warnings.append(
                 f"Pass^4 for {domain} does not match computed results {computed_results.pass_4}"
             )
-        if submitted_results.cost != computed_results.cost:
+        if domain_results.cost != computed_results.cost:
             warnings.append(
                 f"Cost for {domain} does not match computed results {computed_results.cost}"
             )
-    if num_warnings > 0:
-        console.print(f"❌ {num_warnings} warnings found", style="red")
+    if warnings:
+        console.print(f"❌ {len(warnings)} warning(s) found", style="red")
         for warning in warnings:
             console.print(f"  • {warning}", style="red")
     else:
