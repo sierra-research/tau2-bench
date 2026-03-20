@@ -82,6 +82,25 @@ def add_run_args(parser):
         default={"temperature": DEFAULT_LLM_TEMPERATURE_AGENT},
         help=f"The arguments to pass to the LLM for the agent. Default is '{{\"temperature\": {DEFAULT_LLM_TEMPERATURE_AGENT}}}'.",
     )
+    # A2A-specific arguments
+    parser.add_argument(
+        "--agent-a2a-endpoint",
+        type=str,
+        default=None,
+        help="The A2A agent endpoint URL (required when --agent is a2a_agent). Example: http://localhost:8080",
+    )
+    parser.add_argument(
+        "--agent-a2a-auth-token",
+        type=str,
+        default=None,
+        help="Bearer token for A2A agent authentication (optional).",
+    )
+    parser.add_argument(
+        "--agent-a2a-timeout",
+        type=int,
+        default=300,
+        help="Timeout in seconds for A2A agent responses. Default is 300.",
+    )
     parser.add_argument(
         "--user",
         type=str,
@@ -623,6 +642,17 @@ def main():
 
         set_llm_log_mode(args.llm_log_mode)
 
+        # Build A2A config if applicable
+        a2a_agent_args = None
+        if args.agent == "a2a_agent":
+            if not args.agent_a2a_endpoint:
+                parser.error("--agent-a2a-endpoint is required when using a2a_agent")
+            a2a_agent_args = {"endpoint": args.agent_a2a_endpoint}
+            if args.agent_a2a_auth_token:
+                a2a_agent_args["auth_token"] = args.agent_a2a_auth_token
+            if args.agent_a2a_timeout:
+                a2a_agent_args["timeout"] = args.agent_a2a_timeout
+
         # Shared config kwargs
         shared_kwargs = dict(
             domain=args.domain,
@@ -667,6 +697,7 @@ def main():
                 user=args.user,
                 max_steps=args.max_steps,
                 enforce_communication_protocol=args.enforce_communication_protocol,
+                a2a_agent_args=a2a_agent_args,
             )
 
         return run_domain(config)

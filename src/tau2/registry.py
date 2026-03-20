@@ -4,6 +4,7 @@ from typing import Callable, Dict, Optional
 from loguru import logger
 from pydantic import BaseModel
 
+from tau2.agent.a2a_agent import create_a2a_agent
 from tau2.agent.discrete_time_audio_native_agent import (
     create_discrete_time_audio_native_agent,
 )
@@ -304,6 +305,7 @@ try:
         create_discrete_time_audio_native_agent,
         "discrete_time_audio_native_agent",
     )
+    registry.register_agent_factory(create_a2a_agent, "a2a_agent")
     registry.register_domain(mock_domain_get_environment, "mock")
     registry.register_tasks(mock_domain_get_tasks, "mock")
 
