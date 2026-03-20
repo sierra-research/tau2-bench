@@ -76,6 +76,7 @@ def build_agent(
     audio_native_config: Optional[AudioNativeConfig] = None,
     solo_mode: bool = False,
     audio_taps_dir: Optional[Path] = None,
+    a2a_agent_args: Optional[dict] = None,
 ) -> Union[HalfDuplexAgent, FullDuplexAgent]:
     """Build an agent from a registered name and an environment.
 
@@ -84,13 +85,16 @@ def build_agent(
 
     Args:
         agent_name: Registered agent name (e.g., "llm_agent", "llm_agent_gt",
-            "discrete_time_audio_native_agent", or "experimental:my_agent").
+            "discrete_time_audio_native_agent", "a2a_agent",
+            or "experimental:my_agent").
         environment: The environment to extract tools and policy from.
         llm: LLM model name for the agent (half-duplex agents).
         llm_args: LLM arguments for the agent (half-duplex agents).
         task: The task (required for some agents like llm_agent_gt, llm_agent_solo).
         audio_native_config: Audio config (full-duplex agents).
         solo_mode: If True, agent tools include both agent and user tools.
+        a2a_agent_args: A2A agent config dict (a2a_agent only). Keys: endpoint,
+            auth_token, timeout.
 
     Returns:
         A fully constructed agent instance.
@@ -123,6 +127,7 @@ def build_agent(
         task=task,
         audio_native_config=audio_native_config,
         audio_taps_dir=audio_taps_dir,
+        a2a_agent_args=a2a_agent_args,
     )
 
 
@@ -369,6 +374,7 @@ def build_text_orchestrator(
         llm_args=config.llm_args_agent,
         task=task,
         solo_mode=solo_mode,
+        a2a_agent_args=config.a2a_agent_args,
     )
 
     user = build_user(

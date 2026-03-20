@@ -12,12 +12,12 @@ from tau2.a2a.translation import (
     a2a_to_tau2_assistant_message,
     tau2_to_a2a_message_content,
 )
-from tau2.agent.base import LocalAgent, ValidAgentInputMessage
+from tau2.agent.base_agent import HalfDuplexAgent, ValidAgentInputMessage
 from tau2.data_model.message import AssistantMessage, Message
 from tau2.environment.tool import Tool
 
 
-class A2AAgent(LocalAgent):
+class A2AAgent(HalfDuplexAgent):
     """
     Agent that communicates with remote A2A-compliant agents.
 
@@ -191,7 +191,7 @@ class A2AAgent(LocalAgent):
         # IMPORTANT: Do NOT use nested ThreadPoolExecutor here - it causes deadlock
         # when multiple concurrent evaluations run, as each nested executor blocks
         # its parent worker thread waiting on future.result().
-        # See: specs/007-datadog-project/resolve-tau2agent-concurrency.md
+        # Avoids deadlock when multiple concurrent evaluations run.
         return asyncio.run(_async_generate())
 
     def stop(
@@ -214,7 +214,7 @@ class A2AAgent(LocalAgent):
             await self.client.close()
 
         # Run async close synchronously - same pattern as generate_next_message()
-        # See: specs/007-datadog-project/resolve-tau2agent-concurrency.md
+        # Avoids deadlock when multiple concurrent evaluations run.
         asyncio.run(_async_close())
 
         logger.debug("A2AAgent stopped and resources cleaned up")
@@ -265,38 +265,24 @@ class A2AAgent(LocalAgent):
         """Clear all collected protocol metrics."""
         self.client.clear_metrics()
 
-    @classmethod
-    def from_cli_args(
-        cls,
-        llm: str,
-        llm_args: dict,
-        tools: list[Tool],
-        domain_policy: str,
-    ) -> "A2AAgent":
-        """
-        Create A2AAgent from CLI arguments.
 
-        This follows tau2-bench's agent construction pattern where:
-        - llm parameter contains the A2A endpoint
-        - llm_args contains auth_token and timeout
 
-        Args:
-            llm: A2A agent endpoint URL
-            llm_args: Dict with optional 'auth_token' and 'timeout' keys
-            tools: List of available tools
-            domain_policy: Domain policy text
+def create_a2a_agent(tools, domain_policy, **kwargs):
+    """Factory function for A2AAgent.
 
-        Returns:
-            Configured A2AAgent instance
-        """
-        config = A2AConfig(
-            endpoint=llm,
-            auth_token=llm_args.get("auth_token"),
-            timeout=llm_args.get("timeout", 300),
-        )
-
-        return cls(
-            config=config,
-            tools=tools,
-            domain_policy=domain_policy,
-        )
+    Args:
+        tools: Environment tools the agent can call.
+        domain_policy: Policy text the agent must follow.
+        **kwargs: Additional arguments. Supports:
+            - a2a_agent_args (dict): A2A configuration with keys:
+                - endpoint (str, required): A2A agent endpoint URL
+                - auth_token (str, optional): Bearer token for authentication
+                - timeout (int, optional): Response timeout in seconds (default 300)
+    """
+    a2a_agent_args = kwargs.get("a2a_agent_args") or {}
+    config = A2AConfig(
+        endpoint=a2a_agent_args["endpoint"],
+        auth_token=a2a_agent_args.get("auth_token"),
+        timeout=a2a_agent_args.get("timeout", 300),
+    )
+    return A2AAgent(config=config, tools=tools, domain_policy=domain_policy)
