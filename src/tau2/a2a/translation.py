@@ -3,6 +3,7 @@
 import json
 import re
 import uuid
+from typing import List, Optional, Union
 
 from loguru import logger
 
@@ -24,7 +25,7 @@ You cannot do both at the same time.
 Try to be helpful and always follow the policy.""".strip()
 
 
-def format_tools_as_text(tools: list[Tool]) -> str:
+def format_tools_as_text(tools: List[Tool]) -> str:
     """
     Convert tau2 Tools to text description for A2A agent consumption.
 
@@ -39,9 +40,7 @@ def format_tools_as_text(tools: list[Tool]) -> str:
         return ""
 
     logger.trace(
-        "Formatting tools as text for A2A agent",
-        num_tools=len(tools),
-        tool_names=[tool.name for tool in tools],
+        f"Formatting {len(tools)} tools as text: {[tool.name for tool in tools]}"
     )
 
     lines = ["<available_tools>"]
@@ -81,20 +80,14 @@ def format_tools_as_text(tools: list[Tool]) -> str:
     lines.append("</available_tools>")
 
     tool_text = "\n".join(lines)
-
-    # Debug: Log full tool description sent to A2A agent
-    logger.trace(
-        "Tool descriptions formatted for A2A agent",
-        tool_text_length=len(tool_text),
-        tool_text=tool_text,
-    )
+    logger.trace(f"Tool descriptions formatted ({len(tool_text)} chars): {tool_text}")
 
     return tool_text
 
 
 def format_system_context(
     domain_policy: str,
-    tools: list[Tool] | None = None,
+    tools: Optional[List[Tool]] = None,
 ) -> str:
     """
     Format the system context for A2A agents.
@@ -129,21 +122,19 @@ def format_system_context(
     )
 
     context = "\n".join(parts)
-
+    num_tools = len(tools) if tools else 0
     logger.trace(
-        "Formatted system context for A2A agent",
-        context_length=len(context),
-        has_policy=bool(domain_policy),
-        num_tools=len(tools) if tools else 0,
+        f"Formatted system context ({len(context)} chars, "
+        f"has_policy={bool(domain_policy)}, num_tools={num_tools})"
     )
 
     return context
 
 
 def tau2_to_a2a_message_content(
-    message: UserMessage | AssistantMessage | ToolMessage,
-    tools: list[Tool] | None = None,
-    domain_policy: str | None = None,
+    message: Union[UserMessage, AssistantMessage, ToolMessage],
+    tools: Optional[List[Tool]] = None,
+    domain_policy: Optional[str] = None,
     is_first_message: bool = False,
 ) -> str:
     """
@@ -163,10 +154,10 @@ def tau2_to_a2a_message_content(
         content_parts = []
 
         if is_first_message and domain_policy:
+            num_tools = len(tools) if tools else 0
             logger.debug(
-                "Including system context in first user message",
-                has_policy=bool(domain_policy),
-                num_tools=len(tools) if tools else 0,
+                f"Including system context in first user message "
+                f"(has_policy={bool(domain_policy)}, num_tools={num_tools})"
             )
             system_context = format_system_context(domain_policy, tools)
             content_parts.append(system_context)
@@ -178,8 +169,7 @@ def tau2_to_a2a_message_content(
         # On subsequent messages, just include tools (agent may need reminder)
         if not is_first_message and tools:
             logger.debug(
-                "Including tool descriptions in user message",
-                num_tools=len(tools),
+                f"Including tool descriptions in user message ({len(tools)} tools)"
             )
             tool_text = format_tools_as_text(tools)
             if tool_text:
@@ -226,8 +216,8 @@ def _extract_json_from_markdown(content: str) -> str:
     Extract JSON content from markdown code blocks if present.
 
     Handles common formats from LLMs:
-    - ```json\n{...}\n```
-    - ```\n{...}\n```
+    - ```json\\n{...}\\n```
+    - ```\\n{...}\\n```
     - Raw JSON without code blocks
 
     Args:
@@ -236,22 +226,19 @@ def _extract_json_from_markdown(content: str) -> str:
     Returns:
         Extracted JSON string, or original content if no code block found
     """
-    # Pattern to match JSON in code blocks (with or without language specifier)
-    # Matches: ```json\n{...}\n``` or ```\n{...}\n```
     code_block_pattern = r"```(?:json)?\s*\n?([\s\S]*?)\n?```"
     match = re.search(code_block_pattern, content.strip())
     if match:
         extracted = match.group(1).strip()
         logger.trace(
-            "Extracted JSON from markdown code block",
-            original_length=len(content),
-            extracted_length=len(extracted),
+            f"Extracted JSON from markdown code block "
+            f"(original={len(content)} chars, extracted={len(extracted)} chars)"
         )
         return extracted
     return content.strip()
 
 
-def parse_a2a_tool_calls(content: str) -> list[ToolCall] | None:
+def parse_a2a_tool_calls(content: str) -> Optional[List[ToolCall]]:
     """
     Parse tool calls from A2A agent response content.
 
@@ -259,8 +246,7 @@ def parse_a2a_tool_calls(content: str) -> list[ToolCall] | None:
     - Single: {"tool_call": {"name": "...", "arguments": {...}}}
     - Multiple: {"tool_calls": [{...}, {...}]}
 
-    Also handles JSON wrapped in markdown code blocks:
-    - ```json\n{"tool_call": {...}}\n```
+    Also handles JSON wrapped in markdown code blocks.
 
     Args:
         content: A2A agent response content
@@ -329,16 +315,13 @@ def a2a_to_tau2_assistant_message(content: str) -> AssistantMessage:
     tool_calls = parse_a2a_tool_calls(content)
 
     if tool_calls:
-        # Return AssistantMessage with tool calls
         return AssistantMessage(role="assistant", content=None, tool_calls=tool_calls)
 
-    # Handle empty responses - agent may have returned no content
+    # Handle empty responses
     if not content or not content.strip():
         logger.warning(
-            "A2A agent returned empty content, using fallback message",
-            original_content=repr(content),
+            f"A2A agent returned empty content ({repr(content)}), using fallback"
         )
         content = "I apologize, but I was unable to generate a response. Could you please rephrase your request?"
 
-    # Return AssistantMessage with text content
     return AssistantMessage(role="assistant", content=content, tool_calls=None)

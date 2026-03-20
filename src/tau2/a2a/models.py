@@ -1,22 +1,20 @@
 """A2A Protocol Data Models for tau2-bench integration."""
 
-from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-@dataclass
-class A2AConfig:
+class A2AConfig(BaseModel):
     """Configuration bundle for A2A agent connection and behavior."""
 
     endpoint: str
-    auth_token: str | None = None
+    auth_token: Optional[str] = None
     timeout: int = 300
     connect_timeout: int = 5
     verify_ssl: bool = True
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, __context: Any) -> None:
         """Validate and normalize configuration after initialization."""
         # Normalize endpoint (remove trailing slash)
         self.endpoint = self.endpoint.rstrip("/")
@@ -35,6 +33,8 @@ class A2AConfig:
             msg = f"endpoint must start with http:// or https://, got {self.endpoint}"
             raise ValueError(msg)
 
+    model_config = ConfigDict(validate_assignment=True)
+
 
 class AgentCapabilities(BaseModel):
     """Agent capabilities from agent card."""
@@ -48,8 +48,8 @@ class AgentSkill(BaseModel):
 
     id: str
     name: str
-    description: str | None = None
-    tags: list[str] | None = None
+    description: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 
 class AgentCard(BaseModel):
@@ -57,21 +57,22 @@ class AgentCard(BaseModel):
 
     name: str
     url: str
-    description: str | None = None
-    version: str | None = None
+    description: Optional[str] = None
+    version: Optional[str] = None
     capabilities: AgentCapabilities = Field(default_factory=AgentCapabilities)
-    security_schemes: dict[str, Any] | None = None
-    security: list[str] | None = None
-    skills: list[AgentSkill] | None = None
+    security_schemes: Optional[dict[str, Any]] = None
+    security: Optional[List[str]] = None
+    skills: Optional[List[AgentSkill]] = None
 
     model_config = ConfigDict(use_enum_values=True)
 
 
-@dataclass
-class A2AAgentState:
+class A2AAgentState(BaseModel):
     """Agent execution state for single task evaluation."""
 
-    context_id: str | None = None
-    conversation_history: list[Any] = field(default_factory=list)
-    agent_card: AgentCard | None = None
+    context_id: Optional[str] = None
+    conversation_history: List[Any] = Field(default_factory=list)
+    agent_card: Optional[AgentCard] = None
     request_count: int = 0
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)

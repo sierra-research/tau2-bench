@@ -8,8 +8,6 @@ from tau2.a2a.models import A2AConfig, AgentCard
 # Mark all tests in this module as mock-based (no real endpoints)
 pytestmark = pytest.mark.a2a_mock
 
-# This test will fail until we implement the client
-
 
 def test_discover_agent_success(mock_a2a_client):
     """Test successful agent discovery via agent card."""

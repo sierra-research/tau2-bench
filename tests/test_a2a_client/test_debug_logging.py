@@ -1,7 +1,6 @@
 """Integration tests for A2A debug logging functionality."""
 
 import json
-from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -12,7 +11,6 @@ from tau2.a2a.exceptions import A2AError
 from tau2.a2a.models import A2AConfig
 from tau2.agent.a2a_agent import A2AAgent
 from tau2.data_model.message import UserMessage
-from tau2.environment.tool import Tool
 
 
 @pytest.fixture
@@ -267,4 +265,3 @@ def test_debug_logging_tool_descriptions(a2a_config, mock_a2a_response, caplog):
             loop.run_until_complete(http_client.aclose())
         finally:
             loop.close()
-

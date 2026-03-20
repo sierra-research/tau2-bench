@@ -398,6 +398,63 @@ def test_a2a_to_tau2_assistant_message_tool_call():
     assert assistant_msg.tool_calls[0].name == "search_flights"
 
 
+class TestTranslationEdgeCases:
+    """Edge cases for translation functions — empty inputs, missing fields."""
+
+    def test_a2a_to_tau2_empty_string_uses_fallback(self):
+        """Empty string content triggers fallback message."""
+        msg = a2a_to_tau2_assistant_message("")
+
+        assert "apologize" in msg.content.lower()
+        assert msg.tool_calls is None
+
+    def test_a2a_to_tau2_whitespace_only_uses_fallback(self):
+        """Whitespace-only content triggers fallback message."""
+        msg = a2a_to_tau2_assistant_message("   \n\t  ")
+
+        assert "apologize" in msg.content.lower()
+
+    def test_a2a_to_tau2_none_uses_fallback(self):
+        """None content triggers fallback message without crashing."""
+        msg = a2a_to_tau2_assistant_message(None)
+
+        assert "apologize" in msg.content.lower()
+
+    def test_parse_tool_call_missing_name_raises(self):
+        """Malformed tool call without 'name' raises A2AMessageError."""
+        from tau2.a2a.exceptions import A2AMessageError
+
+        content = json.dumps({"tool_call": {"arguments": {"x": 1}}})
+
+        with pytest.raises(A2AMessageError, match="Invalid tool call format"):
+            parse_a2a_tool_calls(content)
+
+    def test_parse_tool_call_missing_arguments_raises(self):
+        """Malformed tool call without 'arguments' raises A2AMessageError."""
+        from tau2.a2a.exceptions import A2AMessageError
+
+        content = json.dumps({"tool_call": {"name": "foo"}})
+
+        with pytest.raises(A2AMessageError, match="Invalid tool call format"):
+            parse_a2a_tool_calls(content)
+
+    def test_tau2_to_a2a_assistant_no_text_no_tools_returns_empty(self):
+        """AssistantMessage with neither text nor tool_calls returns empty string."""
+        msg = AssistantMessage(role="assistant", content=None, tool_calls=None)
+
+        result = tau2_to_a2a_message_content(msg)
+
+        assert result == ""
+
+    def test_tau2_to_a2a_assistant_empty_content_returns_empty(self):
+        """AssistantMessage with empty string content returns empty string."""
+        msg = AssistantMessage(role="assistant", content="", tool_calls=None)
+
+        result = tau2_to_a2a_message_content(msg)
+
+        assert result == ""
+
+
 def test_roundtrip_translation_preserves_content():
     """Test that roundtrip translation preserves message content."""
     # User message roundtrip

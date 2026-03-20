@@ -1,6 +1,6 @@
 """Exception types for A2A protocol integration."""
 
-from typing import Any
+from typing import Any, Optional
 
 
 class A2AError(Exception):
@@ -9,8 +9,8 @@ class A2AError(Exception):
     def __init__(
         self,
         message: str,
-        status_code: int | None = None,
-        details: dict[str, Any] | None = None,
+        status_code: Optional[int] = None,
+        details: Optional[dict[str, Any]] = None,
     ):
         """
         Initialize A2A error.
@@ -39,7 +39,7 @@ class A2ATimeoutError(A2AError):
     """Exception raised when A2A agent response times out."""
 
     def __init__(
-        self, message: str = "A2A agent response timeout", timeout: int | None = None
+        self, message: str = "A2A agent response timeout", timeout: Optional[int] = None
     ):
         """
         Initialize timeout error.
@@ -69,7 +69,7 @@ class A2ADiscoveryError(A2AError):
     """Exception raised when agent discovery fails."""
 
     def __init__(
-        self, message: str = "Agent discovery failed", endpoint: str | None = None
+        self, message: str = "Agent discovery failed", endpoint: Optional[str] = None
     ):
         """
         Initialize discovery error.
@@ -86,7 +86,7 @@ class A2AMessageError(A2AError):
     """Exception raised when message parsing or validation fails."""
 
     def __init__(
-        self, message: str = "A2A message error", message_id: str | None = None
+        self, message: str = "A2A message error", message_id: Optional[str] = None
     ):
         """
         Initialize message error.
