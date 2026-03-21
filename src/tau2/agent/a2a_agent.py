@@ -9,10 +9,11 @@ from tau2.a2a.client import A2AClient
 from tau2.a2a.models import A2AAgentState, A2AConfig
 from tau2.a2a.translation import (
     a2a_to_tau2_assistant_message,
+    format_tools_as_text,
     tau2_to_a2a_message_content,
 )
 from tau2.agent.base_agent import HalfDuplexAgent, ValidAgentInputMessage
-from tau2.data_model.message import AssistantMessage, Message
+from tau2.data_model.message import AssistantMessage, Message, ToolMessage
 from tau2.environment.tool import Tool
 
 
@@ -45,6 +46,8 @@ class A2AAgent(HalfDuplexAgent):
 
         self.config = config
         self.client = A2AClient(config=config, http_client=http_client)
+
+        self._valid_tool_names = {tool.name for tool in tools}
 
         logger.info(
             f"Initialized A2AAgent (endpoint={config.endpoint}, "
@@ -95,6 +98,16 @@ class A2AAgent(HalfDuplexAgent):
                 is_first_message=is_first_message,
             )
 
+            # On tool errors, include available tools to aid self-correction
+            if isinstance(message, ToolMessage) and message.error:
+                tool_text = format_tools_as_text(self.tools)
+                if tool_text:
+                    a2a_content += f"\n\n{tool_text}"
+                    a2a_content += (
+                        "\nTo use a tool, respond with JSON: "
+                        '{"tool_call": {"name": "tool_name", "arguments": {"param1": "value"}}}'
+                    )
+
             logger.debug(
                 f"Sending message to A2A agent (role={message.role}, "
                 f"length={len(a2a_content)}, context_id={state.context_id})"
@@ -136,6 +149,16 @@ class A2AAgent(HalfDuplexAgent):
                 )
 
             assistant_msg = a2a_to_tau2_assistant_message(response_content)
+
+            # Log invalid tool calls for diagnostics
+            if assistant_msg.is_tool_call():
+                invalid = [
+                    tc.name
+                    for tc in assistant_msg.tool_calls
+                    if tc.name not in self._valid_tool_names
+                ]
+                if invalid:
+                    logger.debug(f"A2A agent produced invalid tool call(s): {invalid}")
 
             new_conversation_history = state.conversation_history + [
                 message,

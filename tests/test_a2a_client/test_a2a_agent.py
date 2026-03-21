@@ -479,11 +479,7 @@ def test_subsequent_user_message_includes_tools_but_not_policy(sample_domain_too
 
 
 def test_tool_result_message_does_not_include_tools(sample_domain_tools):
-    """Tool result messages must NOT include tool descriptions.
-
-    Only user messages include tools. When the agent receives a tool result,
-    the content should be just the tool output, not wrapped in system context.
-    """
+    """Successful tool result messages must NOT include tool descriptions."""
     import httpx
 
     from tau2.a2a.models import A2AConfig
@@ -507,7 +503,7 @@ def test_tool_result_message_does_not_include_tools(sample_domain_tools):
     msg1 = UserMessage(role="user", content="Search flights")
     _, state = agent.generate_next_message(msg1, state)
 
-    # Second turn: tool result (simulating orchestrator returning tool output)
+    # Second turn: successful tool result
     tool_msg = ToolMessage(
         id="call_1",
         role="tool",
@@ -520,8 +516,233 @@ def test_tool_result_message_does_not_include_tools(sample_domain_tools):
     assert len(captured) == 2
     tool_result_text = captured[1]["params"]["message"]["parts"][0]["text"]
 
+    # Tool output must be present
+    assert "AA123" in tool_result_text
+
     # Tool descriptions must NOT be in the tool result message
     assert "<available_tools>" not in tool_result_text
 
-    # But the tool output must be present
-    assert "AA123" in tool_result_text
+
+# ---------------------------------------------------------------------------
+# Tool call validation
+# ---------------------------------------------------------------------------
+
+
+def _make_sequence_transport(responses: list[str]):
+    """Build a transport that returns responses in order and captures requests.
+
+    Args:
+        responses: List of text responses to return in sequence.
+            If more requests are made than responses, the last response is reused.
+
+    Returns:
+        Tuple of (captured_bodies, call_count, MockTransport).
+    """
+    import json as _json
+
+    import httpx as _httpx
+
+    captured_bodies: list[dict] = []
+    call_count = [0]
+
+    def handler(request: _httpx.Request) -> _httpx.Response:
+        if request.method == "POST":
+            captured_bodies.append(_json.loads(request.content))
+        idx = min(call_count[0], len(responses) - 1)
+        call_count[0] += 1
+        return _httpx.Response(
+            status_code=200,
+            json={
+                "jsonrpc": "2.0",
+                "id": "1",
+                "result": {
+                    "message": {
+                        "messageId": f"msg-{idx}",
+                        "role": "agent",
+                        "parts": [{"text": responses[idx]}],
+                        "contextId": "ctx-1",
+                    }
+                },
+            },
+        )
+
+    return captured_bodies, call_count, _httpx.MockTransport(handler)
+
+
+def test_a2a_agent_tool_error_includes_tools(sample_domain_tools):
+    """Tool error messages must include available tool descriptions."""
+    import httpx
+
+    from tau2.a2a.models import A2AConfig
+    from tau2.agent.a2a_agent import A2AAgent
+
+    captured, transport = _make_capture_transport()
+    client = httpx.AsyncClient(
+        transport=transport, base_url="http://test-agent.example.com"
+    )
+
+    agent = A2AAgent(
+        config=A2AConfig(endpoint="http://test-agent.example.com"),
+        tools=sample_domain_tools,
+        domain_policy="Policy",
+        http_client=client,
+    )
+
+    # First turn: user message (to establish state)
+    state = agent.get_init_state()
+    msg1 = UserMessage(role="user", content="Hello")
+    _, state = agent.generate_next_message(msg1, state)
+
+    # Second turn: tool error (simulating environment rejecting a hallucinated tool)
+    tool_error = ToolMessage(
+        id="call_bad",
+        role="tool",
+        content="Error: Tool 'find_flights' not found.",
+        error=True,
+        requestor="assistant",
+    )
+    agent.generate_next_message(tool_error, state)
+
+    assert len(captured) == 2
+    error_text = captured[1]["params"]["message"]["parts"][0]["text"]
+
+    # Must contain the original error
+    assert "find_flights" in error_text
+
+    # Must contain tool descriptions
+    assert "<available_tools>" in error_text
+    assert "search_flights" in error_text
+    assert "book_flight" in error_text
+
+
+def test_a2a_agent_successful_tool_result_does_not_include_tools(sample_domain_tools):
+    """Successful tool result messages must NOT include tool descriptions."""
+    import httpx
+
+    from tau2.a2a.models import A2AConfig
+    from tau2.agent.a2a_agent import A2AAgent
+
+    captured, transport = _make_capture_transport()
+    client = httpx.AsyncClient(
+        transport=transport, base_url="http://test-agent.example.com"
+    )
+
+    agent = A2AAgent(
+        config=A2AConfig(endpoint="http://test-agent.example.com"),
+        tools=sample_domain_tools,
+        domain_policy="Policy",
+        http_client=client,
+    )
+
+    state = agent.get_init_state()
+    msg1 = UserMessage(role="user", content="Hello")
+    _, state = agent.generate_next_message(msg1, state)
+
+    # Successful tool result
+    tool_ok = ToolMessage(
+        id="call_1",
+        role="tool",
+        content='{"flights": [{"id": "AA123"}]}',
+        error=False,
+        requestor="assistant",
+    )
+    agent.generate_next_message(tool_ok, state)
+
+    assert len(captured) == 2
+    result_text = captured[1]["params"]["message"]["parts"][0]["text"]
+
+    # Must contain the tool output
+    assert "AA123" in result_text
+
+    # Must NOT contain tool descriptions
+    assert "<available_tools>" not in result_text
+
+
+def test_a2a_agent_invalid_tool_passes_through_to_orchestrator(sample_domain_tools):
+    """Invalid tool calls pass through to the orchestrator unchanged."""
+    import json
+
+    import httpx
+
+    from tau2.a2a.models import A2AConfig
+    from tau2.agent.a2a_agent import A2AAgent
+
+    # Remote agent returns a hallucinated tool call
+    hallucinated_response = json.dumps(
+        {"tool_call": {"name": "find_flights", "arguments": {"query": "SFO"}}}
+    )
+    captured, call_count, transport = _make_sequence_transport([hallucinated_response])
+    client = httpx.AsyncClient(
+        transport=transport, base_url="http://test-agent.example.com"
+    )
+
+    agent = A2AAgent(
+        config=A2AConfig(endpoint="http://test-agent.example.com"),
+        tools=sample_domain_tools,
+        domain_policy="Policy",
+        http_client=client,
+    )
+
+    state = agent.get_init_state()
+    user_msg = UserMessage(role="user", content="Find flights")
+    assistant_msg, _ = agent.generate_next_message(user_msg, state)
+
+    assert assistant_msg.is_tool_call()
+    assert assistant_msg.tool_calls[0].name == "find_flights"
+    assert call_count[0] == 1
+
+
+def test_a2a_agent_valid_tool_passes_through(sample_domain_tools):
+    """Valid tool calls pass through unchanged."""
+    import json
+
+    import httpx
+
+    from tau2.a2a.models import A2AConfig
+    from tau2.agent.a2a_agent import A2AAgent
+
+    valid_response = json.dumps(
+        {
+            "tool_call": {
+                "name": "search_flights",
+                "arguments": {
+                    "origin": "SFO",
+                    "destination": "JFK",
+                    "date": "2025-12-15",
+                },
+            }
+        }
+    )
+    captured, call_count, transport = _make_sequence_transport([valid_response])
+    client = httpx.AsyncClient(
+        transport=transport, base_url="http://test-agent.example.com"
+    )
+
+    agent = A2AAgent(
+        config=A2AConfig(endpoint="http://test-agent.example.com"),
+        tools=sample_domain_tools,
+        domain_policy="Policy",
+        http_client=client,
+    )
+
+    state = agent.get_init_state()
+    user_msg = UserMessage(role="user", content="Search flights")
+    assistant_msg, _ = agent.generate_next_message(user_msg, state)
+
+    assert assistant_msg.is_tool_call()
+    assert assistant_msg.tool_calls[0].name == "search_flights"
+    assert call_count[0] == 1
+
+
+def test_get_valid_tool_names(sample_domain_tools):
+    """Test _valid_tool_names contains the correct set of tool names."""
+    from tau2.a2a.models import A2AConfig
+    from tau2.agent.a2a_agent import A2AAgent
+
+    agent = A2AAgent(
+        config=A2AConfig(endpoint="http://test-agent.example.com"),
+        tools=sample_domain_tools,
+        domain_policy="Policy",
+    )
+
+    assert agent._valid_tool_names == {"search_flights", "book_flight"}
