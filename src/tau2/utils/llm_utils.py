@@ -39,6 +39,18 @@ if USE_LANGFUSE:
 
 litellm.drop_params = True
 
+# Register custom pricing for gpt-oss-120b served via Fireworks AI
+# (not yet in LiteLLM's built-in price table as of this writing).
+# Input:  $0.15 / 1M tokens  →  1.5e-7 per token
+# Output: $0.60 / 1M tokens  →  6.0e-7 per token
+litellm.model_cost["accounts/fireworks/models/gpt-oss-120b"] = {
+    "max_tokens": 32_768,
+    "input_cost_per_token": 1.5e-7,
+    "output_cost_per_token": 6.0e-7,
+    "litellm_provider": "openai",
+    "mode": "chat",
+}
+
 if LLM_CACHE_ENABLED:
     if DEFAULT_LLM_CACHE_TYPE == "redis":
         logger.info(f"LiteLLM: Using Redis cache at {REDIS_HOST}:{REDIS_PORT}")
