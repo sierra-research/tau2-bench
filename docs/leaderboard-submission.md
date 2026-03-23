@@ -210,6 +210,8 @@ Add your directory name to the `submissions` array in `web/leaderboard/public/su
    - Documentation of any framework modifications or task omissions
    - Link to your model/paper if available
 
+> **Note:** After your PR is merged, submission files are automatically synced to an S3 bucket (`sierra-tau-bench-public`) via a GitHub Actions workflow. The production website at [taubench.com](https://taubench.com) fetches data from S3. You don't need to do anything extra — the sync happens automatically on merge to `main`.
+
 ## JSON Schema Reference
 
 Your `submission.json` must follow the schema defined in [`web/leaderboard/public/submissions/schema.json`](../web/leaderboard/public/submissions/schema.json).

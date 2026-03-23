@@ -21,12 +21,18 @@
    npm install
    ```
 
-3. **Start the development server**
+3. **Configure environment (optional)**
+   ```bash
+   cp .env.example .env.local
+   ```
+   Uncomment `VITE_SUBMISSIONS_BASE_URL` to fetch submission and trajectory data from S3 instead of the local `public/` directory. This is required if trajectory files have been removed from the repo.
+
+4. **Start the development server**
    ```bash
    npm run dev
    ```
 
-4. **Open your browser**
+5. **Open your browser**
    - Navigate to `http://localhost:5173` (or the URL shown in your terminal)
    - The application will automatically reload when you make changes
 
