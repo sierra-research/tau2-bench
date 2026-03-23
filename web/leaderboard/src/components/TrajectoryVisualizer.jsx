@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import './TrajectoryVisualizer.css'
 
+const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
+  || `${import.meta.env.BASE_URL}submissions`
+
 const TrajectoryVisualizer = () => {
   // --- Top-level selector state ---
   const [viewMode, setViewMode] = useState('trajectories') // 'trajectories' or 'tasks'
@@ -55,7 +58,7 @@ const TrajectoryVisualizer = () => {
       setError(null)
       
       // Load the manifest file to get list of submissions
-      const manifestResponse = await fetch(`${import.meta.env.BASE_URL}submissions/manifest.json`)
+      const manifestResponse = await fetch(`${SUBMISSIONS_BASE}/manifest.json`)
       if (!manifestResponse.ok) {
         throw new Error('Failed to load submissions manifest')
       }
@@ -71,7 +74,7 @@ const TrajectoryVisualizer = () => {
       // Load each submission from its directory
       for (const submissionDir of submissionDirs) {
         try {
-          const response = await fetch(`${import.meta.env.BASE_URL}submissions/${submissionDir}/submission.json`)
+          const response = await fetch(`${SUBMISSIONS_BASE}/${submissionDir}/submission.json`)
           if (!response.ok) {
             console.warn(`Failed to load ${submissionDir}: ${response.status}`)
             continue
@@ -206,7 +209,7 @@ const TrajectoryVisualizer = () => {
     const loadSubmissions = async () => {
       try {
         setSubmissionsLoading(true)
-        const res = await fetch(`${import.meta.env.BASE_URL}submissions/manifest.json`)
+        const res = await fetch(`${SUBMISSIONS_BASE}/manifest.json`)
         if (!res.ok) throw new Error('Failed to load manifest')
         const manifest = await res.json()
         const dirs = manifest.submissions || []
@@ -214,7 +217,7 @@ const TrajectoryVisualizer = () => {
         const loaded = []
         for (const dir of dirs) {
           try {
-            const r = await fetch(`${import.meta.env.BASE_URL}submissions/${dir}/submission.json`)
+            const r = await fetch(`${SUBMISSIONS_BASE}/${dir}/submission.json`)
             if (!r.ok) continue
             const sub = await r.json()
             if (sub.trajectories_available && sub.trajectory_files) {
@@ -282,7 +285,7 @@ const TrajectoryVisualizer = () => {
         setSelectedTrialIdx(0)
 
         const res = await fetch(
-          `${import.meta.env.BASE_URL}submissions/${sub.dir}/trajectories/${fileName}`
+          `${SUBMISSIONS_BASE}/${sub.dir}/trajectories/${fileName}`
         )
         if (!res.ok) throw new Error(`Failed to load trajectory: ${res.statusText}`)
         const data = await res.json()
