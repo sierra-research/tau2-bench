@@ -9,10 +9,11 @@ submissions/
 ├── manifest.json          # Lists all active submissions (text, voice, legacy)
 ├── schema.json            # JSON schema for submission.json files
 ├── {model}_{org}_{date}/  # Individual submission directories
-│   ├── submission.json    # Submission metadata and metrics
-│   └── trajectories/      # Trajectory files (text submissions only)
+│   └── submission.json    # Submission metadata and metrics
 └── A_EXAMPLE_*/           # Example submissions for reference
 ```
+
+Trajectory files are **not** stored in this directory — they are hosted on S3.
 
 ## Schema
 
@@ -20,9 +21,11 @@ Your `submission.json` must conform to [`schema.json`](schema.json) in this dire
 
 ## Hosting
 
-Files in this directory are synced to the `sierra-tau-bench-public` S3 bucket on merge to `main` (via the `sync-submissions-s3.yml` GitHub Actions workflow). The production website at [taubench.com](https://taubench.com) fetches submission data from S3, not from GitHub Pages directly.
+Submission metadata (`submission.json`, `manifest.json`) in this directory is synced to the `sierra-tau-bench-public` S3 bucket on merge to `main` (via the `sync-submissions-s3.yml` GitHub Actions workflow).
 
-Contributors still submit new results by adding files here and opening a PR — the S3 sync is automatic.
+Trajectory files are hosted on S3 only and are uploaded by a maintainer after reviewing the PR. Contributors provide a link to their trajectory data in the PR description.
+
+The production website at [taubench.com](https://taubench.com) fetches all data (metadata and trajectories) from S3.
 
 ## Full Submission Guide
 
