@@ -20,7 +20,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 # ── Difficulty Tiers ─────────────────────────────────────────────────
 
 TIERS = {
@@ -88,16 +87,18 @@ def analyze(tasks: list[dict], results: list[dict]) -> dict[str, Any]:
         evaluated = len(td["passed"]) + len(td["failed"])
         passed = len(td["passed"])
         pass_rate = round(passed / max(evaluated, 1) * 100, 1)
-        tiers_summary.append({
-            "tier": tier_name,
-            "label": td["label"],
-            "total_tasks": total,
-            "evaluated": evaluated,
-            "passed": passed,
-            "failed": len(td["failed"]),
-            "pass_rate": pass_rate,
-            "failed_task_ids": td["failed"][:10],
-        })
+        tiers_summary.append(
+            {
+                "tier": tier_name,
+                "label": td["label"],
+                "total_tasks": total,
+                "evaluated": evaluated,
+                "passed": passed,
+                "failed": len(td["failed"]),
+                "pass_rate": pass_rate,
+                "failed_task_ids": td["failed"][:10],
+            }
+        )
 
     overall_evaluated = sum(t["evaluated"] for t in tiers_summary)
     overall_passed = sum(t["passed"] for t in tiers_summary)
@@ -131,17 +132,21 @@ def format_text_report(analysis: dict[str, Any], domain: str = "") -> str:
             f"{t['passed']:>6} {t['failed']:>6} {t['pass_rate']:>6.1f}%"
         )
 
-    lines.extend([
-        "  " + "-" * 60,
-        f"  {'Overall':<25} {'':>6} {analysis['overall_evaluated']:>6} "
-        f"{analysis['overall_passed']:>6} {'':>6} {analysis['overall_pass_rate']:>6.1f}%",
-        "",
-    ])
+    lines.extend(
+        [
+            "  " + "-" * 60,
+            f"  {'Overall':<25} {'':>6} {analysis['overall_evaluated']:>6} "
+            f"{analysis['overall_passed']:>6} {'':>6} {analysis['overall_pass_rate']:>6.1f}%",
+            "",
+        ]
+    )
 
     # Show failed task IDs per tier
     for t in analysis["tiers"]:
         if t["failed_task_ids"]:
-            lines.append(f"  {t['tier']} failures: {', '.join(t['failed_task_ids'][:5])}")
+            lines.append(
+                f"  {t['tier']} failures: {', '.join(t['failed_task_ids'][:5])}"
+            )
 
     lines.append("")
     lines.append("=" * 65)
@@ -156,8 +161,10 @@ def main():
     parser.add_argument("--results", required=True, help="Path to results JSON")
     parser.add_argument("--domain", default="", help="Domain label for report")
     parser.add_argument(
-        "--output", choices=["text", "json"], default="text",
-        help="Output format (default: text)"
+        "--output",
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
     )
     args = parser.parse_args()
 

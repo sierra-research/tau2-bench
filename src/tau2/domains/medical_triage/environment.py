@@ -2,8 +2,6 @@
 from pathlib import Path
 from typing import Optional
 
-from loguru import logger
-
 from tau2.data_model.tasks import Task
 from tau2.domains.medical_triage.data_model import MedicalDB
 from tau2.domains.medical_triage.tools import MedicalTriageTools
@@ -46,8 +44,6 @@ class MedicalTriageEnvironment(Environment):
         patient_id = self.user_tools.db.patient_state.patient_id
         if not patient_id or patient_id not in self.tools.db.patients:
             return
-
-        patient = self.tools.db.patients[patient_id]
 
         # Sync insurance referral status: if agent created a referral,
         # patient's portal should reflect it

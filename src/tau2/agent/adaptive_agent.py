@@ -43,17 +43,16 @@ from tau2.data_model.message import (
     Message,
     MultiToolMessage,
     SystemMessage,
-    ToolMessage,
+    ToolCall,
     UserMessage,
 )
-from tau2.data_model.tasks import Task
 from tau2.environment.tool import Tool
 from tau2.utils.llm_utils import generate
-
 
 # ═══════════════════════════════════════════════════════════════════════
 # POLICY TREE DECOMPOSITION
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def build_policy_tree(domain_policy: str) -> str:
     """
@@ -84,20 +83,25 @@ def build_policy_tree(domain_policy: str) -> str:
         # Fallback: return original policy if parsing fails
         return domain_policy
 
-    return domain_policy + "\n\n<policy_decision_tree>\n" + "\n".join(tree_lines) + "\n</policy_decision_tree>"
+    return (
+        domain_policy
+        + "\n\n<policy_decision_tree>\n"
+        + "\n".join(tree_lines)
+        + "\n</policy_decision_tree>"
+    )
 
 
 def _extract_policy_sections(policy: str) -> list[tuple[str, str]]:
     """Split policy into named sections."""
     sections = []
     # Try to split by markdown headers or numbered sections
-    parts = re.split(r'\n(?=#+\s|\d+\.\s)', policy)
+    parts = re.split(r"\n(?=#+\s|\d+\.\s)", policy)
     for part in parts:
         part = part.strip()
         if not part:
             continue
         # Extract section name from first line
-        first_line = part.split('\n')[0].strip().lstrip('#').strip()
+        first_line = part.split("\n")[0].strip().lstrip("#").strip()
         sections.append((first_line, part))
     if not sections:
         sections = [("General Policy", policy)]
@@ -107,15 +111,15 @@ def _extract_policy_sections(policy: str) -> list[tuple[str, str]]:
 def _extract_rules(text: str) -> list[dict]:
     """Extract conditional rules from policy text."""
     rules = []
-    lines = text.split('\n')
+    lines = text.split("\n")
 
     for i, line in enumerate(lines):
         line_lower = line.lower().strip()
 
         # Pattern: "if ... then ..." or "when ... , ..."
         if_match = re.search(
-            r'(?:if|when|only if|unless)\s+(.+?)(?:,\s*(?:then\s*)?|:\s*)(.+)',
-            line_lower
+            r"(?:if|when|only if|unless)\s+(.+?)(?:,\s*(?:then\s*)?|:\s*)(.+)",
+            line_lower,
         )
         if if_match:
             condition = if_match.group(1).strip()
@@ -125,8 +129,8 @@ def _extract_rules(text: str) -> list[dict]:
 
         # Pattern: "must/should/cannot/do not"
         must_match = re.search(
-            r'(?:must|should|cannot|can not|do not|don\'t|shall not|always|never)\s+(.+)',
-            line_lower
+            r"(?:must|should|cannot|can not|do not|don\'t|shall not|always|never)\s+(.+)",
+            line_lower,
         )
         if must_match:
             action = must_match.group(0).strip()
@@ -139,8 +143,10 @@ def _extract_rules(text: str) -> list[dict]:
 # SELF-VERIFICATION
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class ConversationState(BaseModel):
     """Tracks structured state of the current conversation."""
+
     customer_identified: bool = False
     customer_id: Optional[str] = None
     data_retrieved: bool = False
@@ -155,31 +161,55 @@ class ConversationState(BaseModel):
 # Write actions that require customer confirmation first (across domains)
 WRITE_ACTIONS = {
     # Airline
-    "book_reservation", "cancel_reservation", "update_reservation_flights",
-    "update_reservation_passengers", "update_reservation_baggages",
+    "book_reservation",
+    "cancel_reservation",
+    "update_reservation_flights",
+    "update_reservation_passengers",
+    "update_reservation_baggages",
     "send_certificate",
     # Retail
-    "cancel_pending_order", "modify_pending_order_address",
-    "modify_pending_order_payment", "modify_pending_order_items",
-    "return_delivered_order_items", "exchange_delivered_order_items",
+    "cancel_pending_order",
+    "modify_pending_order_address",
+    "modify_pending_order_payment",
+    "modify_pending_order_items",
+    "return_delivered_order_items",
+    "exchange_delivered_order_items",
     # Telecom
-    "make_payment", "change_plan", "toggle_data", "toggle_roaming",
-    "reset_apn", "toggle_data_saver", "toggle_wifi_calling", "refuel_data",
-    "enable_roaming", "disable_roaming",
+    "make_payment",
+    "change_plan",
+    "toggle_data",
+    "toggle_roaming",
+    "reset_apn",
+    "toggle_data_saver",
+    "toggle_wifi_calling",
+    "refuel_data",
+    "enable_roaming",
+    "disable_roaming",
 }
 
 # Read-only actions that gather information
 READ_ACTIONS = {
-    "get_user_details", "find_user_id_by_name_zip", "get_reservation_details",
-    "get_order_details", "get_flight_status", "search_direct_flight",
-    "search_onestop_flight", "calculate", "get_customer_details",
-    "get_bill_details", "check_network_status", "check_device_settings",
-    "get_plan_details", "check_payment_request",
+    "get_user_details",
+    "find_user_id_by_name_zip",
+    "get_reservation_details",
+    "get_order_details",
+    "get_flight_status",
+    "search_direct_flight",
+    "search_onestop_flight",
+    "calculate",
+    "get_customer_details",
+    "get_bill_details",
+    "check_network_status",
+    "check_device_settings",
+    "get_plan_details",
+    "check_payment_request",
 }
 
 # Identity tools — must be called first
 IDENTITY_TOOLS = {
-    "get_user_details", "find_user_id_by_name_zip", "get_customer_details",
+    "get_user_details",
+    "find_user_id_by_name_zip",
+    "get_customer_details",
 }
 
 
@@ -225,7 +255,12 @@ def verify_response(
 
     # ── CHECK 3: Identity first — must identify customer before acting ──
     if not conv_state.customer_identified:
-        action_tools = tool_names - IDENTITY_TOOLS - READ_ACTIONS - {"respond", "calculate", "transfer_to_human_agents"}
+        action_tools = (
+            tool_names
+            - IDENTITY_TOOLS
+            - READ_ACTIONS
+            - {"respond", "calculate", "transfer_to_human_agents"}
+        )
         if action_tools:
             return False, (
                 "WORKFLOW VIOLATION: You must identify the customer first. "
@@ -250,9 +285,20 @@ def verify_response(
         # Check if the last user message looks like a confirmation
         last_msg = conv_state.last_user_message.lower()
         confirmation_signals = [
-            "yes", "confirm", "go ahead", "proceed", "please do",
-            "that's correct", "correct", "sure", "ok", "okay",
-            "do it", "sounds good", "i agree", "approved",
+            "yes",
+            "confirm",
+            "go ahead",
+            "proceed",
+            "please do",
+            "that's correct",
+            "correct",
+            "sure",
+            "ok",
+            "okay",
+            "do it",
+            "sounds good",
+            "i agree",
+            "approved",
         ]
         if not any(sig in last_msg for sig in confirmation_signals):
             return False, (
@@ -296,8 +342,10 @@ def verify_response(
             payment_methods = tc.arguments.get("payment_methods", [])
             if isinstance(payment_methods, list):
                 cert_count = sum(
-                    1 for p in payment_methods
-                    if isinstance(p, dict) and "certificate" in str(p.get("payment_id", "")).lower()
+                    1
+                    for p in payment_methods
+                    if isinstance(p, dict)
+                    and "certificate" in str(p.get("payment_id", "")).lower()
                 )
                 if cert_count > 1:
                     return False, (
@@ -343,11 +391,22 @@ def update_conv_state(
         state.last_user_message = message.content or ""
         # Detect if user is confirming something
         lower = state.last_user_message.lower()
-        if any(w in lower for w in ["yes", "confirm", "go ahead", "proceed", "sure", "okay", "correct"]):
+        if any(
+            w in lower
+            for w in [
+                "yes",
+                "confirm",
+                "go ahead",
+                "proceed",
+                "sure",
+                "okay",
+                "correct",
+            ]
+        ):
             state.confirmation_pending = True
 
     if response.is_tool_call():
-        for tc in (response.tool_calls or []):
+        for tc in response.tool_calls or []:
             state.tools_called.append(tc.name)
             state.tool_call_count[tc.name] = state.tool_call_count.get(tc.name, 0) + 1
 
@@ -651,6 +710,7 @@ Please generate a corrected response. Remember:
 
 class AdaptiveAgentState(BaseModel):
     """State for the adaptive agent."""
+
     system_messages: list[SystemMessage]
     messages: list[APICompatibleMessage]
     conv_state: ConversationState = Field(default_factory=ConversationState)
@@ -675,7 +735,9 @@ class AdaptiveAgent(
     """
 
     MAX_RETRIES = 2
-    VERIFY_WRITE_ACTIONS = False  # Disabled: extra verification BLOCKS correct actions, causing regression
+    VERIFY_WRITE_ACTIONS = (
+        False  # Disabled: extra verification BLOCKS correct actions, causing regression
+    )
 
     # Golden cache for deterministic replay (Docker parity)
     _golden_cache: Optional[dict] = None
@@ -689,6 +751,7 @@ class AdaptiveAgent(
     def load_golden_cache(cls, cache_path: str = "golden_cache.json") -> None:
         """Load golden cache for deterministic replay. Call once at startup."""
         from pathlib import Path
+
         p = Path(cache_path)
         if not p.exists():
             # Try tau2-bench root
@@ -698,7 +761,9 @@ class AdaptiveAgent(
         if p.exists():
             data = json.loads(p.read_text())
             cls._golden_cache = data.get("cache", {})
-            logger.info(f"Golden cache loaded: {len(cls._golden_cache)} entries from {p}")
+            logger.info(
+                f"Golden cache loaded: {len(cls._golden_cache)} entries from {p}"
+            )
         else:
             logger.info(f"No golden cache found at {cache_path} — LLM-only mode")
 
@@ -753,17 +818,37 @@ class AdaptiveAgent(
 
         # Detect domain for domain-specific enhancements
         tool_names = {t.name for t in tools}
-        self._is_telecom = bool(tool_names & {
-            "toggle_data", "toggle_roaming", "reset_apn", "toggle_data_saver",
-            "toggle_wifi_calling", "check_device_settings", "check_network_status",
-        })
-        self._is_airline = bool(tool_names & {
-            "book_reservation", "cancel_reservation", "update_reservation_flights",
-            "search_direct_flight", "get_flight_status", "send_certificate",
-        })
-        self._is_medical = bool(tool_names & {
-            "triage_symptoms", "schedule_appointment", "lookup_patient",
-        })
+        self._is_telecom = bool(
+            tool_names
+            & {
+                "toggle_data",
+                "toggle_roaming",
+                "reset_apn",
+                "toggle_data_saver",
+                "toggle_wifi_calling",
+                "check_device_settings",
+                "check_network_status",
+            }
+        )
+        self._is_airline = bool(
+            tool_names
+            & {
+                "book_reservation",
+                "cancel_reservation",
+                "update_reservation_flights",
+                "search_direct_flight",
+                "get_flight_status",
+                "send_certificate",
+            }
+        )
+        self._is_medical = bool(
+            tool_names
+            & {
+                "triage_symptoms",
+                "schedule_appointment",
+                "lookup_patient",
+            }
+        )
 
         if self._is_telecom:
             self.structured_policy += "\n\n" + TELECOM_TROUBLESHOOTING
@@ -816,7 +901,9 @@ class AdaptiveAgent(
             for tc in tool_calls_raw:
                 tc_objects.append(
                     ToolCall(
-                        id=tc.get("id", f"cache_{self._replay_index}_{tc.get('name', '')}"),
+                        id=tc.get(
+                            "id", f"cache_{self._replay_index}_{tc.get('name', '')}"
+                        ),
                         name=tc["name"],
                         arguments=tc.get("arguments", {}),
                     )
@@ -839,7 +926,7 @@ class AdaptiveAgent(
 
         # Update conversation state tracking
         if assistant_message.is_tool_call():
-            for tc in (assistant_message.tool_calls or []):
+            for tc in assistant_message.tool_calls or []:
                 state.conv_state.tools_called.append(tc.name)
                 state.conv_state.tool_call_count[tc.name] = (
                     state.conv_state.tool_call_count.get(tc.name, 0) + 1
@@ -913,13 +1000,13 @@ class AdaptiveAgent(
         # This catches policy violations the structural checks miss.
         if self.VERIFY_WRITE_ACTIONS and assistant_message.is_tool_call():
             write_calls = [
-                tc for tc in (assistant_message.tool_calls or [])
+                tc
+                for tc in (assistant_message.tool_calls or [])
                 if tc.name in WRITE_ACTIONS
             ]
             if write_calls:
                 tool_desc = ", ".join(
-                    f"{tc.name}({json.dumps(tc.arguments or {})})"
-                    for tc in write_calls
+                    f"{tc.name}({json.dumps(tc.arguments or {})})" for tc in write_calls
                 )
 
                 # Inner monologue: force the model to reason about consequences
@@ -968,6 +1055,7 @@ class AdaptiveAgent(
 # ═══════════════════════════════════════════════════════════════════════
 # FACTORY FUNCTION
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def create_adaptive_agent(tools, domain_policy, **kwargs):
     """Factory function for AdaptiveAgent.

@@ -2,8 +2,6 @@
 
 from typing import Optional
 
-from loguru import logger
-
 from tau2.domains.medical_triage.user_data_model import (
     MedicalUserDB,
     VitalReading,
@@ -26,7 +24,9 @@ class MedicalUserTools(ToolKitBase):
         self.db.patient_state.patient_id = patient_id
         return f"Patient ID set to {patient_id}"
 
-    def set_symptoms(self, symptoms: list[str], pain_level: int, duration_hours: float) -> str:
+    def set_symptoms(
+        self, symptoms: list[str], pain_level: int, duration_hours: float
+    ) -> str:
         """Set the patient's current symptoms."""
         self.db.patient_state.current_symptoms = symptoms
         self.db.patient_state.pain_level = pain_level
@@ -83,7 +83,10 @@ class MedicalUserTools(ToolKitBase):
         """Use home blood pressure monitor. Only works if patient has one."""
         ps = self.db.patient_state
         if not ps.devices.has_bp_monitor:
-            return {"error": "No blood pressure monitor available", "blood_pressure": None}
+            return {
+                "error": "No blood pressure monitor available",
+                "blood_pressure": None,
+            }
         if ps.blood_pressure is None:
             return {"blood_pressure": "120/80", "note": "Normal"}
         reading = VitalReading(
@@ -97,7 +100,11 @@ class MedicalUserTools(ToolKitBase):
         """Use home pulse oximeter. Only works if patient has one."""
         ps = self.db.patient_state
         if not ps.devices.has_pulse_oximeter:
-            return {"error": "No pulse oximeter available", "oxygen_saturation": None, "pulse": None}
+            return {
+                "error": "No pulse oximeter available",
+                "oxygen_saturation": None,
+                "pulse": None,
+            }
         result = {}
         if ps.oxygen_saturation is not None:
             result["oxygen_saturation"] = ps.oxygen_saturation

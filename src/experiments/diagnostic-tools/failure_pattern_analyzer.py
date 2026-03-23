@@ -16,17 +16,23 @@ License: MIT
 import argparse
 import json
 import sys
-from collections import Counter, defaultdict
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
-
 
 # ── Failure Pattern Definitions ──────────────────────────────────────
 
 PATTERNS = {
     "identity_not_verified": {
         "description": "Agent acted before identifying the customer",
-        "keywords": ["identify", "user_id", "customer_id", "verification", "name", "who"],
+        "keywords": [
+            "identify",
+            "user_id",
+            "customer_id",
+            "verification",
+            "name",
+            "who",
+        ],
         "action_keywords": ["get_user_details", "find_user_id", "get_customer_details"],
         "recommendation": "Ensure the agent always calls an identity tool before any action.",
     },
@@ -50,7 +56,14 @@ PATTERNS = {
     },
     "policy_violation": {
         "description": "Action violated domain policy rules",
-        "keywords": ["policy", "rule", "violation", "not allowed", "prohibited", "cannot"],
+        "keywords": [
+            "policy",
+            "rule",
+            "violation",
+            "not allowed",
+            "prohibited",
+            "cannot",
+        ],
         "action_keywords": [],
         "recommendation": "Strengthen policy awareness in system prompt or add verification.",
     },
@@ -62,7 +75,14 @@ PATTERNS = {
     },
     "multi_fault_missed": {
         "description": "Agent fixed one issue but missed additional faults",
-        "keywords": ["additional", "also", "another", "remaining", "missed", "incomplete"],
+        "keywords": [
+            "additional",
+            "also",
+            "another",
+            "remaining",
+            "missed",
+            "incomplete",
+        ],
         "action_keywords": [],
         "recommendation": "Add checklist-style verification after each fix.",
     },
@@ -72,9 +92,7 @@ PATTERNS = {
 def classify_failure(task_result: dict) -> str:
     """Classify a failed task into a failure pattern category."""
     action_checks = task_result.get("action_checks", [])
-    failed_checks = [
-        c for c in action_checks if not c.get("passed", True)
-    ]
+    failed_checks = [c for c in action_checks if not c.get("passed", True)]
 
     if not failed_checks:
         # No explicit check failures — might be reward-based failure
@@ -82,8 +100,7 @@ def classify_failure(task_result: dict) -> str:
 
     # Analyze failed check descriptions
     all_text = " ".join(
-        c.get("description", "") + " " + c.get("message", "")
-        for c in failed_checks
+        c.get("description", "") + " " + c.get("message", "") for c in failed_checks
     ).lower()
 
     # Score each pattern
@@ -120,20 +137,27 @@ def analyze_results(results: list[dict]) -> dict[str, Any]:
 
     # Build summary
     patterns_summary = []
-    for pattern_name in sorted(pattern_groups.keys(), key=lambda k: -len(pattern_groups[k])):
+    for pattern_name in sorted(
+        pattern_groups.keys(), key=lambda k: -len(pattern_groups[k])
+    ):
         task_ids = pattern_groups[pattern_name]
-        info = PATTERNS.get(pattern_name, {
-            "description": "Unclassifiable failure",
-            "recommendation": "Manual investigation required.",
-        })
-        patterns_summary.append({
-            "pattern": pattern_name,
-            "description": info.get("description", ""),
-            "count": len(task_ids),
-            "percentage": round(len(task_ids) / max(failed, 1) * 100, 1),
-            "task_ids": task_ids[:10],  # Show up to 10 examples
-            "recommendation": info.get("recommendation", ""),
-        })
+        info = PATTERNS.get(
+            pattern_name,
+            {
+                "description": "Unclassifiable failure",
+                "recommendation": "Manual investigation required.",
+            },
+        )
+        patterns_summary.append(
+            {
+                "pattern": pattern_name,
+                "description": info.get("description", ""),
+                "count": len(task_ids),
+                "percentage": round(len(task_ids) / max(failed, 1) * 100, 1),
+                "task_ids": task_ids[:10],  # Show up to 10 examples
+                "recommendation": info.get("recommendation", ""),
+            }
+        )
 
     return {
         "total_tasks": total,
@@ -183,12 +207,13 @@ def main():
     )
     parser.add_argument("results_file", help="Path to results JSON file")
     parser.add_argument(
-        "--output", choices=["text", "json"], default="text",
-        help="Output format (default: text)"
+        "--output",
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
     )
     parser.add_argument(
-        "--top", type=int, default=0,
-        help="Show only top N patterns (0 = all)"
+        "--top", type=int, default=0, help="Show only top N patterns (0 = all)"
     )
     args = parser.parse_args()
 

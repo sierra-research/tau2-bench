@@ -1,6 +1,6 @@
 """Data models for the medical triage domain — matched to db.json schema."""
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -11,7 +11,9 @@ from tau2.environment.db import DB
 class Insurance(BaseModel):
     type: str = Field(description="Insurance type (medicare, hmo, ppo, medicaid)")
     plan_id: str = Field(default="", description="Plan ID")
-    referral_required: bool = Field(default=False, description="Whether referrals needed")
+    referral_required: bool = Field(
+        default=False, description="Whether referrals needed"
+    )
 
 
 class Medication(BaseModel):
@@ -39,7 +41,9 @@ class Patient(BaseModel):
     allergies: List[str] = Field(default_factory=list, description="Known allergies")
     current_medications: List = Field(default_factory=list, description="Current meds")
     medical_history: List = Field(default_factory=list, description="Medical history")
-    insurance: Insurance = Field(default_factory=lambda: Insurance(type="unknown", plan_id=""))
+    insurance: Insurance = Field(
+        default_factory=lambda: Insurance(type="unknown", plan_id="")
+    )
     appointments: List[str] = Field(default_factory=list, description="Appointment IDs")
 
 
@@ -49,7 +53,9 @@ class Provider(BaseModel):
     department: str = Field(default="", description="Department")
     specialty: str = Field(default="", description="Specialty")
     clinic: str = Field(default="", description="Clinic name")
-    available_slots: List[str] = Field(default_factory=list, description="Available slots")
+    available_slots: List[str] = Field(
+        default_factory=list, description="Available slots"
+    )
 
 
 class Appointment(BaseModel):

@@ -43,8 +43,7 @@ def compute_domain_stats(results: list[dict]) -> dict[str, Any]:
     avg_reward = statistics.mean(rewards) if rewards else 0.0
 
     failed_ids = [
-        r.get("task_id", r.get("id", "?"))
-        for r in results if r.get("reward", 0) < 1.0
+        r.get("task_id", r.get("id", "?")) for r in results if r.get("reward", 0) < 1.0
     ]
 
     return {
@@ -74,13 +73,15 @@ def analyze_transfer(domain_results: dict[str, list[dict]]) -> dict[str, Any]:
         for j in range(i + 1, len(domains)):
             d1, d2 = domains[i], domains[j]
             gap = abs(domain_stats[d1]["pass_rate"] - domain_stats[d2]["pass_rate"])
-            transfer_gaps.append({
-                "domain_a": d1,
-                "domain_b": d2,
-                "rate_a": domain_stats[d1]["pass_rate"],
-                "rate_b": domain_stats[d2]["pass_rate"],
-                "gap": round(gap, 1),
-            })
+            transfer_gaps.append(
+                {
+                    "domain_a": d1,
+                    "domain_b": d2,
+                    "rate_a": domain_stats[d1]["pass_rate"],
+                    "rate_b": domain_stats[d2]["pass_rate"],
+                    "gap": round(gap, 1),
+                }
+            )
 
     # Sort by gap descending
     transfer_gaps.sort(key=lambda x: -x["gap"])
@@ -101,9 +102,7 @@ def analyze_transfer(domain_results: dict[str, list[dict]]) -> dict[str, Any]:
             f"Consider domain-agnostic improvements."
         )
     if generalization_score >= 95:
-        recommendations.append(
-            "Excellent generalization across all domains."
-        )
+        recommendations.append("Excellent generalization across all domains.")
 
     return {
         "domains": domain_stats,
@@ -134,15 +133,17 @@ def format_text_report(analysis: dict[str, Any]) -> str:
             f"{s['pass_rate']:>6.1f}% {s['avg_reward']:>10.4f}"
         )
 
-    lines.extend([
-        "  " + "-" * 65,
-        "",
-        f"  Generalization Score: {analysis['generalization_score']}%",
-        f"  Consistency (stdev):  {analysis['consistency_stdev']}%",
-        f"  Strongest domain:     {analysis['strongest_domain']}",
-        f"  Weakest domain:       {analysis['weakest_domain']}",
-        "",
-    ])
+    lines.extend(
+        [
+            "  " + "-" * 65,
+            "",
+            f"  Generalization Score: {analysis['generalization_score']}%",
+            f"  Consistency (stdev):  {analysis['consistency_stdev']}%",
+            f"  Strongest domain:     {analysis['strongest_domain']}",
+            f"  Weakest domain:       {analysis['weakest_domain']}",
+            "",
+        ]
+    )
 
     if analysis["transfer_gaps"]:
         lines.append("  Transfer Gaps (pairwise):")
@@ -168,16 +169,19 @@ def main():
         description="Cross-domain transfer analysis for τ²-bench"
     )
     parser.add_argument(
-        "--results", nargs="+", required=True,
-        help="Paths to results JSON files (one per domain)"
+        "--results",
+        nargs="+",
+        required=True,
+        help="Paths to results JSON files (one per domain)",
     )
     parser.add_argument(
-        "--domains", nargs="*",
-        help="Domain names (inferred from filenames if omitted)"
+        "--domains", nargs="*", help="Domain names (inferred from filenames if omitted)"
     )
     parser.add_argument(
-        "--output", choices=["text", "json"], default="text",
-        help="Output format (default: text)"
+        "--output",
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
     )
     args = parser.parse_args()
 
@@ -188,7 +192,11 @@ def main():
             print(f"Error: File not found: {path}", file=sys.stderr)
             sys.exit(1)
 
-        domain = args.domains[i] if args.domains and i < len(args.domains) else infer_domain(results_path)
+        domain = (
+            args.domains[i]
+            if args.domains and i < len(args.domains)
+            else infer_domain(results_path)
+        )
 
         with open(path) as f:
             data = json.load(f)
