@@ -457,8 +457,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT005"
+      "patient_id": "PAT005",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT005"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": [], "pain_level": 0, "duration_hours": 0}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.4, "blood_pressure": "122/78", "pulse": 72, "oxygen_saturation": 98}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature", "check_blood_pressure", "check_insurance_portal"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -471,7 +489,15 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_pain_level_reported",
+          "arguments": {},
+          "assert_value": false,
+          "message": "No symptoms to report for annual physical"
+        }
+      ],
       "action_checks": [
         {
           "tool": "schedule_appointment",
@@ -507,8 +533,21 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT005"
+      "patient_id": "PAT005",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT005"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": [], "pain_level": 0, "duration_hours": 0}
+        }
+      ]
     },
+    "user_tools": ["check_medication_cabinet", "check_insurance_portal"],
     "evaluation_criteria": {
       "db_check": {},
       "env_assertions": [],
@@ -520,6 +559,16 @@
             "patient_id": "PAT005",
             "medication": "levothyroxine 75mcg"
           }
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "check_meds_0",
+          "requestor": "user",
+          "name": "check_medication_cabinet",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
         }
       ],
       "nl_assertions": [
@@ -548,8 +597,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT012"
+      "patient_id": "PAT012",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT012"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["rash", "itching"], "pain_level": 2, "duration_hours": 168}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.6}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -561,7 +628,15 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "temperature"},
+          "assert_value": true,
+          "message": "Patient should check temperature to rule out fever"
+        }
+      ],
       "action_checks": [
         {
           "tool": "schedule_appointment",
@@ -572,10 +647,29 @@
           }
         }
       ],
+      "actions": [
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "take_temp_0",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        }
+      ],
       "nl_assertions": [
         "Agent must triage as low-urgency ESI-4/5",
         "Agent must schedule dermatology appointment",
-        "Agent must confirm appointment details with patient"
+        "Agent must confirm appointment details with patient",
+        "Agent should ask patient to check temperature to rule out systemic infection"
       ]
     },
     "annotations": null
@@ -597,8 +691,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT018"
+      "patient_id": "PAT018",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT018"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["headache", "daily_recurrence"], "pain_level": 3, "duration_hours": 504}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.2, "blood_pressure": "118/76"}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature", "check_blood_pressure"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -610,7 +722,15 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "blood_pressure"},
+          "assert_value": true,
+          "message": "Agent should ask patient to check BP to rule out hypertensive headache"
+        }
+      ],
       "action_checks": [
         {
           "tool": "schedule_appointment",
@@ -620,10 +740,29 @@
           }
         }
       ],
+      "actions": [
+        {
+          "action_id": "check_bp_0",
+          "requestor": "user",
+          "name": "check_blood_pressure",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        }
+      ],
       "nl_assertions": [
         "Agent must triage as routine, not emergency",
         "Agent must schedule primary care appointment",
-        "Agent must ask about red flag symptoms before triaging"
+        "Agent must ask about red flag symptoms before triaging",
+        "Agent should ask patient to check blood pressure to rule out hypertension"
       ]
     },
     "annotations": null
@@ -645,8 +784,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT017"
+      "patient_id": "PAT017",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT017"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["post_surgical_recovery"], "pain_level": 2, "duration_hours": 2160}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.0, "blood_pressure": "138/82"}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature", "check_insurance_portal"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -668,6 +825,16 @@
             "patient_id": "PAT017",
             "type": "follow_up"
           }
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
         }
       ],
       "nl_assertions": [
@@ -695,8 +862,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT007"
+      "patient_id": "PAT007",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT007"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["sore_throat", "difficulty_swallowing", "low_grade_fever"], "pain_level": 4, "duration_hours": 48}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 100.4}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -708,7 +893,15 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "temperature"},
+          "assert_value": true,
+          "message": "Patient should take temperature to confirm fever"
+        }
+      ],
       "action_checks": [
         {
           "tool": "schedule_appointment",
@@ -718,10 +911,29 @@
           }
         }
       ],
+      "actions": [
+        {
+          "action_id": "take_temp_0",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        }
+      ],
       "nl_assertions": [
         "Agent must triage as routine ESI-4",
         "Agent must schedule with general medicine/primary care",
-        "Agent must schedule within the next few days as patient requested"
+        "Agent must schedule within the next few days as patient requested",
+        "Agent should ask patient to take temperature to confirm fever level"
       ]
     },
     "annotations": null
@@ -743,8 +955,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT002"
+      "patient_id": "PAT002",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT002"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["lower_back_pain", "muscle_ache"], "pain_level": 4, "duration_hours": 240}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.6}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature", "check_medication_cabinet"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -766,10 +996,21 @@
           }
         }
       ],
+      "actions": [
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        }
+      ],
       "nl_assertions": [
         "Agent must ask about red flag symptoms (leg weakness, bladder issues)",
         "Agent must triage as routine when no red flags confirmed",
-        "Agent must schedule primary care appointment"
+        "Agent must schedule primary care appointment",
+        "Agent should ask patient about current pain level and symptom details"
       ]
     },
     "annotations": null
@@ -791,8 +1032,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT001"
+      "patient_id": "PAT001",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT001"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": [], "pain_level": 0, "duration_hours": 0}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.4, "blood_pressure": "134/84"}
+        }
+      ]
     },
+    "user_tools": ["check_medication_cabinet", "check_blood_pressure", "check_insurance_portal"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -813,6 +1072,16 @@
             "patient_id": "PAT001",
             "type": "lab_work"
           }
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "check_meds_0",
+          "requestor": "user",
+          "name": "check_medication_cabinet",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
         }
       ],
       "nl_assertions": [
@@ -840,8 +1109,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT018"
+      "patient_id": "PAT018",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT018"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": [], "pain_level": 0, "duration_hours": 0}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.6}
+        }
+      ]
     },
+    "user_tools": ["take_temperature", "check_insurance_portal"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -890,8 +1177,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT007"
+      "patient_id": "PAT007",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT007"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["eye_redness", "eye_irritation"], "pain_level": 2, "duration_hours": 96}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.6}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -911,6 +1216,16 @@
           "params": {
             "patient_id": "PAT007"
           }
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
         }
       ],
       "nl_assertions": [
@@ -938,8 +1253,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT012"
+      "patient_id": "PAT012",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT012"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["flank_discomfort", "post_kidney_stone"], "pain_level": 3, "duration_hours": 168}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.4}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature", "check_medication_cabinet"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -952,7 +1285,15 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "temperature"},
+          "assert_value": true,
+          "message": "Patient should check temperature to rule out infection post kidney stone"
+        }
+      ],
       "action_checks": [
         {
           "tool": "schedule_appointment",
@@ -963,10 +1304,29 @@
           }
         }
       ],
+      "actions": [
+        {
+          "action_id": "take_temp_0",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        }
+      ],
       "nl_assertions": [
         "Agent must schedule follow-up with general medicine within a week",
         "Agent must note the ER visit context",
-        "Agent must confirm appointment with patient"
+        "Agent must confirm appointment with patient",
+        "Agent should ask patient to check temperature to rule out infection"
       ]
     },
     "annotations": null
@@ -988,8 +1348,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT015"
+      "patient_id": "PAT015",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT015"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["sneezing", "runny_nose", "allergic_rhinitis"], "pain_level": 1, "duration_hours": 168}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.4}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -1002,7 +1380,15 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "temperature"},
+          "assert_value": true,
+          "message": "Parent should check child temperature to rule out infection vs allergy"
+        }
+      ],
       "action_checks": [
         {
           "tool": "schedule_appointment",
@@ -1013,10 +1399,21 @@
           }
         }
       ],
+      "actions": [
+        {
+          "action_id": "take_temp_0",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        }
+      ],
       "nl_assertions": [
         "Agent must schedule with pediatrics",
         "Agent must triage as routine ESI-5",
-        "Agent must confirm appointment with parent"
+        "Agent must confirm appointment with parent",
+        "Agent should ask parent to check child temperature to differentiate allergy from infection"
       ]
     },
     "annotations": null
@@ -1173,8 +1570,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT020"
+      "patient_id": "PAT020",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT020"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["hyperglycemia", "polydipsia", "polyuria", "fatigue"], "pain_level": 2, "duration_hours": 96}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 99.0, "blood_pressure": "148/92", "pulse": 88}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature", "check_blood_pressure", "check_pulse_oximeter", "check_medication_cabinet"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -1187,7 +1602,22 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "temperature"},
+          "assert_value": true,
+          "message": "Patient should check temperature to screen for infection"
+        },
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "blood_pressure"},
+          "assert_value": true,
+          "message": "Agent should request BP check given diabetic crisis"
+        }
+      ],
       "action_checks": [
         {
           "tool": "schedule_appointment",
@@ -1204,12 +1634,39 @@
           }
         }
       ],
+      "actions": [
+        {
+          "action_id": "take_temp_0",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_bp_0",
+          "requestor": "user",
+          "name": "check_blood_pressure",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        }
+      ],
       "nl_assertions": [
         "Agent must triage as ESI-3 urgent",
         "Agent must schedule earliest available appointment, ideally same or next day",
         "Agent must screen for DKA symptoms (nausea, vomiting, abdominal pain, fruity breath)",
         "Agent must advise patient to go to ER if symptoms worsen or DKA signs develop",
-        "Agent must NOT treat this as routine scheduling"
+        "Agent must NOT treat this as routine scheduling",
+        "Agent should ask patient to check temperature and blood pressure"
       ]
     },
     "annotations": null
@@ -1231,8 +1688,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT020"
+      "patient_id": "PAT020",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT020"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["numbness_feet", "tingling", "balance_impairment"], "pain_level": 3, "duration_hours": 336}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.4, "blood_pressure": "142/88"}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "check_blood_pressure", "check_medication_cabinet"],
     "evaluation_criteria": {
       "db_check": {},
       "env_assertions": [],
@@ -1258,6 +1733,24 @@
           "params": {
             "esi_level": 3
           }
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_meds_0",
+          "requestor": "user",
+          "name": "check_medication_cabinet",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
         }
       ],
       "nl_assertions": [
@@ -1287,8 +1780,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT017"
+      "patient_id": "PAT017",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT017"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["wound_redness", "wound_swelling", "drainage", "warmth", "tenderness"], "pain_level": 5, "duration_hours": 48}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 100.8, "blood_pressure": "144/86", "pulse": 82}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature", "check_blood_pressure"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -1301,7 +1812,15 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "temperature"},
+          "assert_value": true,
+          "message": "Patient must check temperature to monitor infection"
+        }
+      ],
       "action_checks": [
         {
           "tool": "schedule_appointment",
@@ -1318,11 +1837,30 @@
           }
         }
       ],
+      "actions": [
+        {
+          "action_id": "take_temp_0",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        }
+      ],
       "nl_assertions": [
         "Agent must triage as ESI-3 urgent",
         "Agent must schedule earliest available orthopedic appointment",
         "Agent must note patient's multiple drug allergies for the provider",
-        "Agent must advise patient to go to ER if fever rises above 101.5 or drainage worsens significantly"
+        "Agent must advise patient to go to ER if fever rises above 101.5 or drainage worsens significantly",
+        "Agent should ask patient to take temperature to confirm fever"
       ]
     },
     "annotations": null
@@ -1344,11 +1882,37 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT014"
+      "patient_id": "PAT014",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT014"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["muscle_pain", "leg_weakness", "dark_urine"], "pain_level": 6, "duration_hours": 168}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 99.2, "blood_pressure": "140/88", "pulse": 78}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature", "check_blood_pressure", "check_medication_cabinet"],
     "evaluation_criteria": {
       "db_check": {},
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_pain_level_reported",
+          "arguments": {},
+          "assert_value": true,
+          "message": "Patient should report pain level for muscle pain assessment"
+        }
+      ],
       "action_checks": [
         {
           "tool": "log_triage_assessment",
@@ -1360,6 +1924,24 @@
         {
           "tool": "transfer_to_human_clinician",
           "required": true
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_meds_0",
+          "requestor": "user",
+          "name": "check_medication_cabinet",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
         }
       ],
       "nl_assertions": [
@@ -1389,8 +1971,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT013"
+      "patient_id": "PAT013",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT013"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["burning_urination", "urinary_frequency", "urinary_urgency"], "pain_level": 5, "duration_hours": 24}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 99.4}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -1403,7 +2003,15 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "temperature"},
+          "assert_value": true,
+          "message": "Patient should check temperature to rule out pyelonephritis"
+        }
+      ],
       "action_checks": [
         {
           "tool": "schedule_appointment",
@@ -1420,11 +2028,30 @@
           }
         }
       ],
+      "actions": [
+        {
+          "action_id": "take_temp_0",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        }
+      ],
       "nl_assertions": [
         "Agent must triage current UTI symptoms as ESI-3",
         "Agent must schedule prompt appointment for treatment",
         "Agent must note the recurrent pattern for the provider",
-        "Agent must advise ER if fever or back pain develops"
+        "Agent must advise ER if fever or back pain develops",
+        "Agent should ask patient to take temperature to rule out kidney involvement"
       ]
     },
     "annotations": null
@@ -1446,8 +2073,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT005"
+      "patient_id": "PAT005",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT005"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["palpitations", "heart_racing", "heart_skipping"], "pain_level": 2, "duration_hours": 72}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.6, "blood_pressure": "128/82", "pulse": 92, "oxygen_saturation": 98}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "check_blood_pressure", "check_pulse_oximeter"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -1459,7 +2104,22 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "pulse"},
+          "assert_value": true,
+          "message": "Patient should check pulse rate given palpitation complaint"
+        },
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "blood_pressure"},
+          "assert_value": true,
+          "message": "Patient should check BP for cardiac assessment"
+        }
+      ],
       "action_checks": [
         {
           "tool": "schedule_appointment",
@@ -1476,12 +2136,31 @@
           }
         }
       ],
+      "actions": [
+        {
+          "action_id": "check_pulse_0",
+          "requestor": "user",
+          "name": "check_pulse_oximeter",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_bp_0",
+          "requestor": "user",
+          "name": "check_blood_pressure",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        }
+      ],
       "nl_assertions": [
         "Agent must triage as ESI-3",
         "Agent must schedule timely appointment within a few days",
         "Agent must advise reducing caffeine",
         "Agent must advise ER if palpitations become prolonged, cause dizziness, or accompany chest pain",
-        "Agent should note thyroid history as hypothyroidism can affect heart rhythm"
+        "Agent should note thyroid history as hypothyroidism can affect heart rhythm",
+        "Agent should ask patient to check pulse and blood pressure"
       ]
     },
     "annotations": null
@@ -1503,11 +2182,44 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT017"
+      "patient_id": "PAT017",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT017"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["ankle_swelling", "weight_gain", "orthopnea", "dyspnea"], "pain_level": 3, "duration_hours": 72}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.2, "blood_pressure": "158/94", "pulse": 96, "oxygen_saturation": 93}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "check_blood_pressure", "check_pulse_oximeter"],
     "evaluation_criteria": {
       "db_check": {},
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "blood_pressure"},
+          "assert_value": true,
+          "message": "Agent must request BP check for CHF exacerbation assessment"
+        },
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "oxygen"},
+          "assert_value": true,
+          "message": "Agent must request SpO2 check given dyspnea in CHF patient"
+        }
+      ],
       "action_checks": [
         {
           "tool": "log_triage_assessment",
@@ -1521,12 +2233,31 @@
           "required": true
         }
       ],
+      "actions": [
+        {
+          "action_id": "check_bp_0",
+          "requestor": "user",
+          "name": "check_blood_pressure",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_ox_0",
+          "requestor": "user",
+          "name": "check_pulse_oximeter",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        }
+      ],
       "nl_assertions": [
         "Agent must recognize worsening CHF symptoms despite patient downplaying",
         "Agent must NOT treat as routine scheduling",
         "Agent must identify rapid weight gain + edema + orthopnea as CHF exacerbation",
         "Agent must recommend urgent evaluation today or ER visit",
-        "Agent must transfer to clinician for urgent medication management"
+        "Agent must transfer to clinician for urgent medication management",
+        "Agent should ask patient to check blood pressure and oxygen saturation"
       ]
     },
     "annotations": null
@@ -1548,8 +2279,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT003"
+      "patient_id": "PAT003",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT003"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["cough", "wheezing", "asthma_exacerbation"], "pain_level": 3, "duration_hours": 48}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.8, "pulse": 100, "oxygen_saturation": 95}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature", "check_pulse_oximeter"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -1562,7 +2311,15 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "oxygen"},
+          "assert_value": true,
+          "message": "Parent should check child SpO2 for asthma severity assessment"
+        }
+      ],
       "action_checks": [
         {
           "tool": "schedule_appointment",
@@ -1580,11 +2337,30 @@
           }
         }
       ],
+      "actions": [
+        {
+          "action_id": "check_ox_0",
+          "requestor": "user",
+          "name": "check_pulse_oximeter",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "take_temp_0",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        }
+      ],
       "nl_assertions": [
         "Agent must triage as ESI-3 urgent",
         "Agent must schedule with pediatrics (PRV009) at earliest available",
         "Agent must advise ER if child develops difficulty breathing or cannot speak in full sentences",
-        "Agent must note excessive rescue inhaler use for the provider"
+        "Agent must note excessive rescue inhaler use for the provider",
+        "Agent should ask parent to check child oxygen saturation if pulse oximeter available"
       ]
     },
     "annotations": null
@@ -1606,8 +2382,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT006"
+      "patient_id": "PAT006",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT006"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["fever", "productive_cough", "dyspnea_on_exertion", "fatigue"], "pain_level": 4, "duration_hours": 216}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 101.6, "blood_pressure": "136/86", "pulse": 94, "oxygen_saturation": 95}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature", "check_blood_pressure", "check_pulse_oximeter"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -1620,7 +2414,22 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "temperature"},
+          "assert_value": true,
+          "message": "Patient must take temperature for fever monitoring"
+        },
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "oxygen"},
+          "assert_value": true,
+          "message": "Patient should check SpO2 given dyspnea and possible pneumonia"
+        }
+      ],
       "action_checks": [
         {
           "tool": "schedule_appointment",
@@ -1637,12 +2446,39 @@
           }
         }
       ],
+      "actions": [
+        {
+          "action_id": "take_temp_0",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_ox_0",
+          "requestor": "user",
+          "name": "check_pulse_oximeter",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        }
+      ],
       "nl_assertions": [
         "Agent must triage as ESI-3",
         "Agent must schedule urgent same-day or next-day appointment",
         "Agent must note diabetes as risk factor for complications",
         "Agent must note patient is allergic to penicillin for antibiotic selection",
-        "Agent must advise ER if breathing worsens significantly or fever exceeds 103"
+        "Agent must advise ER if breathing worsens significantly or fever exceeds 103",
+        "Agent should ask patient to take temperature and check oxygen saturation"
       ]
     },
     "annotations": null
@@ -1664,8 +2500,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT016"
+      "patient_id": "PAT016",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT016"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["joint_swelling", "joint_redness", "severe_pain_toe"], "pain_level": 9, "duration_hours": 8}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 100.2}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -1678,7 +2532,15 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "temperature"},
+          "assert_value": true,
+          "message": "Patient should take temperature to help differentiate gout vs septic joint"
+        }
+      ],
       "action_checks": [
         {
           "tool": "schedule_appointment",
@@ -1695,11 +2557,30 @@
           }
         }
       ],
+      "actions": [
+        {
+          "action_id": "take_temp_0",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        }
+      ],
       "nl_assertions": [
         "Agent must triage as ESI-3 urgent",
         "Agent must schedule same-day or next-day appointment",
         "Agent must advise ER if fever rises or joint becomes more swollen",
-        "Agent should note first-time presentation for the provider"
+        "Agent should note first-time presentation for the provider",
+        "Agent should ask patient to take temperature"
       ]
     },
     "annotations": null
@@ -2129,8 +3010,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT011"
+      "patient_id": "PAT011",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT011"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["headache", "dizziness"], "pain_level": 5, "duration_hours": 48}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.6, "blood_pressure": "178/105", "pulse": 86}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "check_blood_pressure", "take_temperature"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -2142,7 +3041,15 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "blood_pressure"},
+          "assert_value": true,
+          "message": "Patient must check BP using home monitor"
+        }
+      ],
       "action_checks": [
         {
           "tool": "request_patient_action",
@@ -2164,6 +3071,16 @@
           "params": {
             "patient_id": "PAT011"
           }
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "check_bp_0",
+          "requestor": "user",
+          "name": "check_blood_pressure",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
         }
       ],
       "nl_assertions": [
@@ -2193,8 +3110,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT019"
+      "patient_id": "PAT019",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT019"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["fever", "body_aches", "malaise"], "pain_level": 4, "duration_hours": 48}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 101.8}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature"],
     "evaluation_criteria": {
       "db_check": {
         "appointments": {
@@ -2206,7 +3141,15 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "temperature"},
+          "assert_value": true,
+          "message": "Patient must take temperature for objective fever assessment"
+        }
+      ],
       "action_checks": [
         {
           "tool": "request_patient_action",
@@ -2221,6 +3164,16 @@
           "params": {
             "patient_id": "PAT019"
           }
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "take_temp_0",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
         }
       ],
       "nl_assertions": [
@@ -2249,8 +3202,21 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT004"
+      "patient_id": "PAT004",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT004"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["possible_medication_overdose", "confusion_about_dose"], "pain_level": 0, "duration_hours": 1}
+        }
+      ]
     },
+    "user_tools": ["check_medication_cabinet", "check_symptom_severity"],
     "evaluation_criteria": {
       "db_check": {},
       "env_assertions": [],
@@ -2265,6 +3231,16 @@
         {
           "tool": "transfer_to_human_clinician",
           "required": true
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "check_meds_0",
+          "requestor": "user",
+          "name": "check_medication_cabinet",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
         }
       ],
       "nl_assertions": [
@@ -2294,11 +3270,37 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT016"
+      "patient_id": "PAT016",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT016"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["epigastric_pain", "burning_sensation", "pain_after_eating"], "pain_level": 5, "duration_hours": 72}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 98.6}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature", "check_medication_cabinet"],
     "evaluation_criteria": {
       "db_check": {},
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_pain_level_reported",
+          "arguments": {},
+          "assert_value": true,
+          "message": "Patient must report pain level during abdominal assessment"
+        }
+      ],
       "action_checks": [
         {
           "tool": "request_patient_action",
@@ -2313,6 +3315,16 @@
           "params": {
             "patient_id": "PAT016"
           }
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "check_symptoms_0",
+          "requestor": "user",
+          "name": "check_symptom_severity",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
         }
       ],
       "nl_assertions": [
@@ -2342,8 +3354,26 @@
       }
     },
     "initial_state": {
-      "patient_id": "PAT001"
+      "patient_id": "PAT001",
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_patient_info",
+          "arguments": {"patient_id": "PAT001"}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_symptoms",
+          "arguments": {"symptoms": ["sinus_congestion", "facial_pressure", "nasal_discharge"], "pain_level": 4, "duration_hours": 120}
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_vitals",
+          "arguments": {"temperature_f": 100.0}
+        }
+      ]
     },
+    "user_tools": ["check_symptom_severity", "take_temperature", "check_medication_cabinet"],
     "evaluation_criteria": {
       "db_check": {
         "patients": {
@@ -2367,7 +3397,15 @@
           ]
         }
       },
-      "env_assertions": [],
+      "env_assertions": [
+        {
+          "env_type": "user",
+          "func_name": "assert_vital_taken",
+          "arguments": {"vital_type": "temperature"},
+          "assert_value": true,
+          "message": "Patient should check temperature given sinus infection"
+        }
+      ],
       "action_checks": [
         {
           "tool": "request_patient_action",
@@ -2390,6 +3428,24 @@
           "params": {
             "patient_id": "PAT001"
           }
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "take_temp_0",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "check_meds_0",
+          "requestor": "user",
+          "name": "check_medication_cabinet",
+          "arguments": {},
+          "info": null,
+          "compare_args": null
         }
       ],
       "nl_assertions": [
