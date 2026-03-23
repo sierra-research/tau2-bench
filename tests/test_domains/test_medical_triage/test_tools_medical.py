@@ -441,3 +441,164 @@ class TestEnvironment:
     def test_registry_has_adaptive_agent(self):
         from tau2.registry import registry
         assert "adaptive_agent" in registry.get_agents()
+
+    def test_environment_has_user_tools(self):
+        from tau2.domains.medical_triage.environment import get_environment
+        env = get_environment()
+        assert env.user_tools is not None
+        user_tool_names = [t.name for t in env.get_user_tools()]
+        assert "check_symptom_severity" in user_tool_names
+        assert "take_temperature" in user_tool_names
+        assert "check_blood_pressure" in user_tool_names
+        assert "check_medication_cabinet" in user_tool_names
+        assert "check_insurance_portal" in user_tool_names
+
+    def test_environment_is_dual_control(self):
+        from tau2.domains.medical_triage.environment import get_environment, MedicalTriageEnvironment
+        env = get_environment()
+        assert isinstance(env, MedicalTriageEnvironment)
+        # Agent and user tools should be separate
+        agent_tools = {t.name for t in env.get_tools()}
+        user_tools = {t.name for t in env.get_user_tools()}
+        assert len(agent_tools & user_tools) == 0, "Agent and user tools should not overlap"
+
+
+# ── User Tools ───────────────────────────────────────────────────────
+
+
+class TestUserTools:
+    @pytest.fixture
+    def user_tools(self):
+        from tau2.domains.medical_triage.user_data_model import (
+            MedicalUserDB,
+            PatientState,
+            PatientDevice,
+            HomeMedication,
+            InsurancePortalInfo,
+        )
+        from tau2.domains.medical_triage.user_tools import MedicalUserTools
+
+        user_db = MedicalUserDB(
+            patient_state=PatientState(
+                patient_id="P001",
+                current_symptoms=["headache", "fever"],
+                pain_level=6,
+                symptom_duration_hours=4.0,
+                temperature_f=101.3,
+                blood_pressure="140/90",
+                pulse=88,
+                oxygen_saturation=96,
+                home_medications=[
+                    HomeMedication(name="ibuprofen", dosage="200mg", quantity_remaining=12, expired=False),
+                    HomeMedication(name="amoxicillin", dosage="500mg", quantity_remaining=0, expired=True),
+                ],
+                insurance_portal=InsurancePortalInfo(
+                    plan_type="ppo", copay_amount=30.0,
+                    referral_on_file=False, referral_department="",
+                    deductible_met=True,
+                ),
+                devices=PatientDevice(
+                    has_thermometer=True,
+                    has_bp_monitor=True,
+                    has_pulse_oximeter=True,
+                    has_glucose_meter=False,
+                ),
+            )
+        )
+        return MedicalUserTools(user_db)
+
+    def test_check_symptom_severity(self, user_tools):
+        result = user_tools.check_symptom_severity()
+        assert result["pain_level"] == 6
+        assert "headache" in result["symptoms"]
+        assert result["duration_hours"] == 4.0
+
+    def test_take_temperature(self, user_tools):
+        result = user_tools.take_temperature()
+        assert result["temperature_f"] == 101.3
+
+    def test_take_temperature_no_thermometer(self):
+        from tau2.domains.medical_triage.user_data_model import (
+            MedicalUserDB, PatientState, PatientDevice,
+        )
+        from tau2.domains.medical_triage.user_tools import MedicalUserTools
+        user_db = MedicalUserDB(
+            patient_state=PatientState(
+                patient_id="P001",
+                devices=PatientDevice(has_thermometer=False),
+            )
+        )
+        tools = MedicalUserTools(user_db)
+        result = tools.take_temperature()
+        assert result["temperature_f"] is None
+        assert "error" in result
+
+    def test_check_blood_pressure(self, user_tools):
+        result = user_tools.check_blood_pressure()
+        assert result["blood_pressure"] == "140/90"
+
+    def test_check_blood_pressure_no_monitor(self):
+        from tau2.domains.medical_triage.user_data_model import (
+            MedicalUserDB, PatientState, PatientDevice,
+        )
+        from tau2.domains.medical_triage.user_tools import MedicalUserTools
+        user_db = MedicalUserDB(
+            patient_state=PatientState(
+                patient_id="P001",
+                devices=PatientDevice(has_bp_monitor=False),
+            )
+        )
+        tools = MedicalUserTools(user_db)
+        result = tools.check_blood_pressure()
+        assert result["blood_pressure"] is None
+
+    def test_check_pulse_oximeter(self, user_tools):
+        result = user_tools.check_pulse_oximeter()
+        assert result["oxygen_saturation"] == 96
+        assert result["pulse"] == 88
+
+    def test_check_medication_cabinet(self, user_tools):
+        result = user_tools.check_medication_cabinet()
+        meds = result["medications_at_home"]
+        assert len(meds) == 2
+        assert meds[0]["name"] == "ibuprofen"
+        assert meds[1]["expired"] is True
+
+    def test_check_insurance_portal(self, user_tools):
+        result = user_tools.check_insurance_portal()
+        assert result["plan_type"] == "ppo"
+        assert result["copay"] == 30.0
+        assert result["referral_on_file"] is False
+
+    def test_vital_readings_accumulate(self, user_tools):
+        user_tools.take_temperature()
+        user_tools.check_blood_pressure()
+        user_tools.check_pulse_oximeter()
+        readings = user_tools.db.patient_state.vital_readings
+        types = [r.type for r in readings]
+        assert "temperature" in types
+        assert "blood_pressure" in types
+        assert "oxygen" in types
+
+
+class TestSyncTools:
+    def test_sync_referral_to_portal(self):
+        """When agent creates a referral, patient's portal should reflect it."""
+        from tau2.domains.medical_triage.environment import get_environment
+        env = get_environment()
+        # Set patient ID in user state
+        env.user_tools.set_patient_info("PAT001")
+        # Set insurance portal
+        from tau2.domains.medical_triage.user_data_model import InsurancePortalInfo
+        env.user_tools.db.patient_state.insurance_portal = InsurancePortalInfo(
+            plan_type="ppo", copay_amount=30.0,
+            referral_on_file=False, referral_department="",
+        )
+        # Agent creates a referral
+        env.tools.create_referral("PAT001", "PRV001", "cardiology", "Chest pain")
+        # Sync
+        env.sync_tools()
+        # Patient portal should now show referral
+        portal = env.user_tools.db.patient_state.insurance_portal
+        assert portal.referral_on_file is True
+        assert portal.referral_department == "cardiology"
