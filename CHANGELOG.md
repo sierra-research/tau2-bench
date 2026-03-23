@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+- Leaderboard website now fetches submission and trajectory data from S3 (`sierra-tau-bench-public`) instead of serving from GitHub Pages directly
 
 ### Deprecated
 
