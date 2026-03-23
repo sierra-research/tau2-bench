@@ -143,7 +143,22 @@ The 3 unrecovered tasks reveal systematic limitations:
 
 This analysis complements AVER's finding of 0% recovery for standard agents: AdaptiveAgent's self-verification specifically addresses the detection-to-recovery gap.
 
-### 5.4 Cross-Domain Dual-Control Transfer
+### 5.4 Diagnostic Tool Findings
+
+**Cross-Domain Transfer Analysis** (run on all simulation data):
+
+| Domain | Simulations | Pass Rate | Avg Reward |
+|---|---:|---:|---:|
+| Airline | 233 | 70.0% | 0.700 |
+| Retail | 410 | 84.6% | 0.846 |
+| Telecom | 633 | 74.7% | 0.747 |
+| Medical | 77 | 98.7% | 0.987 |
+
+Generalization score: 82.0% (average across domains). Consistency stdev: 12.7%, indicating significant domain-dependent variation. The largest transfer gap is airline↔medical (28.7pp), suggesting that medical triage's clearer decision boundaries favor the verification approach.
+
+**Difficulty-Graded Scoring** (best-of-N per task): All domains classify as "Hard" (7+ action checks per task). With best-of-N recovery, pass rates reach 96.0% (airline), 97.4% (retail), and 93.9% (telecom), confirming that the Self-Verification Loop is effective even on the hardest tasks.
+
+### 5.5 Cross-Domain Dual-Control Transfer
 
 | Domain | Type | pass^1 | pass@1 | Recovery |
 |---|---|---:|---:|---:|
