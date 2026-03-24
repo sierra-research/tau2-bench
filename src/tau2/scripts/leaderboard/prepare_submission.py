@@ -503,8 +503,9 @@ def prepare_submission(
             if is_voice and voice_config is None:
                 voice_config = _extract_voice_config(results)
 
-            # Track trajectory filenames by domain
-            trajectory_files_map[domain] = Path(file_path).name
+            # Track trajectory references by domain.
+            # Populated with final filenames/paths during the copy step below.
+            trajectory_files_map[domain] = file_path
 
             # Compute metrics for this trajectory file
             metrics = compute_metrics(results)
@@ -681,6 +682,57 @@ def prepare_submission(
         banking_knowledge=banking_results,
     )
 
+    # Step 6: Create output directory and copy trajectory files
+    def _slugify(s: str) -> str:
+        return s.lower().replace(" ", "-").replace("/", "-").replace(".", "-")
+
+    submission_dir_name = (
+        f"{_slugify(model_name)}_{_slugify(model_organization)}"
+        f"_{date.today().isoformat()}"
+    )
+
+    output_path = Path(output_dir)
+    submission_dir = output_path / submission_dir_name
+    submission_dir.mkdir(parents=True, exist_ok=True)
+
+    trajectories_dir = submission_dir / TRAJECTORY_FILES_DIR_NAME
+    trajectories_dir.mkdir(exist_ok=True)
+
+    console.print(f"\n📁 Output: {submission_dir}", style="bold blue")
+
+    # trajectory_files_map currently holds raw source paths; rebuild it with
+    # the actual destination names/paths produced during copy.
+    domain_source_paths = dict(trajectory_files_map)
+    trajectory_files_map.clear()
+
+    if is_voice:
+        # Voice: copy the trimmed experiment directory per domain
+        # (results.json + canonical simulation audio only).
+        for domain, src_path in domain_source_paths.items():
+            exp_src = Path(src_path).parent
+            exp_name = exp_src.name
+            exp_dst = trajectories_dir / exp_name
+            console.print(f"  📂 {TRAJECTORY_FILES_DIR_NAME}/{exp_name}/", style="bold")
+            total_bytes = _copy_voice_experiment_trimmed(exp_src, exp_dst, console)
+            console.print(f"    Total: {total_bytes / 1e6:.1f} MB")
+            trajectory_files_map[domain] = exp_name
+    else:
+        # Text: copy results files, using {domain}_results.json to avoid
+        # collisions when multiple domains share the same filename.
+        for domain, src_path in domain_source_paths.items():
+            src = Path(src_path)
+            dest_name = (
+                src.name if src.name != "results.json" else f"{domain}_results.json"
+            )
+            dest_path = trajectories_dir / dest_name
+            shutil.copy2(src, dest_path)
+            size_mb = dest_path.stat().st_size / 1e6
+            console.print(
+                f"  📂 {TRAJECTORY_FILES_DIR_NAME}/{dest_name} ({size_mb:.1f} MB)"
+            )
+            trajectory_files_map[domain] = dest_name
+
+    # Step 7: Write submission.json (after copy so trajectory_files_map is final)
     submission = Submission(
         model_name=model_name,
         model_organization=model_organization,
@@ -698,56 +750,13 @@ def prepare_submission(
         voice_config=voice_config,
     )
 
-    # Step 6: Create output directory and write files
-    def _slugify(s: str) -> str:
-        return s.lower().replace(" ", "-").replace("/", "-").replace(".", "-")
-
-    submission_dir_name = (
-        f"{_slugify(model_name)}_{_slugify(model_organization)}"
-        f"_{date.today().isoformat()}"
-    )
-
-    output_path = Path(output_dir)
-    submission_dir = output_path / submission_dir_name
-    submission_dir.mkdir(parents=True, exist_ok=True)
-
-    # Write submission.json
     submission_file = submission_dir / SUBMISSION_FILE_NAME
     with open(submission_file, "w", encoding="utf-8") as f:
         f.write(
             submission.model_dump_json(indent=2, exclude_none=True, ensure_ascii=False)
         )
         f.write("\n")
-
-    # Copy trajectory files into the same submission directory
-    trajectories_dir = submission_dir / TRAJECTORY_FILES_DIR_NAME
-    trajectories_dir.mkdir(exist_ok=True)
-
-    console.print(f"\n📁 Output: {submission_dir}", style="bold blue")
     console.print(f"  📊 {SUBMISSION_FILE_NAME}")
-
-    if is_voice:
-        # Voice: each file is a results.json; copy the trimmed experiment
-        # directory (results.json + canonical audio only).
-        for file_path in files:
-            exp_src = Path(file_path).parent
-            exp_name = exp_src.name
-            exp_dst = trajectories_dir / exp_name
-            console.print(f"  📂 {TRAJECTORY_FILES_DIR_NAME}/{exp_name}/", style="bold")
-            total_bytes = _copy_voice_experiment_trimmed(exp_src, exp_dst, console)
-            console.print(
-                f"    Total: {total_bytes / 1e6:.1f} MB",
-            )
-    else:
-        # Text: flat copy of results.json files
-        for file_path in files:
-            filename = Path(file_path).name
-            dest_path = trajectories_dir / filename
-            shutil.copy2(file_path, dest_path)
-            size_mb = dest_path.stat().st_size / 1e6
-            console.print(
-                f"  📂 {TRAJECTORY_FILES_DIR_NAME}/{filename} ({size_mb:.1f} MB)"
-            )
 
     # Summary
     console.print(f"\n🎉 Submission prepared successfully!", style="bold green")
