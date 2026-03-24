@@ -1,5 +1,4 @@
 import argparse
-import importlib.metadata
 import json
 
 from tau2.config import (
@@ -417,11 +416,9 @@ def add_run_args(parser):
 
 
 def _get_version() -> str:
-    """Get the package version from metadata, falling back to pyproject.toml."""
-    try:
-        return importlib.metadata.version("tau2")
-    except importlib.metadata.PackageNotFoundError:
-        return "dev"
+    from tau2.utils.utils import get_tau2_version
+
+    return get_tau2_version()
 
 
 def run_intro():

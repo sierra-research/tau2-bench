@@ -1,3 +1,4 @@
+import math
 import shutil
 from datetime import date
 from pathlib import Path
@@ -6,6 +7,7 @@ from typing import Literal, Optional
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 
+from tau2.config import VOICE_USER_SIMULATOR_VERSION
 from tau2.data_model.simulation import Results as TrajectoryResults
 from tau2.metrics.agent_metrics import AgentMetrics, compute_metrics
 from tau2.scripts.leaderboard.submission import (
@@ -21,13 +23,12 @@ from tau2.scripts.leaderboard.submission import (
     Verification,
     VoiceConfig,
 )
-from tau2.scripts.leaderboard.trim_trajectories import trim_trajectory
 from tau2.scripts.leaderboard.verify_trajectories import (
     VerificationMode,
     verify_trajectories,
 )
 from tau2.utils.io_utils import expand_paths
-from tau2.utils.utils import get_dict_hash
+from tau2.utils.utils import get_dict_hash, get_tau2_version
 
 
 def _detect_voice_mode(results_list: list[TrajectoryResults]) -> bool:
@@ -280,36 +281,38 @@ def prepare_submission(
     run_verification: bool = True,
     voice: Optional[bool] = None,
 ):
-    """
-    Prepare the submission for the leaderboard.
+    """Prepare the submission for the leaderboard.
 
-    This function processes trajectory files to create a complete leaderboard submission.
-    It performs trajectory verification (optional), copies files to an organized structure,
-    computes metrics, and creates a submission file with interactive user input.
+    Processes trajectory files to create a complete leaderboard submission.
+    Performs trajectory verification (optional), computes metrics, and creates
+    a submission file with interactive user input.
 
-    Supports both text (half-duplex) and voice (audio-native full-duplex) submissions.
-    Voice mode is auto-detected from the input data when ``voice`` is None.
-
-    For voice submissions:
-    - Only results with "regular" speech complexity are accepted
-    - No trajectory files are copied or included
-    - Voice-specific configuration is extracted and included in the submission
+    Supports both text (half-duplex) and voice (audio-native full-duplex)
+    submissions.  Voice mode is auto-detected from the input data when
+    ``voice`` is None.  For voice submissions, only results with "regular"
+    speech complexity are accepted.
 
     Args:
-        input_paths: List of paths to trajectory files, directories, or glob patterns
-        output_dir: Directory to save the submission file and trajectories
-        run_verification: Whether to run trajectory verification before processing
-        voice: If True, force voice submission mode. If False, force text mode.
-            If None (default), auto-detect from input data.
+        input_paths: List of paths to trajectory files, directories, or glob
+            patterns.
+        output_dir: Root directory for the prepared output.
+        run_verification: Whether to run trajectory verification before
+            processing.
+        voice: If True, force voice submission mode. If False, force text
+            mode.  If None (default), auto-detect from input data.
 
-    Output Structure:
-        Creates the following in output_dir:
-        - submission.json: Complete leaderboard submission file with metadata and metrics
-        - trajectories/: (text only) Directory containing copies of processed trajectory files
+    Output Structure::
 
-    Interactive Input:
-        Prompts user for required fields (model name, organization, email) and
-        optional fields (contact name, GitHub, evaluation details) that can be skipped.
+        output_dir/
+        └── {model}_{org}_{date}/
+            ├── submission.json         # Goes into the repo
+            └── trajectories/           # Uploaded to external storage with submission.json
+                ├── domain1_results.json
+                └── domain2_results.json
+
+    The full directory (including trajectories/) is uploaded to external
+    storage (S3, Google Drive, etc.).  Only ``submission.json`` is copied
+    into ``web/leaderboard/public/submissions/`` in the repo.
     """
     console = Console()
     # Step 0: Collect trajectory files
@@ -389,54 +392,16 @@ def prepare_submission(
         console.print(f"❌ Submission set validation failed: {error}", style="red")
         return
 
-    # Step 3: Create output directory and copy files (text) or just create dir (voice)
-    console.print(f"\n📁 Creating output directory: {output_dir}", style="bold blue")
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    copied_files = []
-    trajectory_files_map = {}  # domain -> filename for submission.json
-
-    if not is_voice:
-        # Text: copy and trim trajectory files
-        trajectories_dir = output_path / TRAJECTORY_FILES_DIR_NAME
-        trajectories_dir.mkdir(exist_ok=True)
-
-        console.print("📋 Copying trajectory files...", style="bold blue")
-        for file_path in files:
-            filename = Path(file_path).name
-            dest_path = trajectories_dir / filename
-            shutil.copy2(file_path, dest_path)
-            copied_files.append(str(dest_path))
-            try:
-                results = TrajectoryResults.load(Path(file_path))
-                domain = results.info.environment_info.domain_name
-                trajectory_files_map[domain] = filename
-            except Exception:
-                pass
-            console.print(f"  ✅ Copied: {filename}")
-    else:
-        console.print(
-            "🎙️  Voice mode: skipping trajectory file copy (not included in voice submissions)",
-            style="dim",
-        )
-
-    # Step 4: Compute metrics by domain
+    # Step 3: Compute metrics by domain
     console.print("\n📊 Computing metrics...", style="bold blue")
     domain_metrics: dict[str, AgentMetrics] = {}
     domain_results: dict[str, DomainResults] = {}
     default_model = None
     default_user_simulator = None
     voice_config: Optional[VoiceConfig] = None
+    trajectory_files_map = {}  # domain -> filename for submission.json
 
-    # For text mode, use copied files; for voice mode, use the original filtered results
-    results_to_process = (
-        [(TrajectoryResults.load(Path(fp)), fp) for fp in copied_files]
-        if not is_voice
-        else [(r, f) for r, f in zip(trajectory_results, files)]
-    )
-
-    for results, file_path in results_to_process:
+    for results, file_path in zip(trajectory_results, files):
         try:
             domain = results.info.environment_info.domain_name
             if default_model is None:
@@ -453,16 +418,27 @@ def prepare_submission(
             if is_voice and voice_config is None:
                 voice_config = _extract_voice_config(results)
 
+            # Track trajectory filenames by domain
+            trajectory_files_map[domain] = Path(file_path).name
+
             # Compute metrics for this trajectory file
             metrics = compute_metrics(results)
             domain_metrics[domain] = metrics
+
             # Create DomainResults object
+            def _pct(val: float | None) -> float | None:
+                return val * 100 if val is not None else None
+
+            cost = metrics.avg_agent_cost
+            if cost is not None and math.isnan(cost):
+                cost = None
+
             domain_result = DomainResults(
-                pass_1=metrics.pass_hat_ks.get(1) * 100,
-                pass_2=metrics.pass_hat_ks.get(2) * 100,
-                pass_3=metrics.pass_hat_ks.get(3) * 100,
-                pass_4=metrics.pass_hat_ks.get(4) * 100,
-                cost=metrics.avg_agent_cost,
+                pass_1=_pct(metrics.pass_hat_ks.get(1)),
+                pass_2=_pct(metrics.pass_hat_ks.get(2)),
+                pass_3=_pct(metrics.pass_hat_ks.get(3)),
+                pass_4=_pct(metrics.pass_hat_ks.get(4)),
+                cost=cost,
             )
             # Include retrieval_config for banking_knowledge domain
             if domain == "banking_knowledge":
@@ -484,21 +460,7 @@ def prepare_submission(
             console.print(f"  ❌ Error processing {file_path}: {e}", style="red")
             return
 
-    # Step 5: Trim trajectory files for leaderboard size constraints (text only)
-    if not is_voice:
-        console.print(
-            "\n✂️  Trimming trajectory files for leaderboard...", style="bold blue"
-        )
-        for file_path in copied_files:
-            try:
-                trim_trajectory(Path(file_path), target_mb=95.0, in_place=True)
-            except Exception as e:
-                console.print(
-                    f"  ⚠️  Warning: failed to trim {Path(file_path).name}: {e}",
-                    style="yellow",
-                )
-
-    # Step 6: Create submission object and gather user input
+    # Step 4: Create submission object and gather user input
     console.print("\n📝 Creating submission...", style="bold blue")
 
     # For voice, derive a better default model name from voice_config
@@ -508,9 +470,15 @@ def prepare_submission(
 
     # Gather required information
     model_name = Prompt.ask("Enter model name", default=default_model_display)
-    user_simulator = Prompt.ask(
-        "Enter user simulator model", default=default_user_simulator
-    )
+    if is_voice:
+        user_simulator = Prompt.ask(
+            "Enter voice user simulator version (see git tags voice-user-sim-*)",
+            default=VOICE_USER_SIMULATOR_VERSION,
+        )
+    else:
+        user_simulator = Prompt.ask(
+            "Enter user simulator model", default=default_user_simulator
+        )
     model_organization = Prompt.ask(
         "Enter model organization (who developed the model)",
         default="My-Organization",
@@ -549,7 +517,7 @@ def prepare_submission(
         except ValueError:
             console.print("Invalid date format, skipping...", style="yellow")
 
-    tau2_version = Prompt.ask("Tau-bench version", default="") or None
+    tau2_version = Prompt.ask("Tau-bench version", default=get_tau2_version()) or None
     notes = Prompt.ask("Additional notes", default="") or None
 
     # Verification information
@@ -645,21 +613,45 @@ def prepare_submission(
         voice_config=voice_config,
     )
 
-    # Step 7: Save submission
-    submission_file = output_path / SUBMISSION_FILE_NAME
+    # Step 6: Create output directory and write files
+    def _slugify(s: str) -> str:
+        return s.lower().replace(" ", "-").replace("/", "-").replace(".", "-")
+
+    submission_dir_name = (
+        f"{_slugify(model_name)}_{_slugify(model_organization)}"
+        f"_{date.today().isoformat()}"
+    )
+
+    output_path = Path(output_dir)
+    submission_dir = output_path / submission_dir_name
+    submission_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write submission.json
+    submission_file = submission_dir / SUBMISSION_FILE_NAME
     with open(submission_file, "w", encoding="utf-8") as f:
         f.write(
             submission.model_dump_json(indent=2, exclude_none=True, ensure_ascii=False)
         )
         f.write("\n")
 
+    # Copy trajectory files into the same submission directory
+    trajectories_dir = submission_dir / TRAJECTORY_FILES_DIR_NAME
+    trajectories_dir.mkdir(exist_ok=True)
+
+    console.print(f"\n📁 Output: {submission_dir}", style="bold blue")
+    console.print(f"  📊 {SUBMISSION_FILE_NAME}")
+
+    for file_path in files:
+        filename = Path(file_path).name
+        dest_path = trajectories_dir / filename
+        shutil.copy2(file_path, dest_path)
+        size_mb = dest_path.stat().st_size / 1e6
+        console.print(f"  📂 {TRAJECTORY_FILES_DIR_NAME}/{filename} ({size_mb:.1f} MB)")
+
+    # Summary
     console.print(f"\n🎉 Submission prepared successfully!", style="bold green")
-    console.print(f"📁 Output directory: {output_path}")
-    console.print(f"📊 Submission file: {submission_file}")
-    if not is_voice:
-        console.print(f"📂 Trajectories: {output_path / TRAJECTORY_FILES_DIR_NAME}")
     console.print(f"🎯 Modality: {modality}", style="bold")
-    console.print(f"\n📈 Summary:", style="bold")
+    console.print(f"\n📈 Results:", style="bold")
     for domain, dr in domain_results.items():
         console.print(f"  {domain.capitalize()}: ", style="bold", end="")
         pass_scores = []
@@ -678,12 +670,20 @@ def prepare_submission(
         if voice_config.user_tts_provider:
             console.print(f"  User TTS: {voice_config.user_tts_provider}")
 
+    manifest_array = "voice_submissions" if is_voice else "submissions"
     console.print(f"\n💡 Next steps:", style="bold blue")
-    console.print(f"  1. Review the {SUBMISSION_FILE_NAME} file")
+    console.print(f"  1. Review {submission_dir_name}/{SUBMISSION_FILE_NAME}")
     console.print(
-        "  2. Copy the output directory to web/leaderboard/public/submissions/"
+        f"  2. Upload the full [bold]{submission_dir_name}/[/bold] directory "
+        f"(with trajectories) to external storage (S3, Google Drive, etc.) "
+        f"and share the link with the maintainers"
     )
     console.print(
-        "  3. Add the directory name to the submissions array in manifest.json"
+        f"  3. Copy [bold]only[/bold] {submission_dir_name}/{SUBMISSION_FILE_NAME} "
+        f"to web/leaderboard/public/submissions/{submission_dir_name}/"
     )
-    console.print("  4. Submit a pull request!")
+    console.print(
+        f"  4. Add [bold]{submission_dir_name}[/bold] to the "
+        f"[bold]{manifest_array}[/bold] array in manifest.json"
+    )
+    console.print("  5. Submit a pull request")
