@@ -1,14 +1,11 @@
 import contextvars
-import json
 import random
 import uuid
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
-from pathlib import Path
 from typing import Callable, Generic, Literal, Optional, Tuple, TypeVar
 
 from loguru import logger
@@ -294,16 +291,6 @@ class StreamingState(BaseModel, Generic[InputMessageType, OutputMessageType]):
         """
         from tau2.data_model.message import MultiToolMessage, ToolMessage
 
-        # DEBUG: Store input state
-        _debug_save_get_linearized_messages_call(
-            state=self,
-            strategy=strategy,
-            include_pending_input=include_pending_input,
-            indicate_current_incomplete=indicate_current_incomplete,
-            integration_ticks=integration_ticks,
-            stage="input",
-        )
-
         # Build list of ticks to process
         ticks_to_process = list(self.ticks)
 
@@ -350,18 +337,6 @@ class StreamingState(BaseModel, Generic[InputMessageType, OutputMessageType]):
             integration_ticks,
             silence_threshold_ticks=silence_annotation_threshold_ticks,
             tick_duration_seconds=tick_duration_seconds,
-        )
-
-        # DEBUG: Store output messages
-        _debug_save_get_linearized_messages_call(
-            state=self,
-            strategy=strategy,
-            include_pending_input=include_pending_input,
-            indicate_current_incomplete=indicate_current_incomplete,
-            integration_ticks=integration_ticks,
-            stage="output",
-            linearize_ticks_output=messages,
-            final_messages=messages,
         )
 
         return messages
@@ -743,9 +718,6 @@ def _linearize_with_overlap_handling(
     Returns:
         A flat list of messages with overlap regions properly ordered.
     """
-    # DEBUG: Store input ticks to file
-    _debug_save_linearization_call(ticks, integration_ticks, stage="input")
-
     # Ensure integration_ticks is at least 1 to prevent infinite loops
     integration_ticks = max(1, integration_ticks)
 
@@ -799,11 +771,6 @@ def _linearize_with_overlap_handling(
             if has_self:
                 _add_chunk_to_list(tick.self_chunk, messages)
             i += 1
-
-    # DEBUG: Store output messages to file
-    _debug_save_linearization_call(
-        ticks, integration_ticks, stage="output", messages=messages
-    )
 
     return messages
 
@@ -1300,245 +1267,6 @@ def _linearize_with_containment_awareness(
     return _apply_containment_rules(
         self_segments, other_segments, tool_pairs, silence_map
     )
-
-
-def _debug_save_linearization_call(
-    ticks: list[ParticipantTick],
-    integration_ticks: int,
-    stage: str,
-    messages: Optional[list[Message]] = None,
-) -> None:
-    """
-    Debug helper to save linearization input/output to a file.
-
-    Creates a JSON file with timestamp showing the ticks and messages
-    for each linearization call.
-
-    Args:
-        ticks: Input ticks to the linearization function
-        integration_ticks: Integration ticks parameter
-        stage: "input" or "output" to distinguish call stages
-        messages: Output messages (only provided for stage="output")
-    """
-    try:
-        # Create debug directory
-        debug_dir = Path("tmp/linearization_debug")
-        debug_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create timestamp for filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        filename = debug_dir / f"linearization_{timestamp}_{stage}.json"
-
-        # Prepare debug data
-        debug_data = {
-            "timestamp": datetime.now().isoformat(),
-            "stage": stage,
-            "integration_ticks": integration_ticks,
-            "num_ticks": len(ticks),
-        }
-
-        # Serialize ticks
-        ticks_data = []
-        for i, tick in enumerate(ticks):
-            tick_data = {
-                "tick_id": tick.tick_id,
-                "timestamp": tick.timestamp,
-                "self_chunk": (
-                    _serialize_message(tick.self_chunk) if tick.self_chunk else None
-                ),
-                "other_chunk": (
-                    _serialize_message(tick.other_chunk) if tick.other_chunk else None
-                ),
-                "env_chunk": (
-                    _serialize_message(tick.env_chunk) if tick.env_chunk else None
-                ),
-            }
-            ticks_data.append(tick_data)
-        debug_data["ticks"] = ticks_data
-
-        # Serialize output messages if provided
-        if messages is not None:
-            messages_data = []
-            for msg in messages:
-                messages_data.append(_serialize_message(msg))
-            debug_data["output_messages"] = messages_data
-            debug_data["num_output_messages"] = len(messages)
-            consolidated = consolidate_messages(messages)
-            debug_data["consolidated_messages"] = [
-                _serialize_message(msg) for msg in consolidated
-            ]
-            debug_data["num_consolidated_messages"] = len(consolidated)
-
-        # Write to file
-        with open(filename, "w") as f:
-            json.dump(debug_data, f, indent=2)
-
-        logger.debug(f"Linearization debug saved to: {filename}")
-
-    except Exception as e:
-        # Don't fail the main function if debug logging fails
-        logger.warning(f"Failed to save linearization debug: {e}")
-
-
-def _debug_save_get_linearized_messages_call(
-    state: "StreamingState",
-    strategy: LinearizationStrategy,
-    include_pending_input: bool,
-    indicate_current_incomplete: bool,
-    integration_ticks: int,
-    stage: str,
-    linearize_ticks_output: Optional[list[Message]] = None,
-    final_messages: Optional[list[Message]] = None,
-) -> None:
-    """
-    Debug helper to save get_linearized_messages input/output to a file.
-
-    Creates a JSON file with timestamp showing the state, intermediate output
-    from linearize_ticks, and final messages.
-
-    Args:
-        state: The StreamingState object
-        strategy: Linearization strategy used
-        include_pending_input: Whether to include pending input
-        indicate_current_incomplete: Whether to indicate incomplete chunks
-        integration_ticks: Integration ticks parameter
-        stage: "input" or "output" to distinguish call stages
-        linearize_ticks_output: Output from linearize_ticks (only for stage="output")
-        final_messages: Final output messages (only for stage="output")
-    """
-    try:
-        # Create debug directory
-        debug_dir = Path("tmp/get_linearized_messages_debug")
-        debug_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create timestamp for filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        filename = debug_dir / f"get_linearized_messages_{timestamp}_{stage}.json"
-
-        # Prepare debug data
-        debug_data = {
-            "timestamp": datetime.now().isoformat(),
-            "stage": stage,
-            "strategy": strategy,
-            "include_pending_input": include_pending_input,
-            "indicate_current_incomplete": indicate_current_incomplete,
-            "integration_ticks": integration_ticks,
-        }
-
-        # Serialize state
-        debug_data["state"] = {
-            "num_ticks": len(state.ticks),
-            "num_input_turn_taking_buffer": len(state.input_turn_taking_buffer),
-            "num_output_streaming_queue": len(state.output_streaming_queue),
-            "time_since_last_talk": state.time_since_last_talk,
-            "time_since_last_other_talk": state.time_since_last_other_talk,
-            "is_talking": state.is_talking,
-        }
-
-        # Serialize ticks from state
-        ticks_data = []
-        for tick in state.ticks:
-            tick_data = {
-                "tick_id": tick.tick_id,
-                "timestamp": tick.timestamp,
-                "self_chunk": (
-                    _serialize_message(tick.self_chunk) if tick.self_chunk else None
-                ),
-                "other_chunk": (
-                    _serialize_message(tick.other_chunk) if tick.other_chunk else None
-                ),
-                "env_chunk": (
-                    _serialize_message(tick.env_chunk) if tick.env_chunk else None
-                ),
-            }
-            ticks_data.append(tick_data)
-        debug_data["state"]["ticks"] = ticks_data
-
-        # Serialize input_turn_taking_buffer
-        buffer_data = []
-        for msg in state.input_turn_taking_buffer:
-            buffer_data.append(_serialize_message(msg))
-        debug_data["state"]["input_turn_taking_buffer"] = buffer_data
-
-        # Serialize output_streaming_queue
-        queue_data = []
-        for msg in state.output_streaming_queue:
-            queue_data.append(_serialize_message(msg))
-        debug_data["state"]["output_streaming_queue"] = queue_data
-
-        # Serialize intermediate and final outputs if provided (stage="output")
-        if linearize_ticks_output is not None:
-            linearize_ticks_data = []
-            for msg in linearize_ticks_output:
-                linearize_ticks_data.append(_serialize_message(msg))
-            debug_data["linearize_ticks_output"] = linearize_ticks_data
-            debug_data["num_linearize_ticks_output"] = len(linearize_ticks_output)
-
-        if final_messages is not None:
-            final_messages_data = []
-            for msg in final_messages:
-                final_messages_data.append(_serialize_message(msg))
-            debug_data["final_messages"] = final_messages_data
-            debug_data["num_final_messages"] = len(final_messages)
-
-            # Also include consolidated version for easier reading
-            consolidated = consolidate_messages(final_messages)
-            debug_data["consolidated_final_messages"] = [
-                _serialize_message(msg) for msg in consolidated
-            ]
-            debug_data["num_consolidated_final_messages"] = len(consolidated)
-
-        # Write to file
-        with open(filename, "w") as f:
-            json.dump(debug_data, f, indent=2)
-
-        logger.debug(f"get_linearized_messages debug saved to: {filename}")
-
-    except Exception as e:
-        # Don't fail the main function if debug logging fails
-        logger.warning(f"Failed to save get_linearized_messages debug: {e}")
-
-
-def _serialize_message(msg: Message) -> dict:
-    """Helper to serialize a message to a JSON-compatible dict."""
-    from tau2.data_model.message import MultiToolMessage
-
-    if msg is None:
-        return None
-
-    # Get basic fields
-    data = {
-        "role": msg.role,
-    }
-
-    # Add type info
-    data["message_type"] = type(msg).__name__
-
-    # Handle MultiToolMessage specially - it doesn't have content/timestamp
-    if isinstance(msg, MultiToolMessage):
-        data["tool_messages"] = [_serialize_message(tm) for tm in msg.tool_messages]
-    else:
-        # Regular messages have content and timestamp
-        data["content"] = getattr(msg, "content", None)
-        data["timestamp"] = getattr(msg, "timestamp", None)
-
-    # Add optional fields if present
-    if hasattr(msg, "chunk_id") and msg.chunk_id is not None:
-        data["chunk_id"] = msg.chunk_id
-    if hasattr(msg, "is_final_chunk") and msg.is_final_chunk is not None:
-        data["is_final_chunk"] = msg.is_final_chunk
-    if hasattr(msg, "contains_speech"):
-        data["contains_speech"] = msg.contains_speech
-    if hasattr(msg, "tool_calls") and msg.tool_calls:
-        data["tool_calls"] = [{"id": tc.id, "name": tc.name} for tc in msg.tool_calls]
-    if hasattr(msg, "tool_call_id") and msg.tool_call_id:
-        data["tool_call_id"] = msg.tool_call_id
-    if hasattr(msg, "is_audio") and msg.is_audio:
-        data["is_audio"] = msg.is_audio
-    if hasattr(msg, "audio_script_gold") and msg.audio_script_gold:
-        data["audio_script_gold"] = msg.audio_script_gold
-
-    return data
 
 
 def _add_chunk_to_list(chunk: Message, messages: list[Message]) -> None:
