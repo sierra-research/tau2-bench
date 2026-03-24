@@ -212,13 +212,15 @@ const TrajectoryVisualizer = () => {
         const res = await fetch(`${SUBMISSIONS_BASE}/manifest.json`)
         if (!res.ok) throw new Error('Failed to load manifest')
         const manifest = await res.json()
-        const dirs = manifest.submissions || []
+        const textDirs = manifest.submissions || []
+        const voiceDirs = manifest.voice_submissions || []
 
         const loaded = []
-        for (const dir of dirs) {
+
+        const loadDir = async (dir, modality) => {
           try {
             const r = await fetch(`${SUBMISSIONS_BASE}/${dir}/submission.json`)
-            if (!r.ok) continue
+            if (!r.ok) return
             const sub = await r.json()
             if (sub.trajectories_available && sub.trajectory_files) {
               loaded.push({
@@ -227,12 +229,20 @@ const TrajectoryVisualizer = () => {
                 model_organization: sub.model_organization || '',
                 reasoning_effort: sub.reasoning_effort || null,
                 trajectory_files: sub.trajectory_files,
-                availableDomains: Object.keys(sub.trajectory_files)
+                availableDomains: Object.keys(sub.trajectory_files),
+                modality
               })
             }
           } catch { /* skip */ }
         }
-        loaded.sort((a, b) => a.model_name.localeCompare(b.model_name))
+
+        for (const dir of textDirs) await loadDir(dir, 'text')
+        for (const dir of voiceDirs) await loadDir(dir, 'voice')
+
+        loaded.sort((a, b) => {
+          if (a.modality !== b.modality) return a.modality === 'text' ? -1 : 1
+          return a.model_name.localeCompare(b.model_name)
+        })
         setSubmissions(loaded)
 
         // Check URL params for deep linking from leaderboard
@@ -284,9 +294,12 @@ const TrajectoryVisualizer = () => {
         setSelectedTaskId(null)
         setSelectedTrialIdx(0)
 
-        const res = await fetch(
-          `${SUBMISSIONS_BASE}/${sub.dir}/trajectories/${fileName}`
-        )
+        // Voice trajectories are directories containing results.json;
+        // text trajectories are flat JSON files.
+        const url = sub.modality === 'voice'
+          ? `${SUBMISSIONS_BASE}/${sub.dir}/trajectories/${fileName}/results.json`
+          : `${SUBMISSIONS_BASE}/${sub.dir}/trajectories/${fileName}`
+        const res = await fetch(url)
         if (!res.ok) throw new Error(`Failed to load trajectory: ${res.statusText}`)
         const data = await res.json()
         setTrajectoryData(data)
@@ -385,6 +398,21 @@ const TrajectoryVisualizer = () => {
     return scores
   }, [trajectoryData, tasks])
 
+  const isVoice = currentSubmission?.modality === 'voice'
+
+  const handleDownload = () => {
+    if (!trajectoryData || !currentSubmission) return
+    const blob = new Blob([JSON.stringify(trajectoryData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${currentSubmission.model_name}_${selectedDomain}_trajectories.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   // --- Handlers ---
   const handleModelChange = (dir) => {
     setSelectedModelDir(dir)
@@ -479,10 +507,12 @@ const TrajectoryVisualizer = () => {
   return (
     <div className="trajectory-visualizer">
       <div className="visualizer-header">
-        <h2>τ-bench Visualizer</h2>
+        <h2>{isVoice ? 'τ-voice Visualizer' : 'τ-bench Visualizer'}</h2>
         <p className="visualizer-description">
-          Explore τ-bench dataset: view conversation trajectories showing AI agent interactions with users,
-          or examine the underlying task definitions across airline, retail, telecom, and banking domains.
+          {isVoice
+            ? 'Explore τ-voice results: view task outcomes for audio-native voice agent evaluations, or examine the underlying task definitions.'
+            : 'Explore τ-bench dataset: view conversation trajectories showing AI agent interactions with users, or examine the underlying task definitions across airline, retail, telecom, and banking domains.'
+          }
         </p>
 
         {/* View Mode Toggle */}
@@ -525,11 +555,24 @@ const TrajectoryVisualizer = () => {
                 disabled={submissionsLoading}
               >
                 {submissionsLoading && <option value="">Loading...</option>}
-                {submissions.map(s => (
-                  <option key={s.dir} value={s.dir}>
-                    {s.model_name}{s.reasoning_effort ? ` [${s.reasoning_effort}]` : ''} ({s.model_organization})
-                  </option>
-                ))}
+                {submissions.some(s => s.modality === 'text') && (
+                  <optgroup label="τ-bench (Text)">
+                    {submissions.filter(s => s.modality === 'text').map(s => (
+                      <option key={s.dir} value={s.dir}>
+                        {s.model_name}{s.reasoning_effort ? ` [${s.reasoning_effort}]` : ''} ({s.model_organization})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {submissions.some(s => s.modality === 'voice') && (
+                  <optgroup label="τ-voice (Voice)">
+                    {submissions.filter(s => s.modality === 'voice').map(s => (
+                      <option key={s.dir} value={s.dir}>
+                        {s.model_name} ({s.model_organization})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
 
@@ -610,28 +653,45 @@ const TrajectoryVisualizer = () => {
               <div className="task-list-view">
                 <div className="task-list-header">
                   <div className="task-list-header-left">
-                    <h3>{currentSubmission?.model_name}{currentSubmission?.reasoning_effort ? ` [${currentSubmission.reasoning_effort}]` : ''} — {selectedDomain.charAt(0).toUpperCase() + selectedDomain.slice(1)}</h3>
+                    <h3>
+                      {isVoice && <span className="voice-badge">🎙️ Voice</span>}
+                      {currentSubmission?.model_name}{currentSubmission?.reasoning_effort ? ` [${currentSubmission.reasoning_effort}]` : ''} — {selectedDomain.charAt(0).toUpperCase() + selectedDomain.slice(1)}
+                    </h3>
                     <p className="task-list-subtitle">
-                      {tasks.length} tasks · {numTrials} trial{numTrials !== 1 ? 's' : ''} each · Select a task to view conversations
+                      {tasks.length} tasks · {numTrials} trial{numTrials !== 1 ? 's' : ''} each
+                      {isVoice ? '' : ' · Select a task to view conversations'}
                     </p>
                   </div>
-                  {passKScores && (
-                    <div className="pass-k-scores">
-                      {Object.entries(passKScores).map(([k, score]) => (
-                        <div key={k} className="pass-k-item">
-                          <span className="pass-k-label">pass^{k}</span>
-                          <span className={`pass-k-value ${score >= 50 ? 'good' : score >= 25 ? 'mid' : 'low'}`}>
-                            {score.toFixed(1)}%
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="task-list-header-right">
+                    {trajectoryData && (
+                      <button className="download-btn" onClick={handleDownload} title="Download raw trajectory data as JSON">
+                        ⬇ Download JSON
+                      </button>
+                    )}
+                    {passKScores && (
+                      <div className="pass-k-scores">
+                        {Object.entries(passKScores).map(([k, score]) => (
+                          <div key={k} className="pass-k-item">
+                            <span className="pass-k-label">pass^{k}</span>
+                            <span className={`pass-k-value ${score >= 50 ? 'good' : score >= 25 ? 'mid' : 'low'}`}>
+                              {score.toFixed(1)}%
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+                {isVoice && (
+                  <div className="voice-coming-soon-banner">
+                    <span className="banner-icon">🎙️</span>
+                    <span>Trajectory visualization for voice is coming soon. Download the raw data to inspect results.</span>
+                  </div>
+                )}
 
                 <div className="task-grid">
                   {tasks.map((task, idx) => {
-                    // Find simulations for this task to show summary
                     const sims = trajectoryData.simulations?.filter(s => s.task_id === task.id) || []
                     const avgReward = sims.length > 0
                       ? (sims.reduce((sum, s) => sum + (s.reward_info?.reward || 0), 0) / sims.length)
@@ -640,8 +700,8 @@ const TrajectoryVisualizer = () => {
                     return (
                       <div
                         key={task.id ?? idx}
-                        className="task-card"
-                        onClick={() => { setSelectedTaskId(task.id); setSelectedTrialIdx(0) }}
+                        className={`task-card ${isVoice ? 'task-card-disabled' : ''}`}
+                        onClick={isVoice ? undefined : () => { setSelectedTaskId(task.id); setSelectedTrialIdx(0) }}
                       >
                         <div className="task-header">
                           <span className="task-id">Task {getCleanTaskId(task.id)}</span>
