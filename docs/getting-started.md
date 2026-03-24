@@ -108,19 +108,29 @@ See the [Knowledge Retrieval Documentation](../src/tau2/knowledge/README.md) for
 
 ## Simulation Output Structure
 
-Each simulation run creates a directory. The standard text-based run produces:
+Results are stored in one of two formats, chosen automatically based on modality:
+
+### Text runs — monolithic JSON
+
+Text-based simulations produce a single file containing all data:
 
 ```
-data/simulations/<timestamp>_<domain>_<agent>_<user>/
-└── results.json             # Simulation results and metrics
+data/simulations/<run_name>/
+└── results.json             # Metadata, tasks, and all simulation data
 ```
 
-When using `--audio-native --verbose-logs`, the output includes additional data:
+### Voice runs — directory-based format
+
+Voice simulations contain large tick-level data, so they use a directory-based format that splits simulation data into individual files for efficient checkpointing and streaming:
 
 ```
-data/simulations/<timestamp>_<domain>_<agent>_<user>/
-├── results.json                        # Simulation results and metrics
-└── tasks/
+data/simulations/<run_name>/
+├── results.json                        # Metadata and task definitions only
+├── simulations/                        # Individual simulation data files
+│   ├── sim_0.json
+│   ├── sim_1.json
+│   └── ...
+└── artifacts/                          # Runtime artifacts (with --verbose-logs)
     └── task_<task_id>/
         └── sim_<uuid>/
             ├── sim_status.json         # Simulation status
@@ -134,6 +144,20 @@ data/simulations/<timestamp>_<domain>_<agent>_<user>/
             └── llm_debug/
                 └── *.json              # LLM call logs
 ```
+
+### Format conversion
+
+You can convert between formats using `tau2 convert-results`:
+
+```bash
+# Convert a monolithic JSON to directory format
+tau2 convert-results data/simulations/my_run --to dir
+
+# Convert a directory format back to monolithic JSON
+tau2 convert-results data/simulations/my_run --to json
+```
+
+Both formats are fully supported by `Results.load()`, which auto-detects the format on disk.
 
 ## Viewing Results
 

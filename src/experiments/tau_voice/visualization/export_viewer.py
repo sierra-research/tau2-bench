@@ -559,7 +559,7 @@ def _discover_audio_taps(
     """Find audio tap WAV files, copy them to output dir, return metadata."""
     taps_search_paths = [
         results_dir
-        / "tasks"
+        / "artifacts"
         / f"task_{sim.task_id}"
         / f"sim_{sim.id}"
         / "audio"
@@ -622,12 +622,16 @@ def export_simulation(
     audio_filename = None
     audio_search_paths = [
         results_dir
-        / "tasks"
+        / "artifacts"
         / f"task_{sim.task_id}"
         / f"sim_{sim.id}"
         / "audio"
         / "both.wav",
-        results_dir / "tasks" / f"task_{sim.task_id}" / f"sim_{sim.id}" / "both.wav",
+        results_dir
+        / "artifacts"
+        / f"task_{sim.task_id}"
+        / f"sim_{sim.id}"
+        / "both.wav",
     ]
     for audio_file in audio_search_paths:
         if audio_file.exists():

@@ -41,8 +41,7 @@ from tau2.metrics.agent_metrics import compute_metrics
 from tau2.registry import registry
 from tau2.runner.build import _build_env_kwargs, build_orchestrator
 from tau2.runner.checkpoint import (
-    create_checkpoint_replacer,
-    create_checkpoint_saver,
+    create_checkpoint_fns,
     try_resume,
 )
 from tau2.runner.helpers import get_info, get_tasks, make_run_name
@@ -215,7 +214,7 @@ def save_simulation_audio(
         audio_debug: Whether to generate debug audio analysis.
     """
     task_audio_dir = (
-        save_dir / "tasks" / f"task_{task.id}" / f"sim_{simulation_id}" / "audio"
+        save_dir / "artifacts" / f"task_{task.id}" / f"sim_{simulation_id}" / "audio"
     )
     task_audio_dir.mkdir(parents=True, exist_ok=True)
 
@@ -273,7 +272,7 @@ class _TaskLogContext:
         if self.save_dir:
             self.task_log_dir = (
                 self.save_dir
-                / "tasks"
+                / "artifacts"
                 / f"task_{self.task.id}"
                 / f"sim_{self.simulation_id}"
             )
@@ -388,7 +387,7 @@ def run_single_task(
         if audio_taps and save_dir:
             taps_dir = (
                 save_dir
-                / "tasks"
+                / "artifacts"
                 / f"task_{task.id}"
                 / f"sim_{simulation_id}"
                 / "audio"
@@ -459,6 +458,7 @@ def run_tasks(
     save_dir: Optional[Path] = None,
     evaluation_type: EvaluationType = EvaluationType.ALL_WITH_NL_ASSERTIONS,
     console_display: bool = True,
+    results_format: str = "json",
 ) -> Results:
     """Run simulations for a list of tasks with concurrency, checkpointing, and retries.
 
@@ -580,11 +580,11 @@ def run_tasks(
             tasks=tasks,
             num_trials=config.num_trials,
             auto_resume=config.auto_resume,
+            results_format=results_format,
         )
 
-    # Create checkpoint saver and replacer
-    save_fn = create_checkpoint_saver(save_path, lock)
-    replace_fn = create_checkpoint_replacer(save_path, lock)
+    # Create checkpoint saver and replacer (shared state for dir format)
+    save_fn, replace_fn = create_checkpoint_fns(save_path, lock)
 
     # Build argument list (skip already-completed runs)
     args = []
@@ -740,7 +740,10 @@ def run_tasks(
                     # Mark the discarded sim directory
                     if save_dir is not None:
                         sim_dir = (
-                            save_dir / "tasks" / f"task_{task.id}" / f"sim_{result.id}"
+                            save_dir
+                            / "artifacts"
+                            / f"task_{task.id}"
+                            / f"sim_{result.id}"
                         )
                         if sim_dir.exists():
                             try:
@@ -776,7 +779,9 @@ def run_tasks(
 
             # Mark the final sim as the one used in results
             if save_dir is not None:
-                sim_dir = save_dir / "tasks" / f"task_{task.id}" / f"sim_{result.id}"
+                sim_dir = (
+                    save_dir / "artifacts" / f"task_{task.id}" / f"sim_{result.id}"
+                )
                 if sim_dir.exists():
                     try:
                         status = {"status": "used"}
@@ -879,12 +884,18 @@ def run_domain(config: RunConfig) -> Results:
     save_dir = DATA_DIR / "simulations" / run_name
     save_path = save_dir / "results.json"
 
+    # Voice runs use directory format (individual sim files) because voice
+    # simulations with tick data are very large; text runs use monolithic JSON.
+    is_voice = isinstance(config, VoiceRunConfig)
+    results_format = "dir" if is_voice else "json"
+
     # Run batch
     simulation_results = run_tasks(
         config,
         tasks,
         save_path=save_path,
         save_dir=save_dir,
+        results_format=results_format,
     )
 
     # Compute and display metrics

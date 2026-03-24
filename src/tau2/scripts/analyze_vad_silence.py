@@ -109,11 +109,11 @@ def main():
     dirs = [
         (
             "XML",
-            f"tmp/qa_results/exp_20250116_xml_tags/retail_control_{provider}/tasks",
+            f"tmp/qa_results/exp_20250116_xml_tags/retail_control_{provider}/artifacts",
         ),
         (
             "NO_XML",
-            f"tmp/qa_results/exp_20250116_no_xml_tags/retail_control_{provider}/tasks",
+            f"tmp/qa_results/exp_20250116_no_xml_tags/retail_control_{provider}/artifacts",
         ),
     ]
 

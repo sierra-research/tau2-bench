@@ -32,7 +32,7 @@ mkdir -p /tmp/review-trajectories
 
 The trajectory source should contain either:
 - **Text**: One or more `results.json` (or `*.json`) files, one per domain
-- **Voice**: One or more experiment directories, each containing `results.json` + `tasks/*/audio/`
+- **Voice**: One or more experiment directories, each containing `results.json` + `simulations/` + `artifacts/*/audio/`
 
 ### 3. Run the review script
 
@@ -122,14 +122,15 @@ If corrupted, delete and re-upload with `aws s3 cp` (not sync).
 
 ### Voice trajectory files are very large
 
-Voice `results.json` files can be 100 MB - 1 GB+ because they contain tick-level data.
-The web visualizer loads a display-only summary, but the full file must still be uploaded
-for download. Consider gzipping before upload for reliability:
+Voice experiments use a directory-based format: `results.json` contains only metadata,
+while simulation data is split into individual files under `simulations/`. The total
+size can still be 100 MB - 1 GB+ across all files. The `prepare_submission` script
+copies only `results.json`, `simulations/`, and canonical audio from `artifacts/`.
+
+If uploading large directories manually, consider syncing entire experiment directories:
 
 ```bash
-gzip -k results.json
-aws s3 cp results.json.gz \
-  s3://sierra-tau-bench-public/submissions/<dir>/trajectories/<exp>/results.json \
-  --content-encoding gzip --content-type application/json \
+aws s3 sync /local/experiment_dir/ \
+  s3://sierra-tau-bench-public/submissions/<dir>/trajectories/<exp>/ \
   --profile tau-bench-ci
 ```

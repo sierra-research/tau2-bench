@@ -92,8 +92,22 @@ def check_and_load_submission_data(
             None,
         )
 
-    # Get trajectory files
-    trajectory_files = expand_paths([trajectory_files_dir], extension=".json")
+    # Get trajectory files.
+    # For voice submissions the trajectories dir contains experiment
+    # subdirectories (each with its own results.json + simulations/ etc.),
+    # so we look for results.json one level deep to avoid picking up
+    # individual sim files from the simulations/ subdirectory.
+    is_voice = submission.modality == "voice"
+    if is_voice:
+        trajectory_files = sorted(
+            str(f) for f in trajectory_files_dir.glob("*/results.json")
+        )
+        if not trajectory_files:
+            trajectory_files = sorted(
+                str(f) for f in trajectory_files_dir.glob("results.json")
+            )
+    else:
+        trajectory_files = expand_paths([trajectory_files_dir], extension=".json")
     results = [TrajectoryResults.load(path) for path in trajectory_files]
 
     submission_data = SubmissionData(
@@ -282,43 +296,66 @@ def validate_submission_metrics(
 def _copy_voice_experiment_trimmed(
     exp_src: Path,
     exp_dst: Path,
+    results: TrajectoryResults,
     console: Console,
 ) -> int:
     """Copy a voice experiment directory, keeping only what's needed.
 
-    Copies ``results.json`` and, for each task, only the canonical
-    simulation (the one referenced in results.json) with only its
-    ``audio/`` subdirectory.  Skips ``hallucination_discarded/``,
-    ``llm_debug/``, ``sim_status.json``, ``task.log``, and non-canonical
-    simulation directories.
+    Saves the results in directory-based format (metadata in ``results.json``,
+    individual simulations in ``simulations/``). If the source is in monolithic
+    JSON format, it is automatically converted. For each task, only the
+    canonical simulation's ``audio/`` subdirectory from ``artifacts/`` is
+    copied.  Skips ``hallucination_discarded/``, ``llm_debug/``,
+    ``sim_status.json``, ``task.log``, and non-canonical simulation
+    directories.
+
+    Args:
+        exp_src: Source experiment directory.
+        exp_dst: Destination directory for the trimmed copy.
+        results: Already-loaded TrajectoryResults (used for task-to-sim
+            mapping and for conversion when source is monolithic JSON).
+        console: Rich console for output.
 
     Returns the total size in bytes of all copied files.
     """
-    import json as _json
-
     total_bytes = 0
-
-    # Copy results.json
-    results_src = exp_src / "results.json"
     exp_dst.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(results_src, exp_dst / "results.json")
-    total_bytes += results_src.stat().st_size
 
-    tasks_dir = exp_src / "tasks"
-    if not tasks_dir.is_dir():
-        return total_bytes
+    # Always save in dir format — converts from monolithic JSON if needed.
+    src_fmt = TrajectoryResults._detect_format(exp_src / "results.json")
+    results.save(exp_dst / "results.json", format="dir")
 
-    # Build task_id -> sim_id mapping from results.json
-    with open(results_src) as f:
-        data = _json.load(f)
+    if src_fmt != "dir":
+        console.print("    Converted monolithic JSON → dir format", style="dim")
+
+    # Tally written file sizes
+    for f in (exp_dst / "results.json",):
+        total_bytes += f.stat().st_size
+    sims_dst = exp_dst / "simulations"
+    if sims_dst.is_dir():
+        n_sims = 0
+        for f in sims_dst.rglob("*"):
+            if f.is_file():
+                total_bytes += f.stat().st_size
+                n_sims += 1
+        console.print(
+            f"    Wrote simulations/ ({n_sims} file(s))",
+            style="dim",
+        )
+
+    # Build task_id -> sim_id mapping from loaded results
     task_to_sim: dict[str, str] = {}
-    for sim in data.get("simulations", []):
-        task_to_sim[str(sim["task_id"])] = sim["id"]
+    for sim in results.simulations:
+        task_to_sim[str(sim.task_id)] = sim.id
+
+    artifacts_dir = exp_src / "artifacts"
+    if not artifacts_dir.is_dir():
+        return total_bytes
 
     copied_audio = 0
     skipped_sims = 0
 
-    for task_dir in sorted(tasks_dir.iterdir()):
+    for task_dir in sorted(artifacts_dir.iterdir()):
         if not task_dir.is_dir() or not task_dir.name.startswith("task_"):
             continue
 
@@ -344,7 +381,7 @@ def _copy_voice_experiment_trimmed(
                 )
                 continue
 
-            audio_dst = exp_dst / "tasks" / task_dir.name / sim_dir.name / "audio"
+            audio_dst = exp_dst / "artifacts" / task_dir.name / sim_dir.name / "audio"
             shutil.copytree(audio_src, audio_dst)
             for f in audio_dst.rglob("*"):
                 if f.is_file():
@@ -390,14 +427,33 @@ def prepare_submission(
         voice: If True, force voice submission mode. If False, force text
             mode.  If None (default), auto-detect from input data.
 
-    Output Structure::
+    Output Structure (text)::
 
         output_dir/
         └── {model}_{org}_{date}/
             ├── submission.json         # Goes into the repo
-            └── trajectories/           # Uploaded to external storage with submission.json
+            └── trajectories/           # Uploaded to external storage
                 ├── domain1_results.json
                 └── domain2_results.json
+
+    Output Structure (voice)::
+
+        output_dir/
+        └── {model}_{org}_{date}/
+            ├── submission.json
+            └── trajectories/
+                └── <experiment_name>/       # One per domain
+                    ├── results.json         # Metadata only
+                    ├── simulations/         # Individual sim data files
+                    │   ├── sim_0.json
+                    │   └── ...
+                    └── artifacts/           # Canonical audio only
+                        └── task_<id>/
+                            └── sim_<uuid>/
+                                └── audio/
+
+    Voice results are always stored in directory-based format. If the
+    source uses monolithic JSON, it is automatically converted.
 
     The full directory (including trajectories/) is uploaded to external
     storage (S3, Google Drive, etc.).  Only ``submission.json`` is copied
@@ -709,15 +765,22 @@ def prepare_submission(
     domain_source_paths = dict(trajectory_files_map)
     trajectory_files_map.clear()
 
+    # Build domain -> loaded results lookup for the copy step
+    domain_to_results: dict[str, TrajectoryResults] = {}
+    for r in trajectory_results:
+        domain_to_results[r.info.environment_info.domain_name] = r
+
     if is_voice:
         # Voice: copy the trimmed experiment directory per domain
-        # (results.json + canonical simulation audio only).
+        # (results data + canonical simulation audio only).
         for domain, src_path in domain_source_paths.items():
             exp_src = Path(src_path).parent
             exp_name = exp_src.name
             exp_dst = trajectories_dir / exp_name
             console.print(f"  📂 {TRAJECTORY_FILES_DIR_NAME}/{exp_name}/", style="bold")
-            total_bytes = _copy_voice_experiment_trimmed(exp_src, exp_dst, console)
+            total_bytes = _copy_voice_experiment_trimmed(
+                exp_src, exp_dst, domain_to_results[domain], console
+            )
             console.print(f"    Total: {total_bytes / 1e6:.1f} MB")
             trajectory_files_map[domain] = exp_name
     else:
