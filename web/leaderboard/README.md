@@ -66,8 +66,8 @@ src/
 └── main.jsx           # Application entry point
 
 public/
-├── data/               # CSV files and cost information
+├── submissions/        # Submission metadata (trajectories on S3)
 ├── task-data/          # Domain-specific tasks and policies
-├── trajectory-data/    # Model execution trajectories
-└── *.png, *.svg       # Public assets
+├── blog/               # Blog content
+└── *.png, *.svg        # Public assets
 ```
