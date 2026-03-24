@@ -275,6 +275,91 @@ def validate_submission_metrics(
         console.print("✅ Submission metrics validation successful!", style="green")
 
 
+def _copy_voice_experiment_trimmed(
+    exp_src: Path,
+    exp_dst: Path,
+    console: Console,
+) -> int:
+    """Copy a voice experiment directory, keeping only what's needed.
+
+    Copies ``results.json`` and, for each task, only the canonical
+    simulation (the one referenced in results.json) with only its
+    ``audio/`` subdirectory.  Skips ``hallucination_discarded/``,
+    ``llm_debug/``, ``sim_status.json``, ``task.log``, and non-canonical
+    simulation directories.
+
+    Returns the total size in bytes of all copied files.
+    """
+    import json as _json
+
+    total_bytes = 0
+
+    # Copy results.json
+    results_src = exp_src / "results.json"
+    exp_dst.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(results_src, exp_dst / "results.json")
+    total_bytes += results_src.stat().st_size
+
+    tasks_dir = exp_src / "tasks"
+    if not tasks_dir.is_dir():
+        return total_bytes
+
+    # Build task_id -> sim_id mapping from results.json
+    with open(results_src) as f:
+        data = _json.load(f)
+    task_to_sim: dict[str, str] = {}
+    for sim in data.get("simulations", []):
+        task_to_sim[str(sim["task_id"])] = sim["id"]
+
+    copied_audio = 0
+    skipped_sims = 0
+
+    for task_dir in sorted(tasks_dir.iterdir()):
+        if not task_dir.is_dir() or not task_dir.name.startswith("task_"):
+            continue
+
+        task_id = task_dir.name.split("_", 1)[1]
+        canonical_sim_id = task_to_sim.get(task_id)
+        if canonical_sim_id is None:
+            skipped_sims += sum(1 for d in task_dir.iterdir() if d.is_dir())
+            continue
+
+        canonical_sim_name = f"sim_{canonical_sim_id}"
+        for sim_dir in sorted(task_dir.iterdir()):
+            if not sim_dir.is_dir() or not sim_dir.name.startswith("sim_"):
+                continue
+            if sim_dir.name != canonical_sim_name:
+                skipped_sims += 1
+                continue
+
+            audio_src = sim_dir / "audio"
+            if not audio_src.is_dir():
+                console.print(
+                    f"    ⚠️  Missing audio/ in {task_dir.name}/{sim_dir.name}",
+                    style="yellow",
+                )
+                continue
+
+            audio_dst = exp_dst / "tasks" / task_dir.name / sim_dir.name / "audio"
+            shutil.copytree(audio_src, audio_dst)
+            for f in audio_dst.rglob("*"):
+                if f.is_file():
+                    total_bytes += f.stat().st_size
+            copied_audio += 1
+
+    if skipped_sims:
+        console.print(
+            f"    Skipped {skipped_sims} non-canonical simulation dir(s)",
+            style="dim",
+        )
+    console.print(
+        f"    Kept audio for {copied_audio} task(s)",
+        style="dim",
+    )
+
+    return total_bytes
+
+
 def prepare_submission(
     input_paths: list[str],
     output_dir: str,
@@ -641,12 +726,28 @@ def prepare_submission(
     console.print(f"\n📁 Output: {submission_dir}", style="bold blue")
     console.print(f"  📊 {SUBMISSION_FILE_NAME}")
 
-    for file_path in files:
-        filename = Path(file_path).name
-        dest_path = trajectories_dir / filename
-        shutil.copy2(file_path, dest_path)
-        size_mb = dest_path.stat().st_size / 1e6
-        console.print(f"  📂 {TRAJECTORY_FILES_DIR_NAME}/{filename} ({size_mb:.1f} MB)")
+    if is_voice:
+        # Voice: each file is a results.json; copy the trimmed experiment
+        # directory (results.json + canonical audio only).
+        for file_path in files:
+            exp_src = Path(file_path).parent
+            exp_name = exp_src.name
+            exp_dst = trajectories_dir / exp_name
+            console.print(f"  📂 {TRAJECTORY_FILES_DIR_NAME}/{exp_name}/", style="bold")
+            total_bytes = _copy_voice_experiment_trimmed(exp_src, exp_dst, console)
+            console.print(
+                f"    Total: {total_bytes / 1e6:.1f} MB",
+            )
+    else:
+        # Text: flat copy of results.json files
+        for file_path in files:
+            filename = Path(file_path).name
+            dest_path = trajectories_dir / filename
+            shutil.copy2(file_path, dest_path)
+            size_mb = dest_path.stat().st_size / 1e6
+            console.print(
+                f"  📂 {TRAJECTORY_FILES_DIR_NAME}/{filename} ({size_mb:.1f} MB)"
+            )
 
     # Summary
     console.print(f"\n🎉 Submission prepared successfully!", style="bold green")
