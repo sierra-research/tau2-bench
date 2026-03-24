@@ -406,3 +406,185 @@ class TestCheckpointDirFormat:
         assert len(updated_tasks) == 2
         reloaded = Results.load_metadata(save_path)
         assert len(reloaded.tasks) == 2
+
+
+# ---- Simulation index ----
+
+
+class TestSimulationIndex:
+    def test_dir_save_writes_index(self, tmp_path, sample_results):
+        """Dir-format save must write simulation_index into results.json."""
+        p = tmp_path / "results.json"
+        sample_results.save(p, format="dir")
+        with open(p) as f:
+            meta = json.load(f)
+        assert "simulation_index" in meta
+        assert len(meta["simulation_index"]) == 2
+        ids = {e["id"] for e in meta["simulation_index"]}
+        assert ids == {s.id for s in sample_results.simulations}
+
+    def test_index_entry_fields(self, tmp_path, sample_results):
+        """Each index entry should have the expected lightweight fields."""
+        p = tmp_path / "results.json"
+        sample_results.save(p, format="dir")
+        with open(p) as f:
+            meta = json.load(f)
+        entry = meta["simulation_index"][0]
+        for field in ("id", "task_id", "trial", "termination_reason", "duration"):
+            assert field in entry
+
+    def test_json_save_excludes_index(self, tmp_path, sample_results):
+        """Monolithic JSON format should not have simulation_index at top level
+        (it stays None and is included in the full dump only if set)."""
+        p = tmp_path / "results.json"
+        sample_results.save(p, format="json")
+        with open(p) as f:
+            data = json.load(f)
+        # simulation_index should be null/None in JSON format
+        assert data.get("simulation_index") is None
+
+    def test_load_validates_index_ok(self, tmp_path, sample_results):
+        """Load should succeed when index matches simulation files exactly."""
+        p = tmp_path / "results.json"
+        sample_results.save(p, format="dir")
+        loaded = Results.load(p)
+        assert len(loaded.simulations) == 2
+        assert loaded.simulation_index is not None
+        assert len(loaded.simulation_index) == 2
+
+    def test_load_raises_on_missing_sim_file(self, tmp_path, sample_results):
+        """Load should raise ValueError when a file listed in index is missing."""
+        p = tmp_path / "results.json"
+        sample_results.save(p, format="dir")
+        # Delete one sim file
+        sims_dir = tmp_path / SIMULATIONS_DIR
+        sim_files = list(sims_dir.glob("*.json"))
+        sim_files[0].unlink()
+        with pytest.raises(ValueError, match="Missing simulation files"):
+            Results.load(p)
+
+    def test_load_raises_on_extra_sim_file(self, tmp_path, sample_results):
+        """Load should raise ValueError when a sim file exists but is not in index."""
+        p = tmp_path / "results.json"
+        sample_results.save(p, format="dir")
+        # Add an extra sim file not in the index
+        sims_dir = tmp_path / SIMULATIONS_DIR
+        extra = sims_dir / "sim-rogue.json"
+        extra.write_text('{"id": "sim-rogue"}')
+        with pytest.raises(ValueError, match="Extra simulation files not in index"):
+            Results.load(p)
+
+    def test_load_backward_compat_no_index(self, tmp_path, sample_results):
+        """Load should work fine when simulation_index is absent (old data)."""
+        p = tmp_path / "results.json"
+        sample_results.save(p, format="dir")
+        # Strip the index from results.json to simulate old format
+        with open(p) as f:
+            meta = json.load(f)
+        del meta["simulation_index"]
+        with open(p, "w") as f:
+            json.dump(meta, f, indent=2)
+        loaded = Results.load(p)
+        assert len(loaded.simulations) == 2
+        assert loaded.simulation_index is None
+
+    def test_save_metadata_preserves_index(self, tmp_path, sample_results):
+        """save_metadata should preserve existing on-disk simulation_index
+        when the in-memory index is None."""
+        p = tmp_path / "results.json"
+        sample_results.save(p, format="dir")
+        # Read back the saved index
+        with open(p) as f:
+            original_meta = json.load(f)
+        original_index = original_meta["simulation_index"]
+        assert len(original_index) == 2
+
+        # Create a new Results with no index and call save_metadata
+        fresh = Results(
+            info=_make_info(),
+            tasks=[_make_task("t0"), _make_task("t1")],
+            simulations=[],
+        )
+        assert fresh.simulation_index is None
+        fresh.save_metadata(p)
+
+        with open(p) as f:
+            updated_meta = json.load(f)
+        assert updated_meta["simulation_index"] == original_index
+
+    def test_load_metadata_includes_index(self, tmp_path, sample_results):
+        """load_metadata should populate simulation_index from dir format."""
+        p = tmp_path / "results.json"
+        sample_results.save(p, format="dir")
+        meta = Results.load_metadata(p)
+        assert len(meta.simulations) == 0
+        assert meta.simulation_index is not None
+        assert len(meta.simulation_index) == 2
+
+    def test_checkpoint_save_updates_index(self, tmp_path):
+        """Checkpoint save should append to simulation_index in results.json."""
+        save_path = tmp_path / "results.json"
+        results = Results(info=_make_info(), tasks=[_make_task("t0")], simulations=[])
+        results.save(save_path, format="dir")
+
+        lock = multiprocessing.Lock()
+        save_fn, _ = create_checkpoint_fns(save_path, lock)
+
+        sim = _make_sim("t0", trial=0, seed=42)
+        save_fn(sim)
+
+        with open(save_path) as f:
+            meta = json.load(f)
+        assert len(meta["simulation_index"]) == 1
+        assert meta["simulation_index"][0]["id"] == sim.id
+
+    def test_checkpoint_replace_updates_index(self, tmp_path):
+        """Checkpoint replace should update the index entry."""
+        save_path = tmp_path / "results.json"
+        results = Results(info=_make_info(), tasks=[_make_task("t0")], simulations=[])
+        results.save(save_path, format="dir")
+
+        lock = multiprocessing.Lock()
+        save_fn, replace_fn = create_checkpoint_fns(save_path, lock)
+
+        original = _make_sim("t0", trial=0, seed=42)
+        save_fn(original)
+
+        replacement = SimulationRun(
+            id="sim-replacement",
+            task_id="t0",
+            start_time="2026-01-01T00:00:00",
+            end_time="2026-01-01T00:02:00",
+            duration=120.0,
+            termination_reason=TerminationReason.USER_STOP,
+            messages=[],
+            trial=0,
+            seed=42,
+        )
+        replace_fn((0, "t0", 42), replacement)
+
+        with open(save_path) as f:
+            meta = json.load(f)
+        assert len(meta["simulation_index"]) == 1
+        assert meta["simulation_index"][0]["id"] == "sim-replacement"
+
+    def test_try_resume_rebuilds_index_after_infra_removal(self, tmp_path):
+        """try_resume should rebuild the index after removing infra-error sims."""
+        save_path = tmp_path / "results.json"
+        tasks = [_make_task("t0"), _make_task("t1")]
+        info = _make_info()
+
+        ok_sim = _make_sim("t0", termination_reason=TerminationReason.USER_STOP)
+        err_sim = _make_sim(
+            "t1", termination_reason=TerminationReason.INFRASTRUCTURE_ERROR
+        )
+        results = Results(info=info, tasks=tasks, simulations=[ok_sim, err_sim])
+        results.save(save_path, format="dir")
+
+        new_results = Results(info=info, tasks=tasks, simulations=[])
+        try_resume(save_path, new_results, tasks, 1, auto_resume=True)
+
+        with open(save_path) as f:
+            meta = json.load(f)
+        assert len(meta["simulation_index"]) == 1
+        assert meta["simulation_index"][0]["id"] == ok_sim.id

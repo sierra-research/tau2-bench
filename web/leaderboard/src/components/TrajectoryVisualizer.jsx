@@ -4,6 +4,9 @@ import './TrajectoryVisualizer.css'
 const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
   || `${import.meta.env.BASE_URL}submissions`
 
+const S3_BUCKET = 'sierra-tau-bench-public'
+const S3_SUBMISSIONS_PREFIX = 'submissions'
+
 const TrajectoryVisualizer = () => {
   // --- Top-level selector state ---
   const [viewMode, setViewMode] = useState('trajectories') // 'trajectories' or 'tasks'
@@ -29,6 +32,10 @@ const TrajectoryVisualizer = () => {
   // Configuration modal
   const [showConfigModal, setShowConfigModal] = useState(false)
   const [modalClosing, setModalClosing] = useState(false)
+
+  // CLI download popover
+  const [showCliDownload, setShowCliDownload] = useState(false)
+  const [cliCopied, setCliCopied] = useState(false)
 
   // Document viewer state
   const [showDocModal, setShowDocModal] = useState(false)
@@ -302,6 +309,22 @@ const TrajectoryVisualizer = () => {
         const res = await fetch(url)
         if (!res.ok) throw new Error(`Failed to load trajectory: ${res.statusText}`)
         const data = await res.json()
+
+        // For dir-format voice results, simulations are stored in separate
+        // files and results.json only contains a simulation_index. Synthesize
+        // the simulations array from the index so existing UI logic works.
+        if ((!data.simulations || data.simulations.length === 0) && data.simulation_index) {
+          data.simulations = data.simulation_index.map(entry => ({
+            id: entry.id,
+            task_id: entry.task_id,
+            trial: entry.trial,
+            reward_info: entry.reward != null ? { reward: entry.reward } : null,
+            termination_reason: entry.termination_reason || null,
+            agent_cost: entry.agent_cost ?? null,
+            duration: entry.duration ?? null,
+          }))
+        }
+
         setTrajectoryData(data)
       } catch (err) {
         setError(err.message)
@@ -413,11 +436,29 @@ const TrajectoryVisualizer = () => {
     URL.revokeObjectURL(url)
   }
 
+  const getVoiceS3Command = () => {
+    if (!currentSubmission || !selectedDomain) return ''
+    const fileName = currentSubmission.trajectory_files[selectedDomain]
+    if (!fileName) return ''
+    const s3Path = `s3://${S3_BUCKET}/${S3_SUBMISSIONS_PREFIX}/${currentSubmission.dir}/trajectories/${fileName}/`
+    const localDir = `./${currentSubmission.model_name}_${selectedDomain}/`
+    return `aws s3 sync ${s3Path} ${localDir} --no-sign-request`
+  }
+
+  const handleCopyCliCommand = () => {
+    const cmd = getVoiceS3Command()
+    navigator.clipboard.writeText(cmd).then(() => {
+      setCliCopied(true)
+      setTimeout(() => setCliCopied(false), 2000)
+    })
+  }
+
   // --- Handlers ---
   const handleModelChange = (dir) => {
     setSelectedModelDir(dir)
     setSelectedTaskId(null)
     setSelectedTrialIdx(0)
+    setShowCliDownload(false)
     const sub = submissions.find(s => s.dir === dir)
     if (sub && sub.availableDomains.length > 0) {
       // Keep current domain if available, else pick first
@@ -431,6 +472,7 @@ const TrajectoryVisualizer = () => {
     setSelectedDomain(domain)
     setSelectedTaskId(null)
     setSelectedTrialIdx(0)
+    setShowCliDownload(false)
   }
 
   // --- Task mode ---
@@ -663,10 +705,35 @@ const TrajectoryVisualizer = () => {
                     </p>
                   </div>
                   <div className="task-list-header-right">
-                    {trajectoryData && (
+                    {trajectoryData && !isVoice && (
                       <button className="download-btn" onClick={handleDownload} title="Download raw trajectory data as JSON">
                         ⬇ Download JSON
                       </button>
+                    )}
+                    {trajectoryData && isVoice && (
+                      <div className="cli-download-wrapper">
+                        <button
+                          className="download-btn"
+                          onClick={() => setShowCliDownload(!showCliDownload)}
+                          title="Voice trajectory data is too large for browser download. Use AWS CLI instead."
+                        >
+                          ⬇ Download via CLI
+                        </button>
+                        {showCliDownload && (
+                          <div className="cli-download-popover">
+                            <p className="cli-download-note">Voice trajectories are large and must be downloaded via CLI:</p>
+                            <pre className="cli-download-command">{getVoiceS3Command()}</pre>
+                            <div className="cli-download-actions">
+                              <button className="cli-copy-btn" onClick={handleCopyCliCommand}>
+                                {cliCopied ? '✓ Copied' : 'Copy command'}
+                              </button>
+                              <button className="cli-close-btn" onClick={() => setShowCliDownload(false)}>
+                                Close
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                     {passKScores && (
                       <div className="pass-k-scores">

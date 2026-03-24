@@ -22,6 +22,7 @@ from loguru import logger
 from tau2.data_model.simulation import (
     SIMULATIONS_DIR,
     Results,
+    SimulationIndexEntry,
     SimulationRun,
     TerminationReason,
 )
@@ -198,6 +199,10 @@ def try_resume(
                 sim_file = sims_dir / f"{sim_id}.json"
                 if sim_file.exists():
                     sim_file.unlink()
+            # Rebuild index after removing infra-error sims
+            prev_simulation_results.simulation_index = (
+                prev_simulation_results._build_simulation_index()
+            )
             prev_simulation_results.save_metadata(save_path)
         else:
             with open(save_path, "w") as fp:
@@ -242,10 +247,47 @@ def create_checkpoint_fns(
     fmt = Results._detect_format(save_path)
 
     if fmt == "dir":
-        _, sims_dir = Results._resolve_paths(save_path)
+        meta_path, sims_dir = Results._resolve_paths(save_path)
         # Shared state: maps (trial, task_id, seed) -> sim.id for this run
         _key_to_sim_id: dict[tuple, str] = {}
         _saved_keys: set[tuple] = set()
+        # Simulation index entries keyed by sim id for efficient updates
+        _index_by_id: dict[str, dict] = {}
+
+        # Seed index from existing results.json if present
+        if meta_path.exists():
+            with open(meta_path, "r") as fp:
+                existing_meta = json.load(fp)
+            for entry in existing_meta.get("simulation_index") or []:
+                _index_by_id[entry["id"]] = entry
+
+        def _index_entry(sim: SimulationRun) -> dict:
+            return SimulationIndexEntry(
+                id=sim.id,
+                task_id=sim.task_id,
+                trial=sim.trial,
+                reward=sim.reward_info.reward if sim.reward_info else None,
+                termination_reason=sim.termination_reason,
+                agent_cost=sim.agent_cost,
+                duration=sim.duration,
+            ).model_dump(mode="json")
+
+        def _flush_index():
+            """Rewrite results.json with the current simulation_index."""
+            with open(meta_path, "r") as fp:
+                meta = json.load(fp)
+            meta["simulation_index"] = list(_index_by_id.values())
+            fd, tmp = tempfile.mkstemp(
+                suffix=".json", prefix=".meta_", dir=meta_path.parent
+            )
+            try:
+                with os.fdopen(fd, "w") as fp:
+                    json.dump(meta, fp, indent=2)
+                os.replace(tmp, meta_path)
+            except Exception:
+                if os.path.exists(tmp):
+                    os.unlink(tmp)
+                raise
 
         def _save_dir(simulation: SimulationRun):
             sim_key = (simulation.trial, simulation.task_id, simulation.seed)
@@ -270,6 +312,8 @@ def create_checkpoint_fns(
                     raise
                 _saved_keys.add(sim_key)
                 _key_to_sim_id[sim_key] = simulation.id
+                _index_by_id[simulation.id] = _index_entry(simulation)
+                _flush_index()
 
         def _replace_dir(
             key: tuple[int, str, int],
@@ -281,6 +325,7 @@ def create_checkpoint_fns(
                     old_path = sims_dir / f"{old_sim_id}.json"
                     if old_path.exists():
                         old_path.unlink()
+                    _index_by_id.pop(old_sim_id, None)
 
                 sim_path = sims_dir / f"{simulation.id}.json"
                 fd, tmp_path = tempfile.mkstemp(
@@ -297,6 +342,8 @@ def create_checkpoint_fns(
                 _key_to_sim_id[key] = simulation.id
                 _saved_keys.discard(key)
                 _saved_keys.add(key)
+                _index_by_id[simulation.id] = _index_entry(simulation)
+                _flush_index()
 
         return _save_dir, _replace_dir
 

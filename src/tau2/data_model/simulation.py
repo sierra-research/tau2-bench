@@ -1343,6 +1343,24 @@ class SimulationRun(BaseModel):
         return []
 
 
+class SimulationIndexEntry(BaseModel):
+    """Lightweight summary of a simulation for the dir-format index.
+
+    Stored in results.json alongside metadata so that external consumers
+    (e.g. the web leaderboard) can access simulation summaries without
+    fetching individual simulation files. Also used for integrity
+    validation on load.
+    """
+
+    id: str
+    task_id: int | str
+    trial: int
+    reward: float | None = None
+    termination_reason: str | None = None
+    agent_cost: float | None = None
+    duration: float | None = None
+
+
 class Results(BaseModel):
     """
     Run results.
@@ -1365,6 +1383,12 @@ class Results(BaseModel):
     tasks: list[Task] = Field(description="The list of tasks.")
     simulations: list[SimulationRun] = Field(
         description="The list of simulations.", default_factory=list
+    )
+    simulation_index: list[SimulationIndexEntry] | None = Field(
+        default=None,
+        description="Lightweight simulation summaries for dir format. "
+        "Populated on save (dir format) and used for integrity validation "
+        "on load and by the web frontend.",
     )
 
     # ---- Format detection and path resolution ----
@@ -1399,6 +1423,21 @@ class Results(BaseModel):
             return path / "results.json", path / SIMULATIONS_DIR
         return path, path.parent / SIMULATIONS_DIR
 
+    def _build_simulation_index(self) -> list[SimulationIndexEntry]:
+        """Build a simulation index from the current simulations list."""
+        return [
+            SimulationIndexEntry(
+                id=sim.id,
+                task_id=sim.task_id,
+                trial=sim.trial,
+                reward=sim.reward_info.reward if sim.reward_info else None,
+                termination_reason=sim.termination_reason,
+                agent_cost=sim.agent_cost,
+                duration=sim.duration,
+            )
+            for sim in self.simulations
+        ]
+
     # ---- Load / Save ----
 
     @classmethod
@@ -1420,11 +1459,34 @@ class Results(BaseModel):
             meta = json.loads(f.read())
 
         meta.pop("format_version", None)
+
+        # Validate simulation files against index if present
+        index = meta.get("simulation_index")
         simulations = []
         if sims_dir.exists():
             for sim_file in sorted(sims_dir.glob("*.json")):
                 with open(sim_file, "r") as f:
                     simulations.append(json.loads(f.read()))
+
+        if index is not None:
+            indexed_ids = {entry["id"] for entry in index}
+            on_disk_ids = (
+                {f.stem for f in sims_dir.glob("*.json")}
+                if sims_dir.exists()
+                else set()
+            )
+            missing = indexed_ids - on_disk_ids
+            extra = on_disk_ids - indexed_ids
+            errors = []
+            if missing:
+                errors.append(f"Missing simulation files: {sorted(missing)}")
+            if extra:
+                errors.append(f"Extra simulation files not in index: {sorted(extra)}")
+            if errors:
+                raise ValueError(
+                    f"Dir format integrity check failed for {meta_path}: "
+                    + "; ".join(errors)
+                )
 
         meta["simulations"] = simulations
         return cls.model_validate(meta)
@@ -1452,12 +1514,8 @@ class Results(BaseModel):
         meta_path.parent.mkdir(parents=True, exist_ok=True)
         sims_dir.mkdir(parents=True, exist_ok=True)
 
-        full_dump = self.model_dump(mode="json")
-        meta = {
-            "timestamp": full_dump["timestamp"],
-            "info": full_dump["info"],
-            "tasks": full_dump["tasks"],
-        }
+        self.simulation_index = self._build_simulation_index()
+        meta = self.model_dump(mode="json", exclude={"simulations"})
         with open(meta_path, "w") as f:
             json.dump(meta, f, indent=2)
 
@@ -1467,21 +1525,30 @@ class Results(BaseModel):
                 f.write(sim.model_dump_json(indent=2))
 
     def save_metadata(self, path: Path) -> None:
-        """Save only metadata (timestamp, info, tasks) to a dir-format results.json.
+        """Save only metadata to a dir-format results.json.
 
         Creates the simulations/ subdirectory if needed but does not write
         or modify any simulation files. Used by the checkpoint system to update
         metadata (e.g. after adding tasks) without rewriting all sim files.
+
+        Preserves the existing simulation_index from the on-disk results.json
+        if the in-memory simulation_index is not populated.
         """
         meta_path, sims_dir = self._resolve_paths(path)
         meta_path.parent.mkdir(parents=True, exist_ok=True)
         sims_dir.mkdir(parents=True, exist_ok=True)
-        full_dump = self.model_dump(mode="json")
-        meta = {
-            "timestamp": full_dump["timestamp"],
-            "info": full_dump["info"],
-            "tasks": full_dump["tasks"],
-        }
+
+        # Preserve on-disk simulation_index if we don't have one in memory
+        if self.simulation_index is None and meta_path.exists():
+            with open(meta_path, "r") as f:
+                existing = json.loads(f.read())
+            existing_index = existing.get("simulation_index")
+            if existing_index is not None:
+                self.simulation_index = [
+                    SimulationIndexEntry.model_validate(e) for e in existing_index
+                ]
+
+        meta = self.model_dump(mode="json", exclude={"simulations"})
         with open(meta_path, "w") as f:
             json.dump(meta, f, indent=2)
 
@@ -1489,11 +1556,11 @@ class Results(BaseModel):
 
     @classmethod
     def load_metadata(cls, path: Path) -> "Results":
-        """Load only metadata (timestamp, info, tasks) without simulations.
+        """Load only metadata without simulations.
 
-        Returns a Results instance with simulations=[]. Works with both
-        JSON and directory-based formats. For JSON format, the full
-        file is parsed as JSON but SimulationRun models are not constructed.
+        Returns a Results instance with simulations=[]. For dir format,
+        simulation_index is populated if present. Works with both
+        JSON and directory-based formats.
         """
         path = Path(path)
         fmt = cls._detect_format(path)
