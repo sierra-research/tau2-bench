@@ -40,7 +40,11 @@ function App() {
     } else if (view === 'leaderboard') {
       window.history.pushState(null, '', '#leaderboard')
     } else if (view === 'trajectory-visualizer') {
-      window.history.pushState(null, '', '#trajectory-visualizer')
+      // Preserve existing query params if already on the visualizer
+      const currentHash = window.location.hash || ''
+      if (!currentHash.startsWith('#trajectory-visualizer')) {
+        window.history.pushState(null, '', '#trajectory-visualizer')
+      }
     }
   }
 
