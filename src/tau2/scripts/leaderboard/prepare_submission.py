@@ -204,12 +204,16 @@ def get_metrics(
         metrics = compute_metrics(results)
         domain_metrics[domain] = metrics
         # Create DomainResults object (values as percentages, matching submission format)
+        _pct = lambda v: v * 100 if v is not None else None  # noqa: E731
+        cost = metrics.avg_agent_cost
+        if cost is not None and math.isnan(cost):
+            cost = None
         domain_result = DomainResults(
-            pass_1=metrics.pass_hat_ks.get(1) * 100,
-            pass_2=metrics.pass_hat_ks.get(2) * 100,
-            pass_3=metrics.pass_hat_ks.get(3) * 100,
-            pass_4=metrics.pass_hat_ks.get(4) * 100,
-            cost=metrics.avg_agent_cost,
+            pass_1=_pct(metrics.pass_hat_ks.get(1)),
+            pass_2=_pct(metrics.pass_hat_ks.get(2)),
+            pass_3=_pct(metrics.pass_hat_ks.get(3)),
+            pass_4=_pct(metrics.pass_hat_ks.get(4)),
+            cost=cost,
         )
         # Include retrieval_config for banking_knowledge domain
         if domain == "banking_knowledge" and results.info.retrieval_config:
