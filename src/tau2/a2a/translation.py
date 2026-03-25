@@ -302,6 +302,41 @@ def parse_a2a_tool_calls(content: str) -> Optional[List[ToolCall]]:
         raise A2AMessageError(msg) from e
 
 
+def extract_response(result: "Task | A2AMessage") -> tuple[str, str | None]:
+    """Extract text content and context_id from an A2A response.
+
+    For Message: extracts text directly via get_message_text().
+    For Task: checks fields in priority order — artifacts > status.message > history.
+
+    Returns:
+        Tuple of (response_text, context_id).
+    """
+    from a2a.types import Message as _A2AMessage
+    from a2a.types import Role as _A2ARole
+    from a2a.utils.artifact import get_artifact_text
+    from a2a.utils.message import get_message_text
+
+    if isinstance(result, _A2AMessage):
+        return get_message_text(result), result.context_id
+
+    texts: list[str] = []
+
+    if result.artifacts:
+        for artifact in result.artifacts:
+            texts.append(get_artifact_text(artifact))
+
+    if not texts and result.status and result.status.message:
+        texts.append(get_message_text(result.status.message))
+
+    if not texts and result.history:
+        for msg in reversed(result.history):
+            if msg.role == _A2ARole.agent:
+                texts.append(get_message_text(msg))
+                break
+
+    return "\n".join(texts), result.context_id
+
+
 def a2a_to_tau2_assistant_message(content: str) -> AssistantMessage:
     """
     Convert A2A agent response content to tau2 AssistantMessage.
