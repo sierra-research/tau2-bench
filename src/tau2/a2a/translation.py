@@ -354,15 +354,18 @@ def extract_response(result: Task | A2AMessage) -> tuple[str, str | None]:
 
     if result.artifacts:
         for artifact in result.artifacts:
-            texts.append(get_artifact_text(artifact))
+            if text := get_artifact_text(artifact):
+                texts.append(text)
 
     if not texts and result.status and result.status.message:
-        texts.append(get_message_text(result.status.message))
+        if text := get_message_text(result.status.message):
+            texts.append(text)
 
     if not texts and result.history:
         for msg in reversed(result.history):
             if msg.role == A2ARole.agent:
-                texts.append(get_message_text(msg))
+                if text := get_message_text(msg):
+                    texts.append(text)
                 break
 
     return "\n".join(texts), result.context_id

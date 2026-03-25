@@ -5,6 +5,9 @@ import uuid
 import pytest
 from a2a.types import (
     Artifact,
+    DataPart,
+    FilePart,
+    FileWithUri,
     Message,
     Part,
     Role,
@@ -193,6 +196,76 @@ class TestTaskFieldPriority:
         )
         text, _ = extract_response(task)
         assert text == "From artifact"
+
+    def test_non_text_artifact_falls_through_to_status(self):
+        """File artifact (no text parts) should not block status.message fallback."""
+        file_artifact = Artifact(
+            artifact_id="a1",
+            parts=[Part(root=FilePart(file=FileWithUri(uri="s3://bucket/report.pdf")))],
+        )
+        status_msg = _make_message("Your report is ready.")
+        task = _make_task(artifacts=[file_artifact], status_message=status_msg)
+        text, _ = extract_response(task)
+        assert text == "Your report is ready."
+
+    def test_non_text_artifact_falls_through_to_history(self):
+        """File artifact with no status should fall through to history."""
+        file_artifact = Artifact(
+            artifact_id="a1",
+            parts=[Part(root=FilePart(file=FileWithUri(uri="s3://bucket/report.pdf")))],
+        )
+        agent_msg = _make_message("Here is the file.")
+        task = _make_task(artifacts=[file_artifact], history=[agent_msg])
+        text, _ = extract_response(task)
+        assert text == "Here is the file."
+
+    def test_data_artifact_falls_through_to_status(self):
+        """Data artifact (no text parts) should not block status.message fallback."""
+        data_artifact = Artifact(
+            artifact_id="a1",
+            parts=[Part(root=DataPart(data={"key": "value"}))],
+        )
+        status_msg = _make_message("Data processed.")
+        task = _make_task(artifacts=[data_artifact], status_message=status_msg)
+        text, _ = extract_response(task)
+        assert text == "Data processed."
+
+    def test_mixed_artifacts_only_text_ones_used(self):
+        """Mix of file and text artifacts — only text artifacts contribute."""
+        file_artifact = Artifact(
+            artifact_id="a1",
+            parts=[Part(root=FilePart(file=FileWithUri(uri="s3://bucket/f.pdf")))],
+        )
+        text_artifact = Artifact(
+            artifact_id="a2",
+            parts=[_make_text_part("Actual content")],
+        )
+        status_msg = _make_message("Should not appear")
+        task = _make_task(
+            artifacts=[file_artifact, text_artifact], status_message=status_msg
+        )
+        text, _ = extract_response(task)
+        assert text == "Actual content"
+
+    def test_all_non_text_artifacts_empty_status_falls_to_history(self):
+        """Non-text artifacts + empty-parts status → falls through to history."""
+        file_artifact = Artifact(
+            artifact_id="a1",
+            parts=[Part(root=DataPart(data={"x": 1}))],
+        )
+        empty_status = Message(
+            message_id=str(uuid.uuid4()),
+            role=Role.agent,
+            parts=[],
+        )
+        agent_msg = _make_message("From history")
+        task = _make_task(
+            artifacts=[file_artifact],
+            status_message=empty_status,
+            history=[agent_msg],
+        )
+        text, _ = extract_response(task)
+        assert text == "From history"
 
 
 class TestClientMessageExtraction:
