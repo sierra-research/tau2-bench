@@ -14,7 +14,9 @@ from a2a.types import (
     TextPart,
 )
 
-from tau2.a2a.translation import extract_response
+import json
+
+from tau2.a2a.translation import a2a_to_tau2_assistant_message, extract_response
 
 
 def _make_text_part(text: str) -> Part:
@@ -191,3 +193,90 @@ class TestTaskFieldPriority:
         )
         text, _ = extract_response(task)
         assert text == "From artifact"
+
+
+class TestClientMessageExtraction:
+    """Full pipeline: SDK response → extract_response → a2a_to_tau2_assistant_message."""
+
+    def test_tool_call_from_message(self):
+        """Agent returns tool call JSON in a Message → parsed as tool call."""
+        tool_json = json.dumps(
+            {"tool_call": {"name": "search_flights", "arguments": {"origin": "SFO"}}}
+        )
+        msg = _make_message(tool_json)
+        result = a2a_to_tau2_assistant_message(msg)
+        assert result.is_tool_call()
+        assert result.tool_calls[0].name == "search_flights"
+        assert result.tool_calls[0].arguments == {"origin": "SFO"}
+
+    def test_tool_call_in_markdown_block(self):
+        """Agent returns tool call wrapped in markdown code block."""
+        content = '```json\n{"tool_call": {"name": "book_flight", "arguments": {"id": "1"}}}\n```'
+        msg = _make_message(content)
+        result = a2a_to_tau2_assistant_message(msg)
+        assert result.is_tool_call()
+        assert result.tool_calls[0].name == "book_flight"
+
+    def test_multiple_tool_calls(self):
+        """Agent returns multiple tool calls."""
+        content = json.dumps(
+            {
+                "tool_calls": [
+                    {"tool_call": {"name": "search_flights", "arguments": {"origin": "SFO"}}},
+                    {"tool_call": {"name": "search_hotels", "arguments": {"city": "NYC"}}},
+                ]
+            }
+        )
+        msg = _make_message(content)
+        result = a2a_to_tau2_assistant_message(msg)
+        assert result.is_tool_call()
+        assert len(result.tool_calls) == 2
+
+    def test_plain_text_from_message(self):
+        """Agent returns plain text in a Message → text content, no tool calls."""
+        msg = _make_message("Your flight is confirmed.")
+        result = a2a_to_tau2_assistant_message(msg)
+        assert result.content == "Your flight is confirmed."
+        assert result.tool_calls is None
+
+    def test_plain_text_from_task_artifact(self):
+        """Agent returns text via Task artifact."""
+        artifact = Artifact(
+            artifact_id="a1",
+            parts=[_make_text_part("Booking confirmed for AA123.")],
+        )
+        task = _make_task(artifacts=[artifact])
+        result = a2a_to_tau2_assistant_message(task)
+        assert result.content == "Booking confirmed for AA123."
+        assert result.tool_calls is None
+
+    def test_plain_text_from_task_status(self):
+        """Agent returns text via Task status message."""
+        status_msg = _make_message("Processing complete.")
+        task = _make_task(status_message=status_msg)
+        result = a2a_to_tau2_assistant_message(task)
+        assert result.content == "Processing complete."
+
+    def test_plain_text_from_task_history(self):
+        """Agent returns text via Task history."""
+        agent_msg = _make_message("Here are your options.")
+        task = _make_task(history=[agent_msg])
+        result = a2a_to_tau2_assistant_message(task)
+        assert result.content == "Here are your options."
+
+    def test_empty_message_fallback(self):
+        """Empty message → fallback text."""
+        msg = Message(
+            message_id=str(uuid.uuid4()),
+            role=Role.agent,
+            parts=[],
+        )
+        result = a2a_to_tau2_assistant_message(msg)
+        assert "unable to generate" in result.content.lower()
+
+    def test_json_that_is_not_tool_call(self):
+        """JSON that doesn't match tool call format → treated as text."""
+        msg = _make_message('{"status": "ok", "flights": 5}')
+        result = a2a_to_tau2_assistant_message(msg)
+        assert result.content == '{"status": "ok", "flights": 5}'
+        assert result.tool_calls is None
