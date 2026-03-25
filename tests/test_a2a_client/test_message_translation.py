@@ -415,27 +415,27 @@ class TestTranslationEdgeCases:
         assert "apologize" in msg.content.lower()
 
     def test_a2a_to_tau2_none_uses_fallback(self):
-        """None content triggers fallback message without crashing."""
-        msg = a2a_to_tau2_assistant_message(None)
+        """Empty string content (None-equivalent) triggers fallback message."""
+        msg = a2a_to_tau2_assistant_message("")
 
         assert "apologize" in msg.content.lower()
 
     def test_parse_tool_call_missing_name_raises(self):
-        """Malformed tool call without 'name' raises A2AMessageError."""
-        from tau2.a2a.exceptions import A2AMessageError
+        """Malformed tool call without 'name' raises A2AClientJSONError."""
+        from a2a.client.errors import A2AClientJSONError
 
         content = json.dumps({"tool_call": {"arguments": {"x": 1}}})
 
-        with pytest.raises(A2AMessageError, match="Invalid tool call format"):
+        with pytest.raises(A2AClientJSONError, match="Invalid tool call format"):
             parse_a2a_tool_calls(content)
 
     def test_parse_tool_call_missing_arguments_raises(self):
-        """Malformed tool call without 'arguments' raises A2AMessageError."""
-        from tau2.a2a.exceptions import A2AMessageError
+        """Malformed tool call without 'arguments' raises A2AClientJSONError."""
+        from a2a.client.errors import A2AClientJSONError
 
         content = json.dumps({"tool_call": {"name": "foo"}})
 
-        with pytest.raises(A2AMessageError, match="Invalid tool call format"):
+        with pytest.raises(A2AClientJSONError, match="Invalid tool call format"):
             parse_a2a_tool_calls(content)
 
     def test_tau2_to_a2a_assistant_no_text_no_tools_returns_empty(self):
@@ -453,6 +453,16 @@ class TestTranslationEdgeCases:
         result = tau2_to_a2a_message_content(msg)
 
         assert result == ""
+
+
+def test_a2a_to_tau2_with_sdk_message():
+    """Test converting an SDK Message object to tau2 AssistantMessage."""
+    from a2a.utils.message import new_agent_text_message
+
+    msg = new_agent_text_message("Hello from SDK")
+    result = a2a_to_tau2_assistant_message(msg)
+    assert result.content == "Hello from SDK"
+    assert result.tool_calls is None
 
 
 def test_roundtrip_translation_preserves_content():
