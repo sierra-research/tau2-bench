@@ -1,4 +1,4 @@
-from typing import Any, Dict, TypeVar
+from typing import Any, Dict, Optional, TypeVar
 
 from addict import Dict as AddictDict
 from pydantic import BaseModel, ConfigDict
@@ -12,12 +12,12 @@ class BaseModelNoExtra(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-def get_pydantic_hash(obj: BaseModel) -> str:
+def get_pydantic_hash(obj: BaseModel, exclude: Optional[Dict[str, Any]] = None) -> str:
     """
     Generate a unique hash for the object based on its key fields.
     Returns a hex string representation of the hash.
     """
-    hash_dict = obj.model_dump()
+    hash_dict = obj.model_dump(exclude=exclude)
     return get_dict_hash(hash_dict)
 
 

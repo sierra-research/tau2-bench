@@ -1,6 +1,7 @@
 import pytest
 
 from tau2.data_model.message import ToolCall
+from tau2.data_model.tasks import EnvAssertion, EnvFunctionCall
 from tau2.domains.mock.data_model import MockDB, Task, User
 from tau2.domains.mock.environment import get_environment
 from tau2.environment.environment import Environment
@@ -73,4 +74,69 @@ def test_update_task_status(
     # Test error case
     update_task_status_call.arguments["task_id"] = "nonexistent"
     response = environment.get_response(update_task_status_call)
+    assert response.error
+
+
+def test_user_tools(environment: Environment):
+    """Test user tools: check_notifications, dismiss_notification, and helpers."""
+    # Add a notification via initialization action
+    environment.run_env_function_call(
+        EnvFunctionCall(
+            env_type="user",
+            func_name="add_notification",
+            arguments={
+                "notification_id": "notif_1",
+                "message": "Task assigned to you.",
+                "task_id": "task_1",
+            },
+        )
+    )
+
+    # User calls check_notifications
+    response = environment.get_response(
+        ToolCall(
+            id="1",
+            name="check_notifications",
+            arguments={},
+            requestor="user",
+        )
+    )
+    assert not response.error
+    assert "notif_1" in response.content
+    assert "Task assigned to you." in response.content
+
+    # User dismisses the notification
+    response = environment.get_response(
+        ToolCall(
+            id="2",
+            name="dismiss_notification",
+            arguments={"notification_id": "notif_1"},
+            requestor="user",
+        )
+    )
+    assert not response.error
+    assert "dismissed" in response.content
+
+    # Verify via env assertion
+    result = environment.run_env_assertion(
+        EnvAssertion(
+            env_type="user",
+            func_name="assert_notification_status",
+            arguments={
+                "notification_id": "notif_1",
+                "expected_status": "read",
+            },
+        )
+    )
+    assert result is True
+
+    # Dismiss nonexistent notification
+    response = environment.get_response(
+        ToolCall(
+            id="3",
+            name="dismiss_notification",
+            arguments={"notification_id": "nonexistent"},
+            requestor="user",
+        )
+    )
     assert response.error

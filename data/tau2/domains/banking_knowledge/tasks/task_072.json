@@ -1,0 +1,120 @@
+{
+  "id": "task_072",
+  "description": {
+    "purpose": "Task: task_072",
+    "relevant_policies": null,
+    "notes": "ATM FEE DISPUTE RESOLUTION: User Liang Jinhai has two checking accounts (Bluest Account and Light Green Account) with 8 total fee errors. The agent must verify the user, retrieve transaction history, cross-reference with documented fee structures, identify all incorrect fees, and apply NET credits accounting for both overcharges AND missing fees. BLUEST ACCOUNT ERRORS (4): (1) $8.00 foreign ATM fee charged on London withdrawal when Bluest has $0 foreign fee, (2) $3.50 tiered foreign fee charged on Tokyo withdrawal when Bluest has $0 foreign fee, (3) Missing $2.00 rebate on 11/14 domestic ATM fee, (4) $2.50 charged instead of $2.00 on 11/20 domestic ATM fee. LIGHT GREEN ACCOUNT ERRORS (4): (1) $1.50 fee charged on 3rd ATM withdrawal when first 4 are free, (2) Missing $1.50 fee on 5th ATM withdrawal (11/09) when it should have been charged, (3) $5.00 Tier 3 fee charged for $80 withdrawal that should be $2.00 Tier 1, (4) $4.00 percentage-based fee charged instead of $3.50 Tier 2 fee. NET CREDITS: Bluest = $14.00 (all overcharges), Light Green = $3.50 ($5.00 overcharges minus $1.50 missing fee that should offset)."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Liang Jinhai, a 23-year-old tech professional from Chicago, IL. You're detail-oriented and noticed some discrepancies when reviewing your bank statements.\n\n**Your situation:** You have two checking accounts with Rho-Bank - a Bluest Account and a Light Green Account that you've had since you were a teenager. You were looking at your November transaction history and some of the ATM fees don't look right to you. You're not exactly sure what's wrong, but the amounts seem off based on what you remember about your account benefits.\n\n**Verification info:**\n- Name: Liang Jinhai | Phone: 312-555-0847 | Email: jinhai.liang@techventures.com\n- DOB: 04/12/2002 | Address: 1420 Lake Shore Drive, Chicago, IL 60610\n\n## Conversation Flow:\n\n1. **Opening - Express concern about fees:** \"Hi, I've been looking at my recent bank statements and something seems off with my ATM fees. I have two checking accounts with you - a Bluest Account and a Light Green Account - and some of the fees charged in November don't look right. Can you help me figure out what's going on?\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address.\n\n3. **If asked for more details about the issue:** \"Honestly, I'm not totally sure what's wrong - that's why I'm calling. The amounts just seem higher than I expected based on what I remember about my account benefits. Can you pull up my transaction history and review the ATM fees from November? I'd really appreciate a second set of eyes on this.\"\n\n4. **If the agent finds errors:** Express relief. \"Oh wow, so there ARE errors? I knew something was off. What can be done to fix this?\"\n\n5. **If agent offers to apply credits:** \"Yes, please go ahead and apply credits for all the incorrect charges. I want to make sure everything is corrected. If the agent does not offer, then get angry and request to speak to a real human.\"\n\n6. **If credits are applied:** \"Thank you so much for looking into this and fixing everything. Can you confirm the total amount that was credited back to each account?\"\n\n7. **Closing - after agent confirms credits:** \"Perfect, I really appreciate you taking the time to review all those transactions and get this sorted out. Is there anything else I need to do on my end?\" After agent confirms: \"Great, thanks again for your help!\" ###STOP###"
+  },
+  "initial_state": {
+    "initialization_data": null,
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Liang Jinhai",
+          "user_id": "lj82d4f1a9",
+          "address": "1420 Lake Shore Drive, Chicago, IL 60610",
+          "email": "jinhai.liang@techventures.com",
+          "phone_number": "312-555-0847",
+          "date_of_birth": "04/12/2002",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "072_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "072_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+          "arguments": "{\"user_id\": \"lj82d4f1a9\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "072_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173"
+        },
+        "requestor": "assistant",
+        "action_id": "072_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173",
+          "arguments": "{\"account_id\": \"chk_lj82d4f1a9\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "072_4"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173",
+          "arguments": "{\"account_id\": \"chk_538bfb9cba\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "072_5"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_checking_account_credit_5829"
+        },
+        "requestor": "assistant",
+        "action_id": "072_6"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_checking_account_credit_5829",
+          "arguments": "{\"account_id\": \"chk_lj82d4f1a9\", \"amount\": 14.00, \"credit_type\": \"fee_refund\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "072_7"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_checking_account_credit_5829",
+          "arguments": "{\"account_id\": \"chk_538bfb9cba\", \"amount\": 3.50, \"credit_type\": \"fee_refund\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "072_8"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [],
+  "required_documents": [
+    "doc_checking_accounts_bluest_account_001",
+    "doc_checking_accounts_bluest_account_003",
+    "doc_checking_accounts_bluest_account_007",
+    "doc_checking_accounts_bluest_account_010",
+    "doc_checking_accounts_light_green_account_001",
+    "doc_checking_accounts_light_green_account_013",
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_bank_accounts_bank_accounts_(general)_017",
+    "doc_bank_accounts_bank_accounts_(general)_018"
+  ]
+}

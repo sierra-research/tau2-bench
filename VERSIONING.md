@@ -1,6 +1,6 @@
 # Versioning Strategy & Release Process
 
-This document outlines the versioning strategy and release process for τ²-bench.
+This document outlines the versioning strategy and release process for τ-bench.
 
 ## Semantic Versioning
 
@@ -38,11 +38,11 @@ We follow [Semantic Versioning (SemVer)](https://semver.org/) with the format `M
 
 ## Release Process
 
-We use **automated releases** via Release Please for consistency and efficiency, with manual releases as a fallback option.
+We primarily use a **manual release process**. Automated tooling can be added later if needed.
 
-### Automated Release Process (Recommended)
+### Automated Release Process (Optional)
 
-Our GitHub Actions workflow automatically handles releases when conventional commits are pushed to main:
+If you choose to use an automated release tool, it can handle releases when conventional commits are pushed to `main`:
 
 1. **Development with Conventional Commits**
    ```bash
@@ -73,7 +73,7 @@ For urgent releases or when automation isn't available:
 
 1. **Pre-Release Testing**
    ```bash
-   make test  # Run full test suite
+   make test-all  # Run full test suite (requires uv sync --all-extras)
    tau2 run --domain mock --num-tasks 1  # Quick integration test
    ```
 
@@ -110,7 +110,7 @@ For urgent releases or when automation isn't available:
 
 3. **Optional: PyPI Publishing**
    ```bash
-   # Uncomment PyPI section in .github/workflows/release.yml
+   # Add a publish step to your CI workflow
    # Add PYPI_API_TOKEN to GitHub secrets
    ```
 
@@ -118,7 +118,7 @@ For urgent releases or when automation isn't available:
 
 ### Automated Changelog Generation
 
-Our Release Please workflow automatically generates `CHANGELOG.md` entries from conventional commits:
+Automated release tooling can generate `CHANGELOG.md` entries from conventional commits:
 
 | Commit Type | Changelog Section | Example |
 |-------------|-------------------|---------|
@@ -169,7 +169,7 @@ For ongoing development, we use `-dev` suffix in `pyproject.toml`:
 ### Current Practice
 - Update to `x.y.z-dev` immediately after releasing `x.y.z`
 - Use conventional commits during development
-- Let Release Please handle version bumping for releases
+- Use an automated release tool for version bumping if your team enables one
 
 ## Backporting Policy
 
@@ -210,43 +210,11 @@ For ongoing development, we use `-dev` suffix in `pyproject.toml`:
 3. **Semantic Release**: Automatic version bumping
 4. **GitHub Actions**: Automate testing and releases
 
-### Current GitHub Action Setup
+### Current CI Setup
 
-Our actual workflow (`.github/workflows/release.yml`):
-
-```yaml
-name: Release
-on:
-  push:
-    branches: [main]
-permissions:
-  contents: write
-  pull-requests: write
-jobs:
-  release-please:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: google-github-actions/release-please-action@v4
-        with:
-          release-type: python
-          package-name: tau2
-          version-file: pyproject.toml
-          include-v-in-tag: true
-          changelog-types: |
-            [
-              {"type":"feat","section":"Added","hidden":false},
-              {"type":"fix","section":"Fixed","hidden":false},
-              {"type":"perf","section":"Performance","hidden":false},
-              {"type":"docs","section":"Documentation","hidden":false}
-            ]
-```
-
-This workflow:
-- ✅ Automatically creates release PRs
-- ✅ Generates changelog from conventional commits  
-- ✅ Handles version bumping in `pyproject.toml`
-- ✅ Creates GitHub releases
-- 🔲 PyPI publishing (ready but commented out)
+No default release automation workflow is currently committed for this repository.
+Teams can either follow the manual process above or add their own CI-based release
+automation.
 
 ## Emergency Releases
 

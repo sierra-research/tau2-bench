@@ -8,7 +8,7 @@ from gymnasium.envs.registration import register
 from loguru import logger
 from pydantic import BaseModel
 
-from tau2.agent.base import LocalAgent, ValidAgentInputMessage
+from tau2.agent.base_agent import HalfDuplexAgent, ValidAgentInputMessage
 from tau2.agent.llm_agent import LLMAgent
 from tau2.config import (
     DEFAULT_LLM_AGENT,
@@ -23,14 +23,21 @@ from tau2.data_model.message import (
     MultiToolMessage,
     UserMessage,
 )
-from tau2.data_model.simulation import SimulationRun, Task
+from tau2.data_model.simulation import SimulationRun
+from tau2.data_model.tasks import Task
 from tau2.environment.environment import Environment
 from tau2.environment.tool import Tool, as_tool
 from tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
 from tau2.orchestrator.orchestrator import Orchestrator
 from tau2.registry import registry
-from tau2.user.base import OUT_OF_SCOPE, STOP, TRANSFER, BaseUser, ValidUserInputMessage
 from tau2.user.user_simulator import DummyUser, UserSimulator
+from tau2.user.user_simulator_base import (
+    OUT_OF_SCOPE,
+    STOP,
+    TRANSFER,
+    HalfDuplexUser,
+    ValidUserInputMessage,
+)
 from tau2.utils.tools import parse_action_string, to_functional_format
 
 TAU_BENCH_ENV_NAME = "tau-bench"
@@ -94,7 +101,7 @@ def done() -> str:
     return GymAgent.STOP_TOKEN
 
 
-class GymAgent(LocalAgent):
+class GymAgent(HalfDuplexAgent):
     """
     A gym-style agent that provides a step-based interface for task execution.
 
@@ -321,13 +328,24 @@ class GymAgent(LocalAgent):
         return not self._agent_turn_finished.is_set()
 
 
+def create_gym_agent(tools, domain_policy, **kwargs):
+    """Factory function for GymAgent.
+
+    Args:
+        tools: Environment tools the agent can call.
+        domain_policy: Policy text the agent must follow.
+        **kwargs: Additional arguments (unused by GymAgent).
+    """
+    return GymAgent(tools=tools, domain_policy=domain_policy)
+
+
 class GymUserState(BaseModel):
     """The state of the gym user containing the conversation history."""
 
     messages: list[APICompatibleMessage]
 
 
-class GymUser(BaseUser):
+class GymUser(HalfDuplexUser):
     """
     A gym-style user that provides a step-based interface for user actions.
 
@@ -354,7 +372,7 @@ class GymUser(BaseUser):
             tools: List of tools available to the user (optional)
             instructions: Instructions for the user scenario (optional)
         """
-        super().__init__(instructions=instructions, llm=None, llm_args=None)
+        super().__init__(instructions=instructions, tools=tools)
         self.tools = tools
         self._observation: Optional[list[Message]] = None
         self._next_action: Optional[UserMessage] = None
@@ -986,8 +1004,13 @@ class AgentGymEnv(gym.Env):
             step-by-step control.
         """
         environment = self._get_environment()
+        task = self._get_task()
         tools = environment.get_tools()
-        user_tools = environment.get_user_tools() if environment.user_tools else []
+        user_tools = (
+            environment.get_user_tools(include=task.user_tools)
+            if environment.user_tools
+            else []
+        )
         if self.solo_mode:
             tools = tools + user_tools
         return GymAgent(
@@ -1005,7 +1028,7 @@ class AgentGymEnv(gym.Env):
 
         The user simulator is configured with:
         - Task-specific user scenario and instructions
-        - Domain-specific user tools (if available)
+        - Task-specific user tools (filtered from domain user tools)
         - Default LLM configuration for user simulation
 
         Error Handling:
@@ -1014,13 +1037,13 @@ class AgentGymEnv(gym.Env):
 
         Returns:
             A UserSimulator instance configured with the task's user scenario
-            and domain-specific user tools (if available). The simulator is
+            and task-specific user tools (if available). The simulator is
             ready to participate in the conversation simulation.
         """
         environment = self._get_environment()
         task = self._get_task()
         try:
-            user_tools = environment.get_user_tools()
+            user_tools = environment.get_user_tools(include=task.user_tools) or None
         except ValueError:
             user_tools = None
         if self.solo_mode:
@@ -1475,7 +1498,7 @@ class UserGymEnv(gym.Env):
         Create and return a GymUser instance for external control.
 
         The user is configured with:
-        - Domain-specific user tools (if available)
+        - Task-specific user tools (filtered from domain user tools)
         - Task instructions (user scenario)
 
         Returns:
@@ -1484,7 +1507,7 @@ class UserGymEnv(gym.Env):
         environment = self._get_environment()
         task = self._get_task()
         try:
-            user_tools = environment.get_user_tools()
+            user_tools = environment.get_user_tools(include=task.user_tools) or None
         except ValueError:
             user_tools = None
         return GymUser(

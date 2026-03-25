@@ -1,0 +1,242 @@
+{
+  "id": "task_077",
+  "description": {
+    "purpose": "Task: task_077",
+    "relevant_policies": null,
+    "notes": "COMPLEX LOST WALLET SCENARIO WITH TIER RULES + CROSS-PRODUCT SECURITY: Tests debit card loss with tier-based rules AND credit card security protocol. User has Bluest (ELITE) and Light Green (ENTRY) accounts, PLUS a Silver Rewards credit card (user doesn't mention it - agent must discover). Agent must: 1) FREEZE both debit cards, 2) Proactively check for credit cards and offer protection, 3) Check pending transactions, 4) CLOSE both debit cards, 5) Apply tier rules - Bluest: immediate RUSH order (best free option for ELITE), Light Green: REFUSE due to 48-hour wait, 6) Activate Bluest only. Task ends with Light Green NOT ordered - user told to wait 48 hours. Credit card: cc_lj82d4f1a9_silver. Debit cards: dbc_lj82d4f1a9_bluest (Bluest, 4821), dbc_538bfb9cba (Light Green, 7293). Bluest replacement: dbc_8eed7b16caeb (7260)."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Liang Jinhai, a 22-year-old tech professional living in Chicago. You're a bit anxious about your finances and want to make sure your accounts are secure.\n\n**Your situation:** You can't find EITHER of your debit cards - you have two checking accounts (Bluest Account and Light Green Account), each with its own debit card, and both cards are missing. You think you may have lost your wallet. **Your NEW Bluest replacement card info (do not mention under any circumstance unless the agent correctly orders your replacement card):**\n- Last 4 digits: 7260, Expiration: 11/29, CVV: 741, PIN: 5739\n\n**Verification info:**\n- Name: Liang Jinhai | Phone: 312-555-0847 | Email: jinhai.liang@techventures.com\n- DOB: 04/12/2002 | Address: 1420 Lake Shore Drive, Chicago, IL 60610\n\n## Conversation Flow (Only follow the below flows if the agent brings up any of the points, otherwise, just follow the agent's guidance to the best of your ability):\n\n1. **Opening - Express concern about possibly lost DEBIT cards only:** \"Hi, I think I might have lost my wallet with both of my debit cards in it. I have two checking accounts with you - my Bluest Account and my Light Green Account. I've been looking everywhere and I can't find my wallet. I'm not 100% sure it's gone but I'm getting worried about both cards.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address.\n\n3. **If agent offers to freeze:** \"Yes, please freeze BOTH cards right away. That way if someone finds my wallet they can't use either card. I'll keep looking.\"\n\n4. **ONLY IF agent asks about credit cards:** Act surprised: \"Oh wow, I completely forgot - yes, my Silver Rewards credit card was in my wallet too! I was so focused on my debit cards I didn't even think about it. What should I do about that?\"\n\n5. **If agent offers to order a replacement credit card:** \"Yes, please do that. Better safe than sorry. I don't want anyone using my credit card if they find my wallet.\"\n\n6. **After both debit cards are frozen, confirm they're definitely lost:** \"I've now looked absolutely everywhere - my apartment, my car, my office, even retraced my steps from yesterday. My wallet with all my cards is definitely gone. I need to cancel both debit cards completely and get new ones for each account.\"\n\n7. **If agent offers to order replacements:** \"Yes please, I need replacement cards for both accounts. Ship them to my address on file.\"\n\n8. **ONLY IF agent asks about shipping speed or card design options:** \"I'd like whatever the best option is that's free with my account. I don't want to pay extra for shipping or a fancy card design.\"\n\n9. **If agent says you need to wait for Light Green:** Accept this: \"Oh, I didn't know there was a waiting period for the Light Green account. That's frustrating but I understand. At least I can get the Bluest card ordered now.\"\n\n10. **If Bluest card is ordered, simulate its arrival and ask to activate:** \"Great news - my Bluest Account replacement card just arrived! Can you help me activate it?\"\n\n11. **For Bluest card activation:** \"The last 4 digits are 7260, expiration is 11/29, and the CVV on the back is 741. I'd like my PIN to be 5739.\"\n\n12. **After Bluest card activated:** \"Perfect, thanks! I'll call back in 48 hours to order my Light Green replacement.\" ###STOP###"
+  },
+  "initial_state": {
+    "initialization_data": null,
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Liang Jinhai",
+          "user_id": "lj82d4f1a9",
+          "address": "1420 Lake Shore Drive, Chicago, IL 60610",
+          "email": "jinhai.liang@techventures.com",
+          "phone_number": "312-555-0847",
+          "date_of_birth": "04/12/2002",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "077_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "077_1"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_debit_cards_by_account_id_7823"
+        },
+        "requestor": "assistant",
+        "action_id": "077_1b"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "freeze_debit_card_3892"
+        },
+        "requestor": "assistant",
+        "action_id": "077_2"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "freeze_debit_card_3892",
+          "arguments": "{\"card_id\": \"dbc_lj82d4f1a9_bluest\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "077_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "freeze_debit_card_3892",
+          "arguments": "{\"card_id\": \"dbc_538bfb9cba\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "077_4"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_credit_card_accounts_by_user"
+        },
+        "requestor": "assistant",
+        "action_id": "077_4b"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_credit_card_accounts_by_user",
+          "arguments": "{\"user_id\": \"lj82d4f1a9\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "077_4c"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "order_replacement_credit_card_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "077_5"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "order_replacement_credit_card_7291",
+          "arguments": "{\"credit_card_account_id\": \"cc_lj82d4f1a9_silver\", \"user_id\": \"lj82d4f1a9\", \"shipping_address\": \"1420 Lake Shore Drive, Chicago, IL 60610\", \"reason\": \"lost\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "077_6"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173"
+        },
+        "requestor": "assistant",
+        "action_id": "077_7"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173",
+          "arguments": "{\"account_id\": \"chk_lj82d4f1a9\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "077_8"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173",
+          "arguments": "{\"account_id\": \"chk_538bfb9cba\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "077_9"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "unfreeze_debit_card_3893"
+        },
+        "requestor": "assistant",
+        "action_id": "077_9b"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "unfreeze_debit_card_3893",
+          "arguments": "{\"card_id\": \"dbc_lj82d4f1a9_bluest\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "077_9c"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "unfreeze_debit_card_3893",
+          "arguments": "{\"card_id\": \"dbc_538bfb9cba\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "077_9d"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "close_debit_card_4721"
+        },
+        "requestor": "assistant",
+        "action_id": "077_10"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "close_debit_card_4721",
+          "arguments": "{\"card_id\": \"dbc_lj82d4f1a9_bluest\", \"reason\": \"lost\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "077_11"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "close_debit_card_4721",
+          "arguments": "{\"card_id\": \"dbc_538bfb9cba\", \"reason\": \"lost\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "077_12"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "order_debit_card_5739"
+        },
+        "requestor": "assistant",
+        "action_id": "077_13"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "order_debit_card_5739",
+          "arguments": "{\"account_id\": \"chk_lj82d4f1a9\", \"user_id\": \"lj82d4f1a9\", \"delivery_option\": \"RUSH\", \"delivery_fee\": 0, \"card_design\": \"PREMIUM\", \"design_fee\": 0, \"shipping_address\": \"1420 Lake Shore Drive, Chicago, IL 60610\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "077_14"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "activate_debit_card_8292"
+        },
+        "requestor": "assistant",
+        "action_id": "077_15"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "activate_debit_card_8292",
+          "arguments": "{\"card_id\": \"dbc_8eed7b16caeb\", \"last_4_digits\": \"7260\", \"expiration_date\": \"11/29\", \"cvv\": \"741\", \"pin\": \"5739\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "077_16"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_005",
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_bank_accounts_bank_accounts_(general)_018",
+    "doc_bank_accounts_bank_accounts_(general)_024",
+    "doc_bank_accounts_bank_accounts_(general)_025",
+    "doc_bank_accounts_bank_accounts_(general)_026",
+    "doc_bank_accounts_bank_accounts_(general)_028",
+    "doc_bank_accounts_bank_accounts_(general)_029",
+    "doc_bank_accounts_bank_accounts_(general)_030",
+    "doc_checking_accounts_bluest_account_001",
+    "doc_checking_accounts_light_green_account_001",
+    "doc_credit_cards_credit_card_replacements_001"
+  ]
+}

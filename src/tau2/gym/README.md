@@ -1,6 +1,6 @@
 # Tau2 Gym
 
-A Gymnasium-compatible environment for evaluating conversational agents in the τ²-bench framework. This module provides a standardized gym interface that allows you to run agents step-by-step in controlled simulation environments.
+A Gymnasium-compatible environment for evaluating conversational agents in the τ-bench framework. This module provides a standardized gym interface that allows you to run agents step-by-step in controlled simulation environments.
 
 ## Overview
 
@@ -59,19 +59,19 @@ The `AgentGymEnv` supports several configuration options to customize the simula
 from tau2.gym.gym_agent import AgentGymEnv
 
 # Basic environment (normal mode with default user simulator)
-env = AgentGymEnv(domain="retail", task_id="book_flight_1")
+env = AgentGymEnv(domain="retail", task_id="0")
 
 # Solo mode - agent works independently on tickets
 env = AgentGymEnv(
     domain="retail", 
-    task_id="book_flight_1",
+    task_id="0",
     solo_mode=True
 )
 
 # Custom user LLM configuration  
 env = AgentGymEnv(
     domain="retail", 
-    task_id="book_flight_1",
+    task_id="0",
     user_llm="gpt-4",
     user_llm_args={"temperature": 0.7, "max_tokens": 1000}
 )
@@ -79,7 +79,7 @@ env = AgentGymEnv(
 # Combined configuration
 env = AgentGymEnv(
     domain="telecom",
-    task_id="troubleshoot_mobile_data_1", 
+    task_id="[mobile_data_issue]user_abroad_roaming_enabled_off[PERSONA:None]", 
     solo_mode=False,
     user_llm="claude-3-sonnet",
     user_llm_args={"temperature": 0.5}
@@ -112,7 +112,7 @@ env = AgentGymEnv(
 - **Example:** Customer service representative helping a user book a flight
 
 ```python
-env = AgentGymEnv(domain="airline", task_id="book_flight_1", solo_mode=False)
+env = AgentGymEnv(domain="airline", task_id="0", solo_mode=False)
 observation, info = env.reset()
 # Observation includes user messages and responses
 action = "Hello! I'd be happy to help you book a flight. Where would you like to travel?"
@@ -127,7 +127,7 @@ observation, reward, terminated, truncated, info = env.step(action)
 - **Example:** IT support agent troubleshooting a network issue from a ticket
 
 ```python
-env = AgentGymEnv(domain="telecom", task_id="troubleshoot_network_1", solo_mode=True)
+env = AgentGymEnv(domain="telecom", task_id="[mobile_data_issue]user_abroad_roaming_enabled_off[PERSONA:None]", solo_mode=True)
 observation, info = env.reset()
 # Observation includes the task ticket and any initial context
 action = "check_network_status(user_id='user_123')"
@@ -167,7 +167,7 @@ print(f"Step reward: {reward}")
 
 ```python
 # Initialize environment in solo mode
-env = AgentGymEnv(domain="telecom", task_id="troubleshoot_mobile_data_1", solo_mode=True)
+env = AgentGymEnv(domain="telecom", task_id="[mobile_data_issue]user_abroad_roaming_enabled_off[PERSONA:None]", solo_mode=True)
 observation, info = env.reset()
 print(f"Initial observation: {observation}")  # Will be empty/None in solo mode
 
@@ -190,7 +190,7 @@ print(f"Usage check result: {observation}")
 # Use a specific LLM for user simulation
 env = AgentGymEnv(
     domain="airline", 
-    task_id="book_flight_1",
+    task_id="0",
     solo_mode=False,
     user_llm="gpt-4",
     user_llm_args={
@@ -246,7 +246,7 @@ observation, reward, terminated, truncated, info = env.step(action)
 # Use a specific LLM for the automated agent
 env = UserGymEnv(
     domain="airline",
-    task_id="book_flight_1",
+    task_id="0",
     agent_llm="gpt-4o",
     agent_llm_args={
         "temperature": 0.7,

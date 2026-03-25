@@ -1,0 +1,174 @@
+{
+  "id": "task_043",
+  "description": {
+    "purpose": "Task: task_043",
+    "relevant_policies": null,
+    "notes": "Credit card closure eligibility check with payment and retention protocol. User Yuki Nakamura wants to close their Platinum Rewards Card due to the high annual fee. However, the agent must first check closure eligibility per the retention protocol. The agent will find a $75.00 outstanding balance which must be paid before closure is possible. The agent should: (1) Verify the user, (2) Look up the credit card account and find the outstanding balance, (3) Inform the user they cannot close until the balance is paid, (4) When user agrees to pay, look up their checking account, (5) Process the payment using pay_credit_card_from_checking_9182, (6) After balance is cleared, proceed with retention protocol - check for previous attempts with get_closure_reason_history_8293 (none found), (7) Log the closure reason, (8) Since user is 2+ years customer (account opened 11/10/2022), offer to waive annual fee, (9) Apply the annual_fee_waived flag when user accepts."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Yuki Nakamura, a 33-year-old marketing manager from Portland, OR. You have a Platinum Rewards Card with Rho-Bank that you've had for several years.\n\n**Your situation:** You've been thinking about closing your Platinum Rewards Card because the annual fee feels too high for how much you've been using the card lately. \n\n**Your goal:** Express that you want to close your card due to the annual fee. If the agent mentions you have an outstanding balance that needs to be paid first, agree to pay it off from your checking account. If the agent later offers to waive the annual fee for a year, accept the offer and keep the card: do NOT under any circumstance ask for this as you are not aware it exists yet until the agent brings it up.\n\n**Information you know and should provide when asked:**\n- Your full name: Yuki Nakamura\n- Your phone number: 503-555-0842\n- Your email: yuki.nakamura@simba.com\n- Your date of birth: 05/12/1991\nYou do not remember how many years you've been a customer, if the agent asks you.\n\n## Conversation Flow:\n\n1. **Opening:** \"Hi, I'd like to close my Platinum Rewards Card. The annual fee is just too expensive for me right now.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth as requested.\n\n3. **When told about the outstanding balance:** Act surprised but agree to pay it. \"Oh, I didn't realize I still had a balance on there. Yes, please go ahead and pay that off from my checking account. I want to get this sorted out.\"\n\n4. **After the payment is processed:** Confirm you still want to close. \"Great, thanks for taking care of that. So can we proceed with closing the card now?\"\n\n5. **When asked why you want to close:** Explain that the annual fee is the main issue. \"It's really just the annual fee. It's too high for how often I use the card these days. I've been thinking about simplifying my finances.\"\n\n6. **IMPORTANT - If offered an annual fee waiver:** Accept the offer enthusiastically. \"Oh, you can waive the annual fee? That would be perfect! Yes, please do that. I'd love to keep the card if the fee is waived for a year.\"\n\n7. **After the waiver is applied:** Thank the agent and confirm you want to keep the card. \"Thank you so much! I'm glad I called. I'll definitely keep using the card now.\"\n\n8. **End conversation:** Thank the agent and end the conversation once the fee waiver has been applied."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Yuki Nakamura",
+          "user_id": "224959b99e",
+          "address": "3421 Sakura Avenue, Portland, OR 97205",
+          "email": "yuki.nakamura@simba.com",
+          "phone_number": "503-555-0842",
+          "date_of_birth": "05/12/1991",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "043_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "043_0a"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291",
+          "arguments": "{\"user_id\": \"224959b99e\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "043_0b"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765"
+        },
+        "requestor": "assistant",
+        "action_id": "043_0c"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_224959b99e_plat\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "043_0d"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "043_0e"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+          "arguments": "{\"user_id\": \"224959b99e\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "043_0f"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "pay_credit_card_from_checking_9182"
+        },
+        "requestor": "assistant",
+        "action_id": "043_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "pay_credit_card_from_checking_9182",
+          "arguments": "{\"user_id\": \"224959b99e\", \"checking_account_id\": \"05\", \"credit_card_account_id\": \"cc_224959b99e_plat\", \"amount\": 75.0}"
+        },
+        "requestor": "assistant",
+        "action_id": "043_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293"
+        },
+        "requestor": "assistant",
+        "action_id": "043_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_closure_reason_history_8293",
+          "arguments": "{\"credit_card_account_id\": \"cc_224959b99e_plat\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "043_4"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "log_credit_card_closure_reason_4521"
+        },
+        "requestor": "assistant",
+        "action_id": "043_5"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "log_credit_card_closure_reason_4521",
+          "arguments": "{\"credit_card_account_id\": \"cc_224959b99e_plat\", \"user_id\": \"224959b99e\", \"closure_reason\": \"annual_fee\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "043_6"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_credit_card_account_flag_6147"
+        },
+        "requestor": "assistant",
+        "action_id": "043_7"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_credit_card_account_flag_6147",
+          "arguments": "{\"credit_card_account_id\": \"cc_224959b99e_plat\", \"user_id\": \"224959b99e\", \"flag_type\": \"annual_fee_waived\", \"expiration_date\": \"11/14/2026\", \"reason\": \"loyalty_benefit\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "043_8"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card",
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_credit_cards_credit_card_account_logistics_002",
+    "doc_credit_cards_credit_card_account_logistics_003",
+    "doc_credit_cards_credit_card_account_logistics_009",
+    "doc_credit_cards_credit_card_replacements_005",
+    "doc_credit_cards_credit_cards_(general)_016",
+    "doc_credit_cards_platinum_rewards_card_001"
+  ]
+}

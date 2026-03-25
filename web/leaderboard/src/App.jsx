@@ -2,24 +2,34 @@ import { useState, useEffect } from 'react'
 import './App.css'
 import TrajectoryVisualizer from './components/TrajectoryVisualizer'
 import Leaderboard from './components/Leaderboard'
+import LeaderboardPreview from './components/LeaderboardPreview'
 
 function App() {
   
-  // Initialize currentView based on URL hash
+  // Initialize currentView based on URL hash (strip query params for view matching)
+  const getViewFromHash = (hash) => {
+    const base = hash.split('?')[0]
+    if (base === 'leaderboard') return 'leaderboard'
+    if (base === 'trajectory-visualizer') return 'trajectory-visualizer'
+    if (base === 'results' || base === 'docs') return '__deprecated__'
+    return 'home'
+  }
+
   const getInitialView = () => {
-    const hash = window.location.hash.slice(1) // Remove the '#'
-    if (hash === 'leaderboard') return 'leaderboard'
-    if (hash === 'trajectory-visualizer') return 'trajectory-visualizer'
-    // Redirect deprecated routes to home
-    if (hash === 'results' || hash === 'docs') {
+    const hash = window.location.hash.slice(1)
+    const view = getViewFromHash(hash)
+    if (view === '__deprecated__') {
       window.history.replaceState(null, '', '#home')
       return 'home'
     }
-    return 'home'
+    return view
   }
   
   const [currentView, setCurrentView] = useState(getInitialView())
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [blogDropdownOpen, setBlogDropdownOpen] = useState(false)
+  const [papersDropdownOpen, setPapersDropdownOpen] = useState(false)
+  const [heroBlogDropdownOpen, setHeroBlogDropdownOpen] = useState(false)
 
   // Handle navigation with URL updates
   const navigateTo = (view) => {
@@ -30,7 +40,11 @@ function App() {
     } else if (view === 'leaderboard') {
       window.history.pushState(null, '', '#leaderboard')
     } else if (view === 'trajectory-visualizer') {
-      window.history.pushState(null, '', '#trajectory-visualizer')
+      // Preserve existing query params if already on the visualizer
+      const currentHash = window.location.hash || ''
+      if (!currentHash.startsWith('#trajectory-visualizer')) {
+        window.history.pushState(null, '', '#trajectory-visualizer')
+      }
     }
   }
 
@@ -45,16 +59,12 @@ function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1)
-      if (hash === 'leaderboard') {
-        setCurrentView('leaderboard')
-      } else if (hash === 'trajectory-visualizer') {
-        setCurrentView('trajectory-visualizer')
-      } else if (hash === 'results' || hash === 'docs') {
-        // Redirect deprecated routes to home
+      const view = getViewFromHash(hash)
+      if (view === '__deprecated__') {
         window.history.replaceState(null, '', '#home')
         setCurrentView('home')
       } else {
-        setCurrentView('home')
+        setCurrentView(view)
       }
     }
 
@@ -110,6 +120,16 @@ function App() {
             <button onClick={() => navigateTo('home')} className={`nav-link ${currentView === 'home' ? 'active' : ''}`}>Overview</button>
             <button onClick={() => navigateTo('leaderboard')} className={`nav-link ${currentView === 'leaderboard' ? 'active' : ''}`}>Leaderboard</button>
             <button onClick={() => navigateTo('trajectory-visualizer')} className={`nav-link ${currentView === 'trajectory-visualizer' ? 'active' : ''}`}>Visualizer</button>
+            <div className="nav-dropdown" onMouseEnter={() => setBlogDropdownOpen(true)} onMouseLeave={() => setBlogDropdownOpen(false)}>
+              <button className="nav-link nav-dropdown-trigger">
+                Blog Posts <span className="dropdown-arrow">▾</span>
+              </button>
+              <div className={`nav-dropdown-menu ${blogDropdownOpen ? 'open' : ''}`}>
+                <a href={`${import.meta.env.BASE_URL}blog/tau-knowledge.html`} onClick={() => { setMobileMenuOpen(false); setBlogDropdownOpen(false); }}>τ-knowledge</a>
+                <a href={`${import.meta.env.BASE_URL}blog/tau-voice-examples.html`} onClick={() => { setMobileMenuOpen(false); setBlogDropdownOpen(false); }}>τ-voice examples</a>
+                <a href={`${import.meta.env.BASE_URL}blog/tau3-task-fixes.html`} onClick={() => { setMobileMenuOpen(false); setBlogDropdownOpen(false); }}>τ³ Task Fixes</a>
+              </div>
+            </div>
             <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)}>GitHub</a>
           </div>
         </div>
@@ -120,8 +140,9 @@ function App() {
         <div className="notification-container">
           <span className="notification-badge">NEW</span>
           <span className="notification-text">
-            τ-bench now supports telecom domain, introduced by the{' '}
-            <a href="https://arxiv.org/abs/2506.07982" target="_blank" rel="noopener noreferrer" className="notification-link">τ²-bench paper</a>.
+            τ-bench now supports the <strong>banking domain</strong> and a <strong>voice mode</strong>, introduced by the{' '}
+            <a href={`${import.meta.env.BASE_URL}blog/tau-knowledge.html`} className="notification-link">τ-knowledge</a> and{' '}
+            <a href={`${import.meta.env.BASE_URL}blog/tau-voice-examples.html`} className="notification-link">τ-voice examples</a>.
           </span>
         </div>
       </div>
@@ -139,98 +160,57 @@ function App() {
                     <span className="bench-text">-bench</span>
                   </h1>
                 </div>
-                
-                <div className="hero-image-section">
-                  <img src={`${import.meta.env.BASE_URL}traj.png`} alt="Sample τ-bench Trajectories" className="trajectory-image" />
-                </div>
-                
-                <div className="hero-description-section">
-                  <p className="hero-description">
-                    Benchmarking AI agents in collaborative real-world scenarios. 
-                    τ-bench challenges agents to coordinate, guide, and assist users 
-                    in achieving shared objectives across complex enterprise domains.
-                  </p>
-                  <div className="hero-actions">
-                    <div className="button-row">
-                      <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer">
-                        <button className="btn-primary">View on GitHub</button>
-                      </a>
-                      <button onClick={() => navigateTo('leaderboard')} className="btn-secondary">
-                        View Leaderboard
+
+                <p className="hero-description">
+                  Benchmarking AI agents in collaborative real-world scenarios. 
+                  τ-bench challenges agents to coordinate, guide, and assist users 
+                  in achieving shared objectives across complex enterprise domains.
+                </p>
+
+                <div className="hero-actions">
+                  <div className="button-row">
+                    <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer">
+                      <button className="btn-primary">View on GitHub</button>
+                    </a>
+                    <a href="https://github.com/sierra-research/tau2-bench/blob/main/docs/leaderboard-submission.md" target="_blank" rel="noopener noreferrer">
+                      <button className="btn-secondary">Submit Results</button>
+                    </a>
+                  </div>
+                  <div className="button-row">
+                    <div className="hero-dropdown" onMouseEnter={() => setPapersDropdownOpen(true)} onMouseLeave={() => setPapersDropdownOpen(false)}>
+                      <button className="btn-secondary">
+                        Read Papers <span className="dropdown-arrow">▾</span>
                       </button>
-                      <a href="https://github.com/sierra-research/tau2-bench?tab=readme-ov-file#leaderboard-submission" target="_blank" rel="noopener noreferrer">
-                        <button className="btn-secondary">Submit Results</button>
-                      </a>
+                      <div className={`hero-dropdown-menu ${papersDropdownOpen ? 'open' : ''}`}>
+                        <div className="hero-submenu-item">
+                          <span className="hero-submenu-label">τ³-bench <span className="submenu-arrow">›</span></span>
+                          <div className="hero-submenu">
+                            <a href="https://arxiv.org/abs/2603.04370" target="_blank" rel="noopener noreferrer">τ-Knowledge</a>
+                            <a href="https://arxiv.org/abs/2603.13686" target="_blank" rel="noopener noreferrer">τ-Voice</a>
+                          </div>
+                        </div>
+                        <a href="https://arxiv.org/abs/2506.07982" target="_blank" rel="noopener noreferrer">τ²-bench</a>
+                        <a href="https://arxiv.org/abs/2406.12045" target="_blank" rel="noopener noreferrer">τ-bench</a>
+                      </div>
                     </div>
-                    <div className="button-row">
-                      <a href="https://arxiv.org/abs/2506.07982" target="_blank" rel="noopener noreferrer">
-                        <button className="btn-secondary">Read Paper</button>
-                      </a>
-                      <a href="https://sierra.ai/uk/blog/benchmarking-ai-agents" target="_blank" rel="noopener noreferrer">
-                        <button className="btn-secondary">Read Blog Post</button>
-                      </a>
+                    <div className="hero-dropdown" onMouseEnter={() => setHeroBlogDropdownOpen(true)} onMouseLeave={() => setHeroBlogDropdownOpen(false)}>
+                      <button className="btn-secondary">
+                        Blog Posts <span className="dropdown-arrow">▾</span>
+                      </button>
+                      <div className={`hero-dropdown-menu ${heroBlogDropdownOpen ? 'open' : ''}`}>
+                        <a href="https://sierra.ai/blog/bench-advancing-agent-benchmarking-to-knowledge-and-voice" target="_blank" rel="noopener noreferrer">τ³-bench</a>
+                        <a href="https://sierra.ai/blog/benchmarking-agents-in-collaborative-real-world-scenarios" target="_blank" rel="noopener noreferrer">τ²-bench</a>
+                        <a href="https://sierra.ai/blog/benchmarking-ai-agents" target="_blank" rel="noopener noreferrer">τ-bench</a>
+                      </div>
                     </div>
                   </div>
                 </div>
+
+                <LeaderboardPreview onViewFullLeaderboard={() => navigateTo('leaderboard')} />
               </div>
             </div>
           </section>
 
-      {/* News Section */}
-      <section className="news">
-        <div className="container">
-          <div className="news-block">
-            <div className="news-header">
-              <h3>Recent News</h3>
-            </div>
-            
-            <div className="news-content">
-              <div className="news-list">
-                <a href="https://sierra.ai/resources/research/tau-squared-bench" target="_blank" rel="noopener noreferrer" className="news-item">
-                  <div className="news-icon">🎉</div>
-                  <div className="news-text">
-                    <strong>τ-bench leaderboard released: Track model performance and submit your results across retail, airline, and telecom domains</strong>
-                    <span>October 3, 2025</span>
-                  </div>
-                  <div className="news-arrow">→</div>
-                </a>
-                <a href="https://openai.com/gpt-5" target="_blank" rel="noopener noreferrer" className="news-item">
-                  <div className="news-icon">🏆</div>
-                  <div className="news-text">
-                    <strong>GPT-5 achieves state-of-the-art performance on τ-bench, setting new records with 96% on telecom, 82% on retail, and 63% on airline</strong>
-                    <span>January 15, 2025</span>
-                  </div>
-                  <div className="news-arrow">→</div>
-                </a>
-                <a href="https://sierra.ai/resources/research/tau-squared-bench" target="_blank" rel="noopener noreferrer" className="news-item">
-                  <div className="news-icon">🚀</div>
-                  <div className="news-text">
-                    <strong>τ-bench launched: Evaluating agents in dual-control environments, testing coordination and collaboration with tool-accessing user simulators</strong>
-                    <span>June 11, 2025</span>
-                  </div>
-                  <div className="news-arrow">→</div>
-                </a>
-                <a href="https://openreview.net/forum?id=roNSXZpUDN" target="_blank" rel="noopener noreferrer" className="news-item">
-                  <div className="news-icon">📊</div>
-                  <div className="news-text">
-                    <strong>τ-bench paper accepted to ICLR 2025!</strong>
-                    <span>December 22, 2024</span>
-                  </div>
-                  <div className="news-arrow">→</div>
-                </a>
-                <a href="https://sierra.ai/blog/benchmarking-ai-agents" target="_blank" rel="noopener noreferrer" className="news-item">
-                  <div className="news-icon">🏢</div>
-                  <div className="news-text">
-                    <strong>Original τ-bench released: Comprehensive benchmark for evaluating AI agents in realistic dynamic environments with users and tools</strong>
-                    <span>June 20, 2024</span>
-                  </div>
-                  <div className="news-arrow">→</div>
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
         </>
       ) : currentView === 'leaderboard' ? (

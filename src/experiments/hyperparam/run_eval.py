@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple
 from loguru import logger
 from sklearn.model_selection import ParameterGrid
 
-from tau2.data_model.simulation import Results
+from tau2.data_model.simulation import Results, TextRunConfig
 from tau2.run import RunConfig, run_domain
 
 
@@ -117,7 +117,7 @@ def make_config(
     save_to = f"{exp_dir}/{llm}_{domain}_{mode.value}_{llm_user}_{num_trials}trials"
     if num_tasks is not None:
         save_to += f"_{num_tasks}tasks"
-    config = RunConfig(
+    config = TextRunConfig(
         domain=domain,
         agent=agent,
         llm_agent=llm,

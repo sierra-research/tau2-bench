@@ -67,6 +67,7 @@ class InterfaceAgent:
             model=self.llm,
             tools=self.environment.get_tools(),
             messages=messages,
+            call_name="interface_agent_response",
             **self.llm_args,
         )
         while assistant_message.is_tool_call():
@@ -79,6 +80,7 @@ class InterfaceAgent:
                 model=self.llm,
                 tools=self.environment.get_tools(),
                 messages=messages,
+                call_name="interface_agent_response",
                 **self.llm_args,
             )
         message_history.append(assistant_message)

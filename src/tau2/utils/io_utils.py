@@ -8,6 +8,39 @@ import toml
 import yaml
 
 
+def load_results_dict(path: str | Path) -> dict[str, Any]:
+    """Load simulation results as a raw dict, handling both formats.
+
+    Supports monolithic JSON and directory-based format
+    (results.json + simulations/ subdirectory with individual files).
+    Returns the same dict structure regardless of format, so callers
+    can access ``data["simulations"]``, ``data["info"]``, etc. without
+    caring about the on-disk layout.
+    """
+    path = Path(path)
+
+    if path.is_dir():
+        meta_path = path / "results.json"
+        sims_dir = path / "simulations"
+    else:
+        meta_path = path
+        sims_dir = path.parent / "simulations"
+
+    if not sims_dir.is_dir():
+        with open(path, "r") as f:
+            return json.load(f)
+
+    with open(meta_path, "r") as f:
+        data = json.load(f)
+    data.pop("format_version", None)
+    simulations = []
+    for sim_file in sorted(sims_dir.glob("*.json")):
+        with open(sim_file, "r") as f:
+            simulations.append(json.load(f))
+    data["simulations"] = simulations
+    return data
+
+
 def expand_paths(paths: list[str], extension: str | None = None) -> list[str]:
     """Expand directories and glob patterns into a list of files.
 
@@ -25,10 +58,27 @@ def expand_paths(paths: list[str], extension: str | None = None) -> list[str]:
         if path_obj.is_file():
             files.append(str(path_obj))
         elif path_obj.is_dir():
-            # Find all files in directory
-            for file_path in path_obj.rglob("*"):
-                if file_path.is_file():
-                    files.append(str(file_path))
+            # If the directory itself contains a results.json, treat it as a
+            # single simulation result directory (text or voice).
+            results_file = path_obj / "results.json"
+            if extension == ".json" and results_file.exists():
+                files.append(str(results_file))
+            # Parent simulations directory: collect results.json from each
+            # immediate subdirectory.
+            elif extension == ".json" and (
+                path_obj.name == "simulations"
+                or path_obj.parent.name == "tau2"
+                and path_obj.name == "simulations"
+            ):
+                for subdir in path_obj.iterdir():
+                    if subdir.is_dir():
+                        sim_file = subdir / "results.json"
+                        if sim_file.exists():
+                            files.append(str(sim_file))
+            else:
+                for file_path in path_obj.rglob("*"):
+                    if file_path.is_file():
+                        files.append(str(file_path))
         else:
             # Try as glob pattern
             matched_files = glob.glob(path)

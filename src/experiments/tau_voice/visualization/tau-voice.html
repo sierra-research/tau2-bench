@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>τ-voice Paper | τ-bench</title>
+  <style>
+    /* Reset and Base Styles - matching main site */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      width: 100%;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      color: #2d3748;
+      line-height: 1.6;
+      font-weight: 400;
+      width: 100%;
+      overflow-x: hidden;
+      background: #ffffff;
+      min-height: 100vh;
+    }
+
+    /* Navigation - matching main site exactly */
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #e2e8f0;
+      padding: 16px 0;
+    }
+
+    .nav-container {
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .nav-logo {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+    }
+
+    .logo-main {
+      display: flex;
+      align-items: center;
+      font-size: 24px;
+      font-weight: 700;
+      color: #2d3748;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+      text-decoration: none;
+    }
+
+    .logo-main:hover {
+      opacity: 0.8;
+    }
+
+    .tau-symbol {
+      color: #065f46;
+      margin-right: 2px;
+    }
+
+    .bench-text {
+      color: #2d3748;
+    }
+
+    .logo-attribution {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      text-decoration: none;
+    }
+
+    .sierra-logo {
+      height: 12px;
+      width: auto;
+    }
+
+    .from-text {
+      font-size: 10px;
+      color: #718096;
+      font-weight: 400;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: #718096;
+      font-weight: 500;
+      font-size: 15px;
+      transition: color 0.2s ease;
+    }
+
+    .nav-links a:hover {
+      color: #065f46;
+    }
+
+    .nav-link {
+      background: none;
+      border: none;
+      text-decoration: none;
+      color: #718096;
+      font-weight: 500;
+      font-size: 15px;
+      cursor: pointer;
+      transition: color 0.2s ease;
+      padding: 0;
+      margin: 0;
+      font-family: inherit;
+    }
+
+    .nav-link:hover {
+      color: #065f46;
+    }
+
+    .nav-dropdown {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .nav-dropdown-trigger {
+      background: none;
+      border: none;
+      text-decoration: none;
+      color: #718096;
+      font-weight: 500;
+      font-size: 15px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-family: inherit;
+      padding: 0;
+      margin: 0;
+    }
+
+    .nav-dropdown-trigger:hover {
+      color: #065f46;
+    }
+
+    .dropdown-arrow {
+      font-size: 10px;
+      transition: transform 0.2s ease;
+    }
+
+    .nav-dropdown:hover .dropdown-arrow {
+      transform: rotate(180deg);
+    }
+
+    .nav-dropdown-menu {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 8px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      min-width: 160px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-8px);
+      transition: all 0.2s ease;
+      z-index: 1000;
+    }
+
+    .nav-dropdown:hover .nav-dropdown-menu {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .nav-dropdown-menu a {
+      display: block;
+      padding: 12px 16px;
+      color: #4a5568;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .nav-dropdown-menu a:last-child {
+      border-bottom: none;
+    }
+
+    .nav-dropdown-menu a:hover {
+      background: #f8fafc;
+      color: #065f46;
+    }
+
+    .nav-dropdown-menu a:first-child {
+      border-radius: 8px 8px 0 0;
+    }
+
+    .nav-dropdown-menu a:last-child {
+      border-radius: 0 0 8px 8px;
+    }
+
+    .mobile-menu-toggle {
+      display: none;
+    }
+
+    /* Blog Content - matching site styling */
+    .blog-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 120px 24px 80px;
+    }
+
+    .blog-header {
+      margin-bottom: 40px;
+    }
+
+    .blog-badge {
+      display: inline-block;
+      background: #f0fdf4;
+      color: #065f46;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .blog-title {
+      font-size: 3rem;
+      font-weight: 800;
+      line-height: 1.1;
+      color: #1a202c;
+      margin-bottom: 16px;
+    }
+
+    .blog-title .tau-symbol {
+      color: #065f46;
+    }
+
+    .blog-meta {
+      font-size: 15px;
+      color: #718096;
+    }
+
+    .blog-content {
+      font-size: 1.125rem;
+      color: #4a5568;
+      line-height: 1.8;
+    }
+
+    .blog-content p {
+      margin-bottom: 24px;
+    }
+
+    .blog-content h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1a202c;
+      margin-top: 48px;
+      margin-bottom: 20px;
+    }
+
+    .blog-content a {
+      color: #065f46;
+      text-decoration: underline;
+    }
+
+    .blog-content a:hover {
+      color: #047857;
+    }
+
+    .blog-divider {
+      height: 1px;
+      background: #e2e8f0;
+      margin: 48px 0 32px;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #718096;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .back-link:hover {
+      color: #065f46;
+    }
+
+    /* ============================================ */
+    /* Audio Comparison Demo                        */
+    /* ============================================ */
+
+    .demo-block {
+      margin: 32px 0 40px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fafbfc;
+    }
+
+    .demo-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 13px;
+      font-weight: 600;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .demo-label-icon {
+      font-size: 15px;
+    }
+
+    .demo-body {
+      padding: 0;
+    }
+
+    /* Comparison pair card */
+    .pair-card {
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .pair-card:last-child {
+      border-bottom: none;
+    }
+
+    .pair-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 20px 6px;
+    }
+
+    .pair-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a202c;
+    }
+
+    .pair-subtitle {
+      font-size: 12.5px;
+      color: #718096;
+      padding: 0 20px 12px;
+      line-height: 1.5;
+    }
+
+    /* Condition row inside each pair */
+    .cond-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 20px;
+    }
+
+    .cond-row:last-child {
+      padding-bottom: 14px;
+    }
+
+    .cond-badge {
+      flex-shrink: 0;
+      width: 68px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #718096;
+    }
+
+    .cond-meta {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 130px;
+    }
+
+    .agent-tag {
+      font-size: 11px;
+      font-weight: 600;
+      color: #2b6cb0;
+      background: #ebf4ff;
+      padding: 1px 8px;
+      border-radius: 10px;
+    }
+
+    .outcome-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .outcome-tag .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .dot.success { background: #38a169; }
+    .dot.transcription { background: #d69e2e; }
+    .dot.logical { background: #e53e3e; }
+
+    .outcome-tag.s { background: #f0fff4; color: #276749; }
+    .outcome-tag.t { background: #fefcbf; color: #975a16; }
+    .outcome-tag.l { background: #fff5f5; color: #c53030; }
+
+    .cond-row audio {
+      flex: 1;
+      min-width: 0;
+      height: 34px;
+      border-radius: 6px;
+    }
+
+    /* Footer */
+    .demo-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 20px;
+      border-top: 1px solid #e2e8f0;
+      background: #f8fafc;
+      flex-wrap: wrap;
+    }
+
+    .stereo-hint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      color: #a0aec0;
+    }
+
+    .stereo-hint svg { flex-shrink: 0; }
+
+    .legend-row {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11.5px;
+      color: #718096;
+    }
+
+    .legend-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    .legend-dot.success { background: #38a169; }
+    .legend-dot.transcription { background: #d69e2e; }
+    .legend-dot.logical { background: #e53e3e; }
+
+    /* ============================================ */
+    /* Speech Activity Timeline Visualizer          */
+    /* ============================================ */
+
+    .stv-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #fff;
+    }
+
+    .stv-play-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 2px solid #065f46;
+      background: #f0fdf4;
+      color: #065f46;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+
+    .stv-play-btn:hover {
+      background: #065f46;
+      color: #fff;
+    }
+
+    .stv-time {
+      font-size: 12.5px;
+      font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+      color: #718096;
+      min-width: 90px;
+    }
+
+    .stv-speed-btn {
+      margin-left: auto;
+      background: #edf2f7;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4a5568;
+      cursor: pointer;
+      font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+      transition: all 0.15s;
+    }
+
+    .stv-speed-btn:hover {
+      background: #e2e8f0;
+    }
+
+    /* Timeline body */
+    .stv-body {
+      display: flex;
+      padding: 16px 20px 0;
+      user-select: none;
+    }
+
+    .stv-row-labels {
+      width: 70px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stv-row-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #2d3748;
+      display: flex;
+      align-items: center;
+      padding-right: 8px;
+    }
+
+    .stv-row-label-user {
+      height: 70px;
+      line-height: 1.3;
+    }
+
+    .stv-row-label-agent {
+      height: 60px;
+    }
+
+    .stv-row-label-spacer-top {
+      height: 18px;
+    }
+
+    .stv-row-label-spacer-mid {
+      height: 22px;
+    }
+
+    .stv-row-label-spacer-bot {
+      height: 18px;
+    }
+
+    .stv-noise-label {
+      font-size: 10px;
+      font-weight: 400;
+      color: #a0aec0;
+    }
+
+    /* Tracks area */
+    .stv-tracks-area {
+      flex: 1;
+      position: relative;
+      min-width: 0;
+    }
+
+    .stv-marker-lane {
+      position: relative;
+      width: 100%;
+    }
+
+    .stv-marker-lane-top {
+      height: 18px;
+    }
+
+    .stv-marker-lane-mid {
+      height: 22px;
+      border-top: 1px solid #cbd5e0;
+    }
+
+    .stv-marker-lane-bot {
+      height: 18px;
+    }
+
+    .stv-track {
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .stv-track-user {
+      height: 70px;
+      background: rgba(66, 153, 225, 0.04);
+    }
+
+    .stv-track-agent {
+      height: 60px;
+      background: rgba(229, 62, 62, 0.04);
+    }
+
+    /* Horizontal reference line through user track */
+    .stv-track-user::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: #e2e8f0;
+    }
+
+    .stv-track-agent::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: #e2e8f0;
+    }
+
+    /* Speech blocks */
+    .stv-speech {
+      position: absolute;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .stv-speech-user {
+      top: 6px;
+      bottom: 6px;
+      background: rgba(66, 153, 225, 0.22);
+    }
+
+    .stv-speech-agent {
+      top: 4px;
+      bottom: 4px;
+      background: rgba(229, 62, 62, 0.22);
+    }
+
+    /* Waveform bars inside speech blocks */
+    .stv-bar {
+      position: absolute;
+      bottom: 0;
+      width: 2px;
+      border-radius: 1px 1px 0 0;
+    }
+
+    .stv-bar-user {
+      background: rgba(49, 130, 206, 0.55);
+    }
+
+    .stv-bar-agent {
+      background: rgba(197, 48, 48, 0.55);
+    }
+
+    /* Background noise waveform (light gray on user track) */
+    .stv-noise-bar {
+      position: absolute;
+      width: 2px;
+      border-radius: 1px;
+      background: rgba(160, 174, 192, 0.25);
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    /* Playhead */
+    .stv-playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #065f46;
+      z-index: 20;
+      pointer-events: none;
+      left: 0;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .stv-playhead.active {
+      opacity: 1;
+    }
+
+    .stv-playhead::after {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #065f46;
+    }
+
+    /* Click overlay */
+    .stv-click-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 15;
+      cursor: pointer;
+    }
+
+    /* Markers */
+    .stv-marker {
+      position: absolute;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+    }
+
+    .stv-marker[title] {
+      cursor: help;
+    }
+
+    /* Marker shapes */
+    .stv-m-user-int {
+      top: 2px;
+      color: #dd6b20;
+      font-size: 14px;
+      transform: translateX(-50%);
+    }
+
+    .stv-m-agent-int {
+      bottom: 1px;
+      color: #742a2a;
+      font-size: 12px;
+      transform: translateX(-50%);
+    }
+
+    .stv-m-backchannel {
+      top: 2px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #38a169;
+      transform: translateX(-50%);
+    }
+
+    .stv-m-burst {
+      top: 2px;
+      font-size: 14px;
+      transform: translateX(-50%);
+      color: #805ad5;
+    }
+
+    .stv-m-muffling {
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      background: #805ad5;
+      border-radius: 2px;
+      transform: translate(-50%, -50%);
+      opacity: 0.8;
+    }
+
+    .stv-m-frame-drop {
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #e53e3e;
+      transform: translateX(-50%);
+      opacity: 0.7;
+    }
+
+    .stv-m-no-response {
+      bottom: 1px;
+      font-size: 14px;
+      font-weight: 800;
+      color: #c53030;
+      transform: translateX(-50%);
+    }
+
+    .stv-m-no-yield {
+      bottom: 1px;
+      font-size: 14px;
+      color: #742a2a;
+      transform: translateX(-50%);
+    }
+
+    .stv-m-vocal-tic {
+      bottom: 4px;
+      font-size: 13px;
+      color: #0bc5ea;
+      transform: translateX(-50%);
+      font-weight: 700;
+    }
+
+    .stv-m-non-agent-dir {
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: #d53f8c;
+      font-weight: 700;
+    }
+
+    .stv-m-bc-issue {
+      bottom: 1px;
+      font-size: 14px;
+      font-weight: 800;
+      color: #742a2a;
+      transform: translateX(-50%);
+    }
+
+    .stv-m-voc-tic-error {
+      bottom: 1px;
+      font-size: 13px;
+      color: #c53030;
+      transform: translateX(-50%);
+    }
+
+    /* Muffling on user track */
+    .stv-m-muffling-track {
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      background: #805ad5;
+      border-radius: 2px;
+      transform: translate(-50%, -50%);
+      opacity: 0.75;
+    }
+
+    /* X-axis */
+    .stv-xaxis-row {
+      display: flex;
+      padding: 0 20px;
+    }
+
+    .stv-xaxis {
+      flex: 1;
+      position: relative;
+      height: 22px;
+      border-top: 1px solid #cbd5e0;
+    }
+
+    .stv-xaxis-tick {
+      position: absolute;
+      top: 0;
+      width: 1px;
+      height: 5px;
+      background: #cbd5e0;
+      transform: translateX(-50%);
+    }
+
+    .stv-xaxis-label {
+      position: absolute;
+      top: 7px;
+      font-size: 10px;
+      color: #a0aec0;
+      transform: translateX(-50%);
+      font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    }
+
+    .stv-xaxis-title {
+      text-align: center;
+      font-size: 11px;
+      color: #a0aec0;
+      padding: 0 20px 8px;
+      font-weight: 500;
+    }
+
+    /* Legend */
+    .stv-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      padding: 10px 20px 14px;
+      border-top: 1px solid #e2e8f0;
+      background: #f8fafc;
+      justify-content: center;
+    }
+
+    .stv-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: #4a5568;
+      white-space: nowrap;
+    }
+
+    .stv-legend-swatch {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stv-legend-swatch-block {
+      width: 14px;
+      height: 10px;
+      border-radius: 2px;
+    }
+
+    .stv-legend-swatch-block.user {
+      background: rgba(66, 153, 225, 0.6);
+    }
+
+    .stv-legend-swatch-block.agent {
+      background: rgba(229, 62, 62, 0.6);
+    }
+
+    /* Tooltip */
+    .stv-tooltip {
+      position: fixed;
+      background: #1a202c;
+      color: #fff;
+      font-size: 11.5px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      pointer-events: none;
+      z-index: 100;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      opacity: 0;
+      transition: opacity 0.12s;
+    }
+
+    .stv-tooltip.show {
+      opacity: 1;
+    }
+
+    /* ── Christmas-lights glow on legend items ────── */
+    .stv-legend-item {
+      transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: transparent;
+    }
+
+    .stv-legend-item.lit {
+      background: var(--glow-bg, rgba(6, 95, 70, 0.1));
+      box-shadow: 0 0 0 1px var(--glow-border, rgba(6, 95, 70, 0.25));
+      color: #1a202c;
+      font-weight: 600;
+    }
+
+    /* Subtle highlight colors per event type */
+    .stv-legend-item[data-type="user"]           { --glow-bg: rgba(66,153,225,0.12);  --glow-border: rgba(66,153,225,0.35);  }
+    .stv-legend-item[data-type="agent"]          { --glow-bg: rgba(229,62,62,0.12);   --glow-border: rgba(229,62,62,0.35);   }
+    .stv-legend-item[data-type="backchannel"]    { --glow-bg: rgba(56,161,105,0.12);  --glow-border: rgba(56,161,105,0.35);  }
+    .stv-legend-item[data-type="burst"]          { --glow-bg: rgba(128,90,213,0.12);  --glow-border: rgba(128,90,213,0.35);  }
+    .stv-legend-item[data-type="vocal_tic"]      { --glow-bg: rgba(11,197,234,0.12);  --glow-border: rgba(11,197,234,0.35);  }
+    .stv-legend-item[data-type="non_agent_dir"]  { --glow-bg: rgba(213,63,140,0.12);  --glow-border: rgba(213,63,140,0.35);  }
+    .stv-legend-item[data-type="muffling"]       { --glow-bg: rgba(128,90,213,0.12);  --glow-border: rgba(128,90,213,0.35);  }
+    .stv-legend-item[data-type="frame_drop"]     { --glow-bg: rgba(229,62,62,0.12);   --glow-border: rgba(229,62,62,0.35);   }
+    .stv-legend-item[data-type="agent_int"]      { --glow-bg: rgba(116,42,42,0.10);   --glow-border: rgba(116,42,42,0.30);   }
+    .stv-legend-item[data-type="no_response"]    { --glow-bg: rgba(197,48,48,0.12);   --glow-border: rgba(197,48,48,0.35);   }
+    .stv-legend-item[data-type="no_yield"]       { --glow-bg: rgba(116,42,42,0.10);   --glow-border: rgba(116,42,42,0.30);   }
+    .stv-legend-item[data-type="user_int"]       { --glow-bg: rgba(221,107,32,0.12);  --glow-border: rgba(221,107,32,0.35);  }
+    .stv-legend-item[data-type="bc_issue"]       { --glow-bg: rgba(116,42,42,0.10);   --glow-border: rgba(116,42,42,0.30);   }
+    .stv-legend-item[data-type="voc_tic_error"]  { --glow-bg: rgba(197,48,48,0.12);   --glow-border: rgba(197,48,48,0.35);   }
+
+    /* Marker highlight when lit — subtle */
+    .stv-marker.lit {
+      filter: drop-shadow(0 0 3px currentColor);
+      transition: filter 0.2s ease;
+    }
+
+    .stv-m-muffling-track.lit {
+      box-shadow: 0 0 4px 1px rgba(128, 90, 213, 0.45);
+    }
+
+    .stv-m-frame-drop.lit {
+      box-shadow: 0 0 3px 1px rgba(229, 62, 62, 0.4);
+    }
+
+    .stv-m-backchannel.lit {
+      box-shadow: 0 0 5px 2px rgba(56, 161, 105, 0.45);
+    }
+
+    /* Speech blocks glow when active */
+    .stv-speech.lit-pulse {
+      box-shadow: inset 0 0 12px 2px rgba(255, 255, 255, 0.3);
+    }
+
+    .stv-speech-user.lit-pulse {
+      background: rgba(66, 153, 225, 0.38);
+    }
+
+    .stv-speech-agent.lit-pulse {
+      background: rgba(229, 62, 62, 0.38);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .nav-links {
+        display: none;
+      }
+
+      .mobile-menu-toggle {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 8px;
+      }
+
+      .mobile-menu-toggle span {
+        width: 20px;
+        height: 2px;
+        background: #2d3748;
+        border-radius: 1px;
+      }
+
+      .blog-container {
+        padding: 100px 16px 60px;
+      }
+
+      .blog-title {
+        font-size: 2rem;
+      }
+
+      .blog-content {
+        font-size: 1rem;
+      }
+
+      .cond-row {
+        flex-wrap: wrap;
+      }
+
+      .cond-meta {
+        min-width: auto;
+      }
+
+      .stv-body {
+        padding: 12px 12px 0;
+      }
+
+      .stv-row-labels {
+        width: 50px;
+      }
+
+      .stv-row-label-user,
+      .stv-row-label-agent {
+        font-size: 10px;
+      }
+
+      .stv-noise-label {
+        font-size: 8px;
+      }
+
+      .stv-xaxis-row {
+        padding: 0 12px;
+      }
+
+      .stv-legend {
+        gap: 4px 10px;
+        padding: 8px 12px 10px;
+      }
+
+      .stv-legend-item {
+        font-size: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation - same as main site -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="nav-logo">
+        <a href="/" class="logo-main">
+          <span class="tau-symbol">τ</span>
+          <span class="bench-text">-bench</span>
+        </a>
+        <a href="https://sierra.ai" target="_blank" rel="noopener noreferrer" class="logo-attribution">
+          <img src="/sierra_logo.jpeg" alt="Sierra" class="sierra-logo" />
+          <span class="from-text">from Sierra</span>
+        </a>
+      </div>
+      <button class="mobile-menu-toggle">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <div class="nav-links">
+        <a href="/#home">Overview</a>
+        <a href="/#leaderboard">Leaderboard</a>
+        <a href="/#trajectory-visualizer">Visualizer</a>
+        <div class="nav-dropdown">
+          <button class="nav-dropdown-trigger">
+            Blog Posts <span class="dropdown-arrow">▾</span>
+          </button>
+          <div class="nav-dropdown-menu">
+            <a href="/blog/tau-knowledge.html">τ-knowledge</a>
+            <a href="/blog/tau-voice.html">τ-voice</a>
+          </div>
+        </div>
+        <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="blog-container">
+    <header class="blog-header">
+      <span class="blog-badge">Research</span>
+      <h1 class="blog-title"><span class="tau-symbol">τ</span>-voice Paper</h1>
+      <p class="blog-meta">February 2026</p>
+    </header>
+
+    <div class="blog-content">
+      <p>τ-voice enables voice-based evaluation of conversational AI agent systems.</p>
+
+      <!-- ===== Audio Comparison Demo ===== -->
+      <div class="demo-block" id="audio-demo">
+        <div class="demo-label">
+          <span class="demo-label-icon">🔊</span> Sample Conversations &nbsp;·&nbsp; Clean vs. Realistic
+        </div>
+        <div class="demo-body">
+
+          <!-- Pair 1: Same task, different outcome -->
+          <div class="pair-card">
+            <div class="pair-header">
+              <span class="pair-title">Same task, different conditions</span>
+            </div>
+            <div class="pair-subtitle">Task 14 succeeds under clean audio but fails when realistic effects are applied — same task, same agent, different outcome.</div>
+            <div class="cond-row">
+              <span class="cond-badge">Clean</span>
+              <div class="cond-meta">
+                <span class="agent-tag">Gemini</span>
+                <span class="outcome-tag s"><span class="dot success"></span> Success</span>
+              </div>
+              <audio controls preload="none" src="/blog/audio/clean/task_14.wav"></audio>
+            </div>
+            <div class="cond-row">
+              <span class="cond-badge">Realistic</span>
+              <div class="cond-meta">
+                <span class="agent-tag">Gemini</span>
+                <span class="outcome-tag l"><span class="dot logical"></span> Logical</span>
+              </div>
+              <audio controls preload="none" src="/blog/audio/realistic/task_14.wav"></audio>
+            </div>
+          </div>
+
+          <!-- Pair 2: Transcription failures across conditions -->
+          <div class="pair-card">
+            <div class="pair-header">
+              <span class="pair-title">Transcription failures</span>
+            </div>
+            <div class="pair-subtitle">Both conversations fail due to transcription errors. In clean audio, verbally encoded characters trip up the agent; in realistic audio, accent and noise compound the problem.</div>
+            <div class="cond-row">
+              <span class="cond-badge">Clean</span>
+              <div class="cond-meta">
+                <span class="agent-tag">xAI</span>
+                <span class="outcome-tag t"><span class="dot transcription"></span> Transcription</span>
+              </div>
+              <audio controls preload="none" src="/blog/audio/clean/task_49.wav"></audio>
+            </div>
+            <div class="cond-row">
+              <span class="cond-badge">Realistic</span>
+              <div class="cond-meta">
+                <span class="agent-tag">xAI</span>
+                <span class="outcome-tag t"><span class="dot transcription"></span> Transcription</span>
+              </div>
+              <audio controls preload="none" src="/blog/audio/realistic/task_68.wav"></audio>
+            </div>
+          </div>
+
+          <!-- Pair 3: Logical failures across conditions -->
+          <div class="pair-card">
+            <div class="pair-header">
+              <span class="pair-title">Logical failures</span>
+            </div>
+            <div class="pair-subtitle">Both conversations fail due to reasoning errors — wrong policy application or missed constraints — independent of audio quality.</div>
+            <div class="cond-row">
+              <span class="cond-badge">Clean</span>
+              <div class="cond-meta">
+                <span class="agent-tag">OpenAI</span>
+                <span class="outcome-tag l"><span class="dot logical"></span> Logical</span>
+              </div>
+              <audio controls preload="none" src="/blog/audio/clean/task_59.wav"></audio>
+            </div>
+            <div class="cond-row">
+              <span class="cond-badge">Realistic</span>
+              <div class="cond-meta">
+                <span class="agent-tag">Gemini</span>
+                <span class="outcome-tag l"><span class="dot logical"></span> Logical</span>
+              </div>
+              <audio controls preload="none" src="/blog/audio/realistic/task_41.wav"></audio>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="demo-footer">
+          <div class="stereo-hint">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a0aec0" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+            Stereo — L: user, R: agent
+          </div>
+          <div class="legend-row">
+            <div class="legend-item"><span class="legend-dot success"></span> Success</div>
+            <div class="legend-item"><span class="legend-dot transcription"></span> Transcription</div>
+            <div class="legend-item"><span class="legend-dot logical"></span> Logical</div>
+          </div>
+        </div>
+      </div>
+      <!-- END Audio Demo -->
+
+      <!-- ===== Speech Activity Timeline Visualizer ===== -->
+      <h2>Annotated Speech Activity Timeline</h2>
+      <p>The interactive visualization below annotates the <strong>realistic Task 14</strong> audio with speech-activity markers — user &amp; agent speech, interruptions, noise effects, backchannels, and more. Press play to step through the conversation with a synchronized playhead.</p>
+
+      <div class="demo-block" id="stv-demo">
+        <div class="demo-label">
+          <span class="demo-label-icon">📊</span> Speech Activity Timeline &mdash; Retail, Gemini
+        </div>
+
+        <!-- Controls -->
+        <div class="stv-controls">
+          <button class="stv-play-btn" id="stvPlayBtn" title="Play / Pause">
+            <svg id="stvPlayIcon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,3 20,12 6,21"/></svg>
+            <svg id="stvPauseIcon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>
+          </button>
+          <span class="stv-time" id="stvTime">0:00 / 0:00</span>
+          <button class="stv-speed-btn" id="stvSpeedBtn" title="Playback speed">1×</button>
+        </div>
+
+        <!-- Timeline body -->
+        <div class="stv-body">
+          <!-- Row labels -->
+          <div class="stv-row-labels">
+            <div class="stv-row-label stv-row-label-spacer-top"></div>
+            <div class="stv-row-label stv-row-label-user">User<br><span class="stv-noise-label">(Busy Street)</span></div>
+            <div class="stv-row-label stv-row-label-spacer-mid"></div>
+            <div class="stv-row-label stv-row-label-agent">Agent</div>
+            <div class="stv-row-label stv-row-label-spacer-bot"></div>
+          </div>
+
+          <!-- Tracks area -->
+          <div class="stv-tracks-area" id="stvTracksArea">
+            <div class="stv-marker-lane stv-marker-lane-top" id="stvMarkerTop"></div>
+            <div class="stv-track stv-track-user" id="stvTrackUser"></div>
+            <div class="stv-marker-lane stv-marker-lane-mid" id="stvMarkerMid"></div>
+            <div class="stv-track stv-track-agent" id="stvTrackAgent"></div>
+            <div class="stv-marker-lane stv-marker-lane-bot" id="stvMarkerBot"></div>
+            <div class="stv-playhead" id="stvPlayhead"></div>
+            <div class="stv-click-overlay" id="stvClickOverlay"></div>
+          </div>
+        </div>
+
+        <!-- X-axis -->
+        <div class="stv-xaxis-row">
+          <div class="stv-row-labels"><div class="stv-row-label" style="height:22px"></div></div>
+          <div class="stv-xaxis" id="stvXAxis"></div>
+        </div>
+        <div class="stv-xaxis-title">Time (seconds)</div>
+
+        <!-- Legend -->
+        <div class="stv-legend" id="stvLegend"></div>
+      </div>
+
+      <!-- Hidden audio element -->
+      <audio id="stvAudio" preload="metadata" src="/blog/audio/realistic/task_41.wav"></audio>
+      <!-- END Speech Activity Timeline Visualizer -->
+
+    </div>
+
+    <div class="blog-divider"></div>
+
+    <a href="/" class="back-link">
+      ← Back to τ-bench Leaderboard
+    </a>
+  </div>
+  <!-- Speech Activity Timeline Visualizer Script -->
+  <script>
+  (function() {
+    'use strict';
+
+    /* ── Data ─────────────────────────────────────── */
+    const TOTAL_DUR = 180; // ~179s conversation duration (fallback; updated from audio)
+
+    /* Speech segments — exact timestamps from paper annotation data */
+    const userSpeech = [
+      [5.2, 24.0],                          // "Hi, I have two problems..."
+      [33.8, 35.8],                          // "I don't remember my email."
+      [41.8, 46.6],                          // "Yeah. First name: M, E, I..."
+      [53.0, 58.6],                          // "A, T, E, L. Zip code..."
+      [67.8, 69.2],                          // "Jigsaw first."
+      [74.4, 77.0],                          // "Can you switch it..."
+      [84.4, 85.4],                          // "Yes, the one wi—"
+      [93.8, 96.2],                          // "No, I don't know the item ID."
+      [102.4, 106.8],                        // "I just remember it's the 1000-piece..."
+      [113.8, 114.6],                        // "Yeah, that's it."
+      [121.8, 123.0],                        // "mm-hmm" (backchannel)
+      [128.2, 129.8],                        // "Yes, please."
+      [135.0, 137.0],                        // "Now, can we check my address?"
+      [145.8, 149.4],                        // "No, it should be four, four, five..."
+      [155.8, 159.2],                        // "Can you make sure all my orders..."
+      [170.2, 171.6],                        // "Yes, update it."
+    ];
+
+    const agentSpeech = [
+      [8.0, 8.2],                            // "Hello!" (brief interruption)
+      [18.8, 19.2],                          // "I can help" (brief interruption)
+      [23.0, 42.0],                          // "I'd be happy to help..." (auth)
+      [45.6, 47.0],                          // "M E I, got it..."
+      [49.0, 51.8],                          // "P, okay. And the rest..."
+      [60.8, 68.0],                          // "Thank you, I've found your account..."
+      [78.6, 83.2],                          // "To confirm, you want to exchange..."
+      [84.4, 86.0],                          // "Sure, take your time."
+      [89.8, 94.8],                          // "Great. Do you know the item ID..."
+      [97.2, 101.2],                         // "No problem. Could you tell me..."
+      [108.4, 124.4],                        // "I found a 1000-piece..." (long turn)
+      [138.2, 146.4],                        // "Sure. The address on file is..."
+      [151.0, 157.0],                        // "Your address has been updated..."
+      [160.2, 169.0],                        // "I can only modify..." 
+      [172.4, 178.2],                        // "The shipping address has been updated..."
+    ];
+
+    /* Event markers — exact timestamps from paper annotation data.
+       lane: 'top' | 'user' | 'mid' | 'agent' | 'bot' */
+    const markers = [
+      // User Interruptions (orange ▼) — user cuts in while agent speaks
+      { t: 33.8,  lane:'top', cls:'stv-m-user-int',    html:'▼', tip:'User Interruption' },
+      { t: 41.8,  lane:'top', cls:'stv-m-user-int',    html:'▼', tip:'User Interruption' },
+      { t: 67.8,  lane:'top', cls:'stv-m-user-int',    html:'▼', tip:'User Interruption' },
+      { t: 93.8,  lane:'top', cls:'stv-m-user-int',    html:'▼', tip:'User Interruption' },
+      { t: 113.8, lane:'top', cls:'stv-m-user-int',    html:'▼', tip:'User Interruption' },
+      { t: 128.2, lane:'top', cls:'stv-m-user-int',    html:'▼', tip:'User Interruption' },
+      { t: 145.8, lane:'top', cls:'stv-m-user-int',    html:'▼', tip:'User Interruption' },
+      { t: 155.8, lane:'top', cls:'stv-m-user-int',    html:'▼', tip:'User Interruption' },
+
+      // Agent Interruptions (dark ▲) — agent started while user speaking
+      { t: 8.0,   lane:'bot', cls:'stv-m-agent-int',   html:'▲', tip:'Agent Interruption @ 8.0s' },
+      { t: 18.8,  lane:'bot', cls:'stv-m-agent-int',   html:'▲', tip:'Agent Interruption @ 18.8s' },
+      { t: 23.0,  lane:'bot', cls:'stv-m-agent-int',   html:'▲', tip:'Agent Interruption @ 23.0s' },
+      { t: 45.6,  lane:'bot', cls:'stv-m-agent-int',   html:'▲', tip:'Agent Interruption @ 45.6s' },
+      { t: 84.4,  lane:'bot', cls:'stv-m-agent-int',   html:'▲', tip:'Agent Interruption @ 84.4s' },
+
+      // Backchannel (green dot) — "mm-hmm" handled correctly
+      { t: 121.8, lane:'top', cls:'stv-m-backchannel', html:'',  tip:'Backchannel ("mm-hmm")' },
+
+      // Burst noise (lightning) — environmental car sounds
+      { t: 38.2,  lane:'mid', cls:'stv-m-burst',       html:'⚡', tip:'Burst Noise' },
+      { t: 51.8,  lane:'mid', cls:'stv-m-burst',       html:'⚡', tip:'Burst Noise' },
+      { t: 160.2, lane:'mid', cls:'stv-m-burst',       html:'⚡', tip:'Burst Noise' },
+
+      // Muffling — audio degradation on user speech
+      { t: 34.8,  lane:'user', cls:'stv-m-muffling-track', html:'', tip:'Muffling' },
+      { t: 75.4,  lane:'user', cls:'stv-m-muffling-track', html:'', tip:'Muffling' },
+      { t: 129.0, lane:'user', cls:'stv-m-muffling-track', html:'', tip:'Muffling' },
+
+      // Frame Drops — 150ms network packet loss
+      { t: 6.0,   lane:'mid', cls:'stv-m-frame-drop',  html:'',  tip:'Frame Drop @ 6.0s' },
+      { t: 23.4,  lane:'mid', cls:'stv-m-frame-drop',  html:'',  tip:'Frame Drop @ 23.4s' },
+      { t: 67.8,  lane:'mid', cls:'stv-m-frame-drop',  html:'',  tip:'Frame Drop @ 67.8s' },
+      { t: 135.6, lane:'mid', cls:'stv-m-frame-drop',  html:'',  tip:'Frame Drop @ 135.6s' },
+      { t: 147.8, lane:'mid', cls:'stv-m-frame-drop',  html:'',  tip:'Frame Drop @ 147.8s' },
+
+      // No Response — agent failed to respond
+      { t: 69.2,  lane:'bot', cls:'stv-m-no-response',  html:'✗', tip:'No Response @ 69.2s' },
+      { t: 129.8, lane:'bot', cls:'stv-m-no-response',  html:'✗', tip:'No Response @ 129.8s' },
+
+      // No Yield — agent didn't stop when user interrupted
+      { t: 35.8,  lane:'bot', cls:'stv-m-no-yield',     html:'⊘', tip:'No Yield' },
+      { t: 114.6, lane:'bot', cls:'stv-m-no-yield',     html:'⊘', tip:'No Yield' },
+
+      // Vocal Tic — throat clearing before speaking
+      { t: 33.0,  lane:'user', cls:'stv-m-vocal-tic',   html:'~', tip:'Vocal Tic (throat clearing)' },
+
+      // Non-Agent Directed Speech — "Give me a moment" to someone else
+      { t: 82.4,  lane:'user', cls:'stv-m-non-agent-dir', html:'···', tip:'Non-Agent Directed Speech' },
+
+      // Non-Agent Direction Error — agent incorrectly yielded
+      { t: 83.2,  lane:'bot', cls:'stv-m-no-response',  html:'✗···', tip:'Non-Dir Error (agent incorrectly yielded)' },
+    ];
+
+    /* Legend config — 'type' links to marker cls for glow matching */
+    const legend = [
+      { label:'User',            swatch:'block-user',                              type:'user' },
+      { label:'Agent',           swatch:'block-agent',                             type:'agent' },
+      { label:'Backchannel',     swatch:'dot',    color:'#38a169',                 type:'backchannel' },
+      { label:'Burst',           swatch:'text',   text:'⚡', color:'#805ad5',      type:'burst' },
+      { label:'Vocal Tic',       swatch:'text',   text:'~',  color:'#0bc5ea',      type:'vocal_tic' },
+      { label:'Non-Agent Dir.',  swatch:'text',   text:'···',color:'#d53f8c',      type:'non_agent_dir' },
+      { label:'Muffling',        swatch:'square', color:'#805ad5',                 type:'muffling' },
+      { label:'Frame Drop',      swatch:'line',   color:'#e53e3e',                 type:'frame_drop' },
+      { label:'Agent Int.',      swatch:'text',   text:'▲',  color:'#742a2a',      type:'agent_int' },
+      { label:'No Response',     swatch:'text',   text:'✗',  color:'#c53030',      type:'no_response' },
+      { label:'No Yield',        swatch:'text',   text:'⊘',  color:'#742a2a',      type:'no_yield' },
+      { label:'User Int.',       swatch:'text',   text:'▼',  color:'#dd6b20',      type:'user_int' },
+      { label:'BC Issue',        swatch:'text',   text:'!',  color:'#742a2a',      type:'bc_issue' },
+      { label:'Voc. Tic Error',  swatch:'text',   text:'✗~', color:'#c53030',      type:'voc_tic_error' },
+    ];
+
+    /* Map marker CSS classes → legend type keys */
+    const clsToType = {
+      'stv-m-user-int':       'user_int',
+      'stv-m-agent-int':      'agent_int',
+      'stv-m-backchannel':    'backchannel',
+      'stv-m-burst':          'burst',
+      'stv-m-muffling-track': 'muffling',
+      'stv-m-frame-drop':     'frame_drop',
+      'stv-m-no-response':    'no_response',
+      'stv-m-no-yield':       'no_yield',
+      'stv-m-vocal-tic':      'vocal_tic',
+      'stv-m-non-agent-dir':  'non_agent_dir',
+      'stv-m-bc-issue':       'bc_issue',
+      'stv-m-voc-tic-error':  'voc_tic_error',
+    };
+
+    /* ── DOM refs ─────────────────────────────────── */
+    const audio       = document.getElementById('stvAudio');
+    const playBtn     = document.getElementById('stvPlayBtn');
+    const playIcon    = document.getElementById('stvPlayIcon');
+    const pauseIcon   = document.getElementById('stvPauseIcon');
+    const timeEl      = document.getElementById('stvTime');
+    const speedBtn    = document.getElementById('stvSpeedBtn');
+    const tracksArea  = document.getElementById('stvTracksArea');
+    const trackUser   = document.getElementById('stvTrackUser');
+    const trackAgent  = document.getElementById('stvTrackAgent');
+    const markerTop   = document.getElementById('stvMarkerTop');
+    const markerMid   = document.getElementById('stvMarkerMid');
+    const markerBot   = document.getElementById('stvMarkerBot');
+    const xaxis       = document.getElementById('stvXAxis');
+    const legendEl    = document.getElementById('stvLegend');
+    const playhead    = document.getElementById('stvPlayhead');
+    const clickOverlay= document.getElementById('stvClickOverlay');
+
+    let duration = TOTAL_DUR;
+    const speeds = [1, 1.5, 2, 0.5];
+    let speedIdx = 0;
+
+    /* ── Helpers ──────────────────────────────────── */
+    function pct(t) { return (t / duration * 100) + '%'; }
+    function fmt(s) {
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return m + ':' + String(sec).padStart(2, '0');
+    }
+
+    /* Seeded pseudo-random for reproducible waveforms */
+    function seededRand(seed) {
+      let s = seed;
+      return function() {
+        s = (s * 16807 + 0) % 2147483647;
+        return s / 2147483647;
+      };
+    }
+
+    /* ── Render speech blocks with waveform bars ──── */
+    function renderSpeech(blocks, track, type) {
+      const rand = seededRand(type === 'user' ? 42 : 137);
+      blocks.forEach(function(seg) {
+        const el = document.createElement('div');
+        el.className = 'stv-speech stv-speech-' + type;
+        el.style.left = pct(seg[0]);
+        el.style.width = ((seg[1] - seg[0]) / duration * 100) + '%';
+        track.appendChild(el);
+
+        // Generate waveform bars
+        const segDur = seg[1] - seg[0];
+        const barCount = Math.max(4, Math.round(segDur * 2.5));
+        for (let i = 0; i < barCount; i++) {
+          const bar = document.createElement('div');
+          bar.className = 'stv-bar stv-bar-' + type;
+          const h = 20 + rand() * 80;
+          bar.style.height = h + '%';
+          bar.style.left = (i / barCount * 100) + '%';
+          // Center vertically
+          bar.style.bottom = ((100 - h) / 2) + '%';
+          bar.style.borderRadius = '1px';
+          el.appendChild(bar);
+        }
+      });
+    }
+
+    /* ── Render background noise on user track ────── */
+    function renderNoise() {
+      const rand = seededRand(999);
+      const barSpacing = 4; // px
+      const totalWidth = trackUser.offsetWidth || 800;
+      const numBars = Math.floor(totalWidth / barSpacing);
+      for (let i = 0; i < numBars; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'stv-noise-bar';
+        const h = 3 + rand() * 12;
+        bar.style.height = h + 'px';
+        bar.style.left = (i * barSpacing) + 'px';
+        trackUser.appendChild(bar);
+      }
+    }
+
+    /* ── Render markers ──────────────────────────── */
+    let markerEls = []; // store refs for glow logic
+
+    function renderMarkers() {
+      markerEls = [];
+      const laneMap = {
+        top: markerTop,
+        user: trackUser,
+        mid: markerMid,
+        agent: trackAgent,
+        bot: markerBot
+      };
+
+      markers.forEach(function(m) {
+        const container = laneMap[m.lane];
+        if (!container) return;
+        const el = document.createElement('div');
+        el.className = 'stv-marker ' + m.cls;
+        el.style.left = pct(m.t);
+        if (m.html) el.innerHTML = m.html;
+        if (m.tip) el.setAttribute('title', m.tip + ' @ ' + fmt(m.t));
+        const mType = clsToType[m.cls];
+        if (mType) el.setAttribute('data-type', mType);
+        container.appendChild(el);
+        markerEls.push({ el: el, t: m.t, type: mType });
+      });
+    }
+
+    /* ── Render x-axis ───────────────────────────── */
+    function renderXAxis() {
+      for (let t = 0; t <= duration; t += 20) {
+        const tick = document.createElement('div');
+        tick.className = 'stv-xaxis-tick';
+        tick.style.left = pct(t);
+        xaxis.appendChild(tick);
+
+        const lbl = document.createElement('div');
+        lbl.className = 'stv-xaxis-label';
+        lbl.style.left = pct(t);
+        lbl.textContent = t;
+        xaxis.appendChild(lbl);
+      }
+    }
+
+    /* ── Render legend ───────────────────────────── */
+    let legendItemEls = {}; // type → DOM element
+
+    function renderLegend() {
+      legendItemEls = {};
+      legend.forEach(function(item) {
+        const el = document.createElement('div');
+        el.className = 'stv-legend-item';
+        if (item.type) el.setAttribute('data-type', item.type);
+
+        let swatch = '';
+        if (item.swatch === 'block-user') {
+          swatch = '<span class="stv-legend-swatch"><span class="stv-legend-swatch-block user"></span></span>';
+        } else if (item.swatch === 'block-agent') {
+          swatch = '<span class="stv-legend-swatch"><span class="stv-legend-swatch-block agent"></span></span>';
+        } else if (item.swatch === 'dot') {
+          swatch = '<span class="stv-legend-swatch"><span style="width:8px;height:8px;border-radius:50%;background:' + item.color + ';display:inline-block"></span></span>';
+        } else if (item.swatch === 'square') {
+          swatch = '<span class="stv-legend-swatch"><span style="width:8px;height:8px;border-radius:2px;background:' + item.color + ';display:inline-block"></span></span>';
+        } else if (item.swatch === 'line') {
+          swatch = '<span class="stv-legend-swatch"><span style="width:2px;height:12px;background:' + item.color + ';display:inline-block;border-radius:1px"></span></span>';
+        } else if (item.swatch === 'text') {
+          swatch = '<span class="stv-legend-swatch" style="color:' + item.color + ';font-size:12px;font-weight:700;line-height:1">' + item.text + '</span>';
+        }
+        el.innerHTML = swatch + '<span>' + item.label + '</span>';
+        legendEl.appendChild(el);
+        if (item.type) legendItemEls[item.type] = el;
+      });
+    }
+
+    /* ── Audio controls ──────────────────────────── */
+    playBtn.addEventListener('click', function() {
+      if (audio.paused) {
+        audio.play();
+      } else {
+        audio.pause();
+      }
+    });
+
+    audio.addEventListener('play', function() {
+      playIcon.style.display = 'none';
+      pauseIcon.style.display = '';
+      playhead.classList.add('active');
+    });
+
+    audio.addEventListener('pause', function() {
+      playIcon.style.display = '';
+      pauseIcon.style.display = 'none';
+    });
+
+    audio.addEventListener('ended', function() {
+      playIcon.style.display = '';
+      pauseIcon.style.display = 'none';
+      playhead.classList.remove('active');
+    });
+
+    audio.addEventListener('loadedmetadata', function() {
+      if (audio.duration && isFinite(audio.duration)) {
+        duration = audio.duration;
+        timeEl.textContent = '0:00 / ' + fmt(duration);
+        // Re-render with correct duration
+        init();
+      }
+    });
+
+    speedBtn.addEventListener('click', function() {
+      speedIdx = (speedIdx + 1) % speeds.length;
+      audio.playbackRate = speeds[speedIdx];
+      speedBtn.textContent = speeds[speedIdx] + '×';
+    });
+
+    /* Seek on click */
+    clickOverlay.addEventListener('click', function(e) {
+      const rect = tracksArea.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const ratio = x / rect.width;
+      const seekTime = ratio * duration;
+      audio.currentTime = Math.max(0, Math.min(seekTime, duration));
+      playhead.classList.add('active');
+      updatePlayhead();
+    });
+
+    /* ── Playhead animation + Christmas-lights logic ── */
+    let rafId = null;
+    const GLOW_WINDOW = 1.5; // seconds — how close the playhead must be to light up a marker
+    let prevLitTypes = new Set();
+
+    function updatePlayhead() {
+      const t = audio.currentTime;
+      const ratio = t / duration;
+      playhead.style.left = (ratio * 100) + '%';
+      timeEl.textContent = fmt(t) + ' / ' + fmt(duration);
+    }
+
+    function updateGlow(t) {
+      const litTypes = new Set();
+
+      // Check if playhead is inside any user speech block
+      for (let i = 0; i < userSpeech.length; i++) {
+        if (t >= userSpeech[i][0] && t <= userSpeech[i][1]) { litTypes.add('user'); break; }
+      }
+      // Check if playhead is inside any agent speech block
+      for (let i = 0; i < agentSpeech.length; i++) {
+        if (t >= agentSpeech[i][0] && t <= agentSpeech[i][1]) { litTypes.add('agent'); break; }
+      }
+
+      // Check proximity to markers
+      markerEls.forEach(function(m) {
+        const dist = Math.abs(t - m.t);
+        if (dist <= GLOW_WINDOW) {
+          if (m.type) litTypes.add(m.type);
+          if (!m.el.classList.contains('lit')) m.el.classList.add('lit');
+        } else {
+          if (m.el.classList.contains('lit')) m.el.classList.remove('lit');
+        }
+      });
+
+      // Highlight speech blocks the playhead is inside
+      var userBlocks = trackUser.querySelectorAll('.stv-speech-user');
+      userBlocks.forEach(function(block, i) {
+        if (i < userSpeech.length && t >= userSpeech[i][0] && t <= userSpeech[i][1]) {
+          block.classList.add('lit-pulse');
+        } else {
+          block.classList.remove('lit-pulse');
+        }
+      });
+      var agentBlocks = trackAgent.querySelectorAll('.stv-speech-agent');
+      agentBlocks.forEach(function(block, i) {
+        if (i < agentSpeech.length && t >= agentSpeech[i][0] && t <= agentSpeech[i][1]) {
+          block.classList.add('lit-pulse');
+        } else {
+          block.classList.remove('lit-pulse');
+        }
+      });
+
+      // Update legend item glow — only toggle when set changes
+      // (check symmetric difference)
+      let changed = litTypes.size !== prevLitTypes.size;
+      if (!changed) {
+        litTypes.forEach(function(tp) { if (!prevLitTypes.has(tp)) changed = true; });
+      }
+      if (changed) {
+        Object.keys(legendItemEls).forEach(function(tp) {
+          const el = legendItemEls[tp];
+          if (litTypes.has(tp)) {
+            if (!el.classList.contains('lit')) el.classList.add('lit');
+          } else {
+            if (el.classList.contains('lit')) el.classList.remove('lit');
+          }
+        });
+        prevLitTypes = litTypes;
+      }
+    }
+
+    function clearAllGlow() {
+      Object.keys(legendItemEls).forEach(function(tp) {
+        legendItemEls[tp].classList.remove('lit');
+      });
+      markerEls.forEach(function(m) { m.el.classList.remove('lit'); });
+      trackUser.querySelectorAll('.lit-pulse').forEach(function(el) { el.classList.remove('lit-pulse'); });
+      trackAgent.querySelectorAll('.lit-pulse').forEach(function(el) { el.classList.remove('lit-pulse'); });
+      prevLitTypes = new Set();
+    }
+
+    function tick() {
+      updatePlayhead();
+      updateGlow(audio.currentTime);
+      rafId = requestAnimationFrame(tick);
+    }
+
+    audio.addEventListener('play', function() { rafId = requestAnimationFrame(tick); });
+    audio.addEventListener('pause', function() { cancelAnimationFrame(rafId); updatePlayhead(); });
+    audio.addEventListener('ended', function() { cancelAnimationFrame(rafId); updatePlayhead(); clearAllGlow(); });
+    audio.addEventListener('seeked', function() { updatePlayhead(); updateGlow(audio.currentTime); });
+
+    /* ── Tooltip (native title is fine, but let's add a custom one) ─── */
+    const tooltip = document.createElement('div');
+    tooltip.className = 'stv-tooltip';
+    document.body.appendChild(tooltip);
+
+    tracksArea.addEventListener('mousemove', function(e) {
+      const target = e.target.closest('.stv-marker[title]');
+      if (target) {
+        tooltip.textContent = target.getAttribute('title');
+        tooltip.classList.add('show');
+        tooltip.style.left = (e.clientX + 10) + 'px';
+        tooltip.style.top = (e.clientY - 30) + 'px';
+      } else {
+        tooltip.classList.remove('show');
+      }
+    });
+
+    tracksArea.addEventListener('mouseleave', function() {
+      tooltip.classList.remove('show');
+    });
+
+    /* ── Init ─────────────────────────────────────── */
+    function init() {
+      // Clear previous renders
+      trackUser.innerHTML = '';
+      trackAgent.innerHTML = '';
+      markerTop.innerHTML = '';
+      markerMid.innerHTML = '';
+      markerBot.innerHTML = '';
+      xaxis.innerHTML = '';
+      legendEl.innerHTML = '';
+
+      renderNoise();
+      renderSpeech(userSpeech, trackUser, 'user');
+      renderSpeech(agentSpeech, trackAgent, 'agent');
+      renderMarkers();
+      renderXAxis();
+      renderLegend();
+      timeEl.textContent = '0:00 / ' + fmt(duration);
+    }
+
+    // Wait for layout, then init
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      requestAnimationFrame(init);
+    }
+
+    // Re-render on resize (noise bars depend on pixel width)
+    let resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(init, 200);
+    });
+  })();
+  </script>
+
+</body>
+</html>

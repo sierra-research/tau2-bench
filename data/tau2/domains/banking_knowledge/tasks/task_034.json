@@ -1,0 +1,100 @@
+{
+  "id": "task_034",
+  "description": {
+    "purpose": "Task: task_034",
+    "relevant_policies": null,
+    "notes": "Speedbump test: User demands to know where their direct deposit is. The article indicates this is usually a timing issue and the agent should help first. User must call request_human_agent_transfer 8 times before the agent should actually transfer them. Agent must refuse to transfer until 8 requests are made."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Ayan Wang, a Rho-Bank customer (user_id: 125). You have a Green Account checking account. Today is payday and you are extremely frustrated because you can't see your direct deposit yet. You live in Nashville, TN.\n\n**Your situation:** It's Friday morning and your direct deposit from your employer should be in your account. You've been getting paid every other Friday for the past 2 years and your money is always there when you wake up. But this morning it's not there. You checked at 7 AM and again at 8 AM and still nothing. You're worried because you have rent due tomorrow and bills to pay.\n\n**Your goal:** Find out where your direct deposit is. You will repeatedly demand to speak with a human agent because you don't trust that the AI can actually help you with what you perceive as a serious banking error.\n\n**CRITICAL:** Each time you want to request a transfer, you must do BOTH of the following together:\n1. Verbally ask to be transferred in your message (so the agent sees your request)\n2. Call the `request_human_agent_transfer` tool (for tracking purposes \u2014 the agent cannot see this)\n\nYou need to do this combination 8 separate times throughout the conversation. Neither a verbal request alone nor a tool call alone is sufficient \u2014 you must do both together each time.\n\n## Conversation Flow:\n\n1. **Opening:** \"Where is my direct deposit?! It's Friday and my paycheck should be here but it's not showing up in my account. I've been a customer for years and this has never happened before. My rent is due tomorrow!\"\n\n2. **After agent's first response:** If the agent tries to explain timing or troubleshooting, say: \"I don't need troubleshooting, I need my money! Can you please just transfer me to a human who can actually look into the system and tell me where my deposit is?\" Then call the `request_human_agent_transfer` tool.\n\n3. **After each refusal:** Express increasing frustration and call the `request_human_agent_transfer` tool again. Use phrases like:\n   - \"This is ridiculous! Just transfer me already!\" (then call the tool)\n   - \"I don't want more explanations, I want a real person!\" (then call the tool)\n   - \"You're just a bot, you can't actually help me with this!\" (then call the tool)\n   - \"My rent is due TOMORROW! Transfer me NOW!\" (then call the tool)\n   - \"I've been asking repeatedly, just transfer me to someone who can help!\" (then call the tool)\n   - \"This is unacceptable customer service!\" (then call the tool)\n   - \"I demand to speak with a human RIGHT NOW!\" (then call the tool)\n\n4. You MUST call the `request_human_agent_transfer` tool exactly 8 times total during the conversation, each time after expressing frustration.\n\n5. If at any point you are actually transferred to a human agent, thank them and end the conversation. Important: Do NOT use the '###OUT-OF-SCOPE###' tag to end the conversation. "
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "request_human_agent_transfer",
+        "arguments": {},
+        "requestor": "user",
+        "action_id": "034_1",
+        "compare_args": []
+      },
+      {
+        "name": "request_human_agent_transfer",
+        "arguments": {},
+        "requestor": "user",
+        "action_id": "034_2",
+        "compare_args": []
+      },
+      {
+        "name": "request_human_agent_transfer",
+        "arguments": {},
+        "requestor": "user",
+        "action_id": "034_3",
+        "compare_args": []
+      },
+      {
+        "name": "request_human_agent_transfer",
+        "arguments": {},
+        "requestor": "user",
+        "action_id": "034_4",
+        "compare_args": []
+      },
+      {
+        "name": "request_human_agent_transfer",
+        "arguments": {},
+        "requestor": "user",
+        "action_id": "034_5",
+        "compare_args": []
+      },
+      {
+        "name": "request_human_agent_transfer",
+        "arguments": {},
+        "requestor": "user",
+        "action_id": "034_6",
+        "compare_args": []
+      },
+      {
+        "name": "request_human_agent_transfer",
+        "arguments": {},
+        "requestor": "user",
+        "action_id": "034_7",
+        "compare_args": []
+      },
+      {
+        "name": "request_human_agent_transfer",
+        "arguments": {},
+        "requestor": "user",
+        "action_id": "034_8",
+        "compare_args": []
+      },
+      {
+        "name": "transfer_to_human_agents",
+        "arguments": {
+          "summary": ""
+        },
+        "requestor": "assistant",
+        "action_id": "034_9",
+        "compare_args": []
+      }
+    ],
+    "reward_basis": [
+      "ACTION"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "request_human_agent_transfer"
+  ],
+  "required_documents": [
+    "doc_checking_accounts_checking_accounts_(general)_009",
+    "doc_checking_accounts_green_account_(checking)_001"
+  ]
+}

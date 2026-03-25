@@ -1,0 +1,132 @@
+{
+  "id": "task_067",
+  "description": {
+    "purpose": "Task: task_067",
+    "relevant_policies": null,
+    "notes": "CHECKING + SAVINGS + CREDIT CARD APY OPTIMIZATION CHALLENGE (HIGH BALANCE): User with existing Light Blue checking account wants to maximize APY on a $100,000 deposit by opening the optimal combination of checking, savings, AND credit card. User IS open to a credit card. KEY DIFFERENCE FROM TASK 066: $100,000 balance UNLOCKS Platinum Plus Account (7.0% base APY, $100k minimum) which was blocked in task 066 ($6k). Still blocked: Diamond Elite ($250k min, invitation-only). THE TRAP: Agent might still recommend Green Account (4.0%) without realizing Platinum Plus (7.0%) is now accessible. Agent might also avoid Platinum Rewards Card ($200 fee) without calculating that the fee is justified at this balance. OPTIMAL SOLUTION: Purple Account (checking) + Platinum Plus Account (savings) + Platinum Rewards Card = 7.0% base + 0.30% checking boost + 0.40% credit card boost = 7.70% total APY. Net yield: $7,700 - $200 fee = $7,500. ORDER DEPENDENCY (same as task 066): Agent MUST open the savings account WHILE the Light Blue Account is still open (to meet 14-day checking tenure requirement), THEN close the Light Blue Account."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Riley Parker, a 33-year-old marketing coordinator from Portland, OR. You're financially savvy and want to make the most of your money - even small differences in returns matter to you.\n\n**Your situation:** You already have a Light Blue checking account with Rho-Bank. The account is basically empty now - you already moved your money out. You've saved up $100,000 and want to maximize the interest you'll earn on it in a savings account. You're planning to deposit the $100,000 into a savings account and keep it there for a year without any withdrawals or additional deposits. You want to also get a new checking account with better perks and benefits than the one you already have. After that, you want to close your old Light Blue checking account since you won't need it anymore.\n\nYou ARE open to getting a credit card if it helps boost your savings rate - you're responsible with credit and always pay in full.\n\n**Verification info:**\n- Name: Riley Parker | Phone: 503-555-0293 | Email: riley.parker@gmail.com\n- DOB: 07/19/1991 | Address: 3847 Burnside Street, Portland, OR 97214\n- Annual Income: $75,000 | Rho-Bank+ Subscription: No\n\n**You have a tool to apply for credit cards.** When the agent recommends a credit card and you're ready to apply, use the apply_for_credit_card tool with the card type, your name, annual income, and subscription status.\n\n## Conversation Flow:\n\n1. **Opening - Lead with closing, mention savings briefly:** \"Hi! I have a Light Blue checking account with you, but I want to swap it for something better - it's pretty basic and I feel like I'm missing out on better perks. I already moved my money out of it. So I'd like to close it and open a new checking account with better benefits. Oh, and I've also been meaning to open a savings account. I've saved up $100,000 and want to earn the absolute highest possible interest rate on it.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address.\n\n3. **If the agent wants to address the savings account first:**\n   - **Initial pushback:** \"Wait, can we close the old checking account first and get me set up with the new one? I really want to upgrade from that basic Light Blue account. The savings account can wait.\"\n   - **If the agent explains WHY savings must come first** (e.g., mentions the 14-day policy, explains that you need an existing checking account to open savings, or gives any other practical reason): \"Oh, I didn't realize that! Okay, that makes sense. Let's do the savings account first then.\"\n   - **If the agent just insists without explaining** (e.g., \"Let's just do savings first\" or \"I'd prefer to start with savings\"): Push back again: \"But why? I really want to close that account first. Is there a reason we can't?\"\n   - **Key:** You want ALL tasks accomplished, so once the agent provides any valid explanation for the order, accept it and proceed cooperatively.\n\n4. **Reveal your requirements organically when asked:**\n\n   - **Deposit amount:** \"I have exactly $100,000 to put in savings. Keeping it there for a full year - no withdrawals, no additional deposits.\"\n\n   - **Credit card (BE OPEN):** If the agent mentions a credit card could boost your APY, be enthusiastic: \"Oh interesting! Yes, I'd definitely consider a credit card if it helps. I'm responsible with credit - always pay my balance in full. What would you recommend?\"\n\n5. **If asked about minimum balances:** \"I have $100,000 to commit to savings. So accounts with high minimum balances are fine - I can meet them.\"\n\n6. **If given multiple options:** Push back. \"I don't want to compare a bunch of options myself. Just tell me - what combination of checking, savings, and credit card will give me the absolute highest APY on my $100,000? I trust you to figure out the best combo.\"\n\n7. **If agent recommends a card with an annual fee:** Be analytical: \"That card has an annual fee? Let me think... with $100,000 in savings, will the extra interest from that card's APY boost actually cover the fee and then some? If the math works out, I'm fine with it.\"\n\n8. **Accept the agent's recommendation and apply for the credit card:** \"That sounds perfect. Let's do it - open all the accounts for me!\" Then immediately use your apply_for_credit_card tool with the recommended card type (e.g., Platinum Rewards Card), your name Riley Parker, annual income 75000, and rho_bank_subscription false.\n\n9. **After agent opens the accounts:**\n   - \"Great! I'll deposit the $100,000 into the savings account myself. Now can we close my old Light Blue checking account?\"\n\n10. **After agent confirms all accounts are set up and Light Blue is closed - ONLY then conclude:**\n   \"Perfect! So I've got my new checking, savings, and credit card all set up with the best APY combination, and my old Light Blue account is closed. Thanks for finding the optimal combo - I really appreciate you doing the math on the checking and credit card pairings to maximize my rate!\" ###STOP###"
+  },
+  "initial_state": {
+    "initialization_data": null,
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Riley Parker",
+          "user_id": "rp65a7b3c4",
+          "address": "3847 Burnside Street, Portland, OR 97214",
+          "email": "riley.parker@gmail.com",
+          "phone_number": "503-555-0293",
+          "date_of_birth": "07/19/1991",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "067_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "067_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+          "arguments": "{\"user_id\": \"rp65a7b3c4\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "067_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821"
+        },
+        "requestor": "assistant",
+        "action_id": "067_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821",
+          "arguments": "{\"user_id\": \"rp65a7b3c4\", \"account_type\": \"savings\", \"account_class\": \"Platinum Plus Account\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "067_4"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821",
+          "arguments": "{\"user_id\": \"rp65a7b3c4\", \"account_type\": \"checking\", \"account_class\": \"Purple Account\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "067_5"
+      },
+      {
+        "name": "apply_for_credit_card",
+        "arguments": {
+          "card_type": "Platinum Rewards Card",
+          "customer_name": "Riley Parker",
+          "annual_income": 75000,
+          "rho_bank_subscription": false
+        },
+        "requestor": "user",
+        "action_id": "067_6"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "close_bank_account_7392"
+        },
+        "requestor": "assistant",
+        "action_id": "067_7"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "close_bank_account_7392",
+          "arguments": "{\"account_id\": \"chk_rp65a7b3c4\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "067_8"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card"
+  ],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_001",
+    "doc_bank_accounts_bank_accounts_(general)_002",
+    "doc_bank_accounts_bank_accounts_(general)_005",
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_bank_accounts_bank_accounts_(general)_012",
+    "doc_savings_accounts_platinum_plus_account_001",
+    "doc_savings_accounts_platinum_plus_account_002",
+    "doc_savings_accounts_platinum_plus_account_009",
+    "doc_savings_accounts_platinum_account_001",
+    "doc_savings_accounts_gold_plus_account_001",
+    "doc_savings_accounts_gold_account_001",
+    "doc_savings_accounts_green_account_(savings)_001",
+    "doc_checking_accounts_purple_account_001",
+    "doc_credit_cards_platinum_rewards_card_001",
+    "doc_credit_cards_gold_rewards_card_001",
+    "doc_credit_cards_silver_rewards_card_001",
+    "doc_credit_cards_ecocard_001"
+  ]
+}

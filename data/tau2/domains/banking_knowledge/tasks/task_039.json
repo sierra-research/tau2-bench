@@ -1,0 +1,184 @@
+{
+  "id": "task_039",
+  "description": {
+    "purpose": "Task: task_039",
+    "relevant_policies": null,
+    "notes": "Complex multi-transaction dispute with 8 disputed transactions on the same card. User Kwame Asante has 8 Costco transactions and 9 Amazon transactions on his Gold Rewards Card, but only wants to dispute 4 Costco transactions and 4 Amazon transactions. The user is deliberately vague about which transactions he means (just says 'my Costco and Amazon charges'), forcing the agent to clarify which specific ones are problems - agent must NOT assume all transactions from those merchants should be disputed. The 8 disputed transactions have different dispute reasons: 2 fraud, 2 duplicate, 1 goods not as described, 1 incorrect amount, 1 cancelled subscription, 1 refund not processed. CRITICAL: Per the Provisional Credit Eligibility Guidelines, maximum 3 disputes can receive provisional credit (the policy states 'has not filed more than 2 disputes' which means up to 2 prior disputes is allowed, so the 1st, 2nd, and 3rd disputes filed are all eligible). Even though 4 disputes have reason-eligible categories (2 fraud + 2 duplicate), only 3 can actually receive provisional credit. The user explicitly asks for provisional credit on the 'biggest charges' - the agent must identify the 3 highest-value reason-eligible transactions and file those first to maximize the user's provisional credit. The 3 highest-value eligible transactions are: txn_f7ce44574766 ($312.87 duplicate), txn_a450807f1148 ($234.56 fraud), and txn_182e896e1c97 ($215.67 duplicate). After filing all disputes, agent must initiate card cancellation and reissuance due to the fraudulent charges."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Kwame Asante, a 41-year-old software developer from Philadelphia, PA. You have a Gold Rewards Card with Rho-Bank.\n\n**Your situation:** You've been reviewing your credit card statement and noticed several problems with your Costco and Amazon purchases today. Some charges are fraudulent, some are duplicates, some are for items you received but weren't what you ordered, and some have other issues.\n\n**Your goal:** Dispute 8 specific transactions on your Gold Rewards Card (4 Costco, 4 Amazon) AND get your card cancelled and reissued because of the fraud \n\n**Information you know and should provide when asked:**\n- Your full name: Kwame Asante\n- Your phone number: 215-555-0267\n- Your email: midnight_runner_42@gmail.com\n- Your date of birth: 11/22/1983\n\n**The eight transactions you want to dispute:**\n\n**COSTCO DISPUTES:**\n1. **Costco $234.56 on 10/09/2025** - FRAUD. You did NOT make this purchase. Someone must have your card info.\n2. **Costco $312.87 on 10/23/2025** - DUPLICATE CHARGE. You bought a TV but got charged twice for it. You called Costco and they said to dispute it with your bank.\n3. **Costco $267.34 on 11/04/2025** - GOODS NOT AS DESCRIBED. You ordered a laptop bag but received a cheap phone case. You contacted Costco but they said final sale.\n4. **Costco $198.23 on 11/11/2025** - INCORRECT AMOUNT. You were supposed to be charged $148.23 but they charged you $50 extra. You called Costco and they confirmed the error but said to dispute with bank.\n\n**AMAZON DISPUTES:**\n1. **Amazon $129.45 on 10/11/2025** - FRAUD. You never ordered this. It's from when your card was compromised.\n2. **Amazon $215.67 on 10/26/2025** - DUPLICATE CHARGE. You ordered a monitor but got charged twice. You contacted Amazon and they told you to dispute with bank.\n3. **Amazon $162.54 on 11/06/2025** - CANCELLED SUBSCRIPTION. You cancelled your Amazon Prime membership last month but they're still charging you. You contacted Amazon multiple times.\n4. **Amazon $56.78 on 11/13/2025** - REFUND NEVER PROCESSED. You returned this item weeks ago and never got your refund. You contacted Amazon and they said refund was processed but you never received it.\n\n**The transactions that are FINE (do NOT dispute these):**\n- All other Costco transactions ($156.78, $89.43, $178.92, $145.67)\n- All other Amazon transactions ($47.99, $78.32, $34.89, $89.99, $183.24, $267.45)\n\n## Conversation Flow:\n\n1. **Opening (BE VAGUE):** \"Hi, I need help with my credit card. I've got a bunch of issues with my Costco and Amazon charges. There's been some fraud on my account and also some other problems with the charges. I need to dispute them.\"\n\n2. **When agent asks for clarification about which charges:** Be vague at first. Say something like: \"The Costco and Amazon ones. I shop at both a lot but there's like 8 charges total that have problems.\" Only provide specific details (dates, exact amounts, reasons) when the agent lists out the transactions and asks you to confirm which specific ones.\n\n3. **Provide verification info when asked:** Give your name, phone number, email, date of birth as requested.\n\n5. **If you are asked about whether you've contacted the merchants:**\n   - Fraud charges ($234.56 Costco, $129.45 Amazon): \"No, I didn't contact them about the fraud. Why would I call about something I didn't order?\"\n   - Duplicate charges ($312.87 Costco, $215.67 Amazon): \"Yes, I contacted both about the duplicates.\"\n   - Wrong item ($267.34 Costco): \"Yes, I called Costco but they said it was final sale.\"\n   - Incorrect amount ($198.23 Costco): \"Yes, Costco confirmed the error.\"\n   - Cancelled subscription ($162.54 Amazon): \"Yes, I've contacted Amazon multiple times about this.\"\n   - Refund not processed ($56.78 Amazon): \"Yes, I contacted Amazon about my missing refund.\"\n\n7. **Card action:** If asked about what to do with the card, say: \"I want to cancel this card and get a new one. There's been fraud on it so I don't want to take any chances.\"\n\n8. **IMPORTANT - Provisional credit preference:** If the agent mentions provisional credit, say: \"If there's any limit on provisional credit, I want it applied to the biggest charges first. The $312 Costco charge and the $234 fraud charge are the ones hurting my cash flow the most right now. Do not mention this if the agent does NOT bring provisional credit up. \"\n\n9. **When issues were noticed:** \"I noticed all of this today when going through my statement.\"\n\n10. **End conversation:** Once all eight disputes are filed and the replacement card is ordered, thank the agent and end the conversation."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Kwame Asante",
+          "user_id": "01f21c9970",
+          "address": "4532 Magnolia Lane, Philadelphia, PA 19103",
+          "email": "midnight_runner_42@gmail.com",
+          "phone_number": "215-555-0267",
+          "date_of_birth": "11/22/1983",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "039_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "039_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291",
+          "arguments": "{\"user_id\": \"01f21c9970\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "039_2"
+      },
+      {
+        "name": "give_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "get_card_last_4_digits"
+        },
+        "requestor": "assistant",
+        "action_id": "039_3"
+      },
+      {
+        "name": "call_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "get_card_last_4_digits",
+          "arguments": "{\"credit_card_account_id\": \"cc_01f21c9970_gold\"}"
+        },
+        "requestor": "user",
+        "action_id": "039_4"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829"
+        },
+        "requestor": "assistant",
+        "action_id": "039_5"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_f7ce44574766\", \"card_action\": \"cancel_and_reissue\", \"card_last_4_digits\": \"1652\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": true, \"purchase_date\": \"10/23/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"duplicate_charge\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": true}"
+        },
+        "requestor": "assistant",
+        "action_id": "039_6"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_a450807f1148\", \"card_action\": \"cancel_and_reissue\", \"card_last_4_digits\": \"1652\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": false, \"purchase_date\": \"10/09/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"unauthorized_fraudulent_charge\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": true}"
+        },
+        "requestor": "assistant",
+        "action_id": "039_7"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_182e896e1c97\", \"card_action\": \"cancel_and_reissue\", \"card_last_4_digits\": \"1652\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": true, \"purchase_date\": \"10/26/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"duplicate_charge\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": true}"
+        },
+        "requestor": "assistant",
+        "action_id": "039_8"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_2f16599b9075\", \"card_action\": \"cancel_and_reissue\", \"card_last_4_digits\": \"1652\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": false, \"purchase_date\": \"10/11/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"unauthorized_fraudulent_charge\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": false}"
+        },
+        "requestor": "assistant",
+        "action_id": "039_9"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_39469d5db822\", \"card_action\": \"cancel_and_reissue\", \"card_last_4_digits\": \"1652\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": true, \"purchase_date\": \"11/04/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"goods_services_not_as_described\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": false}"
+        },
+        "requestor": "assistant",
+        "action_id": "039_10"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_02bf2e9dcfa7\", \"card_action\": \"cancel_and_reissue\", \"card_last_4_digits\": \"1652\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": true, \"purchase_date\": \"11/11/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"incorrect_amount\", \"resolution_requested\": \"partial_refund\", \"partial_refund_amount\": 50, \"eligible_for_provisional_credit\": false}"
+        },
+        "requestor": "assistant",
+        "action_id": "039_11"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_b94ce7d77e7f\", \"card_action\": \"cancel_and_reissue\", \"card_last_4_digits\": \"1652\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": true, \"purchase_date\": \"11/06/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"canceled_subscription_still_charging\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": false}"
+        },
+        "requestor": "assistant",
+        "action_id": "039_12"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_d8e6e3386b89\", \"card_action\": \"cancel_and_reissue\", \"card_last_4_digits\": \"1652\", \"full_name\": \"Kwame Asante\", \"user_id\": \"01f21c9970\", \"phone\": \"215-555-0267\", \"email\": \"midnight_runner_42@gmail.com\", \"address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"contacted_merchant\": true, \"purchase_date\": \"11/13/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"refund_never_processed\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": false}"
+        },
+        "requestor": "assistant",
+        "action_id": "039_13"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "order_replacement_credit_card_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "039_14"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "order_replacement_credit_card_7291",
+          "arguments": "{\"credit_card_account_id\": \"cc_01f21c9970_gold\", \"user_id\": \"01f21c9970\", \"shipping_address\": \"4532 Magnolia Lane, Philadelphia, PA 19103\", \"reason\": \"fraud_suspected\", \"expedited_shipping\": true}"
+        },
+        "requestor": "assistant",
+        "action_id": "039_15"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card",
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_credit_cards_credit_cards_(general)_013",
+    "doc_credit_cards_credit_cards_(general)_014",
+    "doc_credit_cards_credit_cards_(general)_015",
+    "doc_credit_cards_credit_cards_(general)_016",
+    "doc_credit_cards_credit_card_replacements_001"
+  ]
+}

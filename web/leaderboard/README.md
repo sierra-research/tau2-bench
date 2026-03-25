@@ -1,6 +1,6 @@
-# τ²-bench Web Interface
+# τ-bench Web Interface
 
-![τ²-bench Leaderboard](public/leaderboard.png)
+![τ-bench Leaderboard](public/leaderboard.png)
 
 ## 🚀 Quick Start
 
@@ -21,81 +21,26 @@
    npm install
    ```
 
-3. **Start the development server**
+3. **Configure environment (optional)**
+   ```bash
+   cp .env.example .env.local
+   ```
+   Uncomment `VITE_SUBMISSIONS_BASE_URL` to fetch submission and trajectory data from S3 instead of the local `public/` directory. This is required if trajectory files have been removed from the repo.
+
+4. **Start the development server**
    ```bash
    npm run dev
    ```
 
-4. **Open your browser**
+5. **Open your browser**
    - Navigate to `http://localhost:5173` (or the URL shown in your terminal)
    - The application will automatically reload when you make changes
 
-## 📊 Submitting to the Leaderboard
+## Submitting to the Leaderboard
 
-We welcome community submissions! The leaderboard now accepts model evaluation results through pull requests.
+We welcome community submissions! The leaderboard accepts model evaluation results through pull requests for both **text** (standard) and **voice** (audio-native) modalities.
 
-### How to Submit
-
-1. **Evaluate your model** using [tau2-bench](https://github.com/sierra-research/tau2-bench)
-2. **Create a JSON submission** following our schema (see `public/submissions/schema.json`)
-3. **Submit a pull request** with your results file and trajectory links for verification
-
-### Quick Example
-
-```json
-{
-  "model_name": "My-Model-v1.0",
-  "model_organization": "My Organization",
-  "submitting_organization": "My Organization",
-  "submission_date": "2025-01-15",
-  "contact_info": {
-    "email": "contact@myorg.com",
-    "name": "Research Team"
-  },
-  "trajectories_available": true,
-  "references": [
-    {
-      "title": "Model Technical Paper",
-      "url": "https://arxiv.org/abs/2401.00000",
-      "type": "paper"
-    },
-    {
-      "title": "Model Documentation",
-      "url": "https://docs.example.com/model",
-      "type": "documentation"
-    }
-  ],
-  "results": {
-    "retail": {"pass_1": 75.2, "pass_2": 68.1, "pass_3": null, "pass_4": null},
-    "airline": {"pass_1": 61.2, "pass_2": null, "pass_3": null, "pass_4": null},
-    "telecom": {"pass_1": 45.6, "pass_2": null, "pass_3": null, "pass_4": null}
-  },
-  "methodology": {
-    "evaluation_date": "2025-01-10",
-    "tau2_bench_version": "v1.0",
-    "user_simulator": "gpt-4.1-2025-04-14",
-    "verification": {
-      "modified_prompts": false,
-      "omitted_questions": true,
-      "details": "Only evaluated Pass@1 for all domains"
-    }
-  }
-}
-```
-
-### 🔍 Verification System
-
-The leaderboard now includes a verification system to ensure result quality:
-
-- **✅ Verified submissions** have trajectory data, use standard prompts, and complete all evaluations
-- **⚠️ Unverified submissions** are marked with caution icons and may have missing data or modified methodologies
-- Click on any model name to see detailed verification status and methodology information
-
-### 📚 Model References
-
-Each submission can include links to papers, documentation, and other resources about the model. This helps researchers access relevant information directly from the leaderboard. References are displayed in the model detail view with categorized badges for easy identification.
-
-📋 **See `SUBMISSION_GUIDE.md` for complete submission instructions**
+See the **[Leaderboard Submission Guide](../../docs/leaderboard-submission.md)** for complete instructions on running evaluations, preparing submissions, and submitting a pull request.
 
 ## 🔧 Development
 
@@ -121,8 +66,8 @@ src/
 └── main.jsx           # Application entry point
 
 public/
-├── data/               # CSV files and cost information
+├── submissions/        # Submission metadata (trajectories on S3)
 ├── task-data/          # Domain-specific tasks and policies
-├── trajectory-data/    # Model execution trajectories
-└── *.png, *.svg       # Public assets
+├── blog/               # Blog content
+└── *.png, *.svg        # Public assets
 ```

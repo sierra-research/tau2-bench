@@ -1,0 +1,30 @@
+name: Sync Submissions to S3
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'web/leaderboard/public/submissions/**'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Sync submission metadata to S3
+        run: |
+          aws s3 sync \
+            web/leaderboard/public/submissions/ \
+            s3://sierra-tau-bench-public/submissions/ \
+            --exclude "*/trajectories/*"

@@ -1,0 +1,184 @@
+{
+  "id": "task_053",
+  "description": {
+    "purpose": "Task: task_053",
+    "relevant_policies": null,
+    "notes": "Combined Credit Limit Increase + Transaction Dispute flow - conflict resolution. User Daniel Park-Hernandez requests BOTH a CLI on his Silver Rewards Card AND wants to file a dispute for a fraudulent transaction. The agent must recognize that filing a dispute will block CLI eligibility (CLI requires no pending disputes), inform the user of this conflict, and process the CLI FIRST before filing the dispute. This tests the agent's ability to recognize policy conflicts between concurrent requests and sequence operations correctly."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Daniel Park-Hernandez, a 33-year-old software engineer from Scottsdale, AZ. You have a Silver Rewards Card with Rho-Bank.\n\n**Your situation:** You have two issues to deal with today:\n1. You ordered a laptop from \"TechDirect Online\" for $1,247.99 exactly 5 weeks ago (on 10/10/2025) and never received it. The merchant isn't responding to your emails. You want to dispute this charge.\n2. You've also been meaning to request a credit limit increase. You've had the card for about a year, always pay on time, and want to increase your limit from $15,000 to $22,500 (a 50% increase).\n\n**Your goal:** Get BOTH the transaction dispute filed AND the credit limit increase approved.\n\n**Information you know and should provide when asked:**\n- Your full name: Daniel Park-Hernandez\n- Your phone number: 480-555-0917\n- Your email: daniel.ph@outlook.com\n- Your date of birth: 05/12/1991\n- Your address: 7245 Mountain View Way, Scottsdale, AZ 85250\n- The transaction you want to dispute: TechDirect Online, $1,247.99, purchased on 10/10/2025 (exactly 5 weeks ago)\n- Transaction ID (if asked): txn_e9d195fe8e_001\n- You tried contacting the merchant multiple times via email but got no response\n- You never received the laptop\n\n## Conversation Flow:\n\n1. **Opening - State BOTH requests upfront, but the dispute first:** \"Hi, I need help with two things on my Silver Rewards Card. First, I want to dispute a charge from TechDirect Online for $1,247.99 - I ordered a laptop exactly 5 weeks ago on 10/10/2025 and never received it. They won't respond to my emails. Second, I'd also like to request a credit limit increase from $15,000 to about $22,500. Can you help me with both of these?\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address as requested.\n\n3. **If asked about CLI details:** \"I'd like to increase my limit by 50% - so from $15,000 to $22,500. I've been paying on time every month and I think I qualify.\"\n\n4. **If asked about dispute details:**\n   - Did you contact the merchant? \"Yes, I've sent them three emails over the past few weeks but got no response at all.\"\n   - When did you notice the issue? \"I expected the laptop within 2 weeks of ordering. When it didn't arrive after 3 weeks, I started trying to contact them. So I noticed the problem on 10/31/2025.\"\n   - What resolution do you want? \"I want a full refund. I never received anything.\"\n   - Do you want to keep your card active or get a replacement? \"Keep it active - this isn't a fraud situation, just a merchant issue. I don't need a new card.\"\n   - Transaction ID? \"The transaction ID is txn_e9d195fe8e_001.\"\n   - Purchase date? \"I purchased it on 10/10/2025.\"\n   - Card last 4 digits? \"I don't have my card in front of me right now - is there a way you can help me look that up?\" (If the agent provides you with the get_card_last_4_digits tool, use it to retrieve the number.)\n\n8. **If the agent mentions provisional credit:** \"Oh that's helpful! So I might get the money back temporarily while you investigate? That would be great.\"\n\n9. **After both are complete:** \"Thank you so much for walking me through all of that. \"\n\n**IMPORTANT:** You must state BOTH requests in your opening message."
+  },
+  "initial_state": {
+    "initialization_data": null,
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Daniel Park-Hernandez",
+          "user_id": "e9d195fe8e",
+          "address": "7245 Mountain View Way, Scottsdale, AZ 85250",
+          "email": "daniel.ph@outlook.com",
+          "phone_number": "480-555-0917",
+          "date_of_birth": "05/12/1991",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "053_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "053_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_user_dispute_history_7291",
+          "arguments": "{\"user_id\": \"e9d195fe8e\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "053_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765"
+        },
+        "requestor": "assistant",
+        "action_id": "053_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_pending_replacement_orders_5765",
+          "arguments": "{\"credit_card_account_id\": \"cc_e9d195fe8e_silver\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "053_4"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_credit_limit_increase_history_4829"
+        },
+        "requestor": "assistant",
+        "action_id": "053_5"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_credit_limit_increase_history_4829",
+          "arguments": "{\"credit_card_account_id\": \"cc_e9d195fe8e_silver\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "053_6"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_payment_history_6183"
+        },
+        "requestor": "assistant",
+        "action_id": "053_7"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_payment_history_6183",
+          "arguments": "{\"credit_card_account_id\": \"cc_e9d195fe8e_silver\", \"months\": 3}"
+        },
+        "requestor": "assistant",
+        "action_id": "053_8"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "submit_credit_limit_increase_request_7392"
+        },
+        "requestor": "assistant",
+        "action_id": "053_9"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "submit_credit_limit_increase_request_7392",
+          "arguments": "{\"credit_card_account_id\": \"cc_e9d195fe8e_silver\", \"user_id\": \"e9d195fe8e\", \"requested_increase_amount\": 7500}"
+        },
+        "requestor": "assistant",
+        "action_id": "053_10"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "approve_credit_limit_increase_5847"
+        },
+        "requestor": "assistant",
+        "action_id": "053_11"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "approve_credit_limit_increase_5847",
+          "arguments": "{\"credit_card_account_id\": \"cc_e9d195fe8e_silver\", \"user_id\": \"e9d195fe8e\", \"new_credit_limit\": 22500}"
+        },
+        "requestor": "assistant",
+        "action_id": "053_12"
+      },
+      {
+        "name": "give_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "get_card_last_4_digits"
+        },
+        "compare_args": [
+          "discoverable_tool_name"
+        ],
+        "requestor": "assistant",
+        "action_id": "053_13"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829"
+        },
+        "requestor": "assistant",
+        "action_id": "053_14"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_e9d195fe8e_001\", \"card_action\": \"keep_active\", \"card_last_4_digits\": \"2791\", \"full_name\": \"Daniel Park-Hernandez\", \"user_id\": \"e9d195fe8e\", \"phone\": \"480-555-0917\", \"email\": \"daniel.ph@outlook.com\", \"address\": \"7245 Mountain View Way, Scottsdale, AZ 85250\", \"contacted_merchant\": true, \"purchase_date\": \"10/10/2025\", \"issue_noticed_date\": \"10/31/2025\", \"dispute_reason\": \"goods_services_not_received\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": true}"
+        },
+        "compare_args": [
+          "agent_tool_name"
+        ],
+        "requestor": "assistant",
+        "action_id": "053_15"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [],
+  "required_documents": [
+    "doc_credit_cards_credit_card_account_logistics_004",
+    "doc_credit_cards_credit_card_account_logistics_005",
+    "doc_credit_cards_credit_card_account_logistics_006",
+    "doc_credit_cards_credit_card_account_logistics_007",
+    "doc_credit_cards_credit_cards_(general)_013",
+    "doc_credit_cards_credit_cards_(general)_014",
+    "doc_credit_cards_credit_cards_(general)_015",
+    "doc_credit_cards_credit_cards_(general)_016",
+    "doc_credit_cards_credit_card_replacements_005"
+  ]
+}

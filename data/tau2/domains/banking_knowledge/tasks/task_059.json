@@ -1,0 +1,116 @@
+{
+  "id": "task_059",
+  "description": {
+    "purpose": "Task: task_059",
+    "relevant_policies": null,
+    "notes": "SAVINGS + CREDIT CARD OPTIMIZATION CHALLENGE (SMALL DEPOSIT): User with existing Light Blue checking account wants to open a credit card AND a savings account to maximize NET annual yield on a $5,000 deposit held for one year. KEY CONSTRAINTS: (1) Gold Account requires $10,000 minimum - NOT VIABLE. (2) Silver Account is tier 1 with $5k (only 2.5% base APY since < $10k threshold). (3) EcoCard has a ~$50 annual fee that hurts small balances. OPTIMAL SOLUTION: Silver Rewards Card ($0 fee) + Green Account (4.0% base + 0.45% bonus = 4.45%) = $222.50 net yield. TRAP PATH - ECOCARD: Even though EcoCard + Silver gives +2.2% bonus, Silver Account at $5k is only tier 1 (2.5% base), so 2.5% + 2.2% = 4.7% \u2192 $235 - $50 fee = $185 net (WORSE than $222.50). The small deposit size makes the $50 fee too costly. Agent must check minimum balance requirements AND tiered APY thresholds."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Casey Rivera, a 28-year-old graphic designer from Austin, TX. You're starting to get serious about saving money.\n\n**Your situation:** You already have a Light Blue checking account with Rho-Bank (opened about a year ago). You've managed to save $5,000 and want to:\n1. Open a credit card with Rho-Bank\n2. Open a savings account with Rho-Bank\n3. Deposit the $5,000 into the savings account and leave it untouched for one year\n\nYou want to maximize your NET annual return - that means interest earned MINUS any credit card annual fees. You are not interested in any way of opening a new checking account, no matter what.\n\n**Tools available to you:** You have access to the `apply_for_credit_card` tool that allows you to apply for credit cards. When you decide to apply for a card, immediately use this tool on your own with the card type, your name (Casey Rivera), your annual income (55000), and rho_bank_subscription (false). Do not ask the agent for instructions on how to apply - just use the tool directly.\n\n**Verification info:**\n- Name: Casey Rivera | Phone: 512-555-0293 | Email: casey.rivera@gmail.com\n- DOB: 03/22/1997 | Address: 4521 South Congress Ave, Austin, TX 78745\n\n## Conversation Flow:\n\n1. **Opening - State your goal clearly:** \"Hi! I have a Light Blue checking account with you already. I've saved up $5,000 and I want to make it grow. I'm looking to open both a credit card and a savings account. I want to maximize what I earn over the next year - interest minus any fees. Can you help me find the best combination?\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address.\n\n3. **Reveal your requirements organically when asked:**\n\n   - **Deposit amount:** \"I only have $5,000 to put in savings - that's my whole emergency fund. Are there any minimum balance requirements I need to worry about?\"\n\n   - **Credit card usage:** \"I won't spend much on the card - maybe $100-200 a month. Nothing crazy.\"\n\n   - **Annual fees:** \"I don't want fees eating into my small returns. Are there cards with no annual fee?\"\n\n   - **Red herring - Premium:** \"What about your premium savings accounts? Do they have better rates?\"\n\n   - **Red herring - High APY:** \"I want to get the best interest rate possible on my $5,000.\"\n\n4. **If given multiple options:** Push back. \"Honestly, I don't want to compare a bunch of options. With my $5,000, which ONE combination of credit card and savings account will give me the highest net return? I trust you to figure it out.\"\n\n5. **Accept the agent's recommendation:** When the agent recommends a credit card and savings account combination, accept and immediately apply for the credit card using your `apply_for_credit_card` tool with the recommended card_type, customer_name='Casey Rivera', annual_income=55000, rho_bank_subscription=false. Say: \"That sounds perfect! Let me apply for that card now. And please open the savings account for me.\"\n\n6. **After applying for the credit card:**\n   - \"Great! Can you just open the savings account for now? I'll fund it myself with the $5,000 later on, so no need to take care of it in this conversation.\"\n\n7. **After agent confirms the savings account is open - ONLY then conclude:**\n   \"Perfect! So I've applied for the credit card and the savings account is ready for my deposit. Thanks for finding the best combination for my $5,000 - I really appreciate you checking those minimum balance requirements!\" ###STOP###\n\n**IMPORTANT BEHAVIORS:**\n- Do NOT suggest specific account or card names yourself - you don't know them\n- Do NOT do the math yourself - you want the agent to figure it out\n- Be trusting - accept the agent's recommendation once explained\n- Want ONE answer - push back if given multiple options\n- Do NOT contradict or verify the agent's calculations"
+  },
+  "initial_state": {
+    "initialization_data": {
+      "users": {
+        "cr59b4d8e3": {
+          "name": "Casey Rivera",
+          "user_id": "cr59b4d8e3",
+          "address": "4521 South Congress Ave, Austin, TX 78745",
+          "email": "casey.rivera@gmail.com",
+          "phone_number": "512-555-0293",
+          "date_of_birth": "03/22/1997"
+        }
+      },
+      "accounts": {
+        "chk_cr59b4d8e3": {
+          "account_id": "chk_cr59b4d8e3",
+          "user_id": "cr59b4d8e3",
+          "class": "checking",
+          "level": "Light Blue Account",
+          "date_opened": "11/15/2024",
+          "status": "OPEN",
+          "current_holdings": "1200.00"
+        }
+      }
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Casey Rivera",
+          "user_id": "cr59b4d8e3",
+          "address": "4521 South Congress Ave, Austin, TX 78745",
+          "email": "casey.rivera@gmail.com",
+          "phone_number": "512-555-0293",
+          "date_of_birth": "03/22/1997",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "059_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "059_1a"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+          "arguments": "{\"user_id\": \"cr59b4d8e3\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "059_1b"
+      },
+      {
+        "name": "apply_for_credit_card",
+        "arguments": {
+          "card_type": "Silver Rewards Card",
+          "customer_name": "Casey Rivera",
+          "annual_income": 55000,
+          "rho_bank_subscription": false
+        },
+        "requestor": "user",
+        "action_id": "059_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821"
+        },
+        "requestor": "assistant",
+        "action_id": "059_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821",
+          "arguments": "{\"user_id\": \"cr59b4d8e3\", \"account_type\": \"savings\", \"account_class\": \"Green Account\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "059_4"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card"
+  ],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_002",
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_credit_cards_silver_rewards_card_001",
+    "doc_savings_accounts_green_account_(savings)_001",
+    "doc_savings_accounts_green_account_(savings)_003"
+  ]
+}
