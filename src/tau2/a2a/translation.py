@@ -5,9 +5,16 @@ import re
 import uuid
 from typing import List, Optional, Union
 
+from a2a.client.errors import A2AClientJSONError
+from a2a.client.helpers import create_text_message_object
+from a2a.types import Artifact
+from a2a.types import Message as A2AMessage
+from a2a.types import Role as A2ARole
+from a2a.types import Task
+from a2a.utils.artifact import get_artifact_text
+from a2a.utils.message import get_message_text
 from loguru import logger
 
-from tau2.a2a.exceptions import A2AMessageError
 from tau2.data_model.message import (
     AssistantMessage,
     ToolCall,
@@ -211,6 +218,35 @@ def tau2_to_a2a_message_content(
     return f"{prefix} {message.content or ''}"
 
 
+def tau2_to_a2a_message(
+    message: Union[UserMessage, AssistantMessage, ToolMessage],
+    tools: Optional[List[Tool]] = None,
+    domain_policy: Optional[str] = None,
+    is_first_message: bool = False,
+) -> A2AMessage:
+    """Convert tau2 message to an SDK Message object.
+
+    Builds the text content via tau2_to_a2a_message_content(), then wraps it
+    in an SDK Message with Role.user.
+
+    Args:
+        message: tau2 message object
+        tools: Optional list of tools to include in user messages
+        domain_policy: Optional domain policy (typically on first message)
+        is_first_message: Whether this is the first message in the conversation
+
+    Returns:
+        SDK Message object ready to send via Client.send_message()
+    """
+    content = tau2_to_a2a_message_content(
+        message,
+        tools=tools,
+        domain_policy=domain_policy,
+        is_first_message=is_first_message,
+    )
+    return create_text_message_object(A2ARole.user, content)
+
+
 def _extract_json_from_markdown(content: str) -> str:
     """
     Extract JSON content from markdown code blocks if present.
@@ -299,10 +335,10 @@ def parse_a2a_tool_calls(content: str) -> Optional[List[ToolCall]]:
     except (KeyError, TypeError) as e:
         logger.warning(f"Failed to parse tool call from A2A response: {e}")
         msg = f"Invalid tool call format: {e}"
-        raise A2AMessageError(msg) from e
+        raise A2AClientJSONError(msg) from e
 
 
-def extract_response(result: "Task | A2AMessage") -> tuple[str, str | None]:
+def extract_response(result: Task | A2AMessage) -> tuple[str, str | None]:
     """Extract text content and context_id from an A2A response.
 
     For Message: extracts text directly via get_message_text().
@@ -311,12 +347,7 @@ def extract_response(result: "Task | A2AMessage") -> tuple[str, str | None]:
     Returns:
         Tuple of (response_text, context_id).
     """
-    from a2a.types import Message as _A2AMessage
-    from a2a.types import Role as _A2ARole
-    from a2a.utils.artifact import get_artifact_text
-    from a2a.utils.message import get_message_text
-
-    if isinstance(result, _A2AMessage):
+    if isinstance(result, A2AMessage):
         return get_message_text(result), result.context_id
 
     texts: list[str] = []
@@ -330,29 +361,36 @@ def extract_response(result: "Task | A2AMessage") -> tuple[str, str | None]:
 
     if not texts and result.history:
         for msg in reversed(result.history):
-            if msg.role == _A2ARole.agent:
+            if msg.role == A2ARole.agent:
                 texts.append(get_message_text(msg))
                 break
 
     return "\n".join(texts), result.context_id
 
 
-def a2a_to_tau2_assistant_message(content: str) -> AssistantMessage:
-    """
-    Convert A2A agent response content to tau2 AssistantMessage.
+def a2a_to_tau2_assistant_message(
+    result: Union[Task, A2AMessage, str],
+) -> AssistantMessage:
+    """Convert A2A agent response to tau2 AssistantMessage.
+
+    Accepts SDK Task, SDK Message, or raw string content.
 
     Args:
-        content: A2A agent response content
+        result: SDK Task, SDK Message, or raw string content
 
     Returns:
         tau2 AssistantMessage with either text content or tool calls
     """
+    if isinstance(result, str):
+        content = result
+    else:
+        content, _ = extract_response(result)
+
     tool_calls = parse_a2a_tool_calls(content)
 
     if tool_calls:
         return AssistantMessage(role="assistant", content=None, tool_calls=tool_calls)
 
-    # Handle empty responses
     if not content or not content.strip():
         logger.warning(
             f"A2A agent returned empty content ({repr(content)}), using fallback"

@@ -3,18 +3,51 @@
 from typing import List, Optional
 
 import httpx
+from a2a.client import Client, ClientConfig, ClientFactory
+from a2a.client.client_factory import minimal_agent_card
+from a2a.types import Message as A2AMessage
+from a2a.utils.message import get_message_text
 from loguru import logger
 
-from tau2.a2a.client import A2AClient
 from tau2.a2a.models import A2AAgentState, A2AConfig
 from tau2.a2a.translation import (
     a2a_to_tau2_assistant_message,
+    extract_response,
     format_tools_as_text,
-    tau2_to_a2a_message_content,
+    tau2_to_a2a_message,
 )
 from tau2.agent.base_agent import HalfDuplexAgent, ValidAgentInputMessage
 from tau2.data_model.message import AssistantMessage, Message, ToolMessage
 from tau2.environment.tool import Tool
+
+
+def create_a2a_client(config: A2AConfig) -> Client:
+    """Create an SDK Client from A2AConfig.
+
+    Uses minimal_agent_card() to bootstrap a client without requiring
+    an upfront agent card discovery call.
+
+    Args:
+        config: tau2 A2A configuration
+
+    Returns:
+        SDK Client configured for the endpoint
+    """
+    httpx_client = httpx.AsyncClient(
+        timeout=httpx.Timeout(config.timeout, connect=config.connect_timeout),
+        verify=config.verify_ssl,
+        headers=(
+            {"Authorization": f"Bearer {config.auth_token}"}
+            if config.auth_token
+            else {}
+        ),
+        follow_redirects=True,
+    )
+    card = minimal_agent_card(config.endpoint)
+    factory = ClientFactory(
+        ClientConfig(httpx_client=httpx_client, streaming=False),
+    )
+    return factory.create(card)
 
 
 class A2AAgent(HalfDuplexAgent):
@@ -22,8 +55,8 @@ class A2AAgent(HalfDuplexAgent):
     Agent that communicates with remote A2A-compliant agents.
 
     Implements the HalfDuplexAgent interface by translating tau2 messages
-    to A2A protocol format, sending them via HTTP, and parsing responses
-    back to tau2 AssistantMessage format.
+    to A2A protocol format, sending them via the SDK Client, and parsing
+    responses back to tau2 AssistantMessage format.
     """
 
     def __init__(
@@ -31,7 +64,7 @@ class A2AAgent(HalfDuplexAgent):
         config: A2AConfig,
         tools: List[Tool],
         domain_policy: str,
-        http_client: Optional[httpx.AsyncClient] = None,
+        client: Optional[Client] = None,
     ):
         """
         Initialize A2A agent.
@@ -40,12 +73,12 @@ class A2AAgent(HalfDuplexAgent):
             config: A2A configuration (endpoint, auth, timeout)
             tools: List of tools available in this domain
             domain_policy: Domain-specific policy text
-            http_client: Optional HTTP client for testing (uses config if None)
+            client: Optional SDK Client for testing (created from config if None)
         """
         super().__init__(tools=tools, domain_policy=domain_policy)
 
         self.config = config
-        self.client = A2AClient(config=config, http_client=http_client)
+        self._client = client or create_a2a_client(config)
 
         self._valid_tool_names = {tool.name for tool in tools}
 
@@ -74,7 +107,6 @@ class A2AAgent(HalfDuplexAgent):
         return A2AAgentState(
             context_id=None,
             conversation_history=message_history or [],
-            agent_card=None,
             request_count=0,
         )
 
@@ -91,26 +123,32 @@ class A2AAgent(HalfDuplexAgent):
             is_first_message = state.request_count == 0
             policy_for_translation = self.domain_policy if is_first_message else None
 
-            a2a_content = tau2_to_a2a_message_content(
+            a2a_msg = tau2_to_a2a_message(
                 message,
                 tools=tools_for_translation,
                 domain_policy=policy_for_translation,
                 is_first_message=is_first_message,
             )
 
-            # On tool errors, include available tools to aid self-correction
+            # On tool errors, enhance message with available tools for self-correction
             if isinstance(message, ToolMessage) and message.error:
                 tool_text = format_tools_as_text(self.tools)
                 if tool_text:
-                    a2a_content += f"\n\n{tool_text}"
-                    a2a_content += (
-                        "\nTo use a tool, respond with JSON: "
+                    from a2a.client.helpers import create_text_message_object
+                    from a2a.types import Role as A2ARole
+
+                    current_text = get_message_text(a2a_msg)
+                    enhanced_text = (
+                        current_text
+                        + f"\n\n{tool_text}"
+                        + '\nTo use a tool, respond with JSON: '
                         '{"tool_call": {"name": "tool_name", "arguments": {"param1": "value"}}}'
                     )
+                    a2a_msg = create_text_message_object(A2ARole.user, enhanced_text)
 
             logger.debug(
                 f"Sending message to A2A agent (role={message.role}, "
-                f"length={len(a2a_content)}, context_id={state.context_id})"
+                f"context_id={state.context_id})"
             )
 
             if state.context_id is None:
@@ -125,16 +163,34 @@ class A2AAgent(HalfDuplexAgent):
                     f"request_count={state.request_count})"
                 )
 
-            # Send message to A2A agent
-            response_content, new_context_id = await self.client.send_message(
-                message_content=a2a_content,
-                context_id=state.context_id,
-            )
+            # Set context_id on the outgoing message
+            a2a_msg.context_id = state.context_id
+
+            # Send message via SDK client
+            result = None
+            async for event in self._client.send_message(a2a_msg):
+                if isinstance(event, A2AMessage):
+                    result = event
+                else:
+                    # ClientEvent is tuple[Task, UpdateEvent]
+                    result = event[0]
+                break
+
+            if result is None:
+                logger.warning("A2A agent returned no events")
+                assistant_msg = AssistantMessage(
+                    role="assistant",
+                    content="I apologize, but I was unable to generate a response. Could you please rephrase your request?",
+                    tool_calls=None,
+                )
+                return assistant_msg, state
+
+            # Extract context_id from result
+            new_context_id = result.context_id
 
             logger.debug(
                 f"Received response from A2A agent "
-                f"(length={len(response_content)}, "
-                f"context_id={new_context_id})"
+                f"(context_id={new_context_id})"
             )
 
             if state.context_id is None and new_context_id is not None:
@@ -148,7 +204,7 @@ class A2AAgent(HalfDuplexAgent):
                     f"(old={state.context_id}, new={new_context_id})"
                 )
 
-            assistant_msg = a2a_to_tau2_assistant_message(response_content)
+            assistant_msg = a2a_to_tau2_assistant_message(result)
 
             # Log invalid tool calls for diagnostics
             if assistant_msg.is_tool_call():
@@ -168,19 +224,11 @@ class A2AAgent(HalfDuplexAgent):
             new_state = A2AAgentState(
                 context_id=new_context_id or state.context_id,
                 conversation_history=new_conversation_history,
-                agent_card=state.agent_card,
                 request_count=state.request_count + 1,
             )
 
             return assistant_msg, new_state
 
-        # Run async function synchronously.
-        # This method is called from thread pool workers (via run_in_executor in
-        # run_tau2_evaluation.py), which never have a running event loop.
-        # Using asyncio.run() creates a fresh event loop for this thread.
-        #
-        # IMPORTANT: Do NOT use nested ThreadPoolExecutor here - it causes deadlock
-        # when multiple concurrent evaluations run.
         return asyncio.run(_async_generate())
 
     def stop(
@@ -198,7 +246,7 @@ class A2AAgent(HalfDuplexAgent):
         import asyncio
 
         async def _async_close():
-            await self.client.close()
+            await self._client.close()
 
         asyncio.run(_async_close())
         logger.debug("A2AAgent stopped and resources cleaned up")
