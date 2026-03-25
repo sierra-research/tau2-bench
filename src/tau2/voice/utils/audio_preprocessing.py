@@ -9,7 +9,6 @@ from typing import Literal, Optional
 
 import numpy as np
 from loguru import logger
-from scipy.signal import resample_poly
 
 from tau2.data_model.audio import (
     PCM_SAMPLE_RATE,
@@ -342,7 +341,8 @@ def resample_audio(audio: AudioData, new_sample_rate: int) -> AudioData:
             audio_path=None,
         )
 
-    # Use scipy resample_poly for high-quality resampling with anti-aliasing
+    from scipy.signal import resample_poly
+
     samples = np.frombuffer(audio.data, dtype=np.int16).astype(np.float64)
 
     # Calculate up/down factors

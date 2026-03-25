@@ -141,7 +141,7 @@ def create_embedding_retrieval_pipeline(
     top_k: int,
     postprocessors: Optional[List[Dict[str, Any]]] = None,
 ) -> "RetrievalPipeline":
-    from tau2.knowledge import RetrievalPipeline
+    from tau2.knowledge.pipeline import RetrievalPipeline
 
     config = {
         "document_preprocessors": [
@@ -180,7 +180,7 @@ def create_bm25_retrieval_pipeline(
     top_k: int = 10,
     postprocessors: Optional[List[Dict[str, Any]]] = None,
 ) -> "RetrievalPipeline":
-    from tau2.knowledge import RetrievalPipeline
+    from tau2.knowledge.pipeline import RetrievalPipeline
 
     config = {
         "document_preprocessors": [
@@ -213,7 +213,7 @@ def create_grep_retrieval_pipeline(
     top_k: int = 10,
     case_sensitive: bool = False,
 ) -> "RetrievalPipeline":
-    from tau2.knowledge import RetrievalPipeline
+    from tau2.knowledge.pipeline import RetrievalPipeline
 
     config = {
         "document_preprocessors": [],

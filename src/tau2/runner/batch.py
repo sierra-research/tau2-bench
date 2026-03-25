@@ -55,8 +55,6 @@ from tau2.user_simulation_voice_presets import COMPLEXITY_CONFIGS
 from tau2.utils.display import ConsoleDisplay, Text
 from tau2.utils.llm_utils import llm_log_mode, set_llm_log_dir, set_llm_log_mode
 from tau2.utils.utils import DATA_DIR
-from tau2.voice.synthesis.conversation_builder import generate_simulation_audio
-from tau2.voice.utils.audio_debug import generate_audio_debug_info
 
 # Context variable to track current simulation_id for log filtering
 # This ensures task-specific log handlers only receive their own messages
@@ -220,6 +218,8 @@ def save_simulation_audio(
 
     if audio_debug:
         try:
+            from tau2.voice.utils.audio_debug import generate_audio_debug_info
+
             debug_dir = task_audio_dir / "debug"
             report = generate_audio_debug_info(
                 simulation,
@@ -240,6 +240,8 @@ def save_simulation_audio(
             logger.warning(f"Failed to generate audio debug info: {e}")
 
     try:
+        from tau2.voice.synthesis.conversation_builder import generate_simulation_audio
+
         generate_simulation_audio(simulation, task_audio_dir)
         logger.debug(f"Audio saved to: {task_audio_dir}")
     except Exception as e:

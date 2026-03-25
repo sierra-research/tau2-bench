@@ -47,14 +47,16 @@ from tau2.user.user_simulator_base import (
 )
 from tau2.utils.llm_utils import generate
 from tau2.utils.utils import get_now
-from tau2.voice.synthesis.audio_effects import (
-    EffectScheduler,
-    OutOfTurnSpeechGenerator,
+from tau2.voice.synthesis.audio_effects.effects import StreamingTelephonyConverter
+from tau2.voice.synthesis.audio_effects.processor import (
     PendingEffectState,
     StreamingAudioEffectsMixin,
+)
+from tau2.voice.synthesis.audio_effects.scheduler import EffectScheduler
+from tau2.voice.synthesis.audio_effects.speech_generator import (
+    OutOfTurnSpeechGenerator,
     create_streaming_audio_generators,
 )
-from tau2.voice.synthesis.audio_effects.effects import StreamingTelephonyConverter
 from tau2.voice.utils.audio_tap import AudioTap
 from tau2.voice_config import (
     BACKCHANNEL_PHRASES,

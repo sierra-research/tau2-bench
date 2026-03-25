@@ -33,7 +33,6 @@ from tau2.registry import Registry, registry
 from tau2.run import run_domain
 from tau2.user.user_simulator import UserSimulator
 from tau2.user.user_simulator_base import FullDuplexUser, HalfDuplexUser
-from tau2.user.user_simulator_streaming import VoiceStreamingUserSimulator
 from tau2.utils.display import ConsoleDisplay, MarkdownDisplay
 
 # =============================================================================
@@ -42,7 +41,7 @@ from tau2.utils.display import ConsoleDisplay, MarkdownDisplay
 
 
 def __getattr__(name: str):
-    """Module-level __getattr__ for deprecation warnings."""
+    """Module-level __getattr__ for deprecation warnings and lazy voice imports."""
     deprecated_aliases = {
         "BaseAgent": ("HalfDuplexAgent", HalfDuplexAgent),
         "LocalAgent": ("HalfDuplexAgent", HalfDuplexAgent),
@@ -59,6 +58,11 @@ def __getattr__(name: str):
             stacklevel=2,
         )
         return new_class
+
+    if name == "VoiceStreamingUserSimulator":
+        from tau2.user.user_simulator_streaming import VoiceStreamingUserSimulator
+
+        return VoiceStreamingUserSimulator
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

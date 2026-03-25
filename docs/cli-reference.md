@@ -308,7 +308,11 @@ Useful for testing domain tools, debugging environment responses, and exploring 
 ## Running Tests
 
 ```bash
-make test
+make test              # Core tests (requires: uv sync --extra dev)
+make test-voice        # Voice + streaming tests (requires: uv sync --extra dev --extra voice)
+make test-knowledge    # Banking knowledge tests (requires: uv sync --extra dev --extra knowledge)
+make test-gym          # Gymnasium tests (requires: uv sync --extra dev --extra gym)
+make test-all          # All tests (requires: uv sync --all-extras)
 ```
 
 ---

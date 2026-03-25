@@ -43,6 +43,10 @@ class RetrievalResult:
 
 class RetrievalPipeline:
     def __init__(self, config: Dict[str, Any]):
+        from tau2.knowledge import _ensure_registered
+
+        _ensure_registered()
+
         self.config = config
         self.state: Dict[str, Any] = {}
 

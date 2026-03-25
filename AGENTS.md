@@ -30,17 +30,21 @@ Required keys depend on the task:
 
 ## Common Commands
 
-| Command | What it does |
-|---------|-------------|
-| `make test` | Run all tests (`pytest tests/`) |
-| `make lint` | Lint with ruff |
-| `make format` | Format with ruff |
-| `make lint-fix` | Lint and auto-fix |
-| `make check-all` | Run lint + format (same as pre-commit hook) |
-| `make clean` | Remove venv, caches, build artifacts |
-| `make env-cli` | Interactive environment CLI for testing domain tools |
+| Command | What it does | Required install |
+|---------|-------------|-----------------|
+| `make test` | Run core tests (skips voice, streaming, gym, banking_knowledge) | `uv sync --extra dev` |
+| `make test-voice` | Run voice + streaming tests | `uv sync --extra voice --extra dev` |
+| `make test-knowledge` | Run banking_knowledge tests | `uv sync --extra knowledge --extra dev` |
+| `make test-gym` | Run gymnasium tests | `uv sync --extra gym --extra dev` |
+| `make test-all` | Run all tests | `uv sync --all-extras` |
+| `make lint` | Lint with ruff | `uv sync --extra dev` |
+| `make format` | Format with ruff | `uv sync --extra dev` |
+| `make lint-fix` | Lint and auto-fix | `uv sync --extra dev` |
+| `make check-all` | Run lint + format (same as pre-commit hook) | `uv sync --extra dev` |
+| `make clean` | Remove venv, caches, build artifacts | — |
+| `make env-cli` | Interactive environment CLI for testing domain tools | — |
 
-Always run `make check-all` before committing. A pre-commit hook enforces this.
+`make test` is the safe default -- it works with just `uv sync --extra dev` and does not require voice, knowledge, or gym packages. Always run `make check-all` before committing. A pre-commit hook enforces this.
 
 ## Running Evaluations
 
@@ -133,11 +137,25 @@ Domain data lives in `data/tau2/domains/<name>/` (tasks.json, policy.md, db.json
 
 ## Testing
 
+Tests are split into tiers matching the optional dependency groups. Each tier has its own Make target and required install extras:
+
 ```bash
-# All tests
+# Core tests — works with just `uv sync --extra dev`
 make test
 
-# Domain-specific
+# Voice + streaming tests — requires `uv sync --extra voice --extra dev`
+make test-voice
+
+# Banking knowledge tests — requires `uv sync --extra knowledge --extra dev`
+make test-knowledge
+
+# Gymnasium tests — requires `uv sync --extra gym --extra dev`
+make test-gym
+
+# All tests — requires `uv sync --all-extras`
+make test-all
+
+# Domain-specific (core domains work with `make test`)
 pytest tests/test_domains/test_<domain_name>
 
 # Specific test file
@@ -148,9 +166,10 @@ pytest -m "not full_duplex_integration"
 ```
 
 Test layout mirrors source:
-- `tests/test_domains/` — per-domain tool and user-tool tests
-- `tests/test_streaming/` — streaming/full-duplex tests
-- `tests/test_voice/` — audio-native provider tests (gated by `{PROVIDER}_TEST_ENABLED=1`)
+- `tests/test_domains/` — per-domain tool and user-tool tests (except `test_banking_knowledge/` which requires the `knowledge` extra)
+- `tests/test_streaming/` — streaming/full-duplex tests (requires `voice` extra)
+- `tests/test_voice/` — audio-native provider tests (requires `voice` extra; individual providers gated by `{PROVIDER}_TEST_ENABLED=1`)
+- `tests/test_gym/` — gymnasium RL interface tests (requires `gym` extra)
 
 ## Code Style
 
