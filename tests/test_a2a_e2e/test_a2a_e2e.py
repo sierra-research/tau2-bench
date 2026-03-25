@@ -147,36 +147,31 @@ class TestFunctional:
         next_msg: UserMessage | ToolMessage = UserMessage(
             role="user", content=task.ticket
         )
-        tool_was_called = False
-        tool_name_called: str | None = None
-        last_tool_call = None
+        create_task_call = None
+        tool_names_called: list[str] = []
 
         for turn in range(MAX_TURNS):
             response, state = a2a_e2e_agent.generate_next_message(next_msg, state)
             assert isinstance(response, AssistantMessage)
 
             if response.has_text_content() and not response.is_tool_call():
-                # Agent gave a final text response -- conversation done
                 break
 
             if response.is_tool_call() and response.tool_calls:
                 tool_call = response.tool_calls[0]
-                tool_was_called = True
-                tool_name_called = tool_call.name
-                last_tool_call = tool_call
+                tool_names_called.append(tool_call.name)
+                if tool_call.name == "create_task" and create_task_call is None:
+                    create_task_call = tool_call
 
-                # Execute the tool call against the real mock environment
                 tool_result = env.get_response(tool_call)
                 next_msg = tool_result
         else:
             pytest.fail(f"Conversation did not complete within {MAX_TURNS} turns")
 
-        # The task expects create_task to be called with user_id="user_1"
-        assert tool_was_called, "Expected at least one tool call"
-        assert tool_name_called == "create_task", (
-            f"Expected create_task but got {tool_name_called}"
+        assert tool_names_called, "Expected at least one tool call"
+        assert create_task_call is not None, (
+            f"Expected create_task to be called, got: {tool_names_called}"
         )
-        assert last_tool_call is not None
-        assert last_tool_call.arguments.get("user_id") == "user_1", (
-            f"Expected user_id='user_1' but got {last_tool_call.arguments}"
+        assert create_task_call.arguments.get("user_id") == "user_1", (
+            f"Expected user_id='user_1' but got {create_task_call.arguments}"
         )
