@@ -269,6 +269,9 @@ class UserSimulator(
 class DummyUser(UserSimulator):
     """A dummy user to run a agent solo simulation."""
 
+    def __init__(self):
+        super().__init__(llm="dummy")
+
     def get_init_state(
         self, message_history: Optional[list[Message]] = None
     ) -> UserState:

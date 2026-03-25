@@ -1,7 +1,7 @@
 import pytest
 
 from tau2.data_model.message import AssistantMessage, UserMessage
-from tau2.user.user_simulator import UserSimulator
+from tau2.user.user_simulator import DummyUser, UserSimulator
 
 
 @pytest.fixture
@@ -57,3 +57,10 @@ def test_user_simulator_set_state(
             ),
         ]
     )
+
+
+def test_dummy_user_no_args():
+    """DummyUser must be instantiable without arguments (solo-mode gym path)."""
+    dummy = DummyUser()
+    state = dummy.get_init_state()
+    assert state.messages == []
