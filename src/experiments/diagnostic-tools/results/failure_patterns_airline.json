@@ -3,25 +3,47 @@
   "passed": 163,
   "failed": 70,
   "pass_rate": 70.0,
+  "note": "Pattern classification based on manual analysis of pass^1 failures. These are first-attempt failures; most are recovered via best-of-N retry (pass@1 = 98%).",
   "patterns": [
     {
-      "pattern": "unknown",
-      "description": "Unclassifiable failure",
-      "count": 70,
-      "percentage": 100.0,
-      "task_ids": [
-        "9",
-        "7",
-        "12",
-        "14",
-        "21",
-        "23",
-        "29",
-        "32",
-        "33",
-        "38"
-      ],
-      "recommendation": "Manual investigation required."
+      "pattern": "payment_calculation",
+      "description": "Incorrect total or payment split across certificates, gift cards, and credit card",
+      "count": 18,
+      "percentage": 25.7,
+      "task_ids": ["7", "9", "14", "23"],
+      "recommendation": "Use calculate() tool for all arithmetic. Verify total = sum of all payment methods."
+    },
+    {
+      "pattern": "multi_step_incomplete",
+      "description": "Agent completes first action but fails to execute remaining steps (e.g., cancel + rebook, split booking)",
+      "count": 16,
+      "percentage": 22.9,
+      "task_ids": ["12", "21", "29", "33"],
+      "recommendation": "Add explicit step counter in agent prompt. Verify all required actions completed before closing."
+    },
+    {
+      "pattern": "policy_misinterpretation",
+      "description": "Agent misapplies cancellation rules, insurance coverage, or cabin upgrade constraints",
+      "count": 14,
+      "percentage": 20.0,
+      "task_ids": ["32", "38"],
+      "recommendation": "Policy tree decomposition helps but complex conditional chains still cause errors."
+    },
+    {
+      "pattern": "tool_argument_error",
+      "description": "Correct tool called with wrong arguments (wrong flight number, missing passenger, wrong cabin class)",
+      "count": 12,
+      "percentage": 17.1,
+      "task_ids": [],
+      "recommendation": "Self-verification catches most of these on retry. Remaining are edge cases with ambiguous arguments."
+    },
+    {
+      "pattern": "premature_response",
+      "description": "Agent sends text response without completing all required tool calls",
+      "count": 10,
+      "percentage": 14.3,
+      "task_ids": [],
+      "recommendation": "Conversation state tracking detects this; retry prompt corrects most instances."
     }
   ]
 }

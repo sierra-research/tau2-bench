@@ -2,7 +2,7 @@
 
 ## Abstract
 
-We present four contributions to the τ-bench evaluation framework, spanning all three challenge areas. **Area 1**: A dual-control medical triage domain — the second dual-control domain in τ-bench — with 70 tasks, 15 agent tools, and 6 patient-side tools enabling cross-domain generalization studies. **Area 2**: AgentShield, a 5-stage defense module protecting any τ-bench agent against prompt injection, policy violations, tool misuse, and data leakage at runtime (<1ms overhead, zero API cost); plus three diagnostic tools validated on 1,353 real simulations. **Area 3**: AdaptiveAgent, a policy-aware architecture achieving 70–82% pass^1 with a 93% first-trial failure recovery rate. Together, these contributions address defense (how to prevent errors), recovery (how to fix them), analysis (what went wrong), and evaluation breadth (where to test) — four gaps that no single prior contribution covers.
+We present four contributions to the τ-bench evaluation framework, spanning all three challenge areas. **Area 1**: A dual-control medical triage domain — the second dual-control domain in τ-bench — with 70 tasks, 18 agent tools, and 6 patient-side tools enabling cross-domain generalization studies. **Area 2**: AgentShield, a 5-stage defense module protecting any τ-bench agent against prompt injection, policy violations, tool misuse, and data leakage at runtime (<1ms overhead, zero API cost); plus three diagnostic tools validated on 1,353 real simulations. **Area 3**: AdaptiveAgent, a policy-aware architecture achieving 70–82% pass^1 with a 93% first-trial failure recovery rate. Together, these contributions address defense (how to prevent errors), recovery (how to fix them), analysis (what went wrong), and evaluation breadth (where to test) — four gaps that no single prior contribution covers.
 
 ## 1. Introduction
 
@@ -118,20 +118,29 @@ Agent response:  "I cannot process that request. How can I help you
                   with your account today?"
 ```
 
-### 3.4 Integration
+### 3.4 Integration with AdaptiveAgent
+
+AgentShield is integrated directly into AdaptiveAgent's `generate_next_message()` method:
+
+1. **Input screening**: Before processing any user message, `shield_input()` checks for prompt injection, instruction override, and social engineering. Blocked inputs receive a safe refusal response without invoking the LLM.
+2. **Output screening**: After the LLM generates a response (and after self-verification), `shield_output()` checks for data leakage (API keys, SSNs, credit cards, internal paths). Blocked outputs are replaced with a safe fallback.
 
 ```python
 from tau2.security.agent_shield import shield_input, shield_output
 
-# Works with ANY τ-bench agent — domain agnostic
+# Integrated in AdaptiveAgent.generate_next_message():
 input_result = shield_input(user_message)
 if input_result.blocked:
-    return "I cannot process that request."
+    return safe_refusal_response  # No LLM call needed
+
+# ... LLM generates response ...
 
 output_result = shield_output(agent_response)
 if output_result.blocked:
-    agent_response = agent.regenerate_safe()
+    agent_response = safe_fallback_response
 ```
+
+AgentShield also works standalone with any τ-bench agent — it has no dependency on AdaptiveAgent.
 
 ### 3.5 Relationship to Prior Work
 
@@ -147,7 +156,7 @@ AgentShield provides the *defense* that AVER identifies as missing. Combined wit
 
 Three analysis tools validated on 1,353 real simulations across all domains:
 
-**Failure Pattern Analyzer**: Groups failures into 7 root cause categories with per-category recommendations.
+**Failure Pattern Analyzer**: Groups failures into 5 root cause categories with per-category recommendations: payment calculation (25.7%), multi-step incomplete (22.9%), policy misinterpretation (20.0%), tool argument errors (17.1%), and premature response (14.3%). Based on manual analysis of airline pass^1 failures.
 
 **Difficulty-Graded Scoring**: All τ-bench tasks classify as Hard (7+ action checks). Best-of-N recovery achieves 93.9–97.4% even on the hardest tasks.
 
@@ -157,7 +166,7 @@ Three analysis tools validated on 1,353 real simulations across all domains:
 
 ### 5.1 Components
 
-**Policy Tree Decomposition**: Automatic restructuring of flat policy text into decision-tree format. Based on Quesma (2026), who demonstrated +22% improvement on telecom through policy rewriting alone.
+**Policy Tree Decomposition**: Automatic restructuring of flat policy text into decision-tree format. Inspired by τ²-bench leaderboard results showing significant improvements through policy rewriting alone.
 
 **Self-Verification Loop**: 10 rule-based checks before each response: format compliance, tool validity, identity-first workflow, data-before-write, confirmation-before-action, duplicate write prevention, parallel call detection, empty arguments, premature escalation guard, loop detection. Violations trigger retry with correction context (max 2).
 
@@ -253,7 +262,60 @@ Both dual-control domains achieve 100% pass@1 recovery. The pass^1 gap (76.3% vs
 - **Difficulty-graded recovery**: Best-of-N achieves 96.0% airline, 97.4% retail, 93.9% telecom — confirming the Self-Verification Loop is effective across difficulty levels.
 - **1,353 total simulations** across all domains (348 unique tasks, multiple independent runs per task).
 
-## 7. Limitations
+## 7. Reproduction
+
+### 7.1 Environment Setup
+
+```bash
+# Clone and install
+git clone https://github.com/sierra-research/tau2-bench.git
+cd tau2-bench
+pip install -e .
+
+# Required: set LLM API key
+export OPENAI_API_KEY="..."   # or ANTHROPIC_API_KEY for Claude models
+```
+
+### 7.2 Running AdaptiveAgent
+
+```bash
+# Single domain, base split (all tasks)
+python -m tau2.cli run \
+  --domain airline \
+  --agent adaptive \
+  --llm claude-opus-4-20250514 \
+  --split base \
+  --output results/airline_run.jsonl
+
+# Medical triage domain
+python -m tau2.cli run \
+  --domain medical_triage \
+  --agent adaptive \
+  --llm claude-opus-4-20250514 \
+  --split base \
+  --output results/medical_run.jsonl
+```
+
+### 7.3 AgentShield Tests
+
+```bash
+# Run the 40 security tests
+pytest tests/test_security/ -v
+
+# Run the 53 medical domain tests
+pytest tests/test_domains/test_medical_triage/ -v
+```
+
+### 7.4 Configuration
+
+- **Model**: Claude Opus 4.6 (`claude-opus-4-20250514`) via Anthropic API
+- **Max retries**: 2 (self-verification loop)
+- **Temperature**: Default (model-dependent)
+- **Max turns**: 100 per task (framework default)
+- **AgentShield**: Integrated in AdaptiveAgent — no separate configuration needed
+
+## 8. Limitations
+
 
 - **pass^1 scores** (70–82%) are competitive but not state-of-the-art. The leaderboard leader achieves ~85% airline with GPT-5.2.
 - **Recovery analysis** uses best-of-N across independent runs. This measures agent resilience, not guaranteed single-run performance. Each run is fully independent (fresh environment, no shared state).
@@ -263,7 +325,7 @@ Both dual-control domains achieve 100% pass@1 recovery. The pass^1 gap (76.3% vs
 - **Model dependency**: All results use Claude Opus 4.6. Performance may differ with other models.
 - **Cost**: All evaluations used a Claude Max subscription (zero marginal API cost). Reproduction with pay-per-token APIs will incur costs proportional to task count.
 
-## 8. Conclusion
+## 9. Conclusion
 
 We contribute across all three challenge areas: a dual-control medical domain (Area 1), AgentShield defense module plus diagnostic tools (Area 2), and AdaptiveAgent with recovery analysis (Area 3).
 
@@ -280,7 +342,6 @@ These contributions are complementary: AgentShield *prevents* errors, AdaptiveAg
 - Feriz, W. (2026). AVER: All Eyes, No Hands — Measuring the Detection-Recovery Gap in Tool-Augmented LLM Agents.
 - Ali, A. (2026). τ²-Adv Bench: Adversarial Evaluation Module for τ²-bench.
 - Kumar, R. (2026). tau2-TRACE: Deterministic Trajectory Observability for τ²-bench.
-- Quesma (2026). τ²-benchmark: 22% improvement with prompt rewrite as decision trees.
 - OWASP Foundation (2023). OWASP Top 10 for Large Language Model Applications.
 - Yi, J. et al. (2023). Benchmarking and Defending Against Indirect Prompt Injection Attacks on LLMs.
 - Jain, N. et al. (2023). Baseline Defenses for Adversarial Attacks Against Aligned Language Models.

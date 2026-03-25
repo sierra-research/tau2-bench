@@ -229,6 +229,33 @@ THREAT_CHECKS = [
         ],
         "severity": "low",
     },
+    {
+        "id": "account_impersonation",
+        "category": "identity_fraud",
+        "patterns": [
+            re.compile(
+                r"(access|modify|cancel|change)\s+(another|someone\s+else|my\s+friend|my\s+wife|my\s+husband)('?s?)\s+(account|reservation|order|plan|subscription)",
+                re.I,
+            ),
+            re.compile(
+                r"(i\s+am|i'm)\s+(calling|writing)\s+(on\s+behalf|for)\s+(another|someone|a\s+friend)",
+                re.I,
+            ),
+        ],
+        "severity": "high",
+    },
+    {
+        "id": "bulk_action_abuse",
+        "category": "tool_misuse",
+        "patterns": [
+            re.compile(
+                r"(cancel|delete|modify|change|update)\s+(all|every|each)\s+(of\s+)?(my\s+)?(reservations?|orders?|accounts?|plans?|bookings?)\s+(at\s+once|simultaneously|in\s+one\s+go)",
+                re.I,
+            ),
+            re.compile(r"(batch|bulk)\s+(cancel|delete|modify|update|process)", re.I),
+        ],
+        "severity": "medium",
+    },
 ]
 
 
@@ -336,6 +363,24 @@ DEFAULT_POLICY_RULES = [
             r"(our|the)\s+(internal|backend|database|system)\s+(uses|runs|has)", re.I
         ),
     ),
+    PolicyRule(
+        "POL-006",
+        "Agent must not guarantee specific refund amounts or timelines",
+        "forbid",
+        re.compile(
+            r"(you\s+will\s+(definitely|certainly)\s+(get|receive)\s+(a\s+)?(full\s+)?refund|refund\s+will\s+(be\s+)?processed?\s+within\s+\d+)",
+            re.I,
+        ),
+    ),
+    PolicyRule(
+        "POL-007",
+        "Agent must not provide definitive medical diagnoses",
+        "forbid",
+        re.compile(
+            r"(you\s+(definitely|clearly)\s+have|this\s+is\s+(definitely|clearly)\s+a\s+case\s+of|my\s+diagnosis\s+is\s+that)",
+            re.I,
+        ),
+    ),
 ]
 
 
@@ -396,6 +441,17 @@ SENSITIVE_PATTERNS = [
     {
         "id": "connection_string",
         "pattern": re.compile(r"(postgres|mysql|mongodb)://[^\s]{10,}", re.I),
+    },
+    {
+        "id": "raw_json_db_dump",
+        "pattern": re.compile(
+            r'"(user_id|customer_id|reservation_id|order_id|account_id)"\s*:\s*"[^"]{5,}".*"(password|token|secret|ssn|credit_card)',
+            re.I,
+        ),
+    },
+    {
+        "id": "jwt_token",
+        "pattern": re.compile(r"eyJ[a-zA-Z0-9_-]{20,}\.eyJ[a-zA-Z0-9_-]{20,}", re.I),
     },
 ]
 
