@@ -70,8 +70,11 @@ experiments = [
     "seaborn>=0.13.2",
     "scikit-learn>=1.6.1",
 ]
+robustness = [
+    "tau-robustness",
+]
 all = [
-    "tau2[voice,knowledge,gym,dev,experiments]",
+    "tau2[voice,knowledge,gym,dev,experiments,robustness]",
 ]
 [project.urls]
 Homepage = "https://taubench.com/"
@@ -89,6 +92,9 @@ asyncio_default_fixture_loop_scope = "function"
 markers = [
     "full_duplex_integration: marks tests as full-duplex integration tests requiring OpenAI Realtime API and TTS (deselect with '-m \"not full_duplex_integration\"')",
 ]
+
+[tool.uv.sources]
+tau-robustness = { path = "src/experiments/tau-robustness", editable = true }
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]

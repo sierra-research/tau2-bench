@@ -1,6 +1,7 @@
 import argparse
 import importlib.metadata
 import json
+import sys
 
 from tau2.config import (
     DEFAULT_AGENT_IMPLEMENTATION,
@@ -602,7 +603,15 @@ def main():
 
     def run_command(args):
         if args.mode == "robustness":
-            from tau_robustness.run import run_robustness_from_args
+            try:
+                from tau_robustness.run import run_robustness_from_args
+            except ImportError:
+                print(
+                    "Error: tau-robustness package not installed.\n"
+                    "Install with: uv sync --extra robustness\n"
+                    "Or standalone: uv pip install -e src/experiments/tau-robustness"
+                )
+                sys.exit(1)
             return run_robustness_from_args(args)
 
         user_persona_config = None

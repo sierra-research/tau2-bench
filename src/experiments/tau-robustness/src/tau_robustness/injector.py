@@ -23,13 +23,43 @@ from tau_robustness.injection_config import (
     check_precondition,
 )
 
-# Pattern to extract entity-like IDs from text (order IDs, reservation codes, etc.)
-_ENTITY_PATTERN = re.compile(
-    r"#W\d+"  # retail order IDs like #W6247578
-    r"|[A-Z0-9]{6}"  # airline reservation codes like EHGLP3
-    r"|[A-Z]\d{4}"  # telecom line/customer IDs like L1001, C1001
-    r"|555-\d{3}-\d{4}"  # phone numbers
-)
+# Per-domain entity ID patterns — compiled at injector init time so each
+# domain's injector only matches ITS entity formats. Adding a new domain?
+# Add its patterns here; unknown domains get the union of all patterns.
+#
+# Patterns derived from actual domain data (db.json/db.toml, tasks.json,
+# and tool parameter specs). See data/tau2/domains/<domain>/ for source.
+#
+# The airline [A-Z0-9]{6} stays intentionally broad: reservation codes like
+# VAAOXJ and PGAGLM are purely alphabetic, so we cannot require digits.
+# Per-domain isolation prevents this from polluting retail/telecom matching.
+_DOMAIN_ENTITY_PATTERNS: dict[str, list[str]] = {
+    "retail": [
+        r"#W\d+",                                       # order IDs: #W6247578
+        r"\b(?:gift_card|credit_card|paypal)_\d{7}\b",  # payment method IDs: gift_card_1044904
+    ],
+    "airline": [
+        r"\b[A-Z0-9]{6}\b",   # reservation codes: EHGLP3, VAAOXJ (broad — all-alpha codes exist)
+        r"\bHAT\d{3}\b",      # flight numbers: HAT001, HAT045
+    ],
+    "telecom": [
+        r"\b[CLBDP]\d{4}\b",       # entity IDs by prefix — Customer/Line/Bill/Device/Plan: C1001, L1001
+        r"\b\d{3}-\d{3}-\d{4}\b",  # phone numbers: 555-123-4567
+    ],
+}
+
+
+def _build_entity_pattern(domain: str) -> re.Pattern:
+    """Build a compiled regex for entity extraction from a domain name.
+
+    Uses domain-specific patterns when available. For unknown domains,
+    falls back to the union of all known patterns — broader but still
+    scoped to known entity formats.
+    """
+    patterns = _DOMAIN_ENTITY_PATTERNS.get(domain)
+    if patterns is None:
+        patterns = [p for ps in _DOMAIN_ENTITY_PATTERNS.values() for p in ps]
+    return re.compile("|".join(patterns))
 
 
 class InjectionEvent(BaseModel):
@@ -95,6 +125,7 @@ class ErrorInjector:
             )
 
         self.config = injection_config
+        self._entity_pattern = _build_entity_pattern(injection_config.domain)
         self.injection_rate = injection_rate
         self.rng = random.Random(seed)
         self.max_injections_per_run = max_injections_per_run
@@ -141,7 +172,7 @@ class ErrorInjector:
         """
         if not content:
             return
-        entities = _ENTITY_PATTERN.findall(content)
+        entities = self._entity_pattern.findall(content)
         self._user_entities.update(e.upper() for e in entities)
         self._user_keywords.extend(content.lower().split())
 
