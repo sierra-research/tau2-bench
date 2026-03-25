@@ -24,6 +24,7 @@ def get_env_assertions_appointment_scheduling(
             )
         ]
 
+        # Planned: enable when NL evaluation is supported in the framework
         nl_assertions = [
             # "Agent verified patient identity before accessing appointment information",
             # "Agent confirmed insurance coverage and copay amount with patient",
@@ -51,6 +52,7 @@ def get_env_assertions_appointment_scheduling(
             ),
         ]
 
+        # Planned: enable when NL evaluation is supported in the framework
         nl_assertions = [
             # "Agent explained why appointment cannot be scheduled",
             # "Agent provided alternative options or next steps"
@@ -91,6 +93,7 @@ def get_env_assertions_urgent_triage(
             )
         ]
 
+        # Planned: enable when NL evaluation is supported in the framework
         nl_assertions = [
             # "Agent assessed all reported symptoms systematically",
             # "Agent checked for red flag symptoms (high fever, severe pain, breathing difficulty)",
@@ -125,6 +128,7 @@ def get_env_assertions_urgent_triage(
             ),
         ]
 
+        # Planned: enable when NL evaluation is supported in the framework
         nl_assertions = [
             # "Agent recognized severe/critical symptoms requiring immediate clinical attention",
             # "Agent explained need for nurse/clinical review",
@@ -166,6 +170,7 @@ def get_env_assertions_chronic_monitoring(
             )
         ]
 
+        # Planned: enable when NL evaluation is supported in the framework
         nl_assertions = [
             # "Agent requested all relevant home monitoring readings (BP, glucose, SpO2 as appropriate)",
             # "Agent asked patient to take measurements if not recently done",
@@ -193,6 +198,7 @@ def get_env_assertions_chronic_monitoring(
             ),
         ]
 
+        # Planned: enable when NL evaluation is supported in the framework
         nl_assertions = [
             # "Agent identified concerning vital sign readings requiring clinical review",
             # "Agent explained need for nurse evaluation",
@@ -260,6 +266,7 @@ def get_env_assertions_telehealth_setup(
     if expected_success:
         env_assertions = []
 
+        # Planned: enable when NL evaluation is supported in the framework
         nl_assertions = [
             # "Agent obtained all required telehealth consents from patient",
             # "Agent verified emergency contact information is current",
@@ -270,6 +277,7 @@ def get_env_assertions_telehealth_setup(
 
         return (env_assertions, nl_assertions, [])
     else:
+        # Planned: enable when NL evaluation is supported in the framework
         nl_assertions = [
             # "Agent identified missing required consents or information",
             # "Agent explained what is needed to complete telehealth setup"
@@ -298,6 +306,7 @@ def get_env_assertions_test_results_access(
             )
         ]
 
+        # Planned: enable when NL evaluation is supported in the framework
         nl_assertions = [
             # "Agent verified patient identity before discussing test results",
             # "Agent checked test result status (ready, pending, or under review)",
@@ -325,6 +334,7 @@ def get_env_assertions_test_results_access(
             ),
         ]
 
+        # Planned: enable when NL evaluation is supported in the framework
         nl_assertions = [
             # "Agent identified critical/urgent test results requiring clinical review",
             # "Agent did not release critical results directly to patient without clinical review",

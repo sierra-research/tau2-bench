@@ -85,11 +85,9 @@ class HealthcareEnvironment(Environment):
 
             portal.upcoming_appointments = upcoming_apts[:3]
 
-            total_balance = 0
-            for payment in self.tools.db.payments.values():
-                if payment.patient_id == patient_id:
-                    pass
-            portal.outstanding_balance = total_balance
+            # outstanding_balance is reserved for a future billing model;
+            # the current Payment model tracks completed transactions only
+            portal.outstanding_balance = 0
 
 
 def get_environment(

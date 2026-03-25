@@ -60,11 +60,19 @@ class ToolCall(BaseModel):
     )
     compare_args: Optional[list[str]] = Field(
         default=None,
-        description="List of argument keys to compare. If None, compare all. If empty list, compare only tool name.",
+        description=(
+            "Used in fix_funcs to annotate which arguments matter for ACTION evaluation. "
+            "Propagated to Action.compare_args by TaskManager. "
+            "If None, compare all args. If empty list, compare only tool name."
+        ),
     )
     accepted_values: Optional[dict[str, list]] = Field(
         default=None,
-        description="For specific arguments, a list of accepted values (any match passes). Overrides exact equality for those arguments.",
+        description=(
+            "Used in fix_funcs to annotate allowed values for specific arguments in ACTION evaluation. "
+            "Propagated to Action.accepted_values by TaskManager. "
+            "Overrides exact equality for those arguments."
+        ),
     )
 
     def __str__(self) -> str:

@@ -296,8 +296,9 @@ def create_tasks(save_tasks: bool = True, max_count_per_bin: int = 3) -> list[Ta
 
     tasks_by_bins = defaultdict(list)
     for task in tasks_with_attrs:
-        # Keep tasks with 2+ subtasks, except critical_triage (important despite 1 subtask)
-        if task["num_subtasks"] < 2 and task["intent"] != "critical_triage":
+        # Keep tasks with 2+ subtasks; also keep single-subtask intents with limited coverage
+        _single_subtask_intents = {"critical_triage", "prescription_refill", "test_results_access"}
+        if task["num_subtasks"] < 2 and task["intent"] not in _single_subtask_intents:
             continue
         tasks_by_bins[(task["intent"], task["num_subtasks"], task["persona"])].append(
             task["task"]
@@ -329,6 +330,29 @@ def create_tasks(save_tasks: bool = True, max_count_per_bin: int = 3) -> list[Ta
             json.dump(
                 [t.model_dump(exclude_unset=True) for t in sampled_tasks], f, indent=2
             )
+
+    # Generate stratified split: base = all tasks, train/test = 80/20 split stratified by intent
+    tasks_by_intent: dict[str, list] = defaultdict(list)
+    for task in sampled_tasks:
+        intent = task.id.split("]")[0].lstrip("[")
+        tasks_by_intent[intent].append(task.id)
+
+    train_ids: list[str] = []
+    test_ids: list[str] = []
+    for intent, ids in tasks_by_intent.items():
+        shuffled = list(ids)
+        random.shuffle(shuffled)
+        n = len(shuffled)
+        n_test = max(1, round(n * 0.2))
+        test_ids.extend(shuffled[:n_test])
+        train_ids.extend(shuffled[n_test:])
+
+    split = {"base": [t.id for t in sampled_tasks], "train": train_ids, "test": test_ids}
+    print(f"\nSplit: base={len(split['base'])}, train={len(split['train'])}, test={len(split['test'])}")
+    file_split = DATA_DIR / "tau2" / "domains" / "healthcare" / "split_tasks.json"
+    if save_tasks:
+        with open(file_split, "w") as f:
+            json.dump(split, f, indent=2)
 
     return tasks
 
