@@ -3,28 +3,25 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from tests.test_a2a_e2e.harness import TestAgentExecutor, build_test_server
+from tests.test_a2a_e2e.harness import HarnessAgentExecutor, build_test_server
 
 
-class TestTestAgentExecutor:
+class TestHarnessAgentExecutor:
     """Verify the harness executor calls openai and enqueues a response."""
 
     def test_execute_enqueues_agent_message(self):
-        """Execute should call gpt-4o and enqueue an agent Message."""
-        executor = TestAgentExecutor()
+        """Test execute calls gpt-4o and enqueues an agent Message."""
+        executor = HarnessAgentExecutor()
 
-        # Mock the RequestContext
         context = MagicMock()
         context.get_user_input.return_value = "Hello"
         context.context_id = "ctx-1"
         context.task_id = "task-1"
 
-        # Mock the EventQueue
         event_queue = MagicMock()
         event_queue.enqueue_event = AsyncMock()
         event_queue.close = AsyncMock()
 
-        # Mock openai response
         mock_choice = MagicMock()
         mock_choice.message.content = "Hello! How can I help?"
         mock_response = MagicMock()
@@ -37,17 +34,14 @@ class TestTestAgentExecutor:
         ):
             asyncio.run(executor.execute(context, event_queue))
 
-        # Verify an event was enqueued
         event_queue.enqueue_event.assert_called_once()
         enqueued_msg = event_queue.enqueue_event.call_args[0][0]
         assert enqueued_msg.role.value == "agent"
-
-        # Verify queue was closed
         event_queue.close.assert_called_once()
 
     def test_cancel_closes_queue(self):
-        """Cancel should close the event queue."""
-        executor = TestAgentExecutor()
+        """Test cancel closes the event queue."""
+        executor = HarnessAgentExecutor()
         context = MagicMock()
         event_queue = MagicMock()
         event_queue.close = AsyncMock()
@@ -60,11 +54,12 @@ class TestBuildTestServer:
     """Verify build_test_server returns a working FastAPI app."""
 
     def test_returns_fastapi_app(self):
+        """Test the returned app has a router attribute."""
         app = build_test_server()
-        # FastAPI apps have a router attribute
         assert hasattr(app, "router")
 
     def test_agent_card_route_exists(self):
+        """Test the agent card well-known route is registered."""
         app = build_test_server()
         route_paths = [route.path for route in app.routes]
         assert "/.well-known/agent-card.json" in route_paths
@@ -74,7 +69,7 @@ class TestConftest:
     """Verify conftest fixtures are importable and well-formed."""
 
     def test_conftest_defines_expected_fixtures(self):
-        """conftest should define the expected fixture functions."""
+        """Test conftest defines expected fixture functions."""
         import tests.test_a2a_e2e.conftest as conftest
 
         assert hasattr(conftest, "a2a_e2e_endpoint")

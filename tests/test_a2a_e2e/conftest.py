@@ -1,10 +1,19 @@
 """Fixtures for A2A end-to-end tests.
 
-Provides:
-- --a2a-endpoint CLI option for targeting external servers
-- a2a_e2e_endpoint: session-scoped fixture that starts a local A2A server
-  or yields an external endpoint URL
-- a2a_e2e_agent: function-scoped fixture that creates a fresh A2AAgent
+Two modes of operation:
+
+  Local (default):
+    OPENAI_API_KEY=sk-... pytest -m full_a2a_integration
+
+    Spins up a local A2A server backed by gpt-4o on a random port.
+    Requires OPENAI_API_KEY; skips otherwise.
+
+  External endpoint:
+    pytest -m full_a2a_integration --a2a-endpoint https://my-agent.example.com
+
+    Runs the same test suite against an external A2A-compliant agent.
+    The endpoint must serve /.well-known/agent-card.json and accept
+    message/send JSON-RPC requests.
 """
 
 import os
@@ -37,14 +46,19 @@ def _find_free_port() -> int:
         return s.getsockname()[1]
 
 
+def _make_a2a_config(endpoint: str) -> A2AConfig:
+    """Build A2AConfig for E2E tests."""
+    return A2AConfig(
+        endpoint=endpoint,
+        timeout=120,
+        connect_timeout=10,
+        verify_ssl=False,
+    )
+
+
 @pytest.fixture(scope="session")
 def a2a_e2e_endpoint(request: pytest.FixtureRequest):
-    """Yield the base URL of a running A2A server.
-
-    If --a2a-endpoint was passed, yields that URL directly.
-    Otherwise, starts a local uvicorn server on a random port.
-    Skips if OPENAI_API_KEY is not set (local server needs it).
-    """
+    """Start a local A2A server or yield an external endpoint URL."""
     external_url = request.config.getoption("--a2a-endpoint")
     if external_url is not None:
         yield external_url
@@ -65,7 +79,7 @@ def a2a_e2e_endpoint(request: pytest.FixtureRequest):
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
 
-    # Wait for server to be ready
+    # Poll until server accepts connections
     deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
         try:
@@ -82,23 +96,11 @@ def a2a_e2e_endpoint(request: pytest.FixtureRequest):
     thread.join(timeout=5)
 
 
-@pytest.fixture()
+@pytest.fixture
 def a2a_e2e_agent(a2a_e2e_endpoint: str):
-    """Create a fresh A2AAgent per test, configured against the E2E endpoint.
-
-    Uses mock domain tools and policy. Fresh agent state per test.
-    """
+    """Fixture providing an A2AAgent with mock domain tools."""
     env = get_environment()
-    tools = env.get_tools()
-    policy = env.policy
-
-    config = A2AConfig(
-        endpoint=a2a_e2e_endpoint,
-        timeout=120,
-        connect_timeout=10,
-        verify_ssl=False,
-    )
-
-    agent = A2AAgent(config=config, tools=tools, domain_policy=policy)
+    config = _make_a2a_config(a2a_e2e_endpoint)
+    agent = A2AAgent(config=config, tools=env.get_tools(), domain_policy=env.policy)
     yield agent
     agent.stop()

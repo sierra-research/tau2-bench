@@ -1,8 +1,4 @@
-"""Test harness: minimal A2A server backed by gpt-4o.
-
-Provides a TestAgentExecutor that proxies user messages to OpenAI's gpt-4o
-and a build_test_server() factory that assembles the full A2A server stack.
-"""
+"""Test harness: minimal A2A server backed by gpt-4o."""
 
 from a2a.server.agent_execution.agent_executor import AgentExecutor
 from a2a.server.agent_execution.context import RequestContext
@@ -15,16 +11,8 @@ from a2a.utils.message import new_agent_text_message
 from openai import OpenAI
 
 
-class TestAgentExecutor(AgentExecutor):
-    """Minimal AgentExecutor that proxies messages to gpt-4o.
-
-    Receives user messages containing mock domain tools and policy
-    (formatted as <available_tools> and <policy> XML blocks by the
-    tau2 A2A translation layer). Forwards the full text to gpt-4o
-    and returns the response as an A2A Message.
-    """
-
-    __test__ = False  # Prevent pytest collection
+class HarnessAgentExecutor(AgentExecutor):
+    """AgentExecutor that proxies user messages to gpt-4o and returns A2A Messages."""
 
     def __init__(self) -> None:
         self._client = OpenAI()
@@ -75,11 +63,14 @@ def _build_agent_card(url: str) -> AgentCard:
 def build_test_server(url: str = "http://localhost:0"):
     """Build a complete A2A test server as a FastAPI ASGI app.
 
+    Args:
+        url: Base URL for the agent card
+
     Returns:
         A FastAPI application ready to be served by uvicorn.
     """
     agent_card = _build_agent_card(url)
-    executor = TestAgentExecutor()
+    executor = HarnessAgentExecutor()
     task_store = InMemoryTaskStore()
     handler = DefaultRequestHandler(
         agent_executor=executor,
