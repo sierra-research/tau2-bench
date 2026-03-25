@@ -6,13 +6,100 @@ from typing import Any
 
 import httpx
 import pytest
+from a2a.client import Client, ClientConfig, ClientFactory
+from a2a.client.client_factory import minimal_agent_card
+from a2a.types import (
+    AgentCapabilities,
+    AgentCard,
+    AgentSkill,
+    Message,
+    Part,
+    Role,
+    TextPart,
+)
+from a2a.utils.message import new_agent_text_message
+
+
+def create_mock_sdk_client(
+    transport: httpx.MockTransport,
+    endpoint: str = "http://test-agent.example.com",
+) -> Client:
+    """Create an SDK Client backed by a mock httpx transport.
+
+    Args:
+        transport: Mock httpx transport that handles HTTP requests
+        endpoint: Agent endpoint URL
+
+    Returns:
+        SDK Client using the mock transport
+    """
+    httpx_client = httpx.AsyncClient(
+        transport=transport,
+        base_url=endpoint,
+    )
+    card = minimal_agent_card(endpoint)
+    factory = ClientFactory(
+        ClientConfig(httpx_client=httpx_client, streaming=False),
+    )
+    return factory.create(card)
+
+
+def build_agent_card_json(
+    name: str = "Test A2A Agent",
+    description: str = "A mock A2A agent for testing",
+    url: str = "http://test-agent.example.com",
+) -> dict[str, Any]:
+    """Build a valid SDK AgentCard-compatible JSON dict.
+
+    Includes all required fields for a2a.types.AgentCard validation.
+    """
+    return {
+        "name": name,
+        "description": description,
+        "url": url,
+        "version": "1.0.0",
+        "capabilities": {
+            "streaming": False,
+            "pushNotifications": False,
+        },
+        "skills": [
+            {
+                "id": "customer_service",
+                "name": "Customer Service",
+                "description": "Handle customer service inquiries",
+                "tags": ["support", "airline"],
+            }
+        ],
+        "defaultInputModes": ["text/plain"],
+        "defaultOutputModes": ["text/plain"],
+    }
+
+
+def build_rpc_message_response(
+    text: str,
+    request_id: str | None = None,
+    context_id: str | None = None,
+) -> dict[str, Any]:
+    """Build a JSON-RPC response containing an SDK-valid Message.
+
+    Uses Format 2 (direct Message response) which is the standard
+    SDK server response format.
+    """
+    msg = new_agent_text_message(text, context_id=context_id)
+    result_dict = msg.model_dump(by_alias=True, mode="json", exclude_none=True)
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id or str(uuid.uuid4()),
+        "result": result_dict,
+    }
 
 
 class MockA2ATransport(httpx.MockTransport):
     """
     Mock HTTP transport for A2A agent testing.
 
-    Simulates an A2A-compliant agent endpoint for testing without network calls.
+    Simulates an A2A-compliant agent endpoint, returning SDK-valid
+    Message responses (Format 2).
     """
 
     def __init__(
@@ -24,17 +111,6 @@ class MockA2ATransport(httpx.MockTransport):
         fail_status: int = 500,
         fail_message: str = "Mock failure",
     ):
-        """
-        Initialize mock A2A transport.
-
-        Args:
-            agent_name: Name for the mock agent card
-            agent_description: Description for the mock agent card
-            context_id: Context ID to return (generated if None)
-            should_fail: Whether requests should fail
-            fail_status: HTTP status code for failures
-            fail_message: Error message for failures
-        """
         self.agent_name = agent_name
         self.agent_description = agent_description
         self.context_id = context_id or f"ctx-{uuid.uuid4().hex[:12]}"
@@ -49,7 +125,6 @@ class MockA2ATransport(httpx.MockTransport):
         """Handle mock HTTP requests."""
         self.request_count += 1
 
-        # Check if should fail
         if self.should_fail:
             return httpx.Response(
                 status_code=self.fail_status,
@@ -64,48 +139,26 @@ class MockA2ATransport(httpx.MockTransport):
         if request.method == "POST":
             return self._handle_message_send(request)
 
-        # Unknown endpoint
-        return httpx.Response(
-            status_code=404,
-            json={"error": "Not found"},
-        )
+        return httpx.Response(status_code=404, json={"error": "Not found"})
 
     def _handle_agent_card(self, request: httpx.Request) -> httpx.Response:
         """Handle agent card discovery request."""
-        agent_card = {
-            "name": self.agent_name,
-            "description": self.agent_description,
-            "url": str(request.url.copy_with(path="")),
-            "version": "1.0.0",
-            "capabilities": {
-                "streaming": False,
-                "push_notifications": False,
-            },
-            "security_schemes": None,
-            "security": None,
-            "skills": [
-                {
-                    "id": "customer_service",
-                    "name": "Customer Service",
-                    "description": "Handle customer service inquiries",
-                    "tags": ["support", "airline"],
-                }
-            ],
-        }
-
+        card_json = build_agent_card_json(
+            name=self.agent_name,
+            description=self.agent_description,
+            url=str(request.url.copy_with(path="")),
+        )
         return httpx.Response(
             status_code=200,
-            json=agent_card,
+            json=card_json,
             headers={"content-type": "application/json"},
         )
 
     def _handle_message_send(self, request: httpx.Request) -> httpx.Response:
         """Handle A2A message/send request (JSON-RPC 2.0)."""
         try:
-            # Parse JSON-RPC request
             rpc_request = json.loads(request.content)
 
-            # Validate JSON-RPC structure
             if rpc_request.get("jsonrpc") != "2.0":
                 return httpx.Response(
                     status_code=400,
@@ -132,26 +185,15 @@ class MockA2ATransport(httpx.MockTransport):
                     },
                 )
 
-            # Extract message from params
             message = rpc_request.get("params", {}).get("message", {})
             message_content = self._extract_message_content(message)
-
-            # Generate mock response
             response_text = self._generate_response(message_content)
 
-            # Build JSON-RPC response
-            rpc_response = {
-                "jsonrpc": "2.0",
-                "id": rpc_request.get("id"),
-                "result": {
-                    "message": {
-                        "messageId": f"msg-{uuid.uuid4()}",
-                        "role": "agent",
-                        "parts": [{"text": response_text}],
-                        "contextId": self.context_id,
-                    }
-                },
-            }
+            rpc_response = build_rpc_message_response(
+                text=response_text,
+                request_id=rpc_request.get("id"),
+                context_id=self.context_id,
+            )
 
             return httpx.Response(
                 status_code=200,
@@ -164,10 +206,7 @@ class MockA2ATransport(httpx.MockTransport):
                 status_code=400,
                 json={
                     "jsonrpc": "2.0",
-                    "error": {
-                        "code": -32700,
-                        "message": f"Parse error: {e}",
-                    },
+                    "error": {"code": -32700, "message": f"Parse error: {e}"},
                     "id": None,
                 },
             )
@@ -176,22 +215,15 @@ class MockA2ATransport(httpx.MockTransport):
         """Extract text content from A2A message parts."""
         parts = message.get("parts", [])
         text_parts = []
-
         for part in parts:
             if "text" in part:
                 text_parts.append(part["text"])
-
         return "\n".join(text_parts)
 
     def _generate_response(self, message_content: str) -> str:
-        """
-        Generate mock agent response based on input.
-
-        Provides simple pattern matching for common test scenarios.
-        """
+        """Generate mock agent response based on input."""
         content_lower = message_content.lower()
 
-        # Tool call request - search flights
         if "search_flights" in content_lower or "flight from" in content_lower:
             return json.dumps(
                 {
@@ -206,7 +238,6 @@ class MockA2ATransport(httpx.MockTransport):
                 }
             )
 
-        # Tool call request - book flight
         if "book_flight" in content_lower or "book the flight" in content_lower:
             return json.dumps(
                 {
@@ -223,11 +254,9 @@ class MockA2ATransport(httpx.MockTransport):
                 }
             )
 
-        # Tool result acknowledgment
         if "tool result" in content_lower or "tool output" in content_lower:
             return "Thank you for the information. I'll proceed with helping you."
 
-        # Default response
         return "I understand. How can I help you today?"
 
 
@@ -241,13 +270,9 @@ def mock_a2a_agent():
 
 
 @pytest.fixture
-def mock_a2a_client(mock_a2a_agent):
-    """Fixture providing httpx AsyncClient with mock A2A agent."""
-    client = httpx.AsyncClient(
-        transport=mock_a2a_agent,
-        base_url="http://test-agent.example.com",
-    )
-    return client
+def mock_a2a_client(mock_a2a_agent) -> Client:
+    """Fixture providing an SDK Client with mock A2A agent."""
+    return create_mock_sdk_client(mock_a2a_agent)
 
 
 @pytest.fixture
