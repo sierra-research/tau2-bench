@@ -12,8 +12,6 @@ def _ensure_registered():
     global _registered
     if _registered:
         return
-    _registered = True
-
     import tau2.knowledge.document_preprocessors.bm25_indexer  # noqa: F401
     import tau2.knowledge.document_preprocessors.embedding_indexer  # noqa: F401
     import tau2.knowledge.input_preprocessors.embedding_encoder  # noqa: F401
@@ -23,3 +21,5 @@ def _ensure_registered():
     import tau2.knowledge.retrievers.bm25_retriever  # noqa: F401
     import tau2.knowledge.retrievers.cosine_retriever  # noqa: F401
     import tau2.knowledge.retrievers.grep_retriever  # noqa: F401
+
+    _registered = True
