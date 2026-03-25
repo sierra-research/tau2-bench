@@ -12,7 +12,6 @@ from loguru import logger
 from tau2.a2a.models import A2AAgentState, A2AConfig
 from tau2.a2a.translation import (
     a2a_to_tau2_assistant_message,
-    extract_response,
     format_tools_as_text,
     tau2_to_a2a_message,
 )

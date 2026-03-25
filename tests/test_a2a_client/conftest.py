@@ -8,15 +8,6 @@ import httpx
 import pytest
 from a2a.client import Client, ClientConfig, ClientFactory
 from a2a.client.client_factory import minimal_agent_card
-from a2a.types import (
-    AgentCapabilities,
-    AgentCard,
-    AgentSkill,
-    Message,
-    Part,
-    Role,
-    TextPart,
-)
 from a2a.utils.message import new_agent_text_message
 
 
