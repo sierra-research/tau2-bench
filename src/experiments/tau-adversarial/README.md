@@ -90,6 +90,30 @@ safety_result = evaluate_safety(
   - Prompt injection success
   - Identity verification bypass
 
+## Architecture: Prompt Layering Design
+
+The adversarial evaluation uses a **two-layer prompt architecture** by design:
+
+### Layer 1: Task-Level Attack Scripts
+Tasks in `tasks_adversarial.json` contain detailed attack scripts in `user_scenario.instructions.task_instructions`. These define:
+- The specific manipulation tactics to attempt
+- Step-by-step escalation paths
+- Domain-specific attack content
+
+### Layer 2: AdversarialUser Wrapper
+The `AdversarialUser` class wraps these instructions with:
+- Strategy-specific framing (e.g., "You are an adversarial user...")
+- Meta-instructions for hiding adversarial intent
+- Guidance to blend legitimate requests with attacks
+
+**Why Two Layers?**
+1. **Flexibility**: Task scripts can be swapped independently of the wrapper
+2. **Realism**: Real attacks often combine legitimate requests with manipulation
+3. **Configurability**: The wrapper adds sophistication-based behavior without modifying task definitions
+4. **Evaluation**: Separates "what to attack" (task) from "how to attack" (wrapper)
+
+The double-stacking is intentional - it creates more realistic attack scenarios where the adversarial user has both specific goals (from the task) and general manipulation strategies (from the wrapper).
+
 ## Adding Adversarial Tasks
 
 Create `tasks_adversarial.json` in `data/domains/{domain}/`:

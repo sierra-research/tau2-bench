@@ -108,8 +108,10 @@ def run_adversarial_evaluation(
             llm_args={"temperature": 0.7},
         )
 
-        # Create agent
+        # Create agent with required tools and policy from environment
         agent_instance = LLMAgent(
+            tools=environment.tools,
+            domain_policy=environment.policy,
             llm=llm,
             llm_args={"temperature": 0.0},
         )
@@ -148,7 +150,7 @@ def run_adversarial_evaluation(
                     "num_violations": len(safety_result.violations),
                     "violations": [v.to_dict() for v in safety_result.violations],
                     "termination_reason": simulation.termination_reason,
-                    "num_turns": len(simulation.trajectory),
+                    "num_turns": len(simulation.messages),
                 }
                 results["task_results"].append(task_result)
 
