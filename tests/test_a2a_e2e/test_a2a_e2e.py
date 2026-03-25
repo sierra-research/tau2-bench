@@ -8,11 +8,9 @@ import asyncio
 
 import httpx
 import pytest
-
 from a2a.client import A2ACardResolver
 from a2a.types import AgentCard
 
-from tau2.a2a.models import A2AAgentState
 from tau2.agent.a2a_agent import A2AAgent
 from tau2.data_model.message import AssistantMessage, ToolMessage, UserMessage
 
@@ -31,9 +29,7 @@ class TestSmoke:
         """Fetch the agent card and validate its structure."""
 
         async def _fetch_card() -> AgentCard:
-            async with httpx.AsyncClient(
-                base_url=a2a_e2e_endpoint
-            ) as client:
+            async with httpx.AsyncClient(base_url=a2a_e2e_endpoint) as client:
                 resolver = A2ACardResolver(
                     httpx_client=client,
                     base_url=a2a_e2e_endpoint,
@@ -47,16 +43,12 @@ class TestSmoke:
         assert len(card.skills) > 0
         assert card.version
 
-    def test_single_message_round_trip(
-        self, a2a_e2e_agent: A2AAgent
-    ):
+    def test_single_message_round_trip(self, a2a_e2e_agent: A2AAgent):
         """Send one message and verify we get a non-empty text response."""
         state = a2a_e2e_agent.get_init_state()
         user_msg = UserMessage(role="user", content="Hello")
 
-        response, new_state = a2a_e2e_agent.generate_next_message(
-            user_msg, state
-        )
+        response, new_state = a2a_e2e_agent.generate_next_message(user_msg, state)
 
         assert isinstance(response, AssistantMessage)
         assert response.has_text_content()
@@ -94,9 +86,7 @@ class TestProtocol:
             role="user",
             content="Create a task for user_1 titled 'Test Task'",
         )
-        response, state = a2a_e2e_agent.generate_next_message(
-            user_msg, state
-        )
+        response, state = a2a_e2e_agent.generate_next_message(user_msg, state)
 
         assert isinstance(response, AssistantMessage)
 
@@ -113,15 +103,12 @@ class TestProtocol:
             id=tool_call.id,
             role="tool",
             content=(
-                '{"task_id": "task_1", "title": "Test Task",'
-                ' "status": "pending"}'
+                '{"task_id": "task_1", "title": "Test Task", "status": "pending"}'
             ),
             error=False,
             requestor="assistant",
         )
-        response2, state = a2a_e2e_agent.generate_next_message(
-            tool_result, state
-        )
+        response2, state = a2a_e2e_agent.generate_next_message(tool_result, state)
 
         assert isinstance(response2, AssistantMessage)
         assert response2.has_text_content(), (
@@ -140,9 +127,7 @@ MAX_TURNS = 10
 class TestFunctional:
     """Full task flow using a real mock domain task definition."""
 
-    def test_mock_domain_task_flow(
-        self, a2a_e2e_agent: A2AAgent
-    ):
+    def test_mock_domain_task_flow(self, a2a_e2e_agent: A2AAgent):
         """Run a full conversation loop for the create_task_1 mock domain task."""
         from tau2.domains.mock.environment import (
             get_environment,
@@ -151,9 +136,7 @@ class TestFunctional:
 
         tasks = get_tasks()
         task = next(t for t in tasks if t.id == "create_task_1")
-        assert task.ticket is not None, (
-            "create_task_1 must have a ticket field"
-        )
+        assert task.ticket is not None, "create_task_1 must have a ticket field"
 
         # Build a fresh environment to execute tool calls against
         env = get_environment()
@@ -169,9 +152,7 @@ class TestFunctional:
         last_tool_call = None
 
         for turn in range(MAX_TURNS):
-            response, state = a2a_e2e_agent.generate_next_message(
-                next_msg, state
-            )
+            response, state = a2a_e2e_agent.generate_next_message(next_msg, state)
             assert isinstance(response, AssistantMessage)
 
             if response.has_text_content() and not response.is_tool_call():
@@ -188,9 +169,7 @@ class TestFunctional:
                 tool_result = env.get_response(tool_call)
                 next_msg = tool_result
         else:
-            pytest.fail(
-                f"Conversation did not complete within {MAX_TURNS} turns"
-            )
+            pytest.fail(f"Conversation did not complete within {MAX_TURNS} turns")
 
         # The task expects create_task to be called with user_id="user_1"
         assert tool_was_called, "Expected at least one tool call"
@@ -199,6 +178,5 @@ class TestFunctional:
         )
         assert last_tool_call is not None
         assert last_tool_call.arguments.get("user_id") == "user_1", (
-            f"Expected user_id='user_1' but got "
-            f"{last_tool_call.arguments}"
+            f"Expected user_id='user_1' but got {last_tool_call.arguments}"
         )

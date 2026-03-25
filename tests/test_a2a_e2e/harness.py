@@ -4,8 +4,6 @@ Provides a TestAgentExecutor that proxies user messages to OpenAI's gpt-4o
 and a build_test_server() factory that assembles the full A2A server stack.
 """
 
-from openai import OpenAI
-
 from a2a.server.agent_execution.agent_executor import AgentExecutor
 from a2a.server.agent_execution.context import RequestContext
 from a2a.server.apps.jsonrpc.fastapi_app import A2AFastAPIApplication
@@ -14,6 +12,7 @@ from a2a.server.request_handlers.default_request_handler import DefaultRequestHa
 from a2a.server.tasks.inmemory_task_store import InMemoryTaskStore
 from a2a.types import AgentCapabilities, AgentCard, AgentSkill
 from a2a.utils.message import new_agent_text_message
+from openai import OpenAI
 
 
 class TestAgentExecutor(AgentExecutor):
@@ -25,12 +24,12 @@ class TestAgentExecutor(AgentExecutor):
     and returns the response as an A2A Message.
     """
 
+    __test__ = False  # Prevent pytest collection
+
     def __init__(self) -> None:
         self._client = OpenAI()
 
-    async def execute(
-        self, context: RequestContext, event_queue: EventQueue
-    ) -> None:
+    async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         user_input = context.get_user_input()
 
         response = self._client.chat.completions.create(
@@ -48,9 +47,7 @@ class TestAgentExecutor(AgentExecutor):
         await event_queue.enqueue_event(message)
         await event_queue.close()
 
-    async def cancel(
-        self, context: RequestContext, event_queue: EventQueue
-    ) -> None:
+    async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
         await event_queue.close()
 
 
@@ -75,7 +72,7 @@ def _build_agent_card(url: str) -> AgentCard:
     )
 
 
-def build_test_server(url: str = "http://localhost:0") -> "FastAPI":
+def build_test_server(url: str = "http://localhost:0"):
     """Build a complete A2A test server as a FastAPI ASGI app.
 
     Returns:

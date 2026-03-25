@@ -18,7 +18,6 @@ import uvicorn
 from tau2.a2a.models import A2AConfig
 from tau2.agent.a2a_agent import A2AAgent
 from tau2.domains.mock.environment import get_environment
-
 from tests.test_a2a_e2e.harness import build_test_server
 
 
