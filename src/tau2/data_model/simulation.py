@@ -566,6 +566,16 @@ class TextRunConfig(BaseRunConfig):
         ),
     ]
 
+    # ---- A2A Agent ----
+    a2a_agent_args: Annotated[
+        Optional[dict],
+        Field(
+            description="A2A agent configuration. Required when agent is 'a2a_agent'. "
+            "Keys: endpoint (str, required), auth_token (str, optional), timeout (int, optional, default 300).",
+            default=None,
+        ),
+    ]
+
     # ---- Properties ----
 
     @property
