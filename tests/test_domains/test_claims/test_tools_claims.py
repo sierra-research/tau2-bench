@@ -369,6 +369,8 @@ def claims_db() -> InsuranceClaimsDB:
 #     toolkit = ClaimsTools(claims_db)
 #     return get_environment(toolkit)
 
+# claim.audit_trail[self._now()] = message #uncomment this on tools.py when running tests to update the audit trail
+
 @pytest.fixture
 def env(claims_db: InsuranceClaimsDB) -> Environment:
     return get_environment(claims_db)
@@ -571,13 +573,3 @@ def test_reject_claim(env: Environment):
 
 if __name__ == "__main__":
     pass
-    # test_create_claim()
-    # test_get_claims()
-    # test_initiate_recovery()
-    # test_update_recovery_status()
-    # test_reject_claim()
-    # test_submit_claim()
-    # test_request_documents()
-    # test_verify_document()
-    # test_approve_claim()
-    # test_settle_claim()
