@@ -95,7 +95,24 @@ docker build -t tau2-claims .
 
 ## Run Simulations/Evaluations(Minimal Test run)
 
-### output file inside container
+## Running locally for specific tasks
+tau2 run `
+ --domain claims `
+ --agent-llm gpt-4.1 `
+ --user-llm gpt-4.1 `
+ --num-trials 1 `
+ --task-ids LIFE-2 LIFE-4 LIFE-9 TR-1 TR-5 TR-7 HOME-0 HOME-6 HOME-9 MT-0 MT-3 MT-7 MED-0 MED-1 MED-3 `
+ --save-to [filename] 
+
+## Running locally for all tasks
+tau2 run `
+ --domain claims `
+ --agent-llm gpt-4.1 `
+ --user-llm gpt-4.1 `
+ --num-trials 1 `
+ --save-to [filename]
+
+<!-- ### output file inside container
 docker run --rm `
   tau2-claims tau2 run `
   --domain claims `
@@ -119,4 +136,4 @@ docker run --rm `
   --save-to /outputs/claims_gpt-4.1_benchmark_LIFE-9_v1.json
 
 
-
+ -->

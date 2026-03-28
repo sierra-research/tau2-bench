@@ -4,8 +4,6 @@ from typing import Optional
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
 from tau2.data_model.tasks import Task
 from tau2.domains.claims.data_model import InsuranceClaimsDB
 from tau2.domains.claims.tools import ClaimsTools

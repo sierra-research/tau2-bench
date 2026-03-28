@@ -1,9 +1,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
-from typing import Any, Dict, List, Optional, Literal
+from typing import Any, Dict, List, Optional, Literal,Union
 from loguru import logger
 from datetime import datetime
 from datetime import datetime
@@ -46,7 +44,7 @@ class ClaimsTools(ToolKitBase):
     def _log(self, claim: Claim, message: str) -> None:
         # if os.getenv("TAU2_STRICT_REPLAY", "0") == "1":
             return
-        # claim.audit_trail[self._now()] = message
+        # claim.audit_trail[self._now()] = message #uncomment when you want to update the audit trail.
 
     def _validate_transition(
         self, old: ClaimStatus, new: ClaimStatus
@@ -62,18 +60,22 @@ class ClaimsTools(ToolKitBase):
     #claims creation and submission    
 
     @is_tool(ToolType.WRITE)
-    def create_claim(self, claim) -> Claim:
-        # If a dict is passed, convert it to a Claim object
-        if isinstance(claim, dict):
-            claim = Claim(**claim)
+    def create_claim(self, claim_id: str, **kwargs) -> Claim:
+        # Prevent duplicates
+        if claim_id in self.db.claims:
+            # raise ValueError("Claim already exists")
+            return self.db.claims[claim_id]
 
-        if claim.claim_id in self.db.claims:
-            raise ValueError("Claim already exists")
+        kwargs["claim_id"] = claim_id
+        claim = Claim.model_validate(kwargs)
 
+        # Initialize safe defaults
         claim.claim_status = "new"
-        claim.audit_trail[self._now()] = "Claim created"
+        claim.audit_trail = claim.audit_trail or {}
         claim.payments = []
         claim.recoveries = []
+
+        claim.audit_trail[self._now()] = "Claim created"
 
         self.db.claims[claim.claim_id] = claim
         return claim
@@ -86,14 +88,14 @@ class ClaimsTools(ToolKitBase):
         """
         claim = self._get_claim(claim_id)
         # self._validate_transition(claim.claim_status, "under_review")
-         # claim.claim_status = "under_review"
+        # claim.claim_status = "under_review"
         if claim.claim_status != "new":
             raise ValueError("Only NEW claims can be submitted")
         self._log(claim, "Claim submitted")
         # claim.audit_trail[self._now()] = "Claim submitted"
         return claim
-    
-    # document management and handling
+        
+        # document management and handling
 
     #List all claims document presented by the claim
     @is_tool(ToolType.READ)
@@ -135,16 +137,29 @@ class ClaimsTools(ToolKitBase):
     def verify_documents(
         self,
         claim_id: str,
-        document_ids: Optional[List[str]] = None,
+        document_id: Optional[Union[str, List[str]]] = None,
         verified: bool = True,
         notes: Optional[str] = None,
     ) -> Claim:
         claim = self._get_claim(claim_id)
-        docs_to_verify = (
-            [self._get_document(claim, doc_id) for doc_id in document_ids]
-            if document_ids
-            else claim.documents
-        )
+    
+        # docs_to_verify = (
+        #     [self._get_document(claim, doc_id) for doc_id in document_id]
+        #     if document_id
+        #     else claim.documents
+        # )
+
+        if document_id is None:
+            docs_to_verify = claim.documents
+        else:
+            if isinstance(document_id, str):
+                doc_ids = [document_id]  # "DOC_5" → ["DOC_5"]
+            else:
+                doc_ids = document_id    # Already list
+
+            docs_to_verify = [
+                self._get_document(claim, doc_id) for doc_id in doc_ids
+            ]
 
         for doc in docs_to_verify:
             if not doc.received:
@@ -207,6 +222,7 @@ class ClaimsTools(ToolKitBase):
 
         claim.claim_status = "settled"
         self._log(claim, f"Claim settled: {notes}")
+        self.db.claims[claim_id] = claim
         try:
             self.close_claim(claim_id, "Automatically closed after settlement")
         except ValueError:
@@ -225,8 +241,8 @@ class ClaimsTools(ToolKitBase):
         # Automatically assign to human for review
         self._assign_human(
             claim=claim,
-            team="Claims Review Team",
-            role="Senior Claims Analyst",
+            team=claim.assignments.current_assignment.handler_team,  # or claim.claim_handler_team depending on your model, #the team that handles the claim will be responsible to reject it.
+            role=claim.assignments.current_assignment.assessor_role,
             notes=f"Rejected claim requires human review: {reason}"
         )
 
@@ -243,7 +259,8 @@ class ClaimsTools(ToolKitBase):
         claim = self._get_claim(claim_id)
         self._validate_transition(claim.claim_status, status)
         claim.claim_status = status
-        self._log(claim, f"Status → {status}: {reason}") 
+        self._log(claim, f"Status → {status}: {reason}")
+        self.db.claims[claim_id] = claim 
         return claim
     
     
@@ -375,8 +392,8 @@ class ClaimsTools(ToolKitBase):
 
         self._assign_human(
             claim=claim,
-            team="General Claims Team",
-            role="Loss Assessor",
+            team=claim.assignments.current_assignment.handler_team,
+            role=claim.assignments.current_assignment.assessor_role,
             notes="Fraud indicators detected – investigation required",
         )
 
@@ -414,7 +431,7 @@ class ClaimsTools(ToolKitBase):
             claim = self._get_claim(claim_id)
             return claim
 
-        claim = self._make_payment(
+        claim = self.make_payment(
             claim_id=claim_id,
             amount=amount,
             currency=currency,
@@ -431,7 +448,7 @@ class ClaimsTools(ToolKitBase):
     def process_liability_minor(
         self, claim_id: str, amount: float, currency: str, reason: str
     ) -> Claim:
-        claim = self._make_payment(
+        claim = self.make_payment(
             claim_id=claim_id,
             amount=amount,
             currency=currency,
@@ -448,8 +465,8 @@ class ClaimsTools(ToolKitBase):
 
         return claim
 
-
-    def _make_payment(
+    @is_tool(ToolType.WRITE)
+    def make_payment(
         self,
         claim_id: str,
         amount: float,
@@ -474,6 +491,7 @@ class ClaimsTools(ToolKitBase):
 
         claim.payments.append(payment)
         self._log(claim, f"Payment processed: {amount}")
+        self.db.claims[claim_id] = claim
         return claim
 
 
@@ -481,8 +499,8 @@ class ClaimsTools(ToolKitBase):
     def identify_subrogation(self, claim_id: str, notes: Optional[str] = None) -> Claim:
         claim = self._get_claim(claim_id)
 
-        if not claim.payments:
-            raise ValueError("Subrogation requires payment")
+        # if not claim.payments:
+        #     raise ValueError("Subrogation requires payment")
 
         claim.subrogation_possible = True
         claim.subrogation_notes = notes
@@ -505,8 +523,8 @@ class ClaimsTools(ToolKitBase):
 
         self._assign_human(
             claim=claim,
-            team="Recoveries",
-            role="Senior Claims Analyst",
+            team=claim.assignments.current_assignment.handler_team,
+            role=claim.assignments.current_assignment.assessor_role , 
             notes="Recovery initiated",
         )
 
@@ -546,16 +564,14 @@ class ClaimsTools(ToolKitBase):
     def transfer_to_human_agents(
         self,
         claim_id: str,
-        team: str,
-        role: str,
         reason: str,
     ) -> Claim:
         claim = self._get_claim(claim_id)
 
         self._assign_human(
             claim=claim,
-            team=team,
-            role=role,
+            team=claim.assignments.current_assignment.handler_team,
+            role=claim.assignments.current_assignment.adjuster_role,
             notes=reason,
         )
 
@@ -683,7 +699,7 @@ class ClaimsTools(ToolKitBase):
                 for doc in docs_to_verify:
                     verified = payload.get("verified", True)
                     notes = payload.get("notes", f"Verified via task '{task_name}'")
-                    claim = self.verify_document(claim_id, doc.document_id, verified, notes)
+                    claim = self.verify_documents(claim_id, doc.document_id, verified, notes)
 
             elif action.startswith("authorize"):
                 team = payload.get("team", "General Claims Team")

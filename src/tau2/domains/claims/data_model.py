@@ -1,13 +1,14 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field
 from tau2.environment.db import DB
 from tau2.domains.claims.utils import CLAIMS_DB_PATH
-from pydantic import RootModel
+from pydantic import RootModel,ConfigDict
+import json
 
 
 InsuranceType = Literal[
@@ -171,58 +172,75 @@ class Claim(BaseModel):
     audit_trail: Dict[str,str]
     assignments: Optional[Assignments]
     # recoveries: Optional[List[Recovery]] = []
-    recoveries: List[Recovery] = Field(default_factory=list)
+    # recoveries: List[Recovery] = Field(default_factory=list)
+    model_config = ConfigDict(extra='ignore')
 
 
-# class InsuranceClaimsDB(DB):
-#     claims: Dict[str, Claim]
-
-#     def get_statistics(self) -> Dict[str, Any]:
-#         return {
-#             "num_claims": len(self.claims),
-#             "by_status": {
-#                 status: sum(1 for c in self.claims.values() if c.claim_status == status)
-#                 for status in [
-#                     "new",
-#                     "under_review",
-#                     "approved",
-#                     "rejected",
-#                     "settled",
-#                     "closed",
-#                 ]
-#             },
-#             "fraud_cases": sum(
-#                 1 for c in self.claims.values()
-#                 if c.fraud_assessment.fraud_flag != "none"
-#             ),
-#             "third_party_claims": sum(
-#                 1 for c in self.claims.values()
-#                 if c.claimant.role == "third_party"
-#             ),
-#         }
-
-
-class InsuranceClaimsDB(RootModel[Dict[str, Claim]]):
-    # property for Tau2 compatibility
-    @property
-    def claims(self) -> Dict[str, Claim]:
-        return self.root
+class InsuranceClaimsDB(DB):
+    claims: Dict[str, Claim]
 
     def get_statistics(self) -> Dict[str, Any]:
-        claims = self.root  # still use root internally
         return {
-            "num_claims": len(claims),
+            "num_claims": len(self.claims),
             "by_status": {
-                status: sum(1 for c in claims.values() if c.claim_status == status)
-                for status in ["new", "under_review", "approved", "rejected", "settled", "closed"]
+                status: sum(1 for c in self.claims.values() if c.claim_status == status)
+                for status in [
+                    "new",
+                    "under_review",
+                    "approved",
+                    "rejected",
+                    "settled",
+                    "closed",
+                ]
             },
-            "fraud_cases": sum(1 for c in claims.values() if c.fraud_assessment.fraud_flag != "none"),
-            "third_party_claims": sum(1 for c in claims.values() if c.claimant.role == "third_party"),
+            "fraud_cases": sum(
+                1 for c in self.claims.values()
+                if c.fraud_assessment.fraud_flag != "none"
+            ),
+            "third_party_claims": sum(
+                1 for c in self.claims.values()
+                if c.claimant.role == "third_party"
+            ),
         }
 
 
+# class InsuranceClaimsDB(RootModel[Dict[str, Claim]]):
+#     # property for Tau2 compatibility
+#     @property
+#     def claims(self) -> Dict[str, Claim]:
+#         return self.root
+
+#     def get_statistics(self) -> Dict[str, Any]:
+#         claims = self.root  # still use root internally
+#         return {
+#             "num_claims": len(claims),
+#             "by_status": {
+#                 status: sum(1 for c in claims.values() if c.claim_status == status)
+#                 for status in ["new", "under_review", "approved", "rejected", "settled", "closed"]
+#             },
+#             "fraud_cases": sum(1 for c in claims.values() if c.fraud_assessment.fraud_flag != "none"),
+#             "third_party_claims": sum(1 for c in claims.values() if c.claimant.role == "third_party"),
+#         }
+    
+
+# def get_db(db_path: str):
+#     return InsuranceClaimsDB.model_validate_json(open(db_path, "r", encoding="utf-8").read()) 
+
+# def get_db(db_path: str):
+#     with open(db_path, "r", encoding="utf-8") as f:
+#         raw_claims = json.load(f) 
+#     db_data = {"claims": raw_claims}
+#     return InsuranceClaimsDB.model_validate(db_data)  
+
 def get_db(db_path: str):
-    return InsuranceClaimsDB.model_validate_json(open(db_path, "r", encoding="utf-8").read())
+    print("DEBUG get_db called with:", db_path)
+    with open(db_path, "r", encoding="utf-8") as f:
+        raw_data = json.load(f)
+    print("DEBUG top-level keys:", list(raw_data.keys())[:5])
+    if "claims" in raw_data:
+        return InsuranceClaimsDB.model_validate(raw_data)
+    else:
+        return InsuranceClaimsDB.model_validate({"claims": raw_data})
 
 if __name__ == "__main__":
     db = get_db(CLAIMS_DB_PATH)
