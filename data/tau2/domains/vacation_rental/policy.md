@@ -100,13 +100,21 @@ If a host cancels a confirmed reservation, the guest receives a full refund rega
 
 ### Major Disruptive Events
 
-Full refunds are provided regardless of cancellation policy when cancellation is due to:
-- Declared public health emergencies
-- Government-imposed travel restrictions
-- Natural disasters affecting the property or travel route
-- Military actions or civil unrest at the destination
+In rare circumstances where large-scale events prevent or legally prohibit completion of a reservation, the Major Disruptive Events Policy may apply.
 
-The user must provide evidence or documentation of the disruptive event when claiming this exception.
+The following events are covered if they occur after the time of booking and prevent or legally prohibit completion of the reservation:
+
+- **Declared public health emergencies** officially recognized by a government authority. This does not include diseases that are endemic or commonly associated with the destination area.
+- **Government-imposed travel restrictions** such as evacuation orders or mandatory quarantines. This does not include non-binding travel advisories or similar government guidance.
+- **Military actions or civil unrest** including acts of war, hostilities, terrorism, riots, and insurrection at the destination.
+- **Essential utility outages** — prolonged loss of essential utilities such as water, electricity, or heat affecting the property area.
+- **Unforeseeable natural disasters and severe weather** such as earthquakes, tsunamis, and tornadoes. This does not include weather or natural conditions that are foreseeable for the location and season.
+
+Events that impact a guest's ability to travel but not the reservation location are not covered. This includes unexpected illness or injury, transportation disruptions such as flight cancellations, and work or schedule conflicts.
+
+Events not covered under this policy are subject to the host's standard cancellation terms. See the Host Consideration section for exception handling.
+
+The guest must provide documentation of the disruptive event when claiming this exception.
 
 ## Refund
 
