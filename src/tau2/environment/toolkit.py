@@ -9,6 +9,8 @@ from tau2.utils import get_dict_hash, update_pydantic_model_with_dict
 
 TOOL_ATTR = "__tool__"
 TOOL_TYPE_ATTR = "__tool_type__"
+MUTATES_STATE_ATTR = "__mutates_state__"
+DISCOVERABLE_ATTR = "__discoverable__"
 
 
 T = TypeVar("T", bound=DB)
@@ -39,7 +41,19 @@ class ToolKitType(type):
 
 
 class ToolType(str, Enum):
-    """Type of a tool."""
+    """Conceptual classification of a tool.
+
+    This describes what a tool *does* from the user/agent perspective and is
+    used for metrics, prompt construction, and display.  It does **not**
+    control evaluation-replay behaviour -- see the ``mutates_state`` parameter
+    on :func:`is_tool` for that.
+
+    Members:
+        READ: Queries / retrieves data without side-effects.
+        WRITE: Creates, updates, or deletes data.
+        THINK: Pure reasoning -- no new information, no side-effects.
+        GENERIC: Utility that doesn't fit the other categories.
+    """
 
     READ = "read"
     WRITE = "write"
@@ -47,16 +61,64 @@ class ToolType(str, Enum):
     GENERIC = "generic"
 
 
-def is_tool(tool_type: ToolType = ToolType.READ):
+def is_tool(
+    tool_type: ToolType = ToolType.READ,
+    mutates_state: Optional[bool] = None,
+):
     """Decorator to mark a function as a tool.
 
     Args:
-        write: Whether this tool modifies state (True) or just reads state (False)
+        tool_type: Conceptual classification (READ, WRITE, THINK, GENERIC).
+        mutates_state: Whether this tool mutates environment / DB state.
+            When ``None`` (the default) the value is **inferred** from
+            *tool_type*: ``True`` for WRITE, ``False`` otherwise.  Override
+            explicitly for edge-cases such as a WRITE tool that signals an
+            action but does not modify the database (e.g.
+            ``transfer_to_human_agents``).
+
+            During evaluation replay (``set_state``), only tools with
+            ``mutates_state=True`` are re-executed; all others are skipped.
     """
+    if mutates_state is None:
+        mutates_state = tool_type == ToolType.WRITE
 
     def decorator(func):
         setattr(func, TOOL_ATTR, True)
         setattr(func, TOOL_TYPE_ATTR, tool_type)
+        setattr(func, MUTATES_STATE_ATTR, mutates_state)
+        return func
+
+    return decorator
+
+
+def is_discoverable_tool(
+    tool_type: ToolType = ToolType.READ,
+    mutates_state: Optional[bool] = None,
+):
+    """Decorator to mark a function as a discoverable tool.
+
+    Discoverable tools are tools that exist and can be called, but are not
+    included in the agent's system prompt by default. The agent must discover
+    these tools through the knowledge base and unlock them before calling.
+
+    The docstring of the decorated function serves as the tool definition:
+    - First paragraph: tool description
+    - Args section: parameter definitions (parsed for name, type hint, and description)
+    - The function name is the tool name
+
+    Args:
+        tool_type: Conceptual classification (READ, WRITE, THINK, GENERIC).
+        mutates_state: Whether this tool mutates environment / DB state.
+            See :func:`is_tool` for details.
+    """
+    if mutates_state is None:
+        mutates_state = tool_type == ToolType.WRITE
+
+    def decorator(func):
+        setattr(func, TOOL_ATTR, True)
+        setattr(func, TOOL_TYPE_ATTR, tool_type)
+        setattr(func, MUTATES_STATE_ATTR, mutates_state)
+        setattr(func, DISCOVERABLE_ATTR, True)
         return func
 
     return decorator
@@ -79,25 +141,72 @@ class ToolKitBase(metaclass=ToolKitType):
             raise ValueError(f"Tool '{tool_name}' not found.")
         return self.tools[tool_name](**kwargs)
 
-    def get_tools(self) -> Dict[str, Tool]:
-        """Get the tools available in the ToolKit.
-        Uses the `as_tool` to convert the functions to Tool objects.
+    def get_tools(self, include: Optional[list[str]] = None) -> Dict[str, Tool]:
+        """Get the non-discoverable tools available in the ToolKit.
+
+        Discoverable tools are excluded — they should not appear in the
+        agent's system prompt. Use `get_discoverable_tools()` to access them.
+
+        Args:
+            include: If provided, only return tools whose names are in this list.
+                If None, return all non-discoverable tools (no filtering).
 
         Returns:
-            A dictionary of tools available in the ToolKit.
+            A dictionary of non-discoverable tools available in the ToolKit.
         """
         # NOTE: as_tool needs to get the function (self.foo), not the `foo(self, ...)`
         # Otherwise, the `self` will exists in the arguments.
         # Therefore, it needs to be called with getattr(self, name)
-        return {name: as_tool(tool) for name, tool in self.tools.items()}
+        tools = {
+            name: as_tool(tool)
+            for name, tool in self.tools.items()
+            if not getattr(tool, DISCOVERABLE_ATTR, False)
+        }
+        if include is not None:
+            allowed = set(include)
+            unknown = allowed - set(tools.keys())
+            if unknown:
+                available = sorted(tools.keys())
+                raise ValueError(
+                    f"Tool(s) not found: {sorted(unknown)}. Available: {available}"
+                )
+            tools = {name: tool for name, tool in tools.items() if name in allowed}
+        return tools
 
     def has_tool(self, tool_name: str) -> bool:
         """Check if a tool exists in the ToolKit."""
         return tool_name in self.tools
 
+    def is_discoverable(self, tool_name: str) -> bool:
+        """Check if a tool is a discoverable tool."""
+        if tool_name not in self.tools:
+            return False
+        return getattr(self.tools[tool_name], DISCOVERABLE_ATTR, False)
+
+    def get_discoverable_tools(self) -> Dict[str, Callable]:
+        """Get all discoverable tool methods on this toolkit."""
+        return {
+            name: tool
+            for name, tool in self.tools.items()
+            if getattr(tool, DISCOVERABLE_ATTR, False)
+        }
+
+    def has_discoverable_tool(self, tool_name: str) -> bool:
+        """Check if a discoverable tool exists."""
+        return tool_name in self.get_discoverable_tools()
+
     def tool_type(self, tool_name: str) -> ToolType:
         """Get the type of a tool."""
         return getattr(self.tools[tool_name], TOOL_TYPE_ATTR)
+
+    def tool_mutates_state(self, tool_name: str) -> bool:
+        """Check whether a tool mutates environment state.
+
+        Falls back to ``True`` (safe default: assume mutation) if the
+        attribute is missing -- e.g. for tools decorated before the
+        ``mutates_state`` parameter was introduced.
+        """
+        return getattr(self.tools[tool_name], MUTATES_STATE_ATTR, True)
 
     def get_statistics(self) -> dict[str, Any]:
         """Get the statistics of the ToolKit."""

@@ -26,11 +26,7 @@ def user_simulator() -> UserSimulator:
 
 @pytest.fixture
 def dummy_user() -> DummyUser:
-    return DummyUser(
-        instructions="You are a dummy user.",
-        llm="gpt-3.5-turbo",
-        llm_args={"temperature": 0.0},
-    )
+    return DummyUser()
 
 
 @pytest.fixture

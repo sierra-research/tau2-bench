@@ -20,7 +20,6 @@ class TestLaunchEvaluation:
             patch("agentify_tau_bench.launcher.wait_agent_ready") as mock_wait,
             patch("agentify_tau_bench.launcher.a2a_send_message") as mock_send,
         ):
-
             # Mock process creation
             mock_process.side_effect = [mock_green_process, mock_white_process]
 
@@ -62,7 +61,6 @@ class TestLaunchEvaluation:
             ) as mock_process,
             patch("agentify_tau_bench.launcher.wait_agent_ready") as mock_wait,
         ):
-
             mock_process.return_value = mock_green_process
             mock_wait.return_value = False  # Green agent not ready
 
@@ -84,7 +82,6 @@ class TestLaunchEvaluation:
             ) as mock_process,
             patch("agentify_tau_bench.launcher.wait_agent_ready") as mock_wait,
         ):
-
             mock_process.side_effect = [mock_green_process, mock_white_process]
             # Green ready, white not ready
             mock_wait.side_effect = [True, False]
@@ -109,7 +106,6 @@ class TestLaunchEvaluation:
             patch("agentify_tau_bench.launcher.wait_agent_ready") as mock_wait,
             patch("agentify_tau_bench.launcher.a2a_send_message") as mock_send,
         ):
-
             mock_process.side_effect = [mock_green_process, mock_white_process]
             mock_wait.return_value = True
             mock_send.return_value = MagicMock()

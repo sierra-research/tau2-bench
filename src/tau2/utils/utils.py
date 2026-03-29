@@ -1,4 +1,5 @@
 import hashlib
+import importlib.metadata
 import json
 import os
 import subprocess
@@ -52,19 +53,39 @@ def show_dict_diff(dict1: dict, dict2: dict) -> str:
     return diff
 
 
-def get_now() -> str:
+def get_now(use_compact_format: bool = False) -> str:
     """
-    Returns the current date and time in the format YYYYMMDD_HHMMSS.
+    Returns the current date and time.
+
+    Args:
+        use_compact_format: If True, returns format YYYYMMDD_HHMMSS.
+                          If False, returns ISO format (YYYY-MM-DDTHH:MM:SS.ffffff).
     """
     now = datetime.now()
-    return format_time(now)
+    return format_time(now, use_compact_format=use_compact_format)
 
 
-def format_time(time: datetime) -> str:
+def format_time(time: datetime, use_compact_format: bool = True) -> str:
     """
-    Format the time in the format YYYYMMDD_HHMMSS.
+    Format the time.
+
+    Args:
+        time: The datetime object to format.
+        use_compact_format: If True, returns format YYYYMMDD_HHMMSS.
+                          If False, returns ISO format (YYYY-MM-DDTHH:MM:SS.ffffff).
     """
-    return time.isoformat()
+    if use_compact_format:
+        return time.strftime("%Y%m%d_%H%M%S")
+    else:
+        return time.isoformat()
+
+
+def get_tau2_version() -> str:
+    """Get the installed tau2 package version."""
+    try:
+        return importlib.metadata.version("tau2")
+    except importlib.metadata.PackageNotFoundError:
+        return "dev"
 
 
 def get_commit_hash() -> str:

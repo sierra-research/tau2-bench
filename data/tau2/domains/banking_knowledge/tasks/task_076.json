@@ -1,0 +1,83 @@
+{
+  "id": "task_076",
+  "description": {
+    "purpose": "Task: task_076",
+    "relevant_policies": null,
+    "notes": "PERSONAL CHECKING ACCOUNT RECOMMENDATION WITH ATM FEE CALCULATION + EARLY DIRECT DEPOSIT REQUIREMENT: User Anastasia Volkov is planning a 2-month international trip and wants to open the best personal checking account to minimize ATM fees. She will make approximately 4 foreign ATM withdrawals per month at $300 each (8 total withdrawals, $2,400 total). CRITICAL ADDITIONAL REQUIREMENT: User explicitly states she needs early direct deposit (2 days early) because she gets paid while traveling and needs access to funds quickly. THE KEY INSIGHT: Green Fee-Free Account has $0 ATM fees BUT has early_direct_deposit_days = 0 (no early deposit), so it DOES NOT meet the user's requirement. THE TRAP: Agent will likely recommend Green Fee-Free Account for $0 ATM fees without checking if it has early direct deposit. CALCULATIONS FOR ACCOUNTS WITH EARLY DIRECT DEPOSIT (2 DAYS): PURPLE ACCOUNT: $2.50 out-of-network \u00d7 8 = $20, plus $0 foreign fee = $20 TOTAL (OPTIMAL among eligible). BLUEST ACCOUNT: $2.00 out-of-network \u00d7 8 = $16, plus $0 foreign = $16 TOTAL (but requires $50k-100k minimum deposit - NOT PRACTICAL). ACCOUNTS WITHOUT EARLY DIRECT DEPOSIT (ELIMINATED): Green Fee-Free Account (0 days), Light Blue Account (0 days), Blue Account (0 days), Green Account (0 days). AGE-RESTRICTED ACCOUNTS: Gold Years (60+), Light Green (13-24), Dark Green (17-28) - user is 29 so INELIGIBLE. OPTIMAL ANSWER: Purple Account at $20 total ATM fees - the only practical account with both early direct deposit AND reasonable ATM fees."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Anastasia Volkov, a 29-year-old international sales executive from San Francisco, CA. You travel internationally frequently for business and are meticulous about your finances.\n\n**Your situation:** You're planning a 2-month work trip across Europe starting next month. You'll need to withdraw cash regularly from out of network ATMs abroad in foreign currency. You want to open a new personal checking account for this trip that minimizes ATM fees. You also need early direct deposit because you'll be getting paid while abroad and need quick access to your paycheck.\n\n**Your usage pattern (be specific about this):**\n- Trip duration: 2 months\n- Expected ATM withdrawals: about 4 per month\n- Average withdrawal amount: $300 each\n- You need early direct deposit (2 days early) - this is important to you\n\n**Verification info:**\n- Name: Anastasia Volkov | Phone: 415-555-2983 | Email: anastasia.volkov@globaltech.com\n- DOB: 03/14/1996 | Address: 1847 Pacific Heights Avenue, San Francisco, CA 94115\n\n## Conversation Flow:\n\n1. **Opening - State your goal and requirements clearly:** \"Hi! I'm planning a 2-month work trip to Europe next month and I need to open a new checking account for it. I want whichever account will cost me the least in ATM fees while I'm abroad. I also need early direct deposit - I get paid while traveling and need access to my paycheck quickly.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address.\n\n3. **When asked for more details about your usage:** \"So here's exactly what I'm expecting: I'll be abroad for 2 months. I'll probably hit the ATM about 4 times per month - that's 8 withdrawals total. Each time I'll withdraw around $300 or so. And like I said, I need early direct deposit - at least 2 days early would be ideal.\"\n\n4. **When the agent recommends an account:** You can optionally ask if they're sure. \"Are you sure that's the best one for my situation? It has early direct deposit too, right?\" Then accept the recommendation. \"Alright, that sounds good. Let's set it up!\"\n\n5. **After the account is opened:** \"Perfect, thanks for figuring out the best option for my situation!\" ###STOP###"
+  },
+  "initial_state": {
+    "initialization_data": null,
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Anastasia Volkov",
+          "user_id": "av96d4e7f1",
+          "address": "1847 Pacific Heights Avenue, San Francisco, CA 94115",
+          "email": "anastasia.volkov@globaltech.com",
+          "phone_number": "415-555-2983",
+          "date_of_birth": "03/14/1996",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "076_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821"
+        },
+        "requestor": "assistant",
+        "action_id": "076_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821",
+          "arguments": "{\"user_id\": \"av96d4e7f1\", \"account_type\": \"checking\", \"account_class\": \"Purple Account\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "076_2"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_001",
+    "doc_checking_accounts_green_fee-free_account_001",
+    "doc_checking_accounts_green_fee-free_account_003",
+    "doc_checking_accounts_green_fee-free_account_005",
+    "doc_checking_accounts_purple_account_001",
+    "doc_checking_accounts_purple_account_004",
+    "doc_checking_accounts_bluest_account_001",
+    "doc_checking_accounts_bluest_account_003",
+    "doc_checking_accounts_bluest_account_007",
+    "doc_checking_accounts_bluest_account_010",
+    "doc_checking_accounts_light_blue_account_001",
+    "doc_checking_accounts_light_blue_account_004",
+    "doc_checking_accounts_light_blue_account_006",
+    "doc_checking_accounts_evergreen_account_001",
+    "doc_checking_accounts_evergreen_account_008",
+    "doc_checking_accounts_gold_years_account_001",
+    "doc_checking_accounts_light_green_account_001",
+    "doc_checking_accounts_light_green_account_013",
+    "doc_checking_accounts_dark_green_account_001",
+    "doc_checking_accounts_dark_green_account_002",
+    "doc_checking_accounts_blue_account_001",
+    "doc_checking_accounts_blue_account_012",
+    "doc_checking_accounts_green_account_(checking)_001",
+    "doc_checking_accounts_green_account_(checking)_012"
+  ]
+}

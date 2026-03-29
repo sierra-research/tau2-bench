@@ -82,13 +82,20 @@ class Environment:
             raise ValueError("Tools not available")
         return list(self.tools.get_tools().values())
 
-    def get_user_tools(self) -> list[Tool]:
+    def get_user_tools(self, include: Optional[list[str]] = None) -> list[Tool]:
         """
-        Get the tools of the domain.
+        Get the user tools of the domain, optionally filtered by name.
+
+        Args:
+            include: If provided, only return tools whose names are in this list.
+                If None, return all user tools (no filtering).
+
+        Returns:
+            A list of Tool objects available to the user.
         """
         if self.user_tools is None:
             raise ValueError("User tools not available")
-        return list(self.user_tools.get_tools().values())
+        return list(self.user_tools.get_tools(include=include).values())
 
     def get_tools_description(
         self, env_type: Literal["user", "assistant"]
@@ -108,6 +115,29 @@ class Environment:
         return "\n\n".join(
             [f"{i + 1}. {t.name}\n{t.short_desc}" for i, t in enumerate(tools)]
         )
+
+    def _has_tool(self, tool_name: str) -> bool:
+        """Check if a tool exists in the environment.
+
+        Checks toolkit tools and user tools.
+        """
+        if self.tools is not None and self.tools.has_tool(tool_name):
+            return True
+        if self.user_tools is not None and self.user_tools.has_tool(tool_name):
+            return True
+        return False
+
+    def _is_mutating_tool(self, tool_name: str) -> bool:
+        """Check if a tool mutates environment state.
+
+        Looks up ``mutates_state`` on the underlying function via the toolkit.
+        Falls back to ``True`` (assume mutation) if the tool or attribute
+        cannot be found.
+        """
+        for toolkit in (self.tools, self.user_tools):
+            if toolkit is not None and toolkit.has_tool(tool_name):
+                return toolkit.tool_mutates_state(tool_name)
+        return True  # safe fallback: assume mutation
 
     def use_tool(self, tool_name: str, **kwargs) -> Any:
         """
@@ -310,8 +340,15 @@ class Environment:
         if initialization_data is not None:
             if initialization_data.agent_data is not None:
                 self.tools.update_db(initialization_data.agent_data)
+                # Sync user_tools.db to point to the same db instance as tools.db
+                # This is necessary because update_db creates a new db instance
+                if self.user_tools is not None and self.user_tools.db is not None:
+                    self.user_tools.db = self.tools.db
             if initialization_data.user_data is not None:
                 self.user_tools.update_db(initialization_data.user_data)
+                # Sync tools.db to point to the same db instance as user_tools.db
+                if self.tools is not None and self.tools.db is not None:
+                    self.tools.db = self.user_tools.db
 
         if initialization_actions is not None:
             for action in initialization_actions:
@@ -319,6 +356,16 @@ class Environment:
 
         action_responses = get_actions_from_messages(message_history)
         for tool_call, expected_response in action_responses:
+            if not self._has_tool(tool_call.name):
+                raise ValueError(
+                    f"Unknown tool '{tool_call.name}' encountered during replay. "
+                    "The tool does not exist in the current environment."
+                )
+            # Non-mutating tools (reads, thinks, etc.) don't change state --
+            # skip them to avoid re-execution and non-deterministic output
+            # comparison issues.
+            if not self._is_mutating_tool(tool_call.name):
+                continue
             response = self.get_response(tool_call)
             try:
                 content = json.loads(response.content)

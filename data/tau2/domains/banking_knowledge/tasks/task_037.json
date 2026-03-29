@@ -1,0 +1,112 @@
+{
+  "id": "task_037",
+  "description": {
+    "purpose": "Task: task_037",
+    "relevant_policies": null,
+    "notes": "Combined fraud detection, credit card reissue, and transaction dispute test: User Fatima Al-Hassan notices her credit card balance seems off and wants to review her recent transactions. Upon review, she identifies two transactions from early September 2025 (09/04/2025 and 09/06/2025) from merchants she's never shopped at ('Electronics Express Miami' - $487.99 and 'GamerZone LA' - $299.95) as suspected fraud. She wants to reissue her Silver Rewards Card and have it shipped to her work address. After the replacement card is ordered, she also wants to file disputes for both fraudulent transactions. Agent must verify user, show transactions, look up how to order a replacement card, unlock order_replacement_credit_card_7291, place the order with reason 'fraud_suspected' and expedited shipping to the alternate address, then look up how to file disputes, unlock file_credit_card_transaction_dispute_4829, and file disputes for both fraudulent transactions."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Fatima Al-Hassan, a 31-year-old small business owner from Detroit, MI. You have a Silver Rewards Card with Rho-Bank.\n\n**Your situation:** You just checked your credit card statement and something feels off - your balance is higher than you expected. You want to see your recent transactions to figure out what's going on. You're calling Rho-Bank to get an overview of your last several transactions.\n\n**Your goal:** Review your recent transactions and, if you find anything suspicious, get your card replaced AND file disputes for the fraudulent charges.\n\n**Information you know and should provide when asked:**\n- Your full name: Fatima Al-Hassan\n- Your phone number: 313-555-0246\n- Your email: coffeelover_fati@protonmail.com\n\n**Information about the fraud (reveal this when you see the transactions):**\n- You have NEVER shopped at \"Electronics Express Miami\" - you've never even been to Miami!\n- You have NEVER shopped at \"GamerZone LA\" - you don't play video games and haven't been to LA in years\n\n**Shipping preference for replacement card:**\n- You want the replacement card shipped to your WORK address, not your home address\n- Your work address is: 2500 Woodward Avenue, Suite 300, Detroit, MI 48201: do not provide this information during verification.\n\n## Conversation Flow:\n\n1. **Opening:** \"Hi, I need some help. I was looking at my credit card statement and my balance seems higher than it should be. Can you show me my recent transactions? I want to see what's been charged to my Silver Rewards Card.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, or other details as requested.\n\n3. **React to seeing the transactions:** When the agent shows you the transactions, look for the two you don't recognize: Electronics Express Miami ($487.99) and GamerZone LA ($299.95). If the agent reveals these two transactions, say something like: \"Wait, hold on. I don't recognize some of these charges. What is 'Electronics Express Miami'? And 'GamerZone LA'? I've never shopped at either of those places! I've never even been to Miami, and I don't play video games. These aren't my charges - I think someone stole my card information! If the agent does not reveal the transactions, ask again for any additional transactions. If there are no more, then end the call angrily.\"\n\n4. **Request card replacement:** \"I need to cancel this card and get a new one right away. Can you do that? I don't want whoever has my card info to keep charging things.\"\n\n5. **Shipping address preference:** When asked about shipping, say: \"Actually, can you send it to my work address instead? I'm at work during the day when packages come, and I've had issues with package theft at my apartment. My work address is 2500 Woodward Avenue, Suite 300, Detroit, MI 48201.\"\n\n6. **Expedited shipping:** If offered expedited shipping, accept it - you want to get the new card as soon as possible given the fraud situation.\n\n7. **After replacement is ordered - request disputes:** Once the agent confirms the replacement card has been ordered, say: \"Thank you. Now, I also want to dispute those two fraudulent charges - the Electronics Express Miami one for $487.99 and the GamerZone LA one for $299.95. I should not have to pay for charges I didn't make. Can you file disputes for both of those?\"\n\n8. **Dispute details if asked:**\n   - You did NOT contact these merchants (you never shopped there, you don't know who they are)\n   - You noticed the issue today\n   - You want a full refund for both transactions\n   - These are unauthorized/fraudulent charges - someone else made them\n\n9. **End the conversation:** Once both disputes are filed, thank the agent and end the conversation."
+  },
+  "initial_state": {
+    "initialization_data": {
+      "agent_data": null,
+      "user_data": null
+    },
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Fatima Al-Hassan",
+          "user_id": "890389b165",
+          "address": "1923 Oak Park Boulevard, Detroit, MI 48226",
+          "email": "coffeelover_fati@protonmail.com",
+          "phone_number": "313-555-0246",
+          "date_of_birth": "12/05/1993",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "037_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "order_replacement_credit_card_7291"
+        },
+        "requestor": "assistant",
+        "action_id": "037_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "order_replacement_credit_card_7291",
+          "arguments": "{\"credit_card_account_id\": \"cc_890389b165_silver\", \"user_id\": \"890389b165\", \"shipping_address\": \"2500 Woodward Avenue, Suite 300, Detroit, MI 48201\", \"reason\": \"fraud_suspected\", \"expedited_shipping\": true}"
+        },
+        "requestor": "assistant",
+        "action_id": "037_2"
+      },
+      {
+        "name": "give_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "get_card_last_4_digits"
+        },
+        "requestor": "assistant",
+        "action_id": "037_3a"
+      },
+      {
+        "name": "call_discoverable_user_tool",
+        "arguments": {
+          "discoverable_tool_name": "get_card_last_4_digits",
+          "arguments": "{\"credit_card_account_id\": \"cc_890389b165_silver\"}"
+        },
+        "requestor": "user",
+        "action_id": "037_3b"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829"
+        },
+        "requestor": "assistant",
+        "action_id": "037_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_d3b830f4a2a4\", \"card_action\": \"cancel_and_reissue\", \"card_last_4_digits\": \"5320\", \"full_name\": \"Fatima Al-Hassan\", \"user_id\": \"890389b165\", \"phone\": \"313-555-0246\", \"email\": \"coffeelover_fati@protonmail.com\", \"address\": \"1923 Oak Park Boulevard, Detroit, MI 48226\", \"contacted_merchant\": false, \"purchase_date\": \"09/04/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"unauthorized_fraudulent_charge\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": true}"
+        },
+        "requestor": "assistant",
+        "action_id": "037_4"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "file_credit_card_transaction_dispute_4829",
+          "arguments": "{\"transaction_id\": \"txn_da8c64c97f95\", \"card_action\": \"cancel_and_reissue\", \"card_last_4_digits\": \"5320\", \"full_name\": \"Fatima Al-Hassan\", \"user_id\": \"890389b165\", \"phone\": \"313-555-0246\", \"email\": \"coffeelover_fati@protonmail.com\", \"address\": \"1923 Oak Park Boulevard, Detroit, MI 48226\", \"contacted_merchant\": false, \"purchase_date\": \"09/06/2025\", \"issue_noticed_date\": \"11/14/2025\", \"dispute_reason\": \"unauthorized_fraudulent_charge\", \"resolution_requested\": \"full_refund\", \"eligible_for_provisional_credit\": true}"
+        },
+        "requestor": "assistant",
+        "action_id": "037_5"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "apply_for_credit_card",
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_credit_cards_credit_card_replacements_001",
+    "doc_credit_cards_credit_cards_(general)_013",
+    "doc_credit_cards_credit_cards_(general)_014",
+    "doc_credit_cards_credit_cards_(general)_015"
+  ]
+}

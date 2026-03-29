@@ -1,0 +1,94 @@
+{
+  "id": "task_070",
+  "description": {
+    "purpose": "Task: task_070",
+    "relevant_policies": null,
+    "notes": "BUSINESS CHECKING ACCOUNT SELECTION WITH CONFLICTING PROMOTIONS: Customer wants to open a business checking account with specific requirements that narrow the field to exactly 3 accounts (Sky Blue, Lime Green, Hunter Green). The challenge is that TWO promotion policies exist in the knowledge base: (1) An EXPIRED promotion (10/12/2025-11/12/2025) that prioritizes Lime Green > Hunter Green, and (2) An ACTIVE promotion (11/01/2025-11/30/2025) that prioritizes Sky Blue > Lime Green. The agent must: (1) identify all accounts meeting user requirements, (2) find both promotion policies, (3) correctly determine which promotion is active based on the current date (11/14/2025), and (4) recommend Sky Blue per the active promotion."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Yuki Nakamura, a 34-year-old owner of a small digital marketing agency called \"Brightwave Digital\" based in Portland, OR. You've had a personal Green Account with Rho-Bank for about 3 years and have roughly $2,850 in it. Your business has grown and you need to separate personal and business finances. You're practical and want the agent to just tell you what to do.\n\n**Your goal:** Get ONE recommendation for a business checking account that meets all your requirements. You want the agent to recommend a single account - not give you options to choose from.\n\n**Verification info:**\n- Name: Yuki Nakamura | Phone: 503-555-0842 | Email: yuki.nakamura@simba.com\n- DOB: 05/12/1991 | Address: 3421 Sakura Avenue, Portland, OR 97205\n- Existing account: Green Account (personal checking, balance ~$2,850)\n\n## Conversation Flow:\n\n1. **Opening - State your goal clearly:** \"Hi there! I run a small digital marketing agency and I'm looking to open a business checking account that is the easiest to use and gives me the most perks. I also want stuff like no overdraft fees as well as some other requirements and I'm hoping you can tell me which account is the right fit for my needs. I don't want to compare a bunch of options - just point me to the one that works best for my situation.\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address.\n\n3. **Reveal your business checking requirements organically:**\n   - Start with ATM access: \"So I travel to meet clients pretty regularly and I use ATMs all over the place. I need at least $15 a month in ATM fee rebates - those fees add up fast otherwise.\"\n   - Then overdraft protection: \"I absolutely cannot have overdraft fees. My cash flow fluctuates with client payments, and I've been burned by overdraft charges before at other banks. Zero overdraft fees is non-negotiable for me.\"\n   - Then the balance reality: \"I'm a small agency, not some huge corporation. I can't commit to keeping $10,000 or more in the account at all times. If there's a minimum balance requirement, it needs to be reasonable - under ten grand.\"\n   - Then interest: \"I'd also like to earn decent interest on whatever I keep in there. At least 1% APY would be nice - I know it's a checking account, but every bit helps.\"\n\n4. **If the agent tries to give you multiple options:** Push back firmly. \"Look, I appreciate the thoroughness, but I really don't want to compare options. You know more about these accounts than I do. Which ONE account best fits everything I just told you? Just give me your recommendation and I'll go with it.\"\n\n5. **When the agent recommends an account:** \n   - If they recommend ONE account confidently: \"Alright, that sounds good. Let's set it up!\"\n   - Accept the recommendation and proceed with opening the account.\n\n6. **After the account is opened:** \"Perfect, thanks for making that easy. I think I'm all set for now!\""
+  },
+  "initial_state": {
+    "initialization_data": null,
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Yuki Nakamura",
+          "user_id": "224959b99e",
+          "address": "3421 Sakura Avenue, Portland, OR 97205",
+          "email": "yuki.nakamura@simba.com",
+          "phone_number": "503-555-0842",
+          "date_of_birth": "05/12/1991",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "070_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "070_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+          "arguments": "{\"user_id\": \"224959b99e\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "070_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821"
+        },
+        "requestor": "assistant",
+        "action_id": "070_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "open_bank_account_4821",
+          "arguments": "{\"user_id\": \"224959b99e\", \"account_type\": \"business_checking\", \"account_class\": \"Sky Blue\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "070_4"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [
+    "call_discoverable_user_tool"
+  ],
+  "required_documents": [
+    "doc_bank_accounts_bank_accounts_(general)_003",
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_bank_accounts_bank_accounts_(general)_013",
+    "doc_bank_accounts_bank_accounts_(general)_014",
+    "doc_business_checking_accounts_sky_blue_001",
+    "doc_business_checking_accounts_sky_blue_007",
+    "doc_business_checking_accounts_sky_blue_010",
+    "doc_business_checking_accounts_lime_green_001",
+    "doc_business_checking_accounts_lime_green_007",
+    "doc_business_checking_accounts_hunter_green_001",
+    "doc_business_checking_accounts_hunter_green_010",
+    "doc_business_checking_accounts_navy_blue_001",
+    "doc_business_checking_accounts_true_blue_001",
+    "doc_business_checking_accounts_world_blue_001",
+    "doc_business_checking_accounts_beige_001",
+    "doc_business_checking_accounts_cobalt_blue_001"
+  ]
+}

@@ -1,0 +1,139 @@
+{
+  "id": "task_073",
+  "description": {
+    "purpose": "Task: task_073",
+    "relevant_policies": null,
+    "notes": "ATM FEE DISPUTE RESOLUTION: User Kim Junho has three checking accounts (Blue Account, Green Account, and Light Green Account) with 9 total fee errors (3 per account). The agent must verify the user, retrieve transaction history for all three accounts, cross-reference with documented fee structures, identify all incorrect fees, and apply NET credits accounting for both overcharges AND missing fees. BLUE ACCOUNT ERRORS (chk_kj93a7b2e1_1) - 3 errors: (1) $4.50 fee charged on $300 withdrawal when max is $3.00 (1% capped), (2) $20.00 foreign ATM fee charged on $500 Seoul withdrawal when correct is $15.00 (3%), (3) $3.00 fee charged on Rho-Bank ATM withdrawal which should be free. GREEN ACCOUNT ERRORS (chk_kj93a7b2e1_2) - 3 errors: (1) $3.00 fee charged on Rho-Bank ATM withdrawal which should be free, (2) $15.00 foreign fee charged on $400 Seoul withdrawal when correct is $12.00 (3%), (3) Duplicate $3.00 fee on 11/15 withdrawal (charged twice). LIGHT GREEN ACCOUNT ERRORS (chk_kj93a7b2e1_3) - 3 errors: (1) $1.50 fee on 2nd ATM withdrawal when first 4 are free, (2) $5.00 Tier 3 fee charged for $150 withdrawal that should be $3.50 Tier 2, (3) MISSING $1.50 fee on 11/17 withdrawal after free allowance exhausted. NET CREDITS: Blue = $9.50, Green = $9.00, Light Green = $1.50 ($3.00 overcharges minus $1.50 missing fee)."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "**Your character:** You are Kim Junho, a 30-year-old professional living in Los Angeles, CA. You're meticulous about tracking your finances and noticed discrepancies when reviewing your November bank statements.\n\n**Your situation:** You have three checking accounts with Rho-Bank - a Blue Account, a Green Account, and a Light Green Account. You were looking at your November transaction history and some of the ATM fees don't look right to you. You're not exactly sure what's wrong, but the amounts seem off based on what you remember about your account benefits.\n\n**Verification info:**\n- Name: Kim Junho | Phone: 213-555-0392 | Email: junho.kim@gmail.com\n- DOB: 09/14/1994 | Address: 5847 Wilshire Boulevard, Los Angeles, CA 90036\n\n## Conversation Flow:\n\n1. **Opening - Express concern about fees:** \"Hi, I've been going through my bank statements and something seems off with my ATM fees. I have three checking accounts with you - a Blue Account, a Green Account, and a Light Green Account - and some of the fees charged in November don't look right. Can you help me figure out what's going on?\"\n\n2. **Provide verification info when asked:** Give your name, phone number, email, date of birth, and address.\n\n3. **If asked for more details about the issue:** \"Honestly, I'm not totally sure what's wrong - that's why I'm calling. The amounts just seem higher than I expected based on what I remember about my account benefits. Can you pull up my transaction history and review the ATM fees from November? I'd really appreciate a second set of eyes on this.\"\n\n4. **If the agent finds errors:** Express relief. \"Oh wow, so there ARE errors? I knew something was off. What can be done to fix this?\"\n\n5. **If agent offers to apply credits:** \"Yes, please go ahead and apply credits for all the incorrect charges. I want to make sure everything is corrected. If the agent does not offer, then get angry and request to speak to a real human.\"\n\n6. **If credits are applied:** \"Thank you so much for looking into this and fixing everything. Can you confirm the total amount that was credited back to each account?\"\n\n7. **Closing - after agent confirms credits:** \"Perfect, I really appreciate you taking the time to review all those transactions and get this sorted out. Is there anything else I need to do on my end?\" After agent confirms: \"Great, thanks again for your help!\" ###STOP###"
+  },
+  "initial_state": {
+    "initialization_data": null,
+    "initialization_actions": null,
+    "message_history": null
+  },
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "name": "log_verification",
+        "arguments": {
+          "name": "Kim Junho",
+          "user_id": "kj93a7b2e1",
+          "address": "5847 Wilshire Boulevard, Los Angeles, CA 90036",
+          "email": "junho.kim@gmail.com",
+          "phone_number": "213-555-0392",
+          "date_of_birth": "09/14/1994",
+          "time_verified": "2025-11-14 03:40:00 EST"
+        },
+        "requestor": "assistant",
+        "action_id": "073_0"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847"
+        },
+        "requestor": "assistant",
+        "action_id": "073_1"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+          "arguments": "{\"user_id\": \"kj93a7b2e1\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "073_2"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173"
+        },
+        "requestor": "assistant",
+        "action_id": "073_3"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173",
+          "arguments": "{\"account_id\": \"chk_kj93a7b2e1_1\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "073_4"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173",
+          "arguments": "{\"account_id\": \"chk_kj93a7b2e1_2\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "073_5"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "get_bank_account_transactions_9173",
+          "arguments": "{\"account_id\": \"chk_kj93a7b2e1_3\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "073_6"
+      },
+      {
+        "name": "unlock_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_checking_account_credit_5829"
+        },
+        "requestor": "assistant",
+        "action_id": "073_7"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_checking_account_credit_5829",
+          "arguments": "{\"account_id\": \"chk_kj93a7b2e1_1\", \"amount\": 9.50, \"credit_type\": \"fee_refund\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "073_8"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_checking_account_credit_5829",
+          "arguments": "{\"account_id\": \"chk_kj93a7b2e1_2\", \"amount\": 9.00, \"credit_type\": \"fee_refund\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "073_9"
+      },
+      {
+        "name": "call_discoverable_agent_tool",
+        "arguments": {
+          "agent_tool_name": "apply_checking_account_credit_5829",
+          "arguments": "{\"account_id\": \"chk_kj93a7b2e1_3\", \"amount\": 1.50, \"credit_type\": \"fee_refund\"}"
+        },
+        "requestor": "assistant",
+        "action_id": "073_10"
+      }
+    ],
+    "reward_basis": [
+      "DB"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [],
+  "required_documents": [
+    "doc_checking_accounts_blue_account_001",
+    "doc_checking_accounts_blue_account_012",
+    "doc_checking_accounts_green_account_(checking)_001",
+    "doc_checking_accounts_green_account_(checking)_010",
+    "doc_checking_accounts_green_account_(checking)_012",
+    "doc_checking_accounts_light_green_account_001",
+    "doc_checking_accounts_light_green_account_013",
+    "doc_bank_accounts_bank_accounts_(general)_017",
+    "doc_bank_accounts_bank_accounts_(general)_009",
+    "doc_bank_accounts_bank_accounts_(general)_018"
+  ]
+}
