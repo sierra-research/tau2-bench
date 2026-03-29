@@ -916,6 +916,58 @@ def main():
     )
     convert_parser.set_defaults(func=lambda args: run_convert_results(args))
 
+    # Reliability analysis command
+    reliability_parser = subparsers.add_parser(
+        "reliability",
+        help="Analyze agent reliability from simulation results",
+    )
+    reliability_parser.add_argument(
+        "action",
+        choices=["analyze", "enrich", "summary", "fault"],
+        help="analyze: compute reliability metrics (free). "
+        "enrich: add safety+confidence via LLM (cheap). "
+        "fault: run fault injection robustness evaluation. "
+        "summary: print quick summary.",
+    )
+    reliability_parser.add_argument(
+        "--results",
+        type=str,
+        nargs="+",
+        required=True,
+        help="Path(s) to simulation results.json files or directories containing them",
+    )
+    reliability_parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output directory for analysis JSON and dashboard data",
+    )
+    reliability_parser.add_argument(
+        "--judge-model",
+        type=str,
+        default="gpt-4o-mini",
+        help="LLM model for safety/confidence enrichment (default: gpt-4o-mini)",
+    )
+    reliability_parser.add_argument(
+        "--fault-rate",
+        type=float,
+        default=0.2,
+        help="Fault injection rate (0-1, default: 0.2 = 20%% of tool calls get faults)",
+    )
+    reliability_parser.add_argument(
+        "--num-trials",
+        type=int,
+        default=3,
+        help="Number of fault-injection trials per task (default: 3)",
+    )
+    reliability_parser.add_argument(
+        "--max-tasks",
+        type=int,
+        default=None,
+        help="Limit number of tasks for fault evaluation",
+    )
+    reliability_parser.set_defaults(func=lambda args: run_reliability(args))
+
     args = parser.parse_args()
     if not hasattr(args, "func"):
         run_intro()
@@ -1121,6 +1173,143 @@ def run_convert_results(args):
 
     n = len(results.simulations)
     print(f"  Done. {n} simulation(s) converted to '{target_fmt}' format.")
+
+
+def run_reliability(args):
+    """Run reliability analysis on simulation results."""
+    try:
+        from tau2_reliability.domain_analyzer import analyze_domain, analyze_multiple
+    except ImportError:
+        print(
+            "tau2-reliability not installed. Install with:\n"
+            "  cd src/experiments/tau2_reliability && uv sync\n"
+            "Or add to PYTHONPATH:\n"
+            "  PYTHONPATH=src/experiments/tau2_reliability tau2 reliability ..."
+        )
+        return
+
+    from pathlib import Path
+
+    # Resolve all results paths (files or directories)
+    results_paths = []
+    for p in args.results:
+        path = Path(p)
+        if path.is_file() and path.suffix == ".json":
+            results_paths.append(path)
+        elif path.is_dir():
+            # Find results.json in this directory
+            for f in sorted(path.glob("**/results.json")):
+                results_paths.append(f)
+            # Also find *trials*.json (bundled results)
+            for f in sorted(path.glob("*trials*.json")):
+                results_paths.append(f)
+
+    if not results_paths:
+        print(f"No results files found in: {args.results}")
+        return
+
+    print(f"Found {len(results_paths)} results file(s)")
+
+    if args.action == "analyze":
+        if len(results_paths) == 1:
+            # Single file — simple analysis
+            rp = results_paths[0]
+            print(f"Analyzing: {rp.name}")
+            output = analyze_domain(rp, output_dir=args.output)
+            _print_domain_summary(output["domain_summary"], args.output)
+        else:
+            # Multiple files — combined dashboard
+            print(f"Analyzing {len(results_paths)} files for combined dashboard...")
+            combined = analyze_multiple(results_paths, output_dir=args.output)
+            for run in combined["runs"]:
+                _print_domain_summary(run["domain_summary"], None)
+            if args.output:
+                print(f"\n  Combined dashboard: {args.output}/")
+
+    elif args.action == "summary":
+        for rp in results_paths:
+            output = analyze_domain(rp)
+            ds = output["domain_summary"]
+            print(f"{ds['model']} | {ds['domain']} | accuracy={ds['accuracy']:.1%} | "
+                  f"bimodal={ds['task_classes']['bimodal']}/{ds['num_tasks']}")
+
+    elif args.action == "fault":
+        try:
+            from tau2_reliability.fault_runner import run_fault_evaluation
+        except ImportError:
+            print("tau2-reliability fault_runner not found. Add to PYTHONPATH.")
+            return
+
+        if len(results_paths) != 1:
+            print("Fault evaluation requires exactly one baseline results file.")
+            return
+
+        result = run_fault_evaluation(
+            baseline_path=results_paths[0],
+            fault_rate=args.fault_rate,
+            num_trials=args.num_trials,
+            max_tasks=args.max_tasks,
+            output_dir=args.output,
+        )
+        print(f"\n{'=' * 50}")
+        print(f"  Fault Robustness (R_fault)")
+        print(f"  Baseline accuracy: {result['baseline_accuracy']:.1%}")
+        print(f"  Faulted accuracy:  {result['faulted_accuracy']:.1%}")
+        print(f"  R_fault:           {result['r_fault']:.3f}")
+        print(f"  Faults injected:   {result['total_faults_injected']}")
+        if args.output:
+            print(f"  Saved: {args.output}/fault_results.json")
+
+    elif args.action == "enrich":
+        try:
+            from tau2_reliability.safety_runner import run_safety_evaluation
+        except ImportError:
+            print("tau2-reliability safety_runner not found. Add to PYTHONPATH.")
+            return
+
+        if len(results_paths) != 1:
+            print("Enrich requires exactly one results file.")
+            return
+
+        print(f"Running safety evaluation with {args.judge_model}...")
+        result = run_safety_evaluation(
+            results_path=results_paths[0],
+            judge_model=args.judge_model,
+            output_dir=args.output,
+        )
+        print(f"\n{'=' * 50}")
+        print(f"  Safety Analysis")
+        print(f"  Compliance (S_comp):    {result['safety_compliance']:.3f}")
+        print(f"  Harm Severity (S_harm): {result['safety_harm_severity']:.3f}")
+        print(f"  Safety Score:           {result['safety_score']:.3f}")
+        print(f"  Conversations with violations: {result['total_with_violations']}/{result['total_evaluated']}")
+        if result.get('per_constraint'):
+            for name, info in result['per_constraint'].items():
+                if info['violations'] > 0:
+                    print(f"    {name}: {info['violations']} violations ({info['compliance_rate']:.0%} compliant)")
+        if args.output:
+            print(f"  Saved: {args.output}/safety_results.json")
+
+
+def _print_domain_summary(ds, output_dir):
+    """Print a formatted domain summary."""
+    print(f"\n{'=' * 50}")
+    print(f"  {ds['model']} on {ds['domain']}")
+    print(f"  {ds['total_conversations']} conversations • {ds['num_tasks']} tasks × {ds['num_trials']} trials")
+    print(f"  Accuracy: {ds['accuracy']:.1%}")
+    print(f"\n  Reliability Dimensions:")
+    for key, dim in ds["dimensions"].items():
+        score = dim["score"]
+        label = dim["label"]
+        if score is not None:
+            print(f"    {label:25s} {score:.1%}")
+        else:
+            print(f"    {label:25s} N/A")
+    tc = ds["task_classes"]
+    print(f"\n  Task Classes: {tc['bimodal']} bimodal, {tc['stable_pass']} stable-pass, "
+          f"{tc['stable_fail']} stable-fail, {tc.get('fragile', 0)} fragile")
+    if output_dir:
+        print(f"\n  Output: {output_dir}/")
 
 
 if __name__ == "__main__":
