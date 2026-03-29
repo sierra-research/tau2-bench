@@ -599,10 +599,9 @@ class VacationRentalTools(ToolKitBase):
                           'has_documentation', 'medical_emergency_no_documentation')
 
         Returns:
-            The host's decision including outcome, reasoning, and any conditions.
-
-        Raises:
-            ValueError: If no matching decision is found.
+            The host's decision. If no specific host preference exists for this
+            situation, returns a default decision with decision='defer_to_policy',
+            indicating standard platform policy should be applied.
         """
         # Look for matching decision, preferring specific guest_context over default
         for context in (guest_context, None):
