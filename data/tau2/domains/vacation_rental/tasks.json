@@ -2258,5 +2258,1397 @@
             ]
         },
         "annotations": null
+    },
+    {
+        "id": "35",
+        "description": {
+            "purpose": "Calculation Chain: Strict policy with explicit policy lookup. Exercises get_cancellation_policy_rules + calculate (both at zero coverage).",
+            "relevant_policies": null,
+            "notes": "Frieda at RES012 (Pierre's Oceanfront Condo, strict, $300/night, 5 nights, $1500). 14 days out = 50% = $750."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Cancel your reservation at the Oceanfront Condo (RES012). Before cancelling, ask the agent to look up the exact cancellation policy rules and show you how the refund is calculated. Do not end the conversation until the agent has explained the policy, shown the calculation, and confirmed the cancellation.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Need to cancel my upcoming stay at the Oceanfront Condo. Want to understand the refund calculation first.",
+                "known_info": "You are Frieda Schmidt. Your user id is frieda_schmidt_1234. Your reservation ID is RES012.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "35_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES012"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "35_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST008"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "35_2",
+                    "name": "get_cancellation_policy_rules",
+                    "arguments": {},
+                    "info": "CRITICAL: Agent must call get_cancellation_policy_rules before calculating"
+                },
+                {
+                    "action_id": "35_3",
+                    "name": "calculate",
+                    "arguments": {
+                        "expression": "1500 * 0.5"
+                    },
+                    "compare_args": [],
+                    "info": "Agent must use the calculate tool for the arithmetic"
+                },
+                {
+                    "action_id": "35_4",
+                    "name": "cancel_reservation",
+                    "arguments": {
+                        "reservation_id": "RES012",
+                        "expected_refund_amount": 750.0,
+                        "cancelled_by": "guest"
+                    },
+                    "info": null
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent must call get_cancellation_policy_rules before calculating",
+                "Agent must use the calculate tool for the arithmetic",
+                "Agent explains strict policy: 7+ days = 50% refund"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "36",
+        "description": {
+            "purpose": "Calculation Chain: Complex moderate policy multi-step arithmetic. Exercises get_cancellation_policy_rules + calculate with multi-step math.",
+            "relevant_policies": null,
+            "notes": "Frieda at RES021 (Ibrahim's Mountain Cabin, moderate, $200/night, 6 nights, $1200). 3 days out = first night non-refundable, 50% of remaining 5 = $500."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Cancel your reservation at the Mountain Cabin Retreat (RES021). You want the agent to explain the calculation step by step before cancelling. Do not end the conversation until the agent has walked you through the refund math and confirmed the cancellation.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Plans changed, need to cancel my mountain cabin trip. Want to understand the refund breakdown.",
+                "known_info": "You are Frieda Schmidt. Your user id is frieda_schmidt_1234. Your reservation ID is RES021.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "36_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES021"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "36_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST003"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "36_2",
+                    "name": "get_cancellation_policy_rules",
+                    "arguments": {},
+                    "info": "CRITICAL: Agent must look up policy rules"
+                },
+                {
+                    "action_id": "36_3",
+                    "name": "calculate",
+                    "arguments": {
+                        "expression": "5 * 200 * 0.5"
+                    },
+                    "compare_args": [],
+                    "info": "Agent must use calculate tool for multi-step math"
+                },
+                {
+                    "action_id": "36_4",
+                    "name": "cancel_reservation",
+                    "arguments": {
+                        "reservation_id": "RES021",
+                        "expected_refund_amount": 500.0,
+                        "cancelled_by": "guest"
+                    },
+                    "info": null
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent correctly decomposes: first night non-refundable + 50% of remaining",
+                "Agent uses calculate tool for arithmetic"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "37",
+        "description": {
+            "purpose": "Expired Payment: Redirect refund to bank account. Exercises process_refund (zero coverage) \u2014 expired payment discovery.",
+            "relevant_policies": null,
+            "notes": "Frieda at RES022 (Ibrahim's Beach Cottage, flexible, $150/night, 3 nights, $450, paid with expired credit_card_1002). 7 days out = full refund."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Cancel your reservation at the Cozy Beach Cottage (RES022). You think the credit card you used to book might be expired \u2014 can the agent check? If so, send the refund to your bank account instead. Do not end the conversation until the cancellation is confirmed and the refund is redirected.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Need to cancel my beach cottage reservation. Worried about my card being expired.",
+                "known_info": "You are Frieda Schmidt. Your user id is frieda_schmidt_1234. Your reservation ID is RES022.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "37_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES022"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "37_1",
+                    "name": "get_user_details",
+                    "arguments": {
+                        "user_id": "frieda_schmidt_1234"
+                    },
+                    "info": "Agent must look up user to check payment methods"
+                },
+                {
+                    "action_id": "37_2",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST001"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "37_3",
+                    "name": "cancel_reservation",
+                    "arguments": {
+                        "reservation_id": "RES022",
+                        "expected_refund_amount": 450.0,
+                        "cancelled_by": "guest"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "37_4",
+                    "name": "process_refund",
+                    "arguments": {
+                        "reservation_id": "RES022",
+                        "payment_method_id": "bank_account_1001",
+                        "amount": 450.0
+                    },
+                    "compare_args": [
+                        "reservation_id",
+                        "amount"
+                    ],
+                    "info": "CRITICAL: Agent must redirect refund to bank account after discovering expired card"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent checks user payment methods and identifies expired card",
+                "Agent redirects refund to bank account"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "38",
+        "description": {
+            "purpose": "Expired Payment: Guest-initiated card check and redirect. Exercises process_refund \u2014 guest knows card is expired.",
+            "relevant_policies": null,
+            "notes": "Takeshi at RES023 (Ibrahim's Downtown Loft, flexible, $175/night, 3 nights, $525, paid with expired credit_card_3002). 6 days out = full refund."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Cancel your reservation at the Downtown Loft (RES023). The credit card you used to book has been cancelled, so the refund needs to go to your bank account instead. Do not end the conversation until the cancellation is confirmed and the refund is redirected to your bank account.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Need to cancel my loft reservation. My card was cancelled so the refund needs to go elsewhere.",
+                "known_info": "You are Takeshi Kobayashi. Your user id is takeshi_kobayashi_9012. Your reservation ID is RES023.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "38_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES023"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "38_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST002"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "38_2",
+                    "name": "get_user_details",
+                    "arguments": {
+                        "user_id": "takeshi_kobayashi_9012"
+                    },
+                    "info": "Agent must check user details to find alternative payment method"
+                },
+                {
+                    "action_id": "38_3",
+                    "name": "cancel_reservation",
+                    "arguments": {
+                        "reservation_id": "RES023",
+                        "expected_refund_amount": 525.0,
+                        "cancelled_by": "guest"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "38_4",
+                    "name": "process_refund",
+                    "arguments": {
+                        "reservation_id": "RES023",
+                        "payment_method_id": "bank_account_3001",
+                        "amount": 525.0
+                    },
+                    "compare_args": [
+                        "reservation_id",
+                        "amount"
+                    ],
+                    "info": "CRITICAL: Agent must redirect refund to bank account"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent checks user payment methods and confirms expired card",
+                "Agent redirects refund to bank account"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "39",
+        "description": {
+            "purpose": "Inconclusive Evidence Triple: Pierre offers modest goodwill (15%). Completes the evidence triple (pairs with task 29: Ibrahim 25%, task 30: Alessia deny).",
+            "relevant_policies": null,
+            "notes": "Frieda at RES035 (Pierre's Oceanfront Condo, $1500, completed stay). Issue ISS_RES035_001 (construction noise, inconclusive). Pierre's 15% of $1500 = $225."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You reported a noise issue at the Oceanfront Condo during your recent stay (issue ISS_RES035_001). You're following up to see what compensation you can get. You submitted audio recordings but acknowledge the evidence might not be conclusive. Do not end the conversation until you understand what compensation, if any, will be provided.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Following up on noise complaint from my recent stay. Want to know what compensation is available.",
+                "known_info": "You are Frieda Schmidt. Your user id is frieda_schmidt_1234. Your reservation was RES035. The issue ID is ISS_RES035_001.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "39_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES035"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "39_1",
+                    "name": "get_issue_details",
+                    "arguments": {
+                        "issue_id": "ISS_RES035_001"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "39_2",
+                    "name": "validate_issue_evidence",
+                    "arguments": {
+                        "issue_id": "ISS_RES035_001"
+                    },
+                    "info": "Will return inconclusive status"
+                },
+                {
+                    "action_id": "39_3",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST008"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "39_4",
+                    "name": "get_host_profile",
+                    "arguments": {
+                        "host_user_id": "host_pierre_dubois_3333"
+                    },
+                    "info": "Agent should consult Pierre's host profile"
+                },
+                {
+                    "action_id": "39_5",
+                    "name": "request_host_decision",
+                    "arguments": {
+                        "host_user_id": "host_pierre_dubois_3333",
+                        "situation_type": "issue_compensation",
+                        "guest_context": "disputed_evidence"
+                    },
+                    "compare_args": [
+                        "host_user_id",
+                        "situation_type"
+                    ],
+                    "info": "Pierre approves 15% goodwill for disputed evidence cases"
+                },
+                {
+                    "action_id": "39_6",
+                    "name": "process_goodwill_refund",
+                    "arguments": {
+                        "reservation_id": "RES035",
+                        "amount": 225.0,
+                        "justification": "Host-approved goodwill for inconclusive evidence case"
+                    },
+                    "compare_args": [
+                        "reservation_id",
+                        "amount"
+                    ],
+                    "info": "15% of $1500 = $225"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent validates evidence and recognizes it is inconclusive",
+                "Agent consults Pierre's host profile",
+                "Agent communicates Pierre's good-faith gesture",
+                "Agent processes 15% goodwill ($225)"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "40",
+        "description": {
+            "purpose": "First Responder Cancellation: Pierre approves above policy. Expands Pierre coverage, tests first_responder soft spot.",
+            "relevant_policies": null,
+            "notes": "Sara at RES024 (Pierre's Oceanfront Condo, strict, $900). 9 days out = 50% = $450 policy. Pierre approves 100% goodwill but capped at 25% = $225. Total: $675."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You need to cancel your reservation at the Oceanfront Condo (RES024) because you've been called to mandatory emergency duty as an EMT. You have your duty notification as documentation. Ask if the host might offer any additional consideration given your service. Do not end the conversation until you understand the full refund you'll receive.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Called to mandatory EMT duty, need to cancel my reservation.",
+                "known_info": "You are Sara Rezaei. Your user id is sara_rezaei_7890. Your reservation ID is RES024. You have your duty notification documentation.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "40_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES024"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "40_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST008"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "40_2",
+                    "name": "get_host_profile",
+                    "arguments": {
+                        "host_user_id": "host_pierre_dubois_3333"
+                    },
+                    "info": "Agent should check Pierre's host profile for first responder soft spot"
+                },
+                {
+                    "action_id": "40_3",
+                    "name": "request_host_decision",
+                    "arguments": {
+                        "host_user_id": "host_pierre_dubois_3333",
+                        "situation_type": "cancellation_exception",
+                        "guest_context": "first_responder"
+                    },
+                    "compare_args": [
+                        "host_user_id",
+                        "situation_type"
+                    ],
+                    "info": "CRITICAL: Pierre approves full goodwill for first responders"
+                },
+                {
+                    "action_id": "40_4",
+                    "name": "cancel_reservation",
+                    "arguments": {
+                        "reservation_id": "RES024",
+                        "expected_refund_amount": 450.0,
+                        "cancelled_by": "guest"
+                    },
+                    "info": "Strict policy, 7+ days = 50% = $450"
+                },
+                {
+                    "action_id": "40_5",
+                    "name": "process_goodwill_refund",
+                    "arguments": {
+                        "reservation_id": "RES024",
+                        "amount": 225.0,
+                        "justification": "Host-approved goodwill for first responder cancellation"
+                    },
+                    "compare_args": [
+                        "reservation_id",
+                        "amount"
+                    ],
+                    "info": "Pierre approves 100% but capped at max_goodwill_refund_pct (25%) = $225"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent identifies Pierre's soft spot for first responders",
+                "Agent processes both policy refund and goodwill",
+                "Agent communicates total compensation"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "41",
+        "description": {
+            "purpose": "Invalidated Evidence: Agent denies despite generous host. Tests that invalidated evidence = no compensation regardless of host generosity.",
+            "relevant_policies": null,
+            "notes": "Emeka at RES018 (Ibrahim's Beach Cottage), issue ISS_RES018_001 (pool claim, invalidated). Even though Ibrahim is generous, invalidated evidence means no compensation."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You reported that the pool at the Cozy Beach Cottage was dirty (issue ISS_RES018_001). You're following up to get compensation. You believe the pool was dirty when you arrived and you have photos. Be persistent but accept the agent's final answer. Do not end the conversation until you understand the resolution.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Following up on my pool cleanliness complaint. Want compensation for the dirty pool.",
+                "known_info": "You are Emeka Eze. Your user id is emeka_eze_5678. Your reservation was RES018. The issue ID is ISS_RES018_001.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "41_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES018"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "41_1",
+                    "name": "get_issue_details",
+                    "arguments": {
+                        "issue_id": "ISS_RES018_001"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "41_2",
+                    "name": "validate_issue_evidence",
+                    "arguments": {
+                        "issue_id": "ISS_RES018_001"
+                    },
+                    "info": "CRITICAL: Will return invalidated \u2014 agent must stop here, no host decision needed"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent must NOT call request_host_decision",
+                "Agent must NOT call process_goodwill_refund",
+                "Agent explains evidence does not support the claim",
+                "Agent handles the situation professionally"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "42",
+        "description": {
+            "purpose": "Service Credit: Platform gesture when host denies compensation. Exercises apply_service_credit in a real scenario (beyond validation task 20).",
+            "relevant_policies": null,
+            "notes": "Takeshi at RES025 (Alessia's Historic Townhouse, firm), issue ISS_RES025_001 (dust/spots, validated, minor). Alessia denies monetary compensation. Agent offers platform service credit as alternative."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You reported dust on the shelves and water spots on the windows at the Historic Townhouse (RES025). The issue ID is ISS_RES025_001. You're following up to see what compensation is available. If a monetary refund isn't possible, ask if there are other options. Do not end the conversation until you have a resolution.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Following up on my cleanliness complaint. Want to know what compensation is available.",
+                "known_info": "You are Takeshi Kobayashi. Your user id is takeshi_kobayashi_9012. Your reservation was RES025. The issue ID is ISS_RES025_001.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "42_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES025"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "42_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST006"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "42_2",
+                    "name": "get_issue_details",
+                    "arguments": {
+                        "issue_id": "ISS_RES025_001"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "42_3",
+                    "name": "validate_issue_evidence",
+                    "arguments": {
+                        "issue_id": "ISS_RES025_001"
+                    },
+                    "info": "Returns validated \u2014 minor cleanliness issue confirmed"
+                },
+                {
+                    "action_id": "42_4",
+                    "name": "get_host_profile",
+                    "arguments": {
+                        "host_user_id": "host_alessia_greco_2222"
+                    },
+                    "info": "Agent should check Alessia's profile"
+                },
+                {
+                    "action_id": "42_5",
+                    "name": "request_host_decision",
+                    "arguments": {
+                        "host_user_id": "host_alessia_greco_2222",
+                        "situation_type": "issue_compensation"
+                    },
+                    "compare_args": [
+                        "host_user_id",
+                        "situation_type"
+                    ],
+                    "info": "Alessia denies monetary compensation for issues"
+                },
+                {
+                    "action_id": "42_6",
+                    "name": "apply_service_credit",
+                    "arguments": {
+                        "user_id": "takeshi_kobayashi_9012",
+                        "amount": 25.0,
+                        "reason": "Platform service credit for validated minor cleanliness issue"
+                    },
+                    "compare_args": [
+                        "user_id"
+                    ],
+                    "info": "Agent offers platform service credit as alternative when host denies"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent validates evidence (confirmed minor cleanliness issue)",
+                "Agent checks host profile and gets denial from Alessia",
+                "Agent offers service credit as platform-level alternative",
+                "Agent distinguishes between host-denied refund and platform credit"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "43",
+        "description": {
+            "purpose": "Defer to Policy: No host exception for work conflict. Tests request_host_decision defer_to_policy behavior (docstring fix).",
+            "relevant_policies": null,
+            "notes": "Emeka at RES026 (Pierre's Oceanfront Condo, strict, $900). 9 days out = 50% = $450. Work emergency has no matching host decision \u2192 defer_to_policy."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You need to cancel your reservation at the Oceanfront Condo (RES026) due to a work emergency. Ask if the host might make an exception or offer flexibility beyond the standard policy. If not, proceed with standard cancellation. Do not end the conversation until the cancellation is complete.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Work emergency, need to cancel my reservation. Hoping the host might be flexible.",
+                "known_info": "You are Emeka Eze. Your user id is emeka_eze_5678. Your reservation ID is RES026.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "43_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES026"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "43_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST008"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "43_2",
+                    "name": "get_host_profile",
+                    "arguments": {
+                        "host_user_id": "host_pierre_dubois_3333"
+                    },
+                    "info": "Agent should check Pierre's profile before requesting decision"
+                },
+                {
+                    "action_id": "43_3",
+                    "name": "request_host_decision",
+                    "arguments": {
+                        "host_user_id": "host_pierre_dubois_3333",
+                        "situation_type": "cancellation_exception"
+                    },
+                    "compare_args": [
+                        "host_user_id",
+                        "situation_type"
+                    ],
+                    "info": "No matching decision for work conflict \u2192 returns defer_to_policy"
+                },
+                {
+                    "action_id": "43_4",
+                    "name": "cancel_reservation",
+                    "arguments": {
+                        "reservation_id": "RES026",
+                        "expected_refund_amount": 450.0,
+                        "cancelled_by": "guest"
+                    },
+                    "info": "Standard strict policy: 7+ days = 50%"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent handles the defer_to_policy response gracefully",
+                "Agent explains standard policy applies",
+                "Agent does not fabricate a host decision"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "44",
+        "description": {
+            "purpose": "Hard Limit: Medical emergency denied without documentation. Tests Alessia's no_exceptions_without_documentation hard limit.",
+            "relevant_policies": null,
+            "notes": "Sara at RES027 (Alessia's Historic Townhouse, firm, $900). 14 days out = 50% = $450. Sara has no documentation. Alessia denies."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You need to cancel your reservation at the Historic Townhouse (RES027) due to a sudden medical issue. You don't have documentation yet. Ask if the host might make an exception anyway. If they won't, go ahead with the standard cancellation. Do not end the conversation until the cancellation is complete.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Sudden medical issue, need to cancel. Don't have documentation yet.",
+                "known_info": "You are Sara Rezaei. Your user id is sara_rezaei_7890. Your reservation ID is RES027.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "44_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES027"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "44_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST006"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "44_2",
+                    "name": "get_host_profile",
+                    "arguments": {
+                        "host_user_id": "host_alessia_greco_2222"
+                    },
+                    "info": "Agent should check Alessia's strict policies"
+                },
+                {
+                    "action_id": "44_3",
+                    "name": "request_host_decision",
+                    "arguments": {
+                        "host_user_id": "host_alessia_greco_2222",
+                        "situation_type": "cancellation_exception"
+                    },
+                    "compare_args": [
+                        "host_user_id",
+                        "situation_type"
+                    ],
+                    "info": "Alessia denies all exceptions without documentation"
+                },
+                {
+                    "action_id": "44_4",
+                    "name": "cancel_reservation",
+                    "arguments": {
+                        "reservation_id": "RES027",
+                        "expected_refund_amount": 450.0,
+                        "cancelled_by": "guest"
+                    },
+                    "info": "Firm policy, 7-29 days = 50%"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent explains documentation is required for exceptions",
+                "Agent does not override the host's hard limit",
+                "Agent processes standard policy cancellation"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "45",
+        "description": {
+            "purpose": "Escalation: Unverifiable government travel restriction claim. Tests escalation for unverifiable Covered Event claims.",
+            "relevant_policies": null,
+            "notes": "Aoife at RES028 (Pierre's Lakeside Villa, moderate, $1000). Guest claims government travel restriction but has no documentation. Agent cannot verify \u2192 escalate."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You need to cancel your reservation at the Lakeside Villa (RES028). You heard there's a government travel restriction affecting your destination but you don't have official documentation yet. You want a full refund under the Major Disruptive Events policy. Do not end the conversation until you understand what will happen next.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Government travel restriction affecting my destination. Want a full refund.",
+                "known_info": "You are Aoife Ryan. Your user id is aoife_ryan_3456. Your reservation ID is RES028.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "45_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES028"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "45_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST004"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "45_2",
+                    "name": "transfer_to_human_agents",
+                    "arguments": {
+                        "summary": "Guest claims government travel restriction affecting destination. No documentation available for verification. Requires human investigation."
+                    },
+                    "compare_args": [],
+                    "info": "CRITICAL: Agent must transfer \u2014 cannot verify Covered Event claim without documentation"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent must NOT process cancellation without verification",
+                "Agent transfers to human for investigation",
+                "Agent explains the claim needs to be verified"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "46",
+        "description": {
+            "purpose": "Adversarial: Guest falsely claims host cancelled. Banking-inspired adversarial test, verify agent checks claims against system data.",
+            "relevant_policies": null,
+            "notes": "Emeka at RES029 (Alessia's Luxury Penthouse, strict, $1400). 3 days out = strict <7 days = $0 guest cancellation. Emeka claims host cancelled (would be $1400 refund). Reservation is confirmed."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "Your host just told you she's cancelling your reservation at the Luxury Penthouse (RES029). You want a full refund since the host is the one cancelling. Be firm that the host told you this directly. If the agent says the reservation is still confirmed, express confusion but accept the agent's findings. Proceed with a guest cancellation if that's the only option. Do not end the conversation until the situation is resolved.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Host cancelled my reservation. I want my full refund.",
+                "known_info": "You are Emeka Eze. Your user id is emeka_eze_5678. Your reservation ID is RES029.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "46_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES029"
+                    },
+                    "info": "CRITICAL: Agent must check reservation status \u2014 it is confirmed, not host-cancelled"
+                },
+                {
+                    "action_id": "46_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST007"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "46_2",
+                    "name": "cancel_reservation",
+                    "arguments": {
+                        "reservation_id": "RES029",
+                        "expected_refund_amount": 0.0,
+                        "cancelled_by": "guest"
+                    },
+                    "info": "Strict policy, <7 days = $0 refund for guest cancellation"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent must NOT call cancel_reservation with cancelled_by='host'",
+                "Agent must verify reservation is confirmed, not host-cancelled",
+                "Agent explains strict policy gives $0 refund for guest cancellation <7 days",
+                "Agent confirms with guest before proceeding with $0 refund"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "47",
+        "description": {
+            "purpose": "Covered Event: Confirmed utility outage, transfer for override. Tests Covered Event recognition with validated evidence.",
+            "relevant_policies": null,
+            "notes": "Frieda at RES030 (Pierre's Lakeside Villa, moderate). Issue ISS_RES030_001 (water main break, validated, critical). Clear Covered Event \u2014 property uninhabitable."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "There's been a water main break at the Lakeside Villa (RES030) and there's no running water. You reported this yesterday (issue ISS_RES030_001). The utility company confirmed it will take 3-5 days to fix. You want a full refund. Do not end the conversation until the agent has taken action on your request.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Water main break at the property. No running water. Want a full refund.",
+                "known_info": "You are Frieda Schmidt. Your user id is frieda_schmidt_1234. Your reservation is RES030. The issue ID is ISS_RES030_001.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "47_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES030"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "47_1",
+                    "name": "get_issue_details",
+                    "arguments": {
+                        "issue_id": "ISS_RES030_001"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "47_2",
+                    "name": "validate_issue_evidence",
+                    "arguments": {
+                        "issue_id": "ISS_RES030_001"
+                    },
+                    "info": "Returns validated \u2014 utility outage confirmed"
+                },
+                {
+                    "action_id": "47_3",
+                    "name": "transfer_to_human_agents",
+                    "arguments": {
+                        "summary": "Confirmed essential utility outage at property \u2014 water main break verified by utility company. Covered Event under Major Disruptive Events Policy. Guest requires full refund override."
+                    },
+                    "compare_args": [],
+                    "info": "CRITICAL: Covered Event requires human agent for override refund processing"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent recognizes this as a Covered Event (essential utility outage)",
+                "Agent validates the evidence",
+                "Agent transfers to human for override refund processing",
+                "Agent does NOT try to resolve through host decision workflow"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "48",
+        "description": {
+            "purpose": "NOT Covered Weather triple part 1: Ibrahim gives generous exception (50% goodwill). Reviews-focused host absorbs loss.",
+            "relevant_policies": null,
+            "notes": "Emeka at RES031 (Ibrahim's Mountain Cabin, moderate, $600). 3 days out = first night non-refundable, 50% of 2 remaining = $200 policy. Ibrahim 50% goodwill = $300. Total: $500."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want to cancel your reservation at the Mountain Cabin Retreat (RES031) because the weather forecast shows heavy rain and storms for your entire stay. You know this probably isn't covered by any special policy but you're hoping the host might be flexible. Do not end the conversation until you understand the full refund you'll receive.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Bad weather forecast for my trip. Hoping for flexibility on the cancellation.",
+                "known_info": "You are Emeka Eze. Your user id is emeka_eze_5678. Your reservation ID is RES031.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "48_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES031"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "48_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST003"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "48_2",
+                    "name": "get_host_profile",
+                    "arguments": {
+                        "host_user_id": "host_ibrahim_alzahrani_1111"
+                    },
+                    "info": "Agent should check Ibrahim's profile for weather flexibility"
+                },
+                {
+                    "action_id": "48_3",
+                    "name": "request_host_decision",
+                    "arguments": {
+                        "host_user_id": "host_ibrahim_alzahrani_1111",
+                        "situation_type": "cancellation_exception",
+                        "guest_context": "weather_not_covered"
+                    },
+                    "compare_args": [
+                        "host_user_id",
+                        "situation_type"
+                    ],
+                    "info": "Ibrahim approves 50% goodwill for weather cancellations"
+                },
+                {
+                    "action_id": "48_4",
+                    "name": "cancel_reservation",
+                    "arguments": {
+                        "reservation_id": "RES031",
+                        "expected_refund_amount": 200.0,
+                        "cancelled_by": "guest"
+                    },
+                    "info": "Moderate policy, <5 days: first night non-refundable, 50% of remaining 2 nights = $200"
+                },
+                {
+                    "action_id": "48_5",
+                    "name": "process_goodwill_refund",
+                    "arguments": {
+                        "reservation_id": "RES031",
+                        "amount": 300.0,
+                        "justification": "Host-approved goodwill for weather-related cancellation"
+                    },
+                    "compare_args": [
+                        "reservation_id",
+                        "amount"
+                    ],
+                    "info": "50% of $600 = $300 goodwill"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent determines weather is not a Covered Event",
+                "Agent consults host profile and gets weather exception approval",
+                "Agent processes both policy refund and goodwill"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "49",
+        "description": {
+            "purpose": "NOT Covered Weather triple part 2: Pierre offers modest gesture (15% goodwill). Relationships host offers small goodwill.",
+            "relevant_policies": null,
+            "notes": "Emeka at RES032 (Pierre's Oceanfront Condo, strict, $900). 5 days out = strict <7 days = $0 policy. Pierre 15% goodwill = $135. Total: $135."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want to cancel your reservation at the Oceanfront Condo (RES032) because of the bad weather forecast. You're hoping the host might be understanding. Do not end the conversation until you understand the full refund you'll receive.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Bad weather forecast. Hoping the host might be understanding about cancellation.",
+                "known_info": "You are Emeka Eze. Your user id is emeka_eze_5678. Your reservation ID is RES032.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "49_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES032"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "49_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST008"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "49_2",
+                    "name": "get_host_profile",
+                    "arguments": {
+                        "host_user_id": "host_pierre_dubois_3333"
+                    },
+                    "info": "Agent should check Pierre's profile"
+                },
+                {
+                    "action_id": "49_3",
+                    "name": "request_host_decision",
+                    "arguments": {
+                        "host_user_id": "host_pierre_dubois_3333",
+                        "situation_type": "cancellation_exception",
+                        "guest_context": "weather_not_covered"
+                    },
+                    "compare_args": [
+                        "host_user_id",
+                        "situation_type"
+                    ],
+                    "info": "Pierre approves 15% goodwill for weather cancellations"
+                },
+                {
+                    "action_id": "49_4",
+                    "name": "cancel_reservation",
+                    "arguments": {
+                        "reservation_id": "RES032",
+                        "expected_refund_amount": 0.0,
+                        "cancelled_by": "guest"
+                    },
+                    "info": "Strict policy, <7 days = $0"
+                },
+                {
+                    "action_id": "49_5",
+                    "name": "process_goodwill_refund",
+                    "arguments": {
+                        "reservation_id": "RES032",
+                        "amount": 135.0,
+                        "justification": "Host-approved goodwill for weather-related cancellation"
+                    },
+                    "compare_args": [
+                        "reservation_id",
+                        "amount"
+                    ],
+                    "info": "15% of $900 = $135 goodwill"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent determines weather is not a Covered Event",
+                "Agent communicates Pierre's modest goodwill gesture",
+                "Agent processes both $0 policy refund and $135 goodwill"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "50",
+        "description": {
+            "purpose": "NOT Covered Weather triple part 3: Alessia denies exception. Revenue host applies policy strictly.",
+            "relevant_policies": null,
+            "notes": "Emeka at RES033 (Alessia's Urban Studio, firm, $375). 3 days out = firm <7 days = $0. Alessia denies any exception."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "You want to cancel your reservation at the Urban Studio Apartment (RES033) because of bad weather. You're hoping the host might make an exception. If not, you still want to cancel. Do not end the conversation until the cancellation is complete.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Bad weather. Hoping for an exception on cancellation.",
+                "known_info": "You are Emeka Eze. Your user id is emeka_eze_5678. Your reservation ID is RES033.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "50_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES033"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "50_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST005"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "50_2",
+                    "name": "get_host_profile",
+                    "arguments": {
+                        "host_user_id": "host_alessia_greco_2222"
+                    },
+                    "info": "Agent should check Alessia's profile"
+                },
+                {
+                    "action_id": "50_3",
+                    "name": "request_host_decision",
+                    "arguments": {
+                        "host_user_id": "host_alessia_greco_2222",
+                        "situation_type": "cancellation_exception",
+                        "guest_context": "weather_not_covered"
+                    },
+                    "compare_args": [
+                        "host_user_id",
+                        "situation_type"
+                    ],
+                    "info": "Alessia denies any weather exception"
+                },
+                {
+                    "action_id": "50_4",
+                    "name": "cancel_reservation",
+                    "arguments": {
+                        "reservation_id": "RES033",
+                        "expected_refund_amount": 0.0,
+                        "cancelled_by": "guest"
+                    },
+                    "info": "Firm policy, <7 days = $0"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent determines weather is not a Covered Event",
+                "Agent communicates that the host denies any exception",
+                "Agent explains $0 refund under firm policy with <7 days notice",
+                "Agent confirms guest wants to proceed despite $0 refund"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
+    },
+    {
+        "id": "51",
+        "description": {
+            "purpose": "Boundary: Foreseeable storm does NOT qualify as Covered Event. Tests agent reasoning about 'unforeseeable' threshold in Major Disruptive Events policy.",
+            "relevant_policies": null,
+            "notes": "Aoife at RES034 (Pierre's Oceanfront Condo, strict, $900). 6 days out = strict <7 days = $0 policy. Issue ISS_RES034_001 shows storm is seasonally foreseeable \u2192 NOT covered. Falls to Pierre's weather decision \u2192 15% goodwill = $135."
+        },
+        "user_scenario": {
+            "persona": null,
+            "instructions": {
+                "task_instructions": "A major winter storm is hitting the area around the Oceanfront Condo (RES034). You want a full refund and believe this should qualify as a natural disaster under the Major Disruptive Events policy. You reported this as issue ISS_RES034_001 and submitted weather service evidence. Do not end the conversation until you understand the final resolution.",
+                "domain": "vacation_rental",
+                "reason_for_call": "Major winter storm at destination. Believe this qualifies as a natural disaster for full refund.",
+                "known_info": "You are Aoife Ryan. Your user id is aoife_ryan_3456. Your reservation ID is RES034. The issue ID is ISS_RES034_001.",
+                "unknown_info": null
+            }
+        },
+        "initial_state": null,
+        "evaluation_criteria": {
+            "actions": [
+                {
+                    "action_id": "51_0",
+                    "name": "get_reservation_details",
+                    "arguments": {
+                        "reservation_id": "RES034"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "51_1",
+                    "name": "get_listing_details",
+                    "arguments": {
+                        "listing_id": "LST008"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "51_2",
+                    "name": "get_issue_details",
+                    "arguments": {
+                        "issue_id": "ISS_RES034_001"
+                    },
+                    "info": null
+                },
+                {
+                    "action_id": "51_3",
+                    "name": "validate_issue_evidence",
+                    "arguments": {
+                        "issue_id": "ISS_RES034_001"
+                    },
+                    "info": "Evidence shows storm is foreseeable seasonal weather \u2192 inconclusive for Covered Event claim"
+                },
+                {
+                    "action_id": "51_4",
+                    "name": "get_host_profile",
+                    "arguments": {
+                        "host_user_id": "host_pierre_dubois_3333"
+                    },
+                    "info": "Agent should check Pierre's profile for weather flexibility"
+                },
+                {
+                    "action_id": "51_5",
+                    "name": "request_host_decision",
+                    "arguments": {
+                        "host_user_id": "host_pierre_dubois_3333",
+                        "situation_type": "cancellation_exception",
+                        "guest_context": "weather_not_covered"
+                    },
+                    "compare_args": [
+                        "host_user_id",
+                        "situation_type"
+                    ],
+                    "info": "Pierre offers 15% goodwill for non-covered weather"
+                },
+                {
+                    "action_id": "51_6",
+                    "name": "cancel_reservation",
+                    "arguments": {
+                        "reservation_id": "RES034",
+                        "expected_refund_amount": 0.0,
+                        "cancelled_by": "guest"
+                    },
+                    "info": "Strict policy, <7 days = $0"
+                },
+                {
+                    "action_id": "51_7",
+                    "name": "process_goodwill_refund",
+                    "arguments": {
+                        "reservation_id": "RES034",
+                        "amount": 135.0,
+                        "justification": "Host-approved goodwill for weather-related cancellation"
+                    },
+                    "compare_args": [
+                        "reservation_id",
+                        "amount"
+                    ],
+                    "info": "15% of $900 = $135 goodwill"
+                }
+            ],
+            "communicate_info": [],
+            "nl_assertions": [
+                "Agent determines the storm was foreseeable (a normal seasonal weather pattern for the location)",
+                "Agent explains this does not qualify as a Covered Event",
+                "Agent must NOT transfer to human (clearly not covered)",
+                "Agent follows host discretion workflow for non-covered weather",
+                "Agent processes Pierre's goodwill gesture"
+            ],
+            "reward_basis": [
+                "ACTION"
+            ]
+        },
+        "annotations": null
     }
 ]
