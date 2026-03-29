@@ -154,10 +154,11 @@ Same evidence. Same platform policy. **Different correct answers based on host.*
 
 - **Users:** 8 (5 guests, 3 hosts)
 - **Listings:** 8 properties across different cancellation policies
-- **Reservations:** 20 bookings
-- **Tasks:** 35 evaluation scenarios
-- **Host Decisions:** 13 pre-computed decisions
-- **Task Splits:** train (21), test (14), eval (16), base (35)
+- **Reservations:** 35 bookings
+- **Issues:** 8 reported issues with evidence validation
+- **Tasks:** 52 evaluation scenarios
+- **Host Decisions:** 18 pre-computed decisions
+- **Task Splits:** train (17), test (17), eval (18), base (52)
 
 ## Tools
 
