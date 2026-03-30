@@ -126,29 +126,49 @@ flowchart TB
 
 ## Disputed Evidence Scenario
 
-This scenario shows how host psychology affects ambiguous situations:
+This scenario shows how host psychology affects ambiguous situations. The same inconclusive evidence produces three different correct outcomes:
 
 ```mermaid
 flowchart TB
-    Issue["Issue: Carpet stain reported<br/>Evidence: INCONCLUSIVE<br/>Guest photos vs Host turnover photos"]
+    Issue["Issue reported<br/>Evidence: INCONCLUSIVE"]
 
     Issue --> Ibrahim
+    Issue --> Pierre
     Issue --> Alessia
 
     subgraph Ibrahim["Ibrahim (Reviews-focused)"]
         ID["Decision: APPROVE 25%"]
         IR["'A negative review costs me<br/>far more than a partial refund'"]
-        IC["Compensation: $131.25"]
+    end
+
+    subgraph Pierre["Pierre (Relationships)"]
+        PD["Decision: APPROVE 15%"]
+        PR["'A modest good-faith gesture<br/>shows I take concerns seriously'"]
     end
 
     subgraph Alessia["Alessia (Revenue-focused)"]
         AD["Decision: DENY"]
         AR["'Burden of proof is<br/>on the guest'"]
-        AC["Compensation: $0"]
     end
 ```
 
-Same evidence. Same platform policy. **Different correct answers based on host.**
+**Three different correct answers based on host.**
+
+## Major Disruptive Events Policy
+
+The domain tests agent reasoning about covered vs. not-covered events under the Major Disruptive Events policy:
+
+| Category | Covered? | Example |
+|----------|----------|---------|
+| Government travel restrictions | Yes | Evacuation orders, mandatory quarantines |
+| Essential utility outages | Yes | Water main break making property uninhabitable |
+| Foreseeable seasonal weather | **No** | Winter storms typical for the location and season |
+| Guest-side disruptions | **No** | Flight cancellations, work conflicts, illness |
+
+**Key agent reasoning tests:**
+- **Task 47:** Confirmed utility outage → agent must recognize as Covered Event and transfer to human for override refund
+- **Task 51:** Foreseeable winter storm → agent must determine it does NOT qualify and fall back to host discretion
+- **Task 45:** Unverifiable government restriction claim → agent must escalate (cannot verify without documentation)
 
 ## Domain Statistics
 
@@ -172,6 +192,7 @@ The domain provides the following tools:
 - `get_cancellation_policy_rules` - Get refund calculation rules
 - `calculate` - Safe arithmetic calculator
 - `cancel_reservation` - Cancel with policy-based refund validation
+- `process_refund` - Redirect refund to alternative payment method
 
 ### Host Consideration Tools
 - `get_host_profile` - Retrieve host preferences and philosophy
