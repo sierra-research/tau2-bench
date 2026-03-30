@@ -6,8 +6,6 @@ from fastworkflow.workflow import Workflow
 from fastworkflow import CommandOutput, CommandResponse
 
 from tau2.domains.airline.tools import AirlineTools
-from tau2.domains.airline.data_model import FlightDB
-from tau2.domains.airline.utils import AIRLINE_DB_PATH
 
 class PassengerInfo(BaseModel):
     first_name: str = Field(
@@ -81,7 +79,7 @@ class ResponseGenerator:
         Process the update_reservation_passengers command using tau2-bench airline tools.
         """
         try:
-            db = FlightDB.load(AIRLINE_DB_PATH)
+            db = workflow.context["db"]
             tools = AirlineTools(db)
             
             passengers = [p.model_dump() if hasattr(p, 'model_dump') else p for p in input.passengers]

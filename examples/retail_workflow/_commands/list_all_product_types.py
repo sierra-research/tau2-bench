@@ -6,8 +6,6 @@ from fastworkflow.workflow import Workflow
 from fastworkflow import CommandOutput, CommandResponse
 
 from tau2.domains.retail.tools import RetailTools
-from tau2.domains.retail.data_model import RetailDB
-from tau2.domains.retail.utils import RETAIL_DB_PATH
 
 
 class Signature:
@@ -69,7 +67,7 @@ class ResponseGenerator:
     ) -> Signature.Output:
         """List all product types using tau2-bench's list_all_product_types tool."""
         try:
-            db = RetailDB.load(RETAIL_DB_PATH)
+            db = workflow.context["db"]
             tools = RetailTools(db)
             
             product_types_json = tools.list_all_product_types()

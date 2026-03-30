@@ -6,8 +6,6 @@ from fastworkflow.workflow import Workflow
 from fastworkflow import CommandOutput, CommandResponse
 
 from tau2.domains.retail.tools import RetailTools
-from tau2.domains.retail.data_model import RetailDB
-from tau2.domains.retail.utils import RETAIL_DB_PATH
 
 
 class Signature:
@@ -67,7 +65,7 @@ class ResponseGenerator:
     ) -> Signature.Output:
         """Transfer to human agent using tau2-bench tool."""
         try:
-            db = RetailDB.load(RETAIL_DB_PATH)
+            db = workflow.context["db"]
             tools = RetailTools(db)
             
             result = tools.transfer_to_human_agents(summary=input.summary)

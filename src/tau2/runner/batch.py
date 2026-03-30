@@ -850,6 +850,19 @@ def run_domain(config: RunConfig) -> Results:
         Results object with all simulation runs.
     """
     config.validate()
+
+    # For FastWorkflow, override displayed model with actual FW LLM config
+    if getattr(config, "agent", None) == "fastworkflow_agent":
+        from dotenv import dotenv_values
+
+        from tau2.agent.fastworkflow_adapter import FW_ENV_PATH, FW_PASSWORDS_PATH
+
+        fw_env = {
+            **dotenv_values(FW_ENV_PATH),
+            **dotenv_values(FW_PASSWORDS_PATH),
+        }
+        config.llm_agent = fw_env.get("LLM_AGENT", "unknown")
+
     ConsoleDisplay.display_run_config(config)
 
     # Load tasks

@@ -6,8 +6,6 @@ from fastworkflow.workflow import Workflow
 from fastworkflow import CommandOutput, CommandResponse
 
 from tau2.domains.telecom.tools import TelecomTools
-from tau2.domains.telecom.data_model import TelecomDB
-from tau2.domains.telecom.utils import TELECOM_DB_PATH
 
 
 class Signature:
@@ -72,7 +70,7 @@ class ResponseGenerator:
     ) -> Signature.Output:
         """Transfer to human agent using tau2-bench tool."""
         try:
-            db = TelecomDB.load(TELECOM_DB_PATH)
+            db = workflow.context["db"]
             tools = TelecomTools(db)
             
             # Use the summary from input

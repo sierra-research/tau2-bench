@@ -6,8 +6,6 @@ from fastworkflow.workflow import Workflow
 from fastworkflow import CommandOutput, CommandResponse
 
 from tau2.domains.airline.tools import AirlineTools
-from tau2.domains.airline.data_model import FlightDB
-from tau2.domains.airline.utils import AIRLINE_DB_PATH
 
 class Signature:
     """Search for one-stop flights between two cities on a specific date"""
@@ -88,7 +86,7 @@ class ResponseGenerator:
         Process the search_onestop_flight command using tau2-bench airline tools.
         """
         try:
-            db = FlightDB.load(AIRLINE_DB_PATH)
+            db = workflow.context["db"]
             tools = AirlineTools(db)
             flights = tools.search_onestop_flight(
                 origin=input.origin,

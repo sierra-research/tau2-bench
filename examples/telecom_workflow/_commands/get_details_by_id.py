@@ -7,8 +7,6 @@ from fastworkflow import CommandOutput, CommandResponse
 from fastworkflow.train.generate_synthetic import generate_diverse_utterances
 
 from tau2.domains.telecom.tools import TelecomTools
-from tau2.domains.telecom.data_model import TelecomDB
-from tau2.domains.telecom.utils import TELECOM_DB_PATH
 
 
 class Signature:
@@ -84,13 +82,17 @@ class ResponseGenerator:
         Process the get_details_by_id command using tau2-bench tools.
         """
         try:
-            db = TelecomDB.load(TELECOM_DB_PATH)
+            db = workflow.context["db"]
             tools = TelecomTools(db)
             
-            details_dict = tools.get_details_by_id(id=input.id)
-            
-            import json
-            details_json = json.dumps(details_dict, indent=2, default=str)
+            result = tools.get_details_by_id(id=input.id)
+
+            # Result is a pydantic model (Customer, Line, Device, Bill, or Plan)
+            if hasattr(result, 'model_dump_json'):
+                details_json = result.model_dump_json(indent=2)
+            else:
+                import json
+                details_json = json.dumps(result, indent=2, default=str)
             
             return Signature.Output(details=details_json)
             

@@ -6,8 +6,6 @@ from fastworkflow.workflow import Workflow
 from fastworkflow import CommandOutput, CommandResponse
 
 from tau2.domains.airline.tools import AirlineTools
-from tau2.domains.airline.data_model import FlightDB
-from tau2.domains.airline.utils import AIRLINE_DB_PATH
 
 class Signature:
     """Calculate a mathematical expression"""
@@ -68,7 +66,7 @@ class ResponseGenerator:
         Process the calculate command using tau2-bench airline tools.
         """
         try:
-            db = FlightDB.load(AIRLINE_DB_PATH)
+            db = workflow.context["db"]
             tools = AirlineTools(db)
             result = tools.calculate(expression=input.expression)
             return Signature.Output(result=result)

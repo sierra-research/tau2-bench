@@ -7,8 +7,6 @@ from fastworkflow import CommandOutput, CommandResponse
 from fastworkflow.train.generate_synthetic import generate_diverse_utterances
 
 from tau2.domains.telecom.tools import TelecomTools
-from tau2.domains.telecom.data_model import TelecomDB
-from tau2.domains.telecom.utils import TELECOM_DB_PATH
 
 
 class Signature:
@@ -36,7 +34,7 @@ class Signature:
         )
         
         gb_amount: float = Field(
-            default=0.0,
+            default=1.0,
             description="Amount of data to add in gigabytes (must be positive)",
             gt=0,
             examples=[1.0, 5.0, 10.0, 2.5],
@@ -95,7 +93,7 @@ class ResponseGenerator:
         Process the refuel_data command using tau2-bench tools.
         """
         try:
-            db = TelecomDB.load(TELECOM_DB_PATH)
+            db = workflow.context["db"]
             tools = TelecomTools(db)
             
             result = tools.refuel_data(

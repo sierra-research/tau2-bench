@@ -7,8 +7,6 @@ from fastworkflow import CommandOutput, CommandResponse
 
 # Tau2-bench imports
 from tau2.domains.retail.tools import RetailTools
-from tau2.domains.retail.data_model import RetailDB
-from tau2.domains.retail.utils import RETAIL_DB_PATH
 
 
 class Signature:
@@ -90,7 +88,7 @@ class ResponseGenerator:
         Process the get_order_details command using tau2-bench tools.
         """
         try:
-            db = RetailDB.load(RETAIL_DB_PATH)
+            db = workflow.context["db"]
             tools = RetailTools(db)
             
             order_id = input.order_id if input.order_id.startswith('#') else f'#{input.order_id}'

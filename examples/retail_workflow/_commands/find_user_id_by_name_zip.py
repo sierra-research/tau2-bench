@@ -6,8 +6,6 @@ from fastworkflow.workflow import Workflow
 from fastworkflow import CommandOutput, CommandResponse
 
 from tau2.domains.retail.tools import RetailTools
-from tau2.domains.retail.data_model import RetailDB
-from tau2.domains.retail.utils import RETAIL_DB_PATH
 
 
 class Signature:
@@ -86,7 +84,7 @@ class ResponseGenerator:
     ) -> Signature.Output:
         """Find user ID using tau2-bench's find_user_id_by_name_zip tool."""
         try:
-            db = RetailDB.load(RETAIL_DB_PATH)
+            db = workflow.context["db"]
             tools = RetailTools(db)
             
             user_id = tools.find_user_id_by_name_zip(

@@ -6,8 +6,6 @@ from fastworkflow.workflow import Workflow
 from fastworkflow import CommandOutput, CommandResponse
 
 from tau2.domains.airline.tools import AirlineTools
-from tau2.domains.airline.data_model import FlightDB
-from tau2.domains.airline.utils import AIRLINE_DB_PATH
 
 class Signature:
     """Transfer to a human agent ONLY if the user demands it explicitly."""
@@ -60,7 +58,7 @@ class ResponseGenerator:
         Process the transfer_to_human_agents command using tau2-bench airline tools.
         """
         try:
-            db = FlightDB.load(AIRLINE_DB_PATH)
+            db = workflow.context["db"]
             tools = AirlineTools(db)
             result = tools.transfer_to_human_agents(summary=input.summary)
             return Signature.Output(status=result)

@@ -7,8 +7,6 @@ from fastworkflow import CommandOutput, CommandResponse
 from fastworkflow.train.generate_synthetic import generate_diverse_utterances
 
 from tau2.domains.telecom.tools import TelecomTools
-from tau2.domains.telecom.data_model import TelecomDB
-from tau2.domains.telecom.utils import TELECOM_DB_PATH
 
 
 class Signature:
@@ -84,7 +82,7 @@ class ResponseGenerator:
         Process the get_customer_by_name command using tau2-bench tools.
         """
         try:
-            db = TelecomDB.load(TELECOM_DB_PATH)
+            db = workflow.context["db"]
             tools = TelecomTools(db)
             
             customers = tools.get_customer_by_name(

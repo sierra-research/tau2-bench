@@ -6,8 +6,6 @@ from fastworkflow.workflow import Workflow
 from fastworkflow import CommandOutput, CommandResponse
 
 from tau2.domains.airline.tools import AirlineTools
-from tau2.domains.airline.data_model import FlightDB
-from tau2.domains.airline.utils import AIRLINE_DB_PATH
 
 class Signature:
     """Update the baggage information of a reservation"""
@@ -92,7 +90,7 @@ class ResponseGenerator:
         Process the update_reservation_baggages command using tau2-bench airline tools.
         """
         try:
-            db = FlightDB.load(AIRLINE_DB_PATH)
+            db = workflow.context["db"]
             tools = AirlineTools(db)
             reservation = tools.update_reservation_baggages(
                 reservation_id=input.reservation_id,

@@ -8,8 +8,6 @@ from fastworkflow.train.generate_synthetic import generate_diverse_utterances
 
 
 from tau2.domains.airline.tools import AirlineTools
-from tau2.domains.airline.data_model import FlightDB
-from tau2.domains.airline.utils import AIRLINE_DB_PATH
 
 class Signature:
     """Send a gift certificate to a user"""
@@ -80,7 +78,7 @@ class ResponseGenerator:
         Process the send_certificate command using tau2-bench airline tools.
         """
         try:
-            db = FlightDB.load(AIRLINE_DB_PATH)
+            db = workflow.context["db"]
             tools = AirlineTools(db)
             result = tools.send_certificate(user_id=input.user_id, amount=input.amount)
             return Signature.Output(result=result)

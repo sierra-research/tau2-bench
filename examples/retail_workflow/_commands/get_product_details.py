@@ -7,8 +7,6 @@ from fastworkflow import CommandOutput, CommandResponse
 
 # Tau2-bench imports
 from tau2.domains.retail.tools import RetailTools
-from tau2.domains.retail.data_model import RetailDB
-from tau2.domains.retail.utils import RETAIL_DB_PATH
 
 
 class Signature:
@@ -78,7 +76,7 @@ class ResponseGenerator:
         Process the get_product_details command using tau2-bench tools.
         """
         try:
-            db = RetailDB.load(RETAIL_DB_PATH)
+            db = workflow.context["db"]
             tools = RetailTools(db)
             
             product = tools.get_product_details(product_id=input.product_id)
