@@ -350,6 +350,8 @@ class VacationRentalTools(ToolKitBase):
             ValueError: If cancelled_by is not 'guest' or 'host'.
             ValueError: If expected_refund_amount does not match the correct calculation.
         """
+        expected_refund_amount = float(expected_refund_amount)
+
         if cancelled_by not in ("guest", "host"):
             raise ValueError("cancelled_by must be 'guest' or 'host'")
 
@@ -433,6 +435,7 @@ class VacationRentalTools(ToolKitBase):
             ValueError: If the payment method is not found for the user.
             ValueError: If the amount exceeds the amount paid.
         """
+        amount = float(amount)
         reservation = self._get_reservation(reservation_id)
 
         if reservation.status != "cancelled":
@@ -709,6 +712,7 @@ class VacationRentalTools(ToolKitBase):
         Raises:
             ValueError: If the reservation is not found or amount exceeds limits.
         """
+        amount = float(amount)
         reservation = self._get_reservation(reservation_id)
         listing = self._get_listing(reservation.listing_id)
 
@@ -755,6 +759,7 @@ class VacationRentalTools(ToolKitBase):
         Raises:
             ValueError: If the user is not found.
         """
+        amount = float(amount)
         user = self._get_user(user_id)
 
         return {
