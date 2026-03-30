@@ -1,5 +1,4 @@
 import argparse
-import importlib.metadata
 import json
 
 from tau2.config import (
@@ -417,11 +416,9 @@ def add_run_args(parser):
 
 
 def _get_version() -> str:
-    """Get the package version from metadata, falling back to pyproject.toml."""
-    try:
-        return importlib.metadata.version("tau2")
-    except importlib.metadata.PackageNotFoundError:
-        return "dev"
+    from tau2.utils.utils import get_tau2_version
+
+    return get_tau2_version()
 
 
 def run_intro():
@@ -895,6 +892,30 @@ def main():
     )
     submit_verify_parser.set_defaults(func=lambda args: run_verify_trajectories(args))
 
+    # Convert results format command
+    convert_parser = subparsers.add_parser(
+        "convert-results",
+        help="Convert simulation results between storage formats",
+    )
+    convert_parser.add_argument(
+        "path",
+        help="Path to results.json or results directory to convert",
+    )
+    convert_parser.add_argument(
+        "--to",
+        dest="target_format",
+        choices=["json", "dir"],
+        default=None,
+        help="Target format: 'json' (monolithic) or 'dir' (directory with individual sim files). "
+        "If omitted, converts to the opposite of the current format.",
+    )
+    convert_parser.add_argument(
+        "--no-backup",
+        action="store_true",
+        help="Skip creating a .bak backup of the original file",
+    )
+    convert_parser.set_defaults(func=lambda args: run_convert_results(args))
+
     args = parser.parse_args()
     if not hasattr(args, "func"):
         run_intro()
@@ -1047,6 +1068,59 @@ def run_leaderboard(args):
         metric=args.metric,
         limit=args.limit,
     )
+
+
+def run_convert_results(args):
+    """Convert simulation results between storage formats."""
+    import shutil
+    from pathlib import Path
+
+    from tau2.data_model.simulation import Results
+
+    path = Path(args.path)
+    current_fmt = Results._detect_format(path)
+    target_fmt = args.target_format
+
+    if target_fmt is None:
+        target_fmt = "json" if current_fmt == "dir" else "dir"
+
+    if current_fmt == target_fmt:
+        print(f"Results at {path} are already in '{target_fmt}' format.")
+        return
+
+    print(f"Converting {path}: '{current_fmt}' -> '{target_fmt}'")
+    results = Results.load(path)
+
+    meta_path = path if path.suffix == ".json" else path / "results.json"
+
+    if not args.no_backup:
+        if current_fmt == "json":
+            backup = meta_path.with_suffix(".json.bak")
+            shutil.copy2(meta_path, backup)
+            print(f"  Backup: {backup}")
+        else:
+            sims_dir = meta_path.parent / "simulations"
+            backup_dir = meta_path.parent / "simulations.bak"
+            if sims_dir.exists():
+                if backup_dir.exists():
+                    shutil.rmtree(backup_dir)
+                shutil.copytree(sims_dir, backup_dir)
+            backup = meta_path.with_suffix(".json.bak")
+            shutil.copy2(meta_path, backup)
+            print(f"  Backup: {backup}")
+            if backup_dir.exists():
+                print(f"  Backup: {backup_dir}")
+
+    if target_fmt == "dir":
+        results.save(meta_path, format="dir")
+    else:
+        sims_dir = meta_path.parent / "simulations"
+        results.save(meta_path, format="json")
+        if sims_dir.exists():
+            shutil.rmtree(sims_dir)
+
+    n = len(results.simulations)
+    print(f"  Done. {n} simulation(s) converted to '{target_fmt}' format.")
 
 
 if __name__ == "__main__":

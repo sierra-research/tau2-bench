@@ -147,9 +147,24 @@ def _truncate_long_messages(data: dict, target_bytes: int, current_bytes: int) -
 
 
 def trim_trajectory(
-    path: Path, target_mb: float = 95.0, in_place: bool = False
+    path: Path,
+    target_mb: float = 95.0,
+    in_place: bool = False,
+    truncate_content: bool = False,
 ) -> Path:
-    """Trim a single trajectory file.  Returns the output path."""
+    """Trim a single trajectory file.  Returns the output path.
+
+    Args:
+        path: Path to the trajectory JSON file.
+        target_mb: Target maximum file size in MB (used only when
+            *truncate_content* is True).
+        in_place: Overwrite the original file instead of creating a
+            ``*_trimmed.json`` copy.
+        truncate_content: If True, truncate long message contents (tool
+            results, assistant messages) to fit under *target_mb*.  This is
+            lossy and off by default — trajectories are hosted on S3 where
+            there is no file-size constraint.
+    """
     target_bytes = int(target_mb * 1024 * 1024)
 
     print(f"Loading {path} …")
@@ -159,10 +174,6 @@ def trim_trajectory(
     original_bytes = path.stat().st_size
     print(f"  Original size: {original_bytes / 1e6:.1f} MB")
 
-    if original_bytes <= target_bytes:
-        print(f"  Already under {target_mb} MB – nothing to do.")
-        return path
-
     # Pass 1: strip raw_data and voice fields from messages
     saved = _strip_message_fields(data)
     current = original_bytes - saved
@@ -171,16 +182,15 @@ def trim_trajectory(
     )
 
     # Pass 2: strip simulation-level fields
-    if current > target_bytes:
-        saved2 = _strip_simulation_fields(data)
-        saved += saved2
-        current -= saved2
-        print(
-            f"  After stripping simulation fields: ~{current / 1e6:.1f} MB (saved {saved2 / 1e6:.1f} MB)"
-        )
+    saved2 = _strip_simulation_fields(data)
+    saved += saved2
+    current -= saved2
+    print(
+        f"  After stripping simulation fields: ~{current / 1e6:.1f} MB (saved {saved2 / 1e6:.1f} MB)"
+    )
 
-    # Pass 3: truncate long messages
-    if current > target_bytes:
+    # Pass 3 (optional): truncate long messages to meet size target
+    if truncate_content and current > target_bytes:
         saved3 = _truncate_long_messages(data, target_bytes, current)
         saved += saved3
         current -= saved3
@@ -200,12 +210,6 @@ def trim_trajectory(
 
     actual_bytes = out_path.stat().st_size
     print(f"  Final size: {actual_bytes / 1e6:.1f} MB")
-    if actual_bytes > target_bytes:
-        print(
-            f"  ⚠️  Still over {target_mb} MB! Consider reducing num_trials or splitting domains."
-        )
-    else:
-        print(f"  ✅ Under {target_mb} MB")
 
     return out_path
 
@@ -231,13 +235,24 @@ def main():
         action="store_true",
         help="Overwrite the original file instead of creating a *_trimmed.json copy.",
     )
+    parser.add_argument(
+        "--truncate-content",
+        action="store_true",
+        help="Truncate long message contents (lossy) to fit under --target-mb. "
+        "Off by default since trajectories are hosted on S3.",
+    )
     args = parser.parse_args()
 
     for path in args.paths:
         if not path.exists():
             print(f"Error: {path} not found", file=sys.stderr)
             sys.exit(1)
-        trim_trajectory(path, target_mb=args.target_mb, in_place=args.in_place)
+        trim_trajectory(
+            path,
+            target_mb=args.target_mb,
+            in_place=args.in_place,
+            truncate_content=args.truncate_content,
+        )
         print()
 
 

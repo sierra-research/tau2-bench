@@ -11,11 +11,11 @@ from tau2.data_model.audio import AudioData, audio_bytes_to_string
 from tau2.data_model.message import Message
 from tau2.data_model.voice import VoiceSettings
 from tau2.data_model.voice_personas import get_elevenlabs_voice_id
-from tau2.voice.synthesis.audio_effects import (
+from tau2.voice.synthesis.audio_effects.noise_generator import (
     BackgroundNoiseGenerator,
-    BatchAudioEffectsMixin,
-    generate_turn_effects,
 )
+from tau2.voice.synthesis.audio_effects.processor import BatchAudioEffectsMixin
+from tau2.voice.synthesis.audio_effects.scheduler import generate_turn_effects
 from tau2.voice.synthesis.synthesize import synthesize_voice
 from tau2.voice.transcription.transcribe import transcribe_audio
 from tau2.voice.utils.audio_io import save_wav_file

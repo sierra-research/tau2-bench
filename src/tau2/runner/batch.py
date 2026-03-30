@@ -41,8 +41,7 @@ from tau2.metrics.agent_metrics import compute_metrics
 from tau2.registry import registry
 from tau2.runner.build import _build_env_kwargs, build_orchestrator
 from tau2.runner.checkpoint import (
-    create_checkpoint_replacer,
-    create_checkpoint_saver,
+    create_checkpoint_fns,
     try_resume,
 )
 from tau2.runner.helpers import get_info, get_tasks, make_run_name
@@ -56,8 +55,6 @@ from tau2.user_simulation_voice_presets import COMPLEXITY_CONFIGS
 from tau2.utils.display import ConsoleDisplay, Text
 from tau2.utils.llm_utils import llm_log_mode, set_llm_log_dir, set_llm_log_mode
 from tau2.utils.utils import DATA_DIR
-from tau2.voice.synthesis.conversation_builder import generate_simulation_audio
-from tau2.voice.utils.audio_debug import generate_audio_debug_info
 
 # Context variable to track current simulation_id for log filtering
 # This ensures task-specific log handlers only receive their own messages
@@ -215,12 +212,14 @@ def save_simulation_audio(
         audio_debug: Whether to generate debug audio analysis.
     """
     task_audio_dir = (
-        save_dir / "tasks" / f"task_{task.id}" / f"sim_{simulation_id}" / "audio"
+        save_dir / "artifacts" / f"task_{task.id}" / f"sim_{simulation_id}" / "audio"
     )
     task_audio_dir.mkdir(parents=True, exist_ok=True)
 
     if audio_debug:
         try:
+            from tau2.voice.utils.audio_debug import generate_audio_debug_info
+
             debug_dir = task_audio_dir / "debug"
             report = generate_audio_debug_info(
                 simulation,
@@ -241,6 +240,8 @@ def save_simulation_audio(
             logger.warning(f"Failed to generate audio debug info: {e}")
 
     try:
+        from tau2.voice.synthesis.conversation_builder import generate_simulation_audio
+
         generate_simulation_audio(simulation, task_audio_dir)
         logger.debug(f"Audio saved to: {task_audio_dir}")
     except Exception as e:
@@ -273,7 +274,7 @@ class _TaskLogContext:
         if self.save_dir:
             self.task_log_dir = (
                 self.save_dir
-                / "tasks"
+                / "artifacts"
                 / f"task_{self.task.id}"
                 / f"sim_{self.simulation_id}"
             )
@@ -388,7 +389,7 @@ def run_single_task(
         if audio_taps and save_dir:
             taps_dir = (
                 save_dir
-                / "tasks"
+                / "artifacts"
                 / f"task_{task.id}"
                 / f"sim_{simulation_id}"
                 / "audio"
@@ -459,6 +460,7 @@ def run_tasks(
     save_dir: Optional[Path] = None,
     evaluation_type: EvaluationType = EvaluationType.ALL_WITH_NL_ASSERTIONS,
     console_display: bool = True,
+    results_format: str = "json",
 ) -> Results:
     """Run simulations for a list of tasks with concurrency, checkpointing, and retries.
 
@@ -580,11 +582,11 @@ def run_tasks(
             tasks=tasks,
             num_trials=config.num_trials,
             auto_resume=config.auto_resume,
+            results_format=results_format,
         )
 
-    # Create checkpoint saver and replacer
-    save_fn = create_checkpoint_saver(save_path, lock)
-    replace_fn = create_checkpoint_replacer(save_path, lock)
+    # Create checkpoint saver and replacer (shared state for dir format)
+    save_fn, replace_fn = create_checkpoint_fns(save_path, lock)
 
     # Build argument list (skip already-completed runs)
     args = []
@@ -740,7 +742,10 @@ def run_tasks(
                     # Mark the discarded sim directory
                     if save_dir is not None:
                         sim_dir = (
-                            save_dir / "tasks" / f"task_{task.id}" / f"sim_{result.id}"
+                            save_dir
+                            / "artifacts"
+                            / f"task_{task.id}"
+                            / f"sim_{result.id}"
                         )
                         if sim_dir.exists():
                             try:
@@ -776,7 +781,9 @@ def run_tasks(
 
             # Mark the final sim as the one used in results
             if save_dir is not None:
-                sim_dir = save_dir / "tasks" / f"task_{task.id}" / f"sim_{result.id}"
+                sim_dir = (
+                    save_dir / "artifacts" / f"task_{task.id}" / f"sim_{result.id}"
+                )
                 if sim_dir.exists():
                     try:
                         status = {"status": "used"}
@@ -892,12 +899,18 @@ def run_domain(config: RunConfig) -> Results:
     save_dir = DATA_DIR / "simulations" / run_name
     save_path = save_dir / "results.json"
 
+    # Voice runs use directory format (individual sim files) because voice
+    # simulations with tick data are very large; text runs use monolithic JSON.
+    is_voice = isinstance(config, VoiceRunConfig)
+    results_format = "dir" if is_voice else "json"
+
     # Run batch
     simulation_results = run_tasks(
         config,
         tasks,
         save_path=save_path,
         save_dir=save_dir,
+        results_format=results_format,
     )
 
     # Compute and display metrics

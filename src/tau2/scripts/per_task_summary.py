@@ -29,8 +29,9 @@ Generating annotation sets (retail, 2026-03-10):
 """
 
 import argparse
-import json
 from pathlib import Path
+
+from tau2.utils.io_utils import load_results_dict
 
 
 def get_rewards(data: dict) -> dict:
@@ -45,9 +46,8 @@ def get_rewards(data: dict) -> dict:
 
 
 def load_results(path: str) -> dict:
-    """Load results.json from path."""
-    with open(path) as f:
-        return json.load(f)
+    """Load results from path (supports both JSON and directory formats)."""
+    return load_results_dict(path)
 
 
 def get_domain_config(domain: str) -> tuple[dict, str]:
@@ -123,8 +123,7 @@ def generate_summary(domain: str):
     # Use the first text experiment as the reference for ordering
     first_exp_path = list(experiments.values())[0]
     if first_exp_path.exists():
-        with open(first_exp_path) as f:
-            first_data = json.load(f)
+        first_data = load_results_dict(first_exp_path)
         for s in first_data.get("simulations", []):
             tid = str(s.get("task_id"))
             if tid not in seen:

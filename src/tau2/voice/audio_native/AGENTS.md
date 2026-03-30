@@ -224,7 +224,7 @@ tau2 run --domain retail --audio-native  \
   --save-to {provider_name}_retail_test
 ```
 
-**Verify in output files** (`data/simulations/{save_to}/tasks/task_0/*/`):
+**Verify in output files** (`data/simulations/{save_to}/artifacts/task_0/*/`):
 - [ ] Multi-turn conversation (user ↔ agent back-and-forth)
 - [ ] Audio present in simulation result
 - [ ] Transcripts present for both user and agent

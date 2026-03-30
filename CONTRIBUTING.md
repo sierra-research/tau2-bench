@@ -137,15 +137,23 @@ Copy `.env.example` to `.env` and configure your API keys for testing.
 ## 🧪 Testing Requirements
 
 ### Running Tests
+
+Tests are split into tiers matching the optional dependency groups:
+
 ```bash
-# Run all tests
-make test
+make test              # Core tests (requires: uv sync --extra dev)
+make test-voice        # Voice + streaming tests (requires: uv sync --extra dev --extra voice)
+make test-knowledge    # Banking knowledge tests (requires: uv sync --extra dev --extra knowledge)
+make test-gym          # Gymnasium tests (requires: uv sync --extra dev --extra gym)
+make test-all          # All tests (requires: uv sync --all-extras)
 
 # Run specific test categories
 pytest tests/test_domains/  # Domain tests
 pytest tests/test_agent.py  # Agent tests
 pytest tests/test_environment.py  # Environment tests
 ```
+
+`make test` is the safe default -- it works with just `uv sync --extra dev` and does not require voice, knowledge, or gym packages.
 
 ### Test Requirements for PRs
 - **Existing tests must pass**: All current tests should continue to pass
@@ -201,7 +209,7 @@ wip
 ## 🔍 Pull Request Guidelines
 
 ### Before Opening a PR
-- [ ] All tests pass locally (`make test`)
+- [ ] Core tests pass locally (`make test`); run `make test-voice`, `make test-knowledge`, or `make test-gym` if your changes touch those areas
 - [ ] Code follows style guidelines (`make check-all` passes)
 - [ ] New functionality is tested
 - [ ] Documentation is updated if needed
@@ -230,7 +238,7 @@ Brief description of the changes made.
 - Links to relevant docs or issues
 
 ## Checklist
-- [ ] Tests pass (`make test`)
+- [ ] Tests pass (`make test`; also run relevant tier targets if changes touch voice/knowledge/gym)
 - [ ] Code follows style guidelines (`make check-all`)
 - [ ] Documentation updated
 - [ ] Breaking changes noted

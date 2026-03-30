@@ -39,9 +39,6 @@ from tau2.agent.base.streaming_utils import (
     merge_audio_script_gold,
 )
 
-# Voice components
-from tau2.agent.base.voice import VoiceMixin, VoiceState
-
 # =============================================================================
 # DEPRECATION ALIASES
 # =============================================================================
@@ -91,9 +88,6 @@ __all__ = [
     "extract_gold_text",
     "extract_chunks_with_text",
     "format_transcript_comparison",
-    # Voice components
-    "VoiceMixin",
-    "VoiceState",
     # Deprecated aliases (kept for backward compatibility)
     "BaseConversationParticipant",
     "BaseStreamingParticipant",

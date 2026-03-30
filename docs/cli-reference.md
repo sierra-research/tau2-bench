@@ -220,6 +220,24 @@ tau2 review <path>
 
 ---
 
+## `tau2 convert-results` — Convert Results Format
+
+Convert simulation results between monolithic JSON and directory-based formats.
+
+```bash
+tau2 convert-results <path> [--to {json,dir}] [--no-backup]
+```
+
+| Option | Description |
+|--------|-------------|
+| `<path>` | Path to a `results.json` file or directory containing one |
+| `--to` | Target format: `json` (monolithic) or `dir` (directory with individual sim files). If omitted, converts to the opposite of the current format |
+| `--no-backup` | Skip creating a backup before conversion |
+
+Text runs default to monolithic JSON; voice runs default to directory-based format. Use this command to convert between them when needed.
+
+---
+
 ## `tau2 leaderboard` — View Leaderboard
 
 Show the τ-bench leaderboard in the terminal.
@@ -290,7 +308,11 @@ Useful for testing domain tools, debugging environment responses, and exploring 
 ## Running Tests
 
 ```bash
-make test
+make test              # Core tests (requires: uv sync --extra dev)
+make test-voice        # Voice + streaming tests (requires: uv sync --extra dev --extra voice)
+make test-knowledge    # Banking knowledge tests (requires: uv sync --extra dev --extra knowledge)
+make test-gym          # Gymnasium tests (requires: uv sync --extra dev --extra gym)
+make test-all          # All tests (requires: uv sync --all-extras)
 ```
 
 ---

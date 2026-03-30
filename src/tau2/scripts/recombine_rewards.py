@@ -18,6 +18,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from tau2.utils.io_utils import load_results_dict
+
 
 def compute_component_reward(reward_info: dict, component: str) -> float:
     """Compute reward for a single component from stored data."""
@@ -125,9 +127,8 @@ def recombine_results(experiment_dir: str, domain: str | None = None) -> None:
     for results_file in results_files:
         print(f"\nProcessing: {results_file}")
 
-        # Load results
-        with open(results_file, "r") as f:
-            results = json.load(f)
+        # Load results (supports both JSON and directory formats)
+        results = load_results_dict(results_file)
 
         # Get domain from results
         domain_name = (
@@ -226,9 +227,21 @@ def recombine_results(experiment_dir: str, domain: str | None = None) -> None:
             f"  Recombined rewards for {len(simulations)} simulations ({updated_sim_count} changed, {skipped_not_evaluated} skipped - not evaluated)"
         )
 
-        # Save updated results
-        with open(results_file, "w") as f:
-            json.dump(results, f, indent=2)
+        # Save updated results (format-aware)
+        results_path = Path(results_file)
+        sims_dir = results_path.parent / "simulations"
+        if sims_dir.is_dir():
+            # Dir format: update metadata and individual sim files
+            meta = {k: v for k, v in results.items() if k != "simulations"}
+            with open(results_path, "w") as f:
+                json.dump(meta, f, indent=2)
+            for sim in results.get("simulations", []):
+                sim_path = sims_dir / f"{sim['id']}.json"
+                with open(sim_path, "w") as f:
+                    json.dump(sim, f, indent=2)
+        else:
+            with open(results_file, "w") as f:
+                json.dump(results, f, indent=2)
 
         print(f"  Saved: {results_file}")
 

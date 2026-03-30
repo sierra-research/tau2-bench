@@ -24,8 +24,6 @@ from tau2.agent.fastworkflow_adapter import (
     create_fastworkflow_agent,
 )
 from tau2.agent.llm_agent import LLMAgent, LLMAgentState, LLMGTAgent, LLMSoloAgent
-from tau2.voice.audio_native.openai import OpenAIRealtimeProvider
-from tau2.voice.audio_native.openai.provider import OpenAIVADMode
 
 # =============================================================================
 # DEPRECATION ALIASES
@@ -96,9 +94,6 @@ __all__ = [
     "LLMSoloAgent",
     "FastWorkflowAgentAdapter",
     "create_fastworkflow_agent",
-    # Audio Native
-    "OpenAIRealtimeProvider",
-    "OpenAIVADMode",
     # Deprecated aliases (kept for backward compatibility)
     "BaseConversationParticipant",
     "BaseStreamingParticipant",

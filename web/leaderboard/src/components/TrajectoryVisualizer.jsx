@@ -1,8 +1,12 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import VoiceViewer from './VoiceViewer'
 import './TrajectoryVisualizer.css'
 
 const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
   || `${import.meta.env.BASE_URL}submissions`
+
+const S3_BUCKET = 'sierra-tau-bench-public'
+const S3_SUBMISSIONS_PREFIX = 'submissions'
 
 const TrajectoryVisualizer = () => {
   // --- Top-level selector state ---
@@ -30,6 +34,10 @@ const TrajectoryVisualizer = () => {
   const [showConfigModal, setShowConfigModal] = useState(false)
   const [modalClosing, setModalClosing] = useState(false)
 
+  // CLI download popover
+  const [showCliDownload, setShowCliDownload] = useState(false)
+  const [cliCopied, setCliCopied] = useState(false)
+
   // Document viewer state
   const [showDocModal, setShowDocModal] = useState(false)
   const [docModalClosing, setDocModalClosing] = useState(false)
@@ -42,120 +50,6 @@ const TrajectoryVisualizer = () => {
       setShowConfigModal(false)
       setModalClosing(false)
     }, 200) // Match the CSS slideDown duration (0.2s)
-  }
-
-  // Check if a submission has any trajectory files
-  const checkSubmissionHasTrajectories = async (submission) => {
-    // Use the declared trajectories_available field from the submission
-    // This is much more reliable than trying to guess file patterns
-    return submission.trajectories_available === true
-  }
-
-  // Load submissions data from the manifest
-  const loadSubmissions = async () => {
-    try {
-      setSubmissionsLoading(true)
-      setError(null)
-      
-      // Load the manifest file to get list of submissions
-      const manifestResponse = await fetch(`${SUBMISSIONS_BASE}/manifest.json`)
-      if (!manifestResponse.ok) {
-        throw new Error('Failed to load submissions manifest')
-      }
-      
-      const manifest = await manifestResponse.json()
-      const submissionDirs = [
-        ...(manifest.submissions || []),
-        ...(manifest.legacy_submissions || [])
-      ]
-      
-      const loadedSubmissions = []
-      
-      // Load each submission from its directory
-      for (const submissionDir of submissionDirs) {
-        try {
-          const response = await fetch(`${SUBMISSIONS_BASE}/${submissionDir}/submission.json`)
-          if (!response.ok) {
-            console.warn(`Failed to load ${submissionDir}: ${response.status}`)
-            continue
-          }
-          
-          const submission = await response.json()
-          
-          // Check if this submission has any trajectory files
-          const hasTrajectories = await checkSubmissionHasTrajectories({
-            ...submission,
-            submissionDir
-          })
-          
-          // Store submission data with directory info and trajectory availability
-          loadedSubmissions.push({
-            ...submission,
-            submissionDir, // Include directory name for trajectory access
-            hasTrajectories // Flag indicating if trajectories are available
-          })
-        } catch (error) {
-          console.warn(`Error loading ${submissionDir}:`, error)
-        }
-      }
-      
-      // Sort submissions: new first, then those with trajectories, then alphabetically
-      const sortedSubmissions = loadedSubmissions.sort((a, b) => {
-        // New submissions come first
-        if (a.is_new !== b.is_new) {
-          return (b.is_new ? 1 : 0) - (a.is_new ? 1 : 0)
-        }
-        // Then sort by trajectory availability
-        if (a.hasTrajectories !== b.hasTrajectories) {
-          return b.hasTrajectories - a.hasTrajectories
-        }
-        // Finally sort by model name
-        return a.model_name.localeCompare(b.model_name)
-      })
-      
-      setSubmissions(sortedSubmissions)
-    } catch (error) {
-      console.error('Error loading submissions:', error)
-      setError(error.message)
-    } finally {
-      setSubmissionsLoading(false)
-    }
-  }
-
-  // Load available trajectories for a selected submission
-  const loadSubmissionTrajectories = async (submission) => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      const submissionDir = submission.submissionDir
-      const domains = ['airline', 'retail', 'telecom']
-      const trajectories = []
-      
-      // Read trajectory filenames directly from submission.json
-      const trajectoryFiles = submission.trajectory_files || {}
-      
-      for (const domain of domains) {
-        const fileName = trajectoryFiles[domain]
-        if (fileName) {
-          trajectories.push({
-            name: `${submission.model_name} - ${domain.charAt(0).toUpperCase() + domain.slice(1)}`,
-            file: fileName,
-            domain: domain,
-            model: submission.model_name,
-            submissionDir: submissionDir
-          })
-        }
-      }
-      
-      setAvailableTrajectories(trajectories)
-      setSelectedSubmission(submission)
-    } catch (error) {
-      setError(`Error loading trajectories: ${error.message}`)
-      console.error('Error loading trajectories:', error)
-    } finally {
-      setLoading(false)
-    }
   }
 
   const handleCloseDocModal = () => {
@@ -192,17 +86,45 @@ const TrajectoryVisualizer = () => {
     { id: 'banking_knowledge', label: 'Banking', icon: '🏦', color: '#d97706' }
   ]
 
-  // --- Parse URL params for deep linking (e.g. from leaderboard) ---
+  // --- Parse URL params for deep linking ---
   const getUrlParams = () => {
     const hash = window.location.hash || ''
     const qIdx = hash.indexOf('?')
     if (qIdx === -1) return {}
     const params = new URLSearchParams(hash.slice(qIdx + 1))
+    const trialRaw = params.get('trial')
     return {
       model: params.get('model'),
-      domain: params.get('domain')
+      domain: params.get('domain'),
+      task: params.get('task'),
+      trial: trialRaw != null ? Number(trialRaw) : null,
+      view: params.get('view'),
     }
   }
+
+  // Ref to hold URL params that need deferred restoration (task/trial depend on data loading)
+  const pendingUrlParams = useRef(null)
+  // Suppress URL updates while we're restoring from URL
+  const restoringFromUrl = useRef(false)
+
+  // --- Sync state → URL hash (replaceState to avoid history clutter) ---
+  useEffect(() => {
+    if (restoringFromUrl.current) return
+    if (submissionsLoading) return
+
+    const params = new URLSearchParams()
+    if (selectedModelDir) params.set('model', selectedModelDir)
+    if (selectedDomain) params.set('domain', selectedDomain)
+    if (viewMode === 'tasks') params.set('view', 'tasks')
+    if (selectedTaskId != null) params.set('task', String(selectedTaskId))
+    if (selectedTrialIdx > 0) params.set('trial', String(selectedTrialIdx))
+
+    const qs = params.toString()
+    const newHash = qs ? `#trajectory-visualizer?${qs}` : '#trajectory-visualizer'
+    if (window.location.hash !== newHash) {
+      window.history.replaceState(null, '', newHash)
+    }
+  }, [selectedModelDir, selectedDomain, selectedTaskId, selectedTrialIdx, viewMode, submissionsLoading])
 
   // --- Load submissions on mount ---
   useEffect(() => {
@@ -212,13 +134,15 @@ const TrajectoryVisualizer = () => {
         const res = await fetch(`${SUBMISSIONS_BASE}/manifest.json`)
         if (!res.ok) throw new Error('Failed to load manifest')
         const manifest = await res.json()
-        const dirs = manifest.submissions || []
+        const textDirs = manifest.submissions || []
+        const voiceDirs = manifest.voice_submissions || []
 
         const loaded = []
-        for (const dir of dirs) {
+
+        const loadDir = async (dir, modality) => {
           try {
             const r = await fetch(`${SUBMISSIONS_BASE}/${dir}/submission.json`)
-            if (!r.ok) continue
+            if (!r.ok) return
             const sub = await r.json()
             if (sub.trajectories_available && sub.trajectory_files) {
               loaded.push({
@@ -227,17 +151,27 @@ const TrajectoryVisualizer = () => {
                 model_organization: sub.model_organization || '',
                 reasoning_effort: sub.reasoning_effort || null,
                 trajectory_files: sub.trajectory_files,
-                availableDomains: Object.keys(sub.trajectory_files)
+                availableDomains: Object.keys(sub.trajectory_files),
+                modality,
+                voice_config: sub.voice_config || null,
               })
             }
           } catch { /* skip */ }
         }
-        loaded.sort((a, b) => a.model_name.localeCompare(b.model_name))
+
+        for (const dir of textDirs) await loadDir(dir, 'text')
+        for (const dir of voiceDirs) await loadDir(dir, 'voice')
+
+        loaded.sort((a, b) => {
+          if (a.modality !== b.modality) return a.modality === 'text' ? -1 : 1
+          return a.model_name.localeCompare(b.model_name)
+        })
         setSubmissions(loaded)
 
-        // Check URL params for deep linking from leaderboard
+        // Restore state from URL params
         const urlParams = getUrlParams()
         if (urlParams.model) {
+          restoringFromUrl.current = true
           const match = loaded.find(s => s.dir === urlParams.model)
           if (match) {
             setSelectedModelDir(match.dir)
@@ -245,16 +179,25 @@ const TrajectoryVisualizer = () => {
               ? urlParams.domain
               : match.availableDomains[0]
             setSelectedDomain(dom || '')
-            setViewMode('trajectories')
+            if (urlParams.view === 'tasks') {
+              setViewMode('tasks')
+            } else {
+              setViewMode('trajectories')
+            }
+            // task and trial need trajectory data to be loaded first
+            if (urlParams.task != null || urlParams.trial != null) {
+              pendingUrlParams.current = { task: urlParams.task, trial: urlParams.trial }
+            } else {
+              restoringFromUrl.current = false
+            }
           } else {
-            // Fallback to first model
+            restoringFromUrl.current = false
             if (loaded.length > 0) {
               setSelectedModelDir(loaded[0].dir)
               setSelectedDomain(loaded[0].availableDomains[0] || '')
             }
           }
         } else if (loaded.length > 0) {
-          // Default: auto-select first model
           setSelectedModelDir(loaded[0].dir)
           setSelectedDomain(loaded[0].availableDomains[0] || '')
         }
@@ -284,14 +227,58 @@ const TrajectoryVisualizer = () => {
         setSelectedTaskId(null)
         setSelectedTrialIdx(0)
 
-        const res = await fetch(
-          `${SUBMISSIONS_BASE}/${sub.dir}/trajectories/${fileName}`
-        )
+        // Voice trajectories are directories containing results.json;
+        // text trajectories are flat JSON files.
+        const url = sub.modality === 'voice'
+          ? `${SUBMISSIONS_BASE}/${sub.dir}/trajectories/${fileName}/results.json`
+          : `${SUBMISSIONS_BASE}/${sub.dir}/trajectories/${fileName}`
+        const res = await fetch(url)
         if (!res.ok) throw new Error(`Failed to load trajectory: ${res.statusText}`)
         const data = await res.json()
+
+        // For dir-format voice results, simulations are stored in separate
+        // files and results.json only contains a simulation_index. Synthesize
+        // the simulations array from the index so existing UI logic works.
+        if ((!data.simulations || data.simulations.length === 0) && data.simulation_index) {
+          data.simulations = data.simulation_index.map(entry => ({
+            id: entry.id,
+            task_id: entry.task_id,
+            trial: entry.trial,
+            reward_info: entry.reward != null ? { reward: entry.reward } : null,
+            termination_reason: entry.termination_reason || null,
+            agent_cost: entry.agent_cost ?? null,
+            duration: entry.duration ?? null,
+          }))
+        }
+
         setTrajectoryData(data)
+
+        // Apply pending URL params (task/trial) now that data is loaded.
+        // These state updates are batched with setTrajectoryData above.
+        if (pendingUrlParams.current) {
+          const { task, trial } = pendingUrlParams.current
+          pendingUrlParams.current = null
+          if (task != null) {
+            const taskExists = data.tasks?.some(t => String(t.id) === String(task))
+              || data.simulations?.some(s => String(s.task_id) === String(task))
+            if (taskExists) {
+              // Use the actual ID from the data to preserve its native type
+              const actualTask = data.tasks?.find(t => String(t.id) === String(task))
+              const actualSim = !actualTask && data.simulations?.find(s => String(s.task_id) === String(task))
+              setSelectedTaskId(actualTask ? actualTask.id : actualSim ? actualSim.task_id : task)
+              if (trial != null && trial > 0) {
+                setSelectedTrialIdx(trial)
+              }
+            }
+          }
+          restoringFromUrl.current = false
+        }
       } catch (err) {
         setError(err.message)
+        if (pendingUrlParams.current) {
+          pendingUrlParams.current = null
+          restoringFromUrl.current = false
+        }
       } finally {
         setLoading(false)
       }
@@ -385,11 +372,57 @@ const TrajectoryVisualizer = () => {
     return scores
   }, [trajectoryData, tasks])
 
+  const isVoice = currentSubmission?.modality === 'voice'
+
+  // Build task info for the voice viewer from the current task's user scenario
+  const voiceTaskInfo = useMemo(() => {
+    if (!currentTask?.user_scenario?.instructions) return {}
+    const instr = currentTask.user_scenario.instructions
+    if (typeof instr === 'string') return { reason: instr }
+    return {
+      reason: instr.reason_for_call || '',
+      knownInfo: instr.known_info || '',
+      unknownInfo: instr.unknown_info || '',
+      taskInstructions: instr.task_instructions || '',
+    }
+  }, [currentTask])
+
+  const handleDownload = () => {
+    if (!trajectoryData || !currentSubmission) return
+    const blob = new Blob([JSON.stringify(trajectoryData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${currentSubmission.model_name}_${selectedDomain}_trajectories.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const getVoiceS3Command = () => {
+    if (!currentSubmission || !selectedDomain) return ''
+    const fileName = currentSubmission.trajectory_files[selectedDomain]
+    if (!fileName) return ''
+    const s3Path = `s3://${S3_BUCKET}/${S3_SUBMISSIONS_PREFIX}/${currentSubmission.dir}/trajectories/${fileName}/`
+    const localDir = `./${currentSubmission.model_name}_${selectedDomain}/`
+    return `aws s3 sync ${s3Path} ${localDir} --no-sign-request`
+  }
+
+  const handleCopyCliCommand = () => {
+    const cmd = getVoiceS3Command()
+    navigator.clipboard.writeText(cmd).then(() => {
+      setCliCopied(true)
+      setTimeout(() => setCliCopied(false), 2000)
+    })
+  }
+
   // --- Handlers ---
   const handleModelChange = (dir) => {
     setSelectedModelDir(dir)
     setSelectedTaskId(null)
     setSelectedTrialIdx(0)
+    setShowCliDownload(false)
     const sub = submissions.find(s => s.dir === dir)
     if (sub && sub.availableDomains.length > 0) {
       // Keep current domain if available, else pick first
@@ -403,6 +436,7 @@ const TrajectoryVisualizer = () => {
     setSelectedDomain(domain)
     setSelectedTaskId(null)
     setSelectedTrialIdx(0)
+    setShowCliDownload(false)
   }
 
   // --- Task mode ---
@@ -479,10 +513,12 @@ const TrajectoryVisualizer = () => {
   return (
     <div className="trajectory-visualizer">
       <div className="visualizer-header">
-        <h2>τ-bench Visualizer</h2>
+        <h2>{isVoice ? 'τ-voice Visualizer' : 'τ-bench Visualizer'}</h2>
         <p className="visualizer-description">
-          Explore τ-bench dataset: view conversation trajectories showing AI agent interactions with users,
-          or examine the underlying task definitions across airline, retail, telecom, and banking domains.
+          {isVoice
+            ? 'Explore τ-voice results: view task outcomes for audio-native voice agent evaluations, or examine the underlying task definitions.'
+            : 'Explore τ-bench dataset: view conversation trajectories showing AI agent interactions with users, or examine the underlying task definitions across airline, retail, telecom, and banking domains.'
+          }
         </p>
 
         {/* View Mode Toggle */}
@@ -525,11 +561,24 @@ const TrajectoryVisualizer = () => {
                 disabled={submissionsLoading}
               >
                 {submissionsLoading && <option value="">Loading...</option>}
-                {submissions.map(s => (
-                  <option key={s.dir} value={s.dir}>
-                    {s.model_name}{s.reasoning_effort ? ` [${s.reasoning_effort}]` : ''} ({s.model_organization})
-                  </option>
-                ))}
+                {submissions.some(s => s.modality === 'text') && (
+                  <optgroup label="τ-bench (Text)">
+                    {submissions.filter(s => s.modality === 'text').map(s => (
+                      <option key={s.dir} value={s.dir}>
+                        {s.model_name}{s.reasoning_effort ? ` [${s.reasoning_effort}]` : ''} ({s.model_organization})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {submissions.some(s => s.modality === 'voice') && (
+                  <optgroup label="τ-voice (Voice)">
+                    {submissions.filter(s => s.modality === 'voice').map(s => (
+                      <option key={s.dir} value={s.dir}>
+                        {s.model_name} ({s.model_organization})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
 
@@ -610,32 +659,69 @@ const TrajectoryVisualizer = () => {
               <div className="task-list-view">
                 <div className="task-list-header">
                   <div className="task-list-header-left">
-                    <h3>{currentSubmission?.model_name}{currentSubmission?.reasoning_effort ? ` [${currentSubmission.reasoning_effort}]` : ''} — {selectedDomain.charAt(0).toUpperCase() + selectedDomain.slice(1)}</h3>
+                    <h3>
+                      {isVoice && <span className="voice-badge">🎙️ Voice</span>}
+                      {currentSubmission?.model_name}{currentSubmission?.reasoning_effort ? ` [${currentSubmission.reasoning_effort}]` : ''} — {selectedDomain.charAt(0).toUpperCase() + selectedDomain.slice(1)}
+                    </h3>
                     <p className="task-list-subtitle">
-                      {tasks.length} tasks · {numTrials} trial{numTrials !== 1 ? 's' : ''} each · Select a task to view conversations
+                      {tasks.length} tasks · {numTrials} trial{numTrials !== 1 ? 's' : ''} each
+                      {isVoice ? '' : ' · Select a task to view conversations'}
                     </p>
                   </div>
-                  {passKScores && (
-                    <div className="pass-k-scores">
-                      {Object.entries(passKScores).map(([k, score]) => (
-                        <div key={k} className="pass-k-item">
-                          <span className="pass-k-label">pass^{k}</span>
-                          <span className={`pass-k-value ${score >= 50 ? 'good' : score >= 25 ? 'mid' : 'low'}`}>
-                            {score.toFixed(1)}%
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="task-list-header-right">
+                    {trajectoryData && !isVoice && (
+                      <button className="download-btn" onClick={handleDownload} title="Download raw trajectory data as JSON">
+                        ⬇ Download JSON
+                      </button>
+                    )}
+                    {trajectoryData && isVoice && (
+                      <div className="cli-download-wrapper">
+                        <button
+                          className="download-btn"
+                          onClick={() => setShowCliDownload(!showCliDownload)}
+                          title="Voice trajectory data is too large for browser download. Use AWS CLI instead."
+                        >
+                          ⬇ Download via CLI
+                        </button>
+                        {showCliDownload && (
+                          <div className="cli-download-popover">
+                            <p className="cli-download-note">Voice trajectories are large and must be downloaded via CLI:</p>
+                            <pre className="cli-download-command">{getVoiceS3Command()}</pre>
+                            <div className="cli-download-actions">
+                              <button className="cli-copy-btn" onClick={handleCopyCliCommand}>
+                                {cliCopied ? '✓ Copied' : 'Copy command'}
+                              </button>
+                              <button className="cli-close-btn" onClick={() => setShowCliDownload(false)}>
+                                Close
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {passKScores && (
+                      <div className="pass-k-scores">
+                        {Object.entries(passKScores).map(([k, score]) => (
+                          <div key={k} className="pass-k-item">
+                            <span className="pass-k-label">pass^{k}</span>
+                            <span className={`pass-k-value ${score >= 50 ? 'good' : score >= 25 ? 'mid' : 'low'}`}>
+                              {score.toFixed(1)}%
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="task-grid">
                   {tasks.map((task, idx) => {
-                    // Find simulations for this task to show summary
                     const sims = trajectoryData.simulations?.filter(s => s.task_id === task.id) || []
                     const avgReward = sims.length > 0
                       ? (sims.reduce((sum, s) => sum + (s.reward_info?.reward || 0), 0) / sims.length)
                       : null
+                    const desc = getTaskDescription(task)
+                    const scenario = getUserScenarioText(task)
 
                     return (
                       <div
@@ -652,11 +738,11 @@ const TrajectoryVisualizer = () => {
                           )}
                         </div>
                         <div className="task-description">
-                          <p>{getTaskDescription(task) ? getTaskDescription(task).slice(0, 120) + (getTaskDescription(task).length > 120 ? '…' : '') : (task.description?.purpose || 'No description')}</p>
+                          <p>{desc ? desc.slice(0, 120) + (desc.length > 120 ? '…' : '') : (task.description?.purpose || 'No description')}</p>
                         </div>
                         <div className="task-stats">
                           <span>{sims.length} trial{sims.length !== 1 ? 's' : ''}</span>
-                          <span>{getUserScenarioText(task) ? '📞 ' + getUserScenarioText(task).slice(0, 50) + (getUserScenarioText(task).length > 50 ? '…' : '') : ''}</span>
+                          <span>{scenario ? '📞 ' + scenario.slice(0, 50) + (scenario.length > 50 ? '…' : '') : ''}</span>
                         </div>
                       </div>
                     )
@@ -756,33 +842,45 @@ const TrajectoryVisualizer = () => {
                   </div>
                 </div>
 
-                {/* Messages */}
-                <div className="conversation-messages">
-                  {getDisplayMessages(currentSimulation).map((msg, i) => (
-                    <div key={i} className={`message ${msg.role}`}>
-                      <div className="message-header">
-                        <span className="message-role">
-                          {msg.role === 'assistant' ? '🤖 Agent' : msg.role === 'tool' ? '🔧 Tool' : '👤 User'}
-                        </span>
-                        <span className="message-turn">Turn {msg.turn}</span>
-                        {msg.cost > 0 && <span className="message-cost">${msg.cost.toFixed(4)}</span>}
-                        <span className="message-tokens">{msg.tokens} tokens</span>
-                      </div>
-                      <div className="message-content">{msg.content}</div>
-                      {msg.tool_calls && (
-                        <div className="message-tools">
-                          <strong>Tool Calls:</strong>
-                          <pre>{JSON.stringify(msg.tool_calls, null, 2)}</pre>
+                {/* Voice: timeline + conversation table; Text: message bubbles */}
+                {isVoice ? (
+                  <VoiceViewer
+                    key={`${currentSimulation.id}-${selectedTrialIdx}`}
+                    submissionDir={currentSubmission.dir}
+                    trajectoryDir={currentSubmission.trajectory_files[selectedDomain]}
+                    simulationId={currentSimulation.id}
+                    taskId={selectedTaskId}
+                    voiceConfig={currentSubmission.voice_config}
+                    taskInfo={voiceTaskInfo}
+                  />
+                ) : (
+                  <div className="conversation-messages">
+                    {getDisplayMessages(currentSimulation).map((msg, i) => (
+                      <div key={i} className={`message ${msg.role}`}>
+                        <div className="message-header">
+                          <span className="message-role">
+                            {msg.role === 'assistant' ? '🤖 Agent' : msg.role === 'tool' ? '🔧 Tool' : '👤 User'}
+                          </span>
+                          <span className="message-turn">Turn {msg.turn}</span>
+                          {msg.cost > 0 && <span className="message-cost">${msg.cost.toFixed(4)}</span>}
+                          <span className="message-tokens">{msg.tokens} tokens</span>
                         </div>
-                      )}
-                    </div>
-                  ))}
-                  {currentSimulation.messages?.length > 60 && (
-                    <div className="message-truncated">
-                      <p>… and {currentSimulation.messages.length - 60} more messages (showing first 60)</p>
-                    </div>
-                  )}
-                </div>
+                        <div className="message-content">{msg.content}</div>
+                        {msg.tool_calls && (
+                          <div className="message-tools">
+                            <strong>Tool Calls:</strong>
+                            <pre>{JSON.stringify(msg.tool_calls, null, 2)}</pre>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {currentSimulation.messages?.length > 60 && (
+                      <div className="message-truncated">
+                        <p>… and {currentSimulation.messages.length - 60} more messages (showing first 60)</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

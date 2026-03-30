@@ -45,7 +45,13 @@ from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
 from loguru import logger
 
 if TYPE_CHECKING:
+    from tau2.voice.audio_native.deepgram.provider import DeepgramVADConfig
+    from tau2.voice.audio_native.gemini.provider import GeminiVADConfig
     from tau2.voice.audio_native.livekit.config import CascadedConfig
+    from tau2.voice.audio_native.nova.provider import NovaVADConfig
+    from tau2.voice.audio_native.openai.provider import OpenAIVADConfig
+    from tau2.voice.audio_native.qwen.provider import QwenVADConfig
+    from tau2.voice.audio_native.xai.provider import XAIVADConfig
 
 from pydantic import ConfigDict, Field
 
@@ -74,27 +80,21 @@ from tau2.data_model.message import (
 from tau2.environment.tool import Tool
 from tau2.utils.utils import get_now
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter, create_adapter
-from tau2.voice.audio_native.deepgram.provider import DeepgramVADConfig
-from tau2.voice.audio_native.gemini.provider import GeminiVADConfig
-from tau2.voice.audio_native.nova.provider import NovaVADConfig
-from tau2.voice.audio_native.openai.provider import OpenAIVADConfig, OpenAIVADMode
-from tau2.voice.audio_native.qwen.provider import QwenVADConfig
 from tau2.voice.audio_native.tick_result import TickResult
-from tau2.voice.audio_native.xai.provider import XAIVADConfig
 
 # Provider type alias
 AudioNativeProvider = Literal[
     "openai", "gemini", "xai", "nova", "qwen", "deepgram", "livekit"
 ]
 
-# VAD config union type
+# VAD config union type (string annotations for lazy resolution)
 VADConfig = Union[
-    OpenAIVADConfig,
-    GeminiVADConfig,
-    XAIVADConfig,
-    NovaVADConfig,
-    QwenVADConfig,
-    DeepgramVADConfig,
+    "OpenAIVADConfig",
+    "GeminiVADConfig",
+    "XAIVADConfig",
+    "NovaVADConfig",
+    "QwenVADConfig",
+    "DeepgramVADConfig",
 ]
 
 AUDIO_NATIVE_VOICE_INSTRUCTION = """
@@ -276,30 +276,45 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             self.audio_format.bytes_per_second * tick_duration_ms / 1000
         )
 
-        # VAD config - defaults depend on provider
+        # VAD config - defaults depend on provider (lazy imports to avoid
+        # pulling in websockets/aiohttp when voice extras aren't installed)
         if vad_config is not None:
             self.vad_config = vad_config
         elif provider == "openai":
+            from tau2.voice.audio_native.openai.provider import (
+                OpenAIVADConfig,
+                OpenAIVADMode,
+            )
+
             self.vad_config = OpenAIVADConfig(
                 mode=OpenAIVADMode.SERVER_VAD,
                 threshold=DEFAULT_OPENAI_VAD_THRESHOLD,
             )
         elif provider == "gemini":
+            from tau2.voice.audio_native.gemini.provider import GeminiVADConfig
+
             self.vad_config = GeminiVADConfig()
         elif provider == "xai":
+            from tau2.voice.audio_native.xai.provider import XAIVADConfig
+
             self.vad_config = XAIVADConfig()
         elif provider == "qwen":
+            from tau2.voice.audio_native.qwen.provider import QwenVADConfig
+
             self.vad_config = QwenVADConfig()
         elif provider == "deepgram":
+            from tau2.voice.audio_native.deepgram.provider import DeepgramVADConfig
+
             self.vad_config = DeepgramVADConfig()
         elif provider == "livekit":
-            # LiveKit uses Deepgram for STT which has integrated VAD
             from tau2.voice.audio_native.livekit.discrete_time_adapter import (
                 LiveKitVADConfig,
             )
 
             self.vad_config = LiveKitVADConfig()
         else:  # nova
+            from tau2.voice.audio_native.nova.provider import NovaVADConfig
+
             self.vad_config = NovaVADConfig()
 
         # Adapter - created lazily if not provided

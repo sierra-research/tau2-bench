@@ -1,4 +1,5 @@
 import hashlib
+import importlib.metadata
 import json
 import os
 import subprocess
@@ -77,6 +78,14 @@ def format_time(time: datetime, use_compact_format: bool = True) -> str:
         return time.strftime("%Y%m%d_%H%M%S")
     else:
         return time.isoformat()
+
+
+def get_tau2_version() -> str:
+    """Get the installed tau2 package version."""
+    try:
+        return importlib.metadata.version("tau2")
+    except importlib.metadata.PackageNotFoundError:
+        return "dev"
 
 
 def get_commit_hash() -> str:

@@ -73,7 +73,7 @@ For urgent releases or when automation isn't available:
 
 1. **Pre-Release Testing**
    ```bash
-   make test  # Run full test suite
+   make test-all  # Run full test suite (requires uv sync --all-extras)
    tau2 run --domain mock --num-tasks 1  # Quick integration test
    ```
 

@@ -12,11 +12,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+from tau2.utils.io_utils import load_results_dict
+
 
 def get_results_summary(results_file: Path, first_n: int | None = None) -> dict:
     """Extract summary statistics from a results.json file."""
-    with open(results_file) as f:
-        data = json.load(f)
+    data = load_results_dict(results_file)
 
     sims = data.get("simulations", [])
 

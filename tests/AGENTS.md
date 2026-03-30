@@ -27,11 +27,29 @@ tests/
 ## Running Tests
 
 ```bash
-make test                         # All tests
+make test                         # Core tests (no optional deps needed)
+make test-voice                   # Voice + streaming tests
+make test-knowledge               # Banking knowledge tests
+make test-gym                     # Gymnasium tests
+make test-all                     # All tests
 pytest tests/test_domains/test_airline/   # Domain-specific
 pytest tests/test_agent.py        # Single file
 pytest -m "not full_duplex_integration"   # Skip live API tests
 ```
+
+### Test Tiers
+
+Tests are organized into tiers that match the project's optional dependency groups. Running tests from a tier requires the corresponding extras to be installed.
+
+| Tier | Directories | Required install |
+|------|-------------|-----------------|
+| Core (`make test`) | `test_agent.py`, `test_environment.py`, `test_orchestrator.py`, `test_run.py`, `test_tasks.py`, `test_user.py`, `test_utils.py`, `test_llm_utils.py`, `test_checkpoint.py`, `test_results_format.py`, `test_domains/test_airline/`, `test_domains/test_mock/`, `test_domains/test_retail/`, `test_domains/test_telecom/` | `uv sync --extra dev` |
+| Voice (`make test-voice`) | `test_voice/`, `test_streaming/` | `uv sync --extra voice --extra dev` |
+| Knowledge (`make test-knowledge`) | `test_domains/test_banking_knowledge/` | `uv sync --extra knowledge --extra dev` |
+| Gym (`make test-gym`) | `test_gym/` | `uv sync --extra gym --extra dev` |
+| All (`make test-all`) | Everything above | `uv sync --all-extras` |
+
+`make test` is the safe default for contributors who only work on core domains (airline, retail, telecom, mock). It requires no optional packages beyond pytest and ruff.
 
 ## Key Conventions
 

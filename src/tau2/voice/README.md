@@ -77,8 +77,11 @@ With `--verbose-logs`, voice runs produce:
 
 ```
 data/simulations/<run_name>/
-├── results.json                        # Simulation results and metrics
-└── tasks/
+├── results.json                        # Metadata and task definitions
+├── simulations/                        # Individual simulation data files
+│   ├── sim_0.json
+│   └── ...
+└── artifacts/
     └── task_<id>/
         └── sim_<uuid>/
             ├── sim_status.json         # Simulation status
@@ -91,6 +94,8 @@ data/simulations/<run_name>/
             └── llm_debug/
                 └── *.json              # LLM call logs
 ```
+
+Voice runs use a directory-based storage format: `results.json` holds metadata and task definitions, while each simulation is stored as a separate file under `simulations/`. Runtime artifacts (audio, logs) live under `artifacts/`.
 
 ## Architecture
 

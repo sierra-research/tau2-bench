@@ -879,7 +879,7 @@ def main(
                         has_voice = True
                         audio_file = conversation_audio
 
-                # Check for full-duplex audio (audio/both.wav or tasks/*/sim_*/audio/both.wav)
+                # Check for full-duplex audio (audio/both.wav or artifacts/*/sim_*/audio/both.wav)
                 if not has_voice:
                     # First check top-level audio directory
                     top_audio = current_sim_path / "audio" / "both.wav"
@@ -890,7 +890,7 @@ def main(
                     else:
                         # Check task-specific audio directories
                         task_audio_dirs = list(
-                            current_sim_path.glob("tasks/*/sim_*/audio")
+                            current_sim_path.glob("artifacts/*/sim_*/audio")
                         )
                         if task_audio_dirs:
                             voice_sim_path = task_audio_dirs[0]
@@ -1053,7 +1053,7 @@ def main(
                 # Check task-specific audio first
                 task_audio_path = (
                     current_sim_path
-                    / "tasks"
+                    / "artifacts"
                     / f"task_{sim.task_id}"
                     / f"sim_{sim.id}"
                     / "audio"

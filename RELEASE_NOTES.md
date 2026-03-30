@@ -85,7 +85,7 @@ tau2 run --domain airline --agent-llm your-model --user-llm gpt-4 --num-trials 4
 tau2 run --domain telecom --agent-llm your-model --user-llm gpt-4 --num-trials 4
 
 # Prepare submission
-tau2 submit prepare data/tau2/simulations/your_results*.json --output ./my_submission
+tau2 submit prepare data/simulations/your_results*.json --output ./my_submission
 
 # Validate before submitting
 tau2 submit validate ./my_submission
