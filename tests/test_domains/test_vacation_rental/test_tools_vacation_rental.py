@@ -27,7 +27,6 @@ from tau2.domains.vacation_rental.data_model import (
 from tau2.domains.vacation_rental.environment import get_environment
 from tau2.environment.environment import Environment
 
-
 # === Fixtures ===
 
 
@@ -86,7 +85,9 @@ def vacation_rental_db() -> VacationRentalDB:
         host_profiles={
             "host_001": HostProfile(
                 host_user_id="host_001",
-                philosophy=HostPhilosophy(primary_focus="reviews", risk_tolerance="high"),
+                philosophy=HostPhilosophy(
+                    primary_focus="reviews", risk_tolerance="high"
+                ),
                 flexibility_settings=FlexibilitySettings(
                     refund_flexibility="generous",
                     max_goodwill_refund_pct=50,

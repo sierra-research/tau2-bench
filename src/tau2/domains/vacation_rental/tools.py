@@ -2,7 +2,7 @@
 
 import ast
 import operator
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from tau2.domains.vacation_rental.data_model import (
     GuestHistory,

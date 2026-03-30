@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 from tau2.domains.vacation_rental.utils import VACATION_RENTAL_DB_PATH
 from tau2.environment.db import DB
 
-
 IssueType = Literal[
     "property_condition",
     "cleanliness",
@@ -30,6 +29,7 @@ SituationType = Literal[
 ]
 DecisionOutcome = Literal["approve", "approve_partial", "deny", "defer_to_policy"]
 
+
 class UserName(BaseModel):
     """Represents a user's full name."""
 
@@ -40,7 +40,9 @@ class UserName(BaseModel):
 class PaymentMethodBase(BaseModel):
     """Base class for payment methods."""
 
-    source: str = Field(description="Payment method type identifier (e.g., 'credit_card', 'bank_account')")
+    source: str = Field(
+        description="Payment method type identifier (e.g., 'credit_card', 'bank_account')"
+    )
     id: str = Field(description="Unique identifier for the payment method")
 
 
@@ -135,16 +137,17 @@ class Reservation(BaseModel):
         default=None, description="Refund amount if cancelled"
     )
     cancelled_by: str | None = Field(
-        default=None, description="Who initiated the cancellation ('guest' or 'host'). Only populated if status is 'cancelled'."
+        default=None,
+        description="Who initiated the cancellation ('guest' or 'host'). Only populated if status is 'cancelled'.",
     )
 
 
 class HostPhilosophy(BaseModel):
     """Host's business philosophy and approach."""
 
-    primary_focus: Literal["reviews", "revenue", "relationships", "policy_adherence"] = (
-        Field(description="What the host prioritizes in their business")
-    )
+    primary_focus: Literal[
+        "reviews", "revenue", "relationships", "policy_adherence"
+    ] = Field(description="What the host prioritizes in their business")
     risk_tolerance: Literal["low", "medium", "high"] = Field(
         description="How willing the host is to make exceptions"
     )
@@ -213,7 +216,9 @@ class Issue(BaseModel):
     validation_result: str | None = Field(
         default=None, description="Details of what evidence showed"
     )
-    status: IssueStatus = Field(default="open", description="Current status of the issue")
+    status: IssueStatus = Field(
+        default="open", description="Current status of the issue"
+    )
     resolution: str | None = Field(
         default=None, description="How the issue was resolved"
     )
