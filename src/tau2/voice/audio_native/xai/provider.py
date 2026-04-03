@@ -94,7 +94,6 @@ class XAIRealtimeProvider:
             tools=[],
             vad_config=XAIVADConfig(),
         )
-        await provider.send_text("Hello!")
         async for event in provider.receive_events():
             print(event)
         await provider.disconnect()
@@ -281,29 +280,6 @@ class XAIRealtimeProvider:
                 error_msg = error.get("message", str(error))
                 raise RuntimeError(f"Session configuration failed: {error_msg}")
 
-    async def send_text(self, text: str, commit: bool = True) -> None:
-        """Send a text message from the user.
-
-        Args:
-            text: The text content of the user's message.
-            commit: If True, immediately request a response from the assistant.
-        """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to API")
-
-        item_create = {
-            "type": "conversation.item.create",
-            "item": {
-                "type": "message",
-                "role": "user",
-                "content": [{"type": "input_text", "text": text}],
-            },
-        }
-        await self.ws.send(json.dumps(item_create))
-
-        if commit:
-            await self.ws.send(json.dumps({"type": "response.create"}))
-
     async def send_audio(self, audio_data: bytes) -> None:
         """Append audio data to the input audio buffer.
 
@@ -318,24 +294,6 @@ class XAIRealtimeProvider:
         audio_b64 = base64.b64encode(audio_data).decode("utf-8")
         message = {"type": "input_audio_buffer.append", "audio": audio_b64}
         await self.ws.send(json.dumps(message))
-
-    async def commit_audio(self) -> None:
-        """Commit the audio buffer and request a response.
-
-        Only needed when using manual VAD mode.
-        """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to API")
-
-        await self.ws.send(json.dumps({"type": "input_audio_buffer.commit"}))
-        await self.ws.send(json.dumps({"type": "response.create"}))
-
-    async def clear_audio_buffer(self) -> None:
-        """Clear the input audio buffer."""
-        if not self.is_connected:
-            raise RuntimeError("Not connected to API")
-
-        await self.ws.send(json.dumps({"type": "input_audio_buffer.clear"}))
 
     async def send_tool_result(
         self, call_id: str, result: str, request_response: bool = True
@@ -362,14 +320,6 @@ class XAIRealtimeProvider:
 
         if request_response:
             await self.ws.send(json.dumps({"type": "response.create"}))
-
-    async def cancel_response(self) -> None:
-        """Cancel an in-progress model response."""
-        if not self.is_connected:
-            raise RuntimeError("Not connected to API")
-
-        await self.ws.send(json.dumps({"type": "response.cancel"}))
-        logger.debug("Response cancel sent")
 
     async def receive_events(self) -> AsyncGenerator[BaseXAIEvent, None]:
         """Receive and yield events from the WebSocket connection.
