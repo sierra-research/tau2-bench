@@ -1,34 +1,24 @@
-"""
-tau2.run -- Entry point for running simulations.
-
-Thin facade that delegates to the tau2.runner package. All simulation
-logic lives in the runner's layered architecture:
-
-    Layer 1 (simulation.py):  run_simulation()
-    Layer 2 (build.py):       build_* functions
-    Layer 3 (batch.py):       run_domain, run_tasks, run_single_task
-    Helpers (helpers.py):     get_tasks, get_options, etc.
-
-Usage:
-    # High-level: run all tasks in a domain
-    from tau2.run import run_domain
-    from tau2.data_model.simulation import TextRunConfig
-    results = run_domain(TextRunConfig(domain="retail", agent="llm_agent", ...))
-
-    # Mid-level: run a single task
-    from tau2.run import get_tasks, run_single_task
-    tasks = get_tasks("mock", task_ids=["create_task_1"])
-    result = run_single_task(config, tasks[0], seed=42)
-
-    # Low-level: build and run manually
-    from tau2.run import build_orchestrator, run_simulation
-    orch = build_orchestrator(config, task, seed=42)
-    sim_run = run_simulation(orch)
-"""
-
 import warnings
 from pathlib import Path
 from typing import Optional
+
+# HACK: Add BadRequestError to litellm's list of retryable exceptions.
+# This is a workaround for local vLLM deployments that may transiently
+# return 400 errors that can be resolved by retrying. This makes the
+# built-in retry mechanism in tau2 more effective for this specific issue.
+try:
+    import litellm
+    from litellm.exceptions import BadRequestError
+
+    # This relies on litellm's internal API, which may change.
+    if hasattr(litellm, "RETRY_EXCEPTIONS") and isinstance(
+        litellm.RETRY_EXCEPTIONS, tuple
+    ):
+        if BadRequestError not in litellm.RETRY_EXCEPTIONS:
+            litellm.RETRY_EXCEPTIONS = litellm.RETRY_EXCEPTIONS + (BadRequestError,)
+except (ImportError, AttributeError):
+    # If litellm is not installed or its API changes, do nothing.
+    pass
 
 from tau2.data_model.persona import PersonaConfig
 from tau2.data_model.simulation import (
@@ -70,7 +60,7 @@ from tau2.runner.batch import run_tasks as _run_tasks
 # =============================================================================
 
 
-def run_task(
+def def run_task(
     domain: str,
     task: Task,
     agent: str,
