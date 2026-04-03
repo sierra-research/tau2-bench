@@ -30,10 +30,6 @@ from tau2.voice.audio_native.openai.provider import (
     OpenAIVADConfig,
     OpenAIVADMode,
 )
-from tau2.voice.audio_native.openai.tick_runner import (
-    PendingUtterance,
-    TickRunner,
-)
 from tau2.voice.audio_native.tick_result import TickResult, UtteranceTranscript
 
 __all__ = [
@@ -65,7 +61,5 @@ __all__ = [
     "OpenAIRealtimeProvider",
     # Tick-based simulation
     "TickResult",
-    "TickRunner",
     "UtteranceTranscript",
-    "PendingUtterance",
 ]

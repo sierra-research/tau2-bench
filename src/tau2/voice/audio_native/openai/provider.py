@@ -660,3 +660,28 @@ class OpenAIRealtimeProvider:
                     f"OpenAI Realtime API: Error receiving event: {type(e).__name__}: {e}"
                 )
                 yield UnknownEvent(type="error", raw={"error": str(e)})
+
+    async def receive_events_for_duration(
+        self, duration_seconds: float
+    ) -> List[BaseRealtimeEvent]:
+        """Receive events for a specified duration.
+
+        Collects all non-timeout events within the time window.
+
+        Args:
+            duration_seconds: How long to collect events.
+
+        Returns:
+            List of events received during the duration.
+        """
+        events = []
+        end_time = asyncio.get_event_loop().time() + duration_seconds
+
+        async for event in self.receive_events():
+            if not isinstance(event, TimeoutEvent):
+                events.append(event)
+
+            if asyncio.get_event_loop().time() >= end_time:
+                break
+
+        return events
