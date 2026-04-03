@@ -104,7 +104,6 @@ class OpenAIRealtimeProvider:
             vad_config=OpenAIVADConfig(),
             modality="text"
         )
-        await provider.send_text("Hello!")
         async for event in provider.receive_events():
             print(event)
         await provider.disconnect()
@@ -361,108 +360,12 @@ class OpenAIRealtimeProvider:
                 error_msg = data.get("error", {}).get("message", "Unknown error")
                 raise RuntimeError(f"Session configuration failed: {error_msg}")
 
-    async def set_vad_mode(self, vad_config: OpenAIVADConfig) -> None:
-        """Update the Voice Activity Detection mode for the session.
-
-        Sends a session update to change VAD settings. This is a fire-and-forget
-        operation that does not wait for confirmation from the API.
-
-        Args:
-            vad_config: The new VAD configuration to apply.
-
-        Raises:
-            RuntimeError: If not connected to the API.
-        """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to API")
-
-        session_update = {
-            "type": "session.update",
-            "session": {
-                "turn_detection": self._build_turn_detection_config(vad_config),
-            },
-        }
-
-        await self.ws.send(json.dumps(session_update))
-        self._current_vad_config = vad_config
-        logger.debug(f"VAD mode update sent: {vad_config.mode}")
-
-    async def send_text(self, text: str, commit: bool = True) -> None:
-        """Send a text message from the user to the conversation.
-
-        Creates a user message in the conversation and optionally triggers
-        a response from the assistant.
-
-        Args:
-            text: The text content of the user's message.
-            commit: If True, immediately request a response from the assistant.
-                If False, the message is added but no response is triggered.
-
-        Raises:
-            RuntimeError: If not connected to the API.
-        """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to API")
-
-        item_create = {
-            "type": "conversation.item.create",
-            "item": {
-                "type": "message",
-                "role": "user",
-                "content": [{"type": "input_text", "text": text}],
-            },
-        }
-        await self.ws.send(json.dumps(item_create))
-
-        if commit:
-            await self.ws.send(json.dumps({"type": "response.create"}))
-
-    async def add_assistant_message(self, text: str) -> None:
-        """Add an assistant message to the conversation history.
-
-        Injects a message as if it came from the assistant, useful for
-        seeding conversation context or simulating prior exchanges.
-        Does not trigger a new response.
-
-        Args:
-            text: The text content of the assistant's message.
-
-        Raises:
-            RuntimeError: If not connected to the API.
-        """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to API")
-
-        item_create = {
-            "type": "conversation.item.create",
-            "item": {
-                "type": "message",
-                "role": "assistant",
-                "content": [{"type": "text", "text": text}],
-            },
-        }
-        await self.ws.send(json.dumps(item_create))
-
-    async def add_user_message(self, text: str) -> None:
-        """Add a user message to the conversation without triggering a response.
-
-        Convenience method that calls send_text with commit=False.
-        Useful for building up conversation context.
-
-        Args:
-            text: The text content of the user's message.
-
-        Raises:
-            RuntimeError: If not connected to the API.
-        """
-        await self.send_text(text, commit=False)
-
     async def send_audio(self, audio_data: bytes) -> None:
         """Append audio data to the input audio buffer.
 
         Sends raw audio bytes to the API's input buffer. The audio is
-        base64-encoded before transmission. Audio accumulates in the buffer
-        until commit_audio() is called.
+        base64-encoded before transmission. With server VAD, the API commits
+        turns automatically from buffered audio.
 
         Args:
             audio_data: Raw audio bytes in the configured input format (g711_ulaw).
@@ -476,35 +379,6 @@ class OpenAIRealtimeProvider:
         audio_b64 = base64.b64encode(audio_data).decode("utf-8")
         message = {"type": "input_audio_buffer.append", "audio": audio_b64}
         await self.ws.send(json.dumps(message))
-
-    async def commit_audio(self) -> None:
-        """Commit the audio buffer and request a response.
-
-        Finalizes the accumulated audio in the input buffer and triggers
-        the assistant to process it and generate a response.
-
-        Raises:
-            RuntimeError: If not connected to the API.
-        """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to API")
-
-        await self.ws.send(json.dumps({"type": "input_audio_buffer.commit"}))
-        await self.ws.send(json.dumps({"type": "response.create"}))
-
-    async def clear_audio_buffer(self) -> None:
-        """Clear the input audio buffer without processing.
-
-        Discards any accumulated audio data in the input buffer.
-        Useful for canceling or resetting audio input.
-
-        Raises:
-            RuntimeError: If not connected to the API.
-        """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to API")
-
-        await self.ws.send(json.dumps({"type": "input_audio_buffer.clear"}))
 
     async def send_tool_result(
         self, call_id: str, result: str, request_response: bool = True
