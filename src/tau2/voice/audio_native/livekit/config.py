@@ -31,6 +31,9 @@ class DeepgramSTTConfig(BaseModel):
         vad_events: Whether to emit VAD events (speech start/end).
         endpointing_ms: Silence duration (ms) before considering speech ended.
             Lower values = faster response, higher values = fewer false endpoints.
+        utterance_end_ms: Fallback turn-end detection (ms). If a FINAL_TRANSCRIPT
+            arrives but no END_OF_SPEECH follows (common with background noise),
+            trigger the LLM after this duration of no new transcript activity.
         smart_format: Apply formatting (numbers, dates, etc.).
         punctuate: Add punctuation to transcripts.
     """
@@ -40,7 +43,8 @@ class DeepgramSTTConfig(BaseModel):
     language: str = "en-US"
     interim_results: bool = True
     vad_events: bool = True
-    endpointing_ms: int = 25
+    endpointing_ms: int = 350
+    utterance_end_ms: int = 2000
     smart_format: bool = False
     punctuate: bool = True
 

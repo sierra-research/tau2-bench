@@ -272,6 +272,7 @@ class CascadedVoiceProvider:
         self._accumulated_transcript: str = ""
         self._is_user_speaking: bool = False
         self._speech_ended_time: Optional[float] = None
+        self._last_transcript_time: Optional[float] = None
 
         # Pending operations
         self._pending_tool_results: List[tuple[str, str]] = []
@@ -362,6 +363,7 @@ class CascadedVoiceProvider:
         self._accumulated_transcript = ""
         self._current_transcript = ""
         self._is_user_speaking = False
+        self._last_transcript_time = None
         logger.info("CascadedVoiceProvider disconnected")
 
     # =========================================================================
@@ -675,26 +677,16 @@ class CascadedVoiceProvider:
                 self._is_user_speaking = True
                 self._speech_ended_time = None
 
-                # Check for barge-in (user speaking while agent is speaking/processing)
-                if self.turn_taking.allow_interruptions:
-                    if self._state in (
-                        ProviderState.SPEAKING,
-                        ProviderState.PROCESSING,
-                    ):
-                        # User started speaking during agent output - trigger interrupt
-                        interrupt_event = await self.interrupt()
-                        yield interrupt_event
-
             elif event.type == CascadedEventType.TRANSCRIPT_PARTIAL:
                 self._current_transcript = event.transcript or ""
+                self._last_transcript_time = time.time()
 
             elif event.type == CascadedEventType.TRANSCRIPT_FINAL:
                 transcript = event.transcript or ""
                 self._accumulated_transcript += " " + transcript
                 self._accumulated_transcript = self._accumulated_transcript.strip()
                 self._current_transcript = ""
-                # Note: Don't trigger LLM here - wait for END_OF_SPEECH
-                # because _is_user_speaking is still True at this point
+                self._last_transcript_time = time.time()
 
             elif event.type == CascadedEventType.SPEECH_ENDED:
                 self._is_user_speaking = False
@@ -702,16 +694,31 @@ class CascadedVoiceProvider:
 
                 # Now that speech has ended, check if we should trigger LLM
                 if self._should_trigger_llm():
-                    final_transcript = self._accumulated_transcript
-                    self._accumulated_transcript = ""
-
-                    logger.debug(
-                        f"Triggering LLM with transcript: {final_transcript[:50]}..."
-                    )
-
-                    # Process through LLM and TTS
-                    async for llm_event in self._process_llm(final_transcript):
+                    async for llm_event in self._trigger_llm():
                         yield llm_event
+
+        # Fallback: if we have accumulated transcript and no new transcript
+        # activity for utterance_end_ms, trigger the LLM. This handles the
+        # case where END_OF_SPEECH never fires (common with background noise).
+        if self._accumulated_transcript and self._last_transcript_time is not None:
+            silence_ms = (time.time() - self._last_transcript_time) * 1000
+            utterance_end_ms = self.config.stt.utterance_end_ms
+            if utterance_end_ms > 0 and silence_ms >= utterance_end_ms:
+                if self._state == ProviderState.LISTENING:
+                    self._is_user_speaking = False
+                    async for llm_event in self._trigger_llm():
+                        yield llm_event
+
+    async def _trigger_llm(self) -> AsyncGenerator[CascadedEvent, None]:
+        """Trigger LLM with the accumulated transcript."""
+        final_transcript = self._accumulated_transcript
+        self._accumulated_transcript = ""
+        self._last_transcript_time = None
+
+        logger.debug(f"Triggering LLM with transcript: {final_transcript[:50]}...")
+
+        async for llm_event in self._process_llm(final_transcript):
+            yield llm_event
 
     def _should_trigger_llm(self) -> bool:
         """Decide whether to trigger LLM generation.
@@ -785,12 +792,11 @@ class CascadedVoiceProvider:
                 tools=tools if tools else None,
             ) as stream:
                 async for chunk in stream:
-                    # Check for cancellation
                     if self._cancel_event.is_set():
                         break
 
-                    if hasattr(chunk, "delta") and chunk.delta:
-                        if hasattr(chunk.delta, "content") and chunk.delta.content:
+                    if chunk.delta:
+                        if chunk.delta.content:
                             token = chunk.delta.content
                             response_text += token
                             yield CascadedEvent(
@@ -798,28 +804,18 @@ class CascadedVoiceProvider:
                                 data={"token": token, "accumulated": response_text},
                             )
 
-                    # Check for tool calls
-                    if hasattr(chunk, "tool_calls") and chunk.tool_calls:
-                        for tc in chunk.tool_calls:
-                            tool_call = ToolCall(
-                                id=tc.id or str(uuid.uuid4()),
-                                name=tc.function.name if tc.function else "",
-                                arguments=tc.function.arguments
-                                if tc.function
-                                else "{}",
-                            )
-                            tool_calls.append(tool_call)
+                        if chunk.delta.tool_calls:
+                            for tc in chunk.delta.tool_calls:
+                                tool_calls.append(self._parse_tool_call(tc))
 
             yield CascadedEvent(
                 type=CascadedEventType.LLM_COMPLETED,
                 data={"text": response_text, "tool_calls": tool_calls},
             )
 
-            # Add to context
             if response_text:
                 self._context.add_assistant(response_text)
 
-            # If we have tool calls, yield them
             if tool_calls:
                 for tc in tool_calls:
                     self._context.add_tool_call(tc)
@@ -827,7 +823,6 @@ class CascadedVoiceProvider:
                         type=CascadedEventType.TOOL_CALL,
                         data={"tool_call": tc},
                     )
-            # Otherwise generate TTS
             elif response_text:
                 async for tts_event in self._process_tts(response_text):
                     yield tts_event
@@ -894,22 +889,27 @@ class CascadedVoiceProvider:
         self,
         call_id: str,
         result: str,
+        request_response: bool = True,
     ) -> AsyncGenerator[CascadedEvent, None]:
-        """Send a tool result and get the continuation response.
+        """Send a tool result and optionally get the continuation response.
+
+        When multiple tool results are pending (parallel tool calls), only
+        the last one should set request_response=True. Results are batched
+        into the context first, and the LLM is only re-invoked once.
 
         Args:
             call_id: The tool call ID.
             result: The tool result.
+            request_response: If True, continue LLM generation after this result.
 
         Yields:
-            LLM and TTS events for the continuation.
+            LLM and TTS events for the continuation (only if request_response).
         """
-        # Add tool result to context
         self._context.add_tool_result(call_id, result)
 
-        # Continue LLM generation
-        async for event in self._continue_after_tool():
-            yield event
+        if request_response:
+            async for event in self._continue_after_tool():
+                yield event
 
     async def _continue_after_tool(self) -> AsyncGenerator[CascadedEvent, None]:
         """Continue LLM generation after tool result."""
@@ -920,11 +920,11 @@ class CascadedVoiceProvider:
         yield CascadedEvent(type=CascadedEventType.LLM_STARTED)
 
         try:
-            # Build chat context with full history including tool calls/results
             chat_ctx = self._build_chat_context()
 
             tools = self._format_tools()
             response_text = ""
+            tool_calls: List[ToolCall] = []
 
             async with self._llm_client.chat(
                 chat_ctx=chat_ctx,
@@ -934,8 +934,8 @@ class CascadedVoiceProvider:
                     if self._cancel_event.is_set():
                         break
 
-                    if hasattr(chunk, "delta") and chunk.delta:
-                        if hasattr(chunk.delta, "content") and chunk.delta.content:
+                    if chunk.delta:
+                        if chunk.delta.content:
                             token = chunk.delta.content
                             response_text += token
                             yield CascadedEvent(
@@ -943,13 +943,26 @@ class CascadedVoiceProvider:
                                 data={"token": token, "accumulated": response_text},
                             )
 
+                        if chunk.delta.tool_calls:
+                            for tc in chunk.delta.tool_calls:
+                                tool_calls.append(self._parse_tool_call(tc))
+
             yield CascadedEvent(
                 type=CascadedEventType.LLM_COMPLETED,
-                data={"text": response_text},
+                data={"text": response_text, "tool_calls": tool_calls},
             )
 
             if response_text:
                 self._context.add_assistant(response_text)
+
+            if tool_calls:
+                for tc in tool_calls:
+                    self._context.add_tool_call(tc)
+                    yield CascadedEvent(
+                        type=CascadedEventType.TOOL_CALL,
+                        data={"tool_call": tc},
+                    )
+            elif response_text:
                 async for tts_event in self._process_tts(response_text):
                     yield tts_event
 
@@ -961,6 +974,25 @@ class CascadedVoiceProvider:
             )
         finally:
             self._state = ProviderState.LISTENING
+
+    @staticmethod
+    def _parse_tool_call(tc: Any) -> ToolCall:
+        """Parse a LiveKit FunctionToolCall into our ToolCall model.
+
+        LiveKit's FunctionToolCall has `arguments` as a JSON string,
+        but our ToolCall expects a dict.
+        """
+        args = tc.arguments
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except json.JSONDecodeError:
+                args = {}
+        return ToolCall(
+            id=tc.call_id or str(uuid.uuid4()),
+            name=tc.name,
+            arguments=args,
+        )
 
     def _build_chat_context(self) -> Any:
         """Build LiveKit ChatContext from internal conversation context.
@@ -995,13 +1027,13 @@ class CascadedVoiceProvider:
                 # Add tool calls as FunctionCall items
                 tool_calls = msg.get("tool_calls", [])
                 for tc in tool_calls:
-                    # tc is a ToolCall dataclass with id, name, arguments
+                    # tc is a dict: {"id": ..., "type": "function", "function": {"name": ..., "arguments": ...}}
+                    func = tc.get("function", {})
+                    args = func.get("arguments", "{}")
                     func_call = FunctionCall(
-                        call_id=tc.id,
-                        name=tc.name,
-                        arguments=tc.arguments
-                        if isinstance(tc.arguments, str)
-                        else json.dumps(tc.arguments),
+                        call_id=tc["id"],
+                        name=func.get("name", ""),
+                        arguments=args if isinstance(args, str) else json.dumps(args),
                     )
                     chat_ctx.insert(func_call)
 
