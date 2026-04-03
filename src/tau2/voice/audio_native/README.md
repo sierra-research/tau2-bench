@@ -4,11 +4,9 @@ This module provides end-to-end audio processing via provider-specific realtime 
 
 **Supported Providers:**
 - **OpenAI Realtime API** - WebSocket-based, G.711 μ-law audio
+- **Amazon Nova Sonic** - AWS Bedrock bidirectional stream, LPCM audio with SPECULATIVE/FINAL generation
 - **Google Gemini Live** - google-genai SDK, PCM16 audio with session resumption
 - **xAI Grok Voice Agent** - WebSocket-based, native G.711 μ-law (no conversion needed)
-
-**Experimental/Internal Providers** (not exposed via `--audio-native-provider` CLI):
-- **Amazon Nova Sonic** - AWS Bedrock bidirectional stream, LPCM audio with SPECULATIVE/FINAL generation
 - **Qwen Omni Flash** - DashScope WebSocket, PCM16 audio (⚠️ tool calling broken)
 - **Deepgram Voice Agent** - Cascaded STT→LLM→TTS with BYO LLM/TTS support
 
@@ -117,9 +115,23 @@ audio_native/
 
 ---
 
-## Adapter Pattern
+## Two Adapter Patterns
 
-All audio native providers implement the tick-based `DiscreteTimeAdapter` pattern, where audio time is the primary clock:
+This module provides two distinct adapter patterns for different use cases:
+
+### 1. Request-Response Pattern (`AudioNativeAdapter`)
+
+Traditional request-response interaction for half-duplex or streaming full-duplex:
+
+```python
+adapter.send_audio(audio_bytes)
+adapter.commit_audio()
+response = adapter.collect_response()  # Blocks until complete
+```
+
+### 2. Tick-Based Pattern (`DiscreteTimeAdapter`)
+
+Discrete-time simulation where audio time is the primary clock:
 
 ```python
 for tick in range(max_ticks):
@@ -133,6 +145,36 @@ for tick in range(max_ticks):
 ## Components
 
 ### 1. Abstract Base Classes (`adapter.py`)
+
+#### `AudioNativeAdapter` (ABC)
+
+Provider-agnostic interface for request-response interaction:
+
+```python
+class AudioNativeAdapter(ABC):
+    def connect(self, system_prompt, tools, vad_config, modality) -> None
+    def disconnect(self) -> None
+    def is_connected -> bool
+    
+    # Input methods
+    def send_text(self, text, commit=True) -> None
+    def send_audio(self, audio_data, audio_format=None) -> None
+    def commit_audio(self) -> None
+    def add_user_message(self, text) -> None
+    def add_assistant_message(self, text) -> None
+    
+    # Tool handling
+    def send_tool_result(self, call_id, result, request_response=True) -> None
+    
+    # Response collection
+    def collect_response(self, expect_transcription=False, timeout=30.0) -> AudioNativeResponse
+    def try_collect_response(self, state) -> (Optional[AudioNativeResponse], StreamingResponseState)
+    def poll_events(self) -> list
+    
+    # Configuration
+    def set_vad_mode(self, vad_config) -> None
+    def clear_audio_buffer(self) -> None
+```
 
 #### `DiscreteTimeAdapter` (ABC)
 
@@ -167,15 +209,42 @@ from tau2.voice.audio_native import create_adapter
 adapter, resolved_model = create_adapter(
     provider="gemini",
     tick_duration_ms=1000,
+    send_audio_instant=True,
     model=None,  # uses provider default
 )
 ```
 
 The factory:
-1. **Validates parameters** — raises `ValueError` if provider-specific parameters are used with incompatible providers.
+1. **Validates parameters** — raises `ValueError` if OpenAI-only parameters (`buffer_until_complete`, `fast_forward_mode`) are used with other providers.
 2. **Resolves model defaults** — uses `DEFAULT_AUDIO_NATIVE_MODELS[provider]` when no model is given, or the `CascadedConfig` default for livekit.
 3. **Warns on unsupported model selection** — logs a warning if `model` is provided for providers that ignore it (xai, nova, qwen).
 4. **Constructs the adapter** — returns `(adapter, resolved_model)` so callers also get the effective model name.
+
+#### `AudioNativeResponse`
+
+Unified response model from any audio native API:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `text_content` | `str` | Text response content |
+| `audio_transcript` | `str` | Transcript of audio output |
+| `audio_bytes` | `bytes` | Raw audio response bytes |
+| `tool_calls` | `list[ToolCall]` | Function calls to execute |
+| `input_transcript` | `Optional[str]` | Transcription of user's audio input |
+| `usage` | `Optional[dict]` | Token usage statistics |
+| `error` | `Optional[str]` | Error message if any |
+
+#### `StreamingResponseState`
+
+State for incremental (non-blocking) response collection:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `accumulated_text` | `str` | Text accumulated so far |
+| `accumulated_tool_calls` | `list[ToolCall]` | Tool calls accumulated |
+| `pending_function_call` | `Optional[dict]` | Function call being built |
+| `waiting_for_response` | `bool` | Whether waiting for API |
+| `speech_stopped` | `bool` | Whether user speech ended |
 
 ---
 
@@ -260,6 +329,8 @@ from tau2.voice.audio_native.openai import (
 
 adapter = DiscreteTimeAudioNativeAdapter(
     tick_duration_ms=1000,
+    send_audio_instant=True,
+    buffer_until_complete=False,
 )
 
 adapter.connect(
@@ -287,7 +358,7 @@ adapter.disconnect()
 
 ---
 
-#### `TickResult` (`tick_result.py`) and `TickRunner` (`openai/tick_runner.py`)
+#### `TickRunner` and `TickResult` (`tick_runner.py`)
 
 Core components for tick-based simulation:
 
@@ -312,7 +383,12 @@ Core components for tick-based simulation:
 
 Distributes transcript text proportionally across audio duration, so text appears at roughly the same rate as speech.
 
-**`TickRunner`** - Manages tick-by-tick simulation and timing-aligned buffering.
+**`TickRunner`** - Manages tick-by-tick simulation:
+
+| Mode | Description |
+|------|-------------|
+| `buffer_until_complete=False` | Stream audio/text as received, use proportional distribution |
+| `buffer_until_complete=True` | Wait for complete utterances before including in results |
 
 ---
 
@@ -400,6 +476,7 @@ from tau2.voice.audio_native.nova import (
 
 adapter = DiscreteTimeNovaAdapter(
     tick_duration_ms=50,
+    send_audio_instant=True,
     voice="tiffany",  # matthew, tiffany, amy
 )
 
@@ -459,7 +536,7 @@ OpenAI Realtime API uses **G.711 μ-law** (8kHz telephony standard):
 ```python
 from tau2.data_model.audio import TELEPHONY_SAMPLE_RATE
 
-# TELEPHONY_AUDIO_FORMAT:
+# TELEPHONY_FORMAT:
 #   sample_rate: 8000 Hz
 #   channels: 1
 #   bytes_per_sample: 1
@@ -478,14 +555,14 @@ bytes_per_tick = TELEPHONY_SAMPLE_RATE * tick_duration_ms / 1000  # = 8000 bytes
 
 Errors are surfaced through:
 
-1. **`ErrorEvent`**: API-level errors (rate limits, invalid requests). Each provider defines an `ErrorEvent` in its `events.py`. These appear in `TickResult.events` after `run_tick()`.
-2. **`RuntimeError`**: Connection/threading issues (e.g., WebSocket failures, background loop errors).
+1. **`ErrorEvent`**: API-level errors (rate limits, invalid requests)
+2. **`AudioNativeResponse.error`**: Collected error message
+3. **`RuntimeError`**: Connection/threading issues
 
 ```python
-result = adapter.run_tick(user_audio_chunk, tick_number=tick)
-for event in result.events:
-    if hasattr(event, "type") and event.type == "error":
-        logger.error(f"API error: {event.message}")
+response = adapter.collect_response()
+if response.error:
+    logger.error(f"API error: {response.error}")
 ```
 
 ---
