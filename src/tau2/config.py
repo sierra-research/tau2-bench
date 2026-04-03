@@ -165,40 +165,26 @@ DEFAULT_QWEN_VOICE = "Cherry"
 DEFAULT_QWEN_INPUT_SAMPLE_RATE = 16000  # 16kHz, 16-bit signed PCM, mono
 DEFAULT_QWEN_OUTPUT_SAMPLE_RATE = 24000  # 24kHz, 16-bit signed PCM, mono
 
-# Deepgram Voice Agent API configuration
-# Note: Deepgram is a cascaded system (STT→LLM→TTS), not a native audio model
-DEFAULT_DEEPGRAM_VOICE_AGENT_URL = "wss://agent.deepgram.com/v1/agent/converse"
-DEFAULT_DEEPGRAM_STT_MODEL = "nova-3"  # Deepgram STT model
-DEFAULT_DEEPGRAM_LLM_PROVIDER = "open_ai"  # LLM provider (open_ai, anthropic, etc.)
-DEFAULT_DEEPGRAM_LLM_MODEL = "gpt-5.1"  # LLM used by Deepgram Voice Agent
-DEFAULT_DEEPGRAM_TTS_MODEL = "aura-2-thalia-en"  # TTS voice model
-DEFAULT_DEEPGRAM_INPUT_SAMPLE_RATE = 16000  # 16kHz, 16-bit signed PCM, mono
-DEFAULT_DEEPGRAM_OUTPUT_SAMPLE_RATE = 16000  # 16kHz, 16-bit signed PCM, mono
-DEFAULT_DEEPGRAM_INPUT_ENCODING = "linear16"
-DEFAULT_DEEPGRAM_OUTPUT_ENCODING = "linear16"
-
 # Audio-native provider
-DEFAULT_AUDIO_NATIVE_PROVIDER = "openai"  # Options: "openai", "gemini", "xai", "nova", "qwen", "deepgram", "livekit"
+DEFAULT_AUDIO_NATIVE_PROVIDER = "openai"  # Options: "openai", "gemini", "xai", "nova", "qwen", "livekit"
 DEFAULT_AUDIO_NATIVE_MODELS = {
     "openai": DEFAULT_OPENAI_REALTIME_MODEL,
     "gemini": DEFAULT_GEMINI_MODEL,
     "xai": DEFAULT_XAI_MODEL,
     "nova": DEFAULT_NOVA_MODEL,
     "qwen": DEFAULT_QWEN_MODEL,
-    "deepgram": DEFAULT_DEEPGRAM_LLM_MODEL,  # Cascaded: uses LLM model as identifier
     "livekit": "dummy",  # We just need this key to register livekit as a provider
 }
 
 # Provider type classification
 # - "audio_native": Native audio-to-audio models (e.g., OpenAI Realtime, Gemini Live)
-# - "cascaded": STT→LLM→TTS pipeline (e.g., Deepgram Voice Agent, LiveKit)
+# - "cascaded": STT→LLM→TTS pipeline (e.g., LiveKit)
 AUDIO_NATIVE_PROVIDER_TYPES = {
     "openai": "audio_native",
     "gemini": "audio_native",
     "xai": "audio_native",
     "nova": "audio_native",
     "qwen": "audio_native",
-    "deepgram": "cascaded",
     "livekit": "cascaded",
 }
 # Shared adapter timing constants

@@ -45,7 +45,6 @@ from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
 from loguru import logger
 
 if TYPE_CHECKING:
-    from tau2.voice.audio_native.deepgram.provider import DeepgramVADConfig
     from tau2.voice.audio_native.gemini.provider import GeminiVADConfig
     from tau2.voice.audio_native.livekit.config import CascadedConfig
     from tau2.voice.audio_native.nova.provider import NovaVADConfig
@@ -84,7 +83,7 @@ from tau2.voice.audio_native.tick_result import TickResult
 
 # Provider type alias
 AudioNativeProvider = Literal[
-    "openai", "gemini", "xai", "nova", "qwen", "deepgram", "livekit"
+    "openai", "gemini", "xai", "nova", "qwen", "livekit"
 ]
 
 # VAD config union type (string annotations for lazy resolution)
@@ -94,7 +93,6 @@ VADConfig = Union[
     "XAIVADConfig",
     "NovaVADConfig",
     "QwenVADConfig",
-    "DeepgramVADConfig",
 ]
 
 AUDIO_NATIVE_VOICE_INSTRUCTION = """
@@ -302,10 +300,6 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             from tau2.voice.audio_native.qwen.provider import QwenVADConfig
 
             self.vad_config = QwenVADConfig()
-        elif provider == "deepgram":
-            from tau2.voice.audio_native.deepgram.provider import DeepgramVADConfig
-
-            self.vad_config = DeepgramVADConfig()
         elif provider == "livekit":
             from tau2.voice.audio_native.livekit.discrete_time_adapter import (
                 LiveKitVADConfig,
@@ -360,7 +354,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             else AUDIO_NATIVE_SYSTEM_PROMPT_PLAIN
         )
 
-        # Use CASCADED_MODEL_INSTRUCTION for cascaded models (e.g., deepgram)
+        # Use CASCADED_MODEL_INSTRUCTION for cascaded models (e.g., livekit)
         # which work with transcribed speech rather than native audio
         provider_type = AUDIO_NATIVE_PROVIDER_TYPES.get(self.provider, "audio_native")
         if provider_type == "cascaded":
