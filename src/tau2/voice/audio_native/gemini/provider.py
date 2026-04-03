@@ -1035,23 +1035,6 @@ class GeminiLiveProvider:
         await self._session.send_realtime_input(audio=audio_blob)
         logger.debug(f"Sent {len(audio_data)} bytes of audio")
 
-    async def send_text(self, text: str, end_of_turn: bool = True) -> None:
-        """Send a text message to the session.
-
-        Args:
-            text: The text content to send.
-            end_of_turn: If True, signals end of user's turn.
-
-        Raises:
-            RuntimeError: If not connected to the API.
-        """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to API. Call connect() first.")
-        if self._uses_eap_input_path(self.model) and not self.use_vertex_ai:
-            await self._session.send_realtime_input(text=text)
-        else:
-            await self._session.send(input=text, end_of_turn=end_of_turn)
-
     async def send_tool_response(
         self,
         call_id: str,
