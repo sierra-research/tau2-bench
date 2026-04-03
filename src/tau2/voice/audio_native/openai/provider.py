@@ -37,13 +37,7 @@ load_dotenv()
 
 
 class OpenAIVADMode(str, Enum):
-    """Voice Activity Detection modes supported by OpenAI's Realtime API.
-
-    Attributes:
-        SERVER_VAD: Server-side VAD using audio level thresholds and silence detection.
-        SEMANTIC_VAD: Semantic-aware VAD that understands speech patterns and pauses.
-        MANUAL: Manual turn detection where the client explicitly commits audio turns.
-    """
+    """VAD modes for the Realtime API (server, semantic, or manual turn commits)."""
 
     SERVER_VAD = "server_vad"
     SEMANTIC_VAD = "semantic_vad"
@@ -55,22 +49,7 @@ class OpenAIVADMode(str, Enum):
 
 
 class OpenAIVADConfig(BaseModel):
-    """Configuration for OpenAI's Voice Activity Detection.
-
-    Configures how the API detects when the user has finished speaking.
-    Different parameters apply depending on the selected mode.
-
-    Attributes:
-        mode: The VAD mode to use. Defaults to SERVER_VAD.
-        threshold: Audio level threshold for SERVER_VAD (0.0-1.0).
-            Higher values require louder speech to trigger. Default: 0.5.
-        prefix_padding_ms: Milliseconds of audio to include before detected
-            speech start (SERVER_VAD only). Default: 300.
-        silence_duration_ms: Milliseconds of silence required to end a turn
-            (SERVER_VAD only). Default: 500.
-        eagerness: How eagerly to end turns for SEMANTIC_VAD mode.
-            One of "low", "medium", "high". Default: "medium".
-    """
+    """Realtime API turn detection settings; fields apply per ``mode`` (see OpenAI docs)."""
 
     mode: OpenAIVADMode = OpenAIVADMode.SERVER_VAD
     threshold: float = DEFAULT_OPENAI_VAD_THRESHOLD
@@ -80,50 +59,13 @@ class OpenAIVADConfig(BaseModel):
 
 
 class OpenAIRealtimeProvider:
-    """OpenAI Realtime API provider with WebSocket-based communication.
-
-    This provider manages a persistent WebSocket connection to OpenAI's Realtime API,
-    enabling real-time bidirectional communication for voice and text processing.
-    It supports configurable Voice Activity Detection (VAD), tool/function calling,
-    and both audio and text modalities.
-
-    Attributes:
-        BASE_URL: The WebSocket endpoint for OpenAI's Realtime API.
-        DEFAULT_MODEL: The default model to use for realtime sessions.
-        api_key: The OpenAI API key for authentication.
-        model: The model identifier to use for the session.
-        ws: The active WebSocket connection, or None if disconnected.
-
-    Example:
-        ```python
-        provider = OpenAIRealtimeProvider()
-        await provider.connect()
-        await provider.configure_session(
-            system_prompt="You are a helpful assistant.",
-            tools=[],
-            vad_config=OpenAIVADConfig(),
-            modality="text"
-        )
-        async for event in provider.receive_events():
-            print(event)
-        await provider.disconnect()
-        ```
-    """
+    """WebSocket client for OpenAI Realtime (VAD, tools, audio/text modalities)."""
 
     BASE_URL = DEFAULT_OPENAI_REALTIME_BASE_URL
     DEFAULT_MODEL = DEFAULT_OPENAI_REALTIME_MODEL
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
-        """Initialize the OpenAI Realtime provider.
-
-        Args:
-            api_key: OpenAI API key. If not provided, reads from OPENAI_API_KEY
-                environment variable.
-            model: Model identifier to use. Defaults to DEFAULT_MODEL.
-
-        Raises:
-            ValueError: If no API key is provided or found in environment.
-        """
+        """Create a provider; ``api_key`` defaults to ``OPENAI_API_KEY``."""
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
         if not self.api_key:
             raise ValueError("OpenAI API key not provided. Set OPENAI_API_KEY env var.")
@@ -136,11 +78,7 @@ class OpenAIRealtimeProvider:
 
     @property
     def is_connected(self) -> bool:
-        """Check if the WebSocket connection is active.
-
-        Returns:
-            True if connected and the WebSocket is in OPEN state, False otherwise.
-        """
+        """Whether the WebSocket exists and is open."""
         if self.ws is None:
             return False
         from websockets.protocol import State
@@ -149,23 +87,12 @@ class OpenAIRealtimeProvider:
 
     @property
     def audio_format(self) -> AudioFormat:
-        """Get the configured audio format.
-
-        Returns:
-            The AudioFormat configured for this session.
-        """
+        """Session input/output audio format."""
         return self._audio_format
 
     @websocket_retry
     async def connect(self) -> None:
-        """Establish a WebSocket connection to the OpenAI Realtime API.
-
-        Opens a new WebSocket connection and waits for the session.created event
-        to confirm successful connection. If already connected, this is a no-op.
-
-        Raises:
-            RuntimeError: If the initial handshake fails or receives unexpected response.
-        """
+        """Connect and wait for ``session.created``; no-op if already connected."""
         if self.is_connected:
             return
 
@@ -190,11 +117,7 @@ class OpenAIRealtimeProvider:
         )
 
     async def disconnect(self) -> None:
-        """Close the WebSocket connection.
-
-        Gracefully closes the WebSocket connection if one exists.
-        Safe to call even if not connected.
-        """
+        """Close the WebSocket if open."""
         if self.ws:
             logger.info("OpenAI Realtime API: disconnecting WebSocket connection")
             await self.ws.close()
@@ -204,20 +127,7 @@ class OpenAIRealtimeProvider:
     def _build_turn_detection_config(
         self, vad_config: OpenAIVADConfig
     ) -> Optional[Dict]:
-        """Build the turn detection configuration for the API.
-
-        Converts the internal VAD configuration to the format expected by
-        OpenAI's Realtime API.
-
-        Args:
-            vad_config: The VAD configuration to convert.
-
-        Returns:
-            A dictionary with turn detection settings, or None for manual mode.
-
-        Raises:
-            ValueError: If the VAD mode is unknown.
-        """
+        """Map ``vad_config`` to Realtime ``turn_detection`` (``None`` for manual)."""
         if vad_config.mode == OpenAIVADMode.MANUAL:
             return None
         elif vad_config.mode == OpenAIVADMode.SERVER_VAD:
@@ -236,18 +146,7 @@ class OpenAIRealtimeProvider:
             raise ValueError(f"Unknown VAD mode: {vad_config.mode}")
 
     def _format_tools_for_api(self, tools: List[Tool]) -> List[Dict]:
-        """Format tools for the OpenAI Realtime API.
-
-        Converts internal Tool objects to the format expected by the API,
-        extracting the function name, description, and parameters from
-        each tool's OpenAI schema.
-
-        Args:
-            tools: List of Tool objects to format.
-
-        Returns:
-            List of dictionaries in OpenAI's tool format.
-        """
+        """Convert domain ``Tool`` list to Realtime function tools."""
         formatted_tools = []
         for tool in tools:
             schema = tool.openai_schema
@@ -269,27 +168,10 @@ class OpenAIRealtimeProvider:
         modality: str = "text",
         audio_format: Optional[AudioFormat] = None,
     ) -> None:
-        """Configure the realtime session with instructions, tools, and settings.
+        """Send ``session.update`` and block until ``session.updated`` or API error.
 
-        Sets up the session with the provided system prompt, available tools,
-        VAD configuration, and modality settings. Waits for confirmation from
-        the API before returning.
-
-        Args:
-            system_prompt: The system instructions for the assistant.
-            tools: List of tools available for the assistant to use.
-            vad_config: Voice Activity Detection configuration.
-            modality: The input/output modality. One of:
-                - "text": Text-only input and output.
-                - "audio": Audio input and audio output (with text transcription).
-                - "audio_in_text_out": Audio input with text-only output.
-            audio_format: Audio format for input/output. Defaults to telephony
-                (8kHz μ-law). Must be compatible with OpenAI Realtime API:
-                g711_ulaw (8kHz), g711_alaw (8kHz), or pcm16 (24kHz).
-
-        Raises:
-            RuntimeError: If not connected or if session configuration fails.
-            ValueError: If an unknown modality is specified or audio format unsupported.
+        ``modality``: ``text`` | ``audio`` | ``audio_in_text_out``. ``audio_format``
+        defaults to telephony (8kHz μ-law); must be a format the Realtime API accepts.
         """
         if not self.is_connected:
             raise RuntimeError("Not connected to API. Call connect() first.")
@@ -361,18 +243,7 @@ class OpenAIRealtimeProvider:
                 raise RuntimeError(f"Session configuration failed: {error_msg}")
 
     async def send_audio(self, audio_data: bytes) -> None:
-        """Append audio data to the input audio buffer.
-
-        Sends raw audio bytes to the API's input buffer. The audio is
-        base64-encoded before transmission. With server VAD, the API commits
-        turns automatically from buffered audio.
-
-        Args:
-            audio_data: Raw audio bytes in the configured input format (g711_ulaw).
-
-        Raises:
-            RuntimeError: If not connected to the API.
-        """
+        """Append base64-encoded PCM/codec bytes to ``input_audio_buffer``."""
         if not self.is_connected:
             raise RuntimeError("Not connected to API")
 
@@ -383,21 +254,7 @@ class OpenAIRealtimeProvider:
     async def send_tool_result(
         self, call_id: str, result: str, request_response: bool = True
     ) -> None:
-        """Send the result of a tool/function call back to the API.
-
-        After the assistant requests a function call, this method is used to
-        provide the result of that function execution.
-
-        Args:
-            call_id: The unique identifier of the function call being responded to.
-                This must match the call_id from the original function call event.
-            result: The string result of the function execution.
-            request_response: If True, immediately request the assistant to
-                continue generating a response. If False, just submit the result.
-
-        Raises:
-            RuntimeError: If not connected to the API.
-        """
+        """Submit ``function_call_output``; optionally send ``response.create``."""
         if not self.is_connected:
             raise RuntimeError("Not connected to API")
 
@@ -414,57 +271,16 @@ class OpenAIRealtimeProvider:
         if request_response:
             await self.ws.send(json.dumps({"type": "response.create"}))
 
-    async def cancel_response(self) -> None:
-        """Cancel an in-progress model response.
-
-        Use this in push-to-talk scenarios (when VAD is disabled) to manually
-        cancel the model's response when the user wants to interrupt. In VAD
-        mode, the server automatically cancels responses when user speech is
-        detected, so this is typically not needed.
-
-        After canceling, you should also send a truncate_item() to inform the
-        server how much audio was actually played.
-
-        Raises:
-            RuntimeError: If not connected to the API.
-        """
-        if not self.is_connected:
-            raise RuntimeError("Not connected to API")
-
-        await self.ws.send(json.dumps({"type": "response.cancel"}))
-        logger.debug("Response cancel sent")
-
     async def truncate_item(
         self,
         item_id: str,
         content_index: int,
         audio_end_ms: int,
     ) -> None:
-        """Truncate an assistant response item to remove unplayed audio.
+        """Barge-in: tell the server how much assistant audio was played (``conversation.item.truncate``).
 
-        When the user interrupts the assistant (barge-in), this method should be
-        called to inform the server how much of the response was actually played.
-        The server will truncate the audio at the specified point and remove the
-        corresponding portion of the transcript from the conversation history.
-
-        This ensures the model's memory of the conversation matches what the user
-        actually heard, enabling natural follow-ups like "what was that last thing?".
-
-        Args:
-            item_id: The item ID of the assistant's response being truncated.
-                This is the item that was interrupted.
-            content_index: Index of the content part being truncated (usually 0
-                for single-part responses).
-            audio_end_ms: Milliseconds of audio that was actually played before
-                the interruption. Audio after this point will be removed from
-                the conversation.
-
-        Raises:
-            RuntimeError: If not connected to the API.
-
-        Note:
-            The server will respond with a conversation.item.truncated event
-            to confirm the truncation.
+        Aligns server history/transcript with heard audio; server may emit
+        ``conversation.item.truncated``.
         """
         if not self.is_connected:
             raise RuntimeError("Not connected to API")
@@ -482,22 +298,10 @@ class OpenAIRealtimeProvider:
         )
 
     async def receive_events(self) -> AsyncGenerator[BaseRealtimeEvent, None]:
-        """Receive and yield events from the WebSocket connection.
+        """Yield parsed Realtime events until disconnect.
 
-        An async generator that continuously listens for events from the API
-        and yields them as typed event objects. Handles connection timeouts
-        gracefully by yielding TimeoutEvent, allowing the caller to perform
-        other operations.
-
-        Yields:
-            BaseRealtimeEvent: Parsed event objects, which may be:
-                - Typed events (e.g., ResponseTextDeltaEvent, FunctionCallEvent)
-                - TimeoutEvent: When no message received within 0.1 seconds
-                - UnknownEvent: For unrecognized or error events
-
-        Raises:
-            RuntimeError: If not connected to the API when called, or if the
-                WebSocket connection closes unexpectedly during operation.
+        Uses a short recv timeout: no message in time yields ``TimeoutEvent``.
+        Parse errors yield ``UnknownEvent``. Unexpected close raises ``RuntimeError``.
         """
         if not self.is_connected:
             raise RuntimeError("Not connected to API")
@@ -538,16 +342,7 @@ class OpenAIRealtimeProvider:
     async def receive_events_for_duration(
         self, duration_seconds: float
     ) -> List[BaseRealtimeEvent]:
-        """Receive events for a specified duration.
-
-        Collects all non-timeout events within the time window.
-
-        Args:
-            duration_seconds: How long to collect events.
-
-        Returns:
-            List of events received during the duration.
-        """
+        """Collect non-``TimeoutEvent`` events for ``duration_seconds``."""
         events = []
         end_time = asyncio.get_event_loop().time() + duration_seconds
 
