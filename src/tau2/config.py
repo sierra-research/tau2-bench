@@ -117,7 +117,7 @@ DEFAULT_SPEECH_COMPLEXITY = "regular"  # Options: "control", "regular"
 # OpenAI Realtime API configuration
 # DEFAULT_OPENAI_REALTIME_MODEL = "gpt-realtime-2026-01-12" (alpha release)
 DEFAULT_OPENAI_REALTIME_MODEL = "gpt-realtime-1.5"
-LEGACY_OPENAI_REALTIME_MODEL = "gpt-realtime-2025-08-28"
+_LEGACY_OPENAI_REALTIME_MODEL = "gpt-realtime-2025-08-28"
 DEFAULT_OPENAI_REALTIME_BASE_URL = "wss://api.openai.com/v1/realtime"
 DEFAULT_OPENAI_VOICE = "alloy"
 DEFAULT_OPENAI_NOISE_REDUCTION = (
@@ -133,11 +133,14 @@ DEFAULT_OPENAI_TRANSCRIPTION_MODEL = "gpt-4o-transcribe"
 DEFAULT_WHISPER_MODEL = "whisper-1"
 
 # Gemini Live API configuration
-DEFAULT_GEMINI_MODEL = "models/gemini-live-2.5-flash-native-audio"
-# For Vertex AI, use model without "models/" prefix
-# See: https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/inference
-DEFAULT_GEMINI_MODEL_VERTEX = "gemini-live-2.5-flash-native-audio"
+# Gemini auth mode is selected from environment variables:
+# - `GEMINI_API_KEY` -> Gemini API / AI Studio
+# - `GOOGLE_SERVICE_ACCOUNT_KEY` or `GOOGLE_APPLICATION_CREDENTIALS` -> Vertex AI
+# The model string for the same model maybe different depending on the auth mode.
+DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-live-preview"
+_LEGACY_GEMINI_MODEL = "gemini-live-2.5-flash-native-audio"
 DEFAULT_GEMINI_VOICE = "Zephyr"
+DEFAULT_GEMINI_THINKING_LEVEL = "minimal"  # Options: "minimal", "low", "medium", "high"
 DEFAULT_GEMINI_PROACTIVE_AUDIO = True  # Allow model to ignore irrelevant audio input
 DEFAULT_GEMINI_LOCATION = "us-central1"
 DEFAULT_GEMINI_INPUT_SAMPLE_RATE = 16000  # 16kHz, 16-bit signed PCM, mono
@@ -178,7 +181,7 @@ DEFAULT_DEEPGRAM_OUTPUT_ENCODING = "linear16"
 DEFAULT_AUDIO_NATIVE_PROVIDER = "openai"  # Options: "openai", "gemini", "xai", "nova", "qwen", "deepgram", "livekit"
 DEFAULT_AUDIO_NATIVE_MODELS = {
     "openai": DEFAULT_OPENAI_REALTIME_MODEL,
-    "gemini": DEFAULT_GEMINI_MODEL_VERTEX,
+    "gemini": DEFAULT_GEMINI_MODEL,
     "xai": DEFAULT_XAI_MODEL,
     "nova": DEFAULT_NOVA_MODEL,
     "qwen": DEFAULT_QWEN_MODEL,
