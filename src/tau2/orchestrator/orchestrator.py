@@ -8,6 +8,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Generic, Optional, TypeVar
 from os import getenv
+import sys
 
 from loguru import logger
 
@@ -278,8 +279,8 @@ class BaseOrchestrator(ABC, Generic[BaseAgentT, BaseUserT, TrajectoryItemT]):
         finalized = False
         try:
             while not self.done:
-                if self.step_count % 1 == 0 and getenv("NEMO_GYM_TAU2_STEP_COUNT_PRINT") == "true":
-                    print(f"{self.task.id} step {self.step_count}")
+                if self.step_count % 10 == 0 and getenv("NEMO_GYM_TAU2_STEP_COUNT_PRINT") == "true":
+                    print(f"Task ID {self.task.id} step {self.step_count}", file=sys.stderr)
 
                 await self.step()
                 self._check_termination()
