@@ -40,6 +40,8 @@ from tau2.data_model.message import (
 )
 from tau2.environment.tool import Tool
 
+from nemo_gym.openai_utils import NeMoGymAsyncOpenAI
+
 # Suppress Pydantic serialization warnings from LiteLLM
 # These occur due to type mismatches between streaming and non-streaming response types
 warnings.filterwarnings(
@@ -405,8 +407,13 @@ async def generate(
     request_timestamp = datetime.now().isoformat()
 
     start_time = time.perf_counter()
+    client = NeMoGymAsyncOpenAI(
+        base_url=kwargs.pop("api_base"),
+        api_key=kwargs.pop("api_key"),
+    )
+    kwargs.pop("num_retries")
     try:
-        response = completion(
+        response = await client.create_chat_completion(
             model=model,
             messages=litellm_messages,
             tools=tools_schema,
@@ -416,8 +423,12 @@ async def generate(
     except Exception as e:
         logger.error(e)
         raise e
+
+    response = ModelResponse.model_validate(response)
+
     generation_time_seconds = time.perf_counter() - start_time
-    cost = get_response_cost(response)
+    # cost = get_response_cost(response)
+    cost = 0.0
     usage = get_response_usage(response)
 
     response_choice = response.choices[0]

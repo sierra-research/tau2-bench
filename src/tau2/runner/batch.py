@@ -55,6 +55,7 @@ from tau2.user_simulation_voice_presets import COMPLEXITY_CONFIGS
 from tau2.utils.display import ConsoleDisplay, Text
 from tau2.utils.llm_utils import llm_log_mode, set_llm_log_dir, set_llm_log_mode
 from tau2.utils.utils import DATA_DIR
+from nemo_gym.global_config import GlobalConfigDictParserConfig, set_global_config_dict
 
 # Context variable to track current simulation_id for log filtering
 # This ensures task-specific log handlers only receive their own messages
@@ -624,6 +625,8 @@ def run_tasks(
     # Capture ContextVar values from the main thread so worker threads
     # (which get a fresh default context) can re-apply them.
     _main_thread_llm_log_mode = llm_log_mode.get()
+
+    set_global_config_dict(global_config_dict_parser_config=GlobalConfigDictParserConfig(skip_load_from_cli=True, skip_load_from_dotenv=True))
 
     def _run_tracked(
         task: Task, trial: int, seed: int, progress_str: str
