@@ -1,4 +1,4 @@
-uv venv --python 3.12 .venv --alow-existing
+uv venv --python 3.12 .venv --allow-existing
 source .venv/bin/activate
 uv sync --active
 
