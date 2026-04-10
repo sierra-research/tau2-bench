@@ -1,5 +1,6 @@
-uv sync
+uv venv --python 3.12 .venv --alow-existing
 source .venv/bin/activate
+uv sync --active
 
 tau2 run \
     --domain airline \
