@@ -19,7 +19,7 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
     """
 
     @classmethod
-    def calculate_reward(
+    async def calculate_reward(
         cls,
         task: Task,
         full_trajectory: list[Message],
@@ -43,7 +43,7 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
                 reward_breakdown={RewardType.NL_ASSERTION: 1.0},
             )
 
-        nl_assertions_checks = cls.evaluate_nl_assertions(
+        nl_assertions_checks = await cls.evaluate_nl_assertions(
             full_trajectory, nl_assertions
         )
 
@@ -58,7 +58,7 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
         )
 
     @classmethod
-    def evaluate_nl_assertions(
+    async def evaluate_nl_assertions(
         cls,
         trajectory: list[Message],
         nl_assertions: list[str],
@@ -118,7 +118,7 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             UserMessage(role="user", content=user_prompt),
         ]
 
-        assistant_message = generate(
+        assistant_message = await generate(
             model=DEFAULT_LLM_NL_ASSERTIONS,
             messages=messages,
             call_name="nl_assertions_eval",
@@ -189,7 +189,7 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
         return messages
 
     @classmethod
-    def calculate_reward(
+    async def calculate_reward(
         cls,
         task: Task,
         full_trajectory: list[Tick],
@@ -217,7 +217,7 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
         # Convert ticks to linearized message history
         messages = cls.ticks_to_message_history(full_trajectory)
 
-        nl_assertions_checks = cls.evaluate_nl_assertions(messages, nl_assertions)
+        nl_assertions_checks = await cls.evaluate_nl_assertions(messages, nl_assertions)
 
         # Calculate reward: 1 if all expectations are met, 0 otherwise
         all_expectations_met = all(result.met for result in nl_assertions_checks)
@@ -230,7 +230,7 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
         )
 
     @classmethod
-    def evaluate_nl_assertions(
+    async def evaluate_nl_assertions(
         cls,
         trajectory: list[Message],
         nl_assertions: list[str],
@@ -240,4 +240,4 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
 
         Delegates to NLAssertionsEvaluator.evaluate_nl_assertions.
         """
-        return NLAssertionsEvaluator.evaluate_nl_assertions(trajectory, nl_assertions)
+        return await NLAssertionsEvaluator.evaluate_nl_assertions(trajectory, nl_assertions)

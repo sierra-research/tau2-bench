@@ -85,7 +85,7 @@ class EvaluationType(str, Enum):
     ALL_WITH_NL_ASSERTIONS_IGNORE_BASIS = "all_with_nl_assertions_ignore_basis"
 
 
-def evaluate_simulation(
+async def evaluate_simulation(
     simulation: SimulationRun,
     task: Task,
     evaluation_type: EvaluationType,
@@ -206,7 +206,7 @@ def evaluate_simulation(
         nl_reward_info = None
         task_needs_nl = RewardType.NL_ASSERTION in task.evaluation_criteria.reward_basis
         if evaluation_type == EvaluationType.ALL_WITH_NL_ASSERTIONS or task_needs_nl:
-            nl_reward_info = NLEvaluator.calculate_reward(
+            nl_reward_info = await NLEvaluator.calculate_reward(
                 task=task,
                 full_trajectory=trajectory,
             )

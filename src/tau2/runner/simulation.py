@@ -73,7 +73,7 @@ async def run_simulation(
     solo_mode = getattr(orchestrator, "solo_mode", False)
 
     # Evaluate
-    reward_info = evaluate_simulation(
+    reward_info = await evaluate_simulation(
         simulation=simulation,
         task=task,
         evaluation_type=evaluation_type,
