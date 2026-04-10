@@ -458,7 +458,7 @@ def run_tasks(
     *,
     save_path: Optional[Path] = None,
     save_dir: Optional[Path] = None,
-    evaluation_type: EvaluationType = EvaluationType.ALL_WITH_NL_ASSERTIONS,
+    evaluation_type: EvaluationType = EvaluationType.ALL,
     console_display: bool = True,
     results_format: str = "json",
 ) -> Results:

@@ -51,16 +51,19 @@ class EvaluationType(str, Enum):
         Use when you only care about which tools the agent called.
 
     ALL:
-        Evaluate ENV, COMMUNICATE, and ACTION, but only include each in the
-        final reward if it's part of the task's `reward_basis`. The final
-        reward is the product of all applicable component rewards.
+        Evaluate ENV, COMMUNICATE, ACTION, and NL_ASSERTIONS (when in the
+        task's `reward_basis`). Only includes each component in the final
+        reward if it's part of the task's `reward_basis`. The final reward
+        is the product of all applicable component rewards.
 
     NL_ASSERTIONS:
         Evaluate only natural language assertions (WIP).
         Use for qualitative LLM-judged evaluation criteria.
 
     ALL_WITH_NL_ASSERTIONS:
-        Like ALL, but also includes NL_ASSERTIONS if in the reward_basis (WIP).
+        Like ALL, but forces the NL assertions evaluator to run even when
+        NL_ASSERTION is not in the task's `reward_basis`. Useful for
+        debugging or previewing NL assertion results.
 
     ALL_IGNORE_BASIS:
         Evaluate ENV, COMMUNICATE, and ACTION, ignoring the task's reward_basis.
@@ -201,7 +204,8 @@ def evaluate_simulation(
             full_trajectory=trajectory,
         )
         nl_reward_info = None
-        if evaluation_type == EvaluationType.ALL_WITH_NL_ASSERTIONS:
+        task_needs_nl = RewardType.NL_ASSERTION in task.evaluation_criteria.reward_basis
+        if evaluation_type == EvaluationType.ALL_WITH_NL_ASSERTIONS or task_needs_nl:
             nl_reward_info = NLEvaluator.calculate_reward(
                 task=task,
                 full_trajectory=trajectory,
@@ -215,6 +219,16 @@ def evaluate_simulation(
         comm_bases = {RewardType.COMMUNICATE}
         task_reward_basis = set(task.evaluation_criteria.reward_basis)
 
+        evaluated_bases = env_bases | action_bases | comm_bases
+        if nl_reward_info is not None:
+            evaluated_bases |= nl_bases
+        unevaluated = task_reward_basis - evaluated_bases
+        if unevaluated:
+            raise ValueError(
+                f"Task reward_basis includes {unevaluated} but these were "
+                f"not evaluated. evaluation_type={evaluation_type.value}"
+            )
+
         reward_breakdown = {}
         if task_reward_basis & env_bases:
             if env_reward_info.reward_breakdown is not None:
@@ -225,10 +239,6 @@ def evaluate_simulation(
                 reward_breakdown.update(action_reward_info.reward_breakdown)
             reward *= action_reward_info.reward
         if task_reward_basis & nl_bases:
-            if evaluation_type != EvaluationType.ALL_WITH_NL_ASSERTIONS:
-                raise ValueError(
-                    "NL assertions are part of the reward basis, but they are not being evaluated."
-                )
             if nl_reward_info.reward_breakdown is not None:
                 reward_breakdown.update(nl_reward_info.reward_breakdown)
             reward *= nl_reward_info.reward
