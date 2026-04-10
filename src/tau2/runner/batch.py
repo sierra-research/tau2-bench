@@ -375,6 +375,20 @@ def run_single_task(
     Returns:
         The completed SimulationRun with reward_info attached.
     """
+    import json
+    from pathlib import Path
+
+    to_dump = locals().copy()
+    del to_dump["json"], to_dump["Path"]
+    to_dump["config"] = to_dump["config"].model_dump()
+    to_dump["task"] = to_dump["task"].model_dump()
+    to_dump["save_dir"] = None
+    output_path = Path(f"nemo_gym_data/{config.domain}/{task.id}.json")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w") as f:
+        json.dump(to_dump, f, indent=4)
+    return
+
     simulation_id = str(uuid.uuid4())
     is_voice = isinstance(config, VoiceRunConfig)
 
