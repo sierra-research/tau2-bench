@@ -352,7 +352,7 @@ def _write_llm_log(
         json.dump(call_data, f, indent=2)
 
 
-def generate(
+async def generate(
     model: str,
     messages: list[Message],
     tools: Optional[list[Tool]] = None,

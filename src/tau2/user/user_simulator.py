@@ -195,15 +195,15 @@ class UserSimulator(
             or OUT_OF_SCOPE in message.content
         )
 
-    def generate_next_message(
+    async def generate_next_message(
         self, message: ValidUserInputMessage, state: UserStateType
     ) -> Tuple[UserMessage, UserStateType]:
-        user_message = self._generate_next_message(message, state)
+        user_message = await self._generate_next_message(message, state)
         # Updating state with response
         state.messages.append(user_message)
         return user_message, state
 
-    def _generate_next_message(
+    async def _generate_next_message(
         self, message: ValidUserInputMessage, state: UserStateType
     ) -> UserMessage:
         """Get the response from the user simulator.
@@ -232,7 +232,7 @@ class UserSimulator(
         messages = state.system_messages + state.flip_roles()
 
         # Generate response
-        assistant_message = generate(
+        assistant_message = await generate(
             model=self.llm,
             messages=messages,
             tools=self.tools,

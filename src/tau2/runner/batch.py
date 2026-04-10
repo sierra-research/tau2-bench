@@ -334,7 +334,7 @@ class _TaskLogContext:
 # =============================================================================
 
 
-def run_single_task(
+async def run_single_task(
     config: RunConfig,
     task: Task,
     *,
@@ -410,7 +410,7 @@ def run_single_task(
 
         # Layer 1: Run the simulation
         env_kwargs = _build_env_kwargs(config, task) or None
-        simulation = run_simulation(
+        simulation = await run_simulation(
             orchestrator, evaluation_type=evaluation_type, env_kwargs=env_kwargs
         )
 
@@ -643,11 +643,11 @@ def run_tasks(
         )
         ConsoleDisplay.console.print(console_text)
 
-        def _execute(
+        async def _execute(
             run_seed: int = seed,
             hallucination_feedback: Optional[str] = None,
         ):
-            return run_single_task(
+            return await run_single_task(
                 config,
                 task,
                 seed=run_seed,

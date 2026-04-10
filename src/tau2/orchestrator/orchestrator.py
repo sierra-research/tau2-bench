@@ -257,7 +257,7 @@ class BaseOrchestrator(ABC, Generic[BaseAgentT, BaseUserT, TrajectoryItemT]):
         except Exception as e:
             logger.warning(f"Error during user cleanup: {e}")
 
-    def run(self) -> SimulationRun:
+    async def run(self) -> SimulationRun:
         """
         Run the simulation.
 
@@ -277,7 +277,7 @@ class BaseOrchestrator(ABC, Generic[BaseAgentT, BaseUserT, TrajectoryItemT]):
         finalized = False
         try:
             while not self.done:
-                self.step()
+                await self.step()
                 self._check_termination()
             result = self._finalize()
             finalized = True
@@ -820,7 +820,7 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
         )
         return simulation_run
 
-    def step(self):
+    async def step(self):
         """
         Perform one step of the simulation using half-duplex (turn-based) communication.
 
@@ -838,7 +838,7 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
         )
         # AGENT/ENV -> USER
         if self.from_role in [Role.AGENT, Role.ENV] and self.to_role == Role.USER:
-            user_msg, self.user_state = self.user.generate_next_message(
+            user_msg, self.user_state = await self.user.generate_next_message(
                 self.message, self.user_state
             )
             user_msg.validate()
@@ -859,7 +859,7 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
         elif (
             self.from_role == Role.USER or self.from_role == Role.ENV
         ) and self.to_role == Role.AGENT:
-            agent_msg, self.agent_state = self.agent.generate_next_message(
+            agent_msg, self.agent_state = await self.agent.generate_next_message(
                 self.message, self.agent_state
             )
             agent_msg.validate()

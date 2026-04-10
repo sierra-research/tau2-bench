@@ -72,7 +72,8 @@ def run_with_retry(
                     on_retry()
                 time.sleep(retry_delay)
 
-            simulation = run_fn()
+            from asyncio import run
+            simulation = run(run_fn())
             simulation.trial = trial
 
             if console_display:

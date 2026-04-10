@@ -102,17 +102,17 @@ class LLMAgent(
             messages=message_history,
         )
 
-    def generate_next_message(
+    async def generate_next_message(
         self, message: ValidAgentInputMessage, state: LLMAgentStateType
     ) -> tuple[AssistantMessage, LLMAgentStateType]:
         """
         Respond to a user or tool message.
         """
-        assistant_message = self._generate_next_message(message, state)
+        assistant_message = await self._generate_next_message(message, state)
         state.messages.append(assistant_message)
         return assistant_message, state
 
-    def _generate_next_message(
+    async def _generate_next_message(
         self, message: ValidAgentInputMessage, state: LLMAgentStateType
     ) -> AssistantMessage:
         """
@@ -125,7 +125,7 @@ class LLMAgent(
         else:
             state.messages.append(message)
         messages = state.system_messages + state.messages
-        assistant_message = generate(
+        assistant_message = await generate(
             model=self.llm,
             tools=self.tools,
             messages=messages,

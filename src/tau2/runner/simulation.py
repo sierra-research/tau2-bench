@@ -16,7 +16,7 @@ from tau2.orchestrator.modes import CommunicationMode
 from tau2.orchestrator.orchestrator import Orchestrator
 
 
-def run_simulation(
+async def run_simulation(
     orchestrator: Union[Orchestrator, FullDuplexOrchestrator],
     *,
     evaluation_type: EvaluationType = EvaluationType.ALL,
@@ -56,7 +56,7 @@ def run_simulation(
         print(result.reward_info.reward)
     """
     # Run the orchestrator
-    simulation = orchestrator.run()
+    simulation = await orchestrator.run()
 
     # Save the actual policy used for this simulation
     simulation.policy = orchestrator.environment.get_policy()
