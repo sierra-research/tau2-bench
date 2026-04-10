@@ -97,9 +97,7 @@ def generate_test_audio():
             ulaw_path = os.path.join(OUTPUT_DIR, f"{filename}.ulaw")
             audio = AudioData(
                 data=raw_pcm,
-                format=AudioFormat(
-                    encoding=AudioEncoding.PCM_S16LE, sample_rate=16000
-                ),
+                format=AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=16000),
             )
             audio = resample_audio(audio, 8000)
             audio = convert_to_ulaw(audio)
