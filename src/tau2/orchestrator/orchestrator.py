@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any, Generic, Optional, TypeVar
+from os import getenv
 
 from loguru import logger
 
@@ -277,6 +278,9 @@ class BaseOrchestrator(ABC, Generic[BaseAgentT, BaseUserT, TrajectoryItemT]):
         finalized = False
         try:
             while not self.done:
+                if self.step_count % 1 == 0 and getenv("NEMO_GYM_TAU2_STEP_COUNT_PRINT") == "true":
+                    print(f"{self.task.id} step {self.step_count}")
+
                 await self.step()
                 self._check_termination()
             result = self._finalize()
