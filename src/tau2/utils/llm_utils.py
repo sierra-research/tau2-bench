@@ -426,9 +426,9 @@ async def generate(
 
     # The Tau2 default will never propogate things like reasoning from vLLM servers
     # We explicitly strip the reasoning from Gym side here
-    content: str = response["choices"][0]["content"]
+    content: str = response["choices"][0]["message"]["content"]
     if "</think>" in content:
-        response["choices"][0]["content"] = content.rsplit("</think>", maxsplit=1)[1]
+        response["choices"][0]["message"]["content"] = content.rsplit("</think>", maxsplit=1)[1]
 
     response = ModelResponse.model_validate(response)
 
