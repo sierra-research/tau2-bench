@@ -19,6 +19,10 @@ from tau2.agent.base_agent import (
     HalfDuplexVoiceAgent,
     ValidAgentInputMessage,
 )
+from tau2.agent.fastworkflow_adapter import (
+    FastWorkflowAgentAdapter,
+    create_fastworkflow_agent,
+)
 from tau2.agent.llm_agent import LLMAgent, LLMAgentState, LLMGTAgent, LLMSoloAgent
 
 # =============================================================================
@@ -88,6 +92,8 @@ __all__ = [
     "LLMAgentState",
     "LLMGTAgent",
     "LLMSoloAgent",
+    "FastWorkflowAgentAdapter",
+    "create_fastworkflow_agent",
     # Deprecated aliases (kept for backward compatibility)
     "BaseConversationParticipant",
     "BaseStreamingParticipant",

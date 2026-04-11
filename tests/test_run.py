@@ -1,7 +1,9 @@
 from copy import deepcopy
+from types import SimpleNamespace
 
 import pytest
 
+import tau2.runner.batch as batch_module
 from tau2.config import (
     DEFAULT_LLM_AGENT,
     DEFAULT_LLM_ARGS_AGENT,
@@ -374,6 +376,161 @@ def test_run_solo_agent(domain_name: str, base_task: Task):
         llm_args_user={},
     )
     assert simulation_results is not None
+
+
+def _patch_batch_run_domain(monkeypatch, seen=None):
+    """Helper to patch batch_module dependencies for run_domain tests."""
+    monkeypatch.setattr(
+        batch_module.ConsoleDisplay, "display_run_config", lambda c: None
+    )
+    monkeypatch.setattr(
+        batch_module.ConsoleDisplay, "display_agent_metrics", lambda m: None
+    )
+    monkeypatch.setattr(
+        batch_module, "get_tasks", lambda **kwargs: [SimpleNamespace(id="t1")]
+    )
+    monkeypatch.setattr(batch_module, "compute_metrics", lambda results: {"ok": True})
+    monkeypatch.setattr(batch_module, "make_run_name", lambda config: "test_run")
+    if seen is not None:
+        monkeypatch.setattr(
+            batch_module,
+            "run_tasks",
+            lambda *args, **kwargs: (
+                seen.setdefault("kwargs", kwargs) or SimpleNamespace(simulations=[])
+            ),
+        )
+    else:
+        monkeypatch.setattr(
+            batch_module,
+            "run_tasks",
+            lambda *args, **kwargs: SimpleNamespace(simulations=[]),
+        )
+
+
+def test_run_domain_fastworkflow_overrides_llm_agent(monkeypatch):
+    config = TextRunConfig(
+        domain="retail",
+        agent="fastworkflow_agent",
+        user="user_simulator",
+        task_ids=["task_1"],
+        llm_agent="placeholder-model",
+        llm_args_agent={},
+        llm_user="user-model",
+        llm_args_user={},
+        num_trials=1,
+        max_steps=1,
+        max_errors=1,
+        max_concurrency=1,
+    )
+    seen = {}
+    _patch_batch_run_domain(monkeypatch, seen=seen)
+    monkeypatch.setattr("dotenv.dotenv_values", lambda path: {"LLM_AGENT": "fw-model"})
+    batch_module.run_domain(config)
+    assert config.llm_agent == "fw-model"
+
+
+def test_run_domain_fastworkflow_fallback_unknown(monkeypatch):
+    config = TextRunConfig(
+        domain="retail",
+        agent="fastworkflow_agent",
+        user="user_simulator",
+        task_ids=["task_1"],
+        llm_agent="placeholder-model",
+        llm_args_agent={},
+        llm_user="user-model",
+        llm_args_user={},
+        num_trials=1,
+        max_steps=1,
+        max_errors=1,
+        max_concurrency=1,
+    )
+    _patch_batch_run_domain(monkeypatch)
+    monkeypatch.setattr("dotenv.dotenv_values", lambda path: {})
+    batch_module.run_domain(config)
+    assert config.llm_agent == "unknown"
+
+
+def test_run_domain_non_fastworkflow_does_not_override(monkeypatch):
+    config = TextRunConfig(
+        domain="mock",
+        agent="llm_agent",
+        user="user_simulator",
+        task_ids=["task_1"],
+        llm_agent="keep-model",
+        llm_args_agent={},
+        llm_user="user-model",
+        llm_args_user={},
+        num_trials=1,
+        max_steps=1,
+        max_errors=1,
+        max_concurrency=1,
+    )
+    _patch_batch_run_domain(monkeypatch)
+    batch_module.run_domain(config)
+    assert config.llm_agent == "keep-model"
+
+
+def test_fastworkflow_factory_constructor_signature():
+    """Verify the factory function passes the correct kwargs to the adapter."""
+    from tau2.agent.fastworkflow_adapter import create_fastworkflow_agent
+    from tau2.environment.tool import as_tool
+
+    def _dummy(x: int) -> str:
+        return str(x)
+
+    tools = [as_tool(_dummy)]
+    agent = create_fastworkflow_agent(
+        tools=tools,
+        domain_policy="test policy",
+        workflow_type="airline",
+        # Extra kwargs from build_agent that should be absorbed by **kwargs
+        llm="some-model",
+        llm_args={"temperature": 0.5},
+        task=None,
+        audio_native_config=None,
+        audio_taps_dir=None,
+    )
+    assert agent.tools == tools
+    assert agent.domain_policy == "test policy"
+    assert agent.workflow_type == "airline"
+
+
+def test_fastworkflow_factory_uses_domain_kwarg():
+    """Verify the factory derives workflow_type from the domain kwarg (build_agent path)."""
+    from tau2.agent.fastworkflow_adapter import create_fastworkflow_agent
+    from tau2.environment.tool import as_tool
+
+    def _dummy(x: int) -> str:
+        return str(x)
+
+    tools = [as_tool(_dummy)]
+
+    # When domain is passed (as build_agent does) but workflow_type is not
+    agent = create_fastworkflow_agent(
+        tools=tools,
+        domain_policy="test policy",
+        domain="airline",
+        llm="some-model",
+        llm_args={},
+        task=None,
+        audio_native_config=None,
+        audio_taps_dir=None,
+    )
+    assert agent.workflow_type == "airline"
+
+    # workflow_type takes priority over domain
+    agent2 = create_fastworkflow_agent(
+        tools=tools,
+        domain_policy="test policy",
+        domain="retail",
+        workflow_type="telecom",
+        llm="some-model",
+        llm_args={},
+        task=None,
+        audio_native_config=None,
+        audio_taps_dir=None,
+    )
+    assert agent2.workflow_type == "telecom"
 
 
 # =============================================================================

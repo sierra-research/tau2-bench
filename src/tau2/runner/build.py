@@ -122,6 +122,8 @@ def build_agent(
         task=task,
         audio_native_config=audio_native_config,
         audio_taps_dir=audio_taps_dir,
+        domain=environment.domain_name,
+        env_db=environment.tools.db,
     )
 
 

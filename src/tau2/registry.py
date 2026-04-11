@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from tau2.agent.discrete_time_audio_native_agent import (
     create_discrete_time_audio_native_agent,
 )
+from tau2.agent.fastworkflow_adapter import create_fastworkflow_agent
 from tau2.agent.llm_agent import (
     LLMGTAgent,
     LLMSoloAgent,
@@ -310,6 +311,7 @@ try:
         create_discrete_time_audio_native_agent,
         "discrete_time_audio_native_agent",
     )
+    registry.register_agent_factory(create_fastworkflow_agent, "fastworkflow_agent")
     registry.register_domain(mock_domain_get_environment, "mock")
     registry.register_tasks(mock_domain_get_tasks, "mock")
 
