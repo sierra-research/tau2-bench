@@ -868,7 +868,14 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
             agent_msg, self.agent_state = await self.agent.generate_next_message(
                 self.message, self.agent_state
             )
-            agent_msg.validate()
+            # Catch context window exceeded errors -- NeMo Gym OpenAI client will return an empty message
+            try:
+                agent_msg.validate()
+            except:
+                self.done = True
+                self.termination_reason = TerminationReason.CONTEXT_WINDOW_EXCEEDED
+                return
+
             if self.agent.is_stop(agent_msg):
                 self.done = True
                 self.termination_reason = TerminationReason.AGENT_STOP
