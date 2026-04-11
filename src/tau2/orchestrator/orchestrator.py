@@ -279,11 +279,12 @@ class BaseOrchestrator(ABC, Generic[BaseAgentT, BaseUserT, TrajectoryItemT]):
         finalized = False
         try:
             while not self.done:
+                await self.step()
+                self._check_termination()
+
                 if self.step_count % 10 == 0 and getenv("NEMO_GYM_TAU2_STEP_COUNT_PRINT") == "true":
                     print(f"Task ID {self.task.id} step {self.step_count} ({time.perf_counter() - self._run_start_perf:.2f}s)", file=sys.stderr)
 
-                await self.step()
-                self._check_termination()
             result = self._finalize()
             finalized = True
             return result
