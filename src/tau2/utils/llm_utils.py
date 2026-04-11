@@ -428,7 +428,7 @@ async def generate(
     # We explicitly strip the reasoning from Gym side here
     content: Optional[str] = response["choices"][0]["message"]["content"]
     if content is not None and "</think>" in content:
-        response["choices"][0]["message"]["content"] = content.rsplit("</think>", maxsplit=1)[1]
+        response["choices"][0]["message"]["content"] = content.rsplit("</think>", maxsplit=1)[1].strip()
 
     response = ModelResponse.model_validate(response)
 
