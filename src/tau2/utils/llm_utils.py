@@ -420,6 +420,11 @@ async def generate(
             tool_choice=tool_choice,
             **kwargs,
         )
+
+        choice = response["choices"][0]
+        if choice["finish_reason"] == "length" and not (choice["message"]["content"] or choice["message"]["content"]["tool_calls"]):
+            raise ValueError("Finished due to max length!")
+
     except Exception as e:
         logger.error(e)
         raise e
