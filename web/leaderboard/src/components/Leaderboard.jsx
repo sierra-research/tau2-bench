@@ -551,9 +551,9 @@ const Leaderboard = () => {
               <tr>
                 <th>Rank</th>
                 <th>Model</th>
-                <th>{domain === 'banking_knowledge' ? 'Retrieval' : 'Submitting Org'}</th>
+                <th>{domain === 'banking_knowledge' ? 'Retrieval' : isVoice ? 'Provider' : 'Submitting Org'}</th>
                 {isVoice ? (
-                  <th>Provider</th>
+                  <th>Submitting Org</th>
                 ) : (
                   <th>Reasoning</th>
                 )}
@@ -688,6 +688,7 @@ const Leaderboard = () => {
                 
                 return modelStats.map((model, index) => {
                   const isExpanded = expandedRows.has(model.key)
+                  const displayOrg = isVoice ? (model.data.voiceConfig?.provider || model.organization) : model.organization
                   return (
                    <React.Fragment key={model.key}>
                    <tr className={`model-row ${model.data.isLegacy ? 'legacy-model' : ''} ${isExpanded ? 'expanded' : ''}`}>
@@ -725,44 +726,47 @@ const Leaderboard = () => {
                            <span className="no-data">—</span>
                          )
                        ) : (
-                       <div className="org-container">
-                         <div className="company-logo">
-                          {model.organization === 'Anthropic' && (
-                            <img src={`${import.meta.env.BASE_URL}claude.png`} alt="Anthropic" className="logo-img" />
-                          )}
-                          {model.organization === 'OpenAI' && (
-                            <img src={`${import.meta.env.BASE_URL}openai.svg`} alt="OpenAI" className="logo-img" />
-                          )}
-                          {model.organization === 'Sierra' && (
-                            <img src={`${import.meta.env.BASE_URL}sierra-logo.png`} alt="Sierra" className="logo-img" />
-                          )}
-                          {model.organization === 'Moonshot AI' && (
-                            <span className="emoji-logo">🚀</span>
-                          )}
-                          {model.organization === 'DeepSeek' && (
-                            <img src={`${import.meta.env.BASE_URL}DeepSeek_logo_icon.png`} alt="DeepSeek" className="logo-img" />
-                          )}
-                          {(model.organization === 'Alibaba' || model.organization === 'Qwen') && (
-                            <img src={`${import.meta.env.BASE_URL}qwen-color.png`} alt="Qwen" className="logo-img" />
-                          )}
-                         {model.organization === 'Google' && (
-                           <img src={`${import.meta.env.BASE_URL}Google__G__logo.svg.png`} alt="Google" className="logo-img" />
+                      <div className="org-container">
+                        <div className="company-logo">
+                         {displayOrg === 'Anthropic' && (
+                           <img src={`${import.meta.env.BASE_URL}claude.png`} alt="Anthropic" className="logo-img" />
                          )}
-                         {model.organization === 'NVIDIA' && (
-                           <img src={`${import.meta.env.BASE_URL}Logo-nvidia-transparent-PNG.png`} alt="NVIDIA" className="logo-img" />
+                         {displayOrg === 'OpenAI' && (
+                           <img src={`${import.meta.env.BASE_URL}openai.svg`} alt="OpenAI" className="logo-img" />
                          )}
-                        </div>
-                         <span className="org-name">{model.organization}</span>
+                         {displayOrg === 'Sierra' && (
+                           <img src={`${import.meta.env.BASE_URL}sierra-logo.png`} alt="Sierra" className="logo-img" />
+                         )}
+                         {displayOrg === 'Moonshot AI' && (
+                           <span className="emoji-logo">🚀</span>
+                         )}
+                         {displayOrg === 'DeepSeek' && (
+                           <img src={`${import.meta.env.BASE_URL}DeepSeek_logo_icon.png`} alt="DeepSeek" className="logo-img" />
+                         )}
+                         {(displayOrg === 'Alibaba' || displayOrg === 'Qwen') && (
+                           <img src={`${import.meta.env.BASE_URL}qwen-color.png`} alt="Qwen" className="logo-img" />
+                         )}
+                        {displayOrg === 'Google' && (
+                          <img src={`${import.meta.env.BASE_URL}Google__G__logo.svg.png`} alt="Google" className="logo-img" />
+                        )}
+                        {displayOrg === 'NVIDIA' && (
+                          <img src={`${import.meta.env.BASE_URL}Logo-nvidia-transparent-PNG.png`} alt="NVIDIA" className="logo-img" />
+                        )}
+                        {displayOrg === 'xAI' && (
+                          <img src={`${import.meta.env.BASE_URL}xai-logo.svg`} alt="xAI" className="logo-img" />
+                        )}
                        </div>
+                        <span className="org-name">{displayOrg}</span>
+                      </div>
                        )}
                      </td>
 
-                     {/* Reasoning Effort / Voice Provider */}
+                     {/* Reasoning Effort / Submitting Org (voice) */}
                      {isVoice ? (
                        <td className="reasoning-info">
-                         {model.data.voiceConfig?.provider ? (
+                         {model.organization ? (
                            <span className="voice-provider-badge">
-                             {model.data.voiceConfig.provider}
+                             {model.organization}
                            </span>
                          ) : (
                            <span className="no-data">—</span>

@@ -75,7 +75,7 @@ function LeaderboardPreview({ onViewFullLeaderboard }) {
             const overall = values.reduce((s, v) => s + v, 0) / values.length
             voiceModels.push({
               name: sub.model_name,
-              org: sub.model_organization,
+              org: sub.voice_config?.provider || sub.model_organization,
               overall: overall,
             })
           }
