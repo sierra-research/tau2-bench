@@ -53,7 +53,8 @@ Example usage for preparing submissions:
     )
 """
 
-from .data_models import (
+from .leaderboard import Leaderboard
+from .submission import (
     DOMAINS,
     METRICS,
     SUBMISSION_FILE_NAME,
@@ -63,32 +64,28 @@ from .data_models import (
     LeaderboardEntry,
     LeaderboardManifest,
     Methodology,
-    ReferenceInfo,
+    Reference,
     Results,
     Submission,
-    VerificationInfo,
+    SubmissionData,
+    Verification,
     VoiceConfig,
 )
-from .leaderboard import Leaderboard
-
-# Also export SubmissionData for trajectory verification workflows
-from .submission import SubmissionData
 
 __all__ = [
     # Main Leaderboard class
     "Leaderboard",
-    # Data models for reading leaderboard
+    # Data models
     "Submission",
     "ContactInfo",
     "DomainResults",
     "Results",
     "Methodology",
-    "VerificationInfo",
-    "ReferenceInfo",
+    "Verification",
+    "Reference",
     "VoiceConfig",
     "LeaderboardManifest",
     "LeaderboardEntry",
-    # For submission preparation
     "SubmissionData",
     # Constants
     "DOMAINS",

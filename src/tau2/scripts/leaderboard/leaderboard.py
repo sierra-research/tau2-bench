@@ -23,7 +23,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .data_models import (
+from .submission import (
     DOMAINS,
     MANIFEST_FILE_NAME,
     METRICS,

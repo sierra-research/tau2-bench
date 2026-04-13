@@ -1,273 +1,611 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Tau2-Bench Leaderboard Submission",
-  "description": "Schema for submitting model results to the tau2-bench leaderboard",
-  "type": "object",
-  "required": ["model_name", "model_organization", "submitting_organization", "submission_date", "contact_info", "results"],
-  "properties": {
-    "model_name": {
-      "type": "string",
-      "description": "Name of the model being evaluated",
-      "examples": ["GPT-4.1", "Claude-3.7-Sonnet", "Custom-Model-v1.0"]
-    },
-    "model_organization": {
-      "type": "string",
-      "description": "Organization or company that developed the model",
-      "examples": ["OpenAI", "Anthropic", "Google", "My Company"]
-    },
-    "submitting_organization": {
-      "type": "string",
-      "description": "Organization that actually ran the evaluation and submitted the results",
-      "examples": ["Sierra", "Anthropic", "OpenAI", "Independent Researcher"]
-    },
-    "submission_date": {
-      "type": "string",
-      "format": "date",
-      "description": "Date of submission in YYYY-MM-DD format"
-    },
-    "contact_info": {
-      "type": "object",
+  "$defs": {
+    "ContactInfo": {
+      "additionalProperties": false,
+      "description": "Contact information for the submission.",
       "properties": {
         "email": {
-          "type": "string",
-          "format": "email",
-          "description": "Contact email for questions about this submission"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Contact email for questions about this submission",
+          "title": "Email"
         },
         "name": {
-          "type": "string",
-          "description": "Name of the submitter"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of the submitter",
+          "title": "Name"
         },
         "github": {
-          "type": "string",
-          "description": "GitHub username (optional)"
-        }
-      }
-    },
-    "is_new": {
-      "type": "boolean",
-      "description": "Whether this model should be highlighted as new on the leaderboard",
-      "default": false
-    },
-    "submission_type": {
-      "type": "string",
-      "enum": ["standard", "custom"],
-      "description": "Type of submission: 'standard' uses the default tau2-bench scaffold (base LLM + standard tools/prompts), 'custom' uses modified scaffolds (multi-model routers, additional tools, custom prompting, etc.). Custom submissions require detailed methodology documentation.",
-      "default": "standard"
-    },
-    "modality": {
-      "type": "string",
-      "enum": ["text", "voice"],
-      "description": "Evaluation modality: 'text' for standard text-based half-duplex evaluation, 'voice' for audio-native full-duplex evaluation",
-      "default": "text"
-    },
-    "trajectories_available": {
-      "type": "boolean",
-      "description": "Whether trajectory files are available for this submission",
-      "default": false
-    },
-    "trajectory_files": {
-      "type": "object",
-      "description": "Mapping of domain name to trajectory filename in the trajectories/ directory",
-      "properties": {
-        "airline": { "type": "string", "description": "Filename of the airline trajectory file" },
-        "retail": { "type": "string", "description": "Filename of the retail trajectory file" },
-        "telecom": { "type": "string", "description": "Filename of the telecom trajectory file" },
-        "banking_knowledge": { "type": "string", "description": "Filename of the banking_knowledge trajectory file" }
-      },
-      "additionalProperties": false
-    },
-    "references": {
-      "type": "array",
-      "description": "Links to papers, blog posts, documentation, or other resources about this model",
-      "items": {
-        "type": "object",
-        "required": ["title", "url"],
-        "properties": {
-          "title": {
-            "type": "string",
-            "description": "Title or description of the reference"
-          },
-          "url": {
-            "type": "string",
-            "format": "uri",
-            "description": "URL to the reference"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["paper", "blog_post", "documentation", "model_card", "github", "huggingface", "other"],
-            "description": "Type of reference"
-          }
-        }
-      },
-      "default": []
-    },
-    "results": {
-      "type": "object",
-      "description": "Performance results for each domain",
-      "properties": {
-        "retail": {
-          "$ref": "#/definitions/domain_results"
-        },
-        "airline": {
-          "$ref": "#/definitions/domain_results"
-        },
-        "telecom": {
-          "$ref": "#/definitions/domain_results"
-        },
-        "banking_knowledge": {
-          "$ref": "#/definitions/banking_knowledge_results"
-        }
-      },
-      "additionalProperties": false
-    },
-    "voice_config": {
-      "type": "object",
-      "description": "Voice-specific configuration for audio-native evaluations. Required when modality is 'voice'.",
-      "properties": {
-        "provider": {
-          "type": "string",
-          "description": "Audio-native provider (e.g. 'openai', 'gemini', 'xai')"
-        },
-        "model": {
-          "type": "string",
-          "description": "Audio-native model identifier (e.g. 'gpt-realtime-1.5')"
-        },
-        "tick_duration_seconds": {
-          "type": ["number", "null"],
-          "description": "Duration of each simulation tick in seconds"
-        },
-        "max_steps_seconds": {
-          "type": ["number", "null"],
-          "description": "Maximum simulation duration in seconds"
-        },
-        "user_tts_provider": {
-          "type": ["string", "null"],
-          "description": "User simulator TTS provider and model (e.g. 'elevenlabs/eleven_v3')"
-        }
-      },
-      "required": ["provider", "model"],
-      "additionalProperties": false
-    },
-    "methodology": {
-      "type": "object",
-      "description": "Information about how the evaluation was conducted",
-      "properties": {
-        "evaluation_date": {
-          "type": "string",
-          "format": "date",
-          "description": "Date when evaluation was conducted"
-        },
-        "tau2_bench_version": {
-          "type": "string",
-          "description": "Version of tau2-bench used for evaluation"
-        },
-        "user_simulator": {
-          "type": ["string", "null"],
-          "description": "For text submissions: model name (e.g. 'gpt-4.1-2025-04-14'). For voice submissions: version identifier (e.g. 'v1.0') anchored to git tag voice-user-sim-<version>. Null if unknown."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Additional notes about the evaluation methodology"
-        },
-        "verification": {
-          "type": "object",
-          "description": "Verification details for result authenticity",
-          "required": ["modified_prompts", "omitted_questions"],
-          "properties": {
-            "modified_prompts": {
-              "type": ["boolean", "null"],
-              "description": "Whether any modifications were made to user simulator or agent prompts. Null if unknown."
+          "anyOf": [
+            {
+              "type": "string"
             },
-            "omitted_questions": {
-              "type": ["boolean", "null"],
-              "description": "Whether any questions/tasks were omitted from the evaluation. Null if unknown."
-            },
-            "details": {
-              "type": "string",
-              "description": "Additional verification details or explanations"
+            {
+              "type": "null"
             }
-          }
-        }
-      }
-    }
-  },
-  "definitions": {
-    "domain_results": {
-      "type": "object",
-      "description": "Results for a specific domain",
-      "properties": {
-        "pass_1": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "maximum": 100,
-          "description": "Pass^1 success rate percentage"
-        },
-        "pass_2": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "maximum": 100,
-          "description": "Pass^2 success rate percentage"
-        },
-        "pass_3": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "maximum": 100,
-          "description": "Pass^3 success rate percentage"
-        },
-        "pass_4": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "maximum": 100,
-          "description": "Pass^4 success rate percentage"
-        },
-        "cost": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "description": "Average cost in USD to run one trajectory in this domain (optional)"
+          ],
+          "default": null,
+          "description": "GitHub username (optional)",
+          "title": "Github"
         }
       },
-      "additionalProperties": false
+      "title": "ContactInfo",
+      "type": "object"
     },
-    "banking_knowledge_results": {
-      "type": "object",
-      "description": "Results for the banking_knowledge domain. Requires a retrieval_config field specifying the retrieval method used.",
+    "DomainResults": {
+      "additionalProperties": false,
+      "description": "Results for a specific domain.",
       "properties": {
         "pass_1": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "maximum": 100,
-          "description": "Pass^1 success rate percentage"
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pass^1 success rate percentage",
+          "title": "Pass 1"
         },
         "pass_2": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "maximum": 100,
-          "description": "Pass^2 success rate percentage"
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pass^2 success rate percentage",
+          "title": "Pass 2"
         },
         "pass_3": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "maximum": 100,
-          "description": "Pass^3 success rate percentage"
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pass^3 success rate percentage",
+          "title": "Pass 3"
         },
         "pass_4": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "maximum": 100,
-          "description": "Pass^4 success rate percentage"
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pass^4 success rate percentage",
+          "title": "Pass 4"
         },
         "cost": {
-          "type": ["number", "null"],
-          "minimum": 0,
-          "description": "Average cost in USD to run one trajectory in this domain (optional)"
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Average cost in USD to run one trajectory in this domain (optional)",
+          "title": "Cost"
         },
         "retrieval_config": {
-          "type": "string",
-          "description": "Retrieval method used for knowledge base access (e.g., 'terminal', 'text-emb-3-large', 'qwen3-emb', 'bm25')"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Retrieval method used for knowledge base access (banking_knowledge domain only)",
+          "title": "Retrieval Config"
         }
       },
-      "required": ["retrieval_config"],
-      "additionalProperties": false
+      "title": "DomainResults",
+      "type": "object"
+    },
+    "Methodology": {
+      "additionalProperties": false,
+      "description": "Information about how the evaluation was conducted.",
+      "properties": {
+        "evaluation_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Date when evaluation was conducted",
+          "title": "Evaluation Date"
+        },
+        "tau2_bench_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Version of tau-bench used for evaluation",
+          "title": "Tau2 Bench Version"
+        },
+        "user_simulator": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For text: model name (e.g. 'gpt-4.1-2025-04-14'). For voice: version identifier (e.g. 'v1.0') anchored to git tag voice-user-sim-<version>.",
+          "title": "User Simulator"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Additional notes about the evaluation methodology",
+          "title": "Notes"
+        },
+        "verification": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Verification"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Verification details for result authenticity"
+        }
+      },
+      "title": "Methodology",
+      "type": "object"
+    },
+    "Reference": {
+      "additionalProperties": false,
+      "description": "A reference link (paper, blog post, github repo, etc.).",
+      "properties": {
+        "title": {
+          "description": "Title or description of the reference",
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "description": "URL to the reference",
+          "title": "Url",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Type of reference: paper, blog_post, documentation, model_card, github, huggingface, other",
+          "title": "Type"
+        }
+      },
+      "required": [
+        "title",
+        "url"
+      ],
+      "title": "Reference",
+      "type": "object"
+    },
+    "Results": {
+      "additionalProperties": false,
+      "description": "Performance results for each domain.",
+      "properties": {
+        "retail": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DomainResults"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "airline": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DomainResults"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "telecom": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DomainResults"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "banking_knowledge": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DomainResults"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "Results",
+      "type": "object"
+    },
+    "Verification": {
+      "additionalProperties": false,
+      "description": "Verification details for result authenticity.",
+      "properties": {
+        "modified_prompts": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether any modifications were made to user simulator or agent prompts",
+          "title": "Modified Prompts"
+        },
+        "omitted_questions": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether any questions/tasks were omitted from the evaluation",
+          "title": "Omitted Questions"
+        },
+        "details": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Additional verification details or explanations",
+          "title": "Details"
+        }
+      },
+      "title": "Verification",
+      "type": "object"
+    },
+    "VoiceConfig": {
+      "additionalProperties": false,
+      "description": "Voice-specific configuration for reproducing audio-native evaluations.",
+      "properties": {
+        "provider": {
+          "description": "Audio-native provider (e.g. 'openai', 'gemini', 'xai')",
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "description": "Audio-native model identifier (e.g. 'gpt-realtime-1.5')",
+          "title": "Model",
+          "type": "string"
+        },
+        "tick_duration_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Duration of each simulation tick in seconds",
+          "title": "Tick Duration Seconds"
+        },
+        "max_steps_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum simulation duration in seconds",
+          "title": "Max Steps Seconds"
+        },
+        "user_tts_provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "User simulator TTS provider and model (e.g. 'elevenlabs/eleven_v3')",
+          "title": "User Tts Provider"
+        }
+      },
+      "required": [
+        "provider",
+        "model"
+      ],
+      "title": "VoiceConfig",
+      "type": "object"
     }
-  }
+  },
+  "description": "Schema for submitting model results to the tau2-bench leaderboard. Auto-generated from the Pydantic model in src/tau2/scripts/leaderboard/submission.py \u2014 do not edit by hand.",
+  "examples": [
+    {
+      "contact_info": {
+        "email": "researcher@openai.com",
+        "github": "janedoe",
+        "name": "Jane Doe"
+      },
+      "is_new": true,
+      "methodology": {
+        "evaluation_date": "2024-01-10",
+        "notes": "Evaluated using default configuration with 4 trials per task",
+        "tau2_bench_version": "1.0.0",
+        "user_simulator": "gpt-4.1",
+        "verification": {
+          "details": "Standard evaluation with unmodified prompts",
+          "modified_prompts": false,
+          "omitted_questions": false
+        }
+      },
+      "model_name": "GPT-4.1",
+      "model_organization": "OpenAI",
+      "results": {
+        "airline": {
+          "pass_1": 78.9,
+          "pass_2": 89.4,
+          "pass_3": 94.7,
+          "pass_4": 97.1
+        },
+        "retail": {
+          "pass_1": 85.5,
+          "pass_2": 92.3,
+          "pass_3": 96.1,
+          "pass_4": 98.2
+        },
+        "telecom": {
+          "cost": 10.0,
+          "pass_1": 82.1,
+          "pass_2": 90.8,
+          "pass_3": 95.3,
+          "pass_4": 98.5
+        }
+      },
+      "submission_date": "2024-01-15",
+      "submission_type": "standard",
+      "submitting_organization": "OpenAI",
+      "trajectories_available": true,
+      "trajectory_files": {
+        "airline": "gpt-4.1_airline_default_gpt-4o_4trials.json",
+        "retail": "gpt-4.1_retail_default_gpt-4o_4trials.json",
+        "telecom": "gpt-4.1_telecom_default_gpt-4o_4trials.json"
+      }
+    }
+  ],
+  "properties": {
+    "model_name": {
+      "description": "Name of the model being evaluated",
+      "title": "Model Name",
+      "type": "string"
+    },
+    "model_organization": {
+      "description": "Organization or company that developed the model",
+      "title": "Model Organization",
+      "type": "string"
+    },
+    "submitting_organization": {
+      "description": "Organization that actually ran the evaluation and submitted the results",
+      "title": "Submitting Organization",
+      "type": "string"
+    },
+    "submission_date": {
+      "description": "Date of submission",
+      "format": "date",
+      "title": "Submission Date",
+      "type": "string"
+    },
+    "submission_type": {
+      "default": "standard",
+      "description": "Type of submission: 'standard' uses the default tau2-bench scaffold, 'custom' uses modified scaffolds (multi-model routers, additional tools, custom prompting, etc.)",
+      "enum": [
+        "standard",
+        "custom"
+      ],
+      "title": "Submission Type",
+      "type": "string"
+    },
+    "modality": {
+      "default": "text",
+      "description": "Evaluation modality: 'text' for standard text-based, 'voice' for audio-native",
+      "enum": [
+        "text",
+        "voice"
+      ],
+      "title": "Modality",
+      "type": "string"
+    },
+    "contact_info": {
+      "$ref": "#/$defs/ContactInfo",
+      "description": "Contact information"
+    },
+    "results": {
+      "$ref": "#/$defs/Results",
+      "description": "Performance results for each domain"
+    },
+    "is_new": {
+      "default": false,
+      "description": "Whether this model should be highlighted as new on the leaderboard",
+      "title": "Is New",
+      "type": "boolean"
+    },
+    "trajectories_available": {
+      "default": false,
+      "description": "Whether trajectory files are available for this submission",
+      "title": "Trajectories Available",
+      "type": "boolean"
+    },
+    "trajectory_files": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Mapping of domain name to trajectory filename (e.g. {'retail': 'my-model_retail_...json'})",
+      "title": "Trajectory Files"
+    },
+    "references": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Reference"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Links to papers, blog posts, documentation, or other resources",
+      "title": "References"
+    },
+    "methodology": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Methodology"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Information about how the evaluation was conducted"
+    },
+    "voice_config": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VoiceConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Voice-specific configuration for audio-native evaluations (only for voice submissions)"
+    },
+    "reasoning_effort": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Reasoning/thinking effort level used during evaluation (e.g. 'high', 'low', 'none', 'enabled')",
+      "title": "Reasoning Effort"
+    }
+  },
+  "required": [
+    "model_name",
+    "model_organization",
+    "submitting_organization",
+    "submission_date",
+    "contact_info",
+    "results"
+  ],
+  "title": "Tau2-Bench Leaderboard Submission",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }

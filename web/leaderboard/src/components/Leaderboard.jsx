@@ -554,11 +554,7 @@ const Leaderboard = () => {
                 <th>Rank</th>
                 <th>Model</th>
                 <th>{domain === 'banking_knowledge' ? 'Retrieval' : isVoice ? 'Provider' : 'Submitting Org'}</th>
-                {isVoice ? (
-                  <th>Submitting Org</th>
-                ) : (
-                  <th>Reasoning</th>
-                )}
+                <th>Reasoning</th>
                 <th>User Sim</th>
                 <th className="passk-header-cell">
                   <div className="passk-header-toggle">
@@ -763,28 +759,14 @@ const Leaderboard = () => {
                        )}
                      </td>
 
-                     {/* Reasoning Effort / Submitting Org (voice) */}
-                     {isVoice ? (
-                       <td className="reasoning-info">
-                         {model.organization ? (
-                           <span className="voice-provider-badge">
-                             {model.organization}
-                           </span>
-                         ) : (
-                           <span className="no-data">—</span>
-                         )}
-                       </td>
-                     ) : (
-                       <td className="reasoning-info">
-                         {model.data.reasoningEffort ? (
-                           <span className={`reasoning-badge reasoning-${model.data.reasoningEffort}`}>
-                             {model.data.reasoningEffort}
-                           </span>
-                         ) : (
-                           <span className="no-data">—</span>
-                         )}
-                       </td>
-                     )}
+                     {/* Reasoning Effort */}
+                     <td className="reasoning-info">
+                       {model.data.reasoningEffort ? (
+                         <span style={{textTransform: 'capitalize'}}>{model.data.reasoningEffort}</span>
+                       ) : (
+                         <span className="no-data">—</span>
+                       )}
+                     </td>
                      
                      {/* User Simulator */}
                      <td className="user-sim-info">

@@ -19,6 +19,8 @@ Trajectory files are **not** stored in this directory — they are hosted on S3.
 
 Your `submission.json` must conform to [`schema.json`](schema.json) in this directory.
 
+**Note:** `schema.json` is auto-generated from the Pydantic models in `src/tau2/scripts/leaderboard/submission.py`. Do not edit it by hand. Run `make generate-schema` to regenerate, or `make check-schema` to verify it is up-to-date.
+
 ## Hosting
 
 Submission metadata (`submission.json`, `manifest.json`) in this directory is synced to the `sierra-tau-bench-public` S3 bucket on merge to `main` (via the `sync-submissions-s3.yml` GitHub Actions workflow).

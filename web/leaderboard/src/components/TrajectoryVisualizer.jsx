@@ -567,7 +567,7 @@ const TrajectoryVisualizer = () => {
                   <optgroup label="τ-bench (Text)">
                     {submissions.filter(s => s.modality === 'text').map(s => (
                       <option key={s.dir} value={s.dir}>
-                        {s.model_name}{s.reasoning_effort ? ` [${s.reasoning_effort}]` : ''} ({s.model_organization})
+                        {s.model_name}{s.reasoning_effort ? ` [${s.reasoning_effort.charAt(0).toUpperCase() + s.reasoning_effort.slice(1)}]` : ''} ({s.model_organization})
                       </option>
                     ))}
                   </optgroup>
@@ -663,7 +663,7 @@ const TrajectoryVisualizer = () => {
                   <div className="task-list-header-left">
                     <h3>
                       {isVoice && <span className="voice-badge">🎙️ Voice</span>}
-                      {currentSubmission?.model_name}{currentSubmission?.reasoning_effort ? ` [${currentSubmission.reasoning_effort}]` : ''} — {selectedDomain.charAt(0).toUpperCase() + selectedDomain.slice(1)}
+                      {currentSubmission?.model_name}{currentSubmission?.reasoning_effort ? ` [${currentSubmission.reasoning_effort.charAt(0).toUpperCase() + currentSubmission.reasoning_effort.slice(1)}]` : ''} — {selectedDomain.charAt(0).toUpperCase() + selectedDomain.slice(1)}
                     </h3>
                     <p className="task-list-subtitle">
                       {tasks.length} tasks · {numTrials} trial{numTrials !== 1 ? 's' : ''} each

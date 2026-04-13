@@ -651,6 +651,14 @@ def prepare_submission(
         default="standard",
     )
 
+    reasoning_effort = (
+        Prompt.ask(
+            "Reasoning effort level (e.g. high, medium, low, none, enabled)",
+            default="",
+        )
+        or None
+    )
+
     # Methodology information
     console.print("\n🔬 Methodology information:", style="dim")
     evaluation_date_str = Prompt.ask(
@@ -815,6 +823,7 @@ def prepare_submission(
         references=references if references else None,
         methodology=methodology,
         voice_config=voice_config,
+        reasoning_effort=reasoning_effort,
     )
 
     submission_file = submission_dir / SUBMISSION_FILE_NAME
