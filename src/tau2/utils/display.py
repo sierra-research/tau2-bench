@@ -273,8 +273,7 @@ class ConsoleDisplay:
                 # ticks, peek ahead and absorb the gap.
                 if (
                     last_content_pattern.endswith("+agent")
-                    and next_pattern
-                    == last_content_pattern.removesuffix("+agent")
+                    and next_pattern == last_content_pattern.removesuffix("+agent")
                     and j + 1 < len(ticks)
                     and get_pattern(extract_tick_info(ticks[j + 1]))
                     == last_content_pattern
