@@ -6,6 +6,8 @@ import './VoiceViewer.css'
 const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
   || `${import.meta.env.BASE_URL}submissions`
 
+const NO_CACHE = { cache: 'no-cache' }
+
 /**
  * Voice trajectory viewer component.
  *
@@ -38,7 +40,7 @@ const VoiceViewer = ({
         setError(null)
 
         const url = `${SUBMISSIONS_BASE}/${submissionDir}/trajectories/${trajectoryDir}/simulations/${simulationId}.json`
-        const res = await fetch(url)
+        const res = await fetch(url, NO_CACHE)
         if (!res.ok) {
           throw new Error(
             res.status === 404

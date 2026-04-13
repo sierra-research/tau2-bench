@@ -15,6 +15,8 @@ const getBenchmarkFromHash = () => {
 const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
   || `${import.meta.env.BASE_URL}submissions`
 
+const NO_CACHE = { cache: 'no-cache' }
+
 const Leaderboard = () => {
   // Benchmark selector: 'text' (τ-bench) or 'voice' (τ-voice)
   const [benchmark, setBenchmark] = useState(() => {
@@ -91,7 +93,7 @@ const Leaderboard = () => {
       setLoadError(null)
       
       // Load the manifest file to get list of submissions from new directory structure
-      const manifestResponse = await fetch(`${SUBMISSIONS_BASE}/manifest.json`)
+      const manifestResponse = await fetch(`${SUBMISSIONS_BASE}/manifest.json`, NO_CACHE)
       if (!manifestResponse.ok) {
         throw new Error('Failed to load submissions manifest')
       }
@@ -107,7 +109,7 @@ const Leaderboard = () => {
       // Helper to load a submission directory
       const loadSubmission = async (submissionDir, isLegacy, modality = 'text') => {
         try {
-          const response = await fetch(`${SUBMISSIONS_BASE}/${submissionDir}/submission.json`)
+          const response = await fetch(`${SUBMISSIONS_BASE}/${submissionDir}/submission.json`, NO_CACHE)
           if (!response.ok) {
             console.warn(`Failed to load ${submissionDir}: ${response.status}`)
             return

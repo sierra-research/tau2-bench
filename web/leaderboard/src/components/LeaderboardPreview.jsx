@@ -6,6 +6,8 @@ const MEDAL_EMOJI = ['🥇', '🥈', '🥉']
 const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
   || `${import.meta.env.BASE_URL}submissions`
 
+const NO_CACHE = { cache: 'no-cache' }
+
 function LeaderboardPreview({ onViewFullLeaderboard }) {
   const [textTop3, setTextTop3] = useState([])
   const [voiceTop3, setVoiceTop3] = useState([])
@@ -17,7 +19,7 @@ function LeaderboardPreview({ onViewFullLeaderboard }) {
 
   const loadPreviewData = async () => {
     try {
-      const manifestResponse = await fetch(`${SUBMISSIONS_BASE}/manifest.json`)
+      const manifestResponse = await fetch(`${SUBMISSIONS_BASE}/manifest.json`, NO_CACHE)
       if (!manifestResponse.ok) return
       const manifest = await manifestResponse.json()
 
@@ -28,7 +30,7 @@ function LeaderboardPreview({ onViewFullLeaderboard }) {
       const textModels = []
       for (const dir of textDirs) {
         try {
-          const res = await fetch(`${SUBMISSIONS_BASE}/${dir}/submission.json`)
+          const res = await fetch(`${SUBMISSIONS_BASE}/${dir}/submission.json`, NO_CACHE)
           if (!res.ok) continue
           const sub = await res.json()
 
@@ -60,7 +62,7 @@ function LeaderboardPreview({ onViewFullLeaderboard }) {
       const voiceDomains = ['airline', 'retail', 'telecom']
       for (const dir of voiceDirs) {
         try {
-          const res = await fetch(`${SUBMISSIONS_BASE}/${dir}/submission.json`)
+          const res = await fetch(`${SUBMISSIONS_BASE}/${dir}/submission.json`, NO_CACHE)
           if (!res.ok) continue
           const sub = await res.json()
 

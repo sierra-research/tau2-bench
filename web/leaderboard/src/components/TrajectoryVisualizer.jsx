@@ -5,6 +5,8 @@ import './TrajectoryVisualizer.css'
 const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
   || `${import.meta.env.BASE_URL}submissions`
 
+const NO_CACHE = { cache: 'no-cache' }
+
 const S3_BUCKET = 'sierra-tau-bench-public'
 const S3_SUBMISSIONS_PREFIX = 'submissions'
 
@@ -131,7 +133,7 @@ const TrajectoryVisualizer = () => {
     const loadSubmissions = async () => {
       try {
         setSubmissionsLoading(true)
-        const res = await fetch(`${SUBMISSIONS_BASE}/manifest.json`)
+        const res = await fetch(`${SUBMISSIONS_BASE}/manifest.json`, NO_CACHE)
         if (!res.ok) throw new Error('Failed to load manifest')
         const manifest = await res.json()
         const textDirs = manifest.submissions || []
@@ -141,7 +143,7 @@ const TrajectoryVisualizer = () => {
 
         const loadDir = async (dir, modality) => {
           try {
-            const r = await fetch(`${SUBMISSIONS_BASE}/${dir}/submission.json`)
+            const r = await fetch(`${SUBMISSIONS_BASE}/${dir}/submission.json`, NO_CACHE)
             if (!r.ok) return
             const sub = await r.json()
             if (sub.trajectories_available && sub.trajectory_files) {
@@ -232,7 +234,7 @@ const TrajectoryVisualizer = () => {
         const url = sub.modality === 'voice'
           ? `${SUBMISSIONS_BASE}/${sub.dir}/trajectories/${fileName}/results.json`
           : `${SUBMISSIONS_BASE}/${sub.dir}/trajectories/${fileName}`
-        const res = await fetch(url)
+        const res = await fetch(url, NO_CACHE)
         if (!res.ok) throw new Error(`Failed to load trajectory: ${res.statusText}`)
         const data = await res.json()
 
