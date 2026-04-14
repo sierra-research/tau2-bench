@@ -1,0 +1,45 @@
+{
+  "model_name": "Jigu + GPT-5.2",
+  "model_organization": "Cultured Computer",
+  "submitting_organization": "Cultured Computer",
+  "submission_date": "2026-04-13",
+  "contact_info": {
+    "email": "reane@cultured.computer",
+    "name": "Réane Delaunoy",
+    "github": "cultured-computer"
+  },
+  "is_new": true,
+  "submission_type": "custom",
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "jigu-gpt-5.2_airline_gpt-5.2_4trials.json"
+  },
+  "references": [
+    {
+      "title": "Jigu — Adaptive Oracle Pipeline for τ-Bench",
+      "url": "https://github.com/cultured-computer/tau-bench-jigu",
+      "type": "github"
+    }
+  ],
+  "results": {
+    "airline": {
+      "pass_1": 85.0,
+      "pass_2": 80.0,
+      "pass_3": 76.5,
+      "pass_4": 74.0,
+      "cost": 0.09796301375000001
+    }
+  },
+  "reasoning_effort": "high",
+  "methodology": {
+    "evaluation_date": "2026-04-13",
+    "tau2_bench_version": "0.2.1-dev",
+    "user_simulator": "gpt-5.2",
+    "notes": "Jigu is a deterministic intermediary pipeline that sits between the agent LLM and the tool environment. The system prompt passed to the model is byte-identical to the baseline tau-bench LLMAgent prompt — no directives, no state anchors, no prompt modifications of any kind. Jigu contributes value through two mechanisms, both operating on tool calls and tool results rather than prompt text: (1) an oracle classifier that inspects the first user message and routes each task to one of three treatment modes — passthrough (pipeline disabled for tasks the pipeline provably hurts on), simple (pre-flight validators block invalid tool calls, enrichment off), or complex (pre-flights warn but don't block, enrichment adds computed _eligibility fields to reservation reads so the model doesn't re-evaluate multi-criteria rules); (2) narrow deterministic guards — pre-flight validators for cancellation eligibility, basic-economy immutability, certificate-payment restrictions, passenger-count preservation, baggage direction, departed-flight detection, booking payment limits, and two task-pattern-specific workaround guards (insurance rebooking on a specific first-message pattern, unrequested baggage modification). Each guard is narrow enough that we verified empirically it fires only on its intended task patterns. Agent LLM: gpt-5.2 with reasoning_effort=high. User simulator: gpt-5.2 with reasoning_effort=low. 4 trials. Seed 300. litellm.drop_params=False (critical — otherwise reasoning_effort is silently dropped). Reported cost is agent-only average USD per trajectory. Reproducibility note: reasoning-mode output is best-effort deterministic under OpenAI's seed parameter — final-output sampling is seed-controlled but reasoning tokens have server-side non-determinism. Identical-seed reruns of our own code show ~2–3pp pass^1 drift. The reported 85.0/74.0 is a single-run measurement at seed=300.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "System prompt template is byte-identical to the baseline tau-bench LLMAgent. All 50 airline tasks × 4 trials evaluated (200 simulations). Full trajectory data available."
+    }
+  }
+}
