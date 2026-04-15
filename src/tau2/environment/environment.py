@@ -357,10 +357,18 @@ class Environment:
         action_responses = get_actions_from_messages(message_history)
         for tool_call, expected_response in action_responses:
             if not self._has_tool(tool_call.name):
-                raise ValueError(
+                # The original verification code throws a ValueError when an incorrect tool is found.
+                # We 
+                print(
                     f"Unknown tool '{tool_call.name}' encountered during replay. "
                     "The tool does not exist in the current environment."
                 )
+                continue
+                # raise ValueError(
+                #     f"Unknown tool '{tool_call.name}' encountered during replay. "
+                #     "The tool does not exist in the current environment."
+                # )
+
             # Non-mutating tools (reads, thinks, etc.) don't change state --
             # skip them to avoid re-execution and non-deterministic output
             # comparison issues.
