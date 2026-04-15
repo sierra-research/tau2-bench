@@ -13,6 +13,7 @@ from tau2.domains.telecom.utils import (
     TELECOM_MAIN_POLICY_PATH,
     TELECOM_MAIN_POLICY_SOLO_PATH,
     TELECOM_TASK_SET_PATH,
+    TELECOM_TASK_SET_SOLO_PATH,
     TELECOM_TECH_SUPPORT_POLICY_MANUAL_PATH,
     TELECOM_TECH_SUPPORT_POLICY_MANUAL_SOLO_PATH,
     TELECOM_TECH_SUPPORT_POLICY_WORKFLOW_PATH,
@@ -182,6 +183,24 @@ def get_tasks(task_split_name: Optional[str] = "base") -> list[Task]:
 
 def get_tasks_split() -> dict[str, list[str]]:
     return load_tasks_split(TELECOM_TASK_SET_PATH)
+
+
+def get_tasks_solo(task_split_name: Optional[str] = "base") -> list[Task]:
+    """Load solo-mode tasks (with updated ticket text) from tasks_solo.json."""
+    tasks = load_tasks(TELECOM_TASK_SET_SOLO_PATH)
+    tasks = [Task.model_validate(task) for task in tasks]
+    if task_split_name is None:
+        return tasks
+    task_splits = get_tasks_solo_split()
+    if task_split_name not in task_splits:
+        raise ValueError(
+            f"Invalid task split name: {task_split_name}. Valid splits are: {task_splits.keys()}"
+        )
+    return [task for task in tasks if task.id in task_splits[task_split_name]]
+
+
+def get_tasks_solo_split() -> dict[str, list[str]]:
+    return load_tasks_split(TELECOM_TASK_SET_SOLO_PATH)
 
 
 # Legacy functions for backward compatibility
