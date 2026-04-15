@@ -3,15 +3,14 @@
 Run audio-native evaluations across providers and speech complexities.
 
 Usage:
-    python -m experiments.tau_voice.run_providers --providers openai,gemini,xai
-    python -m experiments.tau_voice.run_providers --providers openai --num-tasks 5
-    python -m experiments.tau_voice.run_providers --providers openai,gemini --domains airline --complexities control
+    python -m experiments.tau_voice.run_multiple --providers openai,gemini,xai --save-to data/exp/my_run
+    python -m experiments.tau_voice.run_multiple --providers openai --save-to data/exp/my_run --num-tasks 5
+    python -m experiments.tau_voice.run_multiple --providers openai,gemini --save-to data/exp/my_run --domains airline --complexities control
 """
 
 import argparse
 import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
 
 from tau2.config import DEFAULT_AUDIO_NATIVE_MODELS, DEFAULT_LLM_USER, DEFAULT_SEED
@@ -45,6 +44,7 @@ def build_command(
         "--max-concurrency", str(max_concurrency),
         "--verbose-logs",
         "--auto-review",
+        "--auto-resume",
         "--save-to", save_to,
     ]
     if num_tasks is not None:
@@ -81,8 +81,8 @@ def main():
     parser.add_argument(
         "--save-to",
         type=str,
-        default=None,
-        help="Base directory for results. Default: data/exp/<timestamp>/",
+        required=True,
+        help="Base directory for results (e.g. data/exp/my_run)",
     )
     args = parser.parse_args()
 
@@ -99,12 +99,7 @@ def main():
             prov, model = p, DEFAULT_AUDIO_NATIVE_MODELS[p]
         provider_models.append((prov, model))
 
-    project_root = Path(__file__).resolve().parents[3]
-    if args.save_to:
-        base_dir = Path(args.save_to).resolve()
-    else:
-        ts = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-        base_dir = project_root / "data" / "exp" / ts
+    base_dir = Path(args.save_to).resolve()
 
     combos = [
         (domain, prov, model, complexity)
