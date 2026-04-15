@@ -389,6 +389,18 @@ The voice user simulator is a complex multi-component system — LLM, TTS (via E
 
 Because of this complexity, we recommend that you **open a PR and contact us** so we can coordinate running the evaluation.
 
+### Voice Persona Setup (for Local Development)
+
+The voice user simulator uses ElevenLabs TTS with specific voice personas. The default voice IDs in the codebase are Sierra-internal and **will not work** for external users. If you want to run voice evaluations locally for development or testing, you need to create your own voices first.
+
+See the [Voice Persona Setup Guide](voice-personas.md) for step-by-step instructions. The short version:
+
+1. Create voices in [ElevenLabs Voice Design](https://elevenlabs.io/app/voice-lab) using the prompts from `src/tau2/data_model/voice_personas.py`
+2. Set `TAU2_VOICE_ID_<PERSONA_NAME>` environment variables in your `.env` file
+3. For quick testing, create just the two control personas and use `--speech-complexity control`
+
+> **Note:** Your custom voices will sound different from Sierra's internal voices. Sierra runs all final/published evaluations with its own voices to ensure parity across leaderboard results.
+
 ### Existing Provider (Adapter Already Integrated)
 
 OpenAI, Gemini, and xAI already have audio-native adapters in `src/tau2/voice/audio_native/`. If you want results for one of these providers:
@@ -396,10 +408,42 @@ OpenAI, Gemini, and xAI already have audio-native adapters in `src/tau2/voice/au
 1. Open a PR with your `submission.json` and contact us — we can run the evaluation
 2. If you ran the evaluation yourself, include a link to your trajectory data in the PR description for verification
 
-The evaluation command (requires the full voice simulator stack):
+### How We Run Voice Evaluations
+
+For published leaderboard results, Sierra runs voice evaluations across all three core domains with the following commands:
 
 ```bash
-tau2 run --domain retail --audio-native --audio-native-provider openai --audio-native-model gpt-realtime-1.5 --num-tasks 1 --verbose-logs
+# Voice full-duplex evaluation (one per domain)
+tau2 run --domain retail --audio-native \
+    --audio-native-provider openai --audio-native-model gpt-4o-realtime-preview \
+    --speech-complexity regular --verbose-logs \
+    --save-to my_model_voice_retail
+
+tau2 run --domain airline --audio-native \
+    --audio-native-provider openai --audio-native-model gpt-4o-realtime-preview \
+    --speech-complexity regular --verbose-logs \
+    --save-to my_model_voice_airline
+
+tau2 run --domain telecom --audio-native \
+    --audio-native-provider openai --audio-native-model gpt-4o-realtime-preview \
+    --speech-complexity regular --verbose-logs \
+    --save-to my_model_voice_telecom
+```
+
+Replace `--audio-native-provider` and `--audio-native-model` with the provider and model being evaluated. Key flags:
+
+| Flag | Purpose |
+|------|---------|
+| `--audio-native` | Enable voice full-duplex mode |
+| `--audio-native-provider` | Provider to evaluate (`openai`, `gemini`, `xai`) |
+| `--audio-native-model` | Specific model identifier |
+| `--speech-complexity regular` | Full realistic conditions (required for leaderboard) |
+| `--verbose-logs` | Save audio files and tick data for verification |
+
+For local development and testing, you can run a quick smoke test with fewer tasks:
+
+```bash
+tau2 run --domain retail --audio-native --speech-complexity control --num-tasks 1 --verbose-logs
 ```
 
 ### New Provider (No Adapter Yet)

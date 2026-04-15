@@ -1,11 +1,40 @@
 # Copyright Sierra
-"""Voice persona definitions for user simulation."""
+"""Voice persona definitions for user simulation.
 
+Each persona ships with a default ElevenLabs ``voice_id`` used for TTS.
+These defaults are Sierra's internal voices and **will not work** for
+external users. To run voice evaluations you need to create your own
+voices and tell the framework about them.
+
+Quick override
+--------------
+Set an environment variable for any persona to replace its voice ID at
+runtime (no code changes needed)::
+
+    # Pattern: TAU2_VOICE_ID_<PERSONA_NAME_UPPER>
+    export TAU2_VOICE_ID_MATT_DELANEY=your_voice_id_here
+    export TAU2_VOICE_ID_LISA_BRENNER=your_voice_id_here
+
+See ``docs/voice-personas.md`` for a step-by-step guide to creating
+matching voices with the ElevenLabs Voice Design tool.
+"""
+
+import os
 from typing import Literal, Optional
 
 from pydantic import BaseModel
 
 PersonaComplexity = Literal["control", "regular"]
+
+
+def _resolve_voice_id(persona_name: str, default_id: str) -> str:
+    """Resolve voice ID from env variable, falling back to the default.
+
+    Env variable pattern: ``TAU2_VOICE_ID_<PERSONA_NAME_UPPER>``
+    e.g. ``TAU2_VOICE_ID_MATT_DELANEY`` for the ``matt_delaney`` persona.
+    """
+    env_key = f"TAU2_VOICE_ID_{persona_name.upper()}"
+    return os.environ.get(env_key, default_id)
 
 
 class VoicePersona(BaseModel):
@@ -20,7 +49,7 @@ class VoicePersona(BaseModel):
 
 
 MATT_DELANEY = VoicePersona(
-    elevenlabs_voice_id="EZfwTIuZL0WWIVnjSgTF",
+    elevenlabs_voice_id=_resolve_voice_id("matt_delaney", "EZfwTIuZL0WWIVnjSgTF"),
     name="matt_delaney",
     display_name="Matt Delaney",
     short_description="Middle-aged white man from the American Midwest, calm and respectful",
@@ -40,7 +69,7 @@ You rarely use formal or stiff language ("considerable," "retrieve," "representa
 )
 
 LISA_BRENNER = VoicePersona(
-    elevenlabs_voice_id="avQFHuQU7IjJf0u5MMBq",
+    elevenlabs_voice_id=_resolve_voice_id("lisa_brenner", "avQFHuQU7IjJf0u5MMBq"),
     name="lisa_brenner",
     display_name="Lisa Brenner",
     short_description="White woman in her late 40s from a suburban area, tense and impatient",
@@ -62,7 +91,7 @@ You never sound relaxed. You never use slow, reflective speech. You never thank 
 )
 
 MILDRED_KAPLAN = VoicePersona(
-    elevenlabs_voice_id="oNqrZRHHLWtHYsVNkRqe",
+    elevenlabs_voice_id=_resolve_voice_id("mildred_kaplan", "oNqrZRHHLWtHYsVNkRqe"),
     name="mildred_kaplan",
     display_name="Mildred Kaplan",
     short_description="Elderly white woman in her early 80s, needs help with technology",
@@ -71,7 +100,7 @@ MILDRED_KAPLAN = VoicePersona(
 )
 
 ARJUN_ROY = VoicePersona(
-    elevenlabs_voice_id="m1hMce9ingsjyIjkshRv",
+    elevenlabs_voice_id=_resolve_voice_id("arjun_roy", "m1hMce9ingsjyIjkshRv"),
     name="arjun_roy",
     display_name="Arjun Roy",
     short_description="Bengali man from Dhaka in his mid-30s, calm and direct",
@@ -80,7 +109,7 @@ ARJUN_ROY = VoicePersona(
 )
 
 WEI_LIN = VoicePersona(
-    elevenlabs_voice_id="GQ2S7ULnVjrOALFRfnsh",
+    elevenlabs_voice_id=_resolve_voice_id("wei_lin", "GQ2S7ULnVjrOALFRfnsh"),
     name="wei_lin",
     display_name="Wei Lin",
     short_description="Chinese woman from Sichuan in her late 20s, upbeat and matter-of-fact",
@@ -89,7 +118,7 @@ WEI_LIN = VoicePersona(
 )
 
 MAMADOU_DIALLO = VoicePersona(
-    elevenlabs_voice_id="ET3963lBcRmodt3ZaTBS",
+    elevenlabs_voice_id=_resolve_voice_id("mamadou_diallo", "ET3963lBcRmodt3ZaTBS"),
     name="mamadou_diallo",
     display_name="Mamadou Diallo",
     short_description="Senegalese man in his mid-30s, hurried with French accent",
@@ -98,7 +127,7 @@ MAMADOU_DIALLO = VoicePersona(
 )
 
 PRIYA_PATIL = VoicePersona(
-    elevenlabs_voice_id="mnHhNJntmsPxJsZvYVM7",
+    elevenlabs_voice_id=_resolve_voice_id("priya_patil", "mnHhNJntmsPxJsZvYVM7"),
     name="priya_patil",
     display_name="Priya Patil",
     short_description="Maharashtrian woman in her early 30s, hurried and focused",

@@ -15,7 +15,6 @@ from pathlib import Path
 
 from tau2.config import DEFAULT_AUDIO_NATIVE_MODELS, DEFAULT_LLM_USER, DEFAULT_SEED
 
-
 DEFAULT_DOMAINS = ["airline", "retail"]
 DEFAULT_COMPLEXITIES = ["control", "regular"]
 
@@ -33,19 +32,30 @@ def build_command(
     max_concurrency: int = 8,
 ) -> list[str]:
     cmd = [
-        "uv", "run", "tau2", "run",
-        "--domain", domain,
+        "uv",
+        "run",
+        "tau2",
+        "run",
+        "--domain",
+        domain,
         "--audio-native",
-        "--audio-native-provider", provider,
-        "--audio-native-model", model,
-        "--speech-complexity", complexity,
-        "--seed", str(seed),
-        "--user-llm", user_llm,
-        "--max-concurrency", str(max_concurrency),
+        "--audio-native-provider",
+        provider,
+        "--audio-native-model",
+        model,
+        "--speech-complexity",
+        complexity,
+        "--seed",
+        str(seed),
+        "--user-llm",
+        user_llm,
+        "--max-concurrency",
+        str(max_concurrency),
         "--verbose-logs",
         "--auto-review",
         "--auto-resume",
-        "--save-to", save_to,
+        "--save-to",
+        save_to,
     ]
     if num_tasks is not None:
         cmd.extend(["--num-tasks", str(num_tasks)])
@@ -117,7 +127,11 @@ def main():
 
         print(f"[{i}/{total}] {run_name}")
         cmd = build_command(
-            domain, provider, model, complexity, save_to,
+            domain,
+            provider,
+            model,
+            complexity,
+            save_to,
             num_tasks=args.num_tasks,
             seed=args.seed,
             user_llm=args.user_llm,
