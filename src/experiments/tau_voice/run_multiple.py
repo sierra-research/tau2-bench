@@ -30,7 +30,7 @@ def build_command(
     num_tasks: int | None = None,
     seed: int = DEFAULT_SEED,
     user_llm: str = DEFAULT_LLM_USER,
-    max_concurrency: int = 3,
+    max_concurrency: int = 8,
 ) -> list[str]:
     cmd = [
         "uv", "run", "tau2", "run",
@@ -77,7 +77,7 @@ def main():
     parser.add_argument("--num-tasks", type=int, default=None)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--user-llm", type=str, default=DEFAULT_LLM_USER)
-    parser.add_argument("--max-concurrency", type=int, default=3)
+    parser.add_argument("--max-concurrency", type=int, default=8)
     parser.add_argument(
         "--save-to",
         type=str,
