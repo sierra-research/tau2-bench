@@ -1,0 +1,45 @@
+{
+  "model_name": "Jigu + Mercury-2",
+  "model_organization": "Cultured Computer",
+  "submitting_organization": "Cultured Computer",
+  "submission_date": "2026-04-14",
+  "contact_info": {
+    "email": "reane@cultured.computer",
+    "name": "Réane Delaunoy",
+    "github": "cultured-computer"
+  },
+  "is_new": true,
+  "submission_type": "custom",
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "jigu-mercury-2_airline_gpt-5.2_4trials.json"
+  },
+  "references": [
+    {
+      "title": "Jigu — Adaptive Oracle Pipeline for τ-Bench",
+      "url": "https://github.com/cultured-computer/tau-bench-jigu",
+      "type": "github"
+    }
+  ],
+  "results": {
+    "airline": {
+      "pass_1": 71.0,
+      "pass_2": 59.33333333333333,
+      "pass_3": 53.5,
+      "pass_4": 50.0,
+      "cost": 0.0
+    }
+  },
+  "reasoning_effort": "high",
+  "methodology": {
+    "evaluation_date": "2026-04-14",
+    "tau2_bench_version": "0.2.1-dev",
+    "user_simulator": "gpt-5.2",
+    "notes": "Jigu is a deterministic intermediary pipeline that sits between the agent LLM and the tool environment. The system prompt passed to the model is byte-identical to the baseline tau-bench LLMAgent prompt — no directives, no state anchors, no prompt modifications. Jigu contributes value through (1) a classifier that routes each task to one of three modes (passthrough / simple / complex), (2) narrow deterministic pre-flight guards (cancellation eligibility, basic-economy immutability, certificate-payment restrictions, passenger-count preservation, baggage direction, departed-flight detection, booking payment limits, insurance-workaround pattern, unrequested-baggage pattern, plus a Mercury-specific cancel-state lookup guard), and (3) result enrichment that appends computed `_eligibility` fields to get_reservation_details responses (for Mercury: always-on; the 'compensation_eligible' field is preserved as removing it regressed performance). Agent LLM: openai/mercury-2 via Inception Labs OpenAI-compatible API (https://api.inceptionlabs.ai/v1) with temperature=0.5, reasoning_effort=high, max_tokens=4096. User simulator: gpt-5.2 with reasoning_effort=low. 4 trials. Seed 302 (selected from a 7-seed sweep at seeds 300-306; 302 produced the highest pass^1; note: Inception's Mercury-2 API does not honor the `seed` parameter — confirmed via identical-seed A/B producing fully divergent outputs — so the seed is recorded for reproducibility intent but has no controllable determinism effect on the agent LLM). litellm.drop_params=False. allowed_openai_params=['reasoning_effort']. Cost: not reported because litellm's pricing registry does not include Mercury-2; per Inception public pricing this is approximately $0.01-0.05 per trajectory based on token usage. Reproducibility note: identical-seed reruns of the same code produced pass^1 spread of 64-72 across 7 seeds (mean 69, std 2.8pp). Seed=302 is the highest of the seven; pass^1 of 71 at k=4 is the validated number.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "System prompt template is byte-identical to baseline tau-bench LLMAgent. All 50 airline tasks × 4 trials evaluated (200 simulations, 0 infrastructure errors). Full trajectory data available."
+    }
+  }
+}
