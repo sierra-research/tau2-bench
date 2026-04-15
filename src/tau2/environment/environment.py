@@ -358,7 +358,7 @@ class Environment:
         for tool_call, expected_response in action_responses:
             if not self._has_tool(tool_call.name):
                 # The original verification code throws a ValueError when an incorrect tool is found.
-                # We 
+                # We print rather than fail the verification code.
                 print(
                     f"Unknown tool '{tool_call.name}' encountered during replay. "
                     "The tool does not exist in the current environment."
