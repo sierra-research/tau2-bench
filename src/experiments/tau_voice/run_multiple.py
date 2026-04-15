@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""
+Run audio-native evaluations across providers and speech complexities.
+
+Usage:
+    python -m experiments.tau_voice.run_providers --providers openai,gemini,xai
+    python -m experiments.tau_voice.run_providers --providers openai --num-tasks 5
+    python -m experiments.tau_voice.run_providers --providers openai,gemini --domains airline --complexities control
+"""
+
+import argparse
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+from tau2.config import DEFAULT_AUDIO_NATIVE_MODELS, DEFAULT_LLM_USER, DEFAULT_SEED
+
+
+DEFAULT_DOMAINS = ["airline", "retail"]
+DEFAULT_COMPLEXITIES = ["control", "regular"]
+
+
+def build_command(
+    domain: str,
+    provider: str,
+    model: str,
+    complexity: str,
+    save_to: str,
+    *,
+    num_tasks: int | None = None,
+    seed: int = DEFAULT_SEED,
+    user_llm: str = DEFAULT_LLM_USER,
+    max_concurrency: int = 3,
+) -> list[str]:
+    cmd = [
+        "uv", "run", "tau2", "run",
+        "--domain", domain,
+        "--audio-native",
+        "--audio-native-provider", provider,
+        "--audio-native-model", model,
+        "--speech-complexity", complexity,
+        "--seed", str(seed),
+        "--user-llm", user_llm,
+        "--max-concurrency", str(max_concurrency),
+        "--verbose-logs",
+        "--auto-review",
+        "--save-to", save_to,
+    ]
+    if num_tasks is not None:
+        cmd.extend(["--num-tasks", str(num_tasks)])
+    return cmd
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Run audio-native evals across providers and speech complexities."
+    )
+    parser.add_argument(
+        "--providers",
+        type=str,
+        required=True,
+        help="Comma-separated providers (e.g. openai,gemini,xai,livekit)",
+    )
+    parser.add_argument(
+        "--domains",
+        type=str,
+        default=",".join(DEFAULT_DOMAINS),
+        help=f"Comma-separated domains. Default: {','.join(DEFAULT_DOMAINS)}",
+    )
+    parser.add_argument(
+        "--complexities",
+        type=str,
+        default=",".join(DEFAULT_COMPLEXITIES),
+        help=f"Comma-separated speech complexities. Default: {','.join(DEFAULT_COMPLEXITIES)}",
+    )
+    parser.add_argument("--num-tasks", type=int, default=None)
+    parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    parser.add_argument("--user-llm", type=str, default=DEFAULT_LLM_USER)
+    parser.add_argument("--max-concurrency", type=int, default=3)
+    parser.add_argument(
+        "--save-to",
+        type=str,
+        default=None,
+        help="Base directory for results. Default: data/exp/<timestamp>/",
+    )
+    args = parser.parse_args()
+
+    providers = [p.strip() for p in args.providers.split(",")]
+    domains = [d.strip() for d in args.domains.split(",")]
+    complexities = [c.strip() for c in args.complexities.split(",")]
+
+    # Resolve provider -> model, supporting "provider:model" override
+    provider_models = []
+    for p in providers:
+        if ":" in p:
+            prov, model = p.split(":", 1)
+        else:
+            prov, model = p, DEFAULT_AUDIO_NATIVE_MODELS[p]
+        provider_models.append((prov, model))
+
+    project_root = Path(__file__).resolve().parents[3]
+    if args.save_to:
+        base_dir = Path(args.save_to).resolve()
+    else:
+        ts = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+        base_dir = project_root / "data" / "exp" / ts
+
+    combos = [
+        (domain, prov, model, complexity)
+        for domain in domains
+        for prov, model in provider_models
+        for complexity in complexities
+    ]
+    total = len(combos)
+
+    print(f"Running {total} combinations -> {base_dir}\n")
+
+    for i, (domain, provider, model, complexity) in enumerate(combos, 1):
+        run_name = f"{domain}_{complexity}_{provider}_{model}"
+        save_to = str(base_dir / run_name)
+
+        print(f"[{i}/{total}] {run_name}")
+        cmd = build_command(
+            domain, provider, model, complexity, save_to,
+            num_tasks=args.num_tasks,
+            seed=args.seed,
+            user_llm=args.user_llm,
+            max_concurrency=args.max_concurrency,
+        )
+        print(f"  $ {' '.join(cmd)}")
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            print(f"  WARNING: exit code {result.returncode}")
+        print()
+
+    print(f"Done. Results in {base_dir}")
+
+
+if __name__ == "__main__":
+    sys.exit(main())
