@@ -18,8 +18,12 @@ ElevenLabs Voice Design lets you create voices from a text prompt — the same p
 1. Go to [ElevenLabs Voice Library](https://elevenlabs.io/app/voice-lab) (or navigate to **Voices** in the ElevenLabs dashboard)
 2. Click **Add a voice** → **Voice Design** (the "voice from prompt" option)
 3. For each persona below, paste the corresponding prompt into the voice description field
-4. Generate and save the voice
-5. Copy the **Voice ID** from the voice details page (click the voice → look for the ID string)
+4. Set the following parameters:
+   - **Language**: English
+   - **Loudness**: 75%
+   - **Guidance scale**: 38%
+5. Generate and save the voice
+6. Copy the **Voice ID** from the voice details page (click the voice → look for the ID string)
 
 ### Persona Prompts
 
