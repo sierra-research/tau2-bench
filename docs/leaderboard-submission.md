@@ -389,15 +389,21 @@ The voice user simulator is a complex multi-component system — LLM, TTS (via E
 
 Because of this complexity, we recommend that you **open a PR and contact us** so we can coordinate running the evaluation.
 
-### Voice Persona Setup (for Local Development)
+### Voice Persona Setup (Required for Local Development)
 
-The voice user simulator uses ElevenLabs TTS with specific voice personas. The default voice IDs in the codebase are Sierra-internal and **will not work** for external users. If you want to run voice evaluations locally for development or testing, you need to create your own voices first.
+The voice user simulator uses ElevenLabs TTS with specific voice personas. The default voice IDs in the codebase are Sierra-internal and **will not work** for external users. You must create your own voices before running voice evaluations locally.
 
-See the [Voice Persona Setup Guide](voice-personas.md) for step-by-step instructions. The short version:
+The recommended approach is the automated setup script:
 
-1. Create voices in [ElevenLabs Voice Design](https://elevenlabs.io/app/voice-lab) using the prompts from `src/tau2/data_model/voice_personas.py`
-2. Set `TAU2_VOICE_ID_<PERSONA_NAME>` environment variables in your `.env` file
-3. For quick testing, create just the two control personas and use `--speech-complexity control`
+```bash
+# Create all 7 voices (one command, uses fixed seed for reproducibility)
+python -m tau2.voice.scripts.setup_voices
+
+# Or just the 2 control personas for quick testing
+python -m tau2.voice.scripts.setup_voices --complexity control
+```
+
+The script creates voices via the ElevenLabs Voice Design API, saves them to your account, and prints `TAU2_VOICE_ID_*=...` lines to paste into your `.env` file. See the [Voice Persona Setup Guide](voice-personas.md) for full details.
 
 > **Note:** Your custom voices will sound different from Sierra's internal voices. Sierra runs all final/published evaluations with its own voices to ensure parity across leaderboard results.
 
