@@ -178,6 +178,8 @@ class CascadedConfig(BaseModel):
     stt: STTConfig = Field(default_factory=DeepgramSTTConfig)
     llm: LLMConfig = Field(default_factory=OpenAILLMConfig)
     tts: TTSConfig = Field(default_factory=DeepgramTTSConfig)
+    preamble: bool = False
+    preamble_text: str = "One moment please."
     log_prompts: bool = False
 
 
@@ -192,16 +194,11 @@ CASCADED_CONFIGS: Dict[str, CascadedConfig] = {
         llm=OpenAILLMConfig(model="gpt-4.1"),
         tts=DeepgramTTSConfig(model="aura-asteria-en"),
     ),
-    # OpenAI thinking: Uses OpenAI's thinking models for complex reasoning
+    # OpenAI thinking: Uses OpenAI's thinking models with high reasoning effort
     "openai-thinking": CascadedConfig(
-        stt=DeepgramSTTConfig(model="nova-3"),
-        llm=OpenAILLMConfig(model="gpt-5.2", reasoning_effort="medium"),
-        tts=DeepgramTTSConfig(model="aura-asteria-en"),
-    ),
-    # OpenAI thinking (high): Maximum reasoning effort
-    "openai-thinking-high": CascadedConfig(
         stt=DeepgramSTTConfig(model="nova-3"),
         llm=OpenAILLMConfig(model="gpt-5.2", reasoning_effort="high"),
         tts=DeepgramTTSConfig(model="aura-asteria-en"),
+        preamble=True,
     ),
 }

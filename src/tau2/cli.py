@@ -247,7 +247,7 @@ def add_run_args(parser):
         type=str,
         default=None,
         help="Cascaded config preset name for livekit provider. "
-        "Available presets: 'default', 'openai-thinking', 'openai-thinking-high'. "
+        "Available presets: 'default', 'openai-thinking'. "
         "See tau2.voice.audio_native.livekit.config for details.",
     )
     parser.add_argument(

@@ -91,6 +91,13 @@ PROVIDERS = [
         ),
     ),
     pytest.param(
+        "livekit-thinking",
+        marks=pytest.mark.skipif(
+            not os.environ.get("LIVEKIT_TEST_ENABLED"),
+            reason="LIVEKIT_TEST_ENABLED not set",
+        ),
+    ),
+    pytest.param(
         "nova",
         marks=pytest.mark.skipif(
             not os.environ.get("NOVA_TEST_ENABLED"),
@@ -320,10 +327,28 @@ def provider_name(request) -> str:
     return request.param
 
 
+CASCADED_CONFIG_ALIASES = {
+    "livekit-thinking": ("livekit", "openai-thinking"),
+}
+
+
 @pytest.fixture
 def adapter(provider_name: str):
     """Create, yield, and teardown a DiscreteTimeAdapter."""
-    adapter, _model = create_adapter(provider_name, tick_duration_ms=TICK_DURATION_MS)
+    real_provider = provider_name
+    cascaded_config = None
+
+    if provider_name in CASCADED_CONFIG_ALIASES:
+        from tau2.voice.audio_native.livekit.config import CASCADED_CONFIGS
+
+        real_provider, config_name = CASCADED_CONFIG_ALIASES[provider_name]
+        cascaded_config = CASCADED_CONFIGS[config_name]
+
+    adapter, _model = create_adapter(
+        real_provider,
+        tick_duration_ms=TICK_DURATION_MS,
+        cascaded_config=cascaded_config,
+    )
     yield adapter
     if adapter.is_connected:
         adapter.disconnect()

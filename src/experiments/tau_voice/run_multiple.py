@@ -18,6 +18,11 @@ from tau2.config import DEFAULT_AUDIO_NATIVE_MODELS, DEFAULT_LLM_USER, DEFAULT_S
 DEFAULT_DOMAINS = ["airline", "retail"]
 DEFAULT_COMPLEXITIES = ["control", "regular"]
 
+# Virtual providers that map to a real provider + cascaded config
+VIRTUAL_PROVIDERS = {
+    "livekit-thinking": ("livekit", "openai-thinking"),
+}
+
 
 def build_command(
     domain: str,
@@ -26,6 +31,7 @@ def build_command(
     complexity: str,
     save_to: str,
     *,
+    cascaded_config: str | None = None,
     num_tasks: int | None = None,
     seed: int = DEFAULT_SEED,
     user_llm: str = DEFAULT_LLM_USER,
@@ -57,6 +63,8 @@ def build_command(
         "--save-to",
         save_to,
     ]
+    if cascaded_config is not None:
+        cmd.extend(["--cascaded-config", cascaded_config])
     if num_tasks is not None:
         cmd.extend(["--num-tasks", str(num_tasks)])
     return cmd
@@ -70,7 +78,7 @@ def main():
         "--providers",
         type=str,
         required=True,
-        help="Comma-separated providers (e.g. openai,gemini,xai,livekit)",
+        help="Comma-separated providers (e.g. openai,gemini,xai,livekit,livekit-thinking)",
     )
     parser.add_argument(
         "--domains",
@@ -100,29 +108,35 @@ def main():
     domains = [d.strip() for d in args.domains.split(",")]
     complexities = [c.strip() for c in args.complexities.split(",")]
 
-    # Resolve provider -> model, supporting "provider:model" override
-    provider_models = []
+    # Resolve provider -> (real_provider, model, cascaded_config, display_name)
+    provider_entries = []
     for p in providers:
-        if ":" in p:
+        if p in VIRTUAL_PROVIDERS:
+            real_provider, cascaded = VIRTUAL_PROVIDERS[p]
+            model = DEFAULT_AUDIO_NATIVE_MODELS[real_provider]
+            provider_entries.append((real_provider, model, cascaded, p))
+        elif ":" in p:
             prov, model = p.split(":", 1)
+            provider_entries.append((prov, model, None, p))
         else:
-            prov, model = p, DEFAULT_AUDIO_NATIVE_MODELS[p]
-        provider_models.append((prov, model))
+            provider_entries.append((p, DEFAULT_AUDIO_NATIVE_MODELS[p], None, p))
 
     base_dir = Path(args.save_to).resolve()
 
     combos = [
-        (domain, prov, model, complexity)
+        (domain, prov, model, cascaded, display, complexity)
         for domain in domains
-        for prov, model in provider_models
+        for prov, model, cascaded, display in provider_entries
         for complexity in complexities
     ]
     total = len(combos)
 
     print(f"Running {total} combinations -> {base_dir}\n")
 
-    for i, (domain, provider, model, complexity) in enumerate(combos, 1):
-        run_name = f"{domain}_{complexity}_{provider}_{model}"
+    for i, (domain, provider, model, cascaded, display, complexity) in enumerate(
+        combos, 1
+    ):
+        run_name = f"{domain}_{complexity}_{display}_{model}"
         save_to = str(base_dir / run_name)
 
         print(f"[{i}/{total}] {run_name}")
@@ -132,6 +146,7 @@ def main():
             model,
             complexity,
             save_to,
+            cascaded_config=cascaded,
             num_tasks=args.num_tasks,
             seed=args.seed,
             user_llm=args.user_llm,

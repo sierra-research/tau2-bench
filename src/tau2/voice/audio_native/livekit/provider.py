@@ -767,6 +767,14 @@ class CascadedVoiceProvider:
 
         self._state = ProviderState.PROCESSING
 
+        if self.config.preamble:
+            yield CascadedEvent(
+                type=CascadedEventType.LLM_COMPLETED,
+                data={"text": self.config.preamble_text, "tool_calls": []},
+            )
+            async for tts_event in self._process_tts(self.config.preamble_text):
+                yield tts_event
+
         # Add user message to context
         self._context.add_user(user_text)
 
