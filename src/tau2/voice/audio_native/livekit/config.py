@@ -70,7 +70,7 @@ class OpenAILLMConfig(BaseModel):
         model: Model name (e.g., "gpt-4.1", "o3-mini", "gpt-4.1-mini").
         temperature: Sampling temperature (0.0-2.0). Not used for thinking models.
         top_p: Nucleus sampling parameter.
-        reasoning_effort: For thinking models (o1, o3): "low", "medium", "high".
+        reasoning_effort: For thinking models (o1, o3): "minimal", "low", "medium", "high".
             Controls how much "thinking" the model does before responding.
         max_completion_tokens: Maximum tokens in the response.
         timeout_seconds: Request timeout in seconds.
@@ -81,7 +81,7 @@ class OpenAILLMConfig(BaseModel):
     model: str = "gpt-4.1"
     temperature: Optional[float] = None
     top_p: Optional[float] = None
-    reasoning_effort: Optional[Literal["low", "medium", "high"]] = None
+    reasoning_effort: Optional[Literal["minimal", "low", "medium", "high"]] = None
     max_completion_tokens: Optional[int] = None
     timeout_seconds: Optional[float] = None
     parallel_tool_calls: Optional[bool] = None
@@ -199,6 +199,6 @@ CASCADED_CONFIGS: Dict[str, CascadedConfig] = {
         stt=DeepgramSTTConfig(model="nova-3"),
         llm=OpenAILLMConfig(model="gpt-5.2", reasoning_effort="high"),
         tts=DeepgramTTSConfig(model="aura-asteria-en"),
-        preamble=True,
+        # preamble=True,
     ),
 }

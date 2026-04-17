@@ -2,69 +2,109 @@
 """
 Run audio-native evaluations across providers and speech complexities.
 
+Provider syntax: "provider", "provider:model", or "provider:model:reasoning"
+  - openai                           (default model, no reasoning)
+  - openai:gpt-realtime-1.5          (specific model)
+  - openai:gpt-realtime-1.5:high     (model + reasoning effort)
+  - livekit                           (default cascaded config)
+  - livekit::openai-thinking          (default model + cascaded config)
+
 Usage:
-    python -m experiments.tau_voice.run_multiple --providers openai,gemini,xai --save-to data/exp/my_run
-    python -m experiments.tau_voice.run_multiple --providers openai --save-to data/exp/my_run --num-tasks 5
-    python -m experiments.tau_voice.run_multiple --providers openai,gemini --save-to data/exp/my_run --domains airline --complexities control
+    python -m experiments.tau_voice.run_multiple --providers openai,gemini --save-to data/exp/my_run
+    python -m experiments.tau_voice.run_multiple --providers openai:gpt-realtime-1.5:high --save-to data/exp/run --num-tasks 5
+    python -m experiments.tau_voice.run_multiple --providers livekit,livekit::openai-thinking --save-to data/exp/run
 """
 
 import argparse
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from tau2.config import DEFAULT_AUDIO_NATIVE_MODELS, DEFAULT_LLM_USER, DEFAULT_SEED
 
 DEFAULT_DOMAINS = ["airline", "retail"]
 DEFAULT_COMPLEXITIES = ["control", "regular"]
 
-# Virtual providers that map to a real provider + cascaded config
-VIRTUAL_PROVIDERS = {
-    "livekit-thinking": ("livekit", "openai-thinking"),
-}
+
+@dataclass
+class ProviderSpec:
+    provider: str
+    model: str
+    reasoning_effort: Optional[str] = None
+    cascaded_config: Optional[str] = None
+    display_name: str = ""
+
+    def __post_init__(self):
+        if not self.display_name:
+            self.display_name = self.provider
+
+
+def parse_provider(spec: str) -> ProviderSpec:
+    """Parse provider spec: 'provider', 'provider:model', or 'provider:model:qualifier'.
+
+    For livekit, the third field is a cascaded config name (e.g. 'openai-thinking').
+    For all other providers, the third field is reasoning effort (e.g. 'high').
+    """
+    parts = spec.split(":")
+    provider = parts[0]
+    model = DEFAULT_AUDIO_NATIVE_MODELS.get(provider, "dummy")
+
+    if len(parts) == 1:
+        return ProviderSpec(provider=provider, model=model, display_name=spec)
+    elif len(parts) == 2:
+        if parts[1]:
+            model = parts[1]
+        return ProviderSpec(provider=provider, model=model, display_name=spec)
+    elif len(parts) == 3:
+        if parts[1]:
+            model = parts[1]
+        qualifier = parts[2]
+        if provider == "livekit":
+            return ProviderSpec(
+                provider=provider, model=model,
+                cascaded_config=qualifier, display_name=spec,
+            )
+        else:
+            return ProviderSpec(
+                provider=provider, model=model,
+                reasoning_effort=qualifier, display_name=spec,
+            )
+    else:
+        raise ValueError(f"Invalid provider spec: {spec}")
 
 
 def build_command(
     domain: str,
-    provider: str,
-    model: str,
+    spec: ProviderSpec,
     complexity: str,
     save_to: str,
     *,
-    cascaded_config: str | None = None,
     num_tasks: int | None = None,
     seed: int = DEFAULT_SEED,
     user_llm: str = DEFAULT_LLM_USER,
     max_concurrency: int = 8,
 ) -> list[str]:
     cmd = [
-        "uv",
-        "run",
-        "tau2",
-        "run",
-        "--domain",
-        domain,
+        "uv", "run", "tau2", "run",
+        "--domain", domain,
         "--audio-native",
-        "--audio-native-provider",
-        provider,
-        "--audio-native-model",
-        model,
-        "--speech-complexity",
-        complexity,
-        "--seed",
-        str(seed),
-        "--user-llm",
-        user_llm,
-        "--max-concurrency",
-        str(max_concurrency),
+        "--audio-native-provider", spec.provider,
+        "--audio-native-model", spec.model,
+        "--speech-complexity", complexity,
+        "--seed", str(seed),
+        "--user-llm", user_llm,
+        "--max-concurrency", str(max_concurrency),
         "--verbose-logs",
         "--auto-review",
         "--auto-resume",
-        "--save-to",
-        save_to,
+        "--save-to", save_to,
     ]
-    if cascaded_config is not None:
-        cmd.extend(["--cascaded-config", cascaded_config])
+    if spec.reasoning_effort is not None:
+        cmd.extend(["--reasoning-effort", spec.reasoning_effort])
+    if spec.cascaded_config is not None:
+        cmd.extend(["--cascaded-config", spec.cascaded_config])
     if num_tasks is not None:
         cmd.extend(["--num-tasks", str(num_tasks)])
     return cmd
@@ -78,7 +118,7 @@ def main():
         "--providers",
         type=str,
         required=True,
-        help="Comma-separated providers (e.g. openai,gemini,xai,livekit,livekit-thinking)",
+        help="Comma-separated provider specs (e.g. openai,openai:model:high,livekit::openai-thinking)",
     )
     parser.add_argument(
         "--domains",
@@ -104,49 +144,29 @@ def main():
     )
     args = parser.parse_args()
 
-    providers = [p.strip() for p in args.providers.split(",")]
+    specs = [parse_provider(p.strip()) for p in args.providers.split(",")]
     domains = [d.strip() for d in args.domains.split(",")]
     complexities = [c.strip() for c in args.complexities.split(",")]
-
-    # Resolve provider -> (real_provider, model, cascaded_config, display_name)
-    provider_entries = []
-    for p in providers:
-        if p in VIRTUAL_PROVIDERS:
-            real_provider, cascaded = VIRTUAL_PROVIDERS[p]
-            model = DEFAULT_AUDIO_NATIVE_MODELS[real_provider]
-            provider_entries.append((real_provider, model, cascaded, p))
-        elif ":" in p:
-            prov, model = p.split(":", 1)
-            provider_entries.append((prov, model, None, p))
-        else:
-            provider_entries.append((p, DEFAULT_AUDIO_NATIVE_MODELS[p], None, p))
 
     base_dir = Path(args.save_to).resolve()
 
     combos = [
-        (domain, prov, model, cascaded, display, complexity)
+        (domain, spec, complexity)
         for domain in domains
-        for prov, model, cascaded, display in provider_entries
+        for spec in specs
         for complexity in complexities
     ]
     total = len(combos)
 
     print(f"Running {total} combinations -> {base_dir}\n")
 
-    for i, (domain, provider, model, cascaded, display, complexity) in enumerate(
-        combos, 1
-    ):
-        run_name = f"{domain}_{complexity}_{display}_{model}"
+    for i, (domain, spec, complexity) in enumerate(combos, 1):
+        run_name = f"{domain}_{complexity}_{spec.display_name}".replace(":", "_")
         save_to = str(base_dir / run_name)
 
         print(f"[{i}/{total}] {run_name}")
         cmd = build_command(
-            domain,
-            provider,
-            model,
-            complexity,
-            save_to,
-            cascaded_config=cascaded,
+            domain, spec, complexity, save_to,
             num_tasks=args.num_tasks,
             seed=args.seed,
             user_llm=args.user_llm,

@@ -206,6 +206,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         audio_format: Optional[AudioFormat] = None,
         provider: AudioNativeProvider = DEFAULT_AUDIO_NATIVE_PROVIDER,
         model: Optional[str] = None,
+        reasoning_effort: Optional[str] = None,
         max_inactive_seconds: float = DEFAULT_AUDIO_NATIVE_MAX_INACTIVE_SECONDS,
         use_xml_prompt: bool = False,
         cascaded_config: Optional["CascadedConfig"] = None,
@@ -250,6 +251,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         self.provider = provider
         self.use_xml_prompt = use_xml_prompt
         self.model = model
+        self.reasoning_effort = reasoning_effort
         self.max_inactive_seconds = max_inactive_seconds
         self.cascaded_config = cascaded_config
 
@@ -362,6 +364,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
                 tick_duration_ms=self.tick_duration_ms,
                 send_audio_instant=self.send_audio_instant,
                 model=self.model,
+                reasoning_effort=self.reasoning_effort,
                 audio_format=self.audio_format,
                 cascaded_config=self.cascaded_config,
             )
@@ -810,6 +813,7 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
             send_audio_instant=audio_native_config.send_audio_instant,
             provider=audio_native_config.provider,
             model=audio_native_config.model,
+            reasoning_effort=audio_native_config.reasoning_effort,
             use_xml_prompt=audio_native_config.use_xml_prompt,
             cascaded_config=getattr(audio_native_config, "cascaded_config", None),
             audio_taps_dir=audio_taps_dir,

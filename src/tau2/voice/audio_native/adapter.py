@@ -333,6 +333,7 @@ def create_adapter(
     tick_duration_ms: int,
     send_audio_instant: bool = DEFAULT_SEND_AUDIO_INSTANT,
     model: Optional[str] = None,
+    reasoning_effort: Optional[str] = None,
     audio_format: Optional[AudioFormat] = None,
     cascaded_config: Any = None,
 ) -> Tuple[DiscreteTimeAdapter, str]:
@@ -387,6 +388,7 @@ def create_adapter(
             tick_duration_ms=tick_duration_ms,
             send_audio_instant=send_audio_instant,
             model=model,
+            reasoning_effort=reasoning_effort,
             audio_format=audio_format,
         )
     elif provider == "gemini":
