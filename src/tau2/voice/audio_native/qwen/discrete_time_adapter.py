@@ -101,6 +101,7 @@ class DiscreteTimeQwenAdapter(DiscreteTimeAdapter):
         tick_duration_ms: int,
         send_audio_instant: bool = True,
         model: Optional[str] = None,
+        reasoning_effort: Optional[str] = None,
         provider: Optional[QwenRealtimeProvider] = None,
         voice: str = "Cherry",
     ):
@@ -111,9 +112,14 @@ class DiscreteTimeQwenAdapter(DiscreteTimeAdapter):
             send_audio_instant: If True, send audio in one call (discrete-time mode).
             model: Model to use. Defaults to None (provider default).
                 If provider is also provided, this is ignored.
+            reasoning_effort: Not supported by Qwen. Must be None.
             provider: Optional provider instance. Created lazily if not provided.
             voice: Voice to use. Default: Cherry.
         """
+        if reasoning_effort is not None:
+            raise ValueError(
+                f"Qwen provider does not support reasoning_effort (got '{reasoning_effort}')"
+            )
         super().__init__(tick_duration_ms, send_audio_instant=send_audio_instant)
 
         self._chunk_size = int(
