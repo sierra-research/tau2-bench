@@ -84,6 +84,10 @@ class AudioNativeConfig(BaseModel):
         default=DEFAULT_AUDIO_NATIVE_MODELS[DEFAULT_AUDIO_NATIVE_PROVIDER],
         description="Audio native model to use",
     )
+    reasoning_effort: Optional[str] = Field(
+        default=None,
+        description="Reasoning effort for thinking models: 'minimal', 'low', 'medium', 'high'. If None, not sent.",
+    )
 
     # Timing configuration
     tick_duration_seconds: float = Field(
