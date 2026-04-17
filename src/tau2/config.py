@@ -1,3 +1,5 @@
+import os
+
 # =============================================================================
 # SIMULATION DEFAULTS (overridable via CLI)
 # =============================================================================
@@ -14,22 +16,22 @@ DEFAULT_LOG_LEVEL = "ERROR"
 # =============================================================================
 DEFAULT_AGENT_IMPLEMENTATION = "llm_agent"
 DEFAULT_USER_IMPLEMENTATION = "user_simulator"
-DEFAULT_LLM_AGENT = "gpt-4.1-2025-04-14"
-DEFAULT_LLM_USER = "gpt-4.1-2025-04-14"
+DEFAULT_LLM_AGENT = "openrouter/openai/gpt-4.1-2025-04-14"
+DEFAULT_LLM_USER = "openrouter/openai/gpt-4.1-2025-04-14"
 DEFAULT_LLM_TEMPERATURE_AGENT = 0.0
 DEFAULT_LLM_TEMPERATURE_USER = 0.0
 DEFAULT_LLM_ARGS_AGENT = {"temperature": DEFAULT_LLM_TEMPERATURE_AGENT}
 DEFAULT_LLM_ARGS_USER = {"temperature": DEFAULT_LLM_TEMPERATURE_USER}
 
-DEFAULT_LLM_NL_ASSERTIONS = "gpt-4.1-2025-04-14"
+DEFAULT_LLM_NL_ASSERTIONS = "openrouter/openai/gpt-4.1-2025-04-14"
 DEFAULT_LLM_NL_ASSERTIONS_TEMPERATURE = 0.0
 DEFAULT_LLM_NL_ASSERTIONS_ARGS = {"temperature": DEFAULT_LLM_NL_ASSERTIONS_TEMPERATURE}
 
-DEFAULT_LLM_ENV_INTERFACE = "gpt-4.1-2025-04-14"
+DEFAULT_LLM_ENV_INTERFACE = "openrouter/openai/gpt-4.1-2025-04-14"
 DEFAULT_LLM_ENV_INTERFACE_TEMPERATURE = 0.0
 DEFAULT_LLM_ENV_INTERFACE_ARGS = {"temperature": DEFAULT_LLM_ENV_INTERFACE_TEMPERATURE}
 
-DEFAULT_LLM_EVAL_USER_SIMULATOR = "claude-opus-4-5"
+DEFAULT_LLM_EVAL_USER_SIMULATOR = "openrouter/anthropic/claude-opus-4-5"
 
 # LLM debug logging
 DEFAULT_LLM_LOG_MODE = "latest"  # Options: "all", "latest"
@@ -90,7 +92,7 @@ DEFAULT_TEXT_STREAMING_CONFIG = {
 # VOICE USER SIMULATOR (fixed versioning + overridable model)
 # =============================================================================
 VOICE_USER_SIMULATOR_VERSION = "v1.0"  # fixed, bump on changes
-VOICE_USER_SIMULATOR_DECISION_MODEL = "gpt-4.1"  # overridable
+VOICE_USER_SIMULATOR_DECISION_MODEL = "openrouter/openai/gpt-4.1"  # overridable
 DEFAULT_SPEECH_COMPLEXITY = "regular"  # overridable: "control", "regular"
 
 # =============================================================================
@@ -165,7 +167,7 @@ DEFAULT_GEMINI_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 # =============================================================================
 # XAI PROVIDER (overridable voice, fixed API constants)
 # =============================================================================
-DEFAULT_XAI_REALTIME_BASE_URL = "wss://api.x.ai/v1/realtime"  # fixed
+DEFAULT_XAI_REALTIME_BASE_URL = os.environ.get("XAI_REALTIME_BASE_URL", "wss://api.x.ai/v1/realtime")
 DEFAULT_XAI_VOICE = "Ara"  # overridable: Ara, Rex, Sal, Eve, Leo
 DEFAULT_XAI_MODEL = "xai-realtime"  # fixed, determined by endpoint
 
