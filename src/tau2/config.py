@@ -102,7 +102,7 @@ DEFAULT_AUDIO_NATIVE_PROVIDER = (
     "openai"  # overridable: openai, gemini, xai, nova, qwen, livekit
 )
 DEFAULT_TICK_DURATION_SECONDS = 0.20  # overridable
-DEFAULT_MAX_STEPS_SECONDS = 1200  # overridable, 20 minutes max
+DEFAULT_MAX_STEPS_SECONDS = 120  # overridable
 DEFAULT_SEND_AUDIO_INSTANT = False  # overridable
 
 # Turn-taking thresholds (overridable, in seconds, converted to ticks at runtime)
@@ -156,7 +156,6 @@ DEFAULT_WHISPER_MODEL = "whisper-1"  # fixed
 DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-live-preview"  # overridable
 _LEGACY_GEMINI_MODEL = "gemini-live-2.5-flash-native-audio"
 DEFAULT_GEMINI_VOICE = "Zephyr"  # overridable
-DEFAULT_GEMINI_THINKING_LEVEL = "high"  # overridable: minimal, low, medium, high
 DEFAULT_GEMINI_PROACTIVE_AUDIO = True  # fixed
 DEFAULT_GEMINI_LOCATION = "us-central1"  # fixed
 DEFAULT_GEMINI_INPUT_SAMPLE_RATE = 16000  # fixed, API-defined
@@ -199,6 +198,15 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
     "nova": DEFAULT_NOVA_MODEL,
     "qwen": DEFAULT_QWEN_MODEL,
     "livekit": "dummy",
+}
+
+DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
+    "openai": "high",
+    "gemini": "high",
+    "xai": None,
+    "nova": None,
+    "qwen": None,
+    "livekit": None,
 }
 
 AUDIO_NATIVE_PROVIDER_TYPES = {

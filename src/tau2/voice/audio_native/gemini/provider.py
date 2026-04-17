@@ -19,7 +19,6 @@ from tau2.config import (
     DEFAULT_GEMINI_MODEL,
     DEFAULT_GEMINI_OUTPUT_SAMPLE_RATE,
     DEFAULT_GEMINI_PROACTIVE_AUDIO,
-    DEFAULT_GEMINI_THINKING_LEVEL,
     DEFAULT_GEMINI_VOICE,
 )
 from tau2.environment.tool import Tool
@@ -140,6 +139,7 @@ class GeminiLiveProvider:
         self,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
+        reasoning_effort: Optional[str] = None,
         project_id: Optional[str] = None,
         location: Optional[str] = None,
         use_raw_json_schema: bool = True,
@@ -275,6 +275,8 @@ class GeminiLiveProvider:
                 "  - GOOGLE_SERVICE_ACCOUNT_KEY (JSON content for Vertex AI)\n"
                 "  - GOOGLE_APPLICATION_CREDENTIALS (file path for Vertex AI)"
             )
+
+        self.reasoning_effort = reasoning_effort
 
         self._client = None
         self._session = None
@@ -480,10 +482,9 @@ class GeminiLiveProvider:
                     proactive_audio=True,
                 )
 
-            # Add thinking config if a thinking level is set
-            if DEFAULT_GEMINI_THINKING_LEVEL:
+            if self.reasoning_effort:
                 config_kwargs["thinking_config"] = types.ThinkingConfig(
-                    thinking_level=DEFAULT_GEMINI_THINKING_LEVEL.upper(),
+                    thinking_level=self.reasoning_effort.upper(),
                 )
 
             config = types.LiveConnectConfig(**config_kwargs)

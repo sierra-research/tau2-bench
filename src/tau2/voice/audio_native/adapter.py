@@ -16,6 +16,7 @@ from loguru import logger
 
 from tau2.config import (
     DEFAULT_AUDIO_NATIVE_MODELS,
+    DEFAULT_AUDIO_NATIVE_REASONING_EFFORT,
     DEFAULT_AUDIO_NATIVE_VOIP_PACKET_INTERVAL_MS,
     DEFAULT_SEND_AUDIO_INSTANT,
     TELEPHONY_ULAW_SILENCE,
@@ -359,6 +360,10 @@ def create_adapter(
     Raises:
         ValueError: If the provider is unknown.
     """
+    # --- Resolve reasoning_effort default ---
+    if reasoning_effort is None:
+        reasoning_effort = DEFAULT_AUDIO_NATIVE_REASONING_EFFORT.get(provider)
+
     # --- Resolve model default ---
     if model is None:
         if provider == "livekit":
@@ -400,6 +405,7 @@ def create_adapter(
             tick_duration_ms=tick_duration_ms,
             send_audio_instant=send_audio_instant,
             model=model,
+            reasoning_effort=reasoning_effort,
         )
     elif provider == "xai":
         from tau2.voice.audio_native.xai.discrete_time_adapter import (
