@@ -68,6 +68,7 @@ class DiscreteTimeOpenAIAdapter(DiscreteTimeAdapter):
         tick_duration_ms: int,
         send_audio_instant: bool = False,
         model: Optional[str] = None,
+        reasoning_effort: Optional[str] = None,
         provider: Optional[OpenAIRealtimeProvider] = None,
         audio_format: Optional[AudioFormat] = None,
     ):
@@ -85,6 +86,7 @@ class DiscreteTimeOpenAIAdapter(DiscreteTimeAdapter):
             raise ValueError("model and provider cannot be provided together")
 
         self.model = model
+        self.reasoning_effort = reasoning_effort
         self._provider = provider
         self._owns_provider = provider is None
 
@@ -94,7 +96,10 @@ class DiscreteTimeOpenAIAdapter(DiscreteTimeAdapter):
     @property
     def provider(self) -> OpenAIRealtimeProvider:
         if self._provider is None:
-            self._provider = OpenAIRealtimeProvider(model=self.model)
+            self._provider = OpenAIRealtimeProvider(
+                model=self.model,
+                reasoning_effort=self.reasoning_effort,
+            )
         return self._provider
 
     @property

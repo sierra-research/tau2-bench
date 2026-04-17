@@ -26,7 +26,7 @@ class TextDoneEvent(BaseRealtimeEvent):
 
 
 class AudioDeltaEvent(BaseRealtimeEvent):
-    type: Literal["response.audio.delta"]
+    type: Literal["response.output_audio.delta"]
     delta: str = Field(
         default="", description="Base64-encoded audio delta", exclude=True
     )  # Exclude from serialization due to large size
@@ -35,19 +35,19 @@ class AudioDeltaEvent(BaseRealtimeEvent):
 
 
 class AudioDoneEvent(BaseRealtimeEvent):
-    type: Literal["response.audio.done"]
+    type: Literal["response.output_audio.done"]
     item_id: Optional[str] = None
 
 
 class AudioTranscriptDeltaEvent(BaseRealtimeEvent):
-    type: Literal["response.audio_transcript.delta"]
+    type: Literal["response.output_audio_transcript.delta"]
     delta: str
     response_id: Optional[str] = None
     item_id: Optional[str] = None
 
 
 class AudioTranscriptDoneEvent(BaseRealtimeEvent):
-    type: Literal["response.audio_transcript.done"]
+    type: Literal["response.output_audio_transcript.done"]
     transcript: str = ""
     item_id: Optional[str] = None
 
@@ -214,10 +214,10 @@ RealtimeEvent = Annotated[_KnownEvents, Field(discriminator="type")]
 _EVENT_TYPE_MAP: dict[str, type[BaseRealtimeEvent]] = {
     "response.text.delta": TextDeltaEvent,
     "response.text.done": TextDoneEvent,
-    "response.audio.delta": AudioDeltaEvent,
-    "response.audio.done": AudioDoneEvent,
-    "response.audio_transcript.delta": AudioTranscriptDeltaEvent,
-    "response.audio_transcript.done": AudioTranscriptDoneEvent,
+    "response.output_audio.delta": AudioDeltaEvent,
+    "response.output_audio.done": AudioDoneEvent,
+    "response.output_audio_transcript.delta": AudioTranscriptDeltaEvent,
+    "response.output_audio_transcript.done": AudioTranscriptDoneEvent,
     "response.function_call_arguments.delta": FunctionCallArgumentsDeltaEvent,
     "response.function_call_arguments.done": FunctionCallArgumentsDoneEvent,
     "response.output_item.added": OutputItemAddedEvent,

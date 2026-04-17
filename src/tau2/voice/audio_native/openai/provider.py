@@ -31,7 +31,7 @@ from tau2.voice.audio_native.openai.events import (
     UnknownEvent,
     parse_realtime_event,
 )
-from tau2.voice.utils.openai_utils import audio_format_to_openai_string
+from tau2.voice.utils.openai_utils import audio_format_to_openai
 
 load_dotenv()
 
@@ -113,13 +113,20 @@ class OpenAIRealtimeProvider:
     BASE_URL = DEFAULT_OPENAI_REALTIME_BASE_URL
     DEFAULT_MODEL = DEFAULT_OPENAI_REALTIME_MODEL
 
-    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        reasoning_effort: Optional[str] = None,
+    ):
         """Initialize the OpenAI Realtime provider.
 
         Args:
             api_key: OpenAI API key. If not provided, reads from OPENAI_API_KEY
                 environment variable.
             model: Model identifier to use. Defaults to DEFAULT_MODEL.
+            reasoning_effort: Reasoning effort for thinking models ("minimal",
+                "low", "medium", "high"). If None, not sent to the API.
 
         Raises:
             ValueError: If no API key is provided or found in environment.
@@ -129,6 +136,7 @@ class OpenAIRealtimeProvider:
             raise ValueError("OpenAI API key not provided. Set OPENAI_API_KEY env var.")
 
         self.model = model or self.DEFAULT_MODEL
+        self.reasoning_effort = reasoning_effort
         self.ws: Optional[websockets.WebSocketClientProtocol] = None
         self._current_vad_config: Optional[OpenAIVADConfig] = None
         self._audio_format: AudioFormat = TELEPHONY_AUDIO_FORMAT
@@ -170,10 +178,7 @@ class OpenAIRealtimeProvider:
             return
 
         url = f"{self.BASE_URL}?model={self.model}"
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "OpenAI-Beta": "realtime=v1",
-        }
+        headers = {"Authorization": f"Bearer {self.api_key}"}
 
         self.ws = await websockets.connect(url, additional_headers=headers)
 
@@ -297,7 +302,7 @@ class OpenAIRealtimeProvider:
         if modality == "text":
             modalities = ["text"]
         elif modality == "audio":
-            modalities = ["text", "audio"]
+            modalities = ["audio"]
         elif modality == "audio_in_text_out":
             modalities = ["text"]
         else:
@@ -310,43 +315,39 @@ class OpenAIRealtimeProvider:
         # Store audio format for reference
         self._audio_format = audio_format
 
-        session_config = {
-            "type": "session.update",
-            "session": {
-                "instructions": system_prompt,
-                "modalities": modalities,
-                "tools": self._format_tools_for_api(tools),
-                "tool_choice": "auto",
-                "turn_detection": self._build_turn_detection_config(vad_config),
-            },
+        audio_fmt = audio_format_to_openai(audio_format)
+
+        session = {
+            "type": "realtime",
+            "instructions": system_prompt,
+            "output_modalities": modalities,
+            "tools": self._format_tools_for_api(tools),
+            "tool_choice": "auto",
         }
 
+        if self.reasoning_effort is not None:
+            session["reasoning"] = {"effort": self.reasoning_effort}
+
         if modality in ("audio", "audio_in_text_out"):
-            # Get OpenAI format string from AudioFormat
-            openai_format = audio_format_to_openai_string(audio_format)
-            input_config = {
-                "input_audio_format": openai_format,
-                "input_audio_transcription": {
-                    "model": DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
-                    "language": "en",
-                },
-                "input_audio_noise_reduction": {
-                    "type": DEFAULT_OPENAI_NOISE_REDUCTION,
+            session["audio"] = {
+                "input": {
+                    "format": audio_fmt,
+                    "transcription": {
+                        "model": DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
+                        "language": "en",
+                    },
+                    "noise_reduction": {"type": DEFAULT_OPENAI_NOISE_REDUCTION},
+                    "turn_detection": self._build_turn_detection_config(vad_config),
                 },
             }
-            session_config["session"].update(input_config)
 
         if modality == "audio":
-            # Get OpenAI format string from AudioFormat
-            openai_format = audio_format_to_openai_string(audio_format)
-            session_config["session"].update(
-                {
-                    "voice": DEFAULT_OPENAI_VOICE,
-                    "output_audio_format": openai_format,
-                }
-            )
+            session.setdefault("audio", {})["output"] = {
+                "format": audio_fmt,
+                "voice": DEFAULT_OPENAI_VOICE,
+            }
 
-        await self.ws.send(json.dumps(session_config))
+        await self.ws.send(json.dumps({"type": "session.update", "session": session}))
 
         while True:
             response = await self.ws.recv()

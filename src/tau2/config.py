@@ -102,7 +102,7 @@ DEFAULT_AUDIO_NATIVE_PROVIDER = (
     "openai"  # overridable: openai, gemini, xai, nova, qwen, livekit
 )
 DEFAULT_TICK_DURATION_SECONDS = 0.20  # overridable
-DEFAULT_MAX_STEPS_SECONDS = 1200  # overridable, 20 minutes max
+DEFAULT_MAX_STEPS_SECONDS = 1200  # overridable
 DEFAULT_SEND_AUDIO_INSTANT = False  # overridable
 
 # Turn-taking thresholds (overridable, in seconds, converted to ticks at runtime)
@@ -201,7 +201,7 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
 }
 
 DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
-    "openai": "high",
+    "openai": None,
     "gemini": "high",
     "xai": None,
     "nova": None,
