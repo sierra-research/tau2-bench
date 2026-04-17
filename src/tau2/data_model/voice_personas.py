@@ -19,12 +19,17 @@ See ``docs/voice-personas.md`` for a step-by-step guide to creating
 matching voices with the ElevenLabs Voice Design tool.
 """
 
+import logging
 import os
 from typing import Literal, Optional
 
 from pydantic import BaseModel
 
+logger = logging.getLogger(__name__)
+
 PersonaComplexity = Literal["control", "regular"]
+
+_overridden_personas: list[str] = []
 
 
 def _resolve_voice_id(persona_name: str, default_id: str) -> str:
@@ -34,7 +39,18 @@ def _resolve_voice_id(persona_name: str, default_id: str) -> str:
     e.g. ``TAU2_VOICE_ID_MATT_DELANEY`` for the ``matt_delaney`` persona.
     """
     env_key = f"TAU2_VOICE_ID_{persona_name.upper()}"
-    return os.environ.get(env_key, default_id)
+    voice_id = os.environ.get(env_key)
+    if voice_id is not None:
+        _overridden_personas.append(persona_name)
+        logger.warning(
+            "Using NON-OFFICIAL voice ID for persona '%s' "
+            "(from env var %s). Evaluation results may not be "
+            "comparable to the official leaderboard.",
+            persona_name,
+            env_key,
+        )
+        return voice_id
+    return default_id
 
 
 class VoicePersona(BaseModel):
@@ -138,6 +154,33 @@ ALL_PERSONA_NAMES: list[str] = list(ALL_PERSONAS.keys())
 CONTROL_PERSONA_NAMES: list[str] = [p.name for p in CONTROL_PERSONAS]
 REGULAR_PERSONA_NAMES: list[str] = [p.name for p in REGULAR_PERSONAS]
 DEFAULT_PERSONA_NAME = "matt_delaney"
+
+
+def get_voice_id_overrides() -> list[str]:
+    """Return the list of persona names using non-official voice IDs."""
+    return list(_overridden_personas)
+
+
+def warn_if_non_official_voices() -> None:
+    """Log a prominent warning if any voice IDs were overridden.
+
+    Call this at startup (e.g. in the CLI or runner) to surface the
+    override summary early in the log output.
+    """
+    if _overridden_personas:
+        names = ", ".join(_overridden_personas)
+        logger.warning(
+            "\n"
+            "============================================================\n"
+            "  NON-OFFICIAL VOICE IDs IN USE\n"
+            "  The following personas use voice IDs from environment\n"
+            "  variables instead of the official τ-bench defaults:\n"
+            "    %s\n"
+            "  Results produced with non-official voices are NOT\n"
+            "  comparable to the official leaderboard.\n"
+            "============================================================",
+            names,
+        )
 
 
 def get_elevenlabs_voice_id(persona_name: str) -> str:

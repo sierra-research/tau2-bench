@@ -14,7 +14,7 @@ from tau2.data_model.audio_effects import (
     SpeechEffectsConfig,
 )
 from tau2.data_model.persona import PersonaConfig
-from tau2.data_model.voice_personas import DEFAULT_PERSONA_NAME
+from tau2.data_model.voice_personas import DEFAULT_PERSONA_NAME, get_elevenlabs_voice_id
 from tau2.voice_config import (
     BURST_NOISE_EVENTS_PER_MINUTE,
     DEFAULT_TRANSCRIPTION_MODEL,
@@ -166,6 +166,10 @@ class SpeechEnvironment(BaseModel):
 
     voice_seed: int = Field(default=DEFAULT_SEED)
     persona_name: str = Field(default=DEFAULT_PERSONA_NAME)
+    voice_id: Optional[str] = Field(
+        default=None,
+        description="The TTS voice ID actually used for synthesis.",
+    )
     background_noise_file: Optional[str] = Field(default=None)
     burst_noise_files: list[str] = Field(
         default_factory=list,
@@ -270,6 +274,7 @@ class SampledVoiceConfig(BaseModel):
         return SpeechEnvironment(
             voice_seed=seed,
             persona_name=self.persona_name,
+            voice_id=get_elevenlabs_voice_id(self.persona_name),
             background_noise_file=self.background_noise_file,
             burst_noise_files=self.burst_noise_files,
             environment=self.environment,
