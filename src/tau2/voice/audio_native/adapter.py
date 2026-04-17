@@ -415,6 +415,7 @@ def create_adapter(
         adapter = DiscreteTimeXAIAdapter(
             tick_duration_ms=tick_duration_ms,
             send_audio_instant=send_audio_instant,
+            reasoning_effort=reasoning_effort,
         )
     elif provider == "nova":
         from tau2.voice.audio_native.nova.discrete_time_adapter import (
@@ -425,6 +426,7 @@ def create_adapter(
             tick_duration_ms=tick_duration_ms,
             send_audio_instant=send_audio_instant,
             model=model,
+            reasoning_effort=reasoning_effort,
         )
     elif provider == "qwen":
         from tau2.voice.audio_native.qwen.discrete_time_adapter import (
@@ -435,6 +437,7 @@ def create_adapter(
             tick_duration_ms=tick_duration_ms,
             send_audio_instant=send_audio_instant,
             model=model,
+            reasoning_effort=reasoning_effort,
         )
     elif provider == "livekit":
         from tau2.voice.audio_native.livekit.config import CascadedConfig

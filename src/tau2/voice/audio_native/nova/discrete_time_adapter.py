@@ -96,6 +96,7 @@ class DiscreteTimeNovaAdapter(DiscreteTimeAdapter):
         tick_duration_ms: int,
         send_audio_instant: bool = True,
         model: Optional[str] = None,
+        reasoning_effort: Optional[str] = None,
         provider: Optional[NovaSonicProvider] = None,
         voice: str = "tiffany",
     ):
@@ -106,9 +107,14 @@ class DiscreteTimeNovaAdapter(DiscreteTimeAdapter):
             send_audio_instant: If True, send audio in one call (discrete-time mode).
             model: Model to use. Defaults to None (provider default).
                 If provider is also provided, this is ignored.
+            reasoning_effort: Not supported by Nova. Must be None.
             provider: Optional provider instance. Created lazily if not provided.
             voice: Voice to use. Options: matthew, tiffany, amy. Default: tiffany.
         """
+        if reasoning_effort is not None:
+            raise ValueError(
+                f"Nova provider does not support reasoning_effort (got '{reasoning_effort}')"
+            )
         super().__init__(tick_duration_ms, send_audio_instant=send_audio_instant)
 
         self._chunk_size = int(NOVA_BYTES_PER_SECOND * self._voip_interval_ms / 1000)
