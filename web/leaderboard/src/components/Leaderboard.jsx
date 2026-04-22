@@ -3,7 +3,6 @@ import './Leaderboard.css'
 import ProgressView from './ProgressView'
 
 const BENCHMARK_VALUES = new Set(['text', 'voice'])
-const VIEW_VALUES = new Set(['table', 'progress'])
 
 const getBenchmarkFromHash = () => {
   const hash = window.location.hash.slice(1)
@@ -12,15 +11,6 @@ const getBenchmarkFromHash = () => {
 
   const value = new URLSearchParams(queryString).get('benchmark')
   return BENCHMARK_VALUES.has(value) ? value : null
-}
-
-const getViewFromHash = () => {
-  const hash = window.location.hash.slice(1)
-  const [route, queryString = ''] = hash.split('?')
-  if (route !== 'leaderboard') return null
-
-  const value = new URLSearchParams(queryString).get('view')
-  return VIEW_VALUES.has(value) ? value : null
 }
 
 const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
@@ -36,13 +26,6 @@ const Leaderboard = () => {
 
     const fromStorage = localStorage.getItem('benchmark')
     return BENCHMARK_VALUES.has(fromStorage) ? fromStorage : 'text'
-  })
-  // Sub-view selector: 'table' (ranked list) or 'progress' (release-date chart)
-  const [viewMode, setViewMode] = useState(() => {
-    const fromHash = getViewFromHash()
-    if (fromHash) return fromHash
-    const stored = localStorage.getItem('leaderboardView')
-    return VIEW_VALUES.has(stored) ? stored : 'table'
   })
   // Add unified domain selection state with localStorage persistence
   const [domain, setDomain] = useState(() => {
@@ -262,8 +245,8 @@ const Leaderboard = () => {
     localStorage.setItem('benchmark', benchmark)
   }, [benchmark])
 
-  // Keep benchmark + view in URL for shareable deep links, e.g.
-  // #leaderboard?benchmark=voice&view=progress
+  // Keep benchmark in URL for shareable deep links, e.g.
+  // #leaderboard?benchmark=voice
   useEffect(() => {
     if (!window.location.hash.startsWith('#leaderboard')) return
 
@@ -271,13 +254,13 @@ const Leaderboard = () => {
     const [route, queryString = ''] = hash.split('?')
     const params = new URLSearchParams(queryString)
     params.set('benchmark', benchmark)
-    params.set('view', viewMode)
+    params.delete('view')
 
     const nextHash = `${route}?${params.toString()}`
     if (hash !== nextHash) {
       window.history.replaceState(null, '', `#${nextHash}`)
     }
-  }, [benchmark, viewMode])
+  }, [benchmark])
 
   // React to manual hash edits or browser navigation events.
   useEffect(() => {
@@ -285,10 +268,6 @@ const Leaderboard = () => {
       const benchmarkFromHash = getBenchmarkFromHash()
       if (benchmarkFromHash) {
         setBenchmark(prev => (prev === benchmarkFromHash ? prev : benchmarkFromHash))
-      }
-      const viewFromHash = getViewFromHash()
-      if (viewFromHash) {
-        setViewMode(prev => (prev === viewFromHash ? prev : viewFromHash))
       }
     }
 
@@ -299,10 +278,6 @@ const Leaderboard = () => {
       window.removeEventListener('popstate', syncFromHash)
     }
   }, [])
-
-  useEffect(() => {
-    localStorage.setItem('leaderboardView', viewMode)
-  }, [viewMode])
 
   useEffect(() => {
     localStorage.setItem('domain', domain)
@@ -480,30 +455,6 @@ const Leaderboard = () => {
 
       <div className="leaderboard-title-row">
         <h2 className="leaderboard-title">{isVoice ? 'τ-voice Leaderboard' : 'τ-bench Leaderboard'}</h2>
-        <div className="view-toggle" role="tablist" aria-label="Leaderboard view">
-          <button
-            role="tab"
-            aria-selected={viewMode === 'table'}
-            className={`view-toggle-option ${viewMode === 'table' ? 'active' : ''}`}
-            onClick={() => setViewMode('table')}
-            title="Ranked list"
-          >
-            <span className="view-toggle-icon">≡</span> Ranking
-          </button>
-          <button
-            role="tab"
-            aria-selected={viewMode === 'progress'}
-            className={`view-toggle-option ${viewMode === 'progress' ? 'active' : ''}`}
-            onClick={() => setViewMode('progress')}
-            title="Progress over time"
-          >
-            <span className="view-toggle-icon">📈</span> Progress
-          </button>
-          <div
-            className="view-toggle-slider"
-            style={{ transform: viewMode === 'table' ? 'translateX(0%)' : 'translateX(100%)' }}
-          />
-        </div>
       </div>
 
       {/* Combined Controls Row — applies to both ranking and progress views */}
@@ -593,19 +544,6 @@ const Leaderboard = () => {
         </div>
       </div>
 
-      {viewMode === 'progress' ? (
-        <ProgressView
-          passKData={passKData}
-          fullSubmissionData={fullSubmissionData}
-          benchmark={benchmark}
-          domain={domain}
-          showStandard={showStandard}
-          showCustom={showCustom}
-          showLegacy={showLegacy}
-          baseUrl={import.meta.env.BASE_URL}
-        />
-      ) : (
-      <>
       {/* Table View */}
       {(!showStandard && !showCustom && (isVoice || !showLegacy)) ? (
           <div className="filter-empty-state">
@@ -621,6 +559,7 @@ const Leaderboard = () => {
               <tr>
                 <th>Rank</th>
                 <th>Model</th>
+                <th>Released</th>
                 <th>{domain === 'banking_knowledge' ? 'Retrieval' : isVoice ? 'Provider' : 'Submitting Org'}</th>
                 <th>Reasoning</th>
                 <th>User Sim</th>
@@ -738,7 +677,7 @@ const Leaderboard = () => {
                 if (modelStats.length === 0) {
                   return (
                     <tr className="empty-results-row">
-                      <td colSpan="7" className="empty-results-cell">
+                      <td colSpan="8" className="empty-results-cell">
                         <div className="empty-results-content">
                           <span className="empty-icon">🔧</span>
                           <span className="empty-text">
@@ -776,7 +715,36 @@ const Leaderboard = () => {
                          )}
                        </div>
                      </td>
-                     
+
+                     {/* Release Date (from model_release.release_date) */}
+                     <td className="release-date-cell">
+                       {(() => {
+                         const releaseInfo = fullSubmissionData[model.key]?.model_release
+                         const releaseDate = releaseInfo?.release_date
+                         if (!releaseDate) return <span className="no-data">—</span>
+                         const label = new Date(releaseDate + 'T00:00:00Z').toLocaleDateString('en-US', {
+                           year: 'numeric',
+                           month: 'short',
+                           day: 'numeric',
+                           timeZone: 'UTC',
+                         })
+                         const inner = (
+                           <span className="release-date" title={releaseDate}>{label}</span>
+                         )
+                         return releaseInfo?.announcement_url ? (
+                           <a
+                             className="release-date-link"
+                             href={releaseInfo.announcement_url}
+                             target="_blank"
+                             rel="noopener noreferrer"
+                             title={releaseInfo.announcement_title || releaseInfo.announcement_url}
+                           >
+                             {label}
+                           </a>
+                         ) : inner
+                       })()}
+                     </td>
+
                      {/* Organization / Retrieval Config (banking) */}
                      <td className="organization-info">
                        {domain === 'banking_knowledge' ? (
@@ -883,7 +851,7 @@ const Leaderboard = () => {
                   {/* Expandable Domain Breakdown Row */}
                   {isExpanded && (
                     <tr className="domain-detail-row">
-                      <td colSpan="7" className="domain-detail-cell">
+                      <td colSpan="8" className="domain-detail-cell">
                         <div className="domain-breakdown">
                           {(isVoice
                             ? [
@@ -975,8 +943,18 @@ const Leaderboard = () => {
         )}
         </div>
         )}
-      </>
-      )}
+
+      {/* Progress Over Time (always below the ranking table) */}
+      <ProgressView
+        passKData={passKData}
+        fullSubmissionData={fullSubmissionData}
+        benchmark={benchmark}
+        domain={domain}
+        showStandard={showStandard}
+        showCustom={showCustom}
+        showLegacy={showLegacy}
+        baseUrl={import.meta.env.BASE_URL}
+      />
 
       {/* Submissions Notice */}
       <div className="submissions-notice">
