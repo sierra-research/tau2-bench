@@ -400,6 +400,7 @@ Your `submission.json` must follow the schema defined in [`web/leaderboard/publi
 | `references` | array | — | Links to papers, documentation, repos |
 | `methodology` | object | — | Evaluation methodology details |
 | `voice_config` | object | — | Voice-specific configuration (required for voice) |
+| `model_release` | object | — | Model release metadata (release date + announcement link); see [Model Release](#model-release) |
 
 ### Domain Results
 
@@ -411,6 +412,30 @@ Each domain in `results` accepts:
 ### References
 
 The optional `references` array links to papers, blog posts, documentation, or other resources. Supported `type` values: `paper`, `blog_post`, `documentation`, `model_card`, `github`, `huggingface`, `other`.
+
+### Model Release
+
+The optional `model_release` object captures metadata about the **model itself** (independent of the evaluation), so the leaderboard can track model progress over time:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `release_date` | string (YYYY-MM-DD) | Date the model was first made publicly available |
+| `announcement_url` | string | URL to the release announcement (blog post, paper, model card, release notes, etc.) |
+| `announcement_title` | string | Title of the announcement (used as link text in the UI) |
+
+`release_date` is distinct from the top-level `submission_date` (which is when the evaluation was submitted) and from `methodology.evaluation_date` (which is when the evaluation was run).
+
+If `announcement_url` is provided, `release_date` is required.
+
+Example:
+
+```json
+"model_release": {
+  "release_date": "2025-08-05",
+  "announcement_url": "https://www.anthropic.com/news/claude-opus-4-1",
+  "announcement_title": "Claude Opus 4.1"
+}
+```
 
 ### Voice Config Fields
 
@@ -468,6 +493,11 @@ Include a `verification` section in the `methodology` object:
   "model_organization": "My Company",
   "submitting_organization": "My Company",
   "submission_date": "2025-01-15",
+  "model_release": {
+    "release_date": "2025-01-10",
+    "announcement_url": "https://mycompany.example.com/blog/my-model-v1",
+    "announcement_title": "Introducing My-Model-v1.0"
+  },
   "contact_info": {
     "email": "contact@mycompany.com",
     "name": "Research Team"

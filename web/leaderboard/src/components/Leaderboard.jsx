@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import './Leaderboard.css'
+import ProgressView from './ProgressView'
 
 const BENCHMARK_VALUES = new Set(['text', 'voice'])
+const VIEW_VALUES = new Set(['table', 'progress'])
 
 const getBenchmarkFromHash = () => {
   const hash = window.location.hash.slice(1)
@@ -10,6 +12,15 @@ const getBenchmarkFromHash = () => {
 
   const value = new URLSearchParams(queryString).get('benchmark')
   return BENCHMARK_VALUES.has(value) ? value : null
+}
+
+const getViewFromHash = () => {
+  const hash = window.location.hash.slice(1)
+  const [route, queryString = ''] = hash.split('?')
+  if (route !== 'leaderboard') return null
+
+  const value = new URLSearchParams(queryString).get('view')
+  return VIEW_VALUES.has(value) ? value : null
 }
 
 const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
@@ -25,6 +36,13 @@ const Leaderboard = () => {
 
     const fromStorage = localStorage.getItem('benchmark')
     return BENCHMARK_VALUES.has(fromStorage) ? fromStorage : 'text'
+  })
+  // Sub-view selector: 'table' (ranked list) or 'progress' (release-date chart)
+  const [viewMode, setViewMode] = useState(() => {
+    const fromHash = getViewFromHash()
+    if (fromHash) return fromHash
+    const stored = localStorage.getItem('leaderboardView')
+    return VIEW_VALUES.has(stored) ? stored : 'table'
   })
   // Add unified domain selection state with localStorage persistence
   const [domain, setDomain] = useState(() => {
@@ -182,6 +200,7 @@ const Leaderboard = () => {
             },
             isLegacy,
             organization: submission.submitting_organization,
+            modelOrganization: submission.model_organization,
             reasoningEffort: submission.reasoning_effort || null,
             userSimulator: submission.methodology?.user_simulator || null,
             bankingRetrievalConfig: submission.results.banking_knowledge?.retrieval_config || null,
@@ -243,7 +262,8 @@ const Leaderboard = () => {
     localStorage.setItem('benchmark', benchmark)
   }, [benchmark])
 
-  // Keep benchmark in URL for shareable deep links, e.g. #leaderboard?benchmark=voice
+  // Keep benchmark + view in URL for shareable deep links, e.g.
+  // #leaderboard?benchmark=voice&view=progress
   useEffect(() => {
     if (!window.location.hash.startsWith('#leaderboard')) return
 
@@ -251,29 +271,38 @@ const Leaderboard = () => {
     const [route, queryString = ''] = hash.split('?')
     const params = new URLSearchParams(queryString)
     params.set('benchmark', benchmark)
+    params.set('view', viewMode)
 
     const nextHash = `${route}?${params.toString()}`
     if (hash !== nextHash) {
       window.history.replaceState(null, '', `#${nextHash}`)
     }
-  }, [benchmark])
+  }, [benchmark, viewMode])
 
   // React to manual hash edits or browser navigation events.
   useEffect(() => {
-    const syncBenchmarkFromHash = () => {
-      const fromHash = getBenchmarkFromHash()
-      if (fromHash) {
-        setBenchmark(prev => (prev === fromHash ? prev : fromHash))
+    const syncFromHash = () => {
+      const benchmarkFromHash = getBenchmarkFromHash()
+      if (benchmarkFromHash) {
+        setBenchmark(prev => (prev === benchmarkFromHash ? prev : benchmarkFromHash))
+      }
+      const viewFromHash = getViewFromHash()
+      if (viewFromHash) {
+        setViewMode(prev => (prev === viewFromHash ? prev : viewFromHash))
       }
     }
 
-    window.addEventListener('hashchange', syncBenchmarkFromHash)
-    window.addEventListener('popstate', syncBenchmarkFromHash)
+    window.addEventListener('hashchange', syncFromHash)
+    window.addEventListener('popstate', syncFromHash)
     return () => {
-      window.removeEventListener('hashchange', syncBenchmarkFromHash)
-      window.removeEventListener('popstate', syncBenchmarkFromHash)
+      window.removeEventListener('hashchange', syncFromHash)
+      window.removeEventListener('popstate', syncFromHash)
     }
   }, [])
+
+  useEffect(() => {
+    localStorage.setItem('leaderboardView', viewMode)
+  }, [viewMode])
 
   useEffect(() => {
     localStorage.setItem('domain', domain)
@@ -449,9 +478,35 @@ const Leaderboard = () => {
         </div>
       </div>
 
-      <h2 className="leaderboard-title">{isVoice ? 'τ-voice Leaderboard' : 'τ-bench Leaderboard'}</h2>
+      <div className="leaderboard-title-row">
+        <h2 className="leaderboard-title">{isVoice ? 'τ-voice Leaderboard' : 'τ-bench Leaderboard'}</h2>
+        <div className="view-toggle" role="tablist" aria-label="Leaderboard view">
+          <button
+            role="tab"
+            aria-selected={viewMode === 'table'}
+            className={`view-toggle-option ${viewMode === 'table' ? 'active' : ''}`}
+            onClick={() => setViewMode('table')}
+            title="Ranked list"
+          >
+            <span className="view-toggle-icon">≡</span> Ranking
+          </button>
+          <button
+            role="tab"
+            aria-selected={viewMode === 'progress'}
+            className={`view-toggle-option ${viewMode === 'progress' ? 'active' : ''}`}
+            onClick={() => setViewMode('progress')}
+            title="Progress over time"
+          >
+            <span className="view-toggle-icon">📈</span> Progress
+          </button>
+          <div
+            className="view-toggle-slider"
+            style={{ transform: viewMode === 'table' ? 'translateX(0%)' : 'translateX(100%)' }}
+          />
+        </div>
+      </div>
 
-      {/* Combined Controls Row */}
+      {/* Combined Controls Row — applies to both ranking and progress views */}
       <div className="leaderboard-controls">
         {/* Domain Toggle Switch */}
         <div className="domain-toggle-switch">
@@ -538,6 +593,19 @@ const Leaderboard = () => {
         </div>
       </div>
 
+      {viewMode === 'progress' ? (
+        <ProgressView
+          passKData={passKData}
+          fullSubmissionData={fullSubmissionData}
+          benchmark={benchmark}
+          domain={domain}
+          showStandard={showStandard}
+          showCustom={showCustom}
+          showLegacy={showLegacy}
+          baseUrl={import.meta.env.BASE_URL}
+        />
+      ) : (
+      <>
       {/* Table View */}
       {(!showStandard && !showCustom && (isVoice || !showLegacy)) ? (
           <div className="filter-empty-state">
@@ -907,6 +975,8 @@ const Leaderboard = () => {
         )}
         </div>
         )}
+      </>
+      )}
 
       {/* Submissions Notice */}
       <div className="submissions-notice">
@@ -955,6 +1025,31 @@ const Leaderboard = () => {
                   <tr><td>Submission Date</td><td>{selectedSubmission.submission_date}</td></tr>
                   <tr><td>Type</td><td>{selectedSubmission.submission_type || 'standard'}</td></tr>
                   <tr><td>Modality</td><td>{selectedSubmission.modality || 'text'}</td></tr>
+
+                  {/* Model Release */}
+                  {selectedSubmission.model_release && (
+                    <>
+                      <tr className="sd-section-header"><td colSpan="2">MODEL RELEASE</td></tr>
+                      {selectedSubmission.model_release.release_date && (
+                        <tr><td>Release Date</td><td>{selectedSubmission.model_release.release_date}</td></tr>
+                      )}
+                      {selectedSubmission.model_release.announcement_url && (
+                        <tr>
+                          <td>Announcement</td>
+                          <td>
+                            <a
+                              href={selectedSubmission.model_release.announcement_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="sd-link"
+                            >
+                              {selectedSubmission.model_release.announcement_title || selectedSubmission.model_release.announcement_url}
+                            </a>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  )}
 
                   {/* Contact */}
                   <tr className="sd-section-header"><td colSpan="2">CONTACT</td></tr>

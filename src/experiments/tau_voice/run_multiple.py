@@ -63,13 +63,17 @@ def parse_provider(spec: str) -> ProviderSpec:
         qualifier = parts[2]
         if provider == "livekit":
             return ProviderSpec(
-                provider=provider, model=model,
-                cascaded_config=qualifier, display_name=spec,
+                provider=provider,
+                model=model,
+                cascaded_config=qualifier,
+                display_name=spec,
             )
         else:
             return ProviderSpec(
-                provider=provider, model=model,
-                reasoning_effort=qualifier, display_name=spec,
+                provider=provider,
+                model=model,
+                reasoning_effort=qualifier,
+                display_name=spec,
             )
     else:
         raise ValueError(f"Invalid provider spec: {spec}")
@@ -87,19 +91,30 @@ def build_command(
     max_concurrency: int = 8,
 ) -> list[str]:
     cmd = [
-        "uv", "run", "tau2", "run",
-        "--domain", domain,
+        "uv",
+        "run",
+        "tau2",
+        "run",
+        "--domain",
+        domain,
         "--audio-native",
-        "--audio-native-provider", spec.provider,
-        "--audio-native-model", spec.model,
-        "--speech-complexity", complexity,
-        "--seed", str(seed),
-        "--user-llm", user_llm,
-        "--max-concurrency", str(max_concurrency),
+        "--audio-native-provider",
+        spec.provider,
+        "--audio-native-model",
+        spec.model,
+        "--speech-complexity",
+        complexity,
+        "--seed",
+        str(seed),
+        "--user-llm",
+        user_llm,
+        "--max-concurrency",
+        str(max_concurrency),
         "--verbose-logs",
         "--auto-review",
         "--auto-resume",
-        "--save-to", save_to,
+        "--save-to",
+        save_to,
     ]
     if spec.reasoning_effort is not None:
         cmd.extend(["--reasoning-effort", spec.reasoning_effort])
@@ -166,7 +181,10 @@ def main():
 
         print(f"[{i}/{total}] {run_name}")
         cmd = build_command(
-            domain, spec, complexity, save_to,
+            domain,
+            spec,
+            complexity,
+            save_to,
             num_tasks=args.num_tasks,
             seed=args.seed,
             user_llm=args.user_llm,

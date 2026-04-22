@@ -123,6 +123,40 @@ class Reference(BaseModelNoExtra):
     )
 
 
+class ModelRelease(BaseModelNoExtra):
+    """Information about when and where the model was publicly released.
+
+    This metadata is about the model itself (independent of when it was
+    evaluated on tau2-bench), and is used to track model progress over time
+    on the leaderboard.
+    """
+
+    release_date: Optional[date] = Field(
+        None,
+        description="Public release date of the model (YYYY-MM-DD). "
+        "Use the date the model was first made publicly available, not the "
+        "evaluation date.",
+    )
+    announcement_url: Optional[str] = Field(
+        None,
+        description="URL to the model's release announcement (blog post, "
+        "paper, model card, release notes, etc.).",
+    )
+    announcement_title: Optional[str] = Field(
+        None,
+        description="Title of the release announcement (used as link text in the UI).",
+    )
+
+    @model_validator(mode="after")
+    def _validate_url_has_date(self) -> "ModelRelease":
+        if self.announcement_url is not None and self.release_date is None:
+            raise ValueError(
+                "model_release.announcement_url is set but model_release.release_date "
+                "is not. Provide a release date when linking to a release announcement."
+            )
+        return self
+
+
 class Verification(BaseModelNoExtra):
     """Verification details for result authenticity."""
 
@@ -199,6 +233,11 @@ class Submission(BaseModelNoExtra):
                     "submitting_organization": "OpenAI",
                     "submission_date": "2024-01-15",
                     "submission_type": "standard",
+                    "model_release": {
+                        "release_date": "2024-01-10",
+                        "announcement_url": "https://openai.com/index/gpt-4-1/",
+                        "announcement_title": "Introducing GPT-4.1",
+                    },
                     "contact_info": {
                         "email": "researcher@openai.com",
                         "name": "Jane Doe",
@@ -290,6 +329,12 @@ class Submission(BaseModelNoExtra):
     voice_config: Optional[VoiceConfig] = Field(
         None,
         description="Voice-specific configuration for audio-native evaluations (only for voice submissions)",
+    )
+    model_release: Optional[ModelRelease] = Field(
+        None,
+        description="Public release metadata for the model itself (release date "
+        "and announcement link). Distinct from `submission_date`, which is when "
+        "the evaluation was submitted. Used to track model progress over time.",
     )
     reasoning_effort: Optional[str] = Field(
         None,

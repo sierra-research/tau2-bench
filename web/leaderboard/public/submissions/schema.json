@@ -215,6 +215,54 @@
       "title": "Methodology",
       "type": "object"
     },
+    "ModelRelease": {
+      "additionalProperties": false,
+      "description": "Information about when and where the model was publicly released.\n\nThis metadata is about the model itself (independent of when it was\nevaluated on tau2-bench), and is used to track model progress over time\non the leaderboard.",
+      "properties": {
+        "release_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Public release date of the model (YYYY-MM-DD). Use the date the model was first made publicly available, not the evaluation date.",
+          "title": "Release Date"
+        },
+        "announcement_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "URL to the model's release announcement (blog post, paper, model card, release notes, etc.).",
+          "title": "Announcement Url"
+        },
+        "announcement_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Title of the release announcement (used as link text in the UI).",
+          "title": "Announcement Title"
+        }
+      },
+      "title": "ModelRelease",
+      "type": "object"
+    },
     "Reference": {
       "additionalProperties": false,
       "description": "A reference link (paper, blog post, github repo, etc.).",
@@ -433,6 +481,11 @@
       },
       "model_name": "GPT-4.1",
       "model_organization": "OpenAI",
+      "model_release": {
+        "announcement_title": "Introducing GPT-4.1",
+        "announcement_url": "https://openai.com/index/gpt-4-1/",
+        "release_date": "2024-01-10"
+      },
       "results": {
         "airline": {
           "pass_1": 78.9,
@@ -582,6 +635,18 @@
       ],
       "default": null,
       "description": "Voice-specific configuration for audio-native evaluations (only for voice submissions)"
+    },
+    "model_release": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModelRelease"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Public release metadata for the model itself (release date and announcement link). Distinct from `submission_date`, which is when the evaluation was submitted. Used to track model progress over time."
     },
     "reasoning_effort": {
       "anyOf": [

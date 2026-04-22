@@ -266,11 +266,13 @@ class TickTimer:
         sorted_t = sorted(self.timings)
         p95_idx = int(len(sorted_t) * 0.95)
         p95 = sorted_t[min(p95_idx, len(sorted_t) - 1)]
-        over = sum(1 for t in self.timings if t > TICK_DURATION_MS * TICK_DURATION_MAX_FACTOR)
+        over = sum(
+            1 for t in self.timings if t > TICK_DURATION_MS * TICK_DURATION_MAX_FACTOR
+        )
         print(
             f"\n  [{label}] {len(self.timings)} ticks: "
             f"min={min(self.timings):.0f}ms, "
-            f"avg={sum(self.timings)/len(self.timings):.0f}ms, "
+            f"avg={sum(self.timings) / len(self.timings):.0f}ms, "
             f"p95={p95:.0f}ms, max={max(self.timings):.0f}ms, "
             f"over-budget={over}"
         )
@@ -484,9 +486,7 @@ class TestSingleTurn:
         # Drain a few more ticks to let transcript arrive (may lag behind audio)
         silence = make_silence()
         for tick in range(10):
-            result = timer.run_tick(
-                connected_adapter, silence, len(results) + tick + 1
-            )
+            result = timer.run_tick(connected_adapter, silence, len(results) + tick + 1)
             results.append(result)
             assert_audio_capping(result, connected_adapter)
 
