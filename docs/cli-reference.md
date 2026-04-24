@@ -65,7 +65,7 @@ tau2 run \
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--audio-native` | `false` | Enable audio native mode |
-| `--audio-native-provider` | `openai` | Provider: `openai`, `gemini`, `xai` |
+| `--audio-native-provider` | `openai` | Provider: `openai`, `gemini`, `xai`, `nova`, `qwen`, `boson`, `livekit` |
 | `--audio-native-model` | *(per-provider)* | Model to use (defaults to provider-specific model if not set) |
 | `--tick-duration` | `0.2` | Tick duration in seconds (simulation timestep) |
 | `--max-steps-seconds` | `600` | Maximum conversation duration in seconds |

@@ -12,7 +12,8 @@ Key features:
 - Proportional transcript: text distributed based on audio played
 - Tool support: tool calls returned to orchestrator for execution
 - Interruption handling: client-side truncation on user speech
-- Multi-provider support: OpenAI Realtime and Gemini Live
+- Multi-provider support: OpenAI Realtime, Gemini Live, xAI, Nova, Qwen, Boson,
+  and LiveKit
 
 Usage:
     # OpenAI Realtime (default)
@@ -45,6 +46,7 @@ from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
 from loguru import logger
 
 if TYPE_CHECKING:
+    from tau2.voice.audio_native.boson.provider import BosonVADConfig
     from tau2.voice.audio_native.gemini.provider import GeminiVADConfig
     from tau2.voice.audio_native.livekit.config import CascadedConfig
     from tau2.voice.audio_native.nova.provider import NovaVADConfig
@@ -80,7 +82,9 @@ from tau2.voice.audio_native.adapter import DiscreteTimeAdapter, create_adapter
 from tau2.voice.audio_native.tick_result import TickResult
 
 # Provider type alias
-AudioNativeProvider = Literal["openai", "gemini", "xai", "nova", "qwen", "livekit"]
+AudioNativeProvider = Literal[
+    "openai", "gemini", "xai", "nova", "qwen", "boson", "livekit"
+]
 
 # VAD config union type (string annotations for lazy resolution)
 VADConfig = Union[
@@ -89,6 +93,7 @@ VADConfig = Union[
     "XAIVADConfig",
     "NovaVADConfig",
     "QwenVADConfig",
+    "BosonVADConfig",
 ]
 
 AUDIO_NATIVE_VOICE_INSTRUCTION = """
@@ -230,6 +235,11 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             provider: Audio native provider to use. Options:
                 - "openai": OpenAI Realtime API (DEFAULT_AUDIO_NATIVE_PROVIDER)
                 - "gemini": Google Gemini Live API
+                - "xai": xAI Grok Voice Agent
+                - "nova": Amazon Nova Sonic
+                - "qwen": Alibaba Qwen Omni
+                - "boson": Boson realtime voice chat
+                - "livekit": LiveKit cascaded STT→LLM→TTS
             model: Model to use. Defaults to None. If not provided, the default
                 model for the provider will be used.
             max_inactive_seconds: Maximum seconds without provider activity before
@@ -288,6 +298,10 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             from tau2.voice.audio_native.qwen.provider import QwenVADConfig
 
             self.vad_config = QwenVADConfig()
+        elif provider == "boson":
+            from tau2.voice.audio_native.boson.provider import BosonVADConfig
+
+            self.vad_config = BosonVADConfig()
         elif provider == "livekit":
             from tau2.voice.audio_native.livekit.discrete_time_adapter import (
                 LiveKitVADConfig,

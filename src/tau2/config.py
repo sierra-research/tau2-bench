@@ -99,7 +99,7 @@ DEFAULT_SPEECH_COMPLEXITY = "regular"  # overridable: "control", "regular"
 DEFAULT_AUDIO_NATIVE_AGENT_IMPLEMENTATION = "discrete_time_audio_native_agent"
 DEFAULT_AUDIO_NATIVE_USER_IMPLEMENTATION = "voice_streaming_user_simulator"
 DEFAULT_AUDIO_NATIVE_PROVIDER = (
-    "openai"  # overridable: openai, gemini, xai, nova, qwen, livekit
+    "openai"  # overridable: openai, gemini, xai, nova, qwen, boson, livekit
 )
 DEFAULT_TICK_DURATION_SECONDS = 0.20  # overridable
 DEFAULT_MAX_STEPS_SECONDS = 1200  # overridable
@@ -189,6 +189,15 @@ DEFAULT_QWEN_INPUT_SAMPLE_RATE = 16000  # fixed, API-defined
 DEFAULT_QWEN_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 
 # =============================================================================
+# BOSON PROVIDER (overridable model/voice, fixed API constants)
+# =============================================================================
+DEFAULT_BOSON_REALTIME_URL = (
+    "wss://voiceapi.boson.ai/demo-full-staging/v1/realtime/"  # fixed
+)
+DEFAULT_BOSON_MODEL = "Qwen2.5-72B-Instruct"  # overridable
+DEFAULT_BOSON_VOICE = "default"  # overridable
+
+# =============================================================================
 # PROVIDER REGISTRY (derived from above)
 # =============================================================================
 DEFAULT_AUDIO_NATIVE_MODELS = {
@@ -197,6 +206,7 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
     "xai": DEFAULT_XAI_MODEL,
     "nova": DEFAULT_NOVA_MODEL,
     "qwen": DEFAULT_QWEN_MODEL,
+    "boson": DEFAULT_BOSON_MODEL,
     "livekit": "dummy",
 }
 
@@ -206,6 +216,7 @@ DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
     "xai": None,
     "nova": None,
     "qwen": None,
+    "boson": None,
     "livekit": None,
 }
 
@@ -215,6 +226,7 @@ AUDIO_NATIVE_PROVIDER_TYPES = {
     "xai": "audio_native",
     "nova": "audio_native",
     "qwen": "audio_native",
+    "boson": "audio_native",
     "livekit": "cascaded",
 }
 

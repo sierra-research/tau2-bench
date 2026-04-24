@@ -345,7 +345,7 @@ def create_adapter(
     and the resolved model name.
 
     Args:
-        provider: Provider identifier (openai, gemini, xai, nova, qwen,
+        provider: Provider identifier (openai, gemini, xai, nova, qwen, boson,
             livekit).
         tick_duration_ms: Duration of each tick in milliseconds.
         send_audio_instant: If True, send audio in one call per tick.
@@ -438,6 +438,18 @@ def create_adapter(
             send_audio_instant=send_audio_instant,
             model=model,
             reasoning_effort=reasoning_effort,
+        )
+    elif provider == "boson":
+        from tau2.voice.audio_native.boson.discrete_time_adapter import (
+            DiscreteTimeBosonAdapter,
+        )
+
+        adapter = DiscreteTimeBosonAdapter(
+            tick_duration_ms=tick_duration_ms,
+            send_audio_instant=send_audio_instant,
+            model=model,
+            reasoning_effort=reasoning_effort,
+            audio_format=audio_format,
         )
     elif provider == "livekit":
         from tau2.voice.audio_native.livekit.config import CascadedConfig

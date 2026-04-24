@@ -11,8 +11,12 @@ tau2 run --domain retail --audio-native --num-tasks 1 --verbose-logs
 | Provider | Flag | Requirements |
 |----------|------|-------------|
 | OpenAI Realtime | `--audio-native-provider openai` | `OPENAI_API_KEY` |
-| Google Gemini Live | `--audio-native-provider gemini` | `GOOGLE_API_KEY` |
+| Google Gemini Live | `--audio-native-provider gemini` | `GEMINI_API_KEY` or Vertex AI credentials |
 | xAI Grok Voice | `--audio-native-provider xai` | `XAI_API_KEY` |
+| Amazon Nova Sonic | `--audio-native-provider nova` | AWS credentials |
+| Alibaba Qwen Omni | `--audio-native-provider qwen` | `DASHSCOPE_API_KEY` |
+| Boson realtime voice chat | `--audio-native-provider boson` | `BOSON_API_KEY` |
+| LiveKit cascaded voice | `--audio-native-provider livekit` | LiveKit and cascaded provider credentials |
 
 The default provider is `openai`. Use `--audio-native-model` to override the default model for a provider.
 

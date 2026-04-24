@@ -119,6 +119,13 @@ PROVIDERS = [
         ),
     ),
     pytest.param(
+        "boson",
+        marks=pytest.mark.skipif(
+            not os.environ.get("BOSON_API_KEY"),
+            reason="BOSON_API_KEY not set",
+        ),
+    ),
+    pytest.param(
         "xai",
         marks=pytest.mark.skipif(
             not os.environ.get("XAI_API_KEY"),

@@ -206,7 +206,7 @@ Replace `--audio-native-provider` and `--audio-native-model` with the provider a
 | Flag | Purpose |
 |------|---------|
 | `--audio-native` | Enable voice full-duplex mode |
-| `--audio-native-provider` | Provider to evaluate (`openai`, `gemini`, `xai`) |
+| `--audio-native-provider` | Provider to evaluate (`openai`, `gemini`, `xai`, `nova`, `qwen`, `boson`, `livekit`) |
 | `--audio-native-model` | Specific model identifier |
 | `--speech-complexity regular` | Full realistic conditions (required for leaderboard) |
 | `--verbose-logs` | Save audio files and tick data for verification |

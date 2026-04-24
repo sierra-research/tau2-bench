@@ -11,6 +11,7 @@ Full-duplex voice evaluation via provider-specific realtime APIs. Each provider 
 | **xai** | Native audio | xAI Grok Voice Agent | xai-realtime |
 | **nova** | Native audio | Amazon Nova Sonic | amazon.nova-2-sonic-v1:0 |
 | **qwen** | Native audio | Alibaba Qwen Omni | qwen3-omni-flash-realtime |
+| **boson** | Native audio | Boson realtime voice chat | Qwen2.5-72B-Instruct |
 | **livekit** | Cascaded (STT→LLM→TTS) | LiveKit + Deepgram + OpenAI | Configurable |
 
 ## Architecture
@@ -25,6 +26,7 @@ DiscreteTimeAdapter (adapter.py)          ← shared base class
 ├── openai/discrete_time_adapter.py
 ├── xai/discrete_time_adapter.py
 ├── qwen/discrete_time_adapter.py
+├── boson/discrete_time_adapter.py
 ├── nova/discrete_time_adapter.py
 └── livekit/discrete_time_adapter.py      ← own run_tick (cascaded pipeline, different interaction model)
 ```

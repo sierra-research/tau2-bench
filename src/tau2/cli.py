@@ -238,7 +238,7 @@ def add_run_args(parser):
     parser.add_argument(
         "--audio-native-provider",
         type=str,
-        choices=["openai", "gemini", "xai", "livekit"],
+        choices=list(DEFAULT_AUDIO_NATIVE_MODELS),
         default=DEFAULT_AUDIO_NATIVE_PROVIDER,
         help=f"Audio native API provider. Default is '{DEFAULT_AUDIO_NATIVE_PROVIDER}'.",
     )
