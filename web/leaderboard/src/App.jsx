@@ -10,6 +10,10 @@ function App() {
   const getViewFromHash = (hash) => {
     const base = hash.split('?')[0]
     if (base === 'leaderboard') return 'leaderboard'
+    // #progress is a deep-link to the Progress-over-time panel inside the
+    // leaderboard view. The view is the leaderboard; the in-page scroll to
+    // #progress is handled by the effect below.
+    if (base === 'progress') return 'leaderboard'
     if (base === 'trajectory-visualizer') return 'trajectory-visualizer'
     if (base === 'results' || base === 'docs') return '__deprecated__'
     return 'home'
@@ -55,6 +59,24 @@ function App() {
 
 
 
+  // Scroll to a specific section if the hash refers to one (e.g. #progress).
+  // Tries a few times with rAF + small timeouts so it works even if the
+  // target hasn't mounted yet (data-loading async views).
+  const scrollToSectionForHash = (hash) => {
+    const base = hash.split('?')[0]
+    const sectionId = base === 'progress' ? 'progress' : null
+    if (!sectionId) return
+    const tryScroll = (attemptsLeft) => {
+      const el = document.getElementById(sectionId)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } else if (attemptsLeft > 0) {
+        setTimeout(() => tryScroll(attemptsLeft - 1), 100)
+      }
+    }
+    requestAnimationFrame(() => tryScroll(20))
+  }
+
   // Listen for browser back/forward button clicks and handle mobile menu
   useEffect(() => {
     const handleHashChange = () => {
@@ -65,6 +87,7 @@ function App() {
         setCurrentView('home')
       } else {
         setCurrentView(view)
+        scrollToSectionForHash(hash)
       }
     }
 
@@ -87,6 +110,9 @@ function App() {
     // Set initial URL if none exists
     if (!window.location.hash) {
       window.history.replaceState(null, '', '#home')
+    } else {
+      // Honor an initial deep-link like #progress on first paint.
+      scrollToSectionForHash(window.location.hash.slice(1))
     }
 
     return () => {

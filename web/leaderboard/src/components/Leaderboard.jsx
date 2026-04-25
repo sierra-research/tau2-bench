@@ -7,7 +7,9 @@ const BENCHMARK_VALUES = new Set(['text', 'voice'])
 const getBenchmarkFromHash = () => {
   const hash = window.location.hash.slice(1)
   const [route, queryString = ''] = hash.split('?')
-  if (route !== 'leaderboard') return null
+  // Both #leaderboard?benchmark=… and #progress?benchmark=… select the
+  // benchmark on the same view, so accept either route.
+  if (route !== 'leaderboard' && route !== 'progress') return null
 
   const value = new URLSearchParams(queryString).get('benchmark')
   return BENCHMARK_VALUES.has(value) ? value : null
@@ -246,11 +248,14 @@ const Leaderboard = () => {
   }, [benchmark])
 
   // Keep benchmark in URL for shareable deep links, e.g.
-  // #leaderboard?benchmark=voice
+  // #leaderboard?benchmark=voice or #progress?benchmark=voice
   useEffect(() => {
-    if (!window.location.hash.startsWith('#leaderboard')) return
+    const currentHash = window.location.hash
+    if (!currentHash.startsWith('#leaderboard') && !currentHash.startsWith('#progress')) {
+      return
+    }
 
-    const hash = window.location.hash.slice(1)
+    const hash = currentHash.slice(1)
     const [route, queryString = ''] = hash.split('?')
     const params = new URLSearchParams(queryString)
     params.set('benchmark', benchmark)
@@ -945,6 +950,7 @@ const Leaderboard = () => {
         )}
 
       {/* Progress Over Time (always below the ranking table) */}
+      <div id="progress" style={{ scrollMarginTop: '80px' }}>
       <ProgressView
         passKData={passKData}
         fullSubmissionData={fullSubmissionData}
@@ -955,6 +961,7 @@ const Leaderboard = () => {
         showLegacy={showLegacy}
         baseUrl={import.meta.env.BASE_URL}
       />
+      </div>
 
       {/* Submissions Notice */}
       <div className="submissions-notice">

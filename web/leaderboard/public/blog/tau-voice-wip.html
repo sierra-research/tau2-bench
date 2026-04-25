@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>τ-voice | τ-bench</title>
+  <meta name="description" content="τ-voice is a benchmark for full-duplex voice agents on grounded customer-service tasks. We measure the gap between voice and text agents, the impact of realistic audio, and how fast voice models are improving.">
+  <style>
+    /* ========================================================
+       Base / typography — matches tau-knowledge.html
+       ======================================================== */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; width: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      color: #2d3748;
+      line-height: 1.6;
+      font-weight: 400;
+      width: 100%;
+      overflow-x: hidden;
+      background: #ffffff;
+      min-height: 100vh;
+    }
+
+    /* Navigation (cloned from tau-knowledge.html) */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(12px);
+      border-bottom: 1px solid #e2e8f0; padding: 16px 0;
+    }
+    .nav-container {
+      margin: 0 auto; padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between; position: relative;
+    }
+    .nav-logo { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+    .logo-main { display: flex; align-items: center; font-size: 24px; font-weight: 700; color: #2d3748; cursor: pointer; transition: opacity 0.2s; text-decoration: none; }
+    .logo-main:hover { opacity: 0.8; }
+    .tau-symbol { color: #065f46; margin-right: 2px; }
+    .bench-text { color: #2d3748; }
+    .logo-attribution { display: flex; align-items: center; gap: 4px; text-decoration: none; }
+    .sierra-logo { height: 12px; width: auto; }
+    .from-text { font-size: 10px; color: #718096; font-weight: 400; }
+    .nav-links { display: flex; gap: 32px; align-items: center; }
+    .nav-links a { text-decoration: none; color: #718096; font-weight: 500; font-size: 15px; transition: color 0.2s; }
+    .nav-links a:hover { color: #065f46; }
+    .nav-dropdown { position: relative; display: flex; align-items: center; }
+    .nav-dropdown-trigger { background: none; border: none; color: #718096; font-weight: 500; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-family: inherit; padding: 0; }
+    .nav-dropdown-trigger:hover { color: #065f46; }
+    .dropdown-arrow { font-size: 10px; transition: transform 0.2s; }
+    .nav-dropdown:hover .dropdown-arrow { transform: rotate(180deg); }
+    .nav-dropdown-menu {
+      position: absolute; top: 100%; right: 0; margin-top: 8px;
+      background: white; border: 1px solid #e2e8f0; border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1); min-width: 180px;
+      opacity: 0; visibility: hidden; transform: translateY(-8px);
+      transition: all 0.2s; z-index: 1000;
+    }
+    .nav-dropdown:hover .nav-dropdown-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+    .nav-dropdown-menu a {
+      display: block; padding: 12px 16px; color: #4a5568;
+      text-decoration: none; font-size: 14px; font-weight: 500;
+      transition: all 0.15s; border-bottom: 1px solid #f1f5f9;
+    }
+    .nav-dropdown-menu a:last-child { border-bottom: none; }
+    .nav-dropdown-menu a:hover { background: #f8fafc; color: #065f46; }
+    .nav-dropdown-menu a:first-child { border-radius: 8px 8px 0 0; }
+    .nav-dropdown-menu a:last-child { border-radius: 0 0 8px 8px; }
+    .mobile-menu-toggle { display: none; }
+
+    /* Blog container */
+    .blog-container { max-width: 800px; margin: 0 auto; padding: 120px 24px 80px; }
+    .blog-header { margin-bottom: 32px; }
+    .blog-badge {
+      display: inline-block; background: #f0fdf4; color: #065f46;
+      padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 600; margin-bottom: 20px;
+    }
+    .blog-title { font-size: 3rem; font-weight: 800; line-height: 1.1; color: #1a202c; margin-bottom: 16px; }
+    .blog-title .tau-symbol { color: #065f46; }
+    .blog-subtitle { font-size: 1.125rem; color: #4a5568; line-height: 1.5; margin-bottom: 12px; max-width: 720px; }
+    .blog-meta { font-size: 14px; color: #718096; }
+    .blog-meta a { color: #065f46; text-decoration: none; }
+    .blog-meta a:hover { text-decoration: underline; }
+
+    .blog-content {
+      font-size: 1.0625rem; color: #4a5568; line-height: 1.7; letter-spacing: -0.01em;
+    }
+    .blog-content p { margin-bottom: 16px; }
+    .blog-content h2 {
+      font-size: 1.75rem; font-weight: 700; color: #1a202c;
+      margin-top: 56px; margin-bottom: 18px; letter-spacing: -0.015em;
+    }
+    .blog-content h3 {
+      font-size: 1.2rem; font-weight: 700; color: #1a202c;
+      margin-top: 28px; margin-bottom: 10px;
+    }
+    .blog-content a { color: #065f46; text-decoration: underline; }
+    .blog-content a:hover { color: #047857; }
+    .blog-content ul { margin-bottom: 16px; padding-left: 24px; }
+    .blog-content li { margin-bottom: 8px; color: #4a5568; }
+    .blog-content li::marker { color: #065f46; }
+    .blog-content strong { color: #1a202c; }
+
+    .blog-divider { height: 1px; background: #e2e8f0; margin: 48px 0 32px; }
+    .back-link {
+      display: inline-flex; align-items: center; gap: 8px;
+      color: #718096; text-decoration: none; font-size: 15px; font-weight: 500; transition: color 0.2s;
+    }
+    .back-link:hover { color: #065f46; }
+
+    /* TL;DR */
+    .tldr-box {
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+      border: 1px solid #bbf7d0; border-left: 4px solid #065f46;
+      border-radius: 8px; padding: 20px 24px 16px; margin-bottom: 32px;
+    }
+    .tldr-box p { margin-bottom: 0; font-size: 15px; line-height: 1.7; color: #1a202c; }
+    .tldr-label {
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: #065f46; margin-bottom: 10px;
+    }
+
+    /* Story callout (vignette) */
+    .story-callout {
+      border-left: 3px solid #cbd5e0; background: #f8fafc;
+      padding: 16px 20px; margin: 24px 0;
+      font-style: italic; color: #4a5568; font-size: 15.5px; line-height: 1.65;
+      border-radius: 0 8px 8px 0;
+    }
+    .story-callout strong { font-style: normal; }
+
+    /* Demo block (matches example pages) */
+    .demo-block {
+      margin: 32px 0 40px;
+      border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;
+      background: #fafbfc;
+    }
+    .demo-label {
+      display: flex; align-items: center; gap: 8px;
+      padding: 14px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+      font-size: 13px; font-weight: 600; color: #718096;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .demo-label-icon { font-size: 15px; }
+    .demo-caption {
+      font-size: 13.5px; color: #718096; line-height: 1.6;
+      padding: 12px 20px 16px; border-top: 1px solid #e2e8f0; background: #f8fafc;
+    }
+    .demo-body-pad { padding: 20px; }
+
+    /* Embedded figure iframe wrapper */
+    .blog-figure-wrapper {
+      margin: 32px 0; border: 1px solid #e2e8f0; border-radius: 12px;
+      overflow: hidden; background: #fafbfc;
+    }
+    .blog-figure-wrapper iframe { display: block; width: 100%; border: none; }
+    .blog-figure-caption {
+      font-size: 14px; color: #718096; line-height: 1.6;
+      padding: 12px 20px 16px; border-top: 1px solid #e2e8f0; background: #f8fafc;
+    }
+
+    /* CTA banner (cloned from examples) */
+    .explore-cta {
+      display: flex; align-items: center; gap: 16px;
+      margin: 40px 0 8px; padding: 18px 22px;
+      border: 1px solid #c6f6d5; border-radius: 12px;
+      background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 100%);
+    }
+    .explore-cta-icon {
+      flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px;
+      background: #dcfce7; display: flex; align-items: center; justify-content: center;
+    }
+    .explore-cta-text { flex: 1; min-width: 0; }
+    .explore-cta-text strong { display: block; font-size: 15.5px; color: #1a202c; margin-bottom: 2px; }
+    .explore-cta-text span { font-size: 14px; color: #4a5568; line-height: 1.5; }
+    .explore-cta-btn {
+      flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px;
+      padding: 10px 18px; background: #065f46; color: #fff !important;
+      font-size: 14px; font-weight: 600; border-radius: 8px;
+      text-decoration: none !important; transition: background 0.2s, transform 0.15s; white-space: nowrap;
+    }
+    .explore-cta-btn:hover { background: #047857; transform: translateY(-1px); }
+
+    /* ========================================================
+       Charts (custom HTML/CSS bars)
+       ======================================================== */
+
+    /* Headline 4-bar chart */
+    .headline-chart {
+      display: grid; grid-template-columns: 1fr; gap: 14px;
+      padding: 22px 24px 8px;
+    }
+    .hc-bar-row {
+      display: grid; grid-template-columns: 180px 1fr 70px;
+      align-items: center; gap: 14px;
+    }
+    .hc-bar-label-main { font-size: 13.5px; font-weight: 600; color: #1a202c; line-height: 1.25; }
+    .hc-bar-label-sub { font-size: 11.5px; color: #a0aec0; margin-top: 1px; line-height: 1.2; }
+    .hc-tag {
+      display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em;
+      text-transform: uppercase; padding: 1px 6px; border-radius: 4px; margin-left: 6px;
+      vertical-align: 1px;
+    }
+    .hc-tag-paper { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+    .hc-tag-now { background: #dcfce7; color: #065f46; border: 1px solid #86efac; }
+    .hc-bar-track {
+      position: relative; height: 28px; background: #f1f5f9; border-radius: 6px; overflow: hidden;
+    }
+    .hc-bar-fill {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      border-radius: 6px; transition: width 0.4s ease;
+    }
+    .hc-bar-val {
+      font-size: 14px; font-weight: 700; color: #1a202c;
+      text-align: right; font-variant-numeric: tabular-nums;
+    }
+    .hc-bar-val .delta {
+      display: block; font-size: 11px; font-weight: 600; color: #c2410c; line-height: 1.1; margin-top: 1px;
+    }
+    .hc-bar-val .delta.pos { color: #047857; }
+    .hc-axis {
+      grid-column: 2 / 3; height: 18px; position: relative; margin-top: 4px;
+      font-size: 11px; color: #a0aec0; font-variant-numeric: tabular-nums;
+    }
+    .hc-axis-tick { position: absolute; top: 0; transform: translateX(-50%); }
+    .hc-axis-bar {
+      position: absolute; top: -1px; height: 4px; width: 1px; background: #cbd5e0;
+      transform: translateX(-50%);
+    }
+
+    .chart-note {
+      font-size: 13px; color: #718096; line-height: 1.55;
+      padding: 14px 24px 18px; border-top: 1px solid #edf2f7; background: #f8fafc;
+    }
+    .chart-note strong { color: #1a202c; }
+
+    /* Provider grouped bars */
+    .pp-grouped {
+      padding: 22px 24px 8px;
+      display: flex; flex-direction: column; gap: 18px;
+    }
+    .pp-group-head {
+      display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px;
+    }
+    .pp-group-name { font-size: 13.5px; font-weight: 700; color: #1a202c; }
+    .pp-group-sub { font-size: 11.5px; color: #a0aec0; }
+    .pp-row {
+      display: grid; grid-template-columns: 90px 1fr 110px;
+      align-items: center; gap: 12px; margin-bottom: 6px;
+    }
+    .pp-row-label { font-size: 12.5px; font-weight: 600; color: #4a5568; }
+    .pp-row-track {
+      position: relative; height: 22px; background: #f1f5f9; border-radius: 5px; overflow: hidden;
+    }
+    .pp-row-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; }
+    .pp-row-val {
+      font-size: 12.5px; font-weight: 700; color: #1a202c; text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .pp-row-val .delta { color: #c2410c; font-weight: 600; }
+
+    /* Ablation chart */
+    .ab-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+      margin: 0; padding: 8px 24px 0;
+    }
+    .ab-table-wrap { padding: 16px 24px; }
+    .ab-table th {
+      font-size: 11.5px; font-weight: 700; color: #a0aec0;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      text-align: center; padding: 6px 8px; border-bottom: 2px solid #e2e8f0;
+    }
+    .ab-table th:first-child { text-align: left; }
+    .ab-table td { padding: 8px; text-align: center; border-bottom: 1px solid #edf2f7; }
+    .ab-table td:first-child { text-align: left; font-weight: 600; color: #1a202c; }
+    .ab-cond-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12.5px; font-weight: 600; color: #1a202c;
+    }
+    .ab-cond-pill::before {
+      content: ''; width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0;
+    }
+    .ab-clean::before { background: #34d399; }
+    .ab-noise::before { background: #93c5fd; }
+    .ab-accent::before { background: #c4b5fd; }
+    .ab-turn::before { background: #fdba74; }
+    .ab-real::before { background: #f87171; }
+    .ab-cell-val {
+      display: inline-block; min-width: 38px; padding: 3px 8px; border-radius: 5px;
+      font-variant-numeric: tabular-nums; font-weight: 600;
+    }
+    .ab-cell-best { background: #dcfce7; color: #065f46; }
+    .ab-cell-bad { background: #fef2f2; color: #b91c1c; }
+    .ab-cell-mid { background: #f8fafc; color: #4a5568; }
+    .ab-delta { font-size: 11px; color: #94a3b8; margin-left: 3px; }
+
+    /* Voice quality 4-metric panel */
+    .vq-panel {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+      padding: 20px 24px;
+    }
+    .vq-card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .vq-card-title {
+      font-size: 11px; font-weight: 700; color: #a0aec0;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .vq-card-direction { font-size: 10px; color: #cbd5e0; font-weight: 600; }
+    .vq-row {
+      display: grid; grid-template-columns: 60px 1fr 56px;
+      align-items: center; gap: 8px; font-size: 12px;
+    }
+    .vq-row-name { font-weight: 600; color: #4a5568; }
+    .vq-row-bar {
+      position: relative; height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden;
+    }
+    .vq-row-bar > span {
+      position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px;
+    }
+    .vq-row-val {
+      font-variant-numeric: tabular-nums; text-align: right; font-weight: 700; color: #1a202c;
+    }
+
+    /* Error analysis stacked bars */
+    .ea-cohort {
+      padding: 16px 24px; border-bottom: 1px solid #edf2f7;
+    }
+    .ea-cohort:last-child { border-bottom: none; }
+    .ea-cohort-title {
+      font-size: 13px; font-weight: 700; color: #1a202c; margin-bottom: 10px;
+    }
+    .ea-cohort-sub { font-size: 12px; color: #718096; margin-bottom: 12px; }
+    .ea-row {
+      display: grid; grid-template-columns: 64px 1fr 66px;
+      align-items: center; gap: 12px; margin-bottom: 6px;
+    }
+    .ea-row-label { font-size: 12.5px; font-weight: 600; color: #1a202c; }
+    .ea-row-bar {
+      position: relative; height: 22px; border-radius: 5px; overflow: hidden;
+      background: #f1f5f9; display: flex;
+    }
+    .ea-seg {
+      position: relative; height: 100%; display: flex; align-items: center; justify-content: center;
+      font-size: 10.5px; font-weight: 700; color: #fff; min-width: 0;
+    }
+    .ea-row-total {
+      font-size: 12px; font-weight: 700; color: #1a202c; font-variant-numeric: tabular-nums; text-align: right;
+    }
+    .ea-legend {
+      display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 10px 24px 16px;
+      font-size: 11.5px; color: #4a5568;
+    }
+    .ea-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+    .ea-legend-sw { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+    /* Failure mode cards */
+    .fm-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+      padding: 18px 24px;
+    }
+    .fm-card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .fm-card-head {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 700; color: #1a202c;
+    }
+    .fm-icon {
+      width: 26px; height: 26px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0;
+    }
+    .fm-icon.transcription { background: #fef3c7; color: #92400e; }
+    .fm-icon.logical { background: #fee2e2; color: #b91c1c; }
+    .fm-icon.hallucination { background: #f3e8ff; color: #6b21a8; }
+    .fm-icon.unresponsive { background: #dbeafe; color: #1e40af; }
+    .fm-card-body { font-size: 13px; color: #4a5568; line-height: 1.55; }
+    .fm-card-body code {
+      background: #edf2f7; padding: 1px 5px; border-radius: 3px;
+      font-size: 12px; color: #b91c1c;
+    }
+
+    /* Pipeline diagram (SVG) */
+    .pipeline-wrap { padding: 20px 24px; }
+    .pipeline-svg { width: 100%; height: auto; display: block; }
+
+    /* Provider logos strip */
+    .providers-strip {
+      display: flex; flex-wrap: wrap; gap: 16px;
+      align-items: center; justify-content: center;
+      padding: 20px 24px;
+    }
+    .provider-card {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 14px 18px;
+      border: 1px solid #e2e8f0; border-radius: 10px; background: #fff;
+      min-width: 130px;
+    }
+    .provider-logo-wrap {
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .provider-logo-wrap img { max-width: 32px; max-height: 32px; object-fit: contain; }
+    .provider-name { font-size: 13px; font-weight: 700; color: #1a202c; }
+    .provider-sub { font-size: 11px; color: #94a3b8; text-align: center; line-height: 1.3; }
+
+    /* Progress chart (SVG) — mirrors the leaderboard's ProgressView component */
+    .progress-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 20px 22px 16px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+      margin: 24px 0;
+    }
+    .progress-card-head {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      gap: 16px; margin-bottom: 16px; padding: 0 4px;
+    }
+    .progress-card-title { font-size: 1rem; font-weight: 700; color: #2d3748; }
+    .progress-card-sub {
+      font-size: 13px; color: #718096; margin-top: 2px;
+      max-width: 720px; line-height: 1.5;
+    }
+    .progress-svg-wrap { width: 100%; overflow: hidden; }
+    .progress-svg {
+      width: 100%; height: auto; display: block;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    }
+    .progress-legend {
+      display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: center;
+      font-size: 12px; color: #4a5568; margin-top: 12px; padding: 0 4px;
+    }
+    .progress-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+    .progress-legend-logo {
+      width: 18px; height: 18px; border-radius: 999px;
+      background: white; border: 1px solid #e2e8f0;
+      display: inline-flex; align-items: center; justify-content: center; padding: 2px;
+    }
+    .progress-legend-logo img { width: 12px; height: 12px; object-fit: contain; }
+    .progress-legend-line {
+      display: inline-block; width: 22px; height: 0; border-top: 2.5px dashed #047857;
+    }
+    .progress-footnote {
+      font-size: 11.5px; color: #718096; margin-top: 10px;
+      padding: 0 4px; line-height: 1.55;
+    }
+    .progress-footnote code {
+      background: #f1f5f9; padding: 1px 5px; border-radius: 3px;
+      font-size: 0.95em; color: #475569;
+    }
+    @media (max-width: 720px) {
+      .progress-card-head { flex-direction: column; align-items: flex-start; }
+      .progress-card-sub { max-width: 100%; }
+    }
+
+    /* Footnote / paper attribution */
+    .source-line {
+      font-size: 11.5px; color: #a0aec0; line-height: 1.55;
+      padding: 0 24px 12px;
+    }
+    .source-line strong { color: #4a5568; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .mobile-menu-toggle {
+        display: flex; flex-direction: column; gap: 3px;
+        background: none; border: none; cursor: pointer; padding: 8px;
+      }
+      .mobile-menu-toggle span { width: 20px; height: 2px; background: #2d3748; border-radius: 1px; }
+      .blog-container { padding: 100px 16px 60px; }
+      .blog-title { font-size: 2rem; }
+      .blog-content { font-size: 1rem; }
+
+      .hc-bar-row { grid-template-columns: 1fr; gap: 4px; }
+      .hc-bar-row .hc-bar-val { text-align: left; }
+      .hc-axis { grid-column: auto; }
+
+      .pp-row { grid-template-columns: 70px 1fr 90px; }
+      .vq-panel { grid-template-columns: repeat(2, 1fr); }
+      .fm-grid { grid-template-columns: 1fr; }
+      .ea-row { grid-template-columns: 56px 1fr 56px; }
+
+      .explore-cta { flex-direction: column; text-align: center; gap: 12px; padding: 16px 20px; }
+      .explore-cta-btn { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== Navigation ===== -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="nav-logo">
+        <a href="/" class="logo-main">
+          <span class="tau-symbol">τ</span><span class="bench-text">-bench</span>
+        </a>
+        <a href="https://sierra.ai" target="_blank" rel="noopener noreferrer" class="logo-attribution">
+          <img src="/sierra_logo.jpeg" alt="Sierra" class="sierra-logo" />
+          <span class="from-text">from Sierra</span>
+        </a>
+      </div>
+      <button class="mobile-menu-toggle" aria-label="Open menu"><span></span><span></span><span></span></button>
+      <div class="nav-links">
+        <a href="/#home">Overview</a>
+        <a href="/#leaderboard">Leaderboard</a>
+        <a href="/#trajectory-visualizer">Visualizer</a>
+        <div class="nav-dropdown">
+          <button class="nav-dropdown-trigger">Blog Posts <span class="dropdown-arrow">▾</span></button>
+          <div class="nav-dropdown-menu">
+            <a href="/blog/tau-knowledge.html">τ-knowledge</a>
+            <a href="/blog/tau-voice-examples.html">τ-voice examples</a>
+            <a href="/blog/tau3-task-fixes.html">τ³ Task Fixes</a>
+          </div>
+        </div>
+        <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="blog-container">
+
+    <header class="blog-header">
+      <span class="blog-badge">Research</span>
+      <h1 class="blog-title"><span class="tau-symbol">τ</span>-voice: benchmarking full-duplex voice agents on real-world tasks</h1>
+      <p class="blog-subtitle">A reproducible testbed for voice agents that need to listen, speak, reason, and act &mdash; under realistic phone conditions, on tasks that have a verifiable right answer.</p>
+      <p class="blog-meta">April 2026 · Sierra Research · <a href="https://arxiv.org/abs/2603.13686" target="_blank" rel="noopener noreferrer">Paper</a> · <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer">GitHub</a></p>
+    </header>
+
+    <div class="blog-content">
+
+      <!-- ====== TL;DR ====== -->
+      <div class="tldr-box">
+        <div class="tldr-label">TL;DR</div>
+        <p>
+          <strong>τ-voice</strong> extends τ-bench to live, full-duplex voice interaction across <strong>278 customer-service tasks</strong> in retail, airline, and telecom. Because the tasks, tools, and evaluator are <em>identical</em> to the text benchmark, every voice number here can be read directly against its half-duplex text counterpart.
+        </p>
+        <p>
+          When we wrote the paper (frozen Feb&nbsp;2026), the best audio-native agent reached only <strong>~38% realistic pass@1</strong> against an <strong>~85%</strong> text ceiling &mdash; voice retained just <strong>~45%</strong> of text capability, and <strong>79&ndash;90%</strong> of failures were genuine agent errors, not simulator artefacts. Two months later, <strong>xAI's grok-voice-think-fast-1.0</strong> lifts the voice frontier to <strong>67% average pass@1</strong>, closing most of the gap with non-reasoning text models. The benchmark is doing what we hoped: surfacing real, fast progress on real tasks.
+        </p>
+      </div>
+
+      <!-- ====== Why voice ====== -->
+      <h2>Why voice agents need end-to-end evaluation</h2>
+
+      <p>Voice is rapidly becoming a primary interface for agentic systems. Audio-native models &mdash; systems that ingest and produce speech end-to-end, without going through an intermediate transcript &mdash; are now generally available from <strong>OpenAI</strong>, <strong>Google</strong>, and <strong>xAI</strong>. The pitch is compelling: a single model that listens, speaks, interrupts, backchannels, and decides when to take the floor. In customer service, where voice remains the channel of choice for nuanced or urgent issues, the appeal is obvious.</p>
+
+      <p>But the evaluation landscape has not caught up. Existing benchmarks tend to measure either <strong>task completion</strong> (can the agent call the right tool, follow the right policy, change the database the right way?) or <strong>conversational dynamics</strong> (does it interrupt politely, yield gracefully, recognise a backchannel?), but rarely both, and rarely under realistic acoustic conditions. The risk is that we ship voice agents that hold a charming conversation while quietly failing the underlying task &mdash; or, conversely, agents that handle the task but feel robotic and unnatural to talk to.</p>
+
+      <div class="story-callout">
+        A customer calls to make changes to their account. Background noise from a busy street and an unfamiliar accent push the speech recogniser off, and authentication fails. <strong>Does the agent ask them to spell their name? If they spell it, does the agent transcribe it correctly? If so, does it actually fix the failed authentication call &mdash; or does it lose track of the corrections spread across three turns?</strong>
+      </div>
+
+      <p>None of the standard benchmarks would catch a failure like this, because each step looks fine in isolation. And the people most likely to be affected &mdash; speakers with non-standard accents, callers from noisy environments, users on degraded connections &mdash; are the ones who need voice agents to be reliable in the first place. <strong>Robustness to realistic audio conditions is an accessibility issue.</strong></p>
+
+      <!-- ====== Introducing τ-voice ====== -->
+      <h2>Introducing τ-voice</h2>
+
+      <p>τ-voice is the first benchmark to combine three things that have so far been evaluated in isolation:</p>
+
+      <ul>
+        <li><strong>Verifiable, grounded tasks &mdash; shared with the text benchmark.</strong> 278 customer-service tasks inherited from τ-bench, scored deterministically against the final database state. The tasks, the tools, the policy documents, and the evaluator are <em>byte-for-byte identical</em> to those used by half-duplex text agents on the τ-bench leaderboard. That means the voice numbers in this post can be compared directly against a text agent on the same task &mdash; <strong>full-duplex voice vs.&nbsp;half-duplex text, no apples-to-oranges caveat</strong>.</li>
+        <li><strong>Full-duplex interaction.</strong> Both the user and the agent can speak simultaneously. A tick-based orchestrator coordinates 200&nbsp;ms audio chunks in both directions, lets the agent be interrupted mid-sentence, and reproduces the same audio stream every run.</li>
+        <li><strong>Realistic, controllable audio.</strong> A voice user simulator that synthesises caller speech with diverse personas, mixes in environmental noise, applies telephony compression, drops frames, and decides &mdash; turn by turn &mdash; whether to interrupt, yield, or backchannel.</li>
+      </ul>
+
+      <p>The trick that holds it all together is <strong>decoupling simulation time from wall-clock time</strong>. Voice provider APIs (OpenAI Realtime, Gemini Live, xAI Grok) index events on audio time, not real time, which means we can advance the conversation faster or slower than realtime without breaking semantics. That, in turn, lets us drive the user simulator with the most capable text LLM available (GPT-4.1 in our experiments) without forcing it to think in 200&nbsp;ms increments. Reproducibility, fine-grained control over turn-taking, and a strong simulator: we did not have to choose.</p>
+
+      <!-- ====== Embedded speech timeline figure ====== -->
+      <div class="blog-figure-wrapper">
+        <iframe src="/blog/tau-voice-figure.html" height="640" scrolling="no" title="τ-voice speech activity timeline"></iframe>
+        <div class="blog-figure-caption">
+          <strong>Figure 1.</strong> A simulated τ-voice call in the retail domain. The main timeline (top) shows six minutes of overlapping user and agent speech, mixed with realistic acoustic effects. Inset A decomposes the audio the agent actually receives &mdash; clean speech mixed with street noise, a car-horn burst, and a non-agent-directed remark. Inset B zooms into a turn-taking moment: the agent must decide what to ignore and when to yield.
+        </div>
+      </div>
+
+      <!-- ====== Voice user simulator pipeline ====== -->
+      <h3>The voice user simulator, end to end</h3>
+
+      <p>Each tick, the simulator does four things in sequence: it generates the next caller utterance as text, synthesises it through a voice persona, mixes the synthesised speech with environmental audio (background noise, vocal tics, non-directed speech), and applies channel degradation (G.711 µ-law compression at 8&nbsp;kHz, dynamic muffling, frame drops via a Gilbert-Elliott model). A separate LLM-driven turn-taking policy, evaluated every two seconds, decides whether to interrupt, yield, or backchannel.</p>
+
+      <div class="demo-block" id="pipeline-figure">
+        <div class="demo-label"><span class="demo-label-icon">🎙</span> Voice User Simulator Pipeline</div>
+        <div class="pipeline-wrap">
+          <svg class="pipeline-svg" viewBox="0 0 760 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pipeline diagram">
+            <!-- Boxes -->
+            <g font-family="-apple-system, sans-serif" font-size="12" fill="#1a202c" font-weight="600">
+
+              <!-- Stage 1 -->
+              <rect x="10" y="50" width="130" height="64" rx="10" fill="#ecfdf5" stroke="#34d399" stroke-width="1.5"/>
+              <text x="75" y="72" text-anchor="middle">Speech generation</text>
+              <text x="75" y="92" text-anchor="middle" font-size="10.5" font-weight="500" fill="#4a5568">User-sim LLM,</text>
+              <text x="75" y="105" text-anchor="middle" font-size="10.5" font-weight="500" fill="#4a5568">disfluencies, fillers</text>
+
+              <!-- Stage 2 -->
+              <rect x="170" y="50" width="130" height="64" rx="10" fill="#eff6ff" stroke="#60a5fa" stroke-width="1.5"/>
+              <text x="235" y="72" text-anchor="middle">TTS persona</text>
+              <text x="235" y="92" text-anchor="middle" font-size="10.5" font-weight="500" fill="#4a5568">7 personas,</text>
+              <text x="235" y="105" text-anchor="middle" font-size="10.5" font-weight="500" fill="#4a5568">diverse accents</text>
+
+              <!-- Stage 3 -->
+              <rect x="330" y="50" width="130" height="64" rx="10" fill="#faf5ff" stroke="#a78bfa" stroke-width="1.5"/>
+              <text x="395" y="72" text-anchor="middle">Audio environment</text>
+              <text x="395" y="92" text-anchor="middle" font-size="10.5" font-weight="500" fill="#4a5568">Noise, bursts,</text>
+              <text x="395" y="105" text-anchor="middle" font-size="10.5" font-weight="500" fill="#4a5568">non-directed speech</text>
+
+              <!-- Stage 4 -->
+              <rect x="490" y="50" width="130" height="64" rx="10" fill="#fff1f2" stroke="#fb7185" stroke-width="1.5"/>
+              <text x="555" y="72" text-anchor="middle">Channel</text>
+              <text x="555" y="92" text-anchor="middle" font-size="10.5" font-weight="500" fill="#4a5568">G.711, muffling,</text>
+              <text x="555" y="105" text-anchor="middle" font-size="10.5" font-weight="500" fill="#4a5568">frame drops</text>
+
+              <!-- Output -->
+              <rect x="650" y="50" width="100" height="64" rx="10" fill="#0f172a" stroke="#0f172a"/>
+              <text x="700" y="80" text-anchor="middle" fill="#ecfdf5">Agent</text>
+              <text x="700" y="98" text-anchor="middle" font-size="10.5" font-weight="500" fill="#a7f3d0">audio in</text>
+
+              <!-- Arrows -->
+              <g stroke="#94a3b8" stroke-width="1.4" fill="none" marker-end="url(#arr)">
+                <line x1="140" y1="82" x2="170" y2="82"/>
+                <line x1="300" y1="82" x2="330" y2="82"/>
+                <line x1="460" y1="82" x2="490" y2="82"/>
+                <line x1="620" y1="82" x2="650" y2="82"/>
+              </g>
+
+              <!-- Turn-taking policy lane -->
+              <rect x="10" y="150" width="610" height="36" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="1.2"/>
+              <text x="315" y="172" text-anchor="middle" font-size="11.5" font-weight="600" fill="#92400e">Turn-taking policy &mdash; interrupt? yield? backchannel? &nbsp;(LLM-driven, evaluated every 2 s)</text>
+
+              <!-- Side outputs to bot lane -->
+              <g stroke="#fbbf24" stroke-width="1" fill="none" stroke-dasharray="3 3">
+                <line x1="75" y1="114" x2="75" y2="150"/>
+                <line x1="395" y1="114" x2="395" y2="150"/>
+              </g>
+            </g>
+            <defs>
+              <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 Z" fill="#94a3b8"/>
+              </marker>
+            </defs>
+          </svg>
+        </div>
+        <div class="demo-caption">
+          The user simulator turns each generated reply into <em>realistic</em> caller audio: a persona-specific voice, mixed with the right background, run through a phone-grade channel. The turn-taking policy runs in parallel to decide when to interrupt or yield.
+        </div>
+      </div>
+
+      <!-- ====== Headline finding ====== -->
+      <h2>The voice&ndash;text gap: large in the paper, shrinking fast on the leaderboard</h2>
+
+      <p>Because τ-voice and τ-bench share tasks, tools, and evaluator, the comparison is unusually clean: full-duplex voice vs.&nbsp;half-duplex text, on the same problem. Below, we plot four points on a single 0&ndash;100% pass@1 axis, all averaged across retail, airline, and telecom: the text reasoning ceiling, a strong non-reasoning text baseline, the best voice agent at the time of the paper (Feb&nbsp;2026), and the best voice agent on the leaderboard <em>this week</em>.</p>
+
+      <div class="demo-block" id="headline-chart">
+        <div class="demo-label"><span class="demo-label-icon">📈</span> Pass@1 across retail + airline + telecom &nbsp;·&nbsp; text vs voice, then vs now</div>
+        <div class="headline-chart">
+          <div class="hc-bar-row">
+            <div>
+              <div class="hc-bar-label-main">Text · reasoning ceiling</div>
+              <div class="hc-bar-label-sub">Best half-duplex text agent (Gemini 3 Pro / GPT-5.2 / Opus 4.5)</div>
+            </div>
+            <div class="hc-bar-track"><div class="hc-bar-fill" style="width: 85%; background: linear-gradient(90deg, #34d399, #059669);"></div></div>
+            <div class="hc-bar-val">85%</div>
+          </div>
+          <div class="hc-bar-row">
+            <div>
+              <div class="hc-bar-label-main">Text · non-reasoning baseline</div>
+              <div class="hc-bar-label-sub">GPT-4.1 (no reasoning)</div>
+            </div>
+            <div class="hc-bar-track"><div class="hc-bar-fill" style="width: 54%; background: linear-gradient(90deg, #6ee7b7, #34d399);"></div></div>
+            <div class="hc-bar-val">54%</div>
+          </div>
+          <div class="hc-bar-row">
+            <div>
+              <div class="hc-bar-label-main">Voice · paper-era best <span class="hc-tag hc-tag-paper">paper · Feb 2026</span></div>
+              <div class="hc-bar-label-sub">xAI grok-voice-fast-1.0, realistic conditions</div>
+            </div>
+            <div class="hc-bar-track"><div class="hc-bar-fill" style="width: 38%; background: linear-gradient(90deg, #fda4af, #f43f5e);"></div></div>
+            <div class="hc-bar-val">38%<span class="delta">−47 pp vs text ceiling</span></div>
+          </div>
+          <div class="hc-bar-row">
+            <div>
+              <div class="hc-bar-label-main">Voice · today's best <span class="hc-tag hc-tag-now">leaderboard · this week</span></div>
+              <div class="hc-bar-label-sub">xAI grok-voice-think-fast-1.0, realistic conditions</div>
+            </div>
+            <div class="hc-bar-track"><div class="hc-bar-fill" style="width: 67%; background: linear-gradient(90deg, #fdba74, #f97316);"></div></div>
+            <div class="hc-bar-val">67%<span class="delta">−18 pp vs text ceiling</span></div>
+          </div>
+          <div class="hc-axis">
+            <span class="hc-axis-bar" style="left: 0%"></span><span class="hc-axis-tick" style="left: 0%">0</span>
+            <span class="hc-axis-bar" style="left: 25%"></span><span class="hc-axis-tick" style="left: 25%">25</span>
+            <span class="hc-axis-bar" style="left: 50%"></span><span class="hc-axis-tick" style="left: 50%">50</span>
+            <span class="hc-axis-bar" style="left: 75%"></span><span class="hc-axis-tick" style="left: 75%">75</span>
+            <span class="hc-axis-bar" style="left: 100%"></span><span class="hc-axis-tick" style="left: 100%">100</span>
+          </div>
+        </div>
+        <div class="chart-note">
+          When the paper was written, the best voice agent retained only about <strong>45%</strong> of the text ceiling. Two months later it retains <strong>~79%</strong> &mdash; and overtakes the strongest non-reasoning text model on the same tasks. The reasoning gap is closing too: like text, the voice frontier moved when explicit reasoning was added (xAI's "Think Fast" model). <strong>Same domains, same evaluator, no asterisks.</strong>
+        </div>
+        <div class="source-line"><strong>Sources:</strong> τ-voice paper Table&nbsp;1 (paper-era voice); τ-bench leaderboard submissions for current text and voice numbers (retail&nbsp;114&nbsp;+ airline&nbsp;50&nbsp;+ telecom&nbsp;114&nbsp;= 278 tasks).</div>
+      </div>
+
+      <p>Two things are worth pausing on. First, voice agents have already overtaken non-reasoning text models on the same tasks: end-to-end audio is no longer paying a penalty for being audio. Second, the speed of progress between the paper freeze and today (~30&nbsp;pp on the voice frontier in 2&nbsp;months) is the single best argument for keeping a live, reproducible benchmark like this open. The static numbers in the paper are already out of date; the rest of this post will be careful to flag what's "paper-era" and what's "today".</p>
+
+      <p>The paper-era findings below are still useful: they tell us <em>why</em> voice is hard, and where each provider's weak spots are. We'll flag where today's leaderboard already supersedes them.</p>
+
+      <!-- ====== Per-provider Clean vs Realistic ====== -->
+      <div class="demo-block" id="provider-chart">
+        <div class="demo-label"><span class="demo-label-icon">📊</span> Clean vs Realistic by provider <span class="hc-tag hc-tag-paper" style="margin-left:8px;">paper · Feb 2026</span></div>
+        <div class="pp-grouped">
+
+          <div class="pp-group">
+            <div class="pp-group-head">
+              <span class="pp-group-name">Google</span>
+              <span class="pp-group-sub">gemini-live-2.5-flash-native-audio</span>
+            </div>
+            <div class="pp-row">
+              <div class="pp-row-label">Clean</div>
+              <div class="pp-row-track"><div class="pp-row-fill" style="width: 31%; background: #60a5fa;"></div></div>
+              <div class="pp-row-val">31%</div>
+            </div>
+            <div class="pp-row">
+              <div class="pp-row-label">Realistic</div>
+              <div class="pp-row-track"><div class="pp-row-fill" style="width: 26%; background: #1d4ed8;"></div></div>
+              <div class="pp-row-val">26% <span class="delta">−5 pp</span></div>
+            </div>
+          </div>
+
+          <div class="pp-group">
+            <div class="pp-group-head">
+              <span class="pp-group-name">OpenAI</span>
+              <span class="pp-group-sub">gpt-realtime-1.5</span>
+            </div>
+            <div class="pp-row">
+              <div class="pp-row-label">Clean</div>
+              <div class="pp-row-track"><div class="pp-row-fill" style="width: 49%; background: #34d399;"></div></div>
+              <div class="pp-row-val">49%</div>
+            </div>
+            <div class="pp-row">
+              <div class="pp-row-label">Realistic</div>
+              <div class="pp-row-track"><div class="pp-row-fill" style="width: 35%; background: #047857;"></div></div>
+              <div class="pp-row-val">35% <span class="delta">−14 pp</span></div>
+            </div>
+          </div>
+
+          <div class="pp-group">
+            <div class="pp-group-head">
+              <span class="pp-group-name">xAI</span>
+              <span class="pp-group-sub">grok-voice-fast-1.0</span>
+            </div>
+            <div class="pp-row">
+              <div class="pp-row-label">Clean</div>
+              <div class="pp-row-track"><div class="pp-row-fill" style="width: 51%; background: #fbbf24;"></div></div>
+              <div class="pp-row-val">51%</div>
+            </div>
+            <div class="pp-row">
+              <div class="pp-row-label">Realistic</div>
+              <div class="pp-row-track"><div class="pp-row-fill" style="width: 38%; background: #b45309;"></div></div>
+              <div class="pp-row-val">38% <span class="delta">−13 pp</span></div>
+            </div>
+          </div>
+
+        </div>
+        <div class="chart-note">
+          <strong>Google</strong> is the most robust to acoustic degradation, losing only ~17% of its clean performance vs.&nbsp;24&ndash;28% for the others &mdash; even though its absolute scores are lowest. <strong>xAI</strong> tops both regimes overall. <strong>OpenAI</strong> wins one specific domain by a lot (Retail, 71% Clean &mdash; the single best per-domain score in the benchmark) but degrades the most when the audio gets messy. <em>The newer xAI <strong>grok-voice-think-fast-1.0</strong> (Apr&nbsp;2026, on the leaderboard) reaches <strong>67% realistic</strong> &mdash; a step change above all paper-era models &mdash; we discuss it below.</em>
+        </div>
+      </div>
+
+      <!-- ====== Ablations ====== -->
+      <h3>What hurts most: noise, accents, or turn-taking?</h3>
+
+      <p>To pin down which part of "realistic" matters, we ran ablations on the retail domain &mdash; adding background noise, diverse accents, and turn-taking dynamics one factor at a time, on top of an otherwise clean condition.</p>
+
+      <div class="demo-block" id="ablation-chart">
+        <div class="demo-label"><span class="demo-label-icon">🧪</span> Ablation &nbsp;·&nbsp; impact of each factor on Retail pass@1 <span class="hc-tag hc-tag-paper" style="margin-left:8px;">paper · Feb 2026</span></div>
+        <div class="ab-table-wrap">
+          <table class="ab-table">
+            <thead>
+              <tr>
+                <th>Condition</th>
+                <th>Google</th>
+                <th>OpenAI</th>
+                <th>xAI</th>
+                <th>Average</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="ab-cond-pill ab-clean">Clean</span></td>
+                <td><span class="ab-cell-val ab-cell-mid">45</span></td>
+                <td><span class="ab-cell-val ab-cell-best">71</span></td>
+                <td><span class="ab-cell-val ab-cell-mid">48</span></td>
+                <td><span class="ab-cell-val ab-cell-mid">55</span></td>
+              </tr>
+              <tr>
+                <td><span class="ab-cond-pill ab-noise">+ Noise</span></td>
+                <td><span class="ab-cell-val ab-cell-mid">40</span><span class="ab-delta">−4</span></td>
+                <td><span class="ab-cell-val ab-cell-best">67</span><span class="ab-delta">−4</span></td>
+                <td><span class="ab-cell-val ab-cell-mid">46</span><span class="ab-delta">−2</span></td>
+                <td><span class="ab-cell-val ab-cell-mid">51</span><span class="ab-delta">−4</span></td>
+              </tr>
+              <tr>
+                <td><span class="ab-cond-pill ab-accent">+ Accents</span></td>
+                <td><span class="ab-cell-val ab-cell-mid">44</span><span class="ab-delta">−1</span></td>
+                <td><span class="ab-cell-val ab-cell-best">60</span><span class="ab-delta">−11</span></td>
+                <td><span class="ab-cell-val ab-cell-bad">30</span><span class="ab-delta">−18</span></td>
+                <td><span class="ab-cell-val ab-cell-mid">44</span><span class="ab-delta">−10</span></td>
+              </tr>
+              <tr>
+                <td><span class="ab-cond-pill ab-turn">+ Turn-taking</span></td>
+                <td><span class="ab-cell-val ab-cell-bad">33</span><span class="ab-delta">−11</span></td>
+                <td><span class="ab-cell-val ab-cell-best">57</span><span class="ab-delta">−14</span></td>
+                <td><span class="ab-cell-val ab-cell-mid">52</span><span class="ab-delta">+4</span></td>
+                <td><span class="ab-cell-val ab-cell-mid">47</span><span class="ab-delta">−7</span></td>
+              </tr>
+              <tr>
+                <td><span class="ab-cond-pill ab-real">Realistic (all)</span></td>
+                <td><span class="ab-cell-val ab-cell-bad">30</span><span class="ab-delta">−15</span></td>
+                <td><span class="ab-cell-val ab-cell-best">45</span><span class="ab-delta">−26</span></td>
+                <td><span class="ab-cell-val ab-cell-mid">39</span><span class="ab-delta">−10</span></td>
+                <td><span class="ab-cell-val ab-cell-mid">38</span><span class="ab-delta">−17</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="chart-note">
+          <strong>Accents are the most damaging factor on average (−10 pp), but the effect is highly provider-specific.</strong> xAI loses 18 pp and 38% of its clean capability to accents alone, while Google is essentially unaffected (−1 pp). Because we induce accents through TTS personas, treat the absolute numbers as indicative &mdash; but the per-provider variance is large enough to suggest a real accessibility concern. Turn-taking is Google's worst single factor; for OpenAI, both turn-taking and accents bite hard.
+        </div>
+        <div class="source-line"><strong>Source:</strong> τ-voice paper, Table 4 (Retail, ablations).</div>
+      </div>
+
+      <!-- ====== Conversation quality ====== -->
+      <h3>No provider masters both task completion <em>and</em> turn-taking</h3>
+
+      <p>Beyond pass@1, we measure four dimensions of conversational quality under the realistic condition: <strong>latency</strong> (how quickly the agent reacts), <strong>responsiveness</strong> (does it act when it needs to?), <strong>interrupt rate</strong> (how often it cuts the user off), and <strong>selectivity</strong> (does it correctly ignore backchannels, vocal tics, and off-mic chatter?). Each provider tops the chart on one or two metrics and trails badly on at least one other.</p>
+
+      <div class="demo-block" id="vq-panel">
+        <div class="demo-label"><span class="demo-label-icon">🎚</span> Voice interaction quality &nbsp;·&nbsp; Realistic, all domains <span class="hc-tag hc-tag-paper" style="margin-left:8px;">paper · Feb 2026</span></div>
+        <div class="vq-panel">
+
+          <div class="vq-card">
+            <div>
+              <div class="vq-card-title">Latency <span class="vq-card-direction">(lower is better)</span></div>
+            </div>
+            <div class="vq-row">
+              <div class="vq-row-name">Google</div>
+              <div class="vq-row-bar"><span style="width: 76%; background: #60a5fa;"></span></div>
+              <div class="vq-row-val">1.14s</div>
+            </div>
+            <div class="vq-row">
+              <div class="vq-row-name">OpenAI</div>
+              <div class="vq-row-bar"><span style="width: 60%; background: #34d399;"></span></div>
+              <div class="vq-row-val">0.90s</div>
+            </div>
+            <div class="vq-row">
+              <div class="vq-row-name">xAI</div>
+              <div class="vq-row-bar"><span style="width: 77%; background: #fbbf24;"></span></div>
+              <div class="vq-row-val">1.15s</div>
+            </div>
+          </div>
+
+          <div class="vq-card">
+            <div>
+              <div class="vq-card-title">Responsiveness <span class="vq-card-direction">(higher is better)</span></div>
+            </div>
+            <div class="vq-row">
+              <div class="vq-row-name">Google</div>
+              <div class="vq-row-bar"><span style="width: 69%; background: #60a5fa;"></span></div>
+              <div class="vq-row-val">69%</div>
+            </div>
+            <div class="vq-row">
+              <div class="vq-row-name">OpenAI</div>
+              <div class="vq-row-bar"><span style="width: 100%; background: #34d399;"></span></div>
+              <div class="vq-row-val">100%</div>
+            </div>
+            <div class="vq-row">
+              <div class="vq-row-name">xAI</div>
+              <div class="vq-row-bar"><span style="width: 83%; background: #fbbf24;"></span></div>
+              <div class="vq-row-val">83%</div>
+            </div>
+          </div>
+
+          <div class="vq-card">
+            <div>
+              <div class="vq-card-title">Interrupt rate <span class="vq-card-direction">(lower is better)</span></div>
+            </div>
+            <div class="vq-row">
+              <div class="vq-row-name">Google</div>
+              <div class="vq-row-bar"><span style="width: 21%; background: #60a5fa;"></span></div>
+              <div class="vq-row-val">21%</div>
+            </div>
+            <div class="vq-row">
+              <div class="vq-row-name">OpenAI</div>
+              <div class="vq-row-bar"><span style="width: 14%; background: #34d399;"></span></div>
+              <div class="vq-row-val">14%</div>
+            </div>
+            <div class="vq-row">
+              <div class="vq-row-name">xAI</div>
+              <div class="vq-row-bar"><span style="width: 84%; background: #fbbf24;"></span></div>
+              <div class="vq-row-val">84%</div>
+            </div>
+          </div>
+
+          <div class="vq-card">
+            <div>
+              <div class="vq-card-title">Selectivity <span class="vq-card-direction">(higher is better)</span></div>
+            </div>
+            <div class="vq-row">
+              <div class="vq-row-name">Google</div>
+              <div class="vq-row-bar"><span style="width: 54%; background: #60a5fa;"></span></div>
+              <div class="vq-row-val">54%</div>
+            </div>
+            <div class="vq-row">
+              <div class="vq-row-name">OpenAI</div>
+              <div class="vq-row-bar"><span style="width: 6%; background: #34d399;"></span></div>
+              <div class="vq-row-val">6%</div>
+            </div>
+            <div class="vq-row">
+              <div class="vq-row-name">xAI</div>
+              <div class="vq-row-bar"><span style="width: 57%; background: #fbbf24;"></span></div>
+              <div class="vq-row-val">57%</div>
+            </div>
+          </div>
+
+        </div>
+        <div class="chart-note">
+          <strong>OpenAI</strong> is the snappiest by some margin (0.90&nbsp;s) and effectively never goes silent (100% responsiveness), but it is also the most willing to chime in &mdash; selectivity 6% means it responds to almost every backchannel, cough, and "hold on a sec." <strong>xAI</strong> shows the opposite tradeoff: high selectivity, but it interrupts the user nearly once per turn. <strong>Google</strong> is the politest interrupter but goes unresponsive on roughly a third of user turns. There is no Pareto-dominant provider on conversational quality today.
+        </div>
+        <div class="source-line"><strong>Source:</strong> τ-voice paper, Table 3.</div>
+      </div>
+
+      <!-- ====== Failure analysis ====== -->
+      <h2>What's actually going wrong</h2>
+
+      <p>It would be tempting to attribute the voice&ndash;text gap to "the user simulator is too aggressive" or "the audio effects are unrealistic." We expected some of that ourselves, so we did the work to rule it out. Two annotators labelled every failed simulation in two analysis cohorts &mdash; <strong>Voice-Fragile</strong> (tasks the text models pass but voice-Clean models fail) and <strong>Noise-Fragile</strong> (tasks voice-Clean passes but voice-Realistic fails) &mdash; tagging both the source and type of the first critical error.</p>
+
+      <div class="demo-block" id="error-analysis">
+        <div class="demo-label"><span class="demo-label-icon">🔬</span> Manual error analysis &nbsp;·&nbsp; 91 failed simulations <span class="hc-tag hc-tag-paper" style="margin-left:8px;">paper · Feb 2026</span></div>
+        <div class="ea-cohort">
+          <div class="ea-cohort-title">Voice-Fragile cohort &mdash; 43 failures</div>
+          <div class="ea-cohort-sub">Tasks both text models pass, but a majority of voice-Clean providers fail. Isolates the cost of going voice-native.</div>
+
+          <div class="ea-row">
+            <div class="ea-row-label">Agent</div>
+            <div class="ea-row-bar">
+              <div class="ea-seg" style="width: 30.2%; background: #b91c1c;" title="Logical (13)">Logical 13</div>
+              <div class="ea-seg" style="width: 23.3%; background: #d97706;" title="Transcription (10)">Trans. 10</div>
+              <div class="ea-seg" style="width: 14.0%; background: #7c3aed;" title="Hallucination (6)">Hall. 6</div>
+              <div class="ea-seg" style="width: 9.3%; background: #2563eb;" title="Timeout (4)">T 4</div>
+              <div class="ea-seg" style="width: 2.3%; background: #0891b2;" title="VAD/Unresponsive (1)"></div>
+            </div>
+            <div class="ea-row-total">34&nbsp;(79%)</div>
+          </div>
+
+          <div class="ea-row">
+            <div class="ea-row-label">User</div>
+            <div class="ea-row-bar">
+              <div class="ea-seg" style="width: 20.9%; background: #94a3b8;" title="User logical (9)">User logical 9</div>
+            </div>
+            <div class="ea-row-total">9&nbsp;(21%)</div>
+          </div>
+        </div>
+
+        <div class="ea-cohort">
+          <div class="ea-cohort-title">Noise-Fragile cohort &mdash; 48 failures</div>
+          <div class="ea-cohort-sub">Tasks voice-Clean passes but voice-Realistic fails. Isolates the marginal cost of realistic acoustic conditions.</div>
+
+          <div class="ea-row">
+            <div class="ea-row-label">Agent</div>
+            <div class="ea-row-bar">
+              <div class="ea-seg" style="width: 33.3%; background: #b91c1c;" title="Logical (16)">Logical 16</div>
+              <div class="ea-seg" style="width: 33.3%; background: #d97706;" title="Transcription (16)">Trans. 16</div>
+              <div class="ea-seg" style="width: 12.5%; background: #7c3aed;" title="Hallucination (6)">Hall. 6</div>
+              <div class="ea-seg" style="width: 8.3%; background: #0891b2;" title="VAD/Unresponsive (4)">VAD 4</div>
+              <div class="ea-seg" style="width: 2.0%; background: #2563eb;" title="Timeout (1)"></div>
+            </div>
+            <div class="ea-row-total">43&nbsp;(90%)</div>
+          </div>
+
+          <div class="ea-row">
+            <div class="ea-row-label">User</div>
+            <div class="ea-row-bar">
+              <div class="ea-seg" style="width: 8.3%; background: #94a3b8;" title="Early termination (4)">Early 4</div>
+              <div class="ea-seg" style="width: 2.0%; background: #cbd5e1;" title="User logical (1)"></div>
+            </div>
+            <div class="ea-row-total">5&nbsp;(10%)</div>
+          </div>
+        </div>
+
+        <div class="ea-legend">
+          <span class="ea-legend-item"><span class="ea-legend-sw" style="background:#b91c1c"></span>Agent · Logical</span>
+          <span class="ea-legend-item"><span class="ea-legend-sw" style="background:#d97706"></span>Agent · Transcription</span>
+          <span class="ea-legend-item"><span class="ea-legend-sw" style="background:#7c3aed"></span>Agent · Hallucination</span>
+          <span class="ea-legend-item"><span class="ea-legend-sw" style="background:#0891b2"></span>Agent · VAD / unresponsive</span>
+          <span class="ea-legend-item"><span class="ea-legend-sw" style="background:#2563eb"></span>Agent · Timeout</span>
+          <span class="ea-legend-item"><span class="ea-legend-sw" style="background:#94a3b8"></span>User simulator</span>
+        </div>
+        <div class="chart-note">
+          Across both cohorts, <strong>79&ndash;90% of failures are agent errors</strong>. In the Voice-Fragile cohort the most common single bucket is reasoning failure even when transcription is fine; in the Noise-Fragile cohort transcription failures and reasoning failures are tied. <strong>Authentication is the dominant bottleneck in both</strong>: agents fail to transcribe a name or email even when it's spelled letter by letter, and everything downstream falls over.
+        </div>
+        <div class="source-line"><strong>Source:</strong> τ-voice paper, Table 5 &mdash; manual error analysis on 91 simulations, two raters, 84% inter-rater agreement.</div>
+      </div>
+
+      <h3>The four failure modes that matter most</h3>
+
+      <div class="demo-block" id="failure-modes">
+        <div class="demo-label"><span class="demo-label-icon">📋</span> Recurring failure patterns</div>
+        <div class="fm-grid">
+          <div class="fm-card">
+            <div class="fm-card-head">
+              <div class="fm-icon transcription">🔤</div>
+              <div>Authentication transcription</div>
+            </div>
+            <div class="fm-card-body">
+              The user spells <code>m-e-i-p</code>, the agent hears <code>n-e-a-p</code>, the lookup fails, and the agent loops. Voice-native models lose name/email letters even at the spelling step &mdash; the part designed to be unambiguous.
+            </div>
+          </div>
+          <div class="fm-card">
+            <div class="fm-card-head">
+              <div class="fm-icon logical">🧠</div>
+              <div>Lost-track-of-multi-step</div>
+            </div>
+            <div class="fm-card-body">
+              The user asks for two things in one breath ("exchange this puzzle <em>and</em> change my address"). The agent handles the puzzle and never circles back. Reasoning errors dominate even when transcription is perfect.
+            </div>
+          </div>
+          <div class="fm-card">
+            <div class="fm-card-head">
+              <div class="fm-icon hallucination">💭</div>
+              <div>Hallucinated completion</div>
+            </div>
+            <div class="fm-card-body">
+              In one simulation the agent calmly tells the user <em>"I've updated your shipping address"</em> &mdash; with no tool call. In voice this is harder to catch than in text, because there is no visible trace.
+            </div>
+          </div>
+          <div class="fm-card">
+            <div class="fm-card-head">
+              <div class="fm-icon unresponsive">🤐</div>
+              <div>Goes silent on you</div>
+            </div>
+            <div class="fm-card-body">
+              After repeated authentication failures or under heavy interruption, voice agents sometimes simply stop responding. The conversation hangs &mdash; on a real call, the customer hangs up.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== Listen for yourself CTA ====== -->
+      <div class="explore-cta">
+        <div class="explore-cta-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#065f46" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          </svg>
+        </div>
+        <div class="explore-cta-text">
+          <strong>Listen to real τ-voice failures</strong>
+          <span>Same task, clean vs realistic conditions, side by side &mdash; with an annotated, playable speech-activity timeline.</span>
+        </div>
+        <a href="/blog/tau-voice-examples.html" class="explore-cta-btn">Open audio examples &rarr;</a>
+      </div>
+
+      <!-- ====== Progress over time ====== -->
+      <h2>Voice models are improving fast &mdash; really fast</h2>
+
+      <p>The charts above come from our paper, which froze its evaluation in February 2026. Voice models have not stood still since. The leaderboard has accumulated seven audio-native submissions across all three providers we evaluated, and the frontier has shifted dramatically &mdash; especially this week. The view below is the same one that the live leaderboard's <a href="/#progress?benchmark=voice">Progress over time</a> panel renders, restricted to voice submissions.</p>
+
+      <div class="progress-card" id="progress-chart">
+        <div class="progress-card-head">
+          <div>
+            <div class="progress-card-title">τ-voice Overall pass@1 by release date</div>
+            <div class="progress-card-sub">Pass@1 on τ-voice · overall · plotted at each model's public release date. 7 models.</div>
+          </div>
+        </div>
+        <div class="progress-svg-wrap">
+          <svg class="progress-svg" id="progressSvg" viewBox="0 0 1080 560"
+               xmlns="http://www.w3.org/2000/svg" role="img"
+               aria-label="τ-voice progress over time"></svg>
+        </div>
+        <div class="progress-legend" id="progressLegend"></div>
+        <div class="progress-footnote">
+          Markers show each model's overall pass@1 plotted at its public release date.
+          Hover any marker for details. The dashed line tracks the running best.
+          Submissions without a published <code>model_release.release_date</code> fall back
+          to the evaluation date.
+        </div>
+      </div>
+
+      <p>In about eight months the voice frontier on τ-voice has moved from <strong>30%</strong> (OpenAI's gpt-realtime-1.0, Aug&nbsp;2025) to <strong>67%</strong> (xAI's grok-voice-think-fast-1.0, Apr&nbsp;2026). The single biggest move is the most recent one: a <strong>+29&nbsp;pp jump in roughly two months</strong>, driven by xAI's reasoning-enabled audio-native model. We're starting to see for voice the same pattern that played out in text: <strong>adding explicit reasoning to the audio-native model unlocks a step change in tool-use reliability</strong>.</p>
+
+      <p>To explore the full leaderboard &mdash; including per-domain breakdowns, custom submissions, the <a href="/#progress?benchmark=voice">same Progress-over-time panel</a>, and the underlying trajectories &mdash; jump straight to the <a href="/#leaderboard?benchmark=voice">τ-voice ranking</a> (or the <a href="/#leaderboard?benchmark=text">τ-bench text ranking</a> for direct comparison). We've worked with every major audio-native provider so far; the chart above will keep moving.</p>
+
+      <!-- ====== Providers strip ====== -->
+      <div class="demo-block" id="providers">
+        <div class="demo-label"><span class="demo-label-icon">🤝</span> Audio-native providers we've evaluated</div>
+        <div class="providers-strip">
+          <div class="provider-card">
+            <div class="provider-logo-wrap"><img src="/openai.svg" alt="OpenAI"/></div>
+            <div class="provider-name">OpenAI</div>
+            <div class="provider-sub">gpt-realtime · 1.0 · 1.5</div>
+          </div>
+          <div class="provider-card">
+            <div class="provider-logo-wrap"><img src="/Google__G__logo.svg.png" alt="Google"/></div>
+            <div class="provider-name">Google</div>
+            <div class="provider-sub">Gemini Live 2.5 / 3.1 Flash</div>
+          </div>
+          <div class="provider-card">
+            <div class="provider-logo-wrap"><img src="/xai-logo.svg" alt="xAI"/></div>
+            <div class="provider-name">xAI</div>
+            <div class="provider-sub">Grok Voice Fast · Think Fast 1.0</div>
+          </div>
+        </div>
+        <div class="chart-note" style="text-align:center;">
+          The framework is provider-agnostic: τ-voice talks to any voice agent through a thin adapter (we already ship adapters for OpenAI Realtime, Gemini Live, xAI Grok Voice, and LiveKit-orchestrated stacks). If you build a voice agent or run a voice platform, <a href="https://github.com/sierra-research/tau2-bench">implement an adapter and reach out</a> &mdash; we'd love to add your system to the leaderboard.
+        </div>
+      </div>
+
+      <!-- ====== Limitations ====== -->
+      <h2>What τ-voice does not (yet) measure</h2>
+
+      <p>We are deliberate about scope. A few things τ-voice <em>does</em> simplify, and where we plan to go next:</p>
+
+      <ul>
+        <li><strong>English only, TTS-mediated accents.</strong> Diverse accents are induced by ElevenLabs personas, not by recorded human speakers. This is enough to surface large per-provider gaps, but the absolute numbers should be read as indicative rather than definitive. We are scoping τ-voice strictly to English and to TTS-driven personas; broader language and recorded-speaker coverage is left to future benchmarks.</li>
+        <li><strong>Transcript injection on the user side.</strong> The user simulator reads the agent's transcript directly rather than transcribing the agent's audio. In our manual review, agent speech was intelligible in 100% of 91 sampled simulations &mdash; agent-side ASR is a non-issue today &mdash; but as voice models get more expressive this assumption may need to be revisited.</li>
+        <li><strong>No agent speech-quality scoring.</strong> We measure <em>what</em> the agent says (and whether it took the right action), not how naturally it says it. Adding tone, naturalness, and user-perception metrics is straightforward future work.</li>
+        <li><strong>Cascaded baselines.</strong> The framework supports cascaded ASR&rarr;LLM&rarr;TTS pipelines as well as audio-native models, but we have not yet published a head-to-head comparison. This is the cleanest way to isolate "voice modality" from "model architecture" effects.</li>
+      </ul>
+
+      <!-- ====== Open and reproducible ====== -->
+      <h2>Open, reproducible, and yours to build on</h2>
+
+      <p>τ-voice is part of the broader <a href="https://github.com/sierra-research/tau2-bench">τ-bench</a> framework. Tasks, environment, voice user simulator, audio effects, turn-taking policy, and evaluation are all open source. Every result here is reproducible from a fixed seed (LLM stochasticity aside), every audio sample on the <a href="/blog/tau-voice-examples.html">examples page</a> comes from a real τ-voice run, and every voice submission on the leaderboard ships with its trajectories so you can replay the conversations end-to-end.</p>
+
+      <p>If you train voice models, evaluate voice agents, or just want to understand where today's systems break down, we'd love your contributions &mdash; new audio-native providers, cascaded ASR&rarr;LLM&rarr;TTS baselines, and pull requests against the user simulator are all welcome. Voice agents will be in production whether or not we measure them carefully. <strong>We'd rather measure them carefully.</strong></p>
+
+      <p style="font-size: 14px; color: #718096; margin-top: 36px;">
+        For full details, see our <a href="https://arxiv.org/abs/2603.13686" target="_blank" rel="noopener noreferrer">paper</a>, the <a href="https://github.com/sierra-research/tau2-bench">code</a>, and the <a href="/#leaderboard">leaderboard</a>. The framework was built by Soham Ray, Keshav Dhandhania, and Victor Barres at Sierra, with Karthik Narasimhan at Princeton.
+      </p>
+
+    </div>
+
+    <div class="blog-divider"></div>
+    <a href="/" class="back-link">← Back to τ-bench Leaderboard</a>
+  </div>
+
+  <!-- ===== Progress chart script (matches leaderboard ProgressView style) ===== -->
+  <script>
+  (function() {
+    'use strict';
+
+    const ORG_LOGOS = {
+      'OpenAI': '/openai.svg',
+      'Google': '/Google__G__logo.svg.png',
+      'xAI':    '/xai-logo.svg',
+    };
+    const ORG_TINT = {
+      'OpenAI': '#10A37F',
+      'Google': '#4285F4',
+      'xAI':    '#111111',
+    };
+
+    // Voice submissions on the τ-bench leaderboard, exact numbers from
+    // public/submissions/<key>/submission.json. Date is model_release.release_date.
+    // vals = [retail pass@1, airline pass@1, telecom pass@1].
+    const subs = [
+      { d: '2025-08-28', name: 'gpt-realtime-1.0',                          org: 'OpenAI', vals: [36.0, 36.0, 19.3] },
+      { d: '2025-12-12', name: 'gemini-live-2.5-flash-native-audio',        org: 'Google', vals: [29.8, 30.0, 17.5] },
+      { d: '2025-12-17', name: 'grok-voice-fast-1.0',                       org: 'xAI',    vals: [38.6, 36.0, 40.4] },
+      { d: '2026-02-23', name: 'gpt-realtime-1.5',                          org: 'OpenAI', vals: [44.7, 40.0, 21.1] },
+      { d: '2026-03-26', name: 'gemini-3.1-flash-live (thinking-high)',     org: 'Google', vals: [45.6, 64.0, 21.9] },
+      { d: '2026-03-26', name: 'gemini-3.1-flash-live (thinking-minimal)',  org: 'Google', vals: [26.3, 42.0, 17.5] },
+      { d: '2026-04-23', name: 'grok-voice-think-fast-1.0',                 org: 'xAI',    vals: [62.3, 66.0, 73.7] },
+    ];
+
+    subs.forEach(s => {
+      s.score = s.vals.reduce((a, b) => a + b, 0) / s.vals.length;
+      s.date = new Date(s.d + 'T00:00:00Z');
+      s.tint = ORG_TINT[s.org] || '#888';
+    });
+    subs.sort((a, b) => a.date - b.date);
+
+    // Running-best frontier
+    let running = -Infinity;
+    const frontierKeys = new Set();
+    subs.forEach(s => { if (s.score > running) { running = s.score; frontierKeys.add(s.name); } });
+
+    // Layout (matches ProgressView.jsx)
+    const W = 1080, H = 560;
+    const marginTop = 56, marginBottom = 80, marginLeft = 64, marginRight = 32;
+    const plotX0 = marginLeft, plotX1 = W - marginRight;
+    const plotY0 = marginTop,  plotY1 = H - marginBottom;
+    const plotW  = plotX1 - plotX0;
+    const plotH  = plotY1 - plotY0;
+    const yMax = 100;
+
+    const minDate = subs[0].date;
+    const maxDate = subs[subs.length - 1].date;
+    const axisStart = new Date(Date.UTC(minDate.getUTCFullYear(), minDate.getUTCMonth(), 1));
+    const axisEnd   = new Date(Date.UTC(maxDate.getUTCFullYear(), maxDate.getUTCMonth() + 1, 1));
+    const totalDays = Math.max(1, (axisEnd - axisStart) / 86400000);
+
+    const xOf = d => plotX0 + ((d - axisStart) / 86400000 / totalDays) * plotW;
+    const yOf = v => plotY1 - (v / yMax) * plotH;
+
+    // Position points and nudge same-date points horizontally
+    const positioned = subs.map(s => ({ ...s, x: xOf(s.date), y: yOf(s.score) }));
+    const dateGroups = {};
+    for (const p of positioned) (dateGroups[p.d] ||= []).push(p);
+    Object.values(dateGroups).forEach(grp => {
+      if (grp.length > 1) {
+        const span = 14;
+        const step = (span * 2) / (grp.length - 1);
+        grp.forEach((p, i) => { p.x += -span + i * step; });
+      }
+    });
+
+    // Frontier path (step) + filled area
+    const frontierPts = positioned.filter(p => frontierKeys.has(p.name));
+    let frontierPath = '', areaPath = '';
+    if (frontierPts.length > 0) {
+      frontierPath = `M ${frontierPts[0].x.toFixed(1)} ${frontierPts[0].y.toFixed(1)}`;
+      areaPath = `M ${frontierPts[0].x.toFixed(1)} ${plotY1.toFixed(1)} L ${frontierPts[0].x.toFixed(1)} ${frontierPts[0].y.toFixed(1)}`;
+      for (let i = 1; i < frontierPts.length; i++) {
+        const prev = frontierPts[i - 1], cur = frontierPts[i];
+        frontierPath += ` L ${cur.x.toFixed(1)} ${prev.y.toFixed(1)} L ${cur.x.toFixed(1)} ${cur.y.toFixed(1)}`;
+        areaPath     += ` L ${cur.x.toFixed(1)} ${prev.y.toFixed(1)} L ${cur.x.toFixed(1)} ${cur.y.toFixed(1)}`;
+      }
+      const lastY = frontierPts[frontierPts.length - 1].y;
+      frontierPath += ` L ${plotX1.toFixed(1)} ${lastY.toFixed(1)}`;
+      areaPath     += ` L ${plotX1.toFixed(1)} ${lastY.toFixed(1)} L ${plotX1.toFixed(1)} ${plotY1.toFixed(1)} Z`;
+    }
+
+    // Y gridlines every 10
+    const yTicks = [];
+    for (let v = 0; v <= yMax; v += 10) yTicks.push(v);
+
+    // X tick months (sample to ~10)
+    const months = [];
+    let cm = new Date(axisStart);
+    while (cm <= axisEnd) {
+      months.push(new Date(cm));
+      cm = new Date(Date.UTC(cm.getUTCFullYear(), cm.getUTCMonth() + 1, 1));
+    }
+    const monthStride = Math.max(1, Math.ceil(months.length / 12));
+    const xTicks = months.filter((_, i) => i % monthStride === 0);
+    const fmtMonth = d => d.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+    const fmtDate  = d => d.toISOString().slice(0, 10);
+
+    // Pick anchor for labels
+    const pickAnchor = x => {
+      if (x < plotX0 + 80) return 'start';
+      if (x > plotX1 - 80) return 'end';
+      return 'middle';
+    };
+    const labelOffsets = {};
+    const frontierByX = [...frontierPts].sort((a, b) => a.x - b.x);
+    frontierByX.forEach((p, i) => {
+      labelOffsets[p.name] = { dy: i % 2 === 0 ? -34 : 38, anchor: pickAnchor(p.x) };
+    });
+
+    const dotR = 16, logoSize = 20;
+
+    // Build SVG
+    const parts = [];
+    parts.push(`<defs>
+      <linearGradient id="frontierFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#047857" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="#047857" stop-opacity="0.02"/>
+      </linearGradient>
+      <filter id="dotShadow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+        <feOffset dx="0" dy="1"/>
+        <feComponentTransfer><feFuncA type="linear" slope="0.25"/></feComponentTransfer>
+        <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>`);
+
+    // Plot background
+    parts.push(`<rect x="${plotX0}" y="${plotY0}" width="${plotW}" height="${plotH}" fill="#ffffff" stroke="#e2e8f0" stroke-width="1" rx="8"/>`);
+
+    // Y gridlines + labels
+    yTicks.forEach(v => {
+      const y = yOf(v);
+      parts.push(`<line x1="${plotX0}" y1="${y}" x2="${plotX1}" y2="${y}" stroke="#eef2f7" stroke-width="1"/>`);
+      parts.push(`<text x="${plotX0 - 10}" y="${y + 4}" text-anchor="end" font-size="11" fill="#64748b">${v}%</text>`);
+    });
+    // Y axis title
+    const ycy = (plotY0 + plotY1) / 2;
+    parts.push(`<text x="${plotX0 - 44}" y="${ycy}" transform="rotate(-90 ${plotX0 - 44} ${ycy})" text-anchor="middle" font-size="11" fill="#475569" font-weight="600" letter-spacing="0.08em">OVERALL PASS@1</text>`);
+
+    // X ticks
+    xTicks.forEach(m => {
+      const xx = xOf(m);
+      parts.push(`<line x1="${xx}" y1="${plotY1}" x2="${xx}" y2="${plotY1 + 5}" stroke="#cbd5e1" stroke-width="1"/>`);
+      parts.push(`<text x="${xx}" y="${plotY1 + 20}" text-anchor="middle" font-size="11" fill="#64748b">${fmtMonth(m)}</text>`);
+    });
+
+    // Frontier
+    if (areaPath) parts.push(`<path d="${areaPath}" fill="url(#frontierFill)"/>`);
+    if (frontierPath) parts.push(`<path d="${frontierPath}" fill="none" stroke="#047857" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="6,4"/>`);
+
+    // Dots
+    positioned.forEach(p => {
+      const isFrontier = frontierKeys.has(p.name);
+      parts.push(`<g class="progress-dot${isFrontier ? ' frontier' : ''}">`);
+      parts.push(`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${dotR}" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#dotShadow)"/>`);
+      parts.push(`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${dotR - 2}" fill="none" stroke="${p.tint}" stroke-width="1.5" opacity="${isFrontier ? 0.9 : 0.45}"/>`);
+      const logo = ORG_LOGOS[p.org];
+      if (logo) {
+        parts.push(`<image href="${logo}" x="${(p.x - logoSize/2).toFixed(1)}" y="${(p.y - logoSize/2).toFixed(1)}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/>`);
+      }
+      parts.push(`<title>${p.name} (${p.org}) · ${fmtDate(p.date)} · ${p.score.toFixed(1)}% overall</title>`);
+      parts.push(`</g>`);
+    });
+
+    // Labels (frontier only)
+    positioned.filter(p => frontierKeys.has(p.name)).forEach(p => {
+      const off = labelOffsets[p.name] || { dy: -34, anchor: 'middle' };
+      const lx = p.x;
+      const ly = p.y + off.dy;
+      const isFrontier = true;
+      parts.push(`<g class="progress-label">`);
+      parts.push(`<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${off.anchor}" font-size="12" font-weight="${isFrontier ? 700 : 600}" fill="#0f172a" stroke="#ffffff" stroke-width="3.5" stroke-linejoin="round" paint-order="stroke">${p.name}</text>`);
+      parts.push(`<text x="${lx.toFixed(1)}" y="${(ly + 14).toFixed(1)}" text-anchor="${off.anchor}" font-size="11" font-weight="${isFrontier ? 700 : 500}" fill="${isFrontier ? '#047857' : '#334155'}" stroke="#ffffff" stroke-width="3" stroke-linejoin="round" paint-order="stroke">${p.score.toFixed(1)}%</text>`);
+      parts.push(`</g>`);
+    });
+
+    document.getElementById('progressSvg').innerHTML = parts.join('');
+
+    // Legend (org logos in chips + frontier line)
+    const legendOrgs = Array.from(new Set(positioned.map(p => p.org)));
+    const legendHTML = legendOrgs.map(org => {
+      const logo = ORG_LOGOS[org];
+      const inner = logo
+        ? `<img src="${logo}" alt="${org}"/>`
+        : `<span style="color:${ORG_TINT[org] || '#1f2937'}">${org[0]}</span>`;
+      return `<span class="progress-legend-item"><span class="progress-legend-logo">${inner}</span>${org}</span>`;
+    }).join('') + `<span class="progress-legend-item"><span class="progress-legend-line"></span>Frontier (best so far)</span>`;
+    document.getElementById('progressLegend').innerHTML = legendHTML;
+  })();
+  </script>
+</body>
+</html>
