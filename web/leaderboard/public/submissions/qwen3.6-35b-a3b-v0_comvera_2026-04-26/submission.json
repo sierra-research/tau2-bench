@@ -1,0 +1,60 @@
+{
+  "model_name": "hosted_vllm/Qwen3.6-35B-A3B",
+  "model_organization": "Qwen / Alibaba",
+  "submitting_organization": "Comvera",
+  "submission_date": "2026-04-26",
+  "contact_info": {
+    "email": "debdoot.iitd@gmail.com",
+    "name": "Debdoot Mukherjee"
+  },
+  "is_new": true,
+  "submission_type": "standard",
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "airline_results.json",
+    "retail": "retail_results.json",
+    "telecom": "telecom_results.json"
+  },
+  "references": [
+    {
+      "title": "Trajectory data on Hugging Face Datasets",
+      "url": "https://huggingface.co/datasets/debdootmiitd/tau3-bench-qwen3.6-35b-a3b-v0",
+      "type": "dataset"
+    }
+  ],
+  "results": {
+    "airline": {
+      "pass_1": 81.0,
+      "pass_2": 74.33333333333334,
+      "pass_3": 70.5,
+      "pass_4": 68.0,
+      "cost": 0.0
+    },
+    "retail": {
+      "pass_1": 83.33333333333334,
+      "pass_2": 74.56140350877193,
+      "pass_3": 68.2017543859649,
+      "pass_4": 63.1578947368421,
+      "cost": 0.0
+    },
+    "telecom": {
+      "pass_1": 99.3421052631579,
+      "pass_2": 98.68421052631578,
+      "pass_3": 98.02631578947368,
+      "pass_4": 97.36842105263158,
+      "cost": 0.0
+    }
+  },
+  "reasoning_effort": "standard",
+  "methodology": {
+    "evaluation_date": "2026-04-26",
+    "tau2_bench_version": "1.0.0",
+    "user_simulator": "gpt-4.1",
+    "notes": "Comvera Phase 0 baseline (V0) — first of a planned series. Qwen3.6-35B-A3B (HF SHA 995ad96e) served via vLLM 0.19.1 with --tool-call-parser qwen3_xml and --reasoning-parser qwen3. Default Qwen3.5 chat template (thinking-mode available, default). Agent llm_args: {'temperature': 0.6}. User simulator gpt-4.1-2025-04-14 at temperature 0.0 — happy to re-run with gpt-5.2 (current leaderboard recommendation) if maintainers prefer. --num-trials 4, --max-concurrency 4, default --task-split-name base. No fine-tuning, no scaffold modifications, no prompt edits. Cost not reported because vLLM is self-hosted; OpenAI user-simulator cost was ~$35 USD across 1112 sims. tau2-bench commit 3b005ddbdb4127c60cf2100e894807b6f6786a7a. Trajectories: https://huggingface.co/datasets/debdootmiitd/tau3-bench-qwen3.6-35b-a3b-v0. Note on telecom: 82% of telecom tasks (94/114) have reward_basis=('ENV_ASSERTION',) only with no agent-action check. The strict subset (20 tasks with reward_basis=('ENV_ASSERTION','ACTION')) gives a more conservative pass^4 of 0.850 vs the headline 0.974. Reported headline matches benchmark convention.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "Standard tau-bench scaffold; no modifications to agent or user-simulator prompts; all 50 airline + 114 retail + 114 telecom base-split tasks evaluated with 4 trials each. Banking_knowledge omitted (out of Phase 0 scope)."
+    }
+  }
+}
