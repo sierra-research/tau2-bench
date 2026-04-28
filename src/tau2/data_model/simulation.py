@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Optional, Union
 
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing_extensions import Annotated
 
 if TYPE_CHECKING:
@@ -86,10 +86,17 @@ class AudioNativeConfig(BaseModel):
         description="Name of cascaded config preset for livekit provider (e.g., 'default', 'openai-thinking', 'openai-thinking-high')",
     )
 
-    model: str = Field(
-        default=DEFAULT_AUDIO_NATIVE_MODELS[DEFAULT_AUDIO_NATIVE_PROVIDER],
-        description="Audio native model to use",
+    model: Optional[str] = Field(
+        default=None,
+        description="Audio native model to use. Defaults to the provider-specific model if not set.",
     )
+
+    @model_validator(mode="after")
+    def resolve_model_for_provider(self) -> "AudioNativeConfig":
+        if self.model is None:
+            self.model = DEFAULT_AUDIO_NATIVE_MODELS[self.provider]
+        return self
+
     reasoning_effort: Optional[str] = Field(
         default=None,
         description="Reasoning effort for thinking models: 'minimal', 'low', 'medium', 'high'. If None, not sent.",

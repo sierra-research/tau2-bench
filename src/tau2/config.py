@@ -29,7 +29,7 @@ DEFAULT_LLM_ENV_INTERFACE = "gpt-4.1-2025-04-14"
 DEFAULT_LLM_ENV_INTERFACE_TEMPERATURE = 0.0
 DEFAULT_LLM_ENV_INTERFACE_ARGS = {"temperature": DEFAULT_LLM_ENV_INTERFACE_TEMPERATURE}
 
-DEFAULT_LLM_EVAL_USER_SIMULATOR = "claude-opus-4-5"
+DEFAULT_LLM_EVAL_USER_SIMULATOR = "gpt-4.1-2025-04-14"
 
 # LLM debug logging
 DEFAULT_LLM_LOG_MODE = "latest"  # Options: "all", "latest"
@@ -195,7 +195,10 @@ DEFAULT_BOSON_REALTIME_URL = (
     "wss://voiceapi.boson.ai/demo-full-staging/v1/realtime/"  # fixed
 )
 DEFAULT_BOSON_MODEL = "Qwen2.5-72B-Instruct"  # overridable
-DEFAULT_BOSON_VOICE = "default"  # overridable
+DEFAULT_BOSON_VOICE = "en_woman"  # overridable
+DEFAULT_BOSON_TTS_MODEL = "higgs-audio-generation-1b-v2-kor"  # overridable
+DEFAULT_BOSON_ASR_MODEL = "higgs-audio-understanding-v3-asr"  # overridable
+DEFAULT_BOSON_ASR_LANGUAGE = "english"  # overridable
 
 # =============================================================================
 # PROVIDER REGISTRY (derived from above)

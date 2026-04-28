@@ -562,6 +562,17 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             Audio bytes in the configured audio format.
             Returns silence if no audio present.
         """
+        observer = getattr(self.adapter, "observe_user_chunk", None)
+        if callable(observer):
+            if isinstance(chunk, UserMessage):
+                observer(
+                    contains_speech=bool(chunk.contains_speech),
+                    is_final_chunk=bool(chunk.is_final_chunk),
+                    text=(chunk.content or "").strip() or None,
+                )
+            else:
+                observer(contains_speech=False, is_final_chunk=True, text=None)
+
         if not isinstance(chunk, UserMessage):
             # Tool messages don't have audio - return silence
             return self._get_silence()

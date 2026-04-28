@@ -4,8 +4,10 @@ import asyncio
 import base64
 import json
 import os
+import uuid
+from copy import deepcopy
 from enum import Enum
-from typing import AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import websockets
 from dotenv import load_dotenv
@@ -13,8 +15,11 @@ from loguru import logger
 from pydantic import BaseModel
 
 from tau2.config import (
+    DEFAULT_BOSON_ASR_LANGUAGE,
+    DEFAULT_BOSON_ASR_MODEL,
     DEFAULT_BOSON_MODEL,
     DEFAULT_BOSON_REALTIME_URL,
+    DEFAULT_BOSON_TTS_MODEL,
     DEFAULT_BOSON_VOICE,
 )
 from tau2.data_model.audio import TELEPHONY_AUDIO_FORMAT, AudioEncoding, AudioFormat
@@ -42,14 +47,14 @@ class BosonVADConfig(BaseModel):
     """Configuration for Boson's turn detection."""
 
     mode: BosonVADMode = BosonVADMode.SERVER_VAD
-    threshold: float = 0.55
+    threshold: float = 0.5
     prefix_padding_ms: int = 300
     silence_duration_ms: int = 500
-    min_speech_duration: float = 0.125
+    min_speech_duration: Optional[float] = None
     idle_timeout_ms: Optional[int] = None
-    create_response: bool = True
+    create_response: bool = False
     interrupt_response: bool = True
-    enable_speaker_id: bool = False
+    enable_speaker_id: Optional[bool] = None
     eagerness: str = "auto"
     timeout_sec: float = 0.4
 
@@ -86,12 +91,18 @@ class BosonRealtimeProvider:
     BASE_URL = DEFAULT_BOSON_REALTIME_URL
     DEFAULT_MODEL = DEFAULT_BOSON_MODEL
     DEFAULT_VOICE = DEFAULT_BOSON_VOICE
+    DEFAULT_TTS_MODEL = DEFAULT_BOSON_TTS_MODEL
+    DEFAULT_ASR_MODEL = DEFAULT_BOSON_ASR_MODEL
+    DEFAULT_ASR_LANGUAGE = DEFAULT_BOSON_ASR_LANGUAGE
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
         voice: Optional[str] = None,
+        tts_model: Optional[str] = None,
+        asr_model: Optional[str] = None,
+        asr_language: Optional[str] = None,
         base_url: Optional[str] = None,
     ):
         """Initialize the Boson realtime provider.
@@ -100,6 +111,9 @@ class BosonRealtimeProvider:
             api_key: Boson API key. If omitted, reads BOSON_API_KEY.
             model: Model identifier to put in session.update.
             voice: Voice identifier to put in session.audio.output.voice.
+            tts_model: Boson audio generation model.
+            asr_model: Boson audio understanding/transcription model.
+            asr_language: Language name for input audio transcription.
             base_url: WebSocket endpoint. Defaults to DEFAULT_BOSON_REALTIME_URL.
 
         Raises:
@@ -111,11 +125,22 @@ class BosonRealtimeProvider:
 
         self.model = model or self.DEFAULT_MODEL
         self.voice = voice or self.DEFAULT_VOICE
-        self.base_url = base_url or os.environ.get("BOSON_REALTIME_URL") or self.BASE_URL
+        self.tts_model = tts_model or self.DEFAULT_TTS_MODEL
+        self.asr_model = asr_model or self.DEFAULT_ASR_MODEL
+        self.asr_language = asr_language or self.DEFAULT_ASR_LANGUAGE
+        self.base_url = (
+            base_url or os.environ.get("BOSON_REALTIME_URL") or self.BASE_URL
+        )
         self.ws: Optional[websockets.WebSocketClientProtocol] = None
         self._current_vad_config: Optional[BosonVADConfig] = None
         self._audio_format: AudioFormat = TELEPHONY_AUDIO_FORMAT
         self.session_id: Optional[str] = None
+
+    def _event(self, event_type: str, **payload) -> str:
+        """Serialize a Boson realtime client event with a unique event id."""
+        return json.dumps(
+            {"event_id": str(uuid.uuid4()), "type": event_type, **payload}
+        )
 
     @property
     def is_connected(self) -> bool:
@@ -133,42 +158,62 @@ class BosonRealtimeProvider:
 
     @websocket_retry
     async def connect(self) -> None:
-        """Open the Boson realtime WebSocket and wait for session.created."""
+        """Open the Boson realtime WebSocket.
+
+        The integration guide says the server sends ``session.created`` immediately
+        after connection. The staging endpoint may instead wait until the first
+        ``session.update`` and then return a configured ``session.created``. To
+        support both behaviors, connect opens the socket and only opportunistically
+        consumes an immediate event if one is already available.
+        """
         if self.is_connected:
             return
 
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "OpenAI-Beta": "realtime=v1",
+        }
         logger.info(f"Boson realtime: connecting to {self.base_url}")
         self.ws = await websockets.connect(
             self.base_url,
             additional_headers=headers,
             subprotocols=["realtime"],
+            ping_interval=20,
+            open_timeout=15,
+            max_size=16 * 1024 * 1024,
         )
 
-        while True:
-            response = await self.ws.recv()
-            data = json.loads(response)
-            event_type = data.get("type")
-            if event_type == "session.created":
-                session = data.get("session", {})
-                self.session_id = session.get("id")
-                logger.info(
-                    f"Boson realtime: session created (session_id={self.session_id})"
-                )
-                return
-            if event_type == "error":
-                error = data.get("error", {})
-                raise RuntimeError(
-                    "Boson connection failed: "
-                    f"{error.get('message') or json.dumps(data)}"
-                )
-            logger.debug(f"Boson realtime: received pre-session event {event_type}")
+        try:
+            response = await asyncio.wait_for(self.ws.recv(), timeout=0.25)
+        except asyncio.TimeoutError:
+            logger.debug(
+                "Boson realtime: WebSocket opened; waiting to configure session"
+            )
+            return
+
+        data = json.loads(response)
+        event_type = data.get("type")
+        if event_type == "session.created":
+            session = data.get("session", {})
+            self.session_id = session.get("id")
+            logger.info(
+                f"Boson realtime: session created (session_id={self.session_id})"
+            )
+            return
+        if event_type == "error":
+            error = data.get("error", {})
+            raise RuntimeError(
+                f"Boson connection failed: {error.get('message') or json.dumps(data)}"
+            )
+        logger.debug(f"Boson realtime: received pre-session event {event_type}")
 
     async def disconnect(self) -> None:
         """Close the WebSocket connection."""
         if self.ws:
             logger.info("Boson realtime: disconnecting WebSocket connection")
             await self.ws.close()
+            await self.ws.wait_closed()
+            await asyncio.sleep(0)
             self.ws = None
             logger.info("Boson realtime: WebSocket connection closed")
 
@@ -184,12 +229,15 @@ class BosonRealtimeProvider:
             "threshold": vad_config.threshold,
             "prefix_padding_ms": vad_config.prefix_padding_ms,
             "silence_duration_ms": vad_config.silence_duration_ms,
-            "min_speech_duration": vad_config.min_speech_duration,
-            "idle_timeout_ms": vad_config.idle_timeout_ms,
             "create_response": vad_config.create_response,
             "interrupt_response": vad_config.interrupt_response,
-            "enable_speaker_id": vad_config.enable_speaker_id,
         }
+        if vad_config.min_speech_duration is not None:
+            config["min_speech_duration"] = vad_config.min_speech_duration
+        if vad_config.idle_timeout_ms is not None:
+            config["idle_timeout_ms"] = vad_config.idle_timeout_ms
+        if vad_config.enable_speaker_id is not None:
+            config["enable_speaker_id"] = vad_config.enable_speaker_id
 
         if vad_config.mode == BosonVADMode.SEMANTIC_VAD:
             config.update(
@@ -211,10 +259,54 @@ class BosonRealtimeProvider:
                     "type": "function",
                     "name": schema["function"]["name"],
                     "description": schema["function"]["description"],
-                    "parameters": schema["function"]["parameters"],
+                    "parameters": self._format_parameters_for_api(
+                        schema["function"]["parameters"]
+                    ),
                 }
             )
         return formatted_tools
+
+    @classmethod
+    def _format_parameters_for_api(cls, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """Adapt OpenAI-style JSON schema to Boson's current tool limits.
+
+        Boson realtime currently rejects function parameters whose runtime type
+        is a list. For array parameters, ask the model to pass a JSON-array
+        string; the adapter converts those strings back to lists before tau2
+        executes the local tool.
+        """
+        formatted = deepcopy(parameters)
+        for property_schema in formatted.get("properties", {}).values():
+            cls._stringify_array_schema(property_schema)
+        return formatted
+
+    @classmethod
+    def _stringify_array_schema(cls, schema: Dict[str, Any]) -> None:
+        schema_type = schema.get("type")
+        is_array = schema_type == "array" or (
+            isinstance(schema_type, list) and "array" in schema_type
+        )
+        if is_array:
+            description = schema.get("description", "")
+            suffix = (
+                "Pass this value as a JSON-array string, for example "
+                '["item_1", "item_2"].'
+            )
+            schema.clear()
+            schema.update(
+                {
+                    "type": "string",
+                    "description": f"{description} {suffix}".strip(),
+                }
+            )
+            return
+
+        for nested_schema in schema.get("properties", {}).values():
+            cls._stringify_array_schema(nested_schema)
+        for option_key in ("anyOf", "oneOf", "allOf"):
+            for option in schema.get(option_key, []):
+                if isinstance(option, dict):
+                    cls._stringify_array_schema(option)
 
     async def configure_session(
         self,
@@ -228,13 +320,7 @@ class BosonRealtimeProvider:
         if not self.is_connected:
             raise RuntimeError("Not connected to API. Call connect() first.")
 
-        if modality == "text":
-            modalities = ["text"]
-        elif modality == "audio":
-            modalities = ["audio"]
-        elif modality == "audio_in_text_out":
-            modalities = ["text"]
-        else:
+        if modality not in ("text", "audio", "audio_in_text_out"):
             raise ValueError(f"Unknown modality: {modality}")
 
         if audio_format is None:
@@ -246,24 +332,17 @@ class BosonRealtimeProvider:
             "type": "realtime",
             "model": self.model,
             "instructions": system_prompt,
-            "temperature": 0.2,
-            "max_output_tokens": "inf",
-            "output_modalities": modalities,
             "tools": self._format_tools_for_api(tools),
             "tool_choice": "auto",
-            "truncation": None,
         }
 
         if modality in ("audio", "audio_in_text_out"):
             session["audio"] = {
                 "input": {
                     "format": audio_fmt,
-                    "noise_reduction": None,
                     "transcription": {
-                        "model": "",
-                        "language": "en",
-                        "prompt": "",
-                        "temperature": None,
+                        "model": self.asr_model,
+                        "language": self.asr_language,
                     },
                     "turn_detection": self._build_turn_detection_config(vad_config),
                 },
@@ -273,21 +352,30 @@ class BosonRealtimeProvider:
             session.setdefault("audio", {})["output"] = {
                 "format": audio_fmt,
                 "voice": self.voice,
-                "model": None,
-                "speed": 1.0,
-                "temperature": None,
+                "model": self.tts_model,
             }
 
-        await self.ws.send(json.dumps({"type": "session.update", "session": session}))
+        await self.ws.send(self._event("session.update", session=session))
 
         while True:
             response = await self.ws.recv()
             data = json.loads(response)
             event_type = data.get("type", "")
 
-            if event_type == "session.updated":
+            if event_type in ("session.updated", "session.created"):
+                if not self._session_matches_config(data.get("session", {}), session):
+                    logger.debug(
+                        f"Boson realtime: received unconfigured {event_type}; "
+                        "continuing to wait for configured session"
+                    )
+                    continue
+
+                self.session_id = data.get("session", {}).get("id", self.session_id)
                 self._current_vad_config = vad_config
-                logger.info("Boson realtime: session configured")
+                logger.info(
+                    "Boson realtime: session configured "
+                    f"(event={event_type}, session_id={self.session_id})"
+                )
                 return
             if event_type == "error":
                 error = data.get("error", {})
@@ -297,15 +385,45 @@ class BosonRealtimeProvider:
                 )
             logger.debug(f"Boson realtime: received config-time event {event_type}")
 
+    def _session_matches_config(self, received: dict, expected: dict) -> bool:
+        """Return True when a session event reflects the requested config."""
+        if not received:
+            return False
+
+        expected_audio = expected.get("audio") or {}
+        received_audio = received.get("audio") or {}
+
+        return (
+            received.get("model") == expected.get("model")
+            and received.get("instructions") == expected.get("instructions")
+            and received.get("tool_choice") == expected.get("tool_choice")
+            and received_audio.get("input", {}).get("format")
+            == expected_audio.get("input", {}).get("format")
+            and received_audio.get("output", {}).get("format")
+            == expected_audio.get("output", {}).get("format")
+        )
+
     async def send_audio(self, audio_data: bytes) -> None:
         """Append audio data to Boson's input audio buffer."""
         if not self.is_connected:
             raise RuntimeError("Not connected to API")
 
         audio_b64 = base64.b64encode(audio_data).decode("utf-8")
-        await self.ws.send(
-            json.dumps({"type": "input_audio_buffer.append", "audio": audio_b64})
-        )
+        await self.ws.send(self._event("input_audio_buffer.append", audio=audio_b64))
+
+    async def commit_audio(self) -> None:
+        """Commit Boson's currently buffered streaming input audio."""
+        if not self.is_connected:
+            raise RuntimeError("Not connected to API")
+
+        await self.ws.send(self._event("input_audio_buffer.commit"))
+
+    async def create_response(self) -> None:
+        """Request an assistant response for the latest committed user input."""
+        if not self.is_connected:
+            raise RuntimeError("Not connected to API")
+
+        await self.ws.send(self._event("response.create", response=None))
 
     async def send_tool_result(
         self, call_id: str, result: str, request_response: bool = True
@@ -314,18 +432,19 @@ class BosonRealtimeProvider:
         if not self.is_connected:
             raise RuntimeError("Not connected to API")
 
-        item_create = {
-            "type": "conversation.item.create",
-            "item": {
-                "type": "function_call_output",
-                "call_id": call_id,
-                "output": result,
-            },
-        }
-        await self.ws.send(json.dumps(item_create))
+        await self.ws.send(
+            self._event(
+                "conversation.item.create",
+                item={
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": result,
+                },
+            )
+        )
 
         if request_response:
-            await self.ws.send(json.dumps({"type": "response.create", "response": None}))
+            await self.create_response()
 
     async def truncate_item(
         self,
@@ -337,13 +456,14 @@ class BosonRealtimeProvider:
         if not self.is_connected:
             raise RuntimeError("Not connected to API")
 
-        truncate_event = {
-            "type": "conversation.item.truncate",
-            "item_id": item_id,
-            "content_index": content_index,
-            "audio_end_ms": audio_end_ms,
-        }
-        await self.ws.send(json.dumps(truncate_event))
+        await self.ws.send(
+            self._event(
+                "conversation.item.truncate",
+                item_id=item_id,
+                content_index=content_index,
+                audio_end_ms=audio_end_ms,
+            )
+        )
         logger.debug(
             f"Boson truncate sent: item_id={item_id}, content_index={content_index}, "
             f"audio_end_ms={audio_end_ms}"
