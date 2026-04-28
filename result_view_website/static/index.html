@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>tau2 Result Viewer</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>tau2 Result Viewer</h1>
+        <p id="rootLabel" class="muted">Loading results...</p>
+      </div>
+      <div class="run-controls">
+        <label for="runSelect">Run</label>
+        <select id="runSelect"></select>
+        <button id="refreshButton" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <section class="summary-band" id="runSummary"></section>
+        <div class="filters">
+          <input id="searchInput" type="search" placeholder="Filter task or simulation" />
+          <select id="statusFilter">
+            <option value="all">All results</option>
+            <option value="passed">Passed</option>
+            <option value="failed">Failed</option>
+            <option value="unknown">Unknown</option>
+            <option value="audio">Has audio</option>
+          </select>
+        </div>
+        <div id="simulationList" class="simulation-list"></div>
+      </aside>
+
+      <section class="content">
+        <div id="emptyState" class="empty-state">
+          Select a simulation to inspect the conversation, ticks, task, and audio.
+        </div>
+
+        <div id="detailPane" class="detail-pane hidden">
+          <div class="detail-header">
+            <div>
+              <h2 id="detailTitle"></h2>
+              <p id="detailSubtitle" class="muted"></p>
+            </div>
+            <audio id="audioPlayer" controls class="hidden"></audio>
+          </div>
+
+          <nav class="tabs" aria-label="Simulation sections">
+            <button class="tab active" data-tab="conversation" type="button">
+              Conversation
+            </button>
+            <button class="tab" data-tab="ticks" type="button">Expanded Ticks</button>
+            <button class="tab" data-tab="task" type="button">Task</button>
+            <button class="tab" data-tab="prompts" type="button">Prompts</button>
+            <button class="tab" data-tab="review" type="button">Review</button>
+            <button class="tab" data-tab="config" type="button">Run Config</button>
+            <button class="tab" data-tab="raw" type="button">Raw</button>
+          </nav>
+
+          <section id="conversationTab" class="tab-panel"></section>
+          <section id="ticksTab" class="tab-panel hidden"></section>
+          <section id="taskTab" class="tab-panel hidden"></section>
+          <section id="promptsTab" class="tab-panel hidden"></section>
+          <section id="reviewTab" class="tab-panel hidden"></section>
+          <section id="configTab" class="tab-panel hidden"></section>
+          <section id="rawTab" class="tab-panel hidden"></section>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
