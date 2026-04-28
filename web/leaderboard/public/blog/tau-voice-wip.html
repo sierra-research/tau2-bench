@@ -597,7 +597,7 @@
       <div class="demo-block" id="pipeline-figure">
         <div class="demo-label"><span class="fig-num">Fig 2</span><span class="demo-label-icon">🎙</span> Audio generation pipeline</div>
         <div class="pipeline-wrap">
-          <svg class="pipeline-svg" viewBox="0 0 980 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Audio generation pipeline">
+          <svg class="pipeline-svg" viewBox="0 0 980 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Audio generation pipeline">
             <defs>
               <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
                 <path d="M0,0 L10,5 L0,10 Z" fill="#94a3b8"/>
@@ -617,25 +617,29 @@
 
             <g font-family="-apple-system, sans-serif" fill="#1a202c">
 
-              <!-- ===== Sources column (left) ===== -->
-              <g font-size="12">
-                <text x="40" y="58" text-anchor="middle" font-size="22">📚</text>
-                <text x="100" y="62" text-anchor="middle" font-weight="600">Audio library</text>
+              <!-- ===== Sources column (left) =====
+                   Three white boxes with light-grey borders, mirroring the
+                   look of the generator and channel boxes for consistency. -->
 
-                <text x="40" y="148" text-anchor="middle" font-size="22">⏱</text>
-                <text x="100" y="142" text-anchor="middle" font-weight="600">Scheduler</text>
-                <text x="100" y="156" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">Poisson</text>
+              <!-- Audio library -->
+              <rect x="15" y="50" width="130" height="40" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+              <text x="40" y="77" font-size="18">📚</text>
+              <text x="98" y="74" text-anchor="middle" font-size="11.5" font-weight="600">Audio library</text>
 
-                <text x="40" y="238" text-anchor="middle" font-size="22">🗣</text>
-                <text x="100" y="234" text-anchor="middle" font-weight="600">Voice Personas</text>
-                <text x="100" y="248" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">7 personas</text>
-              </g>
+              <!-- Scheduler -->
+              <rect x="15" y="125" width="130" height="40" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+              <text x="40" y="152" font-size="18">⏱</text>
+              <text x="98" y="149" text-anchor="middle" font-size="11.5" font-weight="600">Scheduler</text>
 
-              <!-- Simulated user message label + arrow into Voice Personas -->
-              <g>
-                <text x="20" y="296" font-size="11" font-style="italic" fill="#475569">Simulated user message</text>
-                <path d="M 100 286 L 100 252" fill="none" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#arr)"/>
-              </g>
+              <!-- Voice Personas (taller box for sub-label) -->
+              <rect x="15" y="200" width="130" height="58" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+              <text x="40" y="234" font-size="18">🗣</text>
+              <text x="98" y="225" text-anchor="middle" font-size="11.5" font-weight="600">Voice Personas</text>
+              <text x="98" y="241" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">7 personas</text>
+
+              <!-- Simulated user message → Voice Personas box bottom -->
+              <text x="15" y="290" font-size="11" font-style="italic" fill="#475569">Simulated user message</text>
+              <path d="M 100 280 L 100 260" fill="none" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#arr)"/>
 
               <!-- ===== Generators container ===== -->
               <rect x="180" y="35" width="290" height="240" rx="14" fill="url(#genGrad)" stroke="#cbd5e1" stroke-width="1.2"/>
@@ -647,26 +651,41 @@
 
               <!-- Bursts (intermittent → dashed) -->
               <rect x="200" y="105" width="250" height="40" rx="6" fill="#ffffff" stroke="#f59e0b" stroke-width="1.6" stroke-dasharray="5 3"/>
-              <text x="325" y="130" text-anchor="middle" font-size="13" font-weight="600">Bursts</text>
+              <text x="325" y="123" text-anchor="middle" font-size="13" font-weight="600">Bursts</text>
+              <text x="325" y="138" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">Poisson</text>
 
               <!-- Out-of-turn Speech (intermittent → dashed) -->
               <rect x="200" y="155" width="250" height="40" rx="6" fill="#ffffff" stroke="#a78bfa" stroke-width="1.6" stroke-dasharray="5 3"/>
-              <text x="325" y="180" text-anchor="middle" font-size="13" font-weight="600">Out-of-turn Speech</text>
+              <text x="325" y="173" text-anchor="middle" font-size="13" font-weight="600">Out-of-turn Speech</text>
+              <text x="325" y="188" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">Poisson</text>
 
               <!-- Speech (intermittent → dashed; main user voice) -->
               <rect x="200" y="205" width="250" height="40" rx="6" fill="#ffffff" stroke="#10b981" stroke-width="1.6" stroke-dasharray="5 3"/>
               <text x="325" y="230" text-anchor="middle" font-size="13" font-weight="600">Speech</text>
 
-              <!-- Source → Generator connectors -->
+              <!-- Source → Generator connectors. Each starts at the right
+                   edge (x=145) of its source box, midline of the box. -->
               <g fill="none">
-                <!-- Audio library → Background Noise (solid, continuous source) -->
-                <line x1="155" y1="62" x2="200" y2="75" stroke="#cbd5e1" stroke-width="1.4" marker-end="url(#arrLight)"/>
-                <!-- Scheduler → Bursts (dashed) -->
-                <line x1="155" y1="142" x2="200" y2="125" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrLight)"/>
-                <!-- Scheduler → Out-of-turn Speech (dashed) -->
-                <line x1="155" y1="148" x2="200" y2="175" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrLight)"/>
-                <!-- Voice Personas → Speech (dashed; turn-driven) -->
-                <line x1="155" y1="234" x2="200" y2="225" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrLight)"/>
+                <!-- Audio library (y=70) → Background Noise (y=75) -->
+                <line x1="145" y1="70"  x2="200" y2="75"  stroke="#cbd5e1" stroke-width="1.4" marker-end="url(#arrLight)"/>
+                <!-- Scheduler (y=145) → Bursts (y=125) -->
+                <line x1="145" y1="142" x2="200" y2="125" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrLight)"/>
+                <!-- Scheduler (y=145) → Out-of-turn Speech (y=175) -->
+                <line x1="145" y1="148" x2="200" y2="175" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrLight)"/>
+                <!-- Voice Personas (y=229) → Speech (y=225) -->
+                <line x1="145" y1="229" x2="200" y2="225" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrLight)"/>
+              </g>
+
+              <!-- Scheduler → Dynamic Muffling and Frame Drops (Gilbert-Elliott).
+                   Exits the LEFT edge of the Scheduler box, drops down the
+                   far-left strip (x=5, clear of Voice Personas), runs along
+                   the figure bottom, and climbs up into each destination.
+                   Scheduling type itself is labelled inside the destination box. -->
+              <g fill="none" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="4 3">
+                <path d="M 15 145 L 5 145 L 5 355 L 610 355"/>
+                <line x1="610" y1="355" x2="610" y2="175" marker-end="url(#arrLight)"/>
+                <path d="M 610 355 L 800 355" />
+                <line x1="800" y1="355" x2="800" y2="216" marker-end="url(#arrLight)"/>
               </g>
 
               <!-- ===== Mixer ⊕ =====
@@ -685,15 +704,15 @@
               <line x1="510" y1="145" x2="510" y2="165" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
 
               <!-- Mixer → Dynamic Muffling -->
-              <line x1="532" y1="155" x2="558" y2="155" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#arr)"/>
+              <line x1="532" y1="155" x2="545" y2="155" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#arr)"/>
 
               <!-- Dynamic Muffling box (intermittent → dashed) -->
-              <rect x="558" y="135" width="115" height="40" rx="6" fill="#ffffff" stroke="#fb923c" stroke-width="1.6" stroke-dasharray="5 3"/>
-              <text x="615" y="155" text-anchor="middle" font-size="12.5" font-weight="600">Dynamic</text>
-              <text x="615" y="170" text-anchor="middle" font-size="12.5" font-weight="600">Muffling</text>
+              <rect x="545" y="135" width="130" height="40" rx="6" fill="#ffffff" stroke="#fb923c" stroke-width="1.6" stroke-dasharray="5 3"/>
+              <text x="610" y="153" text-anchor="middle" font-size="12.5" font-weight="600">Dynamic Muffling</text>
+              <text x="610" y="168" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">Gilbert&ndash;Elliott</text>
 
               <!-- Dynamic Muffling → Channel Degradation -->
-              <line x1="673" y1="155" x2="700" y2="155" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#arr)"/>
+              <line x1="675" y1="155" x2="700" y2="155" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#arr)"/>
 
               <!-- ===== Channel Degradation container ===== -->
               <rect x="700" y="60" width="200" height="190" rx="14" fill="url(#chanGrad)" stroke="#fca5a5" stroke-width="1.2"/>
@@ -723,8 +742,8 @@
               </g>
               <text x="954" y="195" text-anchor="middle" font-size="10" fill="#64748b">to agent</text>
 
-              <!-- ===== Legend (bottom) ===== -->
-              <g transform="translate(490, 305)" font-size="11" fill="#475569">
+              <!-- ===== Legend (top-right, above Channel Degradation) ===== -->
+              <g transform="translate(720, 28)" font-size="11" fill="#475569">
                 <rect x="0"   y="-9" width="14" height="14" rx="3" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
                 <text x="22"  y="2" font-weight="600">continuous</text>
                 <rect x="120" y="-9" width="14" height="14" rx="3" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 2"/>
