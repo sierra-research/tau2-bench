@@ -301,37 +301,68 @@
     .ab-cell-mid { background: #f8fafc; color: #4a5568; }
     .ab-delta { font-size: 11px; color: #94a3b8; margin-left: 3px; }
 
-    /* Error analysis stacked bars */
+    /* Error analysis: per-cohort breakdown */
     .ea-cohort {
-      padding: 16px 24px; border-bottom: 1px solid #edf2f7;
+      padding: 18px 24px; border-bottom: 1px solid #edf2f7;
     }
     .ea-cohort:last-child { border-bottom: none; }
     .ea-cohort-title {
-      font-size: 13px; font-weight: 700; color: #1a202c; margin-bottom: 10px;
+      font-size: 13px; font-weight: 700; color: #1a202c; margin-bottom: 6px;
     }
-    .ea-cohort-sub { font-size: 12px; color: #718096; margin-bottom: 12px; }
-    .ea-row {
-      display: grid; grid-template-columns: 64px 1fr 66px;
-      align-items: center; gap: 12px; margin-bottom: 6px;
+    .ea-cohort-sub {
+      font-size: 12px; color: #718096; margin-bottom: 14px;
+      line-height: 1.5;
     }
-    .ea-row-label { font-size: 12.5px; font-weight: 600; color: #1a202c; }
-    .ea-row-bar {
-      position: relative; height: 22px; border-radius: 5px; overflow: hidden;
-      background: #f1f5f9; display: flex;
+    /* Top-level Agent vs User split bar */
+    .ea-split {
+      display: flex; height: 22px; border-radius: 5px; overflow: hidden;
+      margin-bottom: 18px; border: 1px solid #e2e8f0;
     }
-    .ea-seg {
-      position: relative; height: 100%; display: flex; align-items: center; justify-content: center;
-      font-size: 10.5px; font-weight: 700; color: #fff; min-width: 0;
+    .ea-split-seg {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
     }
-    .ea-row-total {
-      font-size: 12px; font-weight: 700; color: #1a202c; font-variant-numeric: tabular-nums; text-align: right;
+    .ea-split-agent { background: #475569; color: #ffffff; }
+    .ea-split-user  { background: #e2e8f0; color: #334155; }
+    /* Section (Agent · N (X%) / User · N (X%)) */
+    .ea-section { margin-top: 10px; }
+    .ea-section:first-of-type { margin-top: 0; }
+    .ea-section-head {
+      display: flex; align-items: baseline; gap: 8px;
+      font-size: 12px; font-weight: 700; color: #1a202c;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      margin-bottom: 8px;
     }
-    .ea-legend {
-      display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 10px 24px 16px;
-      font-size: 11.5px; color: #4a5568;
+    .ea-section-head-meta {
+      font-weight: 500; color: #94a3b8; font-size: 11px;
+      letter-spacing: 0.02em; text-transform: none;
     }
-    .ea-legend-item { display: inline-flex; align-items: center; gap: 5px; }
-    .ea-legend-sw { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+    /* One row per failure category */
+    .ea-cat-row {
+      display: grid;
+      grid-template-columns: 12px 150px minmax(0, 1fr) 36px 38px;
+      align-items: center; gap: 10px;
+      font-size: 12px; padding: 3px 0;
+    }
+    .ea-cat-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .ea-cat-name { color: #334155; }
+    .ea-cat-bar {
+      position: relative; height: 8px; background: #f1f5f9; border-radius: 4px;
+      overflow: hidden;
+    }
+    .ea-cat-fill {
+      position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px;
+    }
+    .ea-cat-count {
+      text-align: right; font-variant-numeric: tabular-nums;
+      color: #718096; font-size: 11.5px;
+    }
+    .ea-cat-pct {
+      text-align: right; font-variant-numeric: tabular-nums;
+      font-weight: 700; color: #1a202c;
+    }
 
     /* Failure mode cards */
     .fm-grid {
@@ -454,9 +485,8 @@
       .blog-content { font-size: 1rem; }
 
       .pp-row { grid-template-columns: 70px 1fr 90px; }
+      .ea-cat-row { grid-template-columns: 12px 110px minmax(0, 1fr) 32px 38px; gap: 8px; }
       .fm-grid { grid-template-columns: 1fr; }
-      .ea-row { grid-template-columns: 56px 1fr 56px; }
-
       .explore-cta { flex-direction: column; text-align: center; gap: 12px; padding: 16px 20px; }
       .explore-cta-btn { width: 100%; justify-content: center; }
     }
@@ -813,24 +843,53 @@
           <div class="ea-cohort-title">Voice-Fragile cohort &mdash; 43 failures</div>
           <div class="ea-cohort-sub">Tasks both text models pass, but a majority of voice-Clean providers fail. Isolates the cost of going voice-native.</div>
 
-          <div class="ea-row">
-            <div class="ea-row-label">Agent</div>
-            <div class="ea-row-bar">
-              <div class="ea-seg" style="width: 30.2%; background: #b91c1c;" title="Logical (13)">Logical 13</div>
-              <div class="ea-seg" style="width: 23.3%; background: #d97706;" title="Transcription (10)">Trans. 10</div>
-              <div class="ea-seg" style="width: 14.0%; background: #7c3aed;" title="Hallucination (6)">Hall. 6</div>
-              <div class="ea-seg" style="width: 9.3%; background: #2563eb;" title="Timeout (4)">T 4</div>
-              <div class="ea-seg" style="width: 2.3%; background: #0891b2;" title="VAD/Unresponsive (1)"></div>
-            </div>
-            <div class="ea-row-total">34&nbsp;(79%)</div>
+          <div class="ea-split">
+            <div class="ea-split-seg ea-split-agent" style="width: 79%;">Agent &middot; 79%</div>
+            <div class="ea-split-seg ea-split-user"  style="width: 21%;">User &middot; 21%</div>
           </div>
 
-          <div class="ea-row">
-            <div class="ea-row-label">User</div>
-            <div class="ea-row-bar">
-              <div class="ea-seg" style="width: 20.9%; background: #94a3b8;" title="User logical (9)">User logical 9</div>
+          <div class="ea-section">
+            <div class="ea-section-head">Agent failures <span class="ea-section-head-meta">34 of 43</span></div>
+            <div class="ea-cat-row">
+              <span class="ea-cat-dot" style="background:#b91c1c"></span>
+              <span class="ea-cat-name">Logical</span>
+              <div class="ea-cat-bar"><div class="ea-cat-fill" style="width:100%; background:#b91c1c"></div></div>
+              <span class="ea-cat-count">13</span><span class="ea-cat-pct">30%</span>
             </div>
-            <div class="ea-row-total">9&nbsp;(21%)</div>
+            <div class="ea-cat-row">
+              <span class="ea-cat-dot" style="background:#d97706"></span>
+              <span class="ea-cat-name">Transcription</span>
+              <div class="ea-cat-bar"><div class="ea-cat-fill" style="width:77%; background:#d97706"></div></div>
+              <span class="ea-cat-count">10</span><span class="ea-cat-pct">23%</span>
+            </div>
+            <div class="ea-cat-row">
+              <span class="ea-cat-dot" style="background:#7c3aed"></span>
+              <span class="ea-cat-name">Hallucination</span>
+              <div class="ea-cat-bar"><div class="ea-cat-fill" style="width:46%; background:#7c3aed"></div></div>
+              <span class="ea-cat-count">6</span><span class="ea-cat-pct">14%</span>
+            </div>
+            <div class="ea-cat-row">
+              <span class="ea-cat-dot" style="background:#2563eb"></span>
+              <span class="ea-cat-name">Timeout</span>
+              <div class="ea-cat-bar"><div class="ea-cat-fill" style="width:31%; background:#2563eb"></div></div>
+              <span class="ea-cat-count">4</span><span class="ea-cat-pct">9%</span>
+            </div>
+            <div class="ea-cat-row">
+              <span class="ea-cat-dot" style="background:#0891b2"></span>
+              <span class="ea-cat-name">VAD / unresponsive</span>
+              <div class="ea-cat-bar"><div class="ea-cat-fill" style="width:8%; background:#0891b2"></div></div>
+              <span class="ea-cat-count">1</span><span class="ea-cat-pct">2%</span>
+            </div>
+          </div>
+
+          <div class="ea-section">
+            <div class="ea-section-head">User-simulator failures <span class="ea-section-head-meta">9 of 43</span></div>
+            <div class="ea-cat-row">
+              <span class="ea-cat-dot" style="background:#94a3b8"></span>
+              <span class="ea-cat-name">Logical</span>
+              <div class="ea-cat-bar"><div class="ea-cat-fill" style="width:69%; background:#94a3b8"></div></div>
+              <span class="ea-cat-count">9</span><span class="ea-cat-pct">21%</span>
+            </div>
           </div>
         </div>
 
@@ -838,35 +897,60 @@
           <div class="ea-cohort-title">Noise-Fragile cohort &mdash; 48 failures</div>
           <div class="ea-cohort-sub">Tasks voice-Clean passes but voice-Realistic fails. Isolates the marginal cost of realistic acoustic conditions.</div>
 
-          <div class="ea-row">
-            <div class="ea-row-label">Agent</div>
-            <div class="ea-row-bar">
-              <div class="ea-seg" style="width: 33.3%; background: #b91c1c;" title="Logical (16)">Logical 16</div>
-              <div class="ea-seg" style="width: 33.3%; background: #d97706;" title="Transcription (16)">Trans. 16</div>
-              <div class="ea-seg" style="width: 12.5%; background: #7c3aed;" title="Hallucination (6)">Hall. 6</div>
-              <div class="ea-seg" style="width: 8.3%; background: #0891b2;" title="VAD/Unresponsive (4)">VAD 4</div>
-              <div class="ea-seg" style="width: 2.0%; background: #2563eb;" title="Timeout (1)"></div>
-            </div>
-            <div class="ea-row-total">43&nbsp;(90%)</div>
+          <div class="ea-split">
+            <div class="ea-split-seg ea-split-agent" style="width: 90%;">Agent &middot; 90%</div>
+            <div class="ea-split-seg ea-split-user"  style="width: 10%;">User &middot; 10%</div>
           </div>
 
-          <div class="ea-row">
-            <div class="ea-row-label">User</div>
-            <div class="ea-row-bar">
-              <div class="ea-seg" style="width: 8.3%; background: #94a3b8;" title="Early termination (4)">Early 4</div>
-              <div class="ea-seg" style="width: 2.0%; background: #cbd5e1;" title="User logical (1)"></div>
+          <div class="ea-section">
+            <div class="ea-section-head">Agent failures <span class="ea-section-head-meta">43 of 48</span></div>
+            <div class="ea-cat-row">
+              <span class="ea-cat-dot" style="background:#b91c1c"></span>
+              <span class="ea-cat-name">Logical</span>
+              <div class="ea-cat-bar"><div class="ea-cat-fill" style="width:100%; background:#b91c1c"></div></div>
+              <span class="ea-cat-count">16</span><span class="ea-cat-pct">33%</span>
             </div>
-            <div class="ea-row-total">5&nbsp;(10%)</div>
+            <div class="ea-cat-row">
+              <span class="ea-cat-dot" style="background:#d97706"></span>
+              <span class="ea-cat-name">Transcription</span>
+              <div class="ea-cat-bar"><div class="ea-cat-fill" style="width:100%; background:#d97706"></div></div>
+              <span class="ea-cat-count">16</span><span class="ea-cat-pct">33%</span>
+            </div>
+            <div class="ea-cat-row">
+              <span class="ea-cat-dot" style="background:#7c3aed"></span>
+              <span class="ea-cat-name">Hallucination</span>
+              <div class="ea-cat-bar"><div class="ea-cat-fill" style="width:38%; background:#7c3aed"></div></div>
+              <span class="ea-cat-count">6</span><span class="ea-cat-pct">12%</span>
+            </div>
+            <div class="ea-cat-row">
+              <span class="ea-cat-dot" style="background:#0891b2"></span>
+              <span class="ea-cat-name">VAD / unresponsive</span>
+              <div class="ea-cat-bar"><div class="ea-cat-fill" style="width:25%; background:#0891b2"></div></div>
+              <span class="ea-cat-count">4</span><span class="ea-cat-pct">8%</span>
+            </div>
+            <div class="ea-cat-row">
+              <span class="ea-cat-dot" style="background:#2563eb"></span>
+              <span class="ea-cat-name">Timeout</span>
+              <div class="ea-cat-bar"><div class="ea-cat-fill" style="width:6%; background:#2563eb"></div></div>
+              <span class="ea-cat-count">1</span><span class="ea-cat-pct">2%</span>
+            </div>
           </div>
-        </div>
 
-        <div class="ea-legend">
-          <span class="ea-legend-item"><span class="ea-legend-sw" style="background:#b91c1c"></span>Agent · Logical</span>
-          <span class="ea-legend-item"><span class="ea-legend-sw" style="background:#d97706"></span>Agent · Transcription</span>
-          <span class="ea-legend-item"><span class="ea-legend-sw" style="background:#7c3aed"></span>Agent · Hallucination</span>
-          <span class="ea-legend-item"><span class="ea-legend-sw" style="background:#0891b2"></span>Agent · VAD / unresponsive</span>
-          <span class="ea-legend-item"><span class="ea-legend-sw" style="background:#2563eb"></span>Agent · Timeout</span>
-          <span class="ea-legend-item"><span class="ea-legend-sw" style="background:#94a3b8"></span>User simulator</span>
+          <div class="ea-section">
+            <div class="ea-section-head">User-simulator failures <span class="ea-section-head-meta">5 of 48</span></div>
+            <div class="ea-cat-row">
+              <span class="ea-cat-dot" style="background:#94a3b8"></span>
+              <span class="ea-cat-name">Early termination</span>
+              <div class="ea-cat-bar"><div class="ea-cat-fill" style="width:25%; background:#94a3b8"></div></div>
+              <span class="ea-cat-count">4</span><span class="ea-cat-pct">8%</span>
+            </div>
+            <div class="ea-cat-row">
+              <span class="ea-cat-dot" style="background:#94a3b8"></span>
+              <span class="ea-cat-name">Logical</span>
+              <div class="ea-cat-bar"><div class="ea-cat-fill" style="width:6%; background:#94a3b8"></div></div>
+              <span class="ea-cat-count">1</span><span class="ea-cat-pct">2%</span>
+            </div>
+          </div>
         </div>
         <div class="chart-note">
           Across both cohorts, <strong>79&ndash;90% of failures are agent errors</strong>. In the Voice-Fragile cohort the most common single bucket is reasoning failure even when transcription is fine; in the Noise-Fragile cohort transcription failures and reasoning failures are tied. <strong>Authentication is the dominant bottleneck in both</strong>: agents fail to transcribe a name or email even when it's spelled letter by letter, and everything downstream falls over.
