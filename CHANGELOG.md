@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+- Hallucinated tool calls in agent trajectories are now treated as no-ops during `Environment.set_state` replay (matching the live env, which returns a `ToolMessage(error=True)` and applies no state change), instead of raising `ValueError`. Previously, the exception propagated through `run_with_retry`, causing the entire task to be re-run up to `--max-retries` times before being binned as `INFRASTRUCTURE_ERROR` (which is excluded from `pass^k` and `avg_reward` metrics). Trajectories that hallucinate and then successfully recover now score correctly; trajectories that hallucinate without recovering still fail naturally via DB-state mismatch. Repeated hallucination remains bounded by the orchestrator's `max_errors` guard (`TerminationReason.TOO_MANY_ERRORS`).
 
 ## [1.0.0] - 2026-MM-DD
 
