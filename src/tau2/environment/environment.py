@@ -365,7 +365,7 @@ class Environment:
                 # upstream by the orchestrator's max_errors guard, which
                 # ends the live sim with TerminationReason.TOO_MANY_ERRORS
                 # before evaluation runs.
-                logger.warning(
+                logger.debug(
                     f"Skipping unknown tool '{tool_call.name}' during replay "
                     "(no-op, matching live env behavior on hallucinated tools)."
                 )
