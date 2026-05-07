@@ -31,17 +31,15 @@ def _check_actions(
     """
     action_checks = []
     for gold_action in golden_actions:
-        found = False
+        partial = gold_action.allow_partial_match or False
+        best_match, best_reward = False, 0.0
+
         for pred_tool_call in predicted_tool_calls:
-            if gold_action.compare_with_tool_call(pred_tool_call):
-                found = True
+            matched, reward = gold_action.compare_with_tool_call(pred_tool_call, partial)
+            if matched and reward > best_reward:
+                best_match, best_reward = matched, reward
+            if best_reward == 1.0:
                 break
-        if found:
-            gold_action_reward = 1.0
-            gold_action_match = True
-        else:
-            gold_action_reward = 0.0
-            gold_action_match = False
 
         # Get tool type if available
         tool_type = None
@@ -51,8 +49,8 @@ def _check_actions(
         action_checks.append(
             ActionCheck(
                 action=gold_action,
-                action_match=gold_action_match,
-                action_reward=gold_action_reward,
+                action_match=best_match,
+                action_reward=best_reward,
                 tool_type=tool_type,
             )
         )
@@ -98,9 +96,8 @@ class ActionEvaluator(EvaluatorBase[Message]):
             full_trajectory, golden_actions, tool_types
         )
 
-        # Calculate reward: 1 if all expectations are met, 0 otherwise
-        all_expectations_met = all(result.action_match for result in action_checks)
-        reward = 1.0 if all_expectations_met else 0.0
+        # Calculate reward: average of per-action rewards (supports partial credit)
+        reward = sum(r.action_reward for r in action_checks) / len(action_checks)
 
         return RewardInfo(
             reward=reward,
@@ -189,9 +186,8 @@ class FullDuplexActionEvaluator(EvaluatorBase[Tick]):
             full_trajectory, golden_actions, tool_types
         )
 
-        # Calculate reward: 1 if all expectations are met, 0 otherwise
-        all_expectations_met = all(result.action_match for result in action_checks)
-        reward = 1.0 if all_expectations_met else 0.0
+        # Calculate reward: average of per-action rewards (supports partial credit)
+        reward = sum(r.action_reward for r in action_checks) / len(action_checks)
 
         return RewardInfo(
             reward=reward,
