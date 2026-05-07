@@ -158,6 +158,23 @@ class PipecatVoiceProvider:
         from pipecat.pipeline.runner import PipelineRunner
         from pipecat.pipeline.task import PipelineParams, PipelineTask
 
+        # VADProcessor was added in Pipecat 1.x. In Pipecat 1.x the input
+        # transport no longer runs VAD inline on the audio task — VAD has
+        # to be a real FrameProcessor in the pipeline. Without it,
+        # ``VADUserStartedSpeakingFrame`` / ``VADUserStoppedSpeakingFrame``
+        # are never emitted, OpenAI STT (which defaults to
+        # ``turn_detection=False``) never commits the audio buffer, and the
+        # entire downstream chain (LLM → TTS → output queue) sits idle.
+        # The same frames are required by ``SpeechTimeoutUserTurnStopStrategy``
+        # to advance the user turn.
+        try:
+            from pipecat.processors.audio.vad_processor import VADProcessor
+
+            _has_vad_processor = True
+        except ImportError:  # pragma: no cover - older Pipecat
+            VADProcessor = None  # type: ignore[assignment]
+            _has_vad_processor = False
+
         # In Pipecat 1.x, OpenAILLMContext was replaced by the provider-neutral
         # LLMContext + LLMContextAggregatorPair (in
         # pipecat.processors.aggregators.llm_response_universal). Older 0.x
@@ -244,10 +261,28 @@ class PipecatVoiceProvider:
         self._context_aggregator = context_aggregator
         self._llm_service = llm_service
 
-        # Build pipeline
-        pipeline = Pipeline(
+        # Build pipeline. ``VADProcessor`` sits right after the input
+        # transport and turns raw audio frames from the simulator into
+        # ``VADUserStartedSpeakingFrame`` / ``VADUserStoppedSpeakingFrame``
+        # events that the STT and turn-stop strategy depend on. We skip
+        # the processor only if VAD is explicitly disabled in the config
+        # or the (older) Pipecat build doesn't have it.
+        pipeline_components: List[Any] = [self._transport.input()]
+        if _has_vad_processor and vad_analyzer is not None:
+            pipeline_components.append(VADProcessor(vad_analyzer=vad_analyzer))
+        else:
+            logger.warning(
+                "PipecatVoiceProvider building pipeline without VADProcessor "
+                "(vad_analyzer=%s, has_vad_processor=%s). STT services that "
+                "rely on VAD frames to commit audio (e.g. OpenAI's "
+                "gpt-4o-transcribe with turn_detection=False) will not "
+                "produce transcripts, and SpeechTimeoutUserTurnStopStrategy "
+                "will not advance the user turn.",
+                "set" if vad_analyzer is not None else "None",
+                _has_vad_processor,
+            )
+        pipeline_components.extend(
             [
-                self._transport.input(),
                 stt_service,
                 context_aggregator.user(),
                 llm_service,
@@ -256,6 +291,7 @@ class PipecatVoiceProvider:
                 context_aggregator.assistant(),
             ]
         )
+        pipeline = Pipeline(pipeline_components)
 
         self._task = PipelineTask(
             pipeline,
@@ -535,6 +571,7 @@ class PipecatVoiceProvider:
                 TranscriptionFrame,
                 TTSStartedFrame,
                 TTSStoppedFrame,
+                TTSTextFrame,
                 UserStartedSpeakingFrame,
                 UserStoppedSpeakingFrame,
             )
@@ -563,6 +600,25 @@ class PipecatVoiceProvider:
         elif isinstance(frame, LLMFullResponseStartFrame):
             evt = PipecatEvent(type=PipecatEventType.LLM_STARTED)
         elif isinstance(frame, LLMTextFrame):
+            # Note: this branch will not fire when an upstream TTSService is
+            # in the pipeline because the TTS service consumes ``LLMTextFrame``
+            # for sentence aggregation and does not forward it downstream
+            # (see ``pipecat.services.tts_service.TTSService.process_frame``).
+            # We keep it for parity if someone wires a pipeline without TTS.
+            text = getattr(frame, "text", "") or ""
+            if text:
+                evt = PipecatEvent(
+                    type=PipecatEventType.LLM_TOKEN,
+                    data={"token": text},
+                )
+        elif isinstance(frame, TTSTextFrame):
+            # ``TTSTextFrame`` IS forwarded downstream by the TTS service, one
+            # frame per synthesized sentence (or per word for TTS services
+            # with word timestamps). It is the only reliable way to recover
+            # the agent's spoken text after the LLM → TTS handoff in a
+            # cascaded pipeline. We surface it as an ``LLM_TOKEN`` event so
+            # the adapter's existing transcript accumulator (which keys off
+            # LLM_TOKEN events) populates ``proportional_transcript``.
             text = getattr(frame, "text", "") or ""
             if text:
                 evt = PipecatEvent(
