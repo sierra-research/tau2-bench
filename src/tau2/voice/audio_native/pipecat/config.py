@@ -17,6 +17,18 @@ from typing import Dict, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
+# Pipecat's TTSService accepts a ``text_aggregation_mode`` controlling how
+# LLM text is buffered before each TTS call:
+#   - "sentence" (default): wait for a full sentence boundary (e.g. ``.!?``)
+#     before synthesizing. Safer with REST-only TTS APIs (one HTTP request
+#     per sentence) but adds 0.5–2s of perceived latency because the agent
+#     can't speak until the LLM finishes a whole sentence.
+#   - "token": stream LLM tokens straight to TTS. Cuts time-to-first-audio
+#     dramatically on streaming-capable TTS services (Cartesia/Deepgram
+#     Aura WS / ElevenLabs WS) at the cost of more frequent service calls.
+#   - "word": buffer until word boundaries. Compromise between the two.
+TTSAggregationMode = Literal["sentence", "token", "word"]
+
 # =============================================================================
 # STT Configurations
 # =============================================================================
@@ -107,38 +119,59 @@ LLMConfig = Union[OpenAILLMConfig, AnthropicLLMConfig]
 
 
 class CartesiaTTSConfig(BaseModel):
-    """Configuration for Cartesia TTS (Pipecat's recommended low-latency TTS)."""
+    """Configuration for Cartesia TTS (Pipecat's recommended low-latency TTS).
+
+    Cartesia uses a persistent WebSocket so token-mode aggregation streams
+    audio back almost immediately — that's why ``aggregation_mode`` defaults
+    to ``"token"`` here.
+    """
 
     provider: Literal["cartesia"] = "cartesia"
     voice_id: str = "71a7ad14-091c-4e8e-a314-022ece01c121"  # default Cartesia voice
     model: str = "sonic-2"
     sample_rate: int = 24000
+    aggregation_mode: TTSAggregationMode = "token"
 
 
 class DeepgramTTSConfig(BaseModel):
-    """Configuration for Deepgram Aura TTS."""
+    """Configuration for Deepgram Aura TTS.
+
+    Deepgram's Pipecat service uses a WebSocket connection, so token-mode
+    aggregation gives the lowest time-to-first-audio.
+    """
 
     provider: Literal["deepgram"] = "deepgram"
     voice: str = "aura-2-asteria-en"
     sample_rate: int = 24000
+    aggregation_mode: TTSAggregationMode = "token"
 
 
 class ElevenLabsTTSConfig(BaseModel):
-    """Configuration for ElevenLabs TTS."""
+    """Configuration for ElevenLabs TTS.
+
+    ElevenLabs' Pipecat service is WebSocket-based, so token-mode
+    aggregation streams audio back with sub-second TTFB.
+    """
 
     provider: Literal["elevenlabs"] = "elevenlabs"
     voice_id: str = "EXAVITQu4vr4xnSDxMaL"
     model: str = "eleven_turbo_v2_5"
     sample_rate: int = 24000
+    aggregation_mode: TTSAggregationMode = "token"
 
 
 class OpenAITTSConfig(BaseModel):
-    """Configuration for OpenAI TTS."""
+    """Configuration for OpenAI TTS.
+
+    OpenAI's audio API is REST per call, so token-mode would issue an HTTP
+    request per token. We default to ``"sentence"`` for OpenAI.
+    """
 
     provider: Literal["openai"] = "openai"
     voice: str = "alloy"
     model: str = "gpt-4o-mini-tts"
     sample_rate: int = 24000
+    aggregation_mode: TTSAggregationMode = "sentence"
 
 
 TTSConfig = Union[
@@ -168,22 +201,6 @@ class PipecatConfig(BaseModel):
             input transport. When True, ``UserStartedSpeaking`` /
             ``UserStoppedSpeaking`` system frames are emitted, enabling
             Pipecat's built-in interruption handling.
-        vad_stop_secs: Silero VAD silence window before emitting
-            ``VADUserStoppedSpeakingFrame`` (seconds). The Pipecat default
-            (0.2 s) is too aggressive for the tau2 user simulator, which
-            naturally inserts ~200–800 ms gaps between sentences and
-            phrases. With 0.2 s the agent's STT + LLM fires partway
-            through the user's utterance and the conversation desyncs
-            ("agent responds to fragments"). 0.5 s matches a calmer
-            phone-call cadence.
-        vad_start_secs: Silero VAD speech window before emitting
-            ``VADUserStartedSpeakingFrame`` (seconds).
-        user_speech_timeout_secs: Additional wait after the VAD reports
-            silence before ``SpeechTimeoutUserTurnStopStrategy`` ends the
-            user turn and triggers the LLM. Combined with
-            ``vad_stop_secs`` this is the effective end-of-turn pause
-            (default ~2 s, matching the LiveKit cascade adapter's
-            ``utterance_end_ms = 2000``).
         allow_interruptions: Allow user speech to interrupt agent speech.
         log_prompts: If True, log the full LLM context for debugging.
         preamble: If True, emit a short preamble utterance before the LLM
@@ -195,9 +212,6 @@ class PipecatConfig(BaseModel):
     llm: LLMConfig = Field(default_factory=OpenAILLMConfig)
     tts: TTSConfig = Field(default_factory=CartesiaTTSConfig)
     enable_vad: bool = True
-    vad_stop_secs: float = 0.5
-    vad_start_secs: float = 0.2
-    user_speech_timeout_secs: float = 1.5
     allow_interruptions: bool = True
     log_prompts: bool = False
     preamble: bool = False
@@ -209,19 +223,25 @@ class PipecatConfig(BaseModel):
 # =============================================================================
 
 PIPECAT_CONFIGS: Dict[str, PipecatConfig] = {
-    # Default: Balanced speed and quality (Deepgram + OpenAI + Cartesia)
+    # Default: Deepgram nova-3 STT + gpt-4.1 LLM + Deepgram Aura TTS, all
+    # streaming-capable so we use token-mode TTS aggregation for minimum
+    # time-to-first-audio.
     "default": PipecatConfig(
         stt=DeepgramSTTConfig(model="nova-3"),
         llm=OpenAILLMConfig(model="gpt-4.1"),
-        tts=DeepgramTTSConfig(model="aura-asteria-en"),
+        tts=DeepgramTTSConfig(voice="aura-2-asteria-en"),
     ),
-    # OpenAI thinking: Uses OpenAI's thinking models with high reasoning
+    # OpenAI thinking: high-reasoning OpenAI LLM with Deepgram TTS so audio
+    # still streams in token-mode while the model thinks.
     "openai-thinking": PipecatConfig(
         stt=DeepgramSTTConfig(model="nova-3"),
         llm=OpenAILLMConfig(model="gpt-5.2", reasoning_effort="high"),
-        tts=DeepgramTTSConfig(model="aura-asteria-en"),
+        tts=DeepgramTTSConfig(voice="aura-2-asteria-en"),
     ),
-    # All-OpenAI cascade for environments with only OPENAI_API_KEY available
+    # All-OpenAI cascade for environments with only OPENAI_API_KEY. OpenAI
+    # TTS is REST per call so OpenAITTSConfig defaults aggregation_mode to
+    # "sentence" — expect ~1–2s longer time-to-first-audio than the
+    # streaming presets above.
     "openai-only": PipecatConfig(
         stt=OpenAISTTConfig(model="gpt-4o-transcribe"),
         llm=OpenAILLMConfig(model="gpt-4.1"),

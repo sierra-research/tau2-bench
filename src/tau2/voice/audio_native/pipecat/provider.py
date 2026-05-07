@@ -126,6 +126,14 @@ class PipecatVoiceProvider:
         # In-flight tool calls awaiting results
         self._pending_function_calls: Dict[str, Any] = {}
 
+        # Latency profiling: per-utterance timestamps so we log a single
+        # readable summary line every time the bot starts speaking after
+        # the user stops. Enables grep-able post-hoc analysis without
+        # requiring DEBUG-level Pipecat frame logs.
+        self._utt_user_stop_ts: Optional[float] = None
+        self._utt_llm_start_ts: Optional[float] = None
+        self._utt_tts_start_ts: Optional[float] = None
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
@@ -233,11 +241,7 @@ class PipecatVoiceProvider:
         if _use_universal_context:
             user_aggregator_params = LLMUserAggregatorParams(
                 user_turn_strategies=UserTurnStrategies(
-                    stop=[
-                        SpeechTimeoutUserTurnStopStrategy(
-                            user_speech_timeout=self.config.user_speech_timeout_secs,
-                        )
-                    ],
+                    stop=[SpeechTimeoutUserTurnStopStrategy()],
                 ),
             )
             context_aggregator = LLMContextAggregatorPair(
@@ -324,7 +328,7 @@ class PipecatVoiceProvider:
             f"PipecatVoiceProvider connected "
             f"(STT={self.config.stt.provider}, "
             f"LLM={self.config.llm.provider}/{self.config.llm.model}, "
-            f"TTS={self.config.tts.provider})"
+            f"TTS={self.config.tts.provider} agg={self.config.tts.aggregation_mode})"
         )
 
     async def disconnect(self) -> None:
@@ -436,6 +440,15 @@ class PipecatVoiceProvider:
 
     def _build_tts(self) -> Any:
         cfg = self.config.tts
+        # Pipecat's TTSService accepts a ``text_aggregation_mode`` kwarg that
+        # controls when LLM text is forwarded to the TTS API. Defaulting to
+        # SENTENCE causes 1–2s of perceived latency on long agent turns
+        # because the agent can't speak until the LLM finishes a sentence.
+        # Each TTS config picks a sensible default (token for streaming
+        # services, sentence for REST-only OpenAI) and the user can override
+        # per-preset.
+        agg_mode = self._resolve_text_aggregation_mode(cfg.aggregation_mode)
+
         if isinstance(cfg, CartesiaTTSConfig):
             from pipecat.services.cartesia.tts import CartesiaTTSService
 
@@ -445,6 +458,7 @@ class PipecatVoiceProvider:
             return CartesiaTTSService(
                 api_key=api_key,
                 sample_rate=cfg.sample_rate,
+                text_aggregation_mode=agg_mode,
                 settings=CartesiaTTSService.Settings(
                     model=cfg.model,
                     voice=cfg.voice_id,
@@ -459,6 +473,7 @@ class PipecatVoiceProvider:
             return DeepgramTTSService(
                 api_key=api_key,
                 sample_rate=cfg.sample_rate,
+                text_aggregation_mode=agg_mode,
                 settings=DeepgramTTSService.Settings(voice=cfg.voice),
             )
         if isinstance(cfg, ElevenLabsTTSConfig):
@@ -472,6 +487,7 @@ class PipecatVoiceProvider:
             return ElevenLabsTTSService(
                 api_key=api_key,
                 sample_rate=cfg.sample_rate,
+                text_aggregation_mode=agg_mode,
                 settings=ElevenLabsTTSService.Settings(
                     model=cfg.model,
                     voice=cfg.voice_id,
@@ -486,6 +502,7 @@ class PipecatVoiceProvider:
             return OpenAITTSService(
                 api_key=api_key,
                 sample_rate=cfg.sample_rate,
+                text_aggregation_mode=agg_mode,
                 settings=OpenAITTSService.Settings(
                     model=cfg.model,
                     voice=cfg.voice,
@@ -493,16 +510,25 @@ class PipecatVoiceProvider:
             )
         raise ValueError(f"Unknown TTS config type: {type(cfg).__name__}")
 
+    @staticmethod
+    def _resolve_text_aggregation_mode(mode: str) -> Any:
+        """Map our string config value to Pipecat's TextAggregationMode enum.
+
+        Falls back to the raw string if the enum can't be imported (which
+        TTSService accepts as well, since it normalizes via the enum).
+        """
+        try:
+            from pipecat.services.tts_service import TextAggregationMode
+
+            return TextAggregationMode(mode)
+        except Exception:
+            return mode
+
     def _build_vad_analyzer(self) -> Any:
         try:
             from pipecat.audio.vad.silero import SileroVADAnalyzer
-            from pipecat.audio.vad.vad_analyzer import VADParams
 
-            params = VADParams(
-                start_secs=self.config.vad_start_secs,
-                stop_secs=self.config.vad_stop_secs,
-            )
-            return SileroVADAnalyzer(params=params)
+            return SileroVADAnalyzer()
         except Exception as e:
             logger.warning(
                 f"Failed to instantiate SileroVADAnalyzer ({e}); "
@@ -590,19 +616,54 @@ class PipecatVoiceProvider:
             return
 
         evt: Optional[PipecatEvent] = None
+        loop = (
+            asyncio.get_event_loop() if asyncio.get_event_loop().is_running() else None
+        )
+        now = loop.time() if loop is not None else None
 
         if isinstance(frame, UserStartedSpeakingFrame):
             evt = PipecatEvent(type=PipecatEventType.SPEECH_STARTED)
         elif isinstance(frame, UserStoppedSpeakingFrame):
             evt = PipecatEvent(type=PipecatEventType.SPEECH_ENDED)
+            self._utt_user_stop_ts = now
+            self._utt_llm_start_ts = None
+            self._utt_tts_start_ts = None
         elif isinstance(frame, InterruptionFrame):
             evt = PipecatEvent(type=PipecatEventType.INTERRUPTED)
         elif isinstance(frame, BotStartedSpeakingFrame):
             evt = PipecatEvent(type=PipecatEventType.TTS_STARTED)
+            if self._utt_user_stop_ts is not None and now is not None:
+                stt_ms = (
+                    int((self._utt_llm_start_ts - self._utt_user_stop_ts) * 1000)
+                    if self._utt_llm_start_ts is not None
+                    else None
+                )
+                llm_ms = (
+                    int((self._utt_tts_start_ts - self._utt_llm_start_ts) * 1000)
+                    if self._utt_llm_start_ts is not None
+                    and self._utt_tts_start_ts is not None
+                    else None
+                )
+                tts_ms = (
+                    int((now - self._utt_tts_start_ts) * 1000)
+                    if self._utt_tts_start_ts is not None
+                    else None
+                )
+                total_ms = int((now - self._utt_user_stop_ts) * 1000)
+                logger.info(
+                    "Pipecat utterance latency: total={}ms stt={}ms llm={}ms tts={}ms",
+                    total_ms,
+                    stt_ms if stt_ms is not None else "-",
+                    llm_ms if llm_ms is not None else "-",
+                    tts_ms if tts_ms is not None else "-",
+                )
+                self._utt_user_stop_ts = None
         elif isinstance(frame, BotStoppedSpeakingFrame):
             evt = PipecatEvent(type=PipecatEventType.TTS_COMPLETED)
         elif isinstance(frame, TranscriptionFrame):
             text = getattr(frame, "text", "") or ""
+            if text and self._utt_user_stop_ts is not None and now is not None:
+                self._utt_llm_start_ts = self._utt_llm_start_ts or now
             if text:
                 evt = PipecatEvent(
                     type=PipecatEventType.TRANSCRIPT_FINAL,
@@ -610,6 +671,8 @@ class PipecatVoiceProvider:
                 )
         elif isinstance(frame, LLMFullResponseStartFrame):
             evt = PipecatEvent(type=PipecatEventType.LLM_STARTED)
+            if self._utt_user_stop_ts is not None and now is not None:
+                self._utt_llm_start_ts = self._utt_llm_start_ts or now
         elif isinstance(frame, LLMTextFrame):
             # Note: this branch will not fire when an upstream TTSService is
             # in the pipeline because the TTS service consumes ``LLMTextFrame``
@@ -632,6 +695,8 @@ class PipecatVoiceProvider:
             # LLM_TOKEN events) populates ``proportional_transcript``.
             text = getattr(frame, "text", "") or ""
             if text:
+                if self._utt_user_stop_ts is not None and now is not None:
+                    self._utt_tts_start_ts = self._utt_tts_start_ts or now
                 evt = PipecatEvent(
                     type=PipecatEventType.LLM_TOKEN,
                     data={"token": text},
