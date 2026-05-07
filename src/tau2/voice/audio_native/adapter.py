@@ -346,13 +346,15 @@ def create_adapter(
 
     Args:
         provider: Provider identifier (openai, gemini, xai, nova, qwen,
-            livekit).
+            livekit, pipecat).
         tick_duration_ms: Duration of each tick in milliseconds.
         send_audio_instant: If True, send audio in one call per tick.
         model: Model identifier. If None, uses the provider's default.
         audio_format: Audio format for external communication. Defaults to
             telephony (8kHz μ-law).
-        cascaded_config: Configuration for cascaded providers (livekit).
+        cascaded_config: Configuration for cascaded providers (livekit,
+            pipecat). For ``livekit`` this is a ``CascadedConfig``; for
+            ``pipecat`` it is a ``PipecatConfig``.
 
     Returns:
         Tuple of (adapter, resolved_model).
@@ -370,6 +372,11 @@ def create_adapter(
             from tau2.voice.audio_native.livekit.config import CascadedConfig
 
             config = cascaded_config or CascadedConfig()
+            model = config.llm.model
+        elif provider == "pipecat":
+            from tau2.voice.audio_native.pipecat.config import PipecatConfig
+
+            config = cascaded_config or PipecatConfig()
             model = config.llm.model
         else:
             model = DEFAULT_AUDIO_NATIVE_MODELS[provider]
@@ -449,6 +456,19 @@ def create_adapter(
         adapter = LiveKitCascadedAdapter(
             tick_duration_ms=tick_duration_ms,
             cascaded_config=config,
+            send_audio_instant=send_audio_instant,
+            audio_format=audio_format,
+        )
+    elif provider == "pipecat":
+        from tau2.voice.audio_native.pipecat.config import PipecatConfig
+        from tau2.voice.audio_native.pipecat.discrete_time_adapter import (
+            DiscreteTimePipecatAdapter,
+        )
+
+        config = cascaded_config or PipecatConfig()
+        adapter = DiscreteTimePipecatAdapter(
+            tick_duration_ms=tick_duration_ms,
+            pipecat_config=config,
             send_audio_instant=send_audio_instant,
             audio_format=audio_format,
         )

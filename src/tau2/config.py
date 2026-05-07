@@ -198,6 +198,7 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
     "nova": DEFAULT_NOVA_MODEL,
     "qwen": DEFAULT_QWEN_MODEL,
     "livekit": "dummy",
+    "pipecat": "dummy",
 }
 
 DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
@@ -207,6 +208,7 @@ DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
     "nova": None,
     "qwen": None,
     "livekit": None,
+    "pipecat": None,
 }
 
 AUDIO_NATIVE_PROVIDER_TYPES = {
@@ -216,6 +218,7 @@ AUDIO_NATIVE_PROVIDER_TYPES = {
     "nova": "audio_native",
     "qwen": "audio_native",
     "livekit": "cascaded",
+    "pipecat": "cascaded",
 }
 
 # =============================================================================

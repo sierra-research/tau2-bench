@@ -112,6 +112,20 @@ PROVIDERS = [
         ),
     ),
     pytest.param(
+        "pipecat",
+        marks=pytest.mark.skipif(
+            not os.environ.get("PIPECAT_TEST_ENABLED"),
+            reason="PIPECAT_TEST_ENABLED not set",
+        ),
+    ),
+    pytest.param(
+        "pipecat-openai-only",
+        marks=pytest.mark.skipif(
+            not os.environ.get("PIPECAT_TEST_ENABLED"),
+            reason="PIPECAT_TEST_ENABLED not set",
+        ),
+    ),
+    pytest.param(
         "qwen",
         marks=pytest.mark.skipif(
             not os.environ.get("DASHSCOPE_API_KEY"),
@@ -333,12 +347,17 @@ CASCADED_CONFIG_ALIASES = {
     "livekit-thinking": ("livekit", "openai-thinking"),
 }
 
+PIPECAT_CONFIG_ALIASES = {
+    "pipecat-openai-only": "openai-only",
+}
+
 
 @pytest.fixture
 def adapter(provider_name: str):
     """Create, yield, and teardown a DiscreteTimeAdapter."""
     real_provider = provider_name
     cascaded_config = None
+    pipecat_config = None
 
     if provider_name in CASCADED_CONFIG_ALIASES:
         from tau2.voice.audio_native.livekit.config import CASCADED_CONFIGS
@@ -346,11 +365,20 @@ def adapter(provider_name: str):
         real_provider, config_name = CASCADED_CONFIG_ALIASES[provider_name]
         cascaded_config = CASCADED_CONFIGS[config_name]
 
-    adapter, _model = create_adapter(
-        real_provider,
+    if provider_name in PIPECAT_CONFIG_ALIASES:
+        from tau2.voice.audio_native.pipecat.config import PIPECAT_CONFIGS
+
+        real_provider = "pipecat"
+        pipecat_config = PIPECAT_CONFIGS[PIPECAT_CONFIG_ALIASES[provider_name]]
+
+    # Pipecat reuses cascaded_config slot in create_adapter() via the
+    # PipecatConfig union; pass either pipecat_config or cascaded_config.
+    create_kwargs = dict(
         tick_duration_ms=TICK_DURATION_MS,
-        cascaded_config=cascaded_config,
+        cascaded_config=cascaded_config or pipecat_config,
     )
+
+    adapter, _model = create_adapter(real_provider, **create_kwargs)
     yield adapter
     if adapter.is_connected:
         adapter.disconnect()

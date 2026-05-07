@@ -11,6 +11,7 @@ from typing_extensions import Annotated
 
 if TYPE_CHECKING:
     from tau2.voice.audio_native.livekit.config import CascadedConfig
+    from tau2.voice.audio_native.pipecat.config import PipecatConfig
 
 from tau2.config import (
     DEFAULT_AUDIO_NATIVE_AGENT_IMPLEMENTATION,
@@ -69,15 +70,23 @@ class AudioNativeConfig(BaseModel):
     """
 
     # Provider selection
-    provider: Literal["openai", "gemini", "xai", "nova", "qwen", "livekit"] = Field(
+    provider: Literal[
+        "openai", "gemini", "xai", "nova", "qwen", "livekit", "pipecat"
+    ] = Field(
         default=DEFAULT_AUDIO_NATIVE_PROVIDER,
-        description="Audio native API provider: 'openai' (OpenAI Realtime), 'gemini' (Gemini Live), 'xai' (xAI Grok Voice Agent), 'nova' (Amazon Nova Sonic), 'qwen' (Alibaba Qwen Omni), or 'livekit' (LiveKit cascaded STT→LLM→TTS)",
+        description="Audio native API provider: 'openai' (OpenAI Realtime), 'gemini' (Gemini Live), 'xai' (xAI Grok Voice Agent), 'nova' (Amazon Nova Sonic), 'qwen' (Alibaba Qwen Omni), 'livekit' (LiveKit cascaded STT→LLM→TTS), or 'pipecat' (Pipecat cascaded STT→LLM→TTS)",
     )
 
     # Cascaded config (for livekit provider)
     cascaded_config_name: Optional[str] = Field(
         default=None,
         description="Name of cascaded config preset for livekit provider (e.g., 'default', 'openai-thinking', 'openai-thinking-high')",
+    )
+
+    # Pipecat config (for pipecat provider)
+    pipecat_config_name: Optional[str] = Field(
+        default=None,
+        description="Name of Pipecat config preset for the pipecat provider (e.g., 'default', 'openai-thinking', 'openai-only', 'deepgram')",
     )
 
     model: str = Field(
@@ -262,6 +271,36 @@ class AudioNativeConfig(BaseModel):
                 f"Available: {list(CASCADED_CONFIGS.keys())}"
             )
         return CASCADED_CONFIGS[self.cascaded_config_name]
+
+    @property
+    def pipecat_config(self) -> Optional["PipecatConfig"]:
+        """Get the PipecatConfig for the pipecat provider.
+
+        Returns the config from PIPECAT_CONFIGS if a name is specified,
+        otherwise returns None (will use defaults).
+        """
+        if self.pipecat_config_name is None:
+            return None
+
+        from tau2.voice.audio_native.pipecat.config import PIPECAT_CONFIGS
+
+        if self.pipecat_config_name not in PIPECAT_CONFIGS:
+            raise ValueError(
+                f"Unknown Pipecat config: '{self.pipecat_config_name}'. "
+                f"Available: {list(PIPECAT_CONFIGS.keys())}"
+            )
+        return PIPECAT_CONFIGS[self.pipecat_config_name]
+
+    @property
+    def effective_cascaded_config(self):
+        """Resolve the cascaded-style config for this provider.
+
+        For ``livekit`` this returns ``cascaded_config``. For ``pipecat``
+        this returns ``pipecat_config``. Other providers return ``None``.
+        """
+        if self.provider == "pipecat":
+            return self.pipecat_config
+        return self.cascaded_config
 
 
 class BaseRunConfig(BaseModel):
