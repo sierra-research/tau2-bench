@@ -1,3 +1,4 @@
+import copy
 from typing import Any, Dict, Literal, Optional, Tuple, Union
 
 from tau2.domains.telecom.user_data_model import (
@@ -762,7 +763,7 @@ class TelecomUserTools(ToolKitBase):
         if self.device.vpn_connected:
             return None
         self.device.vpn_connected = True
-        self.device.vpn_details = self.default_vpn_details
+        self.device.vpn_details = copy.deepcopy(self.default_vpn_details)
         return True
 
     @is_tool(ToolType.WRITE)
