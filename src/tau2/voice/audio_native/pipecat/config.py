@@ -168,6 +168,22 @@ class PipecatConfig(BaseModel):
             input transport. When True, ``UserStartedSpeaking`` /
             ``UserStoppedSpeaking`` system frames are emitted, enabling
             Pipecat's built-in interruption handling.
+        vad_stop_secs: Silero VAD silence window before emitting
+            ``VADUserStoppedSpeakingFrame`` (seconds). The Pipecat default
+            (0.2 s) is too aggressive for the tau2 user simulator, which
+            naturally inserts ~200–800 ms gaps between sentences and
+            phrases. With 0.2 s the agent's STT + LLM fires partway
+            through the user's utterance and the conversation desyncs
+            ("agent responds to fragments"). 0.5 s matches a calmer
+            phone-call cadence.
+        vad_start_secs: Silero VAD speech window before emitting
+            ``VADUserStartedSpeakingFrame`` (seconds).
+        user_speech_timeout_secs: Additional wait after the VAD reports
+            silence before ``SpeechTimeoutUserTurnStopStrategy`` ends the
+            user turn and triggers the LLM. Combined with
+            ``vad_stop_secs`` this is the effective end-of-turn pause
+            (default ~2 s, matching the LiveKit cascade adapter's
+            ``utterance_end_ms = 2000``).
         allow_interruptions: Allow user speech to interrupt agent speech.
         log_prompts: If True, log the full LLM context for debugging.
         preamble: If True, emit a short preamble utterance before the LLM
@@ -179,6 +195,9 @@ class PipecatConfig(BaseModel):
     llm: LLMConfig = Field(default_factory=OpenAILLMConfig)
     tts: TTSConfig = Field(default_factory=CartesiaTTSConfig)
     enable_vad: bool = True
+    vad_stop_secs: float = 0.5
+    vad_start_secs: float = 0.2
+    user_speech_timeout_secs: float = 1.5
     allow_interruptions: bool = True
     log_prompts: bool = False
     preamble: bool = False
@@ -194,13 +213,13 @@ PIPECAT_CONFIGS: Dict[str, PipecatConfig] = {
     "default": PipecatConfig(
         stt=DeepgramSTTConfig(model="nova-3"),
         llm=OpenAILLMConfig(model="gpt-4.1"),
-        tts=CartesiaTTSConfig(),
+        tts=DeepgramTTSConfig(model="aura-asteria-en"),
     ),
     # OpenAI thinking: Uses OpenAI's thinking models with high reasoning
     "openai-thinking": PipecatConfig(
         stt=DeepgramSTTConfig(model="nova-3"),
         llm=OpenAILLMConfig(model="gpt-5.2", reasoning_effort="high"),
-        tts=CartesiaTTSConfig(),
+        tts=DeepgramTTSConfig(model="aura-asteria-en"),
     ),
     # All-OpenAI cascade for environments with only OPENAI_API_KEY available
     "openai-only": PipecatConfig(

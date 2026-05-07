@@ -233,7 +233,11 @@ class PipecatVoiceProvider:
         if _use_universal_context:
             user_aggregator_params = LLMUserAggregatorParams(
                 user_turn_strategies=UserTurnStrategies(
-                    stop=[SpeechTimeoutUserTurnStopStrategy()],
+                    stop=[
+                        SpeechTimeoutUserTurnStopStrategy(
+                            user_speech_timeout=self.config.user_speech_timeout_secs,
+                        )
+                    ],
                 ),
             )
             context_aggregator = LLMContextAggregatorPair(
@@ -492,8 +496,13 @@ class PipecatVoiceProvider:
     def _build_vad_analyzer(self) -> Any:
         try:
             from pipecat.audio.vad.silero import SileroVADAnalyzer
+            from pipecat.audio.vad.vad_analyzer import VADParams
 
-            return SileroVADAnalyzer()
+            params = VADParams(
+                start_secs=self.config.vad_start_secs,
+                stop_secs=self.config.vad_stop_secs,
+            )
+            return SileroVADAnalyzer(params=params)
         except Exception as e:
             logger.warning(
                 f"Failed to instantiate SileroVADAnalyzer ({e}); "
