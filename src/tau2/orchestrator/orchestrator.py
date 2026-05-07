@@ -868,12 +868,25 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
             agent_msg, self.agent_state = await self.agent.generate_next_message(
                 self.message, self.agent_state
             )
-            # Catch context window exceeded errors -- NeMo Gym OpenAI client will return an empty message
+            # Catch malformed agent responses — NeMo Gym OpenAI client returns an empty
+            # message (no content + no tool calls) in several edge cases (context window
+            # exceeded, model produces only </think> reasoning then nothing, etc.).
+            # We append the malformed message to the trajectory FIRST so its reasoning_content
+            # (and any other diagnostic data) survives in logs/output, then terminate cleanly.
             try:
                 agent_msg.validate()
-            except:
+            except Exception as e:
+                logger.warning(
+                    f"Agent returned an empty / malformed message — preserving for debug. "
+                    f"reasoning_content={getattr(agent_msg, 'reasoning_content', None)!r}, "
+                    f"content={getattr(agent_msg, 'content', None)!r}, "
+                    f"tool_calls={getattr(agent_msg, 'tool_calls', None)!r}, "
+                    f"validate_error={e}"
+                )
+                self.trajectory.append(agent_msg)
+                self.message = agent_msg
                 self.done = True
-                self.termination_reason = TerminationReason.CONTEXT_WINDOW_EXCEEDED
+                self.termination_reason = TerminationReason.EMPTY_TOOL_CALLS_AND_CONTENT
                 return
 
             if self.agent.is_stop(agent_msg):

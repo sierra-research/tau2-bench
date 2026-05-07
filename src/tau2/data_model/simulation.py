@@ -1222,6 +1222,7 @@ class TerminationReason(str, Enum):
     USER_ERROR = "user_error"
     INFRASTRUCTURE_ERROR = "infrastructure_error"  # Task failed due to infrastructure (e.g., API disconnect)
     CONTEXT_WINDOW_EXCEEDED = "context_window_exceeded"
+    EMPTY_TOOL_CALLS_AND_CONTENT = "empty_tool_calls_and_content"
     UNEXPECTED_ERROR = "unexpected_error"
 
 

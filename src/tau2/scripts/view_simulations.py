@@ -118,6 +118,7 @@ def display_simulation_list(
         TerminationReason.TOO_MANY_ERRORS: "red",
         TerminationReason.AGENT_ERROR: "red",
         TerminationReason.USER_ERROR: "red",
+        TerminationReason.EMPTY_TOOL_CALLS_AND_CONTENT: "magenta",
     }
 
     termination_icon_map = {
@@ -127,6 +128,7 @@ def display_simulation_list(
         TerminationReason.TOO_MANY_ERRORS: "💥",
         TerminationReason.AGENT_ERROR: "💥",
         TerminationReason.USER_ERROR: "💥",
+        TerminationReason.EMPTY_TOOL_CALLS_AND_CONTENT: "🫥",
     }
 
     for i, sim in filtered_sims:
