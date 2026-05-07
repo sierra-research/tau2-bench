@@ -18,6 +18,7 @@ method (matching ``LiveKitCascadedAdapter``).
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import threading
 from typing import Any, List, Optional, Tuple
 
@@ -211,14 +212,63 @@ class DiscreteTimePipecatAdapter(DiscreteTimeAdapter):
             self._loop,
         )
 
+        tick_timeout = (
+            self.tick_duration_ms / 1000 + DEFAULT_AUDIO_NATIVE_TICK_TIMEOUT_BUFFER
+        )
+
         try:
-            return future.result(
-                timeout=self.tick_duration_ms / 1000
-                + DEFAULT_AUDIO_NATIVE_TICK_TIMEOUT_BUFFER
+            return future.result(timeout=tick_timeout)
+        except concurrent.futures.TimeoutError as e:
+            # Empty str() repr from concurrent.futures.TimeoutError makes
+            # the bare message useless. Surface the timeout explicitly,
+            # along with any background-runner exception that may have
+            # silently crashed the pipeline.
+            future.cancel()
+            runner_exc = self._get_runner_task_exception()
+            if runner_exc is not None:
+                logger.error(
+                    f"DiscreteTimePipecatAdapter.run_tick timed out after "
+                    f"{tick_timeout:.1f}s on tick {tick_number}; the Pipecat "
+                    f"pipeline runner has crashed with: "
+                    f"{type(runner_exc).__name__}: {runner_exc}"
+                )
+            else:
+                logger.error(
+                    f"DiscreteTimePipecatAdapter.run_tick timed out after "
+                    f"{tick_timeout:.1f}s on tick {tick_number} (background "
+                    f"asyncio loop appears stuck; runner task is still "
+                    f"running with no exception). This usually means a "
+                    f"FrameProcessor in the pipeline is blocking the loop "
+                    f"or a downstream queue is full."
+                )
+            raise TimeoutError(
+                f"Pipecat tick {tick_number} exceeded {tick_timeout:.1f}s"
+            ) from e
+        except Exception:
+            logger.exception(
+                f"DiscreteTimePipecatAdapter.run_tick failed on tick {tick_number}"
             )
-        except Exception as e:
-            logger.error(f"DiscreteTimePipecatAdapter.run_tick error: {e}")
             raise
+
+    def _get_runner_task_exception(self) -> Optional[BaseException]:
+        """Return the Pipecat runner task's exception if it has crashed.
+
+        ``PipelineRunner.run`` is launched as ``self._runner_task`` inside
+        ``PipecatVoiceProvider.connect``. If it raised, the asyncio loop
+        keeps spinning but the pipeline is dead — every subsequent tick
+        will time out with no useful info. This helper extracts that
+        exception so we can include it in the timeout error message.
+        """
+        provider = self._provider
+        if provider is None:
+            return None
+        runner_task = getattr(provider, "_runner_task", None)
+        if runner_task is None or not runner_task.done():
+            return None
+        try:
+            return runner_task.exception()
+        except (asyncio.CancelledError, asyncio.InvalidStateError):
+            return None
 
     async def _async_run_tick(
         self,

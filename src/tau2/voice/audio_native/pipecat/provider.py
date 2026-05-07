@@ -162,11 +162,25 @@ class PipecatVoiceProvider:
         # LLMContext + LLMContextAggregatorPair (in
         # pipecat.processors.aggregators.llm_response_universal). Older 0.x
         # builds still expose OpenAILLMContext; we try the new path first.
+        #
+        # Pipecat 1.1's default user-turn-stop strategy is
+        # ``TurnAnalyzerUserTurnStopStrategy(LocalSmartTurnAnalyzerV3)``,
+        # which imports ``transformers`` eagerly and requires ``torch`` at
+        # inference time to score whether the user has finished speaking.
+        # Without torch the analyzer silently fails to advance the turn,
+        # the LLM is never invoked, and every tick eventually hits the
+        # adapter's tick timeout. We don't want that hard dependency here
+        # (we already have VAD + transcription), so we swap in the
+        # timer-based ``SpeechTimeoutUserTurnStopStrategy`` which only
+        # depends on VAD/STT signals already produced by the pipeline.
         try:
             from pipecat.processors.aggregators.llm_context import LLMContext
             from pipecat.processors.aggregators.llm_response_universal import (
                 LLMContextAggregatorPair,
+                LLMUserAggregatorParams,
             )
+            from pipecat.turns.user_stop import SpeechTimeoutUserTurnStopStrategy
+            from pipecat.turns.user_turn_strategies import UserTurnStrategies
 
             _use_universal_context = True
         except ImportError:  # pragma: no cover - older Pipecat
@@ -175,6 +189,9 @@ class PipecatVoiceProvider:
             )
 
             LLMContextAggregatorPair = None  # type: ignore[assignment]
+            LLMUserAggregatorParams = None  # type: ignore[assignment]
+            UserTurnStrategies = None  # type: ignore[assignment]
+            SpeechTimeoutUserTurnStopStrategy = None  # type: ignore[assignment]
             _use_universal_context = False
 
         # Build component services
@@ -195,7 +212,15 @@ class PipecatVoiceProvider:
         context = LLMContext(**context_kwargs)
 
         if _use_universal_context:
-            context_aggregator = LLMContextAggregatorPair(context)
+            user_aggregator_params = LLMUserAggregatorParams(
+                user_turn_strategies=UserTurnStrategies(
+                    stop=[SpeechTimeoutUserTurnStopStrategy()],
+                ),
+            )
+            context_aggregator = LLMContextAggregatorPair(
+                context,
+                user_params=user_aggregator_params,
+            )
         else:
             # Older Pipecat: the LLM service wraps the context for us.
             context_aggregator = llm_service.create_context_aggregator(context)
