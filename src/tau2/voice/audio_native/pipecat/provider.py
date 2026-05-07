@@ -301,7 +301,7 @@ class PipecatVoiceProvider:
                 raise RuntimeError("DEEPGRAM_API_KEY is required for DeepgramSTTConfig")
             return DeepgramSTTService(
                 api_key=api_key,
-                model=cfg.model,
+                settings=DeepgramSTTService.Settings(model=cfg.model),
             )
         if isinstance(cfg, OpenAISTTConfig):
             from pipecat.services.openai.stt import OpenAISTTService
@@ -309,7 +309,10 @@ class PipecatVoiceProvider:
             api_key = os.environ.get("OPENAI_API_KEY")
             if not api_key:
                 raise RuntimeError("OPENAI_API_KEY is required for OpenAISTTConfig")
-            kwargs: Dict[str, Any] = {"api_key": api_key, "model": cfg.model}
+            kwargs: Dict[str, Any] = {
+                "api_key": api_key,
+                "settings": OpenAISTTService.Settings(model=cfg.model),
+            }
             if cfg.language:
                 kwargs["language"] = cfg.language
             return OpenAISTTService(**kwargs)
@@ -323,27 +326,25 @@ class PipecatVoiceProvider:
             api_key = os.environ.get(cfg.api_key_env)
             if not api_key:
                 raise RuntimeError(f"{cfg.api_key_env} is required for OpenAILLMConfig")
-            kwargs: Dict[str, Any] = {"api_key": api_key, "model": cfg.model}
-            params: Dict[str, Any] = {}
+            settings_kwargs: Dict[str, Any] = {"model": cfg.model}
             if cfg.temperature is not None:
-                params["temperature"] = cfg.temperature
+                settings_kwargs["temperature"] = cfg.temperature
             if cfg.top_p is not None:
-                params["top_p"] = cfg.top_p
+                settings_kwargs["top_p"] = cfg.top_p
             if cfg.max_completion_tokens is not None:
-                params["max_completion_tokens"] = cfg.max_completion_tokens
+                settings_kwargs["max_completion_tokens"] = cfg.max_completion_tokens
+            # Pipecat's Settings schema doesn't model OpenAI Reasoning fields
+            # explicitly; route them through ``extra`` which is forwarded
+            # verbatim into the chat.completions request.
+            extra: Dict[str, Any] = {}
             if cfg.reasoning_effort is not None:
-                params["reasoning_effort"] = cfg.reasoning_effort
-            if params:
-                # Newer Pipecat versions accept an InputParams object.
-                try:
-                    from pipecat.services.openai.llm import (
-                        OpenAILLMService as _Svc,  # noqa: F401
-                    )
-
-                    kwargs["params"] = OpenAILLMService.InputParams(**params)
-                except Exception:
-                    kwargs.update(params)
-            return OpenAILLMService(**kwargs)
+                extra["reasoning_effort"] = cfg.reasoning_effort
+            if extra:
+                settings_kwargs["extra"] = extra
+            return OpenAILLMService(
+                api_key=api_key,
+                settings=OpenAILLMService.Settings(**settings_kwargs),
+            )
 
         if isinstance(cfg, AnthropicLLMConfig):
             from pipecat.services.anthropic.llm import AnthropicLLMService
@@ -353,14 +354,16 @@ class PipecatVoiceProvider:
                 raise RuntimeError(
                     "ANTHROPIC_API_KEY is required for AnthropicLLMConfig"
                 )
-            kwargs = {
-                "api_key": api_key,
+            settings_kwargs: Dict[str, Any] = {
                 "model": cfg.model,
                 "max_tokens": cfg.max_tokens,
             }
             if cfg.temperature is not None:
-                kwargs["temperature"] = cfg.temperature
-            return AnthropicLLMService(**kwargs)
+                settings_kwargs["temperature"] = cfg.temperature
+            return AnthropicLLMService(
+                api_key=api_key,
+                settings=AnthropicLLMService.Settings(**settings_kwargs),
+            )
 
         raise ValueError(f"Unknown LLM config type: {type(cfg).__name__}")
 
@@ -374,9 +377,11 @@ class PipecatVoiceProvider:
                 raise RuntimeError("CARTESIA_API_KEY is required for CartesiaTTSConfig")
             return CartesiaTTSService(
                 api_key=api_key,
-                voice_id=cfg.voice_id,
-                model=cfg.model,
                 sample_rate=cfg.sample_rate,
+                settings=CartesiaTTSService.Settings(
+                    model=cfg.model,
+                    voice=cfg.voice_id,
+                ),
             )
         if isinstance(cfg, DeepgramTTSConfig):
             from pipecat.services.deepgram.tts import DeepgramTTSService
@@ -386,8 +391,8 @@ class PipecatVoiceProvider:
                 raise RuntimeError("DEEPGRAM_API_KEY is required for DeepgramTTSConfig")
             return DeepgramTTSService(
                 api_key=api_key,
-                voice=cfg.voice,
                 sample_rate=cfg.sample_rate,
+                settings=DeepgramTTSService.Settings(voice=cfg.voice),
             )
         if isinstance(cfg, ElevenLabsTTSConfig):
             from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
@@ -399,9 +404,11 @@ class PipecatVoiceProvider:
                 )
             return ElevenLabsTTSService(
                 api_key=api_key,
-                voice_id=cfg.voice_id,
-                model=cfg.model,
                 sample_rate=cfg.sample_rate,
+                settings=ElevenLabsTTSService.Settings(
+                    model=cfg.model,
+                    voice=cfg.voice_id,
+                ),
             )
         if isinstance(cfg, OpenAITTSConfig):
             from pipecat.services.openai.tts import OpenAITTSService
@@ -411,9 +418,11 @@ class PipecatVoiceProvider:
                 raise RuntimeError("OPENAI_API_KEY is required for OpenAITTSConfig")
             return OpenAITTSService(
                 api_key=api_key,
-                voice=cfg.voice,
-                model=cfg.model,
                 sample_rate=cfg.sample_rate,
+                settings=OpenAITTSService.Settings(
+                    model=cfg.model,
+                    voice=cfg.voice,
+                ),
             )
         raise ValueError(f"Unknown TTS config type: {type(cfg).__name__}")
 
