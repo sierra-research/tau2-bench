@@ -295,22 +295,31 @@ class DiscreteTimePipecatAdapter(DiscreteTimeAdapter):
             agent_audio_chunks.extend(self._buffered_audio_chunks)
             self._buffered_audio_chunks = []
 
-        # Flush pending tool results (one task per result, drained via queue)
+        # Flush pending tool results. ``send_tool_result`` is fire-and-forget:
+        # any LLM/TTS events the continuation generates flow into
+        # ``_event_queue`` via the transport's ``on_event`` callback and are
+        # picked up by ``_drain_provider_events`` below (and on subsequent
+        # ticks). We deliberately do NOT bridge the result generator back into
+        # the event queue ourselves — that used to form a self-feeding loop.
         for call_id, result, request_response in self._pending_tool_results:
             asyncio.create_task(
-                self._drain_async_gen(
+                self._safe_call(
                     self.provider.send_tool_result(
                         call_id, result, request_response=request_response
-                    )
+                    ),
+                    label=f"send_tool_result({call_id})",
                 )
             )
         self._pending_tool_results.clear()
 
-        # Convert telephony to PCM16 16kHz and feed into the pipeline.
+        # Convert telephony to PCM16 and feed into the pipeline. Audio
+        # injection is await-only (no event yielding); pipeline events
+        # land in ``_event_queue`` via the on_event callback.
         stt_audio = self._audio_converter.convert_input(user_audio)
-        asyncio.create_task(
-            self._drain_async_gen(self.provider.process_audio(stt_audio))
-        )
+        try:
+            await self.provider.push_user_audio(stt_audio)
+        except Exception as e:
+            logger.error(f"Pipecat push_user_audio failed on tick {tick_number}: {e}")
 
         # Drain events from the provider until the tick deadline.
         await self._drain_provider_events(
@@ -347,22 +356,27 @@ class DiscreteTimePipecatAdapter(DiscreteTimeAdapter):
         logger.debug(f"Pipecat tick {tick_number}: {result.summary()}")
         return result
 
-    async def _drain_async_gen(self, async_gen) -> None:
-        """Push events from an async generator into our event queue."""
+    async def _safe_call(self, coro, label: str) -> None:
+        """Run a coroutine, log any exception via the event queue.
+
+        Used for fire-and-forget tasks like ``send_tool_result`` whose
+        downstream events naturally arrive via the on_event callback.
+        We do not collect their return values.
+        """
         try:
-            async for evt in async_gen:
-                # Push into the provider's queue so the tick loop drains it.
-                if self._provider is not None:
-                    self._provider._event_queue.put_nowait(evt)
+            await coro
         except Exception as e:
-            logger.error(f"Pipecat pipeline error: {e}")
+            logger.error(f"Pipecat {label} failed: {e}")
             if self._provider is not None:
-                self._provider._event_queue.put_nowait(
-                    PipecatEvent(
-                        type=PipecatEventType.ERROR,
-                        data={"error": str(e)},
+                try:
+                    self._provider._event_queue.put_nowait(
+                        PipecatEvent(
+                            type=PipecatEventType.ERROR,
+                            data={"error": f"{label}: {e}"},
+                        )
                     )
-                )
+                except asyncio.QueueFull:
+                    pass
 
     async def _drain_provider_events(
         self,
