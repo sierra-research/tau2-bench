@@ -13,10 +13,12 @@ from tau2.data_model.tasks import (
     EnvAssertion,
     EnvFunctionCall,
     InitializationData,
+    Task,
 )
 from tau2.environment.environment import Environment
 from tau2.environment.tool import Tool
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.evaluator.evaluator_env import EnvironmentEvaluator
 
 
 @pytest.fixture
@@ -472,3 +474,137 @@ def test_environment_set_state_initialization_actions(
             arguments={"user_id": "user_1", "expected_number": 2},
         )
     )
+
+
+def _hallucinated_tool_call_messages() -> list[Message]:
+    """A two-message snippet representing a hallucinated tool call and the
+    error response the live environment would have produced for it."""
+    return [
+        AssistantMessage(
+            id="bad_call",
+            role="assistant",
+            content=None,
+            tool_calls=[
+                ToolCall(
+                    id="bad_call",
+                    name="this_tool_does_not_exist",
+                    arguments={},
+                )
+            ],
+        ),
+        ToolMessage(
+            id="bad_call",
+            role="tool",
+            content="Error: Tool 'this_tool_does_not_exist' not found.",
+            error=True,
+        ),
+    ]
+
+
+def test_environment_set_state_skips_unknown_tool_calls(
+    get_environment: Callable[[], Environment], message_history: list[Message]
+):
+    """Hallucinated tool calls in a replayed trajectory must be treated as
+    no-ops (matching the live env's behavior of returning ToolMessage(error=True)
+    with no state mutation), not raise. The agent's recovery actions in the
+    rest of the trajectory must still apply normally so the final DB state
+    matches a successful run."""
+    environment = get_environment()
+    augmented_history = _hallucinated_tool_call_messages() + message_history
+
+    environment.set_state(
+        initialization_data=None,
+        initialization_actions=None,
+        message_history=augmented_history,
+    )
+
+    environment.run_env_assertion(
+        EnvAssertion(
+            env_type="assistant",
+            func_name="assert_task_status",
+            arguments={"task_id": "task_1", "expected_status": "completed"},
+        )
+    )
+    environment.run_env_assertion(
+        EnvAssertion(
+            env_type="assistant",
+            func_name="assert_task_status",
+            arguments={"task_id": "task_2", "expected_status": "pending"},
+        )
+    )
+    environment.run_env_assertion(
+        EnvAssertion(
+            env_type="assistant",
+            func_name="assert_number_of_tasks",
+            arguments={"user_id": "user_1", "expected_number": 2},
+        )
+    )
+
+
+def test_environment_evaluator_hallucinated_then_recovered_scores_one(
+    get_environment: Callable[[], Environment], base_task: Task
+):
+    """A trajectory containing a hallucinated tool call AND the correct
+    recovery action should score the same as a clean trajectory."""
+    full_trajectory = [
+        UserMessage(
+            id="1",
+            content="Create a task called 'Important Meeting' for user_1",
+            role="user",
+        ),
+        *_hallucinated_tool_call_messages(),
+        AssistantMessage(
+            id="2",
+            content=None,
+            role="assistant",
+            tool_calls=[
+                ToolCall(
+                    id="recover",
+                    name="create_task",
+                    arguments={"user_id": "user_1", "title": "Important Meeting"},
+                )
+            ],
+        ),
+        ToolMessage(
+            id="recover",
+            content='{"task_id": "task_2", "title": "Important Meeting", "description": null, "status": "pending"}',
+            role="tool",
+        ),
+        AssistantMessage(id="3", content="Created the task for you.", role="assistant"),
+    ]
+
+    reward_info = EnvironmentEvaluator.calculate_reward(
+        environment_constructor=get_environment,
+        task=base_task,
+        full_trajectory=full_trajectory,
+    )
+
+    assert reward_info.reward == 1.0
+    assert reward_info.db_check is not None and reward_info.db_check.db_match
+
+
+def test_environment_evaluator_hallucinated_only_scores_zero(
+    get_environment: Callable[[], Environment], base_task: Task
+):
+    """A trajectory containing ONLY a hallucinated tool call (no recovery)
+    must still score 0 because the resulting DB state does not match the
+    gold (which requires the real create_task call to fire)."""
+    full_trajectory = [
+        UserMessage(
+            id="1",
+            content="Create a task called 'Important Meeting' for user_1",
+            role="user",
+        ),
+        *_hallucinated_tool_call_messages(),
+        AssistantMessage(id="end", role="assistant", content="done"),
+    ]
+
+    reward_info = EnvironmentEvaluator.calculate_reward(
+        environment_constructor=get_environment,
+        task=base_task,
+        full_trajectory=full_trajectory,
+    )
+
+    assert reward_info.reward == 0.0
+    assert reward_info.db_check is not None
+    assert not reward_info.db_check.db_match
