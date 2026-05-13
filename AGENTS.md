@@ -21,12 +21,31 @@ uv run tau2 check-data         # verify installation
 
 **Note:** `langfuse` and `redis` are not declared dependencies but may be needed if you enable `USE_LANGFUSE=True` or `LLM_CACHE_ENABLED=True` with `redis` cache type in `config.py`. Install them manually if needed (`uv pip install langfuse redis`).
 
-Environment variables: copy `.env.example` to `.env` and set API keys. Uses [LiteLLM](https://github.com/BerriAI/litellm) for LLM provider abstraction.
+### If `uv` errors with `pyenv: version '3.12' is not installed`
+
+`.python-version` pins 3.12. If your `uv` on PATH is the pyenv shim at `~/.pyenv/shims/uv` and pyenv has no 3.12 installed, the shim fails before uv runs. Fix:
+
+```bash
+brew install uv          # gives a standalone /opt/homebrew/bin/uv (no shim)
+hash -r                  # refresh shell command cache
+which uv                 # should now show /opt/homebrew/bin/uv
+```
+
+Alternatively, register a 3.12 with pyenv (`ln -sf /opt/homebrew/opt/python@3.12 ~/.pyenv/versions/3.12` if you have it from brew, otherwise `pyenv install 3.12`). Last-resort escape hatch when you can't install anything: `PYENV_VERSION=3.10.14 ~/.pyenv/versions/3.10.14/bin/uv run …` — bypasses the shim and uv still uses its own cached 3.12 internally.
+
+### API keys
+
+Environment variables: copy `.env.example` to `.env` and set API keys. `.env` is gitignored (`^.env$` in `.gitignore`). Uses [LiteLLM](https://github.com/BerriAI/litellm) for LLM provider abstraction.
 
 Required keys depend on the task:
-- `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` — for LLM-based agents and user simulators
-- `ELEVENLABS_API_KEY` — voice synthesis
+- `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` — for LLM-based agents and user simulators (Anthropic is also needed for the post-eval hallucination reviewer — without it, voice eval still produces Pass^1 but the reviewer step errors near the end)
+- `ELEVENLABS_API_KEY` — voice synthesis (creator tier or higher; free tier's 10k char cap is exhausted in ~1 run, and creator tier caps concurrent TTS at 5 — see "Things to Watch Out For")
 - `DEEPGRAM_API_KEY` — voice transcription
+- `INWORLD_API_KEY` — Inworld Realtime audio-native provider (key is already base64 from the portal; do not re-encode)
+- `GEMINI_API_KEY` / `GOOGLE_API_KEY` — Gemini Live
+- `XAI_API_KEY` — xAI Grok Voice
+
+The default ElevenLabs voice IDs in `src/tau2/data_model/voice_personas.py` are Sierra-internal and 404 for external accounts. Override per persona via `TAU2_VOICE_ID_<PERSONA_NAME_UPPER>` env vars (see `.env.example`). Tau2 prints a `NON-OFFICIAL voice ID` warning when overrides are in use — that's expected, but results are **not directly comparable to the official τ-voice leaderboard** because of it.
 
 ## Common Commands
 
@@ -52,14 +71,19 @@ Required keys depend on the task:
 # Text half-duplex (standard)
 tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 1 --num-tasks 5
 
-# Voice full-duplex (audio native)
-tau2 run --domain retail --audio-native --num-tasks 1 --verbose-logs
+# Voice full-duplex (audio native) — provider choices: openai, gemini, xai, nova, qwen, inworld, livekit
+tau2 run --domain airline --audio-native --audio-native-provider inworld \
+    --num-tasks 10 --speech-complexity regular --verbose-logs --max-concurrency 4
+```
 
+`--verbose-logs` is the difference between "I have a pass/fail number" and "I can listen back to the conversation." Always include it for voice runs — it writes per-task `audio/both.wav` (stereo: user L, agent R), `assistant_labels.txt`, `user_labels.txt`, and `llm_debug/` under `data/simulations/<run>/artifacts/task_<N>/sim_<uuid>/`.
+
+```bash
 # Knowledge domain (requires --retrieval-config)
 tau2 run --domain banking_knowledge --retrieval-config qwen_embeddings --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-tasks 5
 ```
 
-Results go to `data/simulations/`. Use `tau2 view` to browse them.
+Results go to `data/simulations/`. Use `uv run tau2 view` to browse them in a TUI (plays audio, scrolls transcripts, shows per-tick events).
 
 ## Architecture
 
@@ -83,7 +107,7 @@ src/tau2/
 ├── user/            # User simulator implementations
 ├── utils/           # Shared utilities
 └── voice/           # Voice synthesis, transcription, audio-native providers
-    └── audio_native/  # Real-time voice providers (openai, gemini, nova, xai, deepgram, qwen, livekit)
+    └── audio_native/  # Real-time voice providers (openai, gemini, nova, xai, qwen, inworld, livekit)
 ```
 
 Other top-level directories:
@@ -199,6 +223,10 @@ test: add integration tests for retail domain
 - **`config.py`**: Single source of truth for default configuration values. Import constants from here rather than defining local duplicates.
 - **`registry.py`**: All new agents, domains, and user simulators must be registered here to be usable via CLI.
 - **Audio native providers**: Each has its own WebSocket protocol and event format. Always verify against provider documentation. See `.cursor/rules/audio-native-provider.md` for the full implementation guide.
+- **Inworld provider quirks** (`src/tau2/voice/audio_native/inworld/`): Auth is `Authorization: Basic <api_key>` (key is already base64; do NOT re-encode). URL requires `?key=voice-<ts>&protocol=realtime`. Audio is PCM16 @ 24 kHz only — telephony μ-law gets transcoded via `StreamingTelephonyConverter`. Function-call `name` lives in `response.output_item.added` (item payload), NOT in `response.function_call_arguments.done`; the adapter caches `call_id → name` so the `.done` handler can resolve it. Barge-in is handled by sending `response.cancel` (Inworld auto-cancels too because `interrupt_response: true`, but the explicit cancel is belt-and-suspenders).
+- **Voice eval timing/quotas**: Per-tick wall clock has a 200 ms minimum floor (the base class sleeps the remainder if processing was faster) — so per-task wall clock ≈ call time + ~10–15% (post-eval review tail). At `--max-concurrency 4`, a 50-task airline run takes ~2.5h wall clock. ElevenLabs creator tier caps concurrent TTS at 5 — `--max-concurrency 4` occasionally hits 429s near the end of runs; the runner's retries absorb them.
+- **`max_steps` terminations are eval failures.** If a non-trivial fraction of tasks hit it, bump `--max-steps-seconds` from the 300s default to 480–600s. (Some gpt-5.4 conversations on airline genuinely need more time to resolve.)
+- **`semantic_vad` ignores very short user audio.** The `short-720ms` provider-suite tests fail for Inworld AND xAI because their server-side VAD doesn't trigger an end-of-turn on <~1s of audio — inherent provider sensitivity, not a code bug. Real eval traffic with multi-second utterances works fine.
 - **Task splits**: The `base` split is the default for evaluation. The `train`/`test` splits are for RL experiments.
 - **Pre-commit hook**: Runs `make check-all` (ruff lint + format). Fix any issues before committing.
 - **Notebooks**: Excluded from ruff (`*.ipynb` in pyproject.toml exclude).

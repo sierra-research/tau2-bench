@@ -125,6 +125,13 @@ PROVIDERS = [
             reason="XAI_API_KEY not set",
         ),
     ),
+    pytest.param(
+        "inworld",
+        marks=pytest.mark.skipif(
+            not os.environ.get("INWORLD_API_KEY"),
+            reason="INWORLD_API_KEY not set",
+        ),
+    ),
 ]
 
 SYSTEM_PROMPT = "You are a helpful assistant. Keep responses brief."

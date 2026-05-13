@@ -439,6 +439,17 @@ def create_adapter(
             model=model,
             reasoning_effort=reasoning_effort,
         )
+    elif provider == "inworld":
+        from tau2.voice.audio_native.inworld.discrete_time_adapter import (
+            DiscreteTimeInworldAdapter,
+        )
+
+        adapter = DiscreteTimeInworldAdapter(
+            tick_duration_ms=tick_duration_ms,
+            send_audio_instant=send_audio_instant,
+            model=model,
+            reasoning_effort=reasoning_effort,
+        )
     elif provider == "livekit":
         from tau2.voice.audio_native.livekit.config import CascadedConfig
         from tau2.voice.audio_native.livekit.discrete_time_adapter import (

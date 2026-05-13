@@ -46,6 +46,7 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from tau2.voice.audio_native.gemini.provider import GeminiVADConfig
+    from tau2.voice.audio_native.inworld.provider import InworldVADConfig
     from tau2.voice.audio_native.livekit.config import CascadedConfig
     from tau2.voice.audio_native.nova.provider import NovaVADConfig
     from tau2.voice.audio_native.openai.provider import OpenAIVADConfig
@@ -80,7 +81,9 @@ from tau2.voice.audio_native.adapter import DiscreteTimeAdapter, create_adapter
 from tau2.voice.audio_native.tick_result import TickResult
 
 # Provider type alias
-AudioNativeProvider = Literal["openai", "gemini", "xai", "nova", "qwen", "livekit"]
+AudioNativeProvider = Literal[
+    "openai", "gemini", "xai", "nova", "qwen", "inworld", "livekit"
+]
 
 # VAD config union type (string annotations for lazy resolution)
 VADConfig = Union[
@@ -89,6 +92,7 @@ VADConfig = Union[
     "XAIVADConfig",
     "NovaVADConfig",
     "QwenVADConfig",
+    "InworldVADConfig",
 ]
 
 AUDIO_NATIVE_VOICE_INSTRUCTION = """
@@ -294,6 +298,10 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             )
 
             self.vad_config = LiveKitVADConfig()
+        elif provider == "inworld":
+            from tau2.voice.audio_native.inworld.provider import InworldVADConfig
+
+            self.vad_config = InworldVADConfig()
         else:  # nova
             from tau2.voice.audio_native.nova.provider import NovaVADConfig
 

@@ -189,6 +189,16 @@ DEFAULT_QWEN_INPUT_SAMPLE_RATE = 16000  # fixed, API-defined
 DEFAULT_QWEN_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 
 # =============================================================================
+# INWORLD PROVIDER (overridable model/voice, fixed API constants)
+# =============================================================================
+DEFAULT_INWORLD_REALTIME_URL = "wss://api.inworld.ai/api/v1/realtime/session"  # fixed
+DEFAULT_INWORLD_MODEL = "openai/gpt-4.1-mini"  # overridable LLM backbone
+DEFAULT_INWORLD_TTS_MODEL = "inworld-tts-1.5-mini"  # overridable TTS engine
+DEFAULT_INWORLD_VOICE = "Clive"  # overridable
+DEFAULT_INWORLD_EAGERNESS = "high"  # overridable: auto, low, medium, high
+DEFAULT_INWORLD_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined (PCM16 mono)
+
+# =============================================================================
 # PROVIDER REGISTRY (derived from above)
 # =============================================================================
 DEFAULT_AUDIO_NATIVE_MODELS = {
@@ -197,6 +207,7 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
     "xai": DEFAULT_XAI_MODEL,
     "nova": DEFAULT_NOVA_MODEL,
     "qwen": DEFAULT_QWEN_MODEL,
+    "inworld": DEFAULT_INWORLD_MODEL,
     "livekit": "dummy",
 }
 
@@ -206,6 +217,7 @@ DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
     "xai": None,
     "nova": None,
     "qwen": None,
+    "inworld": None,
     "livekit": None,
 }
 
@@ -215,6 +227,7 @@ AUDIO_NATIVE_PROVIDER_TYPES = {
     "xai": "audio_native",
     "nova": "audio_native",
     "qwen": "audio_native",
+    "inworld": "audio_native",
     "livekit": "cascaded",
 }
 
