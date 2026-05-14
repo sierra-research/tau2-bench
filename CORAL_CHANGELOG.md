@@ -1,5 +1,47 @@
 # CORAL Change Log
 
+## 2026-05-14 Tau2 External Candidate Public Task View
+
+Status: committed on `bianca/tau2-eval-refactor`.
+
+### Files changed
+
+- `src/tau2/data_model/tasks.py`
+- `src/tau2/runner/build.py`
+- `tests/test_evaluation_mode.py`
+
+### Summary
+
+- Added `PublicTaskView` plus `make_public_task_view(task)` as the sanitized Tau2 task shape for external candidate factories.
+- Limited the external task view to user-facing context only:
+  - `id`
+  - `user_scenario`
+  - `ticket`
+- Kept full hidden `Task` data, including `initial_state` and `evaluation_criteria`, internal to Tau2 runtime and evaluation.
+- Updated `build_agent(...)` so:
+  - `agent_factory_override` receives `PublicTaskView`
+  - built-in and registry-resolved Tau2 agents continue to receive the full `Task`
+- Added regression coverage to lock the boundary in place for external vs internal agent construction.
+
+### Verification
+
+- `uv run python -m ruff check src/tau2/data_model/tasks.py src/tau2/runner/build.py tests/test_evaluation_mode.py`
+  - clean
+- `uv run python -m pytest tests/test_evaluation_mode.py -q`
+  - `8 passed`
+- `uv run python -m pytest tests --ignore=tests/test_gym --ignore=tests/test_voice --ignore=tests/test_streaming -q`
+  - `681 passed, 44 skipped, 1 xfailed`
+
+### Regression validation
+
+- Reran text benchmark regressions for `airline` and `retail` on both models.
+- Results were recorded in `/Users/bj/research/self-evolving/agent_evals/results-14-05-2026-airline-retail-rerun.md`.
+- No structural abnormalities were observed:
+  - all four runs completed their full scored task sets,
+  - no infrastructure-error exclusions,
+  - no max-step terminations.
+- The only notable item was run-to-run variance in scores, especially on `airline`, plus expected LiteLLM warning noise for the self-hosted GPT-OSS endpoint.
+
 ## 2026-05-14 Tau2 Responses Cost Accounting Fix
 
 Status: committed on `bianca/tau2-eval-refactor`.
@@ -38,54 +80,7 @@ Status: committed on `bianca/tau2-eval-refactor`.
   - `793 passed, 44 skipped, 2 xfailed, 1 xpassed, 2 failed`
   - remaining failures are audio-native streaming tests in `tests/test_streaming/test_run_streaming.py`, blocked by the missing optional `websockets` dependency in this environment
 
-## 2026-05-13 Local Tau2-Bench Changes
-
-Status: committed on `bianca/tau2-eval-refactor` as `172849c`.
-
-### Files changed
-
-- `src/tau2/utils/llm_utils.py`
-- `tests/test_llm_utils.py`
-
-### Summary
-
-- Added a dedicated LiteLLM Responses path in `generate()` for `api_mode="responses"` and `use_responses_api=True`.
-- Implemented `_responses_request()` around `litellm.responses(...)` instead of raw HTTP for Tau2 Responses-mode calls.
-- Added Responses-specific helpers for:
-  - model normalization for self-hosted GPT-OSS endpoints,
-  - system/message/tool conversion,
-  - tool schema conversion,
-  - `previous_response_id` anchoring and fallback,
-  - empty-response retry handling,
-  - usage extraction and LLM-call logging,
-  - GPT-OSS `tool_choice="required"` fallback to `auto`.
-- Preserved the existing completions path for non-Responses models.
-- Added focused regression coverage in `tests/test_llm_utils.py` for:
-  - plain text Responses replies,
-  - tool-call turns and follow-up turns,
-  - empty-turn retry recovery,
-  - generic OpenAI Responses use beyond GPT-OSS,
-  - self-hosted OpenAI-compatible base handling,
-  - GPT-OSS `tool_choice` normalization.
-
-### Review summary
-
-- No blocking issues found in this diff.
-- Removed the unused `_get_responses_endpoint()` helper while reviewing the change.
-
-### Verification
-
-- `uv run pytest tests/test_llm_utils.py -q`
-  - `8 passed`
-- `uv run python -m ruff check src/tau2/utils/llm_utils.py tests/test_llm_utils.py`
-  - clean
-
-### CORAL planning impact
-
-- The Tau2-side GPT-OSS transport rewrite to `litellm.responses(...)` is already implemented in local Tau2 changes.
-- The CORAL Phase 1 plan should treat this as an existing Tau2 dependency, not a future implementation item.
-
-## 2026-05-14 Tau2 Evaluation-Only Refactor
+## 2026-05-14 Tau2 Evaluation-Only Execution Refactor
 
 Status: committed on `bianca/tau2-eval-refactor`.
 
@@ -161,3 +156,50 @@ Status: committed on `bianca/tau2-eval-refactor`.
 - Tau2 now exposes a generic evaluation-only execution path without introducing Tau2-side CORAL-specific concepts.
 - CORAL can consume `EvaluationReport` and `EvaluationOutcome` through Tau2 runner helpers while leaving reward reconstruction and benchmark metrics unused.
 - External candidate agents can be injected through Tau2 build overrides without falling back to the built-in agent registry.
+
+## 2026-05-13 Tau2 LiteLLM Responses Transport
+
+Status: committed on `bianca/tau2-eval-refactor` as `172849c`.
+
+### Files changed
+
+- `src/tau2/utils/llm_utils.py`
+- `tests/test_llm_utils.py`
+
+### Summary
+
+- Added a dedicated LiteLLM Responses path in `generate()` for `api_mode="responses"` and `use_responses_api=True`.
+- Implemented `_responses_request()` around `litellm.responses(...)` instead of raw HTTP for Tau2 Responses-mode calls.
+- Added Responses-specific helpers for:
+  - model normalization for self-hosted GPT-OSS endpoints,
+  - system/message/tool conversion,
+  - tool schema conversion,
+  - `previous_response_id` anchoring and fallback,
+  - empty-response retry handling,
+  - usage extraction and LLM-call logging,
+  - GPT-OSS `tool_choice="required"` fallback to `auto`.
+- Preserved the existing completions path for non-Responses models.
+- Added focused regression coverage in `tests/test_llm_utils.py` for:
+  - plain text Responses replies,
+  - tool-call turns and follow-up turns,
+  - empty-turn retry recovery,
+  - generic OpenAI Responses use beyond GPT-OSS,
+  - self-hosted OpenAI-compatible base handling,
+  - GPT-OSS `tool_choice` normalization.
+
+### Review summary
+
+- No blocking issues found in this diff.
+- Removed the unused `_get_responses_endpoint()` helper while reviewing the change.
+
+### Verification
+
+- `uv run pytest tests/test_llm_utils.py -q`
+  - `8 passed`
+- `uv run python -m ruff check src/tau2/utils/llm_utils.py tests/test_llm_utils.py`
+  - clean
+
+### CORAL planning impact
+
+- The Tau2-side GPT-OSS transport rewrite to `litellm.responses(...)` is already implemented in local Tau2 changes.
+- The CORAL Phase 1 plan should treat this as an existing Tau2 dependency, not a future implementation item.

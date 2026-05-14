@@ -17,11 +17,17 @@ from tau2.data_model.simulation import (
     TerminationReason,
     TextRunConfig,
 )
-from tau2.data_model.tasks import RewardType
+from tau2.data_model.tasks import (
+    PublicTaskView,
+    RewardType,
+    Task,
+    make_public_task_view,
+)
 from tau2.evaluator.evaluator import (
     EvaluationType,
     compute_evaluation_outcome,
 )
+from tau2.registry import registry
 from tau2.runner.batch import (
     run_domain,
     run_single_task,
@@ -29,6 +35,7 @@ from tau2.runner.batch import (
     run_tasks,
     run_tasks_evaluated,
 )
+from tau2.runner.build import build_agent
 from tau2.runner.simulation import run_simulation_evaluated
 
 
@@ -142,6 +149,76 @@ def test_compute_evaluation_outcome_mean_ignores_reward_basis():
 
     assert mean_outcome.overall_score == pytest.approx(0.25)
     assert compatible_outcome.overall_score == 0.0
+
+
+def test_make_public_task_view_exposes_only_user_facing_fields(
+    task_with_history_and_env_assertions,
+):
+    public_task = make_public_task_view(task_with_history_and_env_assertions)
+
+    assert isinstance(public_task, PublicTaskView)
+    assert set(public_task.model_dump().keys()) == {"id", "user_scenario", "ticket"}
+    assert public_task.id == task_with_history_and_env_assertions.id
+    assert public_task.user_scenario == task_with_history_and_env_assertions.user_scenario
+    assert public_task.ticket == task_with_history_and_env_assertions.ticket
+
+
+def test_build_agent_override_receives_public_task_view(
+    get_environment,
+    task_with_history_and_env_assertions,
+):
+    captured = {}
+
+    def override(**kwargs):
+        captured["task"] = kwargs["task"]
+        return object()
+
+    build_agent(
+        "llm_agent",
+        get_environment(),
+        llm="gpt-4.1",
+        llm_args={},
+        task=task_with_history_and_env_assertions,
+        agent_factory_override=override,
+    )
+
+    task = captured["task"]
+    assert isinstance(task, PublicTaskView)
+    assert task.id == task_with_history_and_env_assertions.id
+    assert task.user_scenario == task_with_history_and_env_assertions.user_scenario
+    assert task.ticket == task_with_history_and_env_assertions.ticket
+
+
+def test_build_agent_registered_factory_receives_full_task(
+    monkeypatch: pytest.MonkeyPatch,
+    get_environment,
+    task_with_history_and_env_assertions,
+):
+    captured = {}
+    agent_name = "__test_full_task_factory__"
+
+    def factory(**kwargs):
+        captured["task"] = kwargs["task"]
+        return object()
+
+    monkeypatch.setitem(registry._agent_factories, agent_name, factory)
+
+    build_agent(
+        agent_name,
+        get_environment(),
+        llm="gpt-4.1",
+        llm_args={},
+        task=task_with_history_and_env_assertions,
+    )
+
+    task = captured["task"]
+    assert isinstance(task, Task)
+    assert task is task_with_history_and_env_assertions
+    assert task.initial_state == task_with_history_and_env_assertions.initial_state
+    assert (
+        task.evaluation_criteria
+        == task_with_history_and_env_assertions.evaluation_criteria
+    )
 
 
 def test_run_simulation_evaluated_returns_report_without_reward_info(base_task):

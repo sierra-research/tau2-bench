@@ -21,7 +21,7 @@ from tau2.data_model.simulation import (
     TextRunConfig,
     VoiceRunConfig,
 )
-from tau2.data_model.tasks import Task
+from tau2.data_model.tasks import Task, make_public_task_view
 from tau2.data_model.voice import SpeechComplexity, SynthesisConfig, VoiceSettings
 from tau2.environment.environment import Environment
 from tau2.orchestrator.full_duplex_orchestrator import FullDuplexOrchestrator
@@ -89,6 +89,7 @@ def build_agent(
         llm: LLM model name for the agent (half-duplex agents).
         llm_args: LLM arguments for the agent (half-duplex agents).
         task: The task (required for some agents like llm_agent_gt, llm_agent_solo).
+            External override factories receive a sanitized public task view.
         audio_native_config: Audio config (full-duplex agents).
         solo_mode: If True, agent tools include both agent and user tools.
 
@@ -117,12 +118,16 @@ def build_agent(
         except Exception:
             pass
 
+    agent_task = task
+    if agent_factory_override is not None and task is not None:
+        agent_task = make_public_task_view(task)
+
     return agent_factory(
         tools=tools,
         domain_policy=environment.get_policy(),
         llm=llm,
         llm_args=llm_args,
-        task=task,
+        task=agent_task,
         audio_native_config=audio_native_config,
         audio_taps_dir=audio_taps_dir,
     )

@@ -641,6 +641,40 @@ class Task(BaseModel):
         return "\n".join(lines)
 
 
+class PublicTaskView(BaseModel):
+    """
+    Sanitized task view exposed to external candidate agent factories.
+
+    This contains only user-facing task context. Runtime initialization and
+    evaluator-only fields stay internal to Tau2.
+    """
+
+    id: str = Field(description="The unique identifier for the task.")
+    user_scenario: Annotated[
+        UserScenario,
+        Field(
+            description="User-visible scenario context provided to external candidate agents."
+        ),
+    ]
+    ticket: Annotated[
+        Optional[str],
+        Field(
+            description="Optional solo-agent ticket view when it is part of the user-facing task input.",
+            default=None,
+        ),
+    ]
+
+
+def make_public_task_view(task: Task) -> PublicTaskView:
+    """Build the sanitized external-agent task view for a task."""
+
+    return PublicTaskView(
+        id=task.id,
+        user_scenario=task.user_scenario,
+        ticket=task.ticket,
+    )
+
+
 def make_task_id() -> str:
     """
     Make a task id.
