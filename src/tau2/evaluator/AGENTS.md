@@ -55,10 +55,12 @@ The `evaluate_simulation()` function in `evaluator.py` is the main entry point. 
 
 5. **Premature termination = 0 reward**: If `simulation.termination_reason` is not `AGENT_STOP` or `USER_STOP`, the simulation gets reward 0 before any evaluators run.
 
-6. **Environment evaluator needs `environment_constructor` and `env_kwargs`**: Unlike other evaluators, `EnvironmentEvaluator.calculate_reward()` takes an `environment_constructor` callable to create fresh environments for gold vs predicted comparison. It also accepts `env_kwargs: dict` for domain-specific parameters (e.g., `retrieval_variant` for `banking_knowledge`). These kwargs are threaded from `evaluate_simulation()` through to both the predicted and gold environment constructors. Always pass `env_kwargs` when calling `calculate_reward()` to ensure domains with custom constructor parameters work correctly.
+6. **`evaluation_criteria.actions` is *one* reference trajectory, not a per-action requirement**: `EnvironmentEvaluator` replays `actions` on a fresh env to derive the target DB hash, then compares against the predicted DB hash. Other agent trajectories producing an equivalent end state also pass. The agent is only required to match those specific calls when `RewardType.ACTION` is in `reward_basis` (rare; not used by airline/retail/telecom). See `docs/evaluation.md`.
 
-7. **NL assertions require LLM calls**: `NLAssertionsEvaluator` calls an LLM (configured via `DEFAULT_LLM_NL_ASSERTIONS` in `config.py`). This is experimental/WIP.
+7. **Environment evaluator needs `environment_constructor` and `env_kwargs`**: Unlike other evaluators, `EnvironmentEvaluator.calculate_reward()` takes an `environment_constructor` callable to create fresh environments for gold vs predicted comparison. It also accepts `env_kwargs: dict` for domain-specific parameters (e.g., `retrieval_variant` for `banking_knowledge`). These kwargs are threaded from `evaluate_simulation()` through to both the predicted and gold environment constructors. Always pass `env_kwargs` when calling `calculate_reward()` to ensure domains with custom constructor parameters work correctly.
 
-8. **Hallucination check**: `check_hallucination()` and `format_hallucination_feedback()` in `reviewer.py` are used by the runner's hallucination retry loop (full-duplex only). The underlying LLM judge is in `hallucination_reviewer.py`. See `tau2.runner.batch` and the `--hallucination-retries` CLI option.
+8. **NL assertions require LLM calls**: `NLAssertionsEvaluator` calls an LLM (configured via `DEFAULT_LLM_NL_ASSERTIONS` in `config.py`). This is experimental/WIP.
+
+9. **Hallucination check**: `check_hallucination()` and `format_hallucination_feedback()` in `reviewer.py` are used by the runner's hallucination retry loop (full-duplex only). The underlying LLM judge is in `hallucination_reviewer.py`. See `tau2.runner.batch` and the `--hallucination-retries` CLI option.
 
 Consider these rules if they affect your changes.

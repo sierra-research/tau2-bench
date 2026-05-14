@@ -107,6 +107,7 @@ Results are saved to `data/simulations/`. Use `tau2 view` to browse them.
 | [Agent Developer Guide](src/tau2/agent/README.md) | Build and evaluate your own agent |
 | [Domains](src/tau2/domains/README.md) | Domain structure, data format, and available domains |
 | [Orchestrator & Communication Modes](src/tau2/orchestrator/README.md) | Half-duplex and full-duplex orchestration |
+| [Task Schema & Evaluation](docs/evaluation.md) | What `evaluation_criteria.actions` means, how `reward_basis` gates the reward, and how to inspect action correctness |
 
 ### Knowledge Retrieval
 

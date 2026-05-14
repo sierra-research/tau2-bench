@@ -751,7 +751,7 @@ const Leaderboard = () => {
                      </td>
 
                      {/* Organization / Retrieval Config (banking) */}
-                     <td className="organization-info">
+                     <td className={`organization-info${domain === 'banking_knowledge' ? ' organization-info-retrieval' : ''}`}>
                        {domain === 'banking_knowledge' ? (
                          model.data.bankingRetrievalConfig ? (
                            <span className={`retrieval-badge retrieval-${model.data.bankingRetrievalConfig}`}>
@@ -803,7 +803,7 @@ const Leaderboard = () => {
                      {/* Reasoning Effort */}
                      <td className="reasoning-info">
                        {model.data.reasoningEffort ? (
-                         <span style={{textTransform: 'capitalize'}}>{model.data.reasoningEffort}</span>
+                         <span style={{textTransform: 'lowercase'}}>{model.data.reasoningEffort}</span>
                        ) : (
                          <span className="no-data">—</span>
                        )}
