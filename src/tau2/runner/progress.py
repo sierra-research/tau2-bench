@@ -10,14 +10,14 @@ from typing import Callable, Optional
 
 from loguru import logger
 
-from tau2.data_model.simulation import Results, SimulationRun, TerminationReason
+from tau2.data_model.simulation import SimulationRun, TerminationReason
 from tau2.data_model.tasks import Task
 from tau2.utils.display import ConsoleDisplay, Text
 from tau2.utils.utils import get_now
 
 
 def run_with_retry(
-    run_fn: Callable[[], SimulationRun],
+    run_fn: Callable[[], object],
     task: Task,
     trial: int,
     seed: int,
@@ -25,10 +25,14 @@ def run_with_retry(
     max_retries: int = 3,
     retry_delay: float = 1.0,
     console_display: bool = True,
-    save_fn: Optional[Callable[[SimulationRun], None]] = None,
+    save_fn: Optional[Callable[[object], None]] = None,
     on_retry: Optional[Callable[[], None]] = None,
     shutdown_event: Optional[threading.Event] = None,
-) -> SimulationRun:
+    display_fn: Optional[Callable[[object], None]] = None,
+    failure_factory: Optional[
+        Callable[[Task, int, int, Exception, str, str, int], object]
+    ] = None,
+) -> object:
     """Run a simulation function with retry logic.
 
     Retries on any exception. If all retries are exhausted, returns a failed
@@ -73,10 +77,16 @@ def run_with_retry(
                 time.sleep(retry_delay)
 
             simulation = run_fn()
-            simulation.trial = trial
+            if hasattr(simulation, "trial"):
+                simulation.trial = trial
+            elif hasattr(simulation, "simulation"):
+                simulation.simulation.trial = trial
 
             if console_display:
-                ConsoleDisplay.display_simulation(simulation, show_details=False)
+                if display_fn is not None:
+                    display_fn(simulation)
+                elif isinstance(simulation, SimulationRun):
+                    ConsoleDisplay.display_simulation(simulation, show_details=False)
             if save_fn:
                 save_fn(simulation)
 
@@ -110,24 +120,35 @@ def run_with_retry(
     ConsoleDisplay.console.print(error_text)
 
     now = get_now()
-    failed_simulation = SimulationRun(
-        id=str(uuid.uuid4()),
-        task_id=task.id,
-        timestamp=now,
-        start_time=now,
-        end_time=now,
-        duration=0.0,
-        termination_reason=TerminationReason.INFRASTRUCTURE_ERROR,
-        messages=[],
-        trial=trial,
-        seed=seed,
-        info={
-            "error": str(last_exception),
-            "error_type": type(last_exception).__name__,
-            "error_traceback": last_traceback,
-            "failed_after_attempts": max_attempts,
-        },
-    )
+    if failure_factory is not None:
+        failed_simulation = failure_factory(
+            task,
+            trial,
+            seed,
+            last_exception,
+            last_error_reason,
+            last_traceback,
+            max_attempts,
+        )
+    else:
+        failed_simulation = SimulationRun(
+            id=str(uuid.uuid4()),
+            task_id=task.id,
+            timestamp=now,
+            start_time=now,
+            end_time=now,
+            duration=0.0,
+            termination_reason=TerminationReason.INFRASTRUCTURE_ERROR,
+            messages=[],
+            trial=trial,
+            seed=seed,
+            info={
+                "error": str(last_exception),
+                "error_type": type(last_exception).__name__,
+                "error_traceback": last_traceback,
+                "failed_after_attempts": max_attempts,
+            },
+        )
     if save_fn:
         save_fn(failed_simulation)
     return failed_simulation
@@ -139,18 +160,41 @@ class StatusMonitor:
     Prints progress every 30 seconds with running task info and average reward.
     """
 
-    def __init__(self, total_count: int, initial_completed: int = 0):
+    def __init__(
+        self,
+        total_count: int,
+        initial_completed: int = 0,
+        metric_label: str = "Avg reward",
+        metric_getter: Optional[Callable[[object], Optional[float]]] = None,
+    ):
         self.total_count = total_count
         self.completed_count = initial_completed
         self.running_tasks: dict[str, dict] = {}
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
-        self._simulation_results: Optional[Results] = None
+        self._simulation_results: Optional[object] = None
+        self._metric_label = metric_label
+        self._metric_getter = metric_getter or self._default_metric_getter
 
-    def set_results(self, results: Results):
-        """Set the results object for reward tracking."""
+    @staticmethod
+    def _default_metric_getter(simulation: object) -> Optional[float]:
+        reward_info = getattr(simulation, "reward_info", None)
+        return reward_info.reward if reward_info is not None else None
+
+    def set_results(
+        self,
+        results: object,
+        *,
+        metric_label: Optional[str] = None,
+        metric_getter: Optional[Callable[[object], Optional[float]]] = None,
+    ):
+        """Set the results object for aggregate score tracking."""
         self._simulation_results = results
+        if metric_label is not None:
+            self._metric_label = metric_label
+        if metric_getter is not None:
+            self._metric_getter = metric_getter
 
     def task_started(self, task_key: str, trial: int):
         """Record that a task has started."""
@@ -200,19 +244,21 @@ class StatusMonitor:
                     retry_str = f" R{retries}" if retries > 0 else ""
                     task_statuses.append(f"{task_id}({elapsed:.0f}s{retry_str})")
 
-                reward_str = "Avg reward: N/A."
+                metric_str = f"{self._metric_label}: N/A."
                 if self.completed_count > 0 and self._simulation_results:
                     rewards = [
-                        sim.reward_info.reward
+                        self._metric_getter(sim)
                         for sim in self._simulation_results.simulations
-                        if sim.reward_info is not None
                     ]
+                    rewards = [reward for reward in rewards if reward is not None]
                     if rewards:
                         avg_reward = sum(rewards) / len(rewards)
-                        reward_str = f"Avg reward: {avg_reward:.2f} (N={len(rewards)})."
+                        metric_str = (
+                            f"{self._metric_label}: {avg_reward:.2f} (N={len(rewards)})."
+                        )
 
                 status_text = Text(
-                    text=f"Status: {self.completed_count}/{self.total_count} complete. {reward_str} "
+                    text=f"Status: {self.completed_count}/{self.total_count} complete. {metric_str} "
                     f"{running_count} running: {', '.join(task_statuses[:10])}"
                     + (f" +{running_count - 10} more" if running_count > 10 else ""),
                     style="cyan",

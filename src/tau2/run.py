@@ -30,6 +30,7 @@ import warnings
 from pathlib import Path
 from typing import Optional
 
+from tau2.data_model.evaluation import EvaluatedResults, EvaluatedSimulation
 from tau2.data_model.persona import PersonaConfig
 from tau2.data_model.simulation import (
     AudioNativeConfig,
@@ -58,10 +59,51 @@ from tau2.runner import (
     load_tasks,
     make_run_name,
     run_domain,
+    run_domain_evaluated,
     run_simulation,
+    run_simulation_evaluated,
     run_single_task,
+    run_single_task_evaluated,
 )
 from tau2.runner.batch import run_tasks as _run_tasks
+from tau2.runner.batch import run_tasks_evaluated as _run_tasks_evaluated
+
+__all__ = [
+    "AudioNativeConfig",
+    "EvaluationType",
+    "EvaluatedResults",
+    "EvaluatedSimulation",
+    "Results",
+    "RunConfig",
+    "SimulationRun",
+    "TextRunConfig",
+    "VoiceRunConfig",
+    "build_agent",
+    "build_environment",
+    "build_orchestrator",
+    "build_text_orchestrator",
+    "build_user",
+    "build_voice_orchestrator",
+    "build_voice_user",
+    "get_environment_info",
+    "get_info",
+    "get_options",
+    "get_tasks",
+    "load_task_splits",
+    "load_tasks",
+    "make_run_name",
+    "run_domain",
+    "run_domain_evaluated",
+    "run_simulation",
+    "run_simulation_evaluated",
+    "run_single_task",
+    "run_single_task_evaluated",
+    "run_task",
+    "run_tasks",
+    "run_tasks_evaluated",
+]
+
+run_tasks_evaluated = _run_tasks_evaluated
 
 # =============================================================================
 # Deprecated shims -- these preserve the old flat-argument signatures from

@@ -9,7 +9,7 @@ this layer and construct instances directly.
 import uuid
 from copy import deepcopy
 from pathlib import Path
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 from loguru import logger
 
@@ -75,6 +75,7 @@ def build_agent(
     audio_native_config: Optional[AudioNativeConfig] = None,
     solo_mode: bool = False,
     audio_taps_dir: Optional[Path] = None,
+    agent_factory_override: Optional[Callable] = None,
 ) -> Union[HalfDuplexAgent, FullDuplexAgent]:
     """Build an agent from a registered name and an environment.
 
@@ -97,12 +98,14 @@ def build_agent(
     Raises:
         ValueError: If the agent name has no factory registered.
     """
-    agent_factory = registry.get_agent_factory(agent_name)
+    agent_factory = agent_factory_override
     if agent_factory is None:
-        raise ValueError(
-            f"Agent '{agent_name}' has no factory registered. "
-            f"Register a factory with registry.register_agent_factory()."
-        )
+        agent_factory = registry.get_agent_factory(agent_name)
+        if agent_factory is None:
+            raise ValueError(
+                f"Agent '{agent_name}' has no factory registered. "
+                f"Register a factory with registry.register_agent_factory()."
+            )
 
     # Collect tools from environment
     tools = environment.get_tools()
@@ -331,6 +334,7 @@ def build_text_orchestrator(
     seed: Optional[int] = None,
     simulation_id: Optional[str] = None,
     user_persona_config: Optional[PersonaConfig] = None,
+    agent_factory_override: Optional[Callable] = None,
 ) -> Orchestrator:
     """Build a half-duplex (text) orchestrator from a TextRunConfig.
 
@@ -370,6 +374,7 @@ def build_text_orchestrator(
         llm_args=config.llm_args_agent,
         task=task,
         solo_mode=solo_mode,
+        agent_factory_override=agent_factory_override,
     )
 
     user = build_user(
@@ -415,6 +420,7 @@ def build_voice_orchestrator(
     user_persona_config: Optional[PersonaConfig] = None,
     hallucination_feedback: Optional[str] = None,
     audio_taps_dir: Optional[Path] = None,
+    agent_factory_override: Optional[Callable] = None,
 ) -> FullDuplexOrchestrator:
     """Build a full-duplex (voice) orchestrator from a VoiceRunConfig.
 
@@ -469,6 +475,7 @@ def build_voice_orchestrator(
         environment,
         audio_native_config=config.audio_native_config,
         audio_taps_dir=audio_taps_dir,
+        agent_factory_override=agent_factory_override,
     )
 
     user = build_voice_user(
@@ -518,6 +525,7 @@ def build_orchestrator(
     user_persona_config: Optional[PersonaConfig] = None,
     hallucination_feedback: Optional[str] = None,
     audio_taps_dir: Optional[Path] = None,
+    agent_factory_override: Optional[Callable] = None,
 ) -> Union[Orchestrator, FullDuplexOrchestrator]:
     """Build a ready-to-run orchestrator from a RunConfig and task.
 
@@ -547,6 +555,7 @@ def build_orchestrator(
             user_persona_config=user_persona_config,
             hallucination_feedback=hallucination_feedback,
             audio_taps_dir=audio_taps_dir,
+            agent_factory_override=agent_factory_override,
         )
     else:
         return build_text_orchestrator(
@@ -555,4 +564,5 @@ def build_orchestrator(
             seed=seed,
             simulation_id=simulation_id,
             user_persona_config=user_persona_config,
+            agent_factory_override=agent_factory_override,
         )

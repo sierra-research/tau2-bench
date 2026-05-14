@@ -61,6 +61,13 @@ from tau2.utils.utils import get_now
 SIMULATIONS_DIR = "simulations"
 
 
+class PostEvaluationMode(str, Enum):
+    """Select what Tau2 does after evaluation."""
+
+    BENCHMARK = "benchmark"
+    EVALUATION_ONLY = "evaluation_only"
+
+
 class AudioNativeConfig(BaseModel):
     """Configuration for audio-native mode using DiscreteTimeAudioNativeAgent.
 
@@ -430,6 +437,13 @@ class BaseRunConfig(BaseModel):
     ]
 
     # ---- Misc ----
+    post_evaluation_mode: Annotated[
+        PostEvaluationMode,
+        Field(
+            description="Whether the run continues into benchmark reward/metrics aggregation or stops after evaluation-only outputs.",
+            default=PostEvaluationMode.BENCHMARK,
+        ),
+    ]
     is_remote: Annotated[
         bool,
         Field(

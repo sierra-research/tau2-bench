@@ -4,9 +4,10 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 
 from tau2.config import API_PORT
+from tau2.data_model.evaluation import EvaluatedResults
 from tau2.data_model.simulation import Results, RunConfig
 from tau2.registry import RegistryInfo
-from tau2.run import get_options, load_tasks, run_domain
+from tau2.run import get_options, load_tasks, run_domain, run_domain_evaluated
 
 from .data_model import GetTasksRequest, GetTasksResponse
 
@@ -47,6 +48,17 @@ async def run_domain_api(
 
     try:
         results = run_domain(request)
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/run_domain_evaluated")
+async def run_domain_evaluated_api(
+    request: RunConfig,
+) -> EvaluatedResults:
+    try:
+        results = run_domain_evaluated(request)
         return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -35,11 +35,12 @@ from tau2.config import (
 from tau2.data_model.persona import PersonaConfig
 from tau2.data_model.simulation import (
     AudioNativeConfig,
+    PostEvaluationMode,
     TextRunConfig,
     VoiceRunConfig,
 )
 from tau2.domains.banking_knowledge.retrieval import get_all_variant_names
-from tau2.run import get_options, run_domain
+from tau2.run import get_options, run_domain, run_domain_evaluated
 
 
 def get_all_retrieval_config_names():
@@ -112,6 +113,14 @@ def add_run_args(parser):
         type=str,
         default="base",
         help="The task split to run the simulation on. If not provided, will load 'base' split.",
+    )
+    parser.add_argument(
+        "--post-evaluation-mode",
+        type=str,
+        choices=[mode.value for mode in PostEvaluationMode],
+        default=PostEvaluationMode.BENCHMARK.value,
+        help="What Tau2 should do after evaluation. 'benchmark' keeps reward/metrics behavior. "
+        "'evaluation_only' returns rich evaluation outputs without reward aggregation or benchmark metrics.",
     )
     parser.add_argument(
         "--task-ids",
@@ -651,6 +660,7 @@ def main():
             hallucination_retries=args.hallucination_retries,
             retrieval_config=args.retrieval_config,
             retrieval_config_kwargs=args.retrieval_config_kwargs,
+            post_evaluation_mode=args.post_evaluation_mode,
         )
 
         if audio_native_config is not None:
@@ -672,6 +682,8 @@ def main():
                 enforce_communication_protocol=args.enforce_communication_protocol,
             )
 
+        if args.post_evaluation_mode == PostEvaluationMode.EVALUATION_ONLY.value:
+            return run_domain_evaluated(config)
         return run_domain(config)
 
     run_parser.set_defaults(func=run_command)

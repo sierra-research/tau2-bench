@@ -13,7 +13,14 @@ Supporting modules:
 - progress.py: Retry logic and status monitoring
 """
 
-from tau2.runner.batch import run_domain, run_single_task, run_tasks
+from tau2.runner.batch import (
+    run_domain,
+    run_domain_evaluated,
+    run_single_task,
+    run_single_task_evaluated,
+    run_tasks,
+    run_tasks_evaluated,
+)
 from tau2.runner.build import (
     build_agent,
     build_environment,
@@ -32,11 +39,12 @@ from tau2.runner.helpers import (
     load_tasks,
     make_run_name,
 )
-from tau2.runner.simulation import run_simulation
+from tau2.runner.simulation import run_simulation, run_simulation_evaluated
 
 __all__ = [
     # Layer 1: Execute
     "run_simulation",
+    "run_simulation_evaluated",
     # Layer 2: Build
     "build_environment",
     "build_agent",
@@ -47,8 +55,11 @@ __all__ = [
     "build_voice_orchestrator",
     # Layer 3: Batch
     "run_domain",
+    "run_domain_evaluated",
     "run_tasks",
+    "run_tasks_evaluated",
     "run_single_task",
+    "run_single_task_evaluated",
     # Helpers
     "get_options",
     "get_environment_info",

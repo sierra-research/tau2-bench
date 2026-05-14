@@ -1,7 +1,8 @@
-from typing import Callable
+from typing import Callable, Optional
 
 from loguru import logger
 
+from tau2.data_model.evaluation import DBEvaluation, EnvAssertionEvaluation
 from tau2.data_model.message import (
     AssistantMessage,
     Message,
@@ -12,6 +13,90 @@ from tau2.data_model.simulation import DBCheck, EnvAssertionCheck, RewardInfo
 from tau2.data_model.tasks import RewardType, Task
 from tau2.environment.environment import Environment
 from tau2.evaluator.evaluator_base import EvaluatorBase
+
+
+def _evaluate_environment_state(
+    environment_constructor: Callable[[], Environment],
+    task: Task,
+    predicted_message_history: list[Message],
+    *,
+    solo_mode: bool = False,
+    env_kwargs: dict | None = None,
+) -> tuple[Optional[DBEvaluation], list[EnvAssertionEvaluation], dict]:
+    if task.evaluation_criteria is None:
+        return None, [], {"note": "No evaluation criteria"}
+
+    expected_actions = task.evaluation_criteria.actions
+    env_assertions = task.evaluation_criteria.env_assertions
+    if expected_actions is None and env_assertions is None:
+        return DBEvaluation(db_match=True), [], {
+            "note": "No expected actions or env assertions"
+        }
+
+    initialization_data = None
+    if task.initial_state is not None and task.initial_state.initialization_data is not None:
+        initialization_data = task.initial_state.initialization_data
+
+    initialization_actions = None
+    if (
+        task.initial_state is not None
+        and task.initial_state.initialization_actions is not None
+    ):
+        initialization_actions = task.initial_state.initialization_actions
+
+    message_history = []
+    if task.initial_state is not None and task.initial_state.message_history is not None:
+        message_history = task.initial_state.message_history
+
+    if env_kwargs is None:
+        env_kwargs = {}
+
+    predicted_environment = environment_constructor(solo_mode=solo_mode, **env_kwargs)
+    predicted_environment.set_state(
+        initialization_data=initialization_data,
+        initialization_actions=initialization_actions,
+        message_history=predicted_message_history,
+    )
+
+    gold_environment = environment_constructor(**env_kwargs)
+    gold_environment.set_state(
+        initialization_data=initialization_data,
+        initialization_actions=initialization_actions,
+        message_history=message_history,
+    )
+    golden_actions = task.evaluation_criteria.actions or []
+    for action in golden_actions:
+        try:
+            gold_environment.make_tool_call(
+                tool_name=action.name,
+                requestor=action.requestor,
+                **action.arguments,
+            )
+        except Exception as e:
+            logger.warning(
+                f"Error in golden actions {action.name}({action.arguments}): {e}"
+            )
+
+    agent_db_hash = gold_environment.get_db_hash()
+    user_db_hash = gold_environment.get_user_db_hash()
+    predicted_agent_db_hash = predicted_environment.get_db_hash()
+    predicted_user_db_hash = predicted_environment.get_user_db_hash()
+    db_match = agent_db_hash == predicted_agent_db_hash and user_db_hash == predicted_user_db_hash
+
+    env_assertion_checks = []
+    for env_assertion in task.evaluation_criteria.env_assertions or []:
+        success = predicted_environment.run_env_assertion(
+            env_assertion,
+            raise_assertion_error=False,
+        )
+        env_assertion_checks.append(
+            EnvAssertionEvaluation(
+                env_assertion=env_assertion,
+                met=success,
+            )
+        )
+
+    return DBEvaluation(db_match=db_match), env_assertion_checks, {}
 
 
 class EnvironmentEvaluator(EvaluatorBase[Message]):
@@ -40,106 +125,33 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
         Returns:
             RewardInfo
         """
-        if task.evaluation_criteria is None:
+        db_evaluation, env_evaluations, info = _evaluate_environment_state(
+            environment_constructor,
+            task,
+            list(full_trajectory),
+            solo_mode=solo_mode,
+            env_kwargs=env_kwargs,
+        )
+
+        if db_evaluation is None:
             return RewardInfo(
                 reward=1.0,
-                info={"note": "No evaluation criteria"},
-            )
-        expected_actions = task.evaluation_criteria.actions
-        env_assertions = task.evaluation_criteria.env_assertions
-        if expected_actions is None and env_assertions is None:
-            return RewardInfo(
-                reward=1.0,
-                db_check=DBCheck(db_match=True, db_reward=1.0),
-                info={"note": "No expected actions or env assertions"},
+                info=info,
             )
 
-        initialization_data = None
-        if (
-            task.initial_state is not None
-            and task.initial_state.initialization_data is not None
-        ):
-            initialization_data = task.initial_state.initialization_data
-
-        initialization_actions = None
-        if (
-            task.initial_state is not None
-            and task.initial_state.initialization_actions is not None
-        ):
-            initialization_actions = task.initial_state.initialization_actions
-
-        message_history = []
-        if (
-            task.initial_state is not None
-            and task.initial_state.message_history is not None
-        ):
-            message_history = task.initial_state.message_history
-
-        if env_kwargs is None:
-            env_kwargs = {}
-
-        predicted_environment = environment_constructor(
-            solo_mode=solo_mode, **env_kwargs
-        )
-
-        predicted_environment.set_state(
-            initialization_data=initialization_data,
-            initialization_actions=initialization_actions,
-            message_history=list(full_trajectory),
-        )
-
-        # Setting up gold environment
-        gold_environment = environment_constructor(**env_kwargs)
-        gold_environment.set_state(
-            initialization_data=initialization_data,
-            initialization_actions=initialization_actions,
-            message_history=message_history,
-        )
-        golden_actions = task.evaluation_criteria.actions or []
-        for action in golden_actions:
-            try:
-                gold_environment.make_tool_call(
-                    tool_name=action.name,
-                    requestor=action.requestor,
-                    **action.arguments,
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Error in golden actions {action.name}({action.arguments}): {e}"
-                )
-
-        # Comparing the environments
-        agent_db_hash = gold_environment.get_db_hash()
-        user_db_hash = gold_environment.get_user_db_hash()
-        predicted_agent_db_hash = predicted_environment.get_db_hash()
-        predicted_user_db_hash = predicted_environment.get_user_db_hash()
-        agent_db_match = agent_db_hash == predicted_agent_db_hash
-        user_db_match = user_db_hash == predicted_user_db_hash
-        if agent_db_match and user_db_match:
-            db_reward = 1.0
-            db_match = True
-        else:
-            db_reward = 0.0
-            db_match = False
-
-        db_check = DBCheck(db_match=db_match, db_reward=db_reward)
-
-        # Run env assertions
-        env_assertions = task.evaluation_criteria.env_assertions or []
-        env_assertion_checks = []
+        db_reward = 1.0 if db_evaluation.db_match else 0.0
+        db_check = DBCheck(db_match=db_evaluation.db_match, db_reward=db_reward)
+        env_assertion_checks = [
+            EnvAssertionCheck(
+                env_assertion=env_eval.env_assertion,
+                met=env_eval.met,
+                reward=1.0 if env_eval.met else 0.0,
+            )
+            for env_eval in env_evaluations
+        ]
         env_assertion_reward = 1.0
-        for env_assertion in env_assertions:
-            success = predicted_environment.run_env_assertion(
-                env_assertion,
-                raise_assertion_error=False,
-            )
-            res = EnvAssertionCheck(
-                env_assertion=env_assertion,
-                met=success,
-                reward=1.0 if success else 0.0,
-            )
-            env_assertion_checks.append(res)
-            env_assertion_reward *= res.reward
+        for env_assertion_check in env_assertion_checks:
+            env_assertion_reward *= env_assertion_check.reward
 
         reward = 1.0
         reward_breakdown = {}
@@ -156,6 +168,24 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
             env_assertions=env_assertion_checks,
             reward_basis=task.evaluation_criteria.reward_basis,
             reward_breakdown=reward_breakdown,
+            info=info or None,
+        )
+
+    @classmethod
+    def evaluate_environment(
+        cls,
+        environment_constructor: Callable[[], Environment],
+        task: Task,
+        full_trajectory: list[Message],
+        solo_mode: bool = False,
+        env_kwargs: dict = None,
+    ) -> tuple[Optional[DBEvaluation], list[EnvAssertionEvaluation], dict]:
+        return _evaluate_environment_state(
+            environment_constructor,
+            task,
+            list(full_trajectory),
+            solo_mode=solo_mode,
+            env_kwargs=env_kwargs,
         )
 
 
@@ -239,108 +269,34 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
         Returns:
             RewardInfo
         """
-        if env_kwargs is None:
-            env_kwargs = {}
-        if task.evaluation_criteria is None:
-            return RewardInfo(
-                reward=1.0,
-                info={"note": "No evaluation criteria"},
-            )
-        expected_actions = task.evaluation_criteria.actions
-        env_assertions = task.evaluation_criteria.env_assertions
-        if expected_actions is None and env_assertions is None:
-            return RewardInfo(
-                reward=1.0,
-                db_check=DBCheck(db_match=True, db_reward=1.0),
-                info={"note": "No expected actions or env assertions"},
-            )
-
-        initialization_data = None
-        if (
-            task.initial_state is not None
-            and task.initial_state.initialization_data is not None
-        ):
-            initialization_data = task.initial_state.initialization_data
-
-        initialization_actions = None
-        if (
-            task.initial_state is not None
-            and task.initial_state.initialization_actions is not None
-        ):
-            initialization_actions = task.initial_state.initialization_actions
-
-        message_history = []
-        if (
-            task.initial_state is not None
-            and task.initial_state.message_history is not None
-        ):
-            message_history = task.initial_state.message_history
-
-        # Convert ticks to message history for set_state
-        # Note: Audio native does not support task history, so we only use the simulation trajectory
         predicted_message_history = cls.ticks_to_message_history(full_trajectory)
-
-        predicted_environment = environment_constructor(
-            solo_mode=solo_mode, **env_kwargs
-        )
-        predicted_environment.set_state(
-            initialization_data=initialization_data,
-            initialization_actions=initialization_actions,
-            message_history=predicted_message_history,
+        db_evaluation, env_evaluations, info = _evaluate_environment_state(
+            environment_constructor,
+            task,
+            predicted_message_history,
+            solo_mode=solo_mode,
+            env_kwargs=env_kwargs,
         )
 
-        # Setting up gold environment
-        gold_environment = environment_constructor(**env_kwargs)
-        gold_environment.set_state(
-            initialization_data=initialization_data,
-            initialization_actions=initialization_actions,
-            message_history=message_history,
-        )
-        golden_actions = task.evaluation_criteria.actions or []
-        for action in golden_actions:
-            try:
-                gold_environment.make_tool_call(
-                    tool_name=action.name,
-                    requestor=action.requestor,
-                    **action.arguments,
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Error in golden actions {action.name}({action.arguments}): {e}"
-                )
+        if db_evaluation is None:
+            return RewardInfo(
+                reward=1.0,
+                info=info,
+            )
 
-        # Comparing the environments
-        agent_db_hash = gold_environment.get_db_hash()
-        user_db_hash = gold_environment.get_user_db_hash()
-        predicted_agent_db_hash = predicted_environment.get_db_hash()
-        predicted_user_db_hash = predicted_environment.get_user_db_hash()
-        agent_db_match = agent_db_hash == predicted_agent_db_hash
-        user_db_match = user_db_hash == predicted_user_db_hash
-        if agent_db_match and user_db_match:
-            db_reward = 1.0
-            db_match = True
-        else:
-            db_reward = 0.0
-            db_match = False
-
-        db_check = DBCheck(db_match=db_match, db_reward=db_reward)
-
-        # Run env assertions
-        env_assertions = task.evaluation_criteria.env_assertions or []
-        env_assertion_checks = []
+        db_reward = 1.0 if db_evaluation.db_match else 0.0
+        db_check = DBCheck(db_match=db_evaluation.db_match, db_reward=db_reward)
+        env_assertion_checks = [
+            EnvAssertionCheck(
+                env_assertion=env_eval.env_assertion,
+                met=env_eval.met,
+                reward=1.0 if env_eval.met else 0.0,
+            )
+            for env_eval in env_evaluations
+        ]
         env_assertion_reward = 1.0
-        for env_assertion in env_assertions:
-            success = predicted_environment.run_env_assertion(
-                env_assertion,
-                raise_assertion_error=False,
-            )
-            res = EnvAssertionCheck(
-                env_assertion=env_assertion,
-                met=success,
-                reward=1.0 if success else 0.0,
-            )
-            env_assertion_checks.append(res)
-            env_assertion_reward *= res.reward
+        for env_assertion_check in env_assertion_checks:
+            env_assertion_reward *= env_assertion_check.reward
 
         reward = 1.0
         reward_breakdown = {}
@@ -357,4 +313,22 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
             env_assertions=env_assertion_checks,
             reward_basis=task.evaluation_criteria.reward_basis,
             reward_breakdown=reward_breakdown,
+            info=info or None,
+        )
+
+    @classmethod
+    def evaluate_environment(
+        cls,
+        environment_constructor: Callable[[], Environment],
+        task: Task,
+        full_trajectory: list[Tick],
+        solo_mode: bool = False,
+        env_kwargs: dict = None,
+    ) -> tuple[Optional[DBEvaluation], list[EnvAssertionEvaluation], dict]:
+        return _evaluate_environment_state(
+            environment_constructor,
+            task,
+            cls.ticks_to_message_history(full_trajectory),
+            solo_mode=solo_mode,
+            env_kwargs=env_kwargs,
         )

@@ -9,8 +9,16 @@ from typing import Optional, Union
 
 from loguru import logger
 
+from tau2.data_model.evaluation import (
+    EvaluatedSimulation,
+)
 from tau2.data_model.simulation import SimulationRun
-from tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
+from tau2.evaluator.evaluator import (
+    EvaluationType,
+    compute_evaluation_outcome,
+    evaluate_simulation,
+    evaluate_to_report,
+)
 from tau2.orchestrator.full_duplex_orchestrator import FullDuplexOrchestrator
 from tau2.orchestrator.modes import CommunicationMode
 from tau2.orchestrator.orchestrator import Orchestrator
@@ -90,3 +98,50 @@ def run_simulation(
     )
 
     return simulation
+
+
+def run_simulation_evaluated(
+    orchestrator: Union[Orchestrator, FullDuplexOrchestrator],
+    *,
+    evaluation_type: EvaluationType = EvaluationType.ALL,
+    score_policy: str = "evaluation_mean_v1",
+    env_kwargs: Optional[dict] = None,
+) -> EvaluatedSimulation:
+    """Run a simulation and return reward-free evaluation artifacts."""
+    simulation = orchestrator.run()
+    simulation.policy = orchestrator.environment.get_policy()
+
+    domain = orchestrator.environment.get_domain_name()
+    task = orchestrator.task
+    is_full_duplex = isinstance(orchestrator, FullDuplexOrchestrator)
+    mode = (
+        CommunicationMode.FULL_DUPLEX
+        if is_full_duplex
+        else CommunicationMode.HALF_DUPLEX
+    )
+    solo_mode = getattr(orchestrator, "solo_mode", False)
+
+    evaluation_report = evaluate_to_report(
+        simulation=simulation,
+        task=task,
+        evaluation_type=evaluation_type,
+        solo_mode=solo_mode,
+        domain=domain,
+        mode=mode,
+        env_kwargs=env_kwargs,
+    )
+    evaluation_outcome = compute_evaluation_outcome(
+        evaluation_report,
+        score_policy=score_policy,
+    )
+
+    logger.info(
+        f"Simulation complete: domain={domain}, task={task.id}, "
+        f"evaluation_score={evaluation_outcome.overall_score:.4f}"
+    )
+
+    return EvaluatedSimulation(
+        simulation=simulation,
+        evaluation_report=evaluation_report,
+        evaluation_outcome=evaluation_outcome,
+    )

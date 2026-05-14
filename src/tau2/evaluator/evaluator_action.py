@@ -1,5 +1,6 @@
 from typing import Optional
 
+from tau2.data_model.evaluation import ActionEvaluation
 from tau2.data_model.message import (
     AssistantMessage,
     Message,
@@ -13,11 +14,11 @@ from tau2.environment.toolkit import ToolType
 from tau2.evaluator.evaluator_base import EvaluatorBase
 
 
-def _check_actions(
+def _evaluate_actions(
     predicted_tool_calls: list[ToolCall],
     golden_actions: list[Action],
     tool_types: Optional[dict[str, ToolType]] = None,
-) -> list[ActionCheck]:
+) -> list[ActionEvaluation]:
     """
     Check if all the gold actions are in the predicted tool calls.
 
@@ -36,12 +37,7 @@ def _check_actions(
             if gold_action.compare_with_tool_call(pred_tool_call):
                 found = True
                 break
-        if found:
-            gold_action_reward = 1.0
-            gold_action_match = True
-        else:
-            gold_action_reward = 0.0
-            gold_action_match = False
+        gold_action_match = found
 
         # Get tool type if available
         tool_type = None
@@ -49,14 +45,31 @@ def _check_actions(
             tool_type = tool_types.get(gold_action.name)
 
         action_checks.append(
-            ActionCheck(
+            ActionEvaluation(
                 action=gold_action,
                 action_match=gold_action_match,
-                action_reward=gold_action_reward,
                 tool_type=tool_type,
             )
         )
     return action_checks
+
+
+def _check_actions(
+    predicted_tool_calls: list[ToolCall],
+    golden_actions: list[Action],
+    tool_types: Optional[dict[str, ToolType]] = None,
+) -> list[ActionCheck]:
+    return [
+        ActionCheck(
+            action=action_check.action,
+            action_match=action_check.action_match,
+            action_reward=1.0 if action_check.action_match else 0.0,
+            tool_type=action_check.tool_type,
+        )
+        for action_check in _evaluate_actions(
+            predicted_tool_calls, golden_actions, tool_types
+        )
+    ]
 
 
 class ActionEvaluator(EvaluatorBase[Message]):
@@ -149,6 +162,19 @@ class ActionEvaluator(EvaluatorBase[Message]):
         predicted_tool_calls = cls.extract_tool_calls(full_trajectory)
         return _check_actions(predicted_tool_calls, golden_actions, tool_types)
 
+    @classmethod
+    def evaluate_action_matches(
+        cls,
+        full_trajectory: list[Message],
+        golden_actions: list[Action],
+        tool_types: Optional[dict[str, ToolType]] = None,
+    ) -> list[ActionEvaluation]:
+        if len(golden_actions) == 0:
+            return []
+
+        predicted_tool_calls = cls.extract_tool_calls(full_trajectory)
+        return _evaluate_actions(predicted_tool_calls, golden_actions, tool_types)
+
 
 class FullDuplexActionEvaluator(EvaluatorBase[Tick]):
     """
@@ -236,3 +262,16 @@ class FullDuplexActionEvaluator(EvaluatorBase[Tick]):
 
         predicted_tool_calls = cls.extract_tool_calls(full_trajectory)
         return _check_actions(predicted_tool_calls, golden_actions, tool_types)
+
+    @classmethod
+    def evaluate_action_matches(
+        cls,
+        full_trajectory: list[Tick],
+        golden_actions: list[Action],
+        tool_types: Optional[dict[str, ToolType]] = None,
+    ) -> list[ActionEvaluation]:
+        if len(golden_actions) == 0:
+            return []
+
+        predicted_tool_calls = cls.extract_tool_calls(full_trajectory)
+        return _evaluate_actions(predicted_tool_calls, golden_actions, tool_types)

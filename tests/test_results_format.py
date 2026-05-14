@@ -6,6 +6,13 @@ import multiprocessing
 
 import pytest
 
+from tau2.data_model.evaluation import (
+    CheckResult,
+    EvaluatedResults,
+    EvaluatedSimulation,
+    EvaluationOutcome,
+    EvaluationReport,
+)
 from tau2.data_model.simulation import (
     SIMULATIONS_DIR,
     Info,
@@ -58,6 +65,44 @@ def _make_sim(
         messages=[],
         trial=trial,
         seed=seed,
+    )
+
+
+def _make_evaluated_sim(
+    task_id: str,
+    trial: int = 0,
+    seed: int = 42,
+    termination_reason: TerminationReason = TerminationReason.USER_STOP,
+) -> EvaluatedSimulation:
+    simulation = _make_sim(
+        task_id=task_id,
+        trial=trial,
+        seed=seed,
+        termination_reason=termination_reason,
+    )
+    return EvaluatedSimulation(
+        simulation=simulation,
+        evaluation_report=EvaluationReport(
+            domain="mock",
+            task_id=task_id,
+            simulation_id=simulation.id,
+            termination_reason=termination_reason,
+            mode="half_duplex",
+            evaluation_type="all",
+        ),
+        evaluation_outcome=EvaluationOutcome(
+            score_policy="evaluation_mean_v1",
+            overall_score=1.0,
+            component_scores=[
+                CheckResult(
+                    name="db",
+                    score=1.0,
+                    passed_count=1,
+                    total_count=1,
+                    passed=True,
+                )
+            ],
+        ),
     )
 
 
@@ -521,6 +566,39 @@ class TestSimulationIndex:
         assert meta.simulation_index is not None
         assert len(meta.simulation_index) == 2
 
+
+class TestEvaluatedResultsFormat:
+    def test_save_and_load_json(self, tmp_path):
+        results = EvaluatedResults(
+            info=_make_info(),
+            tasks=[_make_task("t0")],
+            simulations=[_make_evaluated_sim("t0")],
+            evaluation_type="all",
+            score_policy="evaluation_mean_v1",
+        )
+        p = tmp_path / "results.json"
+        results.save(p, format="json")
+        loaded = EvaluatedResults.load(p)
+        assert len(loaded.simulations) == 1
+        assert loaded.simulations[0].evaluation_outcome.overall_score == 1.0
+
+    def test_save_and_load_dir(self, tmp_path):
+        results = EvaluatedResults(
+            info=_make_info(),
+            tasks=[_make_task("t0")],
+            simulations=[_make_evaluated_sim("t0")],
+            evaluation_type="all",
+            score_policy="evaluation_mean_v1",
+        )
+        p = tmp_path / "results.json"
+        results.save(p, format="dir")
+        loaded = EvaluatedResults.load(p)
+        assert len(loaded.simulations) == 1
+        assert loaded.simulation_index is not None
+        assert loaded.simulation_index[0].overall_score == 1.0
+
+
+class TestSimulationIndexCheckpoint:
     def test_checkpoint_save_updates_index(self, tmp_path):
         """Checkpoint save should append to simulation_index in results.json."""
         save_path = tmp_path / "results.json"

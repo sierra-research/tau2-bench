@@ -3,6 +3,13 @@
 import json
 import multiprocessing
 
+from tau2.data_model.evaluation import (
+    CheckResult,
+    EvaluatedResults,
+    EvaluatedSimulation,
+    EvaluationOutcome,
+    EvaluationReport,
+)
 from tau2.data_model.simulation import (
     Info,
     Results,
@@ -20,6 +27,7 @@ from tau2.runner.checkpoint import (
     create_checkpoint_replacer,
     create_checkpoint_saver,
     try_resume,
+    try_resume_evaluated,
 )
 
 
@@ -59,6 +67,44 @@ def _make_sim(
         messages=[],
         trial=trial,
         seed=seed,
+    )
+
+
+def _make_evaluated_sim(
+    task_id: str,
+    trial: int = 0,
+    seed: int = 42,
+    termination_reason: TerminationReason = TerminationReason.USER_STOP,
+) -> EvaluatedSimulation:
+    simulation = _make_sim(
+        task_id=task_id,
+        trial=trial,
+        seed=seed,
+        termination_reason=termination_reason,
+    )
+    return EvaluatedSimulation(
+        simulation=simulation,
+        evaluation_report=EvaluationReport(
+            domain="mock",
+            task_id=task_id,
+            simulation_id=simulation.id,
+            termination_reason=termination_reason,
+            mode="half_duplex",
+            evaluation_type="all",
+        ),
+        evaluation_outcome=EvaluationOutcome(
+            score_policy="evaluation_mean_v1",
+            overall_score=0.5,
+            component_scores=[
+                CheckResult(
+                    name="action",
+                    score=0.5,
+                    passed_count=1,
+                    total_count=2,
+                    passed=False,
+                )
+            ],
+        ),
     )
 
 
@@ -298,3 +344,42 @@ class TestCheckpointReplacer:
 
         assert len(on_disk["simulations"]) == 1
         assert on_disk["simulations"][0]["termination_reason"] == "user_stop"
+
+
+class TestTryResumeEvaluated:
+    def test_infra_errors_removed_from_done_runs(self, tmp_path):
+        tasks = [_make_task("t0"), _make_task("t1")]
+        info = _make_info()
+
+        prev_results = EvaluatedResults(
+            info=info,
+            tasks=tasks,
+            simulations=[
+                _make_evaluated_sim("t0"),
+                _make_evaluated_sim(
+                    "t1", termination_reason=TerminationReason.INFRASTRUCTURE_ERROR
+                ),
+            ],
+            evaluation_type="all",
+            score_policy="evaluation_mean_v1",
+        )
+
+        save_path = tmp_path / "results.json"
+        prev_results.save(save_path, format="json")
+
+        new_results = EvaluatedResults(
+            info=info,
+            tasks=tasks,
+            simulations=[],
+            evaluation_type="all",
+            score_policy="evaluation_mean_v1",
+        )
+
+        resumed, done_runs, _ = try_resume_evaluated(
+            save_path, new_results, tasks, num_trials=1, auto_resume=True
+        )
+
+        done_task_ids = {task_id for _, task_id, _ in done_runs}
+        assert "t0" in done_task_ids
+        assert "t1" not in done_task_ids
+        assert len(resumed.simulations) == 1

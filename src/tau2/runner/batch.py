@@ -19,16 +19,24 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from loguru import logger
 
+from tau2.data_model.evaluation import (
+    EvaluatedResults,
+    EvaluatedSimulation,
+    EvaluationOutcome,
+    EvaluationReport,
+)
 from tau2.data_model.persona import InterruptTendency, PersonaConfig, Verbosity
 from tau2.data_model.simulation import (
     AudioNativeConfig,
+    PostEvaluationMode,
     Results,
     RunConfig,
     SimulationRun,
+    TerminationReason,
     TextRunConfig,
     UserInfo,
     VoiceRunConfig,
@@ -43,11 +51,13 @@ from tau2.registry import registry
 from tau2.runner.build import _build_env_kwargs, build_orchestrator
 from tau2.runner.checkpoint import (
     create_checkpoint_fns,
+    create_evaluated_checkpoint_fns,
     try_resume,
+    try_resume_evaluated,
 )
 from tau2.runner.helpers import get_info, get_tasks, make_run_name
 from tau2.runner.progress import StatusMonitor, run_with_retry
-from tau2.runner.simulation import run_simulation
+from tau2.runner.simulation import run_simulation, run_simulation_evaluated
 from tau2.user.user_simulator import (
     get_global_user_sim_guidelines,
     get_global_user_sim_guidelines_voice,
@@ -55,7 +65,7 @@ from tau2.user.user_simulator import (
 from tau2.user_simulation_voice_presets import COMPLEXITY_CONFIGS
 from tau2.utils.display import ConsoleDisplay, Text
 from tau2.utils.llm_utils import llm_log_mode, set_llm_log_dir, set_llm_log_mode
-from tau2.utils.utils import DATA_DIR
+from tau2.utils.utils import DATA_DIR, get_now
 
 # Context variable to track current simulation_id for log filtering
 # This ensures task-specific log handlers only receive their own messages
@@ -121,6 +131,94 @@ def _cleanup_thread_event_loop():
         asyncio.set_event_loop(None)
     except Exception:
         pass
+
+
+def _ensure_benchmark_mode(config: RunConfig) -> None:
+    if config.post_evaluation_mode != PostEvaluationMode.BENCHMARK:
+        raise ValueError(
+            "Benchmark entrypoints require post_evaluation_mode='benchmark'. "
+            "Use run_single_task_evaluated(), run_tasks_evaluated(), or run_domain_evaluated() instead."
+        )
+
+
+def _ensure_evaluation_only_mode(config: RunConfig) -> None:
+    if config.post_evaluation_mode != PostEvaluationMode.EVALUATION_ONLY:
+        raise ValueError(
+            "Evaluation-only entrypoints require post_evaluation_mode='evaluation_only'."
+        )
+
+
+def _display_evaluated_simulation(result: EvaluatedSimulation) -> None:
+    ConsoleDisplay.display_simulation(result.simulation, show_details=False)
+
+
+def _get_base_simulation(
+    result: SimulationRun | EvaluatedSimulation,
+) -> SimulationRun:
+    if isinstance(result, EvaluatedSimulation):
+        return result.simulation
+    return result
+
+
+def _make_failed_evaluated_simulation(
+    task: Task,
+    trial: int,
+    seed: int,
+    error: Exception,
+    error_reason: str,
+    error_traceback: str,
+    failed_after_attempts: int,
+    *,
+    domain: str,
+    evaluation_type: EvaluationType,
+    score_policy: str,
+) -> EvaluatedSimulation:
+    now = get_now()
+    failed_simulation = SimulationRun(
+        id=str(uuid.uuid4()),
+        task_id=task.id,
+        timestamp=now,
+        start_time=now,
+        end_time=now,
+        duration=0.0,
+        termination_reason=TerminationReason.INFRASTRUCTURE_ERROR,
+        messages=[],
+        trial=trial,
+        seed=seed,
+        info={
+            "error": str(error),
+            "error_type": type(error).__name__,
+            "error_traceback": error_traceback,
+            "failed_after_attempts": failed_after_attempts,
+        },
+    )
+    evaluation_report = EvaluationReport(
+        domain=domain,
+        task_id=task.id,
+        simulation_id=failed_simulation.id,
+        termination_reason=TerminationReason.INFRASTRUCTURE_ERROR,
+        mode="half_duplex",
+        evaluation_type=evaluation_type.value,
+        reward_basis=(
+            task.evaluation_criteria.reward_basis
+            if task.evaluation_criteria is not None
+            else None
+        ),
+        info={
+            "note": f"Infrastructure failure before evaluation: {error_reason}",
+        },
+    )
+    evaluation_outcome = EvaluationOutcome(
+        score_policy=score_policy,
+        overall_score=0.0,
+        component_scores=[],
+        info={"score_basis": "infrastructure_failure"},
+    )
+    return EvaluatedSimulation(
+        simulation=failed_simulation,
+        evaluation_report=evaluation_report,
+        evaluation_outcome=evaluation_outcome,
+    )
 
 
 # =============================================================================
@@ -350,6 +448,7 @@ def run_single_task(
     auto_review: bool = False,
     review_mode: str = "full",
     hallucination_feedback: Optional[str] = None,
+    agent_factory_override: Optional[Callable] = None,
 ) -> SimulationRun:
     """Run a single task simulation with logging and optional side effects.
 
@@ -376,6 +475,7 @@ def run_single_task(
     Returns:
         The completed SimulationRun with reward_info attached.
     """
+    _ensure_benchmark_mode(config)
     simulation_id = str(uuid.uuid4())
     is_voice = isinstance(config, VoiceRunConfig)
 
@@ -407,6 +507,7 @@ def run_single_task(
             user_persona_config=user_persona_config,
             hallucination_feedback=hallucination_feedback,
             audio_taps_dir=taps_dir,
+            agent_factory_override=agent_factory_override,
         )
 
         # Layer 1: Run the simulation
@@ -448,6 +549,98 @@ def run_single_task(
         return simulation
 
 
+def run_single_task_evaluated(
+    config: RunConfig,
+    task: Task,
+    *,
+    seed: Optional[int] = None,
+    evaluation_type: EvaluationType = EvaluationType.ALL,
+    score_policy: str = "evaluation_mean_v1",
+    save_dir: Optional[Path] = None,
+    user_voice_settings: Optional[VoiceSettings] = None,
+    user_persona_config: Optional[PersonaConfig] = None,
+    verbose_logs: bool = False,
+    audio_debug: bool = False,
+    audio_taps: bool = False,
+    auto_review: bool = False,
+    review_mode: str = "full",
+    hallucination_feedback: Optional[str] = None,
+    agent_factory_override: Optional[Callable] = None,
+) -> EvaluatedSimulation:
+    """Run a single task and return reward-free evaluation artifacts."""
+    _ensure_evaluation_only_mode(config)
+    simulation_id = str(uuid.uuid4())
+    is_voice = isinstance(config, VoiceRunConfig)
+
+    logger.info(
+        f"STARTING EVALUATED SIMULATION: Domain: {config.domain}, Task: {task.id}, "
+        f"Agent: {config.effective_agent}, User: {config.effective_user}"
+    )
+
+    with _TaskLogContext(simulation_id, save_dir, task, verbose_logs):
+        taps_dir = None
+        if audio_taps and save_dir:
+            taps_dir = (
+                save_dir
+                / "artifacts"
+                / f"task_{task.id}"
+                / f"sim_{simulation_id}"
+                / "audio"
+                / "taps"
+            )
+
+        orchestrator = build_orchestrator(
+            config,
+            task,
+            seed=seed,
+            simulation_id=simulation_id,
+            user_voice_settings=user_voice_settings,
+            user_persona_config=user_persona_config,
+            hallucination_feedback=hallucination_feedback,
+            audio_taps_dir=taps_dir,
+            agent_factory_override=agent_factory_override,
+        )
+
+        env_kwargs = _build_env_kwargs(config, task) or None
+        evaluated_simulation = run_simulation_evaluated(
+            orchestrator,
+            evaluation_type=evaluation_type,
+            score_policy=score_policy,
+            env_kwargs=env_kwargs,
+        )
+
+        if auto_review:
+            run_auto_review(
+                simulation=evaluated_simulation.simulation,
+                task=task,
+                review_mode=review_mode,
+                user=config.effective_user,
+                llm_user=config.llm_user,
+                llm_args_user=config.llm_args_user,
+                user_persona_config=user_persona_config,
+                user_voice_settings=user_voice_settings,
+                policy=orchestrator.environment.get_policy(),
+                is_audio_native=is_voice,
+            )
+
+        if is_voice and save_dir:
+            save_simulation_audio(
+                simulation=evaluated_simulation.simulation,
+                task=task,
+                simulation_id=simulation_id,
+                save_dir=save_dir,
+                audio_native_config=config.audio_native_config,
+                audio_debug=audio_debug,
+            )
+
+        logger.info(
+            f"FINISHED EVALUATED SIMULATION: Domain: {config.domain}, Task: {task.id}, "
+            f"Score: {evaluated_simulation.evaluation_outcome.overall_score:.4f}"
+        )
+
+        return evaluated_simulation
+
+
 # =============================================================================
 # Batch runner
 # =============================================================================
@@ -462,6 +655,7 @@ def run_tasks(
     evaluation_type: EvaluationType = EvaluationType.ALL,
     console_display: bool = True,
     results_format: str = "json",
+    agent_factory_override: Optional[Callable] = None,
 ) -> Results:
     """Run simulations for a list of tasks with concurrency, checkpointing, and retries.
 
@@ -488,6 +682,7 @@ def run_tasks(
     Raises:
         ValueError: If no tasks are provided, or trial/step/error counts are invalid.
     """
+    _ensure_benchmark_mode(config)
     if isinstance(save_path, str):
         save_path = Path(save_path)
 
@@ -662,6 +857,7 @@ def run_tasks(
                 auto_review=config.auto_review,
                 review_mode=config.review_mode,
                 hallucination_feedback=hallucination_feedback,
+                agent_factory_override=agent_factory_override,
             )
 
         try:
@@ -836,12 +1032,368 @@ def run_tasks(
     return simulation_results
 
 
+def run_tasks_evaluated(
+    config: RunConfig,
+    tasks: list[Task],
+    *,
+    save_path: Optional[Path] = None,
+    save_dir: Optional[Path] = None,
+    evaluation_type: EvaluationType = EvaluationType.ALL,
+    score_policy: str = "evaluation_mean_v1",
+    console_display: bool = True,
+    results_format: str = "json",
+    agent_factory_override: Optional[Callable] = None,
+) -> EvaluatedResults:
+    """Run evaluation-only simulations with retries, concurrency, and checkpointing."""
+    _ensure_evaluation_only_mode(config)
+    if isinstance(save_path, str):
+        save_path = Path(save_path)
+
+    logger.remove()
+    logger.add(lambda msg: print(msg), level=config.log_level)
+
+    if len(tasks) == 0:
+        raise ValueError("No tasks to run")
+    if config.num_trials <= 0:
+        raise ValueError("Number of trials must be greater than 0")
+    if config.effective_max_steps <= 0:
+        raise ValueError("Max steps must be greater than 0")
+    if config.max_errors <= 0:
+        raise ValueError("Max errors must be greater than 0")
+
+    is_voice = isinstance(config, VoiceRunConfig)
+
+    random.seed(config.seed)
+    seeds = [random.randint(0, 1000000) for _ in range(config.num_trials)]
+    if (
+        isinstance(config, TextRunConfig)
+        and config.llm_args_agent
+        and "seed" in config.llm_args_agent
+    ):
+        logger.warning("Each trial will modify the seed for the agent")
+    if config.llm_args_user and "seed" in config.llm_args_user:
+        logger.warning("Each trial will modify the seed for the user")
+
+    lock = multiprocessing.Lock()
+
+    user_voice_settings = None
+    user_persona_config = None
+    if is_voice:
+        user_voice_settings = VoiceSettings(
+            transcription_config=None,
+            synthesis_config=SynthesisConfig(),
+        )
+        complexity_config = COMPLEXITY_CONFIGS[config.speech_complexity]
+        user_persona_config = PersonaConfig(
+            verbosity=Verbosity(complexity_config["verbosity"]),
+            interrupt_tendency=InterruptTendency(
+                complexity_config["interrupt_tendency"]
+            ),
+        )
+
+    policy_override = None
+    if config.domain == "banking_knowledge":
+        from tau2.domains.banking_knowledge.environment import get_knowledge_base
+        from tau2.domains.banking_knowledge.retrieval import get_info_policy_override
+        from tau2.knowledge.embeddings_cache import (
+            get_unique_embedder_configs_for_retrieval_configs,
+            warm_kb_cache,
+        )
+
+        retrieval_config = getattr(config, "retrieval_config", None)
+        retrieval_config_kwargs = getattr(config, "retrieval_config_kwargs", None)
+        kwargs = retrieval_config_kwargs or {}
+        embedder_configs = None
+        if retrieval_config:
+            embedder_configs = get_unique_embedder_configs_for_retrieval_configs(
+                [retrieval_config]
+            )
+        warm_kb_cache(embedder_configs)
+        knowledge_base = get_knowledge_base()
+        policy_override = get_info_policy_override(
+            retrieval_config, knowledge_base, **kwargs
+        )
+
+    info = get_info(
+        config,
+        user_persona_config=user_persona_config,
+        user_voice_settings=user_voice_settings,
+        policy_override=policy_override,
+    )
+    simulation_results = EvaluatedResults(
+        info=info,
+        tasks=tasks,
+        simulations=[],
+        evaluation_type=evaluation_type.value,
+        score_policy=score_policy,
+    )
+
+    done_runs: set = set()
+    if save_path is not None:
+        simulation_results, done_runs, tasks = try_resume_evaluated(
+            save_path=save_path,
+            simulation_results=simulation_results,
+            tasks=tasks,
+            num_trials=config.num_trials,
+            auto_resume=config.auto_resume,
+            results_format=results_format,
+        )
+
+    save_fn, replace_fn = create_evaluated_checkpoint_fns(save_path, lock)
+
+    args = []
+    for trial in range(config.num_trials):
+        for i, task in enumerate(tasks):
+            if (trial, task.id, seeds[trial]) in done_runs:
+                console_text = Text(
+                    text=f"Skipping task {task.id}, trial {trial + 1} because it has already been run.",
+                    style="bold yellow",
+                )
+                ConsoleDisplay.console.print(console_text)
+                continue
+            progress_str = f"{i}/{len(tasks)} (trial {trial + 1}/{config.num_trials})"
+            args.append((task, trial, seeds[trial], progress_str))
+
+    total_count = len(tasks) * config.num_trials
+    monitor = StatusMonitor(
+        total_count,
+        initial_completed=len(done_runs),
+        metric_label="Avg score",
+        metric_getter=lambda sim: sim.evaluation_outcome.overall_score,
+    )
+    monitor.set_results(simulation_results)
+    monitor.start()
+
+    if (
+        is_voice
+        and config.audio_native_config is not None
+        and config.audio_native_config.provider == "livekit"
+    ):
+        from tau2.voice.audio_native.livekit import preregister_livekit_plugins
+
+        preregister_livekit_plugins()
+
+    hallucination_retries = config.hallucination_retries
+    shutdown_event = threading.Event()
+    _main_thread_llm_log_mode = llm_log_mode.get()
+
+    def _run_tracked(
+        task: Task, trial: int, seed: int, progress_str: str
+    ) -> EvaluatedSimulation:
+        if shutdown_event.is_set():
+            raise KeyboardInterrupt("Shutdown requested")
+
+        _init_thread_event_loop()
+        set_llm_log_mode(_main_thread_llm_log_mode)
+        task_key = f"{task.id}.{trial}"
+        monitor.task_started(task_key, trial)
+
+        console_text = Text(
+            text=f"{progress_str}. Running task {task.id}, trial {trial + 1}",
+            style="bold green",
+        )
+        ConsoleDisplay.console.print(console_text)
+
+        def _execute(
+            run_seed: int = seed,
+            hallucination_feedback: Optional[str] = None,
+        ):
+            return run_single_task_evaluated(
+                config,
+                task,
+                seed=run_seed,
+                evaluation_type=evaluation_type,
+                score_policy=score_policy,
+                save_dir=save_dir,
+                user_voice_settings=user_voice_settings,
+                user_persona_config=user_persona_config,
+                verbose_logs=config.verbose_logs,
+                audio_debug=config.audio_debug if is_voice else False,
+                audio_taps=config.audio_taps if is_voice else False,
+                auto_review=config.auto_review,
+                review_mode=config.review_mode,
+                hallucination_feedback=hallucination_feedback,
+                agent_factory_override=agent_factory_override,
+            )
+
+        try:
+            result = run_with_retry(
+                _execute,
+                task=task,
+                trial=trial,
+                seed=seed,
+                max_retries=config.max_retries,
+                retry_delay=config.retry_delay,
+                console_display=console_display,
+                save_fn=save_fn,
+                on_retry=lambda: monitor.task_restarted(task_key),
+                shutdown_event=shutdown_event,
+                display_fn=_display_evaluated_simulation,
+                failure_factory=lambda task, trial, seed, error, error_reason, error_traceback, failed_after_attempts: _make_failed_evaluated_simulation(
+                    task,
+                    trial,
+                    seed,
+                    error,
+                    error_reason,
+                    error_traceback,
+                    failed_after_attempts,
+                    domain=config.domain,
+                    evaluation_type=evaluation_type,
+                    score_policy=score_policy,
+                ),
+            )
+
+            base_result = _get_base_simulation(result)
+            is_full_duplex = base_result.ticks is not None and len(base_result.ticks) > 0
+            if hallucination_retries > 0 and is_full_duplex:
+                hallucination_retry_count = 0
+                while hallucination_retry_count < hallucination_retries:
+                    h_check = check_hallucination(base_result, task)
+                    base_result.hallucination_check = h_check
+
+                    if not h_check.hallucination_found:
+                        break
+
+                    hallucination_retry_count += 1
+                    n_errors = len(h_check.errors)
+
+                    retry_text = Text(
+                        text=f"  Hallucination detected on task {task.id} ({n_errors} instance(s)). "
+                        f"Re-running with feedback ({hallucination_retry_count}/{hallucination_retries})...",
+                        style="yellow",
+                    )
+                    ConsoleDisplay.console.print(retry_text)
+
+                    if save_dir is not None:
+                        discarded_dir = save_dir / "hallucination_discarded"
+                        discarded_dir.mkdir(parents=True, exist_ok=True)
+                        discarded_path = discarded_dir / "results_user_hallucination.json"
+
+                        if discarded_path.exists():
+                            with open(discarded_path, "r") as fp:
+                                discarded_data = json.load(fp)
+                            discarded_data["simulations"].append(result.model_dump(mode="json"))
+                            existing_task_ids = {t["id"] for t in discarded_data["tasks"]}
+                            if task.id not in existing_task_ids:
+                                discarded_data["tasks"].append(task.model_dump(mode="json"))
+                            with open(discarded_path, "w") as fp:
+                                json.dump(discarded_data, fp, indent=2)
+                        else:
+                            discarded_results = EvaluatedResults(
+                                info=simulation_results.info,
+                                tasks=[
+                                    t
+                                    for t in simulation_results.tasks
+                                    if t.id == task.id
+                                ],
+                                simulations=[result],
+                                evaluation_type=evaluation_type.value,
+                                score_policy=score_policy,
+                            )
+                            with open(discarded_path, "w") as fp:
+                                fp.write(discarded_results.model_dump_json(indent=2))
+
+                        logger.info(
+                            f"Saved discarded hallucination run to {discarded_path} "
+                            f"(task {task.id}, retry {hallucination_retry_count})"
+                        )
+
+                    if save_dir is not None:
+                        sim_dir = (
+                            save_dir
+                            / "artifacts"
+                            / f"task_{task.id}"
+                            / f"sim_{base_result.id}"
+                        )
+                        if sim_dir.exists():
+                            try:
+                                status = {
+                                    "status": "discarded",
+                                    "reason": "user_hallucination",
+                                    "hallucination_errors": n_errors,
+                                }
+                                status_path = sim_dir / "sim_status.json"
+                                with open(status_path, "w") as f:
+                                    json.dump(status, f, indent=2)
+                            except Exception:
+                                pass
+
+                    monitor.task_restarted(task_key)
+                    feedback = format_hallucination_feedback(h_check)
+                    retry_seed = seed + hallucination_retry_count * 1000
+                    result = _execute(
+                        run_seed=retry_seed,
+                        hallucination_feedback=feedback,
+                    )
+                    result.simulation.trial = trial
+                    base_result = result.simulation
+
+                base_result.hallucination_retries_used = hallucination_retry_count
+
+                if hallucination_retry_count > 0:
+                    result.simulation.seed = seed
+                    replace_fn((trial, task.id, seed), result)
+
+            if save_dir is not None:
+                sim_dir = (
+                    save_dir / "artifacts" / f"task_{task.id}" / f"sim_{base_result.id}"
+                )
+                if sim_dir.exists():
+                    try:
+                        status = {"status": "used"}
+                        status_path = sim_dir / "sim_status.json"
+                        with open(status_path, "w") as f:
+                            json.dump(status, f, indent=2)
+                    except Exception:
+                        pass
+
+            return result
+        finally:
+            monitor.task_finished(task_key)
+            _cleanup_thread_event_loop()
+
+    executor = ThreadPoolExecutor(max_workers=config.max_concurrency)
+    futures: dict = {}
+    try:
+        futures = {executor.submit(_run_tracked, *arg): arg for arg in args}
+        for future in as_completed(futures):
+            result = future.result()
+            simulation_results.simulations.append(result)
+    except KeyboardInterrupt:
+        ConsoleDisplay.console.print(
+            "\n[bold red]Ctrl+C received — cancelling remaining tasks...[/bold red]"
+        )
+        shutdown_event.set()
+        executor.shutdown(wait=False, cancel_futures=True)
+
+        n = len(simulation_results.simulations)
+        ConsoleDisplay.console.print(
+            f"[bold yellow]{n} evaluation(s) already checkpointed. "
+            f"Use --auto-resume to continue later.[/bold yellow]"
+        )
+        monitor.stop()
+        os._exit(130)
+    finally:
+        monitor.stop()
+        if not shutdown_event.is_set():
+            executor.shutdown(wait=True)
+
+    ConsoleDisplay.console.print(
+        "\n[bold green]Successfully completed all evaluated simulations![/bold green]"
+    )
+    return simulation_results
+
+
 # =============================================================================
 # Top-level entry points
 # =============================================================================
 
 
-def run_domain(config: RunConfig) -> Results:
+def run_domain(
+    config: RunConfig,
+    *,
+    agent_factory_override: Optional[Callable] = None,
+) -> Results:
     """Run simulations for a domain from a RunConfig.
 
     This is the main entry point for the CLI and API. It:
@@ -857,6 +1409,7 @@ def run_domain(config: RunConfig) -> Results:
     Returns:
         Results object with all simulation runs.
     """
+    _ensure_benchmark_mode(config)
     config.validate()
     ConsoleDisplay.display_run_config(config)
 
@@ -902,6 +1455,7 @@ def run_domain(config: RunConfig) -> Results:
         save_path=save_path,
         save_dir=save_dir,
         results_format=results_format,
+        agent_factory_override=agent_factory_override,
     )
 
     # Compute and display metrics
@@ -909,3 +1463,57 @@ def run_domain(config: RunConfig) -> Results:
     ConsoleDisplay.display_agent_metrics(metrics)
 
     return simulation_results
+
+
+def run_domain_evaluated(
+    config: RunConfig,
+    *,
+    evaluation_type: EvaluationType = EvaluationType.ALL,
+    score_policy: str = "evaluation_mean_v1",
+    agent_factory_override: Optional[Callable] = None,
+) -> EvaluatedResults:
+    """Run a domain through the evaluation-only path."""
+    _ensure_evaluation_only_mode(config)
+    config.validate()
+    ConsoleDisplay.display_run_config(config)
+
+    if isinstance(config, VoiceRunConfig):
+        warn_if_non_official_voices()
+
+    task_set_name = config.task_set_name or config.domain
+    tasks = get_tasks(
+        task_set_name=task_set_name,
+        task_split_name=config.task_split_name,
+        task_ids=config.task_ids,
+        num_tasks=config.num_tasks,
+    )
+
+    effective_agent = config.effective_agent
+    task_filter = registry.get_agent_task_filter(effective_agent)
+    if task_filter is not None and agent_factory_override is None:
+        total_num_tasks = len(tasks)
+        tasks = [task for task in tasks if task_filter(task)]
+        num_tasks = len(tasks)
+        console_text = Text(
+            text=f"Running {num_tasks} out of {total_num_tasks} tasks for {effective_agent} (filtered).",
+            style="bold green",
+        )
+        ConsoleDisplay.console.print(console_text)
+
+    run_name = config.save_to or make_run_name(config)
+    save_dir = DATA_DIR / "simulations" / f"{run_name}_evaluation_only"
+    save_path = save_dir / "results.json"
+
+    is_voice = isinstance(config, VoiceRunConfig)
+    results_format = "dir" if is_voice else "json"
+
+    return run_tasks_evaluated(
+        config,
+        tasks,
+        save_path=save_path,
+        save_dir=save_dir,
+        evaluation_type=evaluation_type,
+        score_policy=score_policy,
+        results_format=results_format,
+        agent_factory_override=agent_factory_override,
+    )

@@ -8,8 +8,10 @@ from tau2.config import (
     DEFAULT_LLM_ARGS_USER,
     DEFAULT_LLM_USER,
 )
-from tau2.data_model.simulation import RunConfig, TextRunConfig
+from tau2.data_model.simulation import RunConfig, SimulationRun, TextRunConfig
 from tau2.data_model.tasks import EnvAssertion, RewardType, Task, make_task
+from tau2.evaluator.evaluator import evaluate_simulation
+from tau2.orchestrator.modes import CommunicationMode
 from tau2.run import (
     EvaluationType,
     get_options,
@@ -272,48 +274,63 @@ def test_run_tasks_history_and_env_assertions(
 
 
 def test_run_tasks_nl_assertions(domain_name: str):
-    """Test running a task with the mock domain"""
+    """Test NL assertion evaluation on a deterministic transcript."""
     task = get_tasks(domain_name, task_ids=["create_task_1_nl_eval"])[0]
-    simulation = run_task(
-        domain=domain_name,
+    simulation_run = {
+        "id": "sim-nl-1",
+        "task_id": task.id,
+        "start_time": "2026-01-01T00:00:00",
+        "end_time": "2026-01-01T00:00:05",
+        "duration": 5.0,
+        "termination_reason": "agent_stop",
+        "messages": [
+            {
+                "role": "user",
+                "content": "Please create a new task called Important Meeting for user_1.",
+            },
+            {
+                "role": "assistant",
+                "content": "I created the Important Meeting task successfully.",
+            },
+            {
+                "role": "user",
+                "content": "Can I get a compliment too?",
+            },
+            {
+                "role": "assistant",
+                "content": "You did a great job organizing this.",
+            },
+        ],
+    }
+    simulation = SimulationRun.model_validate(simulation_run)
+    reward_info = evaluate_simulation(
+        simulation=simulation,
         task=task,
-        agent="llm_agent",
-        user="user_simulator",
-        llm_agent="gpt-3.5-turbo",
-        llm_args_agent={},
-        llm_user="gpt-3.5-turbo",
-        llm_args_user={},
         evaluation_type=EvaluationType.NL_ASSERTIONS,
+        solo_mode=False,
+        domain=domain_name,
+        mode=CommunicationMode.HALF_DUPLEX,
     )
-    # Check that simulation ran and has expected structure
-    assert simulation.messages is not None
-    assert len(simulation.messages) > 0
-    assert simulation.start_time is not None
-    assert simulation.end_time is not None
-    assert simulation.reward_info.reward == 1.0
-    assert len(simulation.reward_info.nl_assertions) == 2
-    assert simulation.reward_info.nl_assertions[0].met is True
-    assert simulation.reward_info.nl_assertions[1].met is True
+    assert reward_info.reward == 1.0
+    assert len(reward_info.nl_assertions) == 2
+    assert reward_info.nl_assertions[0].met is True
+    assert reward_info.nl_assertions[1].met is True
 
     # Add an nl_assertion that will fail and test that the reward is 0.0
     task.evaluation_criteria.nl_assertions.append("The user is not complimented")
-    simulation = run_task(
-        domain=domain_name,
+    reward_info = evaluate_simulation(
+        simulation=simulation,
         task=task,
-        agent="llm_agent",
-        user="user_simulator",
-        llm_agent="gpt-3.5-turbo",
-        llm_args_agent={},
-        llm_user="gpt-3.5-turbo",
-        llm_args_user={},
         evaluation_type=EvaluationType.NL_ASSERTIONS,
+        solo_mode=False,
+        domain=domain_name,
+        mode=CommunicationMode.HALF_DUPLEX,
     )
-    assert simulation.reward_info.reward == 0.0
-
-    assert len(simulation.reward_info.nl_assertions) == 3
-    assert simulation.reward_info.nl_assertions[0].met is True
-    assert simulation.reward_info.nl_assertions[1].met is True
-    assert simulation.reward_info.nl_assertions[2].met is False
+    assert reward_info.reward == 0.0
+    assert len(reward_info.nl_assertions) == 3
+    assert reward_info.nl_assertions[0].met is True
+    assert reward_info.nl_assertions[1].met is True
+    assert reward_info.nl_assertions[2].met is False
 
 
 @pytest.mark.xfail(
