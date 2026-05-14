@@ -6,13 +6,14 @@ import time
 import uuid
 import warnings
 from contextvars import ContextVar
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
 import httpx
 import litellm
-from litellm import completion, completion_cost
+from litellm import completion, completion_cost, responses
 from litellm.caching.caching import Cache
 from litellm.main import ModelResponse, Usage
 from loguru import logger
@@ -101,6 +102,8 @@ if LLM_CACHE_ENABLED:
 else:
     logger.info("LiteLLM: Cache is disabled")
     litellm.disable_cache()
+
+RESPONSES_API_MODES = {"responses", "response", "responses_api"}
 
 
 def _parse_ft_model_name(model: str) -> str:
@@ -352,6 +355,412 @@ def _write_llm_log(
         json.dump(call_data, f, indent=2)
 
 
+def _use_responses_api(kwargs: dict[str, Any]) -> bool:
+    api_mode = kwargs.get("api_mode")
+    if isinstance(api_mode, str) and api_mode.lower() in RESPONSES_API_MODES:
+        return True
+    use_responses_api = kwargs.get("use_responses_api")
+    return bool(use_responses_api)
+
+
+def _normalize_responses_model_name(model: str) -> str:
+    """
+    Normalize older locally documented model aliases before LiteLLM Responses calls.
+    """
+    if model.startswith("hosted_vllm/"):
+        return model[len("hosted_vllm/") :]
+    return model
+
+
+def _uses_official_openai_api_base(api_base: str) -> bool:
+    api_base = api_base.rstrip("/")
+    return api_base in {"https://api.openai.com", "https://api.openai.com/v1"}
+
+
+def _get_litellm_responses_model_name(model: str, api_base: str) -> str:
+    """
+    LiteLLM strips one provider prefix for OpenAI-compatible calls. Some
+    self-hosted endpoints expose model IDs that intentionally contain the
+    `openai/` prefix, so add the LiteLLM provider prefix without changing the
+    model ID sent to that endpoint.
+    """
+    normalized_model = _normalize_responses_model_name(model)
+    if (
+        not _uses_official_openai_api_base(api_base)
+        and normalized_model.startswith("openai/")
+        and not normalized_model.startswith("openai/openai/")
+    ):
+        return f"openai/{normalized_model}"
+    return normalized_model
+
+
+def _looks_like_gpt_oss_model(model: str) -> bool:
+    return "gpt-oss" in model.lower()
+
+
+def _responses_to_dict(response: Any) -> dict:
+    if isinstance(response, dict):
+        return response
+    for method_name in ("model_dump", "to_dict", "dict"):
+        method = getattr(response, method_name, None)
+        if callable(method):
+            data = method()
+            if isinstance(data, dict):
+                return data
+    json_method = getattr(response, "json", None)
+    if callable(json_method):
+        data = json.loads(json_method())
+        if isinstance(data, dict):
+            return data
+    raise TypeError(f"Unsupported LiteLLM Responses object: {type(response)}")
+
+
+def _get_responses_tools_schema(tools: list[Tool]) -> list[dict]:
+    responses_tools = []
+    for tool in tools:
+        schema = tool.openai_schema
+        function = schema.get("function") or {}
+        responses_tools.append(
+            {
+                "type": "function",
+                "name": function["name"],
+                "description": function.get("description"),
+                "parameters": function.get("parameters"),
+            }
+        )
+    return responses_tools
+
+
+def _get_responses_usage(response_data: dict) -> Optional[dict]:
+    usage = response_data.get("usage")
+    if not isinstance(usage, dict):
+        return None
+    return {
+        "completion_tokens": usage.get("output_tokens", 0),
+        "prompt_tokens": usage.get("input_tokens", 0),
+    }
+
+
+def _extract_responses_output_text(response_data: dict) -> Optional[str]:
+    output = response_data.get("output") or []
+    text_chunks: list[str] = []
+    for item in output:
+        if item.get("type") != "message":
+            continue
+        if item.get("role") != "assistant":
+            continue
+        for content_item in item.get("content") or []:
+            if content_item.get("type") in {"output_text", "text"}:
+                text = content_item.get("text")
+                if isinstance(text, str) and text.strip():
+                    text_chunks.append(text)
+    if text_chunks:
+        return "\n".join(text_chunks)
+    output_text = response_data.get("output_text")
+    if isinstance(output_text, str) and output_text.strip():
+        return output_text
+    return None
+
+
+def _extract_responses_tool_calls(response_data: dict) -> Optional[list[ToolCall]]:
+    output = response_data.get("output") or []
+    tool_calls: list[ToolCall] = []
+    for item in output:
+        if item.get("type") != "function_call":
+            continue
+        raw_arguments = item.get("arguments")
+        if isinstance(raw_arguments, str):
+            arguments = json.loads(raw_arguments)
+        elif isinstance(raw_arguments, dict):
+            arguments = raw_arguments
+        else:
+            arguments = {}
+        tool_calls.append(
+            ToolCall(
+                id=item.get("call_id") or item.get("id") or "",
+                name=item["name"],
+                arguments=arguments,
+            )
+        )
+    return tool_calls or None
+
+
+def _get_system_instructions(messages: list[Message]) -> Optional[str]:
+    instructions = [
+        message.content.strip()
+        for message in messages
+        if isinstance(message, SystemMessage)
+        and isinstance(message.content, str)
+        and message.content.strip()
+    ]
+    if not instructions:
+        return None
+    return "\n\n".join(instructions)
+
+
+def _assistant_message_to_responses_input(message: AssistantMessage) -> list[dict]:
+    raw_data = message.raw_data if isinstance(message.raw_data, dict) else None
+    if raw_data and raw_data.get("object") == "response":
+        output = raw_data.get("output")
+        if isinstance(output, list) and output:
+            return deepcopy(output)
+
+    input_items: list[dict] = []
+    if message.has_text_content():
+        input_items.append({"role": "assistant", "content": message.content})
+    if message.tool_calls:
+        for tool_call in message.tool_calls:
+            input_items.append(
+                {
+                    "type": "function_call",
+                    "call_id": tool_call.id,
+                    "name": tool_call.name,
+                    "arguments": json.dumps(tool_call.arguments),
+                }
+            )
+    return input_items
+
+
+def _message_to_responses_input(message: Message) -> list[dict]:
+    if isinstance(message, SystemMessage):
+        return []
+    if isinstance(message, UserMessage):
+        if message.has_text_content():
+            return [{"role": "user", "content": message.content}]
+        return []
+    if isinstance(message, AssistantMessage):
+        return _assistant_message_to_responses_input(message)
+    if isinstance(message, ToolMessage):
+        return [
+            {
+                "type": "function_call_output",
+                "call_id": message.id,
+                "output": message.content or "",
+            }
+        ]
+    if hasattr(message, "tool_messages"):
+        input_items: list[dict] = []
+        for tool_message in message.tool_messages:
+            input_items.extend(_message_to_responses_input(tool_message))
+        return input_items
+    raise ValueError(f"Unsupported message type for Responses API: {type(message)}")
+
+
+def _messages_to_responses_input(messages: list[Message]) -> list[dict]:
+    input_items: list[dict] = []
+    for message in messages:
+        input_items.extend(_message_to_responses_input(message))
+    return input_items
+
+
+def _get_previous_response_id(message: AssistantMessage) -> Optional[str]:
+    raw_data = message.raw_data if isinstance(message.raw_data, dict) else None
+    if raw_data and raw_data.get("object") == "response":
+        response_id = raw_data.get("id")
+        if isinstance(response_id, str) and response_id.strip():
+            return response_id
+    return None
+
+
+def _find_previous_response_anchor(
+    messages: list[Message],
+) -> Optional[tuple[int, str]]:
+    for idx in range(len(messages) - 1, -1, -1):
+        message = messages[idx]
+        if not isinstance(message, AssistantMessage):
+            continue
+        response_id = _get_previous_response_id(message)
+        if response_id is not None:
+            return idx, response_id
+    return None
+
+
+def _responses_request(
+    *,
+    model: str,
+    messages: list[Message],
+    tools: Optional[list[Tool]],
+    tool_choice: Optional[str],
+    call_name: Optional[str],
+    **kwargs: Any,
+) -> AssistantMessage:
+    request_kwargs = kwargs.copy()
+    request_kwargs.pop("api_mode", None)
+    request_kwargs.pop("use_responses_api", None)
+    request_kwargs.pop("litellm_interface", None)
+
+    if "max_tokens" in request_kwargs and "max_output_tokens" not in request_kwargs:
+        request_kwargs["max_output_tokens"] = request_kwargs.pop("max_tokens")
+
+    api_base = request_kwargs.pop(
+        "api_base", os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1")
+    )
+    api_key = request_kwargs.pop("api_key", os.environ.get("OPENAI_API_KEY"))
+    request_timeout = request_kwargs.pop("request_timeout", None)
+    if request_timeout is None:
+        request_timeout = request_kwargs.pop("timeout", 120)
+    empty_response_retries = int(request_kwargs.pop("empty_response_retries", 2) or 0)
+    num_retries = int(request_kwargs.pop("num_retries", DEFAULT_MAX_RETRIES) or 0)
+    normalized_model = _normalize_responses_model_name(model)
+    litellm_model = _get_litellm_responses_model_name(model, api_base)
+
+    if tool_choice == "required" and _looks_like_gpt_oss_model(normalized_model):
+        logger.warning(
+            "Responses API tool_choice='required' is not supported by Harmony-style "
+            "gpt-oss endpoints. Falling back to tool_choice='auto'."
+        )
+        tool_choice = "auto"
+
+    instructions = _get_system_instructions(messages)
+    previous_response_anchor = _find_previous_response_anchor(messages)
+    if previous_response_anchor is None:
+        anchored_response_id = None
+    else:
+        _, anchored_response_id = previous_response_anchor
+
+    responses_tools = _get_responses_tools_schema(tools) if tools else None
+    if responses_tools is not None and tool_choice is None:
+        tool_choice = "auto"
+    if responses_tools is not None and "parallel_tool_calls" not in request_kwargs:
+        request_kwargs["parallel_tool_calls"] = True
+    effective_tool_choice = tool_choice
+
+    def build_payload(
+        use_previous_response_id: bool,
+    ) -> tuple[dict[str, Any], Optional[str], list[dict]]:
+        if use_previous_response_id and previous_response_anchor is not None:
+            anchor_idx, previous_response_id = previous_response_anchor
+            input_items = _messages_to_responses_input(messages[anchor_idx + 1 :])
+        else:
+            previous_response_id = None
+            input_items = _messages_to_responses_input(messages)
+
+        payload: dict[str, Any] = {
+            "model": litellm_model,
+            "input": input_items,
+        }
+        if instructions is not None:
+            payload["instructions"] = instructions
+        if previous_response_id is not None:
+            payload["previous_response_id"] = previous_response_id
+        if responses_tools is not None:
+            payload["tools"] = responses_tools
+        if effective_tool_choice is not None:
+            payload["tool_choice"] = effective_tool_choice
+        payload.update(request_kwargs)
+        return payload, previous_response_id, input_items
+
+    payload, previous_response_id, input_items = build_payload(
+        use_previous_response_id=anchored_response_id is not None
+    )
+
+    request_data = {
+        "model": normalized_model,
+        "litellm_model": litellm_model,
+        "instructions": instructions,
+        "input": _format_messages_for_logging(input_items),
+        "tools": responses_tools,
+        "tool_choice": effective_tool_choice,
+        "previous_response_id": previous_response_id,
+        "kwargs": {
+            k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+            for k, v in request_kwargs.items()
+        },
+    }
+    request_timestamp = datetime.now().isoformat()
+
+    start_time = time.perf_counter()
+    response_data: Optional[dict] = None
+    empty_response_attempt = 0
+    for attempt in range(num_retries + 1):
+        try:
+            response = responses(
+                input=payload["input"],
+                model=payload["model"],
+                instructions=payload.get("instructions"),
+                previous_response_id=payload.get("previous_response_id"),
+                tools=payload.get("tools"),
+                tool_choice=payload.get("tool_choice"),
+                timeout=request_timeout,
+                api_base=api_base,
+                api_key=api_key,
+                **request_kwargs,
+            )
+            candidate_response_data = _responses_to_dict(response)
+            candidate_content = _extract_responses_output_text(candidate_response_data)
+            candidate_tool_calls = _extract_responses_tool_calls(candidate_response_data)
+            if candidate_content is None and candidate_tool_calls is None:
+                if empty_response_attempt < empty_response_retries:
+                    empty_response_attempt += 1
+                    logger.warning(
+                        "Responses API returned neither content nor tool calls. "
+                        f"Retrying the same turn ({empty_response_attempt}/"
+                        f"{empty_response_retries})."
+                    )
+                    time.sleep(min(0.5 * (2**(empty_response_attempt - 1)), 2))
+                    continue
+                raise RuntimeError(
+                    "Responses API returned neither content nor tool calls after "
+                    f"{empty_response_attempt + 1} attempts."
+                )
+            response_data = candidate_response_data
+            break
+        except Exception as exc:
+            if previous_response_id is not None and "response_id" in str(exc):
+                logger.warning(
+                    "Responses API previous_response_id "
+                    f"{previous_response_id} was not found. "
+                    "Retrying with full reconstructed history."
+                )
+                payload, previous_response_id, input_items = build_payload(
+                    use_previous_response_id=False
+                )
+                request_data["input"] = _format_messages_for_logging(input_items)
+                request_data["previous_response_id"] = None
+                continue
+            if attempt >= num_retries:
+                raise
+            time.sleep(min(2**attempt, 5))
+
+    assert response_data is not None, "Responses API request returned no data"
+
+    generation_time_seconds = time.perf_counter() - start_time
+    usage = _get_responses_usage(response_data)
+    content = _extract_responses_output_text(response_data)
+    tool_calls = _extract_responses_tool_calls(response_data)
+
+    # tau2 half-duplex enforces one action type per turn.
+    if tool_calls:
+        content = None
+
+    message = AssistantMessage(
+        role="assistant",
+        content=content,
+        tool_calls=tool_calls,
+        cost=0.0,
+        usage=usage,
+        raw_data=response_data,
+        generation_time_seconds=generation_time_seconds,
+    )
+
+    response_data_for_log = {
+        "timestamp": datetime.now().isoformat(),
+        "response_id": response_data.get("id"),
+        "status": response_data.get("status"),
+        "content": content,
+        "tool_calls": [tc.model_dump() for tc in tool_calls] if tool_calls else None,
+        "usage": usage,
+        "generation_time_seconds": generation_time_seconds,
+        "output_item_types": [
+            item.get("type") for item in response_data.get("output") or []
+        ],
+    }
+    request_data["timestamp"] = request_timestamp
+    _write_llm_log(request_data, response_data_for_log, call_name=call_name)
+
+    return message
+
+
 def generate(
     model: str,
     messages: list[Message],
@@ -376,6 +785,7 @@ def generate(
     Returns: A tuple containing the message and the cost.
     """
     validate_message_history(messages)
+    kwargs = kwargs.copy()
     if kwargs.get("num_retries") is None:
         kwargs["num_retries"] = DEFAULT_MAX_RETRIES
 
@@ -384,6 +794,16 @@ def generate(
         "VERTEXAI_LOCATION"
     ):
         os.environ["VERTEXAI_LOCATION"] = "global"
+
+    if _use_responses_api(kwargs):
+        return _responses_request(
+            model=model,
+            messages=messages,
+            tools=tools,
+            tool_choice=tool_choice,
+            call_name=call_name,
+            **kwargs,
+        )
 
     litellm_messages = to_litellm_messages(messages)
     tools_schema = [tool.openai_schema for tool in tools] if tools else None
