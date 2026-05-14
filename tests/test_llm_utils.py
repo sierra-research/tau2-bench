@@ -138,6 +138,115 @@ def test_generate_responses_api_text(
     ]
 
 
+def test_generate_responses_api_calculates_cost(
+    monkeypatch: pytest.MonkeyPatch, messages: list[Message]
+):
+    captured_cost_kwargs: dict = {}
+
+    def fake_responses(**kwargs):
+        return {
+            "id": "resp_cost_1",
+            "object": "response",
+            "status": "completed",
+            "output": [
+                {
+                    "id": "msg_cost_1",
+                    "type": "message",
+                    "role": "assistant",
+                    "status": "completed",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": "Costed response.",
+                            "annotations": [],
+                        }
+                    ],
+                }
+            ],
+            "usage": {"input_tokens": 9, "output_tokens": 3},
+        }
+
+    def fake_completion_cost(**kwargs):
+        captured_cost_kwargs.update(kwargs)
+        return 0.123
+
+    monkeypatch.setattr(llm_utils, "responses", fake_responses)
+    monkeypatch.setattr(llm_utils, "completion_cost", fake_completion_cost)
+
+    response = generate(
+        "gpt-4.1-2025-04-14",
+        messages,
+        api_mode="responses",
+        temperature=0,
+    )
+
+    assert response.content == "Costed response."
+    assert response.cost == pytest.approx(0.123)
+    assert captured_cost_kwargs["call_type"] == "responses"
+    assert captured_cost_kwargs["model"] == "gpt-4.1-2025-04-14"
+    assert captured_cost_kwargs["optional_params"]["temperature"] == 0
+
+
+def test_generate_responses_api_supports_custom_pricing(
+    monkeypatch: pytest.MonkeyPatch, messages: list[Message]
+):
+    captured_payloads: list[dict] = []
+    captured_cost_kwargs: dict = {}
+
+    def fake_responses(**kwargs):
+        captured_payloads.append(kwargs)
+        return {
+            "id": "resp_cost_2",
+            "object": "response",
+            "status": "completed",
+            "output": [
+                {
+                    "id": "msg_cost_2",
+                    "type": "message",
+                    "role": "assistant",
+                    "status": "completed",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": "Custom priced response.",
+                            "annotations": [],
+                        }
+                    ],
+                }
+            ],
+            "usage": {"input_tokens": 11, "output_tokens": 7},
+        }
+
+    def fake_completion_cost(**kwargs):
+        captured_cost_kwargs.update(kwargs)
+        return 0.000025
+
+    monkeypatch.setattr(llm_utils, "responses", fake_responses)
+    monkeypatch.setattr(llm_utils, "completion_cost", fake_completion_cost)
+
+    response = generate(
+        "openai/gpt-oss-20b",
+        messages,
+        api_mode="responses",
+        api_base="http://example.test/v1",
+        api_key="EMPTY",
+        temperature=0,
+        input_cost_per_token=1e-6,
+        output_cost_per_token=2e-6,
+    )
+
+    assert response.content == "Custom priced response."
+    assert response.cost == pytest.approx(0.000025)
+    assert "input_cost_per_token" not in captured_payloads[0]
+    assert "output_cost_per_token" not in captured_payloads[0]
+    assert captured_cost_kwargs["call_type"] == "responses"
+    assert captured_cost_kwargs["model"] == "openai/openai/gpt-oss-20b"
+    assert captured_cost_kwargs["custom_cost_per_token"] == {
+        "input_cost_per_token": 1e-6,
+        "output_cost_per_token": 2e-6,
+    }
+
+
 def test_generate_responses_api_tool_call_follow_up(
     monkeypatch: pytest.MonkeyPatch,
     tool_call_messages: list[Message],
@@ -467,3 +576,17 @@ def test_generate_responses_api_converts_required_tool_choice_for_gpt_oss(
     assert response.tool_calls is not None
     assert response.tool_calls[0].name == "calculate_square"
     assert captured_payloads[0]["tool_choice"] == "auto"
+
+
+def test_get_cost_preserves_known_side_when_other_side_is_unknown():
+    messages = [
+        SystemMessage(role="system", content="You are a helpful assistant."),
+        AssistantMessage(role="assistant", content="Hello", cost=None),
+        UserMessage(role="user", content="Hi", cost=1.25),
+        ToolMessage(role="tool", id="tool_1", content="ignored"),
+    ]
+
+    agent_cost, user_cost = llm_utils.get_cost(messages)
+
+    assert agent_cost is None
+    assert user_cost == pytest.approx(1.25)

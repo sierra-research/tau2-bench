@@ -565,11 +565,7 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
 
         # Derive messages for cost computation (not stored in SimulationRun)
         ticks = self.get_trajectory()
-        res = get_cost(self.get_messages())
-        if res is None:
-            agent_cost, user_cost = None, None
-        else:
-            agent_cost, user_cost = res
+        agent_cost, user_cost = get_cost(self.get_messages())
 
         # Get speech_environment from user's voice_settings if available
         speech_environment = None

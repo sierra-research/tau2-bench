@@ -1,5 +1,43 @@
 # CORAL Change Log
 
+## 2026-05-14 Tau2 Responses Cost Accounting Fix
+
+Status: committed on `bianca/tau2-eval-refactor`.
+
+### Files changed
+
+- `src/tau2/orchestrator/full_duplex_orchestrator.py`
+- `src/tau2/orchestrator/orchestrator.py`
+- `src/tau2/utils/llm_utils.py`
+- `tests/test_llm_utils.py`
+
+### Summary
+
+- Fixed Responses-mode agent cost accounting so assistant messages no longer hardcode `cost=0.0`.
+- Added a shared LiteLLM cost helper for completions and Responses calls that:
+  - normalizes fine-tuned model names before pricing,
+  - supports `call_type="responses"`,
+  - returns `None` when pricing is unavailable instead of incorrectly reporting zero cost.
+- Added optional custom token pricing passthrough via `input_cost_per_token` and `output_cost_per_token` for unmapped models such as self-hosted GPT-OSS endpoints.
+- Updated aggregate cost computation to track agent and user totals independently, so unknown agent cost no longer wipes out known user-simulator cost.
+- Updated orchestrator finalization to use the new per-side cost aggregation.
+- Added regression coverage for:
+  - Responses cost calculation on priced OpenAI models,
+  - custom pricing passthrough for unmapped Responses models,
+  - preserving known user cost when agent cost is unknown.
+
+### Verification
+
+- `uv run pytest tests/test_llm_utils.py -q`
+  - `11 passed`
+- `uv run pytest tests/test_orchestrator.py -q`
+  - `13 passed`
+- `uv run python -m ruff check src/tau2/utils/llm_utils.py src/tau2/orchestrator/orchestrator.py src/tau2/orchestrator/full_duplex_orchestrator.py tests/test_llm_utils.py`
+  - clean
+- `uv run pytest tests -q --ignore=tests/test_gym --ignore=tests/test_streaming/test_discrete_time_audio_native_agent.py --ignore=tests/test_streaming/test_voice_streaming_user_simulator.py --ignore=tests/test_voice`
+  - `793 passed, 44 skipped, 2 xfailed, 1 xpassed, 2 failed`
+  - remaining failures are audio-native streaming tests in `tests/test_streaming/test_run_streaming.py`, blocked by the missing optional `websockets` dependency in this environment
+
 ## 2026-05-13 Local Tau2-Bench Changes
 
 Status: committed on `bianca/tau2-eval-refactor` as `172849c`.

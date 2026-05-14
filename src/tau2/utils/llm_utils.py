@@ -119,19 +119,74 @@ def _parse_ft_model_name(model: str) -> str:
         return model
 
 
-def get_response_cost(response: ModelResponse) -> float:
-    """
-    Get the cost of the response from the litellm completion.
-    """
-    response.model = _parse_ft_model_name(
-        response.model
-    )  # FIXME: Check Litellm, passing the model to completion_cost doesn't work.
+def _normalize_response_model_for_cost(response: Any) -> None:
+    if isinstance(response, dict):
+        model = response.get("model")
+        if isinstance(model, str):
+            response["model"] = _parse_ft_model_name(model)
+        return
+
+    model = getattr(response, "model", None)
+    if isinstance(model, str):
+        response.model = _parse_ft_model_name(model)
+
+
+def _pop_custom_cost_per_token(
+    request_kwargs: dict[str, Any],
+) -> Optional[dict[str, float]]:
+    input_cost_per_token = request_kwargs.pop("input_cost_per_token", None)
+    output_cost_per_token = request_kwargs.pop("output_cost_per_token", None)
+    if input_cost_per_token is None and output_cost_per_token is None:
+        return None
+    if input_cost_per_token is None or output_cost_per_token is None:
+        logger.warning(
+            "Ignoring incomplete custom token pricing. "
+            "Both input_cost_per_token and output_cost_per_token are required."
+        )
+        return None
     try:
-        cost = completion_cost(completion_response=response)
+        return {
+            "input_cost_per_token": float(input_cost_per_token),
+            "output_cost_per_token": float(output_cost_per_token),
+        }
+    except (TypeError, ValueError):
+        logger.warning(
+            "Ignoring invalid custom token pricing: "
+            f"input_cost_per_token={input_cost_per_token!r}, "
+            f"output_cost_per_token={output_cost_per_token!r}."
+        )
+        return None
+
+
+def get_response_cost(
+    response: Any,
+    *,
+    model: Optional[str] = None,
+    call_type: Optional[str] = None,
+    optional_params: Optional[dict[str, Any]] = None,
+    custom_cost_per_token: Optional[dict[str, float]] = None,
+) -> Optional[float]:
+    """
+    Get the cost of the response from LiteLLM.
+    Returns ``None`` when pricing is unavailable.
+    """
+    _normalize_response_model_for_cost(response)
+    model_name = _parse_ft_model_name(model) if isinstance(model, str) else None
+    try:
+        return completion_cost(
+            completion_response=response,
+            model=model_name,
+            call_type=call_type,
+            optional_params=optional_params,
+            custom_cost_per_token=custom_cost_per_token,
+            base_model=optional_params.get("base_model") if optional_params else None,
+            service_tier=(
+                optional_params.get("service_tier") if optional_params else None
+            ),
+        )
     except Exception as e:
-        logger.error(e)
-        return 0.0
-    return cost
+        logger.warning(f"Could not calculate response cost: {e}")
+        return None
 
 
 def get_response_usage(response: ModelResponse) -> Optional[dict]:
@@ -585,9 +640,12 @@ def _responses_request(
     **kwargs: Any,
 ) -> AssistantMessage:
     request_kwargs = kwargs.copy()
+    custom_cost_per_token = request_kwargs.pop("_custom_cost_per_token", None)
     request_kwargs.pop("api_mode", None)
     request_kwargs.pop("use_responses_api", None)
     request_kwargs.pop("litellm_interface", None)
+    if custom_cost_per_token is None:
+        custom_cost_per_token = _pop_custom_cost_per_token(request_kwargs)
 
     if "max_tokens" in request_kwargs and "max_output_tokens" not in request_kwargs:
         request_kwargs["max_output_tokens"] = request_kwargs.pop("max_tokens")
@@ -667,10 +725,13 @@ def _responses_request(
             for k, v in request_kwargs.items()
         },
     }
+    if custom_cost_per_token is not None:
+        request_data["custom_cost_per_token"] = custom_cost_per_token
     request_timestamp = datetime.now().isoformat()
 
     start_time = time.perf_counter()
     response_data: Optional[dict] = None
+    cost: Optional[float] = None
     empty_response_attempt = 0
     for attempt in range(num_retries + 1):
         try:
@@ -703,6 +764,13 @@ def _responses_request(
                     "Responses API returned neither content nor tool calls after "
                     f"{empty_response_attempt + 1} attempts."
                 )
+            cost = get_response_cost(
+                response,
+                model=litellm_model,
+                call_type="responses",
+                optional_params=request_kwargs,
+                custom_cost_per_token=custom_cost_per_token,
+            )
             response_data = candidate_response_data
             break
         except Exception as exc:
@@ -737,7 +805,7 @@ def _responses_request(
         role="assistant",
         content=content,
         tool_calls=tool_calls,
-        cost=0.0,
+        cost=cost,
         usage=usage,
         raw_data=response_data,
         generation_time_seconds=generation_time_seconds,
@@ -749,6 +817,7 @@ def _responses_request(
         "status": response_data.get("status"),
         "content": content,
         "tool_calls": [tc.model_dump() for tc in tool_calls] if tool_calls else None,
+        "cost": cost,
         "usage": usage,
         "generation_time_seconds": generation_time_seconds,
         "output_item_types": [
@@ -788,6 +857,7 @@ def generate(
     kwargs = kwargs.copy()
     if kwargs.get("num_retries") is None:
         kwargs["num_retries"] = DEFAULT_MAX_RETRIES
+    custom_cost_per_token = _pop_custom_cost_per_token(kwargs)
 
     # Vertex AI Gemini 3 models require VERTEXAI_LOCATION="global"
     if model.startswith("vertex_ai/gemini-3") and not os.environ.get(
@@ -802,6 +872,7 @@ def generate(
             tools=tools,
             tool_choice=tool_choice,
             call_name=call_name,
+            _custom_cost_per_token=custom_cost_per_token,
             **kwargs,
         )
 
@@ -822,6 +893,8 @@ def generate(
             for k, v in kwargs.items()
         },
     }
+    if custom_cost_per_token is not None:
+        request_data["custom_cost_per_token"] = custom_cost_per_token
     request_timestamp = datetime.now().isoformat()
 
     start_time = time.perf_counter()
@@ -837,7 +910,12 @@ def generate(
         logger.error(e)
         raise e
     generation_time_seconds = time.perf_counter() - start_time
-    cost = get_response_cost(response)
+    cost = get_response_cost(
+        response,
+        call_type="completion",
+        optional_params=kwargs,
+        custom_cost_per_token=custom_cost_per_token,
+    )
     usage = get_response_usage(response)
 
     response_choice = response.choices[0]
@@ -889,25 +967,36 @@ def generate(
     return message
 
 
-def get_cost(messages: list[Message]) -> tuple[float, float] | None:
+def get_cost(messages: list[Message]) -> tuple[float | None, float | None]:
     """
     Get the cost of the interaction between the agent and the user.
-    Returns None if any message has no cost.
+    Returns independent totals for agent and user messages. If a side has at least
+    one message with unknown cost, that side returns ``None``.
     """
-    agent_cost = 0
-    user_cost = 0
+    agent_cost = 0.0
+    user_cost = 0.0
+    missing_agent_cost = False
+    missing_user_cost = False
     for message in messages:
-        if isinstance(message, ToolMessage):
+        if isinstance(message, (SystemMessage, ToolMessage)):
             continue
-        if message.cost is not None:
-            if isinstance(message, AssistantMessage):
-                agent_cost += message.cost
-            elif isinstance(message, UserMessage):
-                user_cost += message.cost
-        else:
+        if not isinstance(message, (AssistantMessage, UserMessage)):
+            continue
+        if message.cost is None:
             logger.warning(f"Message {message.role}: {message.content} has no cost")
-            return None
-    return agent_cost, user_cost
+            if isinstance(message, AssistantMessage):
+                missing_agent_cost = True
+            else:
+                missing_user_cost = True
+            continue
+        if isinstance(message, AssistantMessage):
+            agent_cost += message.cost
+        else:
+            user_cost += message.cost
+    return (
+        None if missing_agent_cost else agent_cost,
+        None if missing_user_cost else user_cost,
+    )
 
 
 def get_token_usage(messages: list[Message]) -> dict:
