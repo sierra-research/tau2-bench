@@ -14,6 +14,8 @@ from tau2.agent.llm_agent import (
     create_llm_gt_agent,
     create_llm_solo_agent,
 )
+from tau2.agent.promoted.bootstrap import register_promoted_agents
+from tau2.agent.staged.bootstrap import register_staged_agents
 from tau2.data_model.tasks import Task
 from tau2.domains.airline.environment import (
     get_environment as airline_domain_get_environment,
@@ -346,6 +348,9 @@ try:
 
     registry.register_domain(knowledge_domain_get_environment, "banking_knowledge")
     registry.register_tasks(knowledge_domain_get_tasks, "banking_knowledge")
+
+    register_staged_agents(registry, skip_existing=True)
+    register_promoted_agents(registry, skip_existing=True)
 
     logger.debug(
         f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}"

@@ -1,5 +1,44 @@
 # CORAL Change Log
 
+## 2026-05-15 Tau2 Manifest-Managed CORAL Retail Agent Registration
+
+Status: committed on `bianca/tau2-eval-refactor`.
+
+### Files changed
+
+- `src/tau2/agent/manifest_bootstrap.py`
+- `src/tau2/agent/promoted/__init__.py`
+- `src/tau2/agent/promoted/bootstrap.py`
+- `src/tau2/agent/promoted/llm_agent__retail__coral__051a161/*`
+- `src/tau2/agent/promoted/manifest.json`
+- `src/tau2/agent/staged/__init__.py`
+- `src/tau2/agent/staged/bootstrap.py`
+- `src/tau2/agent/staged/llm_agent__retail__coral_candidate__051a161/*`
+- `src/tau2/agent/staged/manifest.json`
+- `src/tau2/registry.py`
+- `tests/test_manifest_bootstrap.py`
+
+### Summary
+
+- Added a manifest-driven bootstrap path for externally managed Tau2 agents.
+- Registered staged and promoted manifest agents during default registry initialization.
+- Vendored only the evolved CORAL retail candidate/promoted agent snapshot `051a161`.
+- Removed the raw seed snapshot `a438b3e` from the staged/promoted manifests and source tree so Tau2 no longer exposes the unevolved seed as a managed candidate or promoted agent.
+- Added regression coverage for:
+  - manifest loading from both bare-list and object-wrapped JSON formats,
+  - successful factory registration and metadata propagation,
+  - duplicate-name rejection.
+
+### Verification
+
+- `uv run pytest tests/test_manifest_bootstrap.py tests/test_llm_utils.py tests/test_orchestrator.py tests/test_checkpoint.py tests/test_evaluation_mode.py tests/test_results_format.py tests/test_run.py -q`
+  - `102 passed, 1 xfailed`
+- `uv run python -m ruff check src/tau2/registry.py src/tau2/agent/manifest_bootstrap.py src/tau2/agent/staged src/tau2/agent/promoted tests/test_manifest_bootstrap.py src/tau2/utils/llm_utils.py src/tau2/orchestrator/orchestrator.py src/tau2/orchestrator/full_duplex_orchestrator.py tests/test_llm_utils.py tests/test_checkpoint.py tests/test_evaluation_mode.py tests/test_results_format.py tests/test_run.py`
+  - clean
+- `uv run python -c "from tau2.registry import registry; ..."`
+  - confirmed `llm_agent__retail__coral_candidate__051a161` and `llm_agent__retail__coral__051a161` register
+  - confirmed `llm_agent__retail__coral_candidate__a438b3e` and `llm_agent__retail__coral__a438b3e` do not register
+
 ## 2026-05-14 Tau2 External Candidate Public Task View
 
 Status: committed on `bianca/tau2-eval-refactor`.
