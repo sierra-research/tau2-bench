@@ -29,7 +29,7 @@ from tau2.data_model.simulation import (
     TextRunConfig,
     VoiceRunConfig,
 )
-from tau2.data_model.tasks import EnvAssertion, Task, make_task
+from tau2.data_model.tasks import EnvAssertion, RewardType, Task, make_task
 from tau2.run import (
     EvaluationType,
     get_tasks,
@@ -307,8 +307,7 @@ def test_run_tasks_env_assertions_audio_native(
     assert len(simulation.get_messages()) > 0
     assert simulation.start_time is not None
     assert simulation.end_time is not None
-    # These assertions can fail if model is not good enough
-    assert simulation.reward_info.reward == 1.0
+    assert simulation.reward_info.reward_breakdown[RewardType.ENV_ASSERTION] == 1.0
     assert len(simulation.reward_info.env_assertions) == 1
     assert simulation.reward_info.env_assertions[0].met is True
 
@@ -332,7 +331,7 @@ def test_run_tasks_env_assertions_audio_native(
         evaluation_type=EvaluationType.ENV,
         audio_native_config=audio_native_config,
     )
-    assert simulation.reward_info.reward == 0.0
+    assert simulation.reward_info.reward_breakdown[RewardType.ENV_ASSERTION] == 0.0
     assert len(simulation.reward_info.env_assertions) == 2
     assert simulation.reward_info.env_assertions[0].met is True
     assert simulation.reward_info.env_assertions[1].met is False

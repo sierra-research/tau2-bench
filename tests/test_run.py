@@ -227,8 +227,10 @@ def test_run_tasks_env_assertions(domain_name: str, task_with_env_assertions: Ta
     assert len(simulation.messages) > 0
     assert simulation.start_time is not None
     assert simulation.end_time is not None
-    # These assertions can fail if model is not good enough
-    assert simulation.reward_info.reward == 1.0
+    # ENV evaluation still includes DB when the task reward_basis includes DB.
+    # This test is specifically about env assertion handling, so assert on that
+    # component directly rather than the aggregate reward.
+    assert simulation.reward_info.reward_breakdown[RewardType.ENV_ASSERTION] == 1.0
     assert len(simulation.reward_info.env_assertions) == 1
     assert simulation.reward_info.env_assertions[0].met is True
     # Add an env_assertion that will fail and test that the reward is 0.0
@@ -250,7 +252,7 @@ def test_run_tasks_env_assertions(domain_name: str, task_with_env_assertions: Ta
         llm_args_user={},
         evaluation_type=EvaluationType.ENV,
     )
-    assert simulation.reward_info.reward == 0.0
+    assert simulation.reward_info.reward_breakdown[RewardType.ENV_ASSERTION] == 0.0
     assert len(simulation.reward_info.env_assertions) == 2
     assert simulation.reward_info.env_assertions[0].met is True
     assert simulation.reward_info.env_assertions[1].met is False

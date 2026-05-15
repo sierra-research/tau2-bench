@@ -35,6 +35,10 @@ requires_all_tools_deps = pytest.mark.skipif(
     not os.environ.get("OPENAI_API_KEY") or shutil.which("srt") is None,
     reason="alltools requires OPENAI_API_KEY and sandbox-runtime (srt)",
 )
+requires_all_tools_openrouter_deps = pytest.mark.skipif(
+    not os.environ.get("OPENROUTER_API_KEY") or shutil.which("srt") is None,
+    reason="alltools-qwen requires OPENROUTER_API_KEY and sandbox-runtime (srt)",
+)
 DOCUMENTS: List[Dict[str, Any]] = [
     {
         "id": "doc_mortgage",
@@ -128,6 +132,11 @@ _ALL_VARIANTS = [
         {"KB_search_bm25", "KB_search_dense", "shell"},
         "all_tools",
     ),
+    (
+        "alltools-qwen",
+        {"KB_search_bm25", "KB_search_dense", "shell"},
+        "all_tools_openrouter",
+    ),
 ]
 
 
@@ -140,6 +149,8 @@ def _api_mark(gate):
         return requires_sandbox_runtime
     if gate == "all_tools":
         return requires_all_tools_deps
+    if gate == "all_tools_openrouter":
+        return requires_all_tools_openrouter_deps
     return pytest.mark.skipif(False, reason="")
 
 
