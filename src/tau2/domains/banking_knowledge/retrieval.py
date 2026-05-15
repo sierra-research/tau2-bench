@@ -30,6 +30,7 @@ from typing import (
 
 from tau2.domains.banking_knowledge.data_model import KnowledgeBase, TransactionalDB
 from tau2.domains.banking_knowledge.retrieval_toolkits import (
+    KnowledgeToolsAllTools,
     KnowledgeToolsPlain,
     KnowledgeToolsWithGrep,
     KnowledgeToolsWithKBSearch,
@@ -55,8 +56,34 @@ PROMPTS_DIR = DATA_DIR / "tau2" / "domains" / "banking_knowledge" / "prompts"
 COMPONENTS_DIR = PROMPTS_DIR / "components"
 
 # Default variant used when no explicit retrieval_variant is provided.
-# Using bm25 so that banking_knowledge works out of the box without API keys.
-DEFAULT_RETRIEVAL_VARIANT = "bm25"
+DEFAULT_RETRIEVAL_VARIANT = "alltools"
+
+DEFAULT_DENSE_EMBEDDING_MODEL_OPENAI = "text-embedding-3-large"
+DEFAULT_DENSE_EMBEDDING_MODEL_OPENROUTER = "qwen3-embedding-8b"
+
+
+def format_all_tools_dense_instructions(variant: "RetrievalVariant") -> str:
+    """Markdown snippet describing the dense retrieval backend for the AllTools prompt."""
+    if variant.kb_search_dense is None:
+        return ""
+
+    embedder_type = variant.kb_search_dense.embedder_type
+    model = variant.kb_search_dense.embedder_model
+    if embedder_type == "openai":
+        provider = "OpenAI API"
+        model = model or DEFAULT_DENSE_EMBEDDING_MODEL_OPENAI
+    elif embedder_type == "openrouter":
+        provider = "OpenRouter"
+        model = model or DEFAULT_DENSE_EMBEDDING_MODEL_OPENROUTER
+    else:
+        provider = embedder_type or "the configured embedding provider"
+        model = model or "the configured embedding model"
+
+    return (
+        f"The `KB_search_dense` tool uses **{provider}** with embedding model "
+        f"`{model}` for dense retrieval."
+    )
+
 
 # ---------------------------------------------------------------------------
 # Prompt template loading (moved from retrieval_config.py, unchanged)
@@ -371,9 +398,33 @@ class RetrievalVariant:
     prompt_template: Path
     build_prompt: PromptBuilder
     kb_search: Optional[PipelineSpec] = None  # None -> no KB_search tool
+    kb_search_bm25: Optional[PipelineSpec] = None  # AllTools: BM25 KB_search_bm25
+    kb_search_dense: Optional[PipelineSpec] = None  # AllTools: dense KB_search_dense
     grep: Optional[GrepSpec] = None  # None -> no grep tool
     shell: Optional[ShellSpec] = None  # None -> no shell tool
     supports_top_k: bool = False
+
+
+def all_tools_variant(
+    name: str,
+    *,
+    embedder_type: str,
+    embedder_model: str,
+) -> RetrievalVariant:
+    """Create an AllTools variant with a concrete dense embedding backend."""
+    return RetrievalVariant(
+        name=name,
+        prompt_template=PROMPTS_DIR / "all_tools.md",
+        build_prompt=standard_prompt,
+        kb_search_bm25=PipelineSpec(type="bm25"),
+        kb_search_dense=PipelineSpec(
+            type="embedding",
+            embedder_type=embedder_type,
+            embedder_model=embedder_model,
+        ),
+        shell=ShellSpec(allow_writes=False),
+        supports_top_k=False,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -541,6 +592,20 @@ RETRIEVAL_VARIANTS: Dict[str, RetrievalVariant] = {
         build_prompt=standard_prompt,
         shell=ShellSpec(allow_writes=True),
     ),
+    "alltools": all_tools_variant(
+        "alltools",
+        embedder_type="openai",
+        embedder_model=DEFAULT_DENSE_EMBEDDING_MODEL_OPENAI,
+    ),
+    "alltools-qwen": all_tools_variant(
+        "alltools-qwen",
+        embedder_type="openrouter",
+        embedder_model=DEFAULT_DENSE_EMBEDDING_MODEL_OPENROUTER,
+    ),
+}
+
+RETRIEVAL_VARIANT_ALIASES = {
+    "AllTools": "alltools",
 }
 
 
@@ -587,24 +652,33 @@ def resolve_variant(
     Raises:
         ValueError: If the variant name is not found.
     """
-    if name not in RETRIEVAL_VARIANTS:
+    canonical_name = RETRIEVAL_VARIANT_ALIASES.get(name, name)
+    if canonical_name not in RETRIEVAL_VARIANTS:
         available = sorted(RETRIEVAL_VARIANTS.keys())
         raise ValueError(f"Unknown retrieval variant: {name!r}. Available: {available}")
 
     # Shallow-copy the registered variant so overrides don't mutate the registry.
     import copy
 
-    variant = copy.deepcopy(RETRIEVAL_VARIANTS[name])
+    variant = copy.deepcopy(RETRIEVAL_VARIANTS[canonical_name])
 
     # Apply optional overrides to pipeline specs.
     if top_k is not None and variant.kb_search is not None:
         variant.kb_search.top_k = top_k
+    if top_k is not None and variant.kb_search_bm25 is not None:
+        variant.kb_search_bm25.top_k = top_k
+    if top_k is not None and variant.kb_search_dense is not None:
+        variant.kb_search_dense.top_k = top_k
     if grep_top_k is not None and variant.grep is not None:
         variant.grep.top_k = grep_top_k
     if case_sensitive is not None and variant.grep is not None:
         variant.grep.case_sensitive = case_sensitive
     if reranker_min_score is not None and variant.kb_search is not None:
         variant.kb_search.reranker_min_score = reranker_min_score
+    if reranker_min_score is not None and variant.kb_search_bm25 is not None:
+        variant.kb_search_bm25.reranker_min_score = reranker_min_score
+    if reranker_min_score is not None and variant.kb_search_dense is not None:
+        variant.kb_search_dense.reranker_min_score = reranker_min_score
 
     return variant
 
@@ -674,6 +748,17 @@ def build_tools(
     capabilities the variant requires, creates the backing pipelines /
     sandboxes, and returns a fully initialized toolkit.
     """
+    has_all_tools = (
+        variant.kb_search_bm25 is not None
+        and variant.kb_search_dense is not None
+        and variant.shell is not None
+    )
+    if has_all_tools:
+        bm25_pipeline = _create_kb_pipeline(variant.kb_search_bm25, knowledge_base)
+        dense_pipeline = _create_kb_pipeline(variant.kb_search_dense, knowledge_base)
+        sandbox = _create_sandbox(knowledge_base, variant.shell)
+        return KnowledgeToolsAllTools(db, bm25_pipeline, dense_pipeline, sandbox)
+
     has_kb = variant.kb_search is not None
     has_grep = variant.grep is not None
     has_shell = variant.shell is not None
@@ -715,6 +800,10 @@ def build_policy(
     the result is non-empty.
     """
     policy = variant.build_prompt(variant.prompt_template, knowledge_base, task)
+
+    if variant.kb_search_bm25 is not None and variant.kb_search_dense is not None:
+        dense_block = format_all_tools_dense_instructions(variant)
+        policy = policy.replace("{{all_tools_dense_instructions}}", dense_block)
 
     if not policy or not policy.strip():
         raise ValueError(

@@ -12,6 +12,47 @@ during its own __init__.
 from tau2.environment.toolkit import ToolKitType, ToolType, is_tool
 
 
+def _format_kb_search_result(pipeline, retrieval_result) -> str:
+    """Format timed KB search results for all KB search tool variants."""
+    results = retrieval_result.results
+    timing = retrieval_result.timing
+
+    if not results:
+        output = "No relevant documents found."
+        output += f"\n\n[Timing: retrieval={timing.retrieval_ms:.0f}ms"
+        if timing.postprocessing_ms > 0:
+            output += f", reranking={timing.postprocessing_ms:.0f}ms"
+        output += f", total={timing.total_ms:.0f}ms]"
+        return output
+
+    formatted = []
+    for i, (doc_id, score) in enumerate(results, 1):
+        title = pipeline.get_document_title(doc_id) or "Untitled"
+        content = pipeline.get_document_content(doc_id) or ""
+        formatted.append(
+            f"{i}. {title}\n"
+            f"   ID: {doc_id}\n"
+            f"   Score: {score:.4f}\n"
+            f"   Content: {content}\n"
+        )
+
+    output = "\n".join(formatted)
+    output += f"\n\n[Timing: retrieval={timing.retrieval_ms:.0f}ms"
+    if timing.postprocessing_ms > 0:
+        output += f", reranking={timing.postprocessing_ms:.0f}ms"
+    output += f", total={timing.total_ms:.0f}ms]"
+    return output
+
+
+def _run_kb_search(pipeline, query: str, top_k: int | None = None) -> str:
+    """Run a KB search pipeline with timing and shared formatting."""
+    retrieve_kwargs = {"return_timing": True}
+    if top_k is not None:
+        retrieve_kwargs["top_k"] = top_k
+    retrieval_result = pipeline.retrieve(query, **retrieve_kwargs)
+    return _format_kb_search_result(pipeline, retrieval_result)
+
+
 class KBSearchMixin(metaclass=ToolKitType):
     """MixIn that provides the KB_search tool.
 
@@ -30,35 +71,7 @@ class KBSearchMixin(metaclass=ToolKitType):
             Relevant document excerpts matching the query
         """
         # TODO: clean up knowledge retrieval pipelines to return structure results
-        retrieval_result = self._kb_pipeline.retrieve(query, return_timing=True)
-        results = retrieval_result.results
-        timing = retrieval_result.timing
-
-        if not results:
-            output = "No relevant documents found."
-            output += f"\n\n[Timing: retrieval={timing.retrieval_ms:.0f}ms"
-            if timing.postprocessing_ms > 0:
-                output += f", reranking={timing.postprocessing_ms:.0f}ms"
-            output += f", total={timing.total_ms:.0f}ms]"
-            return output
-
-        formatted = []
-        for i, (doc_id, score) in enumerate(results, 1):
-            title = self._kb_pipeline.get_document_title(doc_id) or "Untitled"
-            content = self._kb_pipeline.get_document_content(doc_id) or ""
-            formatted.append(
-                f"{i}. {title}\n"
-                f"   ID: {doc_id}\n"
-                f"   Score: {score:.4f}\n"
-                f"   Content: {content}\n"
-            )
-
-        output = "\n".join(formatted)
-        output += f"\n\n[Timing: retrieval={timing.retrieval_ms:.0f}ms"
-        if timing.postprocessing_ms > 0:
-            output += f", reranking={timing.postprocessing_ms:.0f}ms"
-        output += f", total={timing.total_ms:.0f}ms]"
-        return output
+        return _run_kb_search(self._kb_pipeline, query)
 
 
 class GrepMixin(metaclass=ToolKitType):
@@ -96,6 +109,40 @@ class GrepMixin(metaclass=ToolKitType):
             )
 
         return "\n".join(formatted)
+
+
+class KBSearchBm25AllToolsMixin(metaclass=ToolKitType):
+    """BM25 search for AllTools; expects ``self._kb_bm25_pipeline``."""
+
+    @is_tool(ToolType.READ)
+    def KB_search_bm25(self, query: str, k: int = 10) -> str:
+        """Search the knowledge base using BM25 sparse retrieval.
+
+        Args:
+            query: The search query to find relevant documents.
+            k: Maximum number of documents to return (default 10).
+
+        Returns:
+            Relevant document excerpts matching the query.
+        """
+        return _run_kb_search(self._kb_bm25_pipeline, query, top_k=k)
+
+
+class KBSearchDenseAllToolsMixin(metaclass=ToolKitType):
+    """Dense embedding search for AllTools; expects ``self._kb_dense_pipeline``."""
+
+    @is_tool(ToolType.READ)
+    def KB_search_dense(self, query: str, k: int = 10) -> str:
+        """Search the knowledge base using dense embedding retrieval.
+
+        Args:
+            query: The search query to find relevant documents.
+            k: Maximum number of documents to return (default 10).
+
+        Returns:
+            Relevant document excerpts matching the query.
+        """
+        return _run_kb_search(self._kb_dense_pipeline, query, top_k=k)
 
 
 class ShellMixin(metaclass=ToolKitType):

@@ -83,17 +83,19 @@ Trajectory files are saved in `data/simulations/`.
 The banking domain requires a retrieval configuration for the knowledge base. You must include a `retrieval_config` field in your `banking_knowledge` results specifying which retrieval method was used.
 
 ```bash
-# Banking domain with terminal-based retrieval
-tau2 run --domain banking_knowledge --retrieval-config terminal_use --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4
+# Banking domain with AllTools retrieval
+tau2 run --domain banking_knowledge --retrieval-config alltools --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4
 
-# Banking domain with BM25 retrieval
-tau2 run --domain banking_knowledge --retrieval-config bm25 --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4
+# Banking domain with AllTools retrieval using OpenRouter/Qwen embeddings
+tau2 run --domain banking_knowledge --retrieval-config alltools-qwen --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4
 ```
 
 Common `retrieval_config` values:
 
 | Config | Description |
 |--------|-------------|
+| `alltools` | BM25 + OpenAI dense retrieval + shell access |
+| `alltools-qwen` | BM25 + Qwen dense retrieval + shell access |
 | `terminal_use` | Agent navigates the knowledge base via shell commands (grep, cat, find, etc.) |
 | `openai_embeddings` | Dense retrieval using OpenAI's text-embedding-3-large model |
 | `qwen_embeddings` | Dense retrieval using Qwen3-Embedding model |
@@ -514,7 +516,7 @@ Include a `verification` section in the `methodology` object:
     "retail": { "pass_1": 75.2, "pass_2": 68.1, "pass_3": 62.3, "pass_4": 57.8, "cost": 0.15 },
     "airline": { "pass_1": 65.4, "pass_2": 60.1, "pass_3": 56.2, "pass_4": 53.0, "cost": 0.12 },
     "telecom": { "pass_1": 58.9, "pass_2": 52.1, "pass_3": 47.6, "pass_4": 43.2, "cost": 0.18 },
-    "banking_knowledge": { "pass_1": 22.5, "pass_2": 17.3, "pass_3": 13.1, "pass_4": 10.2, "cost": 1.05, "retrieval_config": "terminal_use" }
+    "banking_knowledge": { "pass_1": 22.5, "pass_2": 17.3, "pass_3": 13.1, "pass_4": 10.2, "cost": 1.05, "retrieval_config": "alltools" }
   },
   "methodology": {
     "evaluation_date": "2025-01-10",

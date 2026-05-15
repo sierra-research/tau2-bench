@@ -175,8 +175,9 @@ def get_info(config: RunConfig, **overrides) -> Info:
     info_env_kwargs: dict = {}
     if getattr(config, "retrieval_config", None) is not None:
         info_env_kwargs["retrieval_variant"] = config.retrieval_config
-        if getattr(config, "retrieval_config_kwargs", None):
-            info_env_kwargs["retrieval_kwargs"] = config.retrieval_config_kwargs
+        rk = dict(getattr(config, "retrieval_config_kwargs", None) or {})
+        if rk:
+            info_env_kwargs["retrieval_kwargs"] = rk
 
     environment_info = get_environment_info(
         config.domain, include_tool_info=False, env_kwargs=info_env_kwargs
