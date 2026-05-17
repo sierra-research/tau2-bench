@@ -367,6 +367,62 @@ def test_modify_pending_order_items(
     assert response.content == "Error: Non-pending order cannot be modified"
 
 
+def test_modify_pending_order_items_uses_each_replacement_variant(
+    retail_db: RetailDB,
+):
+    retail_db.orders["#W0000000"].items.append(
+        OrderItem(
+            name="Trail Sneakers",
+            product_id="6871234102",
+            item_id="2000000000",
+            price=89.5,
+            options={"size": "9", "color": "green"},
+        )
+    )
+    retail_db.products["6871234102"] = Product(
+        product_id="6871234102",
+        name="Trail Sneakers",
+        variants={
+            "2000000000": Variant(
+                item_id="2000000000",
+                price=89.5,
+                available=True,
+                options={"size": "9", "color": "green"},
+            ),
+            "2000000001": Variant(
+                item_id="2000000001",
+                price=94.25,
+                available=True,
+                options={"size": "10", "color": "gray"},
+            ),
+        },
+    )
+    environment = get_environment(retail_db)
+    response = environment.get_response(
+        ToolCall(
+            id="10",
+            name="modify_pending_order_items",
+            arguments={
+                "order_id": "#W0000000",
+                "item_ids": ["1008292230", "2000000000"],
+                "new_item_ids": ["1008292231", "2000000001"],
+                "payment_method_id": "credit_card_0000000",
+            },
+        )
+    )
+
+    assert response.error is False
+    order = environment.tools.get_order_details("#W0000000")
+    first_variant = retail_db.products["6086499569"].variants["1008292231"]
+    second_variant = retail_db.products["6871234102"].variants["2000000001"]
+    assert order.items[0].item_id == first_variant.item_id
+    assert order.items[0].price == first_variant.price
+    assert order.items[0].options == first_variant.options
+    assert order.items[1].item_id == second_variant.item_id
+    assert order.items[1].price == second_variant.price
+    assert order.items[1].options == second_variant.options
+
+
 @pytest.fixture
 def modify_pending_order_payment_call() -> ToolCall:
     return ToolCall(
