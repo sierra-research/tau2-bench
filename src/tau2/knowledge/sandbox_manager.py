@@ -26,6 +26,14 @@ TODO: Upgrade to latest version once https://github.com/anthropic-experimental/s
 Additional dependencies:
 - macOS: brew install ripgrep
 - Linux: apt install ripgrep bubblewrap socat (or equivalent for your distro)
+
+Constructing a SandboxManager calls ``_check_sandbox_dependencies`` exactly once
+per process. If the required binaries are missing the constructor raises
+``SandboxRuntimeError`` so a misconfigured environment fails loudly at run start
+rather than silently degrading every shell tool call (the agent would otherwise
+just see "Sandbox dependencies are not available on this system" repeatedly and
+"abandon" the tool, which looks like an Anthropic policy change in the metrics
+but is actually an install-time failure).
 """
 
 import getpass
@@ -33,10 +41,93 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+
+class SandboxRuntimeError(RuntimeError):
+    """Raised when sandbox-runtime or its required system binaries are missing.
+
+    The sandbox-runtime CLI ``srt`` shells out to a few system tools to do its
+    job. On Linux it needs ``rg`` (ripgrep), ``bwrap`` (bubblewrap), and
+    ``socat``. On macOS it needs ``rg``. If any are missing, every shell
+    invocation fails with a generic "Sandbox dependencies are not available"
+    message in stdout, and (without this exception) tau2 silently passes that
+    error string back to the agent as if it were a normal tool result.
+
+    This error is raised eagerly at ``SandboxManager`` construction time so the
+    failure is loud and obvious, not buried in 388 trajectories.
+    """
+
+
+# Required binaries by platform. ``srt`` itself is always required.
+_REQUIRED_BINARIES_LINUX: tuple[str, ...] = ("srt", "rg", "bwrap", "socat")
+_REQUIRED_BINARIES_DARWIN: tuple[str, ...] = ("srt", "rg")
+
+# Cached after first successful check so we only pay the cost once per process.
+_DEPS_VERIFIED = False
+
+
+def _required_binaries() -> tuple[str, ...]:
+    if sys.platform.startswith("linux"):
+        return _REQUIRED_BINARIES_LINUX
+    if sys.platform == "darwin":
+        return _REQUIRED_BINARIES_DARWIN
+    raise SandboxRuntimeError(
+        f"sandbox-runtime is not supported on platform {sys.platform!r}; "
+        "only Linux and macOS are supported."
+    )
+
+
+def _install_hint() -> str:
+    if sys.platform.startswith("linux"):
+        return (
+            "Install with:\n"
+            "  npm install -g @anthropic-ai/sandbox-runtime@0.0.23\n"
+            "  sudo apt install ripgrep bubblewrap socat"
+        )
+    if sys.platform == "darwin":
+        return (
+            "Install with:\n"
+            "  npm install -g @anthropic-ai/sandbox-runtime@0.0.23\n"
+            "  brew install ripgrep"
+        )
+    return "(unsupported platform)"
+
+
+def _check_sandbox_dependencies(force: bool = False) -> None:
+    """Verify ``srt`` and its required system tools are installed.
+
+    Idempotent: succeeds without re-checking after the first successful call
+    (process-wide cache). Pass ``force=True`` to re-run the check (used in tests).
+
+    Raises:
+        SandboxRuntimeError: if any required binary is missing on PATH, or if
+            the platform is unsupported. The error message includes the install
+            command for the current OS.
+    """
+    global _DEPS_VERIFIED
+    if _DEPS_VERIFIED and not force:
+        return
+
+    required = _required_binaries()
+    missing = [b for b in required if shutil.which(b) is None]
+    if missing:
+        raise SandboxRuntimeError(
+            "Cannot use the agentic-shell sandbox: required binaries are not "
+            f"installed: {', '.join(missing)}.\n\n"
+            f"{_install_hint()}\n\n"
+            "See src/tau2/knowledge/README.md for full setup. "
+            "If you don't need the shell tool, switch to a retrieval config "
+            "that doesn't require it (e.g., --retrieval-config bm25 or "
+            "openai_embeddings)."
+        )
+
+    _DEPS_VERIFIED = True
+
 
 # Static metadata for sanitized output
 _SANDBOX_USER = "kb_user"
@@ -83,7 +174,15 @@ class SandboxManager:
                        If not provided, a UUID will be generated.
             base_temp_dir: Optional base directory for creating sandboxes.
                           Defaults to system temp directory.
+
+        Raises:
+            SandboxRuntimeError: If sandbox-runtime (``srt``) or any of its
+                required system dependencies (``rg``, ``bwrap``, ``socat`` on
+                Linux; ``rg`` on macOS) is not installed. We fail loudly here
+                rather than letting every shell invocation silently return
+                "Sandbox dependencies are not available".
         """
+        _check_sandbox_dependencies()
         self.sandbox_id = sandbox_id or str(uuid.uuid4())[:8]
         self.allow_writes = allow_writes
         self.base_temp_dir = base_temp_dir or tempfile.gettempdir()
@@ -340,16 +439,33 @@ class SandboxManager:
             sanitized_stdout = self._sanitize_output(result.stdout, command)
             sanitized_stderr = self._sanitize_output(result.stderr, command)
 
+            # If srt itself complains about missing system deps, that's an
+            # install-time failure of the host machine -- not something the
+            # agent should learn to "work around". Raise loudly.
+            combined = (sanitized_stdout + sanitized_stderr).lower()
+            if "sandbox dependencies are not available" in combined:
+                raise SandboxRuntimeError(
+                    "sandbox-runtime reported missing system dependencies "
+                    "while executing a command. This is a host-level install "
+                    "failure -- the agent never had a working shell tool. "
+                    "Re-check the dep verification on this machine.\n\n"
+                    f"srt stdout: {sanitized_stdout.strip()[:400]}\n"
+                    f"srt stderr: {sanitized_stderr.strip()[:400]}\n\n"
+                    f"{_install_hint()}"
+                )
+
             return (result.returncode, sanitized_stdout, sanitized_stderr)
         except subprocess.TimeoutExpired:
             return (124, "", f"Command timed out after {timeout} seconds")
         except FileNotFoundError:
-            return (
-                1,
-                "",
-                "Error: sandbox-runtime (srt) is not installed. "
-                "Install with: npm install -g @anthropic-ai/sandbox-runtime@0.0.23",
+            # ``srt`` was on PATH at construction but vanished mid-run, or its
+            # interpreter died. Surface as a structured error.
+            raise SandboxRuntimeError(
+                "sandbox-runtime (srt) binary disappeared between sandbox "
+                "construction and command execution. " + _install_hint()
             )
+        except SandboxRuntimeError:
+            raise
         except Exception as e:
             return (1, "", f"Command failed: {str(e)}")
 

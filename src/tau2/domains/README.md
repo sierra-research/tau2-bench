@@ -35,6 +35,17 @@ Should contain:
 - `db.json` or `db.toml`: A JSON or TOML file containing the database for the domain.
 - `user_db.json` or `user_db.toml`: A JSON or TOML file containing the user database for the domain. (Optional)
 
+## Task Schema and Evaluation
+
+Each entry in `tasks.json` is a `Task` (see
+[`src/tau2/data_model/tasks.py`](../data_model/tasks.py)) with an
+`evaluation_criteria` block. Note: `evaluation_criteria.actions` is
+*one* reference trajectory used to derive the target DB end state, not
+a per-call requirement on the agent (unless `RewardType.ACTION` is in
+`reward_basis`, which the standard airline / retail / telecom tasks do
+not use). See [`docs/evaluation.md`](../../../docs/evaluation.md) for
+the full breakdown.
+
 
 ## Tests
 All the tests for the domain are stored in the `tests/test_domains/test_<domain_name>` folder.

@@ -553,7 +553,8 @@ def run_tasks(
         embedder_configs = None
         if retrieval_config:
             embedder_configs = get_unique_embedder_configs_for_retrieval_configs(
-                [retrieval_config]
+                [retrieval_config],
+                kwargs,
             )
         warm_kb_cache(embedder_configs)
         knowledge_base = get_knowledge_base()

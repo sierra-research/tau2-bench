@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING
 
 from tau2.domains.banking_knowledge.retrieval_mixins import (
     GrepMixin,
+    KBSearchBm25AllToolsMixin,
+    KBSearchDenseAllToolsMixin,
     KBSearchMixin,
     ShellMixin,
 )
@@ -86,4 +88,25 @@ class KnowledgeToolsWithShell(ShellMixin, KnowledgeTools):
 
     def __init__(self, db: "TransactionalDB", sandbox: "SandboxManager"):
         super().__init__(db)
+        self._sandbox = sandbox
+
+
+class KnowledgeToolsAllTools(
+    KBSearchBm25AllToolsMixin,
+    KBSearchDenseAllToolsMixin,
+    ShellMixin,
+    KnowledgeTools,
+):
+    """BM25 search, dense search, and read-only shell (AllTools retrieval config)."""
+
+    def __init__(
+        self,
+        db: "TransactionalDB",
+        kb_bm25_pipeline: "RetrievalPipeline",
+        kb_dense_pipeline: "RetrievalPipeline",
+        sandbox: "SandboxManager",
+    ):
+        super().__init__(db)
+        self._kb_bm25_pipeline = kb_bm25_pipeline
+        self._kb_dense_pipeline = kb_dense_pipeline
         self._sandbox = sandbox

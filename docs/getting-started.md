@@ -208,6 +208,7 @@ make clean
 - [Agent Developer Guide](../src/tau2/agent/README.md) — build and evaluate your own agent
 - [Domain Documentation](../src/tau2/domains/README.md) — understand the available domains
 - [Communication Modes](../src/tau2/orchestrator/README.md) — half-duplex and full-duplex orchestration
+- [Task Schema & Evaluation](evaluation.md) — how a task is scored, what `actions`/`communicate_info`/`reward_basis` actually do
 - [Knowledge Retrieval](../src/tau2/knowledge/README.md) — retrieval pipeline setup and configuration for banking_knowledge domain
 - [Voice (Full-Duplex)](../src/tau2/voice/README.md) — providers, speech complexity, and CLI options for voice evaluation
 - [Voice Persona Setup](voice-personas.md) — create custom ElevenLabs voices for the user simulator

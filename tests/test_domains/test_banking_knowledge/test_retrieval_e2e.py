@@ -31,7 +31,10 @@ requires_sandbox_runtime = pytest.mark.skipif(
     shutil.which("srt") is None,
     reason="sandbox-runtime (srt) is not installed",
 )
-
+requires_all_tools_deps = pytest.mark.skipif(
+    not os.environ.get("OPENAI_API_KEY") or shutil.which("srt") is None,
+    reason="alltools requires OPENAI_API_KEY and sandbox-runtime (srt)",
+)
 DOCUMENTS: List[Dict[str, Any]] = [
     {
         "id": "doc_mortgage",
@@ -120,6 +123,11 @@ _ALL_VARIANTS = [
     ("openai_embeddings_reranker", {"KB_search"}, "openai"),
     ("openai_embeddings_grep", {"KB_search", "grep"}, "openai"),
     ("openai_embeddings_reranker_grep", {"KB_search", "grep"}, "openai"),
+    (
+        "alltools",
+        {"KB_search_bm25", "KB_search_dense", "shell"},
+        "all_tools",
+    ),
 ]
 
 
@@ -130,6 +138,8 @@ def _api_mark(gate):
         return requires_openai
     if gate == "sandbox_runtime":
         return requires_sandbox_runtime
+    if gate == "all_tools":
+        return requires_all_tools_deps
     return pytest.mark.skipif(False, reason="")
 
 
@@ -148,6 +158,10 @@ def _build_toolkit(variant_name: str, **kwargs):
         variant = resolve_variant(variant_name, **kwargs)
         if variant.kb_search and variant.kb_search.reranker:
             variant.kb_search.reranker = False
+        if variant.kb_search_bm25 is not None and variant.kb_search_bm25.reranker:
+            variant.kb_search_bm25.reranker = False
+        if variant.kb_search_dense is not None and variant.kb_search_dense.reranker:
+            variant.kb_search_dense.reranker = False
         return build_tools(variant, MagicMock(spec=TransactionalDB), _make_mock_kb())
 
 
@@ -200,7 +214,13 @@ class TestAllVariantsToolPresence:
     )
     def test_has_exactly_expected_tools(self, variant_name, expected_tools, gate):
         toolkit = _build_toolkit(variant_name, top_k=5, grep_top_k=5)
-        retrieval_tools = {"KB_search", "grep", "shell"}
+        retrieval_tools = {
+            "KB_search",
+            "KB_search_bm25",
+            "KB_search_dense",
+            "grep",
+            "shell",
+        }
         for tool in expected_tools:
             assert toolkit.has_tool(tool), f"{variant_name}: missing {tool}"
         for tool in retrieval_tools - expected_tools:
@@ -483,6 +503,7 @@ class TestPolicyTemplateIntegrity:
             "qwen_embeddings_grep",
             "openai_embeddings",
             "openai_embeddings_grep",
+            "alltools",
         ],
     )
     def test_policy_renders_nonempty(self, variant_name, knowledge_base):
@@ -491,7 +512,8 @@ class TestPolicyTemplateIntegrity:
             resolve_variant,
         )
 
-        policy = build_policy(resolve_variant(variant_name), knowledge_base)
+        variant = resolve_variant(variant_name)
+        policy = build_policy(variant, knowledge_base)
         assert len(policy) > 100
 
     def test_full_kb_policy_contains_all_documents(self, knowledge_base):
@@ -623,15 +645,11 @@ class TestRequiredDocumentRetrievability:
 class TestGetEnvironmentLivePath:
     """Test the exact function the live path calls: get_environment()."""
 
+    @requires_all_tools_deps
     def test_default_variant_produces_valid_environment(self):
-        import warnings
-
         from tau2.domains.banking_knowledge.environment import get_environment
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            env = get_environment()
-            assert any("--retrieval-config" in str(m.message) for m in w)
+        env = get_environment()
         assert env.policy and len(env.policy) > 100
         assert env.tools is not None
         assert env.user_tools is not None
@@ -1015,7 +1033,7 @@ class TestEncoderCacheConfigIncludesInstruction:
 
         config = EmbeddingEncoder(
             embedder_type="openrouter",
-            embedder_params={"model": "qwen3-embedding-8b"},
+            embedder_params={"model": "qwen3-embedding-8b", "api_key": "test"},
         )._get_cache_config()
         assert "_query_instruction" in config
         assert "retrieve" in config["_query_instruction"].lower()
@@ -1027,7 +1045,7 @@ class TestEncoderCacheConfigIncludesInstruction:
 
         config = EmbeddingEncoder(
             embedder_type="openai",
-            embedder_params={"model": "text-embedding-3-large"},
+            embedder_params={"model": "text-embedding-3-large", "api_key": "test"},
         )._get_cache_config()
         assert "_query_instruction" not in config
 
@@ -1041,6 +1059,7 @@ class TestEncoderCacheConfigIncludesInstruction:
             embedder_params={
                 "model": "qwen3-embedding-8b",
                 "query_instruction": "A",
+                "api_key": "test",
             },
         )._get_cache_config()
         config_b = EmbeddingEncoder(
@@ -1048,6 +1067,7 @@ class TestEncoderCacheConfigIncludesInstruction:
             embedder_params={
                 "model": "qwen3-embedding-8b",
                 "query_instruction": "B",
+                "api_key": "test",
             },
         )._get_cache_config()
         assert config_a != config_b

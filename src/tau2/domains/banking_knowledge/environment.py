@@ -1,7 +1,6 @@
 """Environment for the banking_knowledge domain."""
 
 import json
-import warnings
 from pathlib import Path
 from typing import Optional
 
@@ -62,14 +61,6 @@ def get_environment(
     """
     if solo_mode:
         raise ValueError("banking_knowledge domain does not support solo mode")
-
-    if retrieval_variant is None:
-        warnings.warn(
-            f"No --retrieval-config specified for banking_knowledge; "
-            f"defaulting to '{DEFAULT_RETRIEVAL_VARIANT}'. "
-            f"See src/tau2/knowledge/README.md for all options.",
-            stacklevel=2,
-        )
 
     if db is None:
         db = get_db()
