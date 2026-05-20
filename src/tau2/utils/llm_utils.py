@@ -1,34 +1,23 @@
 import json
-import logging
 import os
 import re
 import time
 import uuid
 import warnings
 from contextvars import ContextVar
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
+from threading import local
 from typing import Any, Optional
 
 import httpx
-import litellm
-from litellm import completion, completion_cost
-from litellm.caching.caching import Cache
-from litellm.main import ModelResponse, Usage
+from dotenv import load_dotenv
 from loguru import logger
+from openai import OpenAI
+from openai.types.responses.response import Response
 
-from tau2.config import (
-    DEFAULT_LLM_CACHE_TYPE,
-    DEFAULT_MAX_RETRIES,
-    LLM_CACHE_ENABLED,
-    REDIS_CACHE_TTL,
-    REDIS_CACHE_VERSION,
-    REDIS_HOST,
-    REDIS_PASSWORD,
-    REDIS_PORT,
-    REDIS_PREFIX,
-    USE_LANGFUSE,
-)
+from tau2.config import DEFAULT_MAX_RETRIES
 from tau2.data_model.message import (
     AssistantMessage,
     Message,
@@ -40,18 +29,21 @@ from tau2.data_model.message import (
 )
 from tau2.environment.tool import Tool
 
-# Suppress Pydantic serialization warnings from LiteLLM
-# These occur due to type mismatches between streaming and non-streaming response types
+# Suppress Pydantic serialization warnings from SDK response models
 warnings.filterwarnings(
     "ignore",
     message="Pydantic serializer warnings:",
     category=UserWarning,
 )
 
-# Configure httpx connection limits for LiteLLM
+# Load project-local .env when present so text benchmark runs can use OPENAI_API_KEY.
+load_dotenv()
+
+# Shared HTTP client for OpenAI Responses API calls.
 httpx_limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
-litellm.client_session = httpx.Client(limits=httpx_limits)
-litellm.aclient_session = httpx.AsyncClient(limits=httpx_limits)
+_http_client = httpx.Client(limits=httpx_limits, trust_env=False)
+_openai_client = OpenAI(http_client=_http_client)
+_websocket_state = local()
 
 # Context variable to store the directory where LLM debug logs should be written
 llm_log_dir: ContextVar[Optional[Path]] = ContextVar("llm_log_dir", default=None)
@@ -59,86 +51,52 @@ llm_log_dir: ContextVar[Optional[Path]] = ContextVar("llm_log_dir", default=None
 # Context variable to store the LLM logging mode ("all" or "latest")
 llm_log_mode: ContextVar[str] = ContextVar("llm_log_mode", default="latest")
 
-# litellm._turn_on_debug()
 
-logging.getLogger("LiteLLM").setLevel(logging.WARNING)
-
-if USE_LANGFUSE:
-    litellm.success_callback = ["langfuse"]
-else:
-    litellm.success_callback = []
-
-litellm.drop_params = True
-
-warnings.filterwarnings(
-    "ignore",
-    message="Pydantic serializer warnings:",
-    category=UserWarning,
-)
-
-if LLM_CACHE_ENABLED:
-    if DEFAULT_LLM_CACHE_TYPE == "redis":
-        logger.info(f"LiteLLM: Using Redis cache at {REDIS_HOST}:{REDIS_PORT}")
-        litellm.cache = Cache(
-            type=DEFAULT_LLM_CACHE_TYPE,
-            host=REDIS_HOST,
-            port=REDIS_PORT,
-            password=REDIS_PASSWORD,
-            namespace=f"{REDIS_PREFIX}:{REDIS_CACHE_VERSION}:litellm",
-            ttl=REDIS_CACHE_TTL,
-        )
-    elif DEFAULT_LLM_CACHE_TYPE == "local":
-        logger.info("LiteLLM: Using local cache")
-        litellm.cache = Cache(
-            type="local",
-            ttl=REDIS_CACHE_TTL,
-        )
-    else:
-        raise ValueError(
-            f"Invalid cache type: {DEFAULT_LLM_CACHE_TYPE}. Should be 'redis' or 'local'"
-        )
-    litellm.enable_cache()
-else:
-    logger.info("LiteLLM: Cache is disabled")
-    litellm.disable_cache()
+def get_openai_client(num_retries: Optional[int] = None) -> OpenAI:
+    if num_retries is None:
+        return _openai_client
+    return _openai_client.with_options(max_retries=num_retries)
 
 
-def _parse_ft_model_name(model: str) -> str:
-    """
-    Parse the ft model name from the litellm model name.
-    e.g: "ft:gpt-4.1-mini-2025-04-14:sierra::BSQA2TFg" -> "gpt-4.1-mini-2025-04-14"
-    """
-    pattern = r"ft:(?P<model>[^:]+):(?P<provider>\w+)::(?P<id>\w+)"
-    match = re.match(pattern, model)
-    if match:
-        return match.group("model")
-    else:
-        return model
-
-
-def get_response_cost(response: ModelResponse) -> float:
-    """
-    Get the cost of the response from the litellm completion.
-    """
-    response.model = _parse_ft_model_name(
-        response.model
-    )  # FIXME: Check Litellm, passing the model to completion_cost doesn't work.
+def _get_websocket_connection():
     try:
-        cost = completion_cost(completion_response=response)
-    except Exception as e:
-        logger.error(e)
-        return 0.0
-    return cost
+        from websockets.exceptions import WebSocketException
+        from websockets.sync.client import connect
+    except ImportError as exc:
+        raise RuntimeError(
+            "Responses WebSocket transport requires the websockets package. "
+            "Install tau2 with the websocket-capable dependencies before using "
+            "responses_transport='websocket'."
+        ) from exc
+
+    ws = getattr(_websocket_state, "connection", None)
+    if ws is not None:
+        try:
+            is_closed = getattr(ws, "closed", False)
+            if not is_closed:
+                return ws
+        except (AttributeError, WebSocketException):
+            return ws
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is required for Responses WebSocket mode.")
+    ws = connect(
+        "wss://api.openai.com/v1/responses",
+        additional_headers={"Authorization": f"Bearer {api_key}"},
+    )
+    _websocket_state.connection = ws
+    return ws
 
 
-def get_response_usage(response: ModelResponse) -> Optional[dict]:
-    usage: Optional[Usage] = response.get("usage")
-    if usage is None:
-        return None
-    return {
-        "completion_tokens": usage.completion_tokens,
-        "prompt_tokens": usage.prompt_tokens,
-    }
+def _close_websocket_connection() -> None:
+    ws = getattr(_websocket_state, "connection", None)
+    if ws is None:
+        return
+    try:
+        ws.close()
+    finally:
+        _websocket_state.connection = None
 
 
 def to_tau2_messages(
@@ -165,47 +123,167 @@ def to_tau2_messages(
     return tau2_messages
 
 
-def to_litellm_messages(messages: list[Message]) -> list[dict]:
+def _participant_message_text_item(message: Message) -> dict:
+    if isinstance(message, AssistantMessage):
+        return {
+            "type": "message",
+            "id": f"msg_{uuid.uuid4().hex}",
+            "role": "assistant",
+            "status": "completed",
+            "content": [
+                {
+                    "type": "output_text",
+                    "text": message.content or "",
+                    "annotations": [],
+                }
+            ],
+        }
+    if isinstance(message, UserMessage):
+        return {
+            "role": "user",
+            "content": [{"type": "input_text", "text": message.content or ""}],
+        }
+    raise TypeError(f"Unsupported participant message type: {type(message)}")
+
+
+def _tool_call_item(tool_call: ToolCall) -> dict:
+    call_id = tool_call.id or f"call_{uuid.uuid4().hex}"
+    return {
+        "type": "function_call",
+        "id": f"fc_{uuid.uuid4().hex}",
+        "status": "completed",
+        "call_id": call_id,
+        "name": tool_call.name,
+        "arguments": json.dumps(tool_call.arguments),
+    }
+
+
+def _prepare_raw_output_for_replay(raw_output: list[dict]) -> list[dict]:
+    return deepcopy(raw_output)
+
+
+def _message_contains_web_search_call(message: Message) -> bool:
+    raw_data = getattr(message, "raw_data", None)
+    raw_output = (raw_data or {}).get("output")
+    if not isinstance(raw_output, list):
+        return False
+    return any(item.get("type") == "web_search_call" for item in raw_output)
+
+
+def _history_has_web_search_call(messages: list[Message]) -> bool:
+    return any(_message_contains_web_search_call(message) for message in messages)
+
+
+def _message_to_response_items(message: Message) -> list[dict]:
+    if isinstance(message, SystemMessage):
+        return []
+
+    if isinstance(message, ToolMessage):
+        return [
+            {
+                "type": "function_call_output",
+                "call_id": message.id,
+                "output": message.content or "",
+            }
+        ]
+
+    if isinstance(message, ParticipantMessageBase):
+        raw_output = (message.raw_data or {}).get("output")
+        if isinstance(raw_output, list):
+            return _prepare_raw_output_for_replay(raw_output)
+
+        items = []
+        if message.has_text_content():
+            items.append(_participant_message_text_item(message))
+        if message.tool_calls:
+            items.extend(_tool_call_item(tool_call) for tool_call in message.tool_calls)
+        return items
+
+    raise TypeError(f"Unsupported message type: {type(message)}")
+
+
+def to_responses_incremental_request(
+    messages: list[Message],
+) -> tuple[Optional[str], Optional[str], list[dict]]:
     """
-    Convert a list of Tau2 messages to a list of litellm messages.
+    Convert Tau2 messages into an incremental Responses request.
+
+    The returned input contains only messages after the most recent assistant
+    response that has a response id. This is intended for WebSocket
+    `previous_response_id` continuation. If no previous response id exists, the
+    input falls back to the full stateless replay window.
     """
-    litellm_messages = []
+    instructions = "\n\n".join(
+        message.content.strip()
+        for message in messages
+        if isinstance(message, SystemMessage) and message.content
+    )
+    previous_response_id = None
+    input_items: list[dict] = []
     for message in messages:
-        if isinstance(message, UserMessage):
-            litellm_messages.append({"role": "user", "content": message.content})
-        elif isinstance(message, AssistantMessage):
-            tool_calls = None
-            if message.is_tool_call():
-                tool_calls = [
-                    {
-                        "id": tc.id,
-                        "name": tc.name,
-                        "function": {
-                            "name": tc.name,
-                            "arguments": json.dumps(tc.arguments),
-                        },
-                        "type": "function",
-                    }
-                    for tc in message.tool_calls
-                ]
-            litellm_messages.append(
-                {
-                    "role": "assistant",
-                    "content": message.content,
-                    "tool_calls": tool_calls,
-                }
-            )
-        elif isinstance(message, ToolMessage):
-            litellm_messages.append(
-                {
-                    "role": "tool",
-                    "content": message.content,
-                    "tool_call_id": message.id,
-                }
-            )
-        elif isinstance(message, SystemMessage):
-            litellm_messages.append({"role": "system", "content": message.content})
-    return litellm_messages
+        if isinstance(message, SystemMessage):
+            continue
+        raw_data = getattr(message, "raw_data", None) or {}
+        response_id = raw_data.get("id")
+        if isinstance(message, AssistantMessage) and response_id:
+            previous_response_id = response_id
+            input_items = []
+            continue
+        input_items.extend(_message_to_response_items(message))
+    return instructions or None, previous_response_id, input_items
+
+
+def to_responses_request(messages: list[Message]) -> tuple[Optional[str], list[dict]]:
+    """
+    Convert Tau2 messages into a Responses API request payload.
+
+    System messages are collapsed into the top-level `instructions` field. All
+    other messages are converted to response items so we can replay prior tool
+    calls, tool outputs, and reasoning items statelessly.
+    """
+    instructions = "\n\n".join(
+        message.content.strip()
+        for message in messages
+        if isinstance(message, SystemMessage) and message.content
+    )
+    input_items: list[dict] = []
+    for message in messages:
+        input_items.extend(_message_to_response_items(message))
+    return instructions or None, input_items
+
+
+def _create_response_websocket(payload: dict[str, Any]) -> Response:
+    from websockets.exceptions import WebSocketException
+
+    def send_once() -> Response:
+        ws = _get_websocket_connection()
+        ws.send(json.dumps({"type": "response.create", **payload}))
+        while True:
+            event = json.loads(ws.recv())
+            event_type = event.get("type")
+            if event_type == "response.completed":
+                response_payload = event["response"]
+                if response_payload.get("prompt_cache_retention") == "in_memory":
+                    response_payload["prompt_cache_retention"] = "in-memory"
+                return Response.model_validate(response_payload)
+            if event_type in {"response.failed", "response.incomplete"}:
+                raise RuntimeError(json.dumps(event))
+            if event_type == "error":
+                raise RuntimeError(json.dumps(event.get("error", event)))
+
+    try:
+        return send_once()
+    except WebSocketException:
+        _close_websocket_connection()
+        return send_once()
+    except RuntimeError as exc:
+        # A long-lived connection can hit the 60 minute limit. Reconnect and
+        # retry once; with store=true the service can hydrate the prior response.
+        message = str(exc)
+        if "websocket_connection_limit_reached" in message:
+            _close_websocket_connection()
+            return send_once()
+        raise
 
 
 def validate_message(message: Message) -> None:
@@ -267,26 +345,17 @@ def set_llm_log_mode(mode: str) -> None:
     llm_log_mode.set(mode)
 
 
-def _format_messages_for_logging(messages: list[dict]) -> list[dict]:
+def _format_payload_for_logging(payload: Any) -> Any:
     """
-    Format messages for debug logging by splitting content on newlines.
-
-    Args:
-        messages: List of litellm message dictionaries
-
-    Returns:
-        Modified message list with content split into lines for readability
+    Format request payloads for debug logging by splitting long text on newlines.
     """
-    formatted = []
-    for msg in messages:
-        msg_copy = msg.copy()
-        if "content" in msg_copy and isinstance(msg_copy["content"], str):
-            # Split content on newlines for better readability
-            content_lines = msg_copy["content"].split("\n")
-            if len(content_lines) > 1:
-                msg_copy["content"] = content_lines
-        formatted.append(msg_copy)
-    return formatted
+    if isinstance(payload, dict):
+        return {key: _format_payload_for_logging(value) for key, value in payload.items()}
+    if isinstance(payload, list):
+        return [_format_payload_for_logging(value) for value in payload]
+    if isinstance(payload, str) and "\n" in payload:
+        return payload.split("\n")
+    return payload
 
 
 def _write_llm_log(
@@ -307,38 +376,27 @@ def _write_llm_log(
     log_dir = llm_log_dir.get()
 
     if log_dir is None:
-        # No log directory set, skip logging
         return
 
-    # Ensure log directory exists
     log_dir.mkdir(parents=True, exist_ok=True)
-
-    # Get current logging mode
     current_log_mode = llm_log_mode.get()
 
-    # If mode is "latest" and call_name is provided, remove existing files with the same call_name
     if current_log_mode == "latest" and call_name:
-        # Find and remove existing files with this call_name
         pattern = f"*_{call_name}_*.json"
         existing_files = list(log_dir.glob(pattern))
         for existing_file in existing_files:
             try:
                 existing_file.unlink()
             except FileNotFoundError:
-                # File might have been removed by another thread, ignore
                 pass
 
-    # Create a new file for this LLM call
-    call_id = str(uuid.uuid4())[:8]  # Use short UUID for readability
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # milliseconds
-
-    # Include call_name in filename if provided
+    call_id = str(uuid.uuid4())[:8]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
     if call_name:
         log_file = log_dir / f"{timestamp}_{call_name}_{call_id}.json"
     else:
         log_file = log_dir / f"{timestamp}_{call_id}.json"
 
-    # Create complete JSON structure with both request and response
     call_data = {
         "call_id": call_id,
         "call_name": call_name,
@@ -346,8 +404,6 @@ def _write_llm_log(
         "request": request_data,
         "response": response_data,
     }
-
-    # Write to file with indentation
     with open(log_file, "w", encoding="utf-8") as f:
         json.dump(call_data, f, indent=2)
 
@@ -356,7 +412,7 @@ def generate(
     model: str,
     messages: list[Message],
     tools: Optional[list[Tool]] = None,
-    tool_choice: Optional[str] = None,
+    tool_choice: Optional[Any] = None,
     call_name: Optional[str] = None,
     **kwargs: Any,
 ) -> UserMessage | AssistantMessage:
@@ -376,71 +432,159 @@ def generate(
     Returns: A tuple containing the message and the cost.
     """
     validate_message_history(messages)
-    if kwargs.get("num_retries") is None:
-        kwargs["num_retries"] = DEFAULT_MAX_RETRIES
 
-    # Vertex AI Gemini 3 models require VERTEXAI_LOCATION="global"
-    if model.startswith("vertex_ai/gemini-3") and not os.environ.get(
-        "VERTEXAI_LOCATION"
-    ):
-        os.environ["VERTEXAI_LOCATION"] = "global"
+    request_kwargs = dict(kwargs)
+    num_retries = request_kwargs.pop("num_retries", DEFAULT_MAX_RETRIES)
+    reasoning_effort = request_kwargs.pop("reasoning_effort", None)
+    verbosity = request_kwargs.pop("verbosity", None)
+    web_search_mode = request_kwargs.pop("web_search_mode", "off")
+    web_search_context_size = request_kwargs.pop("web_search_context_size", "medium")
+    web_search_filters = request_kwargs.pop("web_search_filters", None)
+    web_search_user_location = request_kwargs.pop("web_search_user_location", None)
+    responses_transport = request_kwargs.pop("responses_transport", "http")
+    store = request_kwargs.pop("store", True)
+    max_tokens = request_kwargs.pop("max_tokens", None)
+    request_kwargs.pop("seed", None)
+    request_kwargs.pop("custom_llm_provider", None)
 
-    litellm_messages = to_litellm_messages(messages)
-    tools_schema = [tool.openai_schema for tool in tools] if tools else None
+    if model.startswith("gpt-5"):
+        request_kwargs.pop("temperature", None)
+
+    if max_tokens is not None and "max_output_tokens" not in request_kwargs:
+        request_kwargs["max_output_tokens"] = max_tokens
+
+    reasoning = dict(request_kwargs.pop("reasoning", {}) or {})
+    if reasoning_effort is not None:
+        reasoning["effort"] = reasoning_effort
+    if reasoning:
+        request_kwargs["reasoning"] = reasoning
+
+    text = dict(request_kwargs.pop("text", {}) or {})
+    if verbosity is not None:
+        text["verbosity"] = verbosity
+    if text:
+        request_kwargs["text"] = text
+
+    if web_search_mode not in {"off", "auto", "required"}:
+        raise ValueError(
+            f"Invalid web_search_mode={web_search_mode!r}. Expected one of off, auto, required."
+        )
+
+    instructions, input_items = to_responses_request(messages)
+
+    tools_schema = []
+    if tools:
+        for tool in tools:
+            function_schema = deepcopy(tool.openai_schema["function"])
+            tools_schema.append(
+                {
+                    "type": "function",
+                    "name": function_schema["name"],
+                    "description": function_schema.get("description", ""),
+                    "parameters": function_schema["parameters"],
+                    # Preserve existing tool semantics. Responses defaults to strict mode,
+                    # which would otherwise make optional parameters required.
+                    "strict": False,
+                }
+            )
+
+    if web_search_mode != "off":
+        web_search_tool = {
+            "type": "web_search",
+            "search_context_size": web_search_context_size,
+        }
+        if web_search_filters is not None:
+            web_search_tool["filters"] = web_search_filters
+        if web_search_user_location is not None:
+            web_search_tool["user_location"] = web_search_user_location
+        tools_schema.append(web_search_tool)
+
     if tools_schema and tool_choice is None:
-        tool_choice = "auto"
+        tool_choice_payload: Any = "auto"
+    else:
+        tool_choice_payload = tool_choice
 
-    # Prepare request data for logging
-    formatted_messages = _format_messages_for_logging(litellm_messages)
+    if (
+        web_search_mode == "required"
+        and tool_choice is None
+        and not _history_has_web_search_call(messages)
+    ):
+        tool_choice_payload = {"type": "web_search"}
+
     request_data = {
         "model": model,
-        "messages": formatted_messages,
-        "tools": tools_schema,
-        "tool_choice": tool_choice,
-        "kwargs": {
-            k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
-            for k, v in kwargs.items()
-        },
+        "responses_transport": responses_transport,
+        "instructions": _format_payload_for_logging(instructions),
+        "input": _format_payload_for_logging(input_items),
+        "tools": _format_payload_for_logging(tools_schema or None),
+        "tool_choice": _format_payload_for_logging(tool_choice_payload),
+        "store": store,
+        "kwargs": _format_payload_for_logging(request_kwargs),
     }
     request_timestamp = datetime.now().isoformat()
 
     start_time = time.perf_counter()
     try:
-        response = completion(
-            model=model,
-            messages=litellm_messages,
-            tools=tools_schema,
-            tool_choice=tool_choice,
-            **kwargs,
-        )
+        create_payload = {
+            "model": model,
+            "instructions": instructions,
+            "input": input_items,
+            "tools": tools_schema or None,
+            "tool_choice": tool_choice_payload,
+            "store": store,
+            **request_kwargs,
+        }
+        if responses_transport == "http":
+            client = get_openai_client(num_retries=num_retries)
+            response = client.responses.create(**create_payload)
+        elif responses_transport == "websocket":
+            (
+                incremental_instructions,
+                previous_response_id,
+                incremental_input_items,
+            ) = to_responses_incremental_request(messages)
+            create_payload["instructions"] = incremental_instructions
+            create_payload["input"] = incremental_input_items
+            if previous_response_id is not None:
+                create_payload["previous_response_id"] = previous_response_id
+            response = _create_response_websocket(create_payload)
+        else:
+            raise ValueError(
+                f"Invalid responses_transport={responses_transport!r}. "
+                "Expected one of http, websocket."
+            )
     except Exception as e:
         logger.error(e)
         raise e
     generation_time_seconds = time.perf_counter() - start_time
-    cost = get_response_cost(response)
-    usage = get_response_usage(response)
 
-    response_choice = response.choices[0]
-    try:
-        finish_reason = response_choice.finish_reason
-        if finish_reason == "length":
+    if response.status == "incomplete" and response.incomplete_details is not None:
+        if response.incomplete_details.reason == "max_output_tokens":
             logger.warning("Output might be incomplete due to token limit!")
-    except Exception as e:
-        logger.error(e)
-        raise e
-    assert response_choice.message.role == "assistant", (
-        "The response should be an assistant message"
-    )
-    content = response_choice.message.content
-    raw_tool_calls = response_choice.message.tool_calls or []
-    tool_calls = [
-        ToolCall(
-            id=tool_call.id,
-            name=tool_call.function.name,
-            arguments=json.loads(tool_call.function.arguments),
+
+    cost = None
+    usage = None
+    if response.usage is not None:
+        usage = {
+            "completion_tokens": response.usage.output_tokens,
+            "prompt_tokens": response.usage.input_tokens,
+            "reasoning_tokens": response.usage.output_tokens_details.reasoning_tokens,
+            "total_tokens": response.usage.total_tokens,
+            "cached_tokens": response.usage.input_tokens_details.cached_tokens,
+        }
+
+    content = response.output_text or None
+    tool_calls = []
+    for output_item in response.output:
+        if output_item.type != "function_call":
+            continue
+        tool_calls.append(
+            ToolCall(
+                id=output_item.call_id,
+                name=output_item.name,
+                arguments=json.loads(output_item.arguments),
+            )
         )
-        for tool_call in raw_tool_calls
-    ]
     tool_calls = tool_calls or None
 
     message = AssistantMessage(
@@ -453,16 +597,17 @@ def generate(
         generation_time_seconds=generation_time_seconds,
     )
 
-    # Log complete LLM call (request + response)
     response_data = {
         "timestamp": datetime.now().isoformat(),
+        "response_id": response.id,
+        "status": response.status,
+        "output_types": [item.type for item in response.output],
         "content": content,
         "tool_calls": [tc.model_dump() for tc in tool_calls] if tool_calls else None,
         "cost": cost,
         "usage": usage,
         "generation_time_seconds": generation_time_seconds,
     }
-    # Add timestamp to request data
     request_data["timestamp"] = request_timestamp
     _write_llm_log(request_data, response_data, call_name=call_name)
 
@@ -510,19 +655,14 @@ def extract_json_from_llm_response(response: str) -> str:
     """
     Extract JSON from an LLM response, handling markdown code blocks.
     """
-    # Try to extract JSON from markdown code blocks
-    # Match ```json ... ``` or ``` ... ```
     pattern = r"```(?:json)?\s*([\s\S]*?)```"
     match = re.search(pattern, response)
     if match:
         return match.group(1).strip()
 
-    # If no code block, try to find JSON object directly
-    # Look for content between first { and last }
     start = response.find("{")
     end = response.rfind("}")
     if start != -1 and end != -1 and end > start:
         return response[start : end + 1]
 
-    # Return original response as fallback
     return response

@@ -1,6 +1,6 @@
 # Eval: Hyperparameter Experiments
 
-The `hyperparam/` module provides tools for running systematic experiments with different hyperparameters on the tau2 benchmark. It enables comprehensive evaluation across multiple LLMs, domains, and experimental modes.
+The `hyperparam/` module provides tools for running systematic experiments with different hyperparameters on the tau2 benchmark. It includes the legacy multi-provider sweep path and a Responses API sweep path for OpenAI-hosted runs.
 
 ## Overview
 
@@ -12,18 +12,62 @@ This module allows you to:
 
 ## Quick Start
 
-### Demo Script (Recommended)
+### Responses API Smoke Test (Recommended)
 
-The easiest way to test the system is with the included demo script:
+The easiest way to validate the new Responses-only path is with the included demo script:
 
 ```bash
 # From project root
 src/experiments/hyperparam/demo.sh
 ```
 
-This runs a small experiment (3 tasks, 2 trials) and shows you the essential commands.
+This runs a small `gpt-5.4-mini` smoke sweep on one domain and writes summary artifacts under `data/exp/responses/`.
 
-### Running Experiments
+### Running Responses Sweeps
+
+```bash
+# Small smoke test
+python -m experiments.hyperparam.cli run-responses-sweep \
+    --exp-dir responses-smoke \
+    --shape ofat \
+    --llm gpt-5.4-mini \
+    --domains retail \
+    --modes default \
+    --num-tasks 3 \
+    --num-trials 1 \
+    --max-concurrency 1 \
+    --auto-resume
+
+# Full grid across reasoning x verbosity x hosted web search
+python -m experiments.hyperparam.cli run-responses-sweep \
+    --exp-dir responses-grid \
+    --shape grid \
+    --llm gpt-5.4-mini \
+    --domains retail airline telecom \
+    --modes default \
+    --num-trials 1 \
+    --max-concurrency 1 \
+    --auto-resume
+```
+
+Supported sweep dimensions:
+- `reasoning_effort`: `none`, `low`, `medium`, `high`, `xhigh`
+- `verbosity`: `low`, `medium`, `high`
+- `web_search_mode`:
+  - `off`: benchmark domain tools only
+  - `auto`: hosted web search available but optional
+  - `required`: force one hosted web search call early in the conversation, then return to normal tool selection
+- `service_tier`:
+  - `default`: standard pricing / latency
+  - `priority`: higher pricing with lower latency target
+
+OFAT (`--shape ofat`) uses this baseline by default:
+- `reasoning=medium`
+- `verbosity=medium`
+- `web_search=off`
+- `service_tier=default`
+
+### Running Legacy Experiments
 
 ```bash
 # Basic experiment with multiple LLMs and domains
@@ -90,6 +134,23 @@ Interactive viewer for simulation results.
 - `--only-failed`: Show only failed simulations
 - `--only-all-failed`: Show only tasks where all trials failed
 
+### `run-responses-sweep`
+Runs a Responses API sweep for `gpt-5.4-mini` or another OpenAI model across reasoning, verbosity, and hosted web search settings.
+
+**Key Arguments:**
+- `--exp-dir`: Experiment directory name under `data/exp/responses/`
+- `--shape`: `grid` or `ofat`
+- `--llm`: Agent model to sweep (default: `gpt-5.4-mini`)
+- `--domains`: Domains to test
+- `--modes`: Modes to test (`default` only by default)
+- `--reasoning-efforts`: Reasoning levels to sweep
+- `--verbosities`: Verbosity levels to sweep
+- `--web-search-modes`: `off`, `auto`, `required`
+- `--service-tiers`: `default`, `batch`, `flex`, `priority`
+- `--num-tasks`: Task limit for smoke tests
+- `--task-ids`: Explicit task ids for targeted runs
+- `--auto-resume`: Resume from partial checkpoints when present
+
 ## Experimental Modes
 
 The module supports several experimental modes:
@@ -128,6 +189,23 @@ Example:
 gpt-4.1-2025-04-14_retail_default_gpt-4.1-2025-04-14_4trials.json
 claude-3-7-sonnet-20250219_telecom_oracle-plan_gpt-4.1-2025-04-14_3trials_50tasks.json
 ```
+
+Responses sweeps write:
+```text
+data/exp/responses/<exp-name>/
+  manifest.json
+  results.csv
+  results.json
+  simulations.csv
+  raw/<config>.json
+
+data/simulations/exp/responses/<exp-name>/runs/<config>/results.json
+```
+
+`results.csv` includes estimated cost columns based on the public pricing table:
+- `avg_agent_estimated_total_cost_usd`
+- `avg_user_estimated_total_cost_usd`
+- `avg_estimated_total_cost_usd`
 
 ## Analysis Features
 
@@ -202,11 +280,16 @@ for params, sim_results in results:
 
 ## Dependencies
 
-The eval module requires:
+The legacy analysis path requires:
 - Core tau2 dependencies
-- `scikit-learn` for parameter grid generation
+- `scikit-learn` for legacy parameter grid generation
 - `matplotlib`, `pandas`, `numpy` for analysis and visualization
 - `scipy` for statistical computations
+
+The Responses sweep path uses:
+- `openai`
+- `pandas`
+- Core tau2 dependencies
 
 ## Troubleshooting
 

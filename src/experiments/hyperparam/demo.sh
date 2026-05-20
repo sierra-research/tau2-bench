@@ -16,54 +16,50 @@ fi
 
 EXP_NAME="demo-$(date +%Y%m%d-%H%M%S)"
 
-echo "=== tau2 Hyperparameter Experiments Demo ==="
+echo "=== tau2 Responses Sweep Demo ==="
 echo ""
 echo "Running experiment: $EXP_NAME"
-echo "This will take ~2-3 minutes and cost ~\$0.10"
+echo "This will run a small Responses API smoke sweep with gpt-5.4-mini."
 echo ""
 
 # Run experiment
 echo "# Step 1: Run experiment"
-echo "python -m experiments.hyperparam.cli run-evals \\"
+echo "python -m experiments.hyperparam.cli run-responses-sweep \\"
 echo "    --exp-dir $EXP_NAME \\"
-echo "    --llms gpt-4o-mini \\"
+echo "    --shape ofat \\"
+echo "    --llm gpt-5.4-mini \\"
 echo "    --domains retail \\"
 echo "    --modes default \\"
 echo "    --num-tasks 3 \\"
-echo "    --num-trials 2 \\"
-echo "    --max-steps 50"
+echo "    --num-trials 1 \\"
+echo "    --max-concurrency 1 \\"
+echo "    --auto-resume"
 echo ""
 
-python -m experiments.hyperparam.cli run-evals \
+python -m experiments.hyperparam.cli run-responses-sweep \
     --exp-dir "$EXP_NAME" \
-    --llms gpt-4o-mini \
+    --shape ofat \
+    --llm gpt-5.4-mini \
     --domains retail \
     --modes default \
     --num-tasks 3 \
-    --num-trials 2 \
-    --max-steps 50
+    --num-trials 1 \
+    --max-concurrency 1 \
+    --auto-resume
 
 echo ""
-echo "# Step 2: Analyze results (optional - already done automatically)"
-echo "python -m experiments.hyperparam.cli analyze-results --exp-dir $EXP_NAME"
-echo ""
-
-echo "# Step 3: View results interactively (optional)"
-echo "python -m experiments.hyperparam.cli view --dir ../data/exp/$EXP_NAME"
+echo "# Step 2: Inspect summary artifacts"
+echo "open ../data/exp/responses/$EXP_NAME/results.csv"
 echo ""
 
 echo "=== Demo Complete ==="
-echo "Results saved in: data/exp/$EXP_NAME/"
+echo "Results saved in: data/exp/responses/$EXP_NAME/"
 echo ""
 echo "Try these next:"
-echo "  # Multiple models:"
-echo "  python -m experiments.hyperparam.cli run-evals --exp-dir multi-model \\"
-echo "      --llms gpt-4o-mini claude-3-haiku-20240307 --domains retail"
+echo "  # Full grid on one domain:"
+echo "  python -m experiments.hyperparam.cli run-responses-sweep --exp-dir grid-retail \\"
+echo "      --shape grid --llm gpt-5.4-mini --domains retail --num-trials 1 --max-concurrency 1 --auto-resume"
 echo ""
-echo "  # Different domains:"
-echo "  python -m experiments.hyperparam.cli run-evals --exp-dir multi-domain \\"
-echo "      --llms gpt-4o-mini --domains retail airline telecom"
-echo ""
-echo "  # Different modes:"
-echo "  python -m experiments.hyperparam.cli run-evals --exp-dir multi-mode \\"
-echo "      --llms gpt-4o-mini --domains telecom --modes default no-user oracle-plan"
+echo "  # Targeted smoke test for one task:"
+echo "  python -m experiments.hyperparam.cli run-responses-sweep --exp-dir one-task \\"
+echo "      --shape ofat --llm gpt-5.4-mini --domains retail --num-trials 1 --task-ids 0 --max-concurrency 1 --auto-resume"
