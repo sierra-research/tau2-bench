@@ -318,9 +318,9 @@ def _build_env_kwargs(config: RunConfig, task: Task) -> dict:
     if retrieval_config is not None:
         env_kwargs["retrieval_variant"] = retrieval_config
         env_kwargs["task"] = task
-        retrieval_config_kwargs = getattr(config, "retrieval_config_kwargs", None)
-        if retrieval_config_kwargs:
-            env_kwargs["retrieval_kwargs"] = retrieval_config_kwargs
+        rk = dict(getattr(config, "retrieval_config_kwargs", None) or {})
+        if rk:
+            env_kwargs["retrieval_kwargs"] = rk
     return env_kwargs
 
 

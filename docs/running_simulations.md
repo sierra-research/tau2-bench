@@ -95,7 +95,7 @@ config = TextRunConfig(
     agent="llm_agent",
     llm_agent="openai/gpt-4.1",
     llm_user="openai/gpt-4.1",
-    retrieval_config="bm25",  # or "openai_embeddings", "terminal_use", etc.
+    retrieval_config="alltools",  # or "bm25", "openai_embeddings", "terminal_use", etc.
     num_trials=3,
 )
 
