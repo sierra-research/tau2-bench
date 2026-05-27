@@ -59,6 +59,11 @@ llm_log_dir: ContextVar[Optional[Path]] = ContextVar("llm_log_dir", default=None
 # Context variable to store the LLM logging mode ("all" or "latest")
 llm_log_mode: ContextVar[str] = ContextVar("llm_log_mode", default="latest")
 
+# Default generation budget for the harness-owned /v1/completions codec path.
+# vLLM's completions endpoint otherwise defaults to 16 tokens. Overridable via
+# --agent-llm-args '{"max_tokens": N}'.
+DEFAULT_COMPLETIONS_MAX_TOKENS = 8192
+
 # litellm._turn_on_debug()
 
 logging.getLogger("LiteLLM").setLevel(logging.WARNING)
@@ -399,12 +404,19 @@ def _generate_completions(
     else:
         stop = [*user_stop, *qwen3_codec.STOP]
 
+    # vLLM's /v1/completions defaults max_tokens to 16 (the legacy OpenAI
+    # default), which truncates the model mid-<think> and yields an empty
+    # message ("must have content or tool_calls"). The chat endpoint has no such
+    # tiny default, so set a generous one for parity. Override via llm_args.
+    kwargs.setdefault("max_tokens", DEFAULT_COMPLETIONS_MAX_TOKENS)
+
     request_data = {
         "model": model,
         "io_mode": "completions",
         "prompt": prompt.split("\n"),
         "tools": tools_schema,
         "stop": stop,
+        "max_tokens": kwargs.get("max_tokens"),
         "enable_thinking": enable_thinking,
         "kwargs": {
             k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v

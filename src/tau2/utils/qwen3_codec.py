@@ -52,10 +52,14 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import uuid
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Any, Optional
+
+# Imported at module load (under the import lock): transformers' lazy loader is
+# not thread-safe on first attribute access and races under tau2's concurrency.
+from transformers import AutoTokenizer
 
 from tau2.data_model.message import (
     AssistantMessage,
@@ -186,11 +190,24 @@ def _normalize_conversation_dicts(conversations: list[dict]) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
-@lru_cache(maxsize=4)
-def _get_tokenizer(tokenizer_id: str):
-    from transformers import AutoTokenizer
+_TOKENIZER_CACHE: dict[str, Any] = {}
+_TOKENIZER_LOCK = threading.Lock()
 
-    return AutoTokenizer.from_pretrained(tokenizer_id)
+
+def _get_tokenizer(tokenizer_id: str):
+    """Load (and cache) a tokenizer, thread-safely.
+
+    Uses double-checked locking so that concurrent tau2 worker threads sharing
+    a ``tokenizer_id`` load it exactly once instead of racing on first access.
+    """
+    tok = _TOKENIZER_CACHE.get(tokenizer_id)
+    if tok is None:
+        with _TOKENIZER_LOCK:
+            tok = _TOKENIZER_CACHE.get(tokenizer_id)
+            if tok is None:
+                tok = AutoTokenizer.from_pretrained(tokenizer_id)
+                _TOKENIZER_CACHE[tokenizer_id] = tok
+    return tok
 
 
 def render_chat(
