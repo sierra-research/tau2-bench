@@ -352,6 +352,120 @@ def _write_llm_log(
         json.dump(call_data, f, indent=2)
 
 
+def _generate_completions(
+    model: str,
+    messages: list[Message],
+    tools: Optional[list[Tool]] = None,
+    call_name: Optional[str] = None,
+    *,
+    enable_thinking: bool = True,
+    tokenizer_id: Optional[str] = None,
+    **kwargs: Any,
+) -> AssistantMessage:
+    """Generate via a vanilla /v1/completions endpoint using the Qwen3 codec.
+
+    The harness owns BOTH prompt formatting (``render_chat``) and output
+    parsing (``parse_completion``) so we can serve a plain text-in/text-out
+    vLLM with NO --enable-auto-tool-choice / --tool-call-parser /
+    --reasoning-parser flags. The returned object is the SAME
+    ``AssistantMessage`` the native path produces, so nothing downstream
+    changes.
+
+    Args:
+        enable_thinking: Qwen3 thinking switch (pulled from llm_args).
+        tokenizer_id: Override the tokenizer providing the chat template.
+        **kwargs: forwarded to ``litellm.text_completion`` (e.g. temperature,
+            max_tokens, api_base, num_retries).
+    """
+    from tau2.utils import qwen3_codec
+
+    tid = tokenizer_id or qwen3_codec.DEFAULT_TOKENIZER_ID
+    tools_schema = [tool.openai_schema for tool in tools] if tools else None
+
+    prompt = qwen3_codec.render_chat(
+        messages,
+        tools=tools_schema,
+        add_generation_prompt=True,
+        enable_thinking=enable_thinking,
+        tokenizer_id=tid,
+    )
+
+    # Merge our stop tokens with any caller-provided stops.
+    user_stop = kwargs.pop("stop", None)
+    if user_stop is None:
+        stop = list(qwen3_codec.STOP)
+    elif isinstance(user_stop, str):
+        stop = [user_stop, *qwen3_codec.STOP]
+    else:
+        stop = [*user_stop, *qwen3_codec.STOP]
+
+    request_data = {
+        "model": model,
+        "io_mode": "completions",
+        "prompt": prompt.split("\n"),
+        "tools": tools_schema,
+        "stop": stop,
+        "enable_thinking": enable_thinking,
+        "kwargs": {
+            k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+            for k, v in kwargs.items()
+        },
+        "timestamp": datetime.now().isoformat(),
+    }
+
+    start_time = time.perf_counter()
+    try:
+        response = litellm.text_completion(
+            model=model,
+            prompt=prompt,
+            stop=stop,
+            **kwargs,
+        )
+    except Exception as e:
+        logger.error(e)
+        raise e
+    generation_time_seconds = time.perf_counter() - start_time
+
+    cost = get_response_cost(response)
+    usage = get_response_usage(response)
+
+    choice = response.choices[0]
+    finish_reason = getattr(choice, "finish_reason", None)
+    if finish_reason == "length":
+        logger.warning("Output might be incomplete due to token limit!")
+
+    raw_text = choice.text or ""
+    parsed = qwen3_codec.parse_completion(raw_text, thinking_enabled=enable_thinking)
+
+    message = AssistantMessage(
+        role="assistant",
+        content=parsed.content,
+        tool_calls=parsed.tool_calls,
+        cost=cost,
+        usage=usage,
+        raw_data=response.to_dict(),
+        generation_time_seconds=generation_time_seconds,
+    )
+
+    response_data = {
+        "timestamp": datetime.now().isoformat(),
+        "reasoning": parsed.reasoning,
+        "content": parsed.content,
+        "tool_calls": (
+            [tc.model_dump() for tc in parsed.tool_calls]
+            if parsed.tool_calls
+            else None
+        ),
+        "raw_text": raw_text,
+        "cost": cost,
+        "usage": usage,
+        "generation_time_seconds": generation_time_seconds,
+    }
+    _write_llm_log(request_data, response_data, call_name=call_name)
+
+    return message
+
+
 def generate(
     model: str,
     messages: list[Message],
@@ -378,6 +492,23 @@ def generate(
     validate_message_history(messages)
     if kwargs.get("num_retries") is None:
         kwargs["num_retries"] = DEFAULT_MAX_RETRIES
+
+    # Harness-owned Qwen3 codec branch: talk to a vanilla text-in/text-out
+    # vLLM (/v1/completions) where the harness OWNS prompt formatting and
+    # output parsing instead of relying on the server-side chat template +
+    # tool/reasoning parsers. Enabled either explicitly via io_mode (in
+    # llm_args) or implicitly for hosted_vllm/* models.
+    io_mode = kwargs.pop("io_mode", None)
+    if io_mode == "completions" or (
+        io_mode is None and model.startswith("hosted_vllm/")
+    ):
+        return _generate_completions(
+            model=model,
+            messages=messages,
+            tools=tools,
+            call_name=call_name,
+            **kwargs,
+        )
 
     # Vertex AI Gemini 3 models require VERTEXAI_LOCATION="global"
     if model.startswith("vertex_ai/gemini-3") and not os.environ.get(
