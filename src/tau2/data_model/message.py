@@ -220,6 +220,12 @@ class ParticipantMessageBase(BaseModel):
         description="Wall clock time (seconds) for LLM generation of this message.",
         default=None,
     )
+    context_truncation: Optional[dict] = Field(
+        description="Set when the input context was truncated to a max_input_tokens "
+        "budget before generating this message. Keys: messages_dropped, "
+        "messages_kept, max_input_tokens, tokens_before, tokens_after.",
+        default=None,
+    )
 
     # --- Audio data ---
     audio_format: Optional[AudioFormat] = Field(

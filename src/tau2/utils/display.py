@@ -604,6 +604,23 @@ class ConsoleDisplay:
         sim_info.append(f"{simulation.mode}\n")
         sim_info.append("Termination Reason: ", style=c.section_header)
         sim_info.append(f"{simulation.termination_reason}\n")
+        # Surface input-context truncation (from agent max_input_tokens cap), if any.
+        truncated_msgs = [
+            m
+            for m in simulation.messages or []
+            if getattr(m, "context_truncation", None)
+        ]
+        if truncated_msgs:
+            budget = truncated_msgs[0].context_truncation.get("max_input_tokens")
+            max_dropped = max(
+                m.context_truncation.get("messages_dropped", 0) for m in truncated_msgs
+            )
+            sim_info.append("Context Truncation: ", style=c.section_header)
+            sim_info.append(
+                f"⚠ {len(truncated_msgs)} agent turn(s) truncated to "
+                f"{budget} input tokens (max {max_dropped} msgs dropped)\n",
+                style="bold yellow",
+            )
         if simulation.agent_cost is not None:
             sim_info.append("Agent Cost: ", style=c.section_header)
             sim_info.append(f"${simulation.agent_cost:.4f}\n")
@@ -790,6 +807,17 @@ class ConsoleDisplay:
                         details = f"[{content_style}]Tool ID: {msg.id}. Requestor: {msg.requestor}[/]"
                         if msg.error:
                             details += " [bold red](Error)[/]"
+
+                    # Flag assistant turns whose input context was truncated.
+                    if getattr(msg, "context_truncation", None):
+                        ct = msg.context_truncation
+                        badge = (
+                            f"[bold yellow]⚠ context truncated: dropped "
+                            f"{ct.get('messages_dropped')} msg(s), "
+                            f"{ct.get('tokens_before')}→{ct.get('tokens_after')} tok "
+                            f"(budget {ct.get('max_input_tokens')})[/]"
+                        )
+                        details = f"{details}\n{badge}" if details else badge
 
                     # Add empty row between turns
                     if current_turn is not None and msg.turn_idx != current_turn:
