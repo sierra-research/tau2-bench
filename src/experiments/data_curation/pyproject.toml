@@ -1,0 +1,47 @@
+[project]
+name = "curation"
+version = "0.1.0"
+description = "Declarative, streaming data-curation primitives (nodes + graphs)."
+readme = "README.md"
+requires-python = ">=3.12,<3.14"  # matches the parent tau2 package (harness extra)
+dependencies = [
+    "jsonschema>=4.0",   # tool-call validity node
+    "pyyaml>=6.0",       # declarative pipeline configs
+    "rich>=13.0",        # live CLI progress UI + graph visualization
+]
+
+[project.scripts]
+curation = "curation.cli:main"
+
+[project.optional-dependencies]
+# Tokenizer-backed length metrics (LengthFilter metric="tokens").
+tokenizers = [
+    "transformers>=4.40",
+    "tiktoken>=0.7",
+]
+# FormatSFT node — reuse the eval harness's Qwen3 codec for train-ready output.
+# `tau2` is the parent repo, wired as an editable path source below.
+harness = [
+    "tau2",
+    "transformers>=4.40",
+]
+
+[tool.uv.sources]
+tau2 = { path = "../../..", editable = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-xdist>=3.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["curation"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

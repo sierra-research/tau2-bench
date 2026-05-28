@@ -1,0 +1,14 @@
+# Declarative pipeline spec. Build with:
+#   import yaml; from curation import Pipeline
+#   Pipeline.from_config(yaml.safe_load(open("configs/length_filter.yaml")))
+name: toolmind_length_filter
+nodes:
+  # drop trivial / runaway conversations by turn count
+  - type: length_filter
+    metric: messages
+    min_len: 2
+    max_len: 40
+  # then drop anything that is extremely long by characters
+  - type: length_filter
+    metric: chars
+    max_len: 60000

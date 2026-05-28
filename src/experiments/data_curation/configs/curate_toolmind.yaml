@@ -1,0 +1,37 @@
+# Full curation pipeline: validate tool calls -> keep valid -> categorize ->
+# balance categories -> drop length outliers -> strip annotation fields.
+# Run with the live UI:
+#   curation run --config configs/curate_toolmind.yaml \
+#     --input ../data/toolmind_raw/graph_syn_datasets/graphsyn.jsonl \
+#     --output out.jsonl --limit 20000 --mermaid graph.mmd
+name: curate_toolmind
+nodes:
+  - type: validate_tool_calls
+    name: validate
+
+  - type: filter_by_field
+    name: keep_valid
+    field: tool_calls_valid
+    is_true: true
+
+  - type: length_filter
+    name: turns_2_40
+    metric: messages
+    min_len: 2
+    max_len: 40
+
+  - type: categorize_tool_use
+    name: categorize
+
+  - type: category_sampler
+    name: balance
+    rates:
+      chat_only: 0.5
+      single_call: 1.5
+      long_agentic: 0.7
+    default_rate: 1.0
+    seed: 0
+
+  - type: drop_fields
+    name: clean
+    fields: [tool_calls_valid, tool_call_errors, category, category_features]
