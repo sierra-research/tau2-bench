@@ -50,7 +50,9 @@ building this module). Behavior is pinned by tests in
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
 import threading
 import uuid
@@ -70,9 +72,11 @@ from tau2.data_model.message import (
     UserMessage,
 )
 
-# Default tokenizer that provides the canonical Qwen3 chat template. Pin this
-# to match whatever checkpoint you serve / train on.
-DEFAULT_TOKENIZER_ID = "Qwen/Qwen3-8B"
+# Default tokenizer that provides the canonical Qwen3 chat template. PIN THIS to
+# the exact checkpoint you serve / train on so the prompt we render is the same
+# one the model was trained and is served with. Override without code changes via
+# the env var TAU2_QWEN3_TOKENIZER (set it to an HF id or a local checkpoint dir).
+DEFAULT_TOKENIZER_ID = os.environ.get("TAU2_QWEN3_TOKENIZER", "Qwen/Qwen3-8B")
 
 # Qwen3 turn terminator. Use as the stop sequence for /v1/completions so the
 # server stops at the end of the assistant turn instead of hallucinating the
@@ -208,6 +212,40 @@ def _get_tokenizer(tokenizer_id: str):
                 tok = AutoTokenizer.from_pretrained(tokenizer_id)
                 _TOKENIZER_CACHE[tokenizer_id] = tok
     return tok
+
+
+def chat_template_signature(tokenizer_id: str = DEFAULT_TOKENIZER_ID) -> str:
+    """Return a short, stable hash of the tokenizer's chat template.
+
+    Train/eval parity hinges on rendering with the SAME chat template the model
+    is served with. Compute this at training time and again against the served
+    checkpoint; if they differ, your rendered prompts diverge from what the model
+    expects. (Hashes the raw ``chat_template`` string, so it's robust to
+    tokenizer-version bumps that leave the template untouched.)
+    """
+    tok = _get_tokenizer(tokenizer_id)
+    template = getattr(tok, "chat_template", None)
+    if not template:
+        raise ValueError(f"Tokenizer {tokenizer_id!r} has no chat_template to pin.")
+    return hashlib.sha256(template.encode("utf-8")).hexdigest()[:16]
+
+
+def assert_template_matches(
+    expected_signature: str, tokenizer_id: str = DEFAULT_TOKENIZER_ID
+) -> None:
+    """Raise if the tokenizer's chat-template signature != ``expected_signature``.
+
+    Call at serving/training startup to fail fast on a train/eval template skew:
+
+        assert_template_matches(TRAINED_TEMPLATE_SIG, tokenizer_id=served_ckpt)
+    """
+    actual = chat_template_signature(tokenizer_id)
+    if actual != expected_signature:
+        raise ValueError(
+            f"Chat-template mismatch for {tokenizer_id!r}: expected "
+            f"{expected_signature!r}, got {actual!r}. The renderer's template "
+            "differs from what you trained/served on — prompts will diverge."
+        )
 
 
 def render_chat(

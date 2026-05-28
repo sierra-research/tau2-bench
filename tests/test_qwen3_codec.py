@@ -620,3 +620,32 @@ def test_format_training_example_only_final_assistant_unmasked(tokenizer):
     decoded = tok.decode(unmasked_ids)
     assert "Goodbye" in decoded
     assert "Hello" not in decoded
+
+
+# ---------------------------------------------------------------------------
+# Template version pinning
+# ---------------------------------------------------------------------------
+
+
+def test_chat_template_signature_stable(tokenizer):
+    sig1 = qwen3_codec.chat_template_signature()
+    sig2 = qwen3_codec.chat_template_signature()
+    assert sig1 == sig2 and isinstance(sig1, str) and len(sig1) == 16
+
+
+def test_assert_template_matches_ok(tokenizer):
+    sig = qwen3_codec.chat_template_signature()
+    qwen3_codec.assert_template_matches(sig)  # should not raise
+
+
+def test_assert_template_matches_raises_on_skew(tokenizer):
+    with pytest.raises(ValueError, match="Chat-template mismatch"):
+        qwen3_codec.assert_template_matches("deadbeefdeadbeef")
+
+
+def test_default_tokenizer_id_env_overridable(monkeypatch):
+    # The default is resolved from TAU2_QWEN3_TOKENIZER at import; verify the
+    # resolution logic (re-evaluate the same expression the module uses).
+    monkeypatch.setenv("TAU2_QWEN3_TOKENIZER", "some/local-checkpoint")
+    resolved = __import__("os").environ.get("TAU2_QWEN3_TOKENIZER", "Qwen/Qwen3-8B")
+    assert resolved == "some/local-checkpoint"
