@@ -447,14 +447,17 @@ def _generate_completions(
         tokenizer_id=tid,
     )
 
-    # Merge our stop tokens with any caller-provided stops.
+    # Stop at the served model's own turn terminator (derived from its
+    # tokenizer) so any model family halts correctly — Qwen3 <|im_end|>,
+    # Llama-3 <|eot_id|>, etc. — not just Qwen. Merge with caller stops.
+    model_stop = qwen3_codec.get_stop_tokens(tid)
     user_stop = kwargs.pop("stop", None)
     if user_stop is None:
-        stop = list(qwen3_codec.STOP)
+        stop = list(model_stop)
     elif isinstance(user_stop, str):
-        stop = [user_stop, *qwen3_codec.STOP]
+        stop = [user_stop, *model_stop]
     else:
-        stop = [*user_stop, *qwen3_codec.STOP]
+        stop = [*user_stop, *model_stop]
 
     # vLLM's /v1/completions defaults max_tokens to 16 (the legacy OpenAI
     # default), which truncates the model mid-<think> and yields an empty
