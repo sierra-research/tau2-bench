@@ -354,6 +354,19 @@ def test_parse_think_then_tool_call():
     assert out.tool_calls[0].name == "get_weather"
 
 
+def test_parse_think_then_tool_call_whitespace_gap_is_none():
+    # Qwen3 emits a blank line between </think> and <tool_call>; the leftover
+    # whitespace before the tool call must normalize to None (matching vLLM),
+    # not "\n\n", so replayed history stays identical to the native path.
+    text = (
+        "<think>need weather</think>\n\n"
+        '<tool_call>\n{"name": "get_weather", "arguments": {"city": "Tokyo"}}\n</tool_call>'
+    )
+    out = parse_completion(text, thinking_enabled=True)
+    assert out.content is None
+    assert out.tool_calls[0].name == "get_weather"
+
+
 def test_parse_missing_think_end_terminated_by_tool_call():
     # No </think>; <tool_call> acts as implicit reasoning terminator.
     text = (

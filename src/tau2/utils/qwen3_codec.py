@@ -339,7 +339,11 @@ def _extract_tool_calls(
             for fc in raw_function_calls
         ]
         content = model_output[: model_output.find(TOOL_CALL_START)]
-        return True, tool_calls, (content if content else None)
+        # Treat a whitespace-only remainder as no content. The Qwen3 template
+        # puts a blank line between </think> and <tool_call>, so the text before
+        # the tool call is often "\n\n"; vLLM normalizes that to None on a pure
+        # tool-call turn, and we must match to keep replayed history identical.
+        return True, tool_calls, (content if content.strip() else None)
     except Exception:
         # Mirror vLLM: swallow and treat the whole thing as content.
         return False, [], model_output
