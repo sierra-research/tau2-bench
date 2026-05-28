@@ -627,6 +627,14 @@ def test_format_training_example_only_final_assistant_unmasked(tokenizer):
 # ---------------------------------------------------------------------------
 
 
+def test_get_stop_tokens_uses_model_eos(tokenizer):
+    # Stop must be derived from the served model's tokenizer (its eos), not a
+    # hardcoded Qwen terminator, so non-Qwen families halt correctly.
+    stops = qwen3_codec.get_stop_tokens()
+    assert stops == [tokenizer.eos_token]
+    assert stops == ["<|im_end|>"]  # Qwen3 default tokenizer
+
+
 def test_chat_template_signature_stable(tokenizer):
     sig1 = qwen3_codec.chat_template_signature()
     sig2 = qwen3_codec.chat_template_signature()

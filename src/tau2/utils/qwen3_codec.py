@@ -214,6 +214,19 @@ def _get_tokenizer(tokenizer_id: str):
     return tok
 
 
+def get_stop_tokens(tokenizer_id: str = DEFAULT_TOKENIZER_ID) -> list[str]:
+    """Stop sequence(s) for ``/v1/completions``, derived from the served model.
+
+    Rendering is model-agnostic via ``tokenizer_id``; the stop sequence must be
+    too, or a non-Qwen model never halts at its turn boundary. We use the
+    tokenizer's own ``eos_token`` (Qwen3 -> ``<|im_end|>``, Llama-3 -> ``<|eot_id|>``),
+    falling back to the module ``STOP`` constant if it exposes none.
+    """
+    tok = _get_tokenizer(tokenizer_id)
+    eos = getattr(tok, "eos_token", None)
+    return [eos] if eos else list(STOP)
+
+
 def chat_template_signature(tokenizer_id: str = DEFAULT_TOKENIZER_ID) -> str:
     """Return a short, stable hash of the tokenizer's chat template.
 
