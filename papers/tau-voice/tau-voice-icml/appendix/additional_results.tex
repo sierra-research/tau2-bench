@@ -3,10 +3,10 @@
 
 \new{\subsection{Surveyed Audio-Native Models}\label{app:audio-native-audit}}
 
-\new{\tauvoice{} evaluates three audio-native models in the main body (\S\ref{sec:experiments}); this appendix documents the broader survey behind that selection. As of March 2026, we surveyed the audio-native models listed in Table~\ref{tab:audio-native-audit}. The two inclusion criteria are realtime full-duplex audio \emph{and} native tool calling, both required because \tauvoice{} is a grounded, tool-use benchmark; the disqualified models satisfy the first criterion but not the second, since their published documentation does not describe tool-calling support from their audio-conditioned head. Amazon Nova 2 Sonic qualifies on both axes but was deprioritized as another closed-source provider unlikely to add qualitatively different insight to the three already evaluated. The audio-native landscape evolves quickly; the live leaderboard at \href{https://taubench.com}{taubench.com} tracks the canonical up-to-date list.}\why{addresses macs W4 + follow-up; vw95 W3}
+\new{\tauvoice{} evaluates three audio-native models in the main body (\S\ref{sec:experiments}); this appendix documents the broader survey behind that selection. As of March 2026, we surveyed the audio-native models listed in Table~\ref{tab:audio-native-audit}. The two inclusion criteria are realtime full-duplex audio \emph{and} native tool calling, both required because \tauvoice{} is a grounded, tool-use benchmark; the disqualified models satisfy the first criterion but not the second, since their published documentation does not describe tool-calling support from their audio-conditioned head. Amazon Nova 2 Sonic qualifies on both axes but was deprioritized as another closed-source provider unlikely to add qualitatively different insight to the three already evaluated.}\why{addresses macs W4 + follow-up; vw95 W3}
 
 \begin{table}[h]
-\caption{\new{Audio-native models surveyed for \tauvoice{} evaluation, as of March 2026. Realtime full-duplex audio = streaming bidirectional audio with voice-activity-detected turn-taking. Native tool calling = the model supports tool calls directly from its audio-conditioned head, without an external ASR$\to$LLM cascade. Both criteria are required for inclusion (\S\ref{sec:experiments}). The audio-native landscape evolves quickly; the live leaderboard at \href{https://taubench.com}{taubench.com} tracks the canonical up-to-date list.}\why{addresses macs W4}}
+\caption{\new{Audio-native models surveyed for \tauvoice{} evaluation, as of March 2026. Realtime full-duplex audio = streaming bidirectional audio with voice-activity-detected turn-taking. Native tool calling = the model supports tool calls directly from its audio-conditioned head, without an external ASR$\to$LLM cascade. Both criteria are required for inclusion (\S\ref{sec:experiments}).}\why{addresses macs W4}}
 \label{tab:audio-native-audit}
 \centering
 \begin{small}
@@ -95,10 +95,58 @@ We categorize errors into six types based on observed failure patterns:
     
     \item \textbf{VAD/Unresponsive} (Agent): Voice Activity Detection errors where the agent fails to detect user speech, or agent goes silent for an extended period despite multiple user check-ins.
     
-    \item \textbf{Timeout} (Agent): Agent could not resolve the call within the 10-minute simulation limit, typically due to being too slow or verbose.
+    \item \textbf{Timeout} (Agent): Agent could not resolve the call within the 20-minute simulation limit, typically due to being too slow or verbose.
     
     \item \textbf{Early Termination} (User): User ends the call prematurely before the task is fully completed, often due to ambiguous communication where user assumes the task is done when it is not.
 \end{itemize}
+
+\new{\subsection{Skill-Axis Classification of Agent-Attributable Failures}\label{app:skill-classification}}
+
+\new{To assess what type of capability the benchmark's task-completion failures are surfacing, we re-cut the 77 agent-attributable failures (34 Voice-Fragile + 43 Noise-Fragile, matching the 79\%/90\% agent shares in Table~\ref{tab:combined-error-analysis}) along a third axis: \emph{the skill whose absence was the proximal cause of failure}. This axis is orthogonal to the error-type taxonomy above---e.g., a transcription error and a logical error can both reflect the same underlying spelling deficit---and is intended to answer whether failures are concentrated in domain-specific policy knowledge or in general conversational competence.}\why{addresses vw95 W2: data backing for the commonsense vs. policy framing}
+
+\new{\paragraph{Methodology.} The 77 rows correspond to the agent-attributable subset of the reconciled annotations from \S\ref{sec:analysis} (after the 84\%-agreement inter-rater pass and resolution discussion). A single annotator reviewed each row's error type, the free-text notes, and the arbitration notes where present, assigning it to exactly one of six mutually exclusive skill buckets. The assignment rule is ``what skill, if present, would have prevented this failure?''---the proximal absent skill, not the union of contributing factors. Per-row rationales accompany the released annotations.}\why{addresses vw95 W2}
+
+\new{\paragraph{Skill buckets.} Five buckets capture domain-agnostic commonsense conversational skills; one captures domain-specific policy knowledge:}\why{addresses vw95 W2}
+
+\new{\begin{itemize}[nosep,leftmargin=*]
+    \item \textbf{Spelling}: Agent transcribes a spelled-out name, email, or ID incorrectly, blocking authentication or producing a downstream lookup miss.
+    \item \textbf{Conversational grounding}: Agent executes an irreversible action without explicit user confirmation, or fails to share information the user needs to make the next decision.
+    \item \textbf{Conversational honesty}: Agent claims an action was performed when no corresponding tool call exists in the trace, or acts on a wrong item/entity.
+    \item \textbf{Multi-part request tracking}: User makes a compound request; agent completes one part and treats the call as resolved.
+    \item \textbf{Arithmetic / self-consistency}: Agent makes an arithmetic error (refund total, line-item sum) or contradicts an earlier statement in the same call.
+    \item \textbf{Policy-specific knowledge}: Failure requires knowledge of a domain-specific rule in the agent's policy prompt (e.g., one-time-process rule, refund-method policy).
+\end{itemize}}\why{addresses vw95 W2}
+
+\new{\paragraph{Results.} Table~\ref{tab:skill-classification} shows the distribution. 73/77 (94.8\%) of agent-attributable failures fall into the five commonsense buckets; only 4/77 (5.2\%) require domain-specific policy knowledge. Spelling (35.1\%) and conversational grounding (31.2\%) dominate, accounting for nearly two-thirds of all agent-attributable failures.}\why{addresses vw95 W2}
+
+\begin{table}[h]
+\caption{\new{Skill-axis classification of the 77 agent-attributable failures. Five buckets are domain-agnostic commonsense conversational skills; one is domain-specific policy knowledge.}\why{addresses vw95 W2}}
+\label{tab:skill-classification}
+\centering
+\begin{small}
+\new{\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Skill bucket} & \textbf{Count} & \textbf{\%} \\
+\midrule
+\multicolumn{3}{l}{\textit{Domain-agnostic commonsense}} \\
+Spelling & 27 & 35.1\% \\
+Conversational grounding & 24 & 31.2\% \\
+Conversational honesty & 13 & 16.9\% \\
+Multi-part request tracking & 5 & 6.5\% \\
+Arithmetic / self-consistency & 4 & 5.2\% \\
+\midrule
+\textbf{Commonsense subtotal} & \textbf{73} & \textbf{94.8\%} \\
+\midrule
+\multicolumn{3}{l}{\textit{Domain-specific}} \\
+Policy-specific knowledge & 4 & 5.2\% \\
+\midrule
+\textbf{Total} & \textbf{77} & \textbf{100\%} \\
+\bottomrule
+\end{tabular}}
+\end{small}
+\end{table}
+
+\new{\paragraph{Discussion.} The concentration in commonsense buckets indicates that the voice-text gap reported in \S\ref{sec:results} is not primarily a question of domain knowledge---the agents already have the relevant policy text in their prompts---but of general conversational competence under voice conditions. Spelling failures in particular compound under realistic audio (Table~\ref{tab:ablation-single}), since accents and background noise degrade exactly the part of the interaction (letter-by-letter authentication) the agent depends on to begin acting.}\why{addresses vw95 W2}
 
 \new{\subsection{Simulator Realism Validation}\label{app:simulator-realism}}
 
@@ -114,9 +162,8 @@ We categorize errors into six types based on observed failure patterns:
     \item \textbf{Interruption behavior}: appropriateness and frequency of mid-utterance interjections.
     \item \textbf{Behavioral plausibility}: holistic judgment of whether the caller behaves like a real human across the whole call.
 \end{itemize}}\why{addresses macs Q3/Q4}
-\todo{double-check stratification scheme (domains $\times$ speech-complexity) matches the annotation pass before final submission.}
 
-\new{\paragraph{Results.} Table~\ref{tab:simulator-realism} reports the per-dimension means averaged across the two annotators. Averaging across the six dimensions, the simulator achieves an overall mean of 3.1/4, with 83\% of all individual ratings at 3 or above. Within-1 inter-rater agreement --- the fraction of (simulation, dimension) pairs on which the two raters' scores are within one point of each other --- is 94\%, suggesting consistent perception of simulator quality across annotators.}\why{addresses macs Q3/Q4}
+\new{\paragraph{Results.} Table~\ref{tab:simulator-realism} reports the per-dimension means averaged across the two annotators. Averaging across the six dimensions, the simulator achieves an overall mean of 3.1/4, with 83\% of all individual ratings at 3 or above. Within-1 inter-rater agreement --- the fraction of (simulation, dimension) pairs on which the two raters' scores are within one point of each other --- is 94\%, suggesting consistent perception of simulator quality across annotators. Figure~\ref{fig:simulator-realism-distribution} shows the underlying per-rater distributions: five dimensions display overlapping right-skewed shapes, while on \emph{audio environment realism} Rater B did not differentiate (all 60 ratings = 3), so the table's 3.3 entry for that dimension reflects Rater A's variation only.}\why{addresses macs Q3/Q4; coauthor: surface per-rater distributions}
 
 \begin{table}[h]
 \caption{\new{Simulator realism ratings, averaged across two annotators on 60 simulations (1--4 scale; higher is better). Overall row is the mean across the six dimensions.}\why{addresses macs Q3/Q4}}
@@ -139,6 +186,13 @@ Behavioral plausibility (holistic) & 3.1 / 4 \\
 \end{tabular}}
 \end{small}
 \end{table}
+
+\begin{figure*}[h]
+\centering
+\new{\includegraphics[width=0.85\textwidth]{results/simulator_realism_distribution.pdf}}
+\caption{\new{Per-rater rating distributions for the simulator-realism study (\S\ref{app:simulator-realism}; $n=60$ simulations per rater). Stacked bars show how each rater (A, B) distributed their 1--4 Likert ratings across the six dimensions.}\why{addresses coauthor: surface per-rater distributions}}
+\label{fig:simulator-realism-distribution}
+\end{figure*}
 
 \new{\paragraph{Discussion.} The dimensions most directly relevant to task evaluation---turn-taking, interruption behavior, backchanneling, and overall behavioral plausibility---all score at or above 3.0/4, supporting the use of the simulator as a controllable substitute for human callers in this benchmark. The weakest dimension is voice prosody (2.6/4), consistent with our deliberate choice (\S\ref{sec:conclusion}) not to evaluate agent speech generation quality and to treat TTS-synthesized caller audio as indicative rather than definitive. This study is not a substitute for evaluation with real human callers, which we list as future work (\S\ref{sec:conclusion}); rather, it provides a check that the dimensions of simulator behavior that most directly affect agent task completion are acceptably realistic.}\why{addresses macs Q3/Q4}
 
@@ -169,7 +223,7 @@ Behavioral plausibility (holistic) & 3.1 / 4 \\
 \end{small}
 \end{table}
 
-\new{\subsection{ASR-enabled Evaluation}\label{app:asr-enabled}}
+\new{\subsection{ASR-Enabled Evaluation}\label{app:asr-enabled}}
 
 \new{We ran a preliminary single-run evaluation on Retail ($n=114$) in which the user simulator perceives the agent through Deepgram Nova-3 streaming ASR (telephony $\mu$-law @ 8\,kHz, finalized segments) rather than the agent's native transcript. Both the text-to-voice gap and the Clean-to-Realistic degradation persist with comparable magnitude (Table~\ref{tab:asr-enabled}); formal significance testing is deferred to future work.}\why{addresses beyN follow-up and vw95 follow-up}
 

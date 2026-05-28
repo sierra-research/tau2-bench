@@ -1,0 +1,356 @@
+%% =============================================================================
+%% Sierra Inner Theme for Beamer
+%% =============================================================================
+%% Controls: title page, itemize/enumerate, blocks, figures, tables
+%% Based on Sierra Template 2025 from PowerPoint
+%% =============================================================================
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{beamerinnerthemeSierra}[2024/12/03 Sierra Inner Theme]
+
+\RequirePackage{tikz}
+\RequirePackage{amssymb}  % For square bullet
+\RequirePackage{setspace} % For line spacing
+
+%% -----------------------------------------------------------------------------
+%% Font Sizes (Official Sierra Style Guide 2025)
+%% -----------------------------------------------------------------------------
+%% DISPLAY SIZES:
+%%   - Section title: 53pt, Semi Bold, 1.0 line spacing
+%%   - Slide header: 32pt, Medium, 1.0 line spacing
+%%   - Slide subtitles: 24pt, Medium, 1.0 line spacing
+%%
+%% CONTENT SIZES:
+%%   - Large body: 16pt, Medium, 1.15 line spacing
+%%   - Medium body: 14pt, Medium, 1.15 line spacing
+%%   - Standard body: 12pt, Normal (Light), 1.1 line spacing
+%%   - Small body: 9pt, Normal (Light), 1.15 line spacing
+%%   - Small callout: 7pt, Normal (Light), 1.15 line spacing
+%%
+%% Beamer scaling: ~50% of PPT sizes
+%% -----------------------------------------------------------------------------
+
+%% Set default line spacing to 110% (standard body)
+\setstretch{1.1}
+
+%% -----------------------------------------------------------------------------
+%% Title Page
+%% -----------------------------------------------------------------------------
+%% Sierra style: dark green background, left-aligned white text
+%% Title uses Inter Light weight, author info at bottom left
+
+\setbeamertemplate{title page}{%
+  % Draw dark green background (if no background image is set externally)
+  \ifsierratitlebackground{%
+    \begin{tikzpicture}[remember picture,overlay]
+      \fill[SierraDarkGreen] 
+        (current page.south west) rectangle (current page.north east);
+    \end{tikzpicture}%
+  }{}%
+  %
+  \vbox{}
+  \vskip1.5em
+  
+  % Title - top left, Inter SemiBold (53pt → 26pt), 1.0 line spacing
+  \begin{beamercolorbox}[
+    wd=0.85\paperwidth,
+    leftskip=0.05\paperwidth
+  ]{title}
+    {\fontsize{26}{26}\selectfont\intersemibold\usebeamercolor[fg]{title}\inserttitle\par}
+    
+    \ifx\insertsubtitle\@empty
+    \else
+      \vskip0.6em
+      % Subtitle: 24pt Medium → 12pt
+      {\fontsize{12}{12}\selectfont\intermedium\usebeamercolor[fg]{subtitle}\insertsubtitle\par}
+    \fi
+  \end{beamercolorbox}
+  
+  \vfill
+  
+  % Bottom section with author (left) and logo placeholder (right)
+  \begin{tikzpicture}[remember picture,overlay]
+    % Author info - bottom left (Inter Medium for readability)
+    \node[anchor=south west, inner sep=0] at ([xshift=0.05\paperwidth, yshift=0.06\paperheight]current page.south west) {%
+      \begin{minipage}{0.5\paperwidth}
+        \raggedright
+        {\fontsize{10}{12}\selectfont\intermedium\usebeamercolor[fg]{author}\insertauthor\par}
+        \ifx\insertinstitute\@empty\else
+          \vskip0.3em
+          {\fontsize{10}{12}\selectfont\intermedium\usebeamercolor[fg]{institute}\insertinstitute\par}
+        \fi
+      \end{minipage}%
+    };
+    % Logo - bottom right, sized to match author block height (~1.2cm)
+    \ifdefined\sierralogo
+      \node[anchor=south east, inner sep=0] at ([xshift=-0.05\paperwidth, yshift=0.06\paperheight]current page.south east) {%
+        \sierralogo
+      };
+    \fi
+  \end{tikzpicture}
+}
+
+%% -----------------------------------------------------------------------------
+%% Itemize / Enumerate (matching PowerPoint bullets)
+%% -----------------------------------------------------------------------------
+%% Level 1: ● (filled circle)
+%% Level 2: ○ (hollow circle)
+%% Level 3: ▪ (small filled square)
+
+% Bullet symbols - clean and properly sized
+\setbeamertemplate{itemize item}{\textbullet}
+\setbeamertemplate{itemize subitem}{$\circ$}
+\setbeamertemplate{itemize subsubitem}{\tiny$\blacksquare$}
+
+% Colors - taupe (dk2)
+\setbeamercolor{itemize item}{fg=SierraTaupe}
+\setbeamercolor{itemize subitem}{fg=SierraTaupe}
+\setbeamercolor{itemize subsubitem}{fg=SierraTaupe}
+
+% Spacing (generous, like PowerPoint)
+\setlength{\leftmargini}{1.5em}
+\setlength{\leftmarginii}{1.5em}
+\setlength{\leftmarginiii}{1.5em}
+
+% Enumerate - simple numbers with period
+\setbeamertemplate{enumerate item}{\insertenumlabel.}
+\setbeamertemplate{enumerate subitem}{\alph{enumii}.}
+
+%% -----------------------------------------------------------------------------
+%% Blocks (slim headers, discreet styling)
+%% -----------------------------------------------------------------------------
+
+\setbeamertemplate{block begin}{
+  \par\vskip0.4em
+  \begin{beamercolorbox}[
+    colsep*=.3ex,
+    dp={0.3ex},
+    leftskip=0.4em,
+    rightskip=0.4em,
+    rounded=true,
+    shadow=false
+  ]{block title}
+    \usebeamerfont{block title}\insertblocktitle
+  \end{beamercolorbox}
+  {\parskip0pt\par}
+  \nointerlineskip\vskip-0.5pt
+  \usebeamerfont{block body}
+  \begin{beamercolorbox}[
+    colsep*=.4ex,
+    vmode,
+    leftskip=0.4em,
+    rightskip=0.4em,
+    rounded=true
+  ]{block body}
+    \vskip0.2ex\vbox{}
+}
+
+\setbeamertemplate{block end}{
+  \end{beamercolorbox}\vskip0.3em
+}
+
+% Alert block
+\setbeamertemplate{block alerted begin}{
+  \par\vskip0.4em
+  \begin{beamercolorbox}[
+    colsep*=.3ex,
+    dp={0.3ex},
+    leftskip=0.4em,
+    rightskip=0.4em,
+    rounded=true
+  ]{block title alerted}
+    \usebeamerfont{block title alerted}\insertblocktitle
+  \end{beamercolorbox}
+  {\parskip0pt\par}
+  \nointerlineskip\vskip-0.5pt
+  \usebeamerfont{block body alerted}
+  \begin{beamercolorbox}[
+    colsep*=.4ex,
+    vmode,
+    leftskip=0.4em,
+    rightskip=0.4em,
+    rounded=true
+  ]{block body alerted}
+    \vskip0.2ex\vbox{}
+}
+
+\setbeamertemplate{block alerted end}{
+  \end{beamercolorbox}\vskip0.3em
+}
+
+% Example block
+\setbeamertemplate{block example begin}{
+  \par\vskip0.4em
+  \begin{beamercolorbox}[
+    colsep*=.3ex,
+    dp={0.3ex},
+    leftskip=0.4em,
+    rightskip=0.4em,
+    rounded=true
+  ]{block title example}
+    \usebeamerfont{block title example}\insertblocktitle
+  \end{beamercolorbox}
+  {\parskip0pt\par}
+  \nointerlineskip\vskip-0.5pt
+  \usebeamerfont{block body example}
+  \begin{beamercolorbox}[
+    colsep*=.4ex,
+    vmode,
+    leftskip=0.4em,
+    rightskip=0.4em,
+    rounded=true
+  ]{block body example}
+    \vskip0.2ex\vbox{}
+}
+
+\setbeamertemplate{block example end}{
+  \end{beamercolorbox}\vskip0.3em
+}
+
+%% -----------------------------------------------------------------------------
+%% Font Specifications (Official Sierra Style Guide 2025)
+%% -----------------------------------------------------------------------------
+%% DISPLAY: Section 53pt SemiBold, Header 32pt Medium, Subtitle 24pt Medium
+%% CONTENT: Large 16pt Med, Medium 14pt Med, Standard 12pt Normal, Small 9pt
+%% Beamer scaling: approximately 50% of PPT sizes
+%% -----------------------------------------------------------------------------
+
+% DISPLAY - Section/Title: 53pt Semi Bold, 1.0 spacing
+\setbeamerfont{title}{size=\fontsize{26}{26}\selectfont}
+
+% DISPLAY - Slide header: 32pt Medium, 1.0 spacing
+\setbeamerfont{frametitle}{size=\fontsize{16}{16}\selectfont}
+
+% DISPLAY - Slide subtitles: 24pt Medium, 1.0 spacing
+\setbeamerfont{framesubtitle}{size=\fontsize{12}{12}\selectfont}
+\setbeamerfont{subtitle}{size=\fontsize{12}{12}\selectfont}
+
+% Author/Institute
+\setbeamerfont{author}{size=\fontsize{8}{9}\selectfont}
+\setbeamerfont{institute}{size=\fontsize{8}{9}\selectfont}
+\setbeamerfont{date}{size=\fontsize{7}{8}\selectfont}
+
+% CONTENT - Standard body: 12pt Normal (Light), 1.1 spacing
+\setbeamerfont{normal text}{size=\fontsize{10}{11}\selectfont}
+
+% CONTENT - Medium body for blocks: 14pt Medium
+\setbeamerfont{block title}{size=\fontsize{9}{10}\selectfont,series=\bfseries}
+\setbeamerfont{block body}{size=\fontsize{8}{9}\selectfont}
+\setbeamerfont{block title alerted}{size=\fontsize{9}{10}\selectfont,series=\bfseries}
+\setbeamerfont{block body alerted}{size=\fontsize{8}{9}\selectfont}
+\setbeamerfont{block title example}{size=\fontsize{9}{10}\selectfont,series=\bfseries}
+\setbeamerfont{block body example}{size=\fontsize{8}{9}\selectfont}
+
+% CONTENT - Item fonts: Standard 12pt → 10pt scaled
+\setbeamerfont{itemize/enumerate body}{size=\fontsize{10}{11}\selectfont}
+\setbeamerfont{itemize/enumerate subbody}{size=\fontsize{9}{10}\selectfont}
+\setbeamerfont{itemize/enumerate subsubbody}{size=\fontsize{8}{9}\selectfont}
+
+%% -----------------------------------------------------------------------------
+%% Special Slide Templates (Sierra Template 2025)
+%% -----------------------------------------------------------------------------
+
+%% Statement slide command - large centered text on colored background
+%% Usage: \statementslide{Your statement text here}
+\newcommand{\statementslide}[2][SierraBeige]{%
+  \begingroup
+  \setbeamercolor{background canvas}{bg=#1}
+  \begin{frame}[plain]
+    \centering
+    \vfill
+    \ifstrequal{#1}{SierraBeige}{%
+      {\fontsize{28}{34}\selectfont\interlight\textcolor{SierraCharcoal}{#2}}%
+    }{%
+      {\fontsize{28}{34}\selectfont\interlight\textcolor{SierraWhite}{#2}}%
+    }
+    \vfill
+  \end{frame}
+  \endgroup
+}
+
+%% Quote slide command - quote with attribution
+%% Usage: \quoteslide{Quote text}{Attribution name}{Title/Role}
+\newcommand{\quoteslide}[4][SierraBeige]{%
+  \begingroup
+  \setbeamercolor{background canvas}{bg=#1}
+  \begin{frame}[plain]
+    \centering
+    \vfill
+    \begin{minipage}{0.8\paperwidth}
+      \centering
+      \ifstrequal{#1}{SierraBeige}{%
+        {\fontsize{20}{26}\selectfont\interlight\textcolor{SierraCharcoal}{"#2"}}%
+        \vspace{1.5em}
+        
+        {\fontsize{12}{14}\selectfont\intermedium\textcolor{SierraTaupe}{#3}}
+        
+        {\fontsize{10}{12}\selectfont\interlight\textcolor{SierraTaupe}{#4}}%
+      }{%
+        {\fontsize{20}{26}\selectfont\interlight\textcolor{SierraWhite}{"#2"}}%
+        \vspace{1.5em}
+        
+        {\fontsize{12}{14}\selectfont\intermedium\textcolor{SierraWhite}{#3}}
+        
+        {\fontsize{10}{12}\selectfont\interlight\textcolor{SierraWhite}{#4}}%
+      }
+    \end{minipage}
+    \vfill
+  \end{frame}
+  \endgroup
+}
+
+%% Section slide command - for dividing presentation sections
+%% Usage: \sectionslide{Section Title}
+\newcommand{\sectionslide}[1]{%
+  {
+  \usebackgroundtemplate{%
+    \includegraphics[width=\paperwidth,height=\paperheight]{../assets/sierra-gradient-bg.png}%
+  }
+  \begin{frame}[plain]
+    \centering
+    \vfill
+    {\fontsize{32}{38}\selectfont\interlight\textcolor{SierraWhite}{#1}}
+    \vfill
+  \end{frame}
+  }
+}
+
+%% Thank you slide command
+%% Usage: \thankyouslide{Thank you message}{Optional subtitle}
+%% 
+%% IMPORTANT: The Sierra logo is ALWAYS centered at the bottom of this slide.
+%% The logo is positioned using TikZ absolute positioning to ensure it stays
+%% fixed at the bottom center regardless of content length.
+%%
+%% To customize the logo, define \sierralogo before calling this command:
+%%   \newcommand{\sierralogo}{\includegraphics[height=1.5cm]{path/to/logo.png}}
+%%
+\newcommand{\thankyouslide}[2]{%
+  {
+  \usebackgroundtemplate{%
+    \includegraphics[width=\paperwidth,height=\paperheight]{../assets/sierra-dusk-bg.jpg}%
+  }
+  \begin{frame}[plain]
+    \centering
+    \vfill
+    {\fontsize{48}{58}\selectfont\interlight\textcolor{SierraWhite}{#1}}
+    \ifx&#2&\else
+      \vspace{1.5em}
+      
+      {\fontsize{16}{19}\selectfont\interlight\textcolor{SierraWhite}{#2}}
+    \fi
+    \vfill
+    % Logo is positioned absolutely at bottom center using TikZ
+    % This ensures it's ALWAYS centered at the bottom, regardless of content
+    \begin{tikzpicture}[remember picture,overlay]
+      \ifdefined\sierralogo
+        \node[anchor=south, inner sep=0] at ([yshift=0.08\paperheight]current page.south) {%
+          \sierralogo
+        };
+      \fi
+    \end{tikzpicture}
+  \end{frame}
+  }
+}
+
+\endinput

@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>τ-Voice — talk-optimized slides (v2)</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css" id="theme">
+  <style>
+    /* =========================================================================
+       τ-Voice v2 — talk-optimized slides.
+       Design tenets (vs v1, which mirrors the blog):
+         · ONE idea per slide.
+         · Headline = the takeaway, not the topic.
+         · Charts go full-bleed; the slide IS the chart.
+         · Hero numbers as a visual anchor.
+         · Minimal text; spoken track carries depth via <aside class="notes">.
+         · Builds (reveal.js fragments) on a few key slides.
+       ========================================================================= */
+
+    :root {
+      --sierra-green: #065f46;
+      --sierra-green-dark: #047857;
+      --sierra-green-darker: #022c22;
+      --sierra-green-pale: #ecfdf5;
+      --slide-fg: #1a202c;
+      --slide-fg-muted: #4a5568;
+      --slide-fg-faint: #718096;
+      --slide-border: #e2e8f0;
+      --accent-orange: #c2410c;
+      --accent-red: #b91c1c;
+    }
+
+    .reveal {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+        'Inter', 'Helvetica Neue', sans-serif;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+      color: var(--slide-fg);
+    }
+    .reveal .slides { text-align: left; }
+    /* Force a 1280×720 box per slide; padding inside slides is generous so the
+       eye finds the focal element first. */
+    .reveal .slides section {
+      box-sizing: border-box; width: 1280px; height: 720px;
+      padding: 56px 80px; overflow: hidden;
+      /* `align-items: flex-start` (rather than the default `stretch`) keeps
+         flex-item widths from being stretched on the cross-axis, which had
+         been distorting SVG aspect ratios on the pipeline slide. */
+      display: flex !important; flex-direction: column;
+      justify-content: center; align-items: flex-start;
+    }
+    .reveal h1, .reveal h2, .reveal h3 {
+      text-transform: none; letter-spacing: -0.02em; color: var(--slide-fg);
+      font-weight: 700; line-height: 1.1; margin: 0;
+    }
+    .reveal h1 { font-size: 5.5rem; }
+    .reveal h2 { font-size: 3rem; }
+    .reveal h3 { font-size: 1.5rem; font-weight: 600; }
+    .reveal p, .reveal li {
+      font-size: 1.4rem; line-height: 1.45; color: var(--slide-fg-muted);
+      font-weight: 400;
+    }
+    .reveal strong { color: var(--slide-fg); font-weight: 700; }
+    .reveal em { font-style: italic; color: inherit; }
+    .reveal a { color: var(--sierra-green); text-decoration: none; border-bottom: 1px solid currentColor; }
+
+    .tau-symbol { color: var(--sierra-green); }
+    .reveal .slide-number { color: #94a3b8; font-size: 14px; }
+
+    /* ---------- Slide variants ---------- */
+
+    /* Dark green hero (title, divider, thank you) */
+    .reveal .slides section.hero {
+      background: linear-gradient(135deg, #064e3b 0%, var(--sierra-green-darker) 100%);
+      color: #fff; padding: 80px;
+    }
+    .reveal .slides section.hero h1,
+    .reveal .slides section.hero h2,
+    .reveal .slides section.hero p,
+    .reveal .slides section.hero strong { color: #fff; }
+    .reveal .slides section.hero .tau-symbol { color: #bbf7d0; }
+    .reveal .slides section.hero .eyebrow,
+    .reveal .slides section.hero .meta { color: rgba(255,255,255,0.7); }
+    .reveal .slides section.hero a { color: #bbf7d0; border-bottom-color: rgba(187, 247, 208, 0.4); }
+
+    /* Pale-green section divider */
+    .reveal .slides section.section-divider {
+      background: var(--sierra-green-pale);
+      padding: 80px;
+    }
+
+    /* Big-number / single-stat slides — hero number as visual anchor */
+    .reveal .slides section.stat-slide {
+      align-items: flex-start; justify-content: center;
+    }
+    .stat-hero {
+      font-size: 12rem; font-weight: 800; line-height: 0.95;
+      letter-spacing: -0.04em; color: var(--sierra-green);
+    }
+    .stat-hero.warn { color: var(--accent-orange); }
+    .stat-caption {
+      font-size: 1.8rem; color: var(--slide-fg); font-weight: 500;
+      max-width: 900px; margin-top: 20px; line-height: 1.3;
+    }
+    .stat-footnote {
+      font-size: 1.05rem; color: var(--slide-fg-faint); margin-top: 24px;
+      max-width: 900px; line-height: 1.45;
+    }
+
+    /* ---------- Shared helpers ---------- */
+
+    .eyebrow {
+      font-size: 0.85rem; font-weight: 700; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--sierra-green);
+      margin-bottom: 18px;
+    }
+    /* `.reveal` prefixes here are deliberate — they bump specificity above
+       the .reveal p / .reveal li base font-size rule. */
+    .reveal .headline-sub {
+      font-size: 1.25rem; color: var(--slide-fg-muted);
+      max-width: 1000px; margin-top: 18px; line-height: 1.45;
+    }
+    .reveal .footnote-line {
+      font-size: 1rem; color: var(--slide-fg-faint);
+      max-width: 1000px; margin-top: 24px; line-height: 1.5;
+    }
+
+    /* Pull-quote / hook style. .reveal-prefixed selector overrides the
+       .reveal p baseline font-size (which would otherwise win on specificity). */
+    .reveal .hook-quote {
+      font-size: 5rem; line-height: 1.05; font-weight: 700;
+      letter-spacing: -0.025em; max-width: 1100px; color: var(--slide-fg);
+    }
+    .reveal .hook-quote em { font-style: italic; color: var(--sierra-green); }
+
+    /* Split-screen / vs layout for "the problem" slide */
+    .vs-split {
+      display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+      gap: 24px; margin-top: 24px;
+    }
+    .vs-card {
+      border: 1px solid var(--slide-border); border-radius: 14px;
+      background: #fff; padding: 32px; min-height: 260px;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .vs-card .vs-card-eyebrow {
+      font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--slide-fg-faint); margin-bottom: 12px;
+    }
+    .vs-card h3 { font-size: 1.6rem; margin-bottom: 12px; }
+    .vs-card p { font-size: 1.05rem; margin: 0; line-height: 1.4; }
+    .vs-card .vs-card-has { color: var(--sierra-green-dark); font-weight: 600; }
+    .vs-card .vs-card-missing { color: var(--accent-orange); font-weight: 600; }
+    .vs-arrow {
+      font-size: 2.2rem; color: var(--slide-fg-faint); font-weight: 700;
+    }
+
+    /* Three-pillar "what is τ-Voice" diagram */
+    .pillar-row {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;
+      margin-top: 30px;
+    }
+    .pillar {
+      text-align: center; padding: 0 8px;
+    }
+    .pillar-icon {
+      font-size: 4.5rem; line-height: 1; margin-bottom: 16px;
+      display: block;
+    }
+    .pillar-label {
+      font-size: 1.3rem; font-weight: 700; color: var(--slide-fg);
+      margin-bottom: 8px; line-height: 1.2;
+    }
+    .pillar-stat {
+      font-size: 2rem; font-weight: 800; color: var(--sierra-green);
+      margin-bottom: 8px; letter-spacing: -0.02em;
+    }
+    .pillar-sub {
+      font-size: 0.95rem; color: var(--slide-fg-faint); line-height: 1.4;
+      max-width: 280px; margin: 0 auto;
+    }
+
+    /* "Same tasks, same evaluator" callout under pillars */
+    .pillar-callout {
+      margin-top: 32px; text-align: center;
+      font-size: 1.2rem; color: var(--slide-fg-muted); font-weight: 500;
+    }
+    .pillar-callout strong { color: var(--sierra-green-dark); }
+
+    /* ---------- Progress chart (Finding 1) ---------- */
+    /* Full-bleed: no demo-block chrome, no card border. The slide title IS the
+       chart title; the chart fills the rest. */
+    .chart-frame { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .progress-svg { width: 100%; height: 100%; display: block; }
+
+    /* ---------- Failure attribution (Finding 2) ---------- */
+    .fail-bars { display: flex; flex-direction: column; gap: 18px; margin-top: 30px; }
+    .fail-bar {
+      display: grid; grid-template-columns: 220px 1fr 130px;
+      align-items: center; gap: 18px;
+    }
+    .fail-bar-label {
+      font-size: 1.1rem; font-weight: 700; color: var(--slide-fg);
+    }
+    .fail-bar-label small { display: block; font-weight: 400; color: var(--slide-fg-faint); font-size: 0.85rem; margin-top: 2px; }
+    .fail-bar-track {
+      position: relative; height: 36px; background: #f1f5f9; border-radius: 6px; overflow: hidden;
+    }
+    .fail-bar-fill {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      background: linear-gradient(90deg, var(--accent-red) 0%, #d97706 100%);
+      border-radius: 6px;
+      display: flex; align-items: center; padding-left: 14px;
+      color: #fff; font-weight: 700; font-size: 0.95rem;
+    }
+    .fail-bar-total {
+      font-size: 1.6rem; font-weight: 800; color: var(--slide-fg);
+      letter-spacing: -0.02em; text-align: right;
+    }
+
+    /* ---------- Ablation (Finding 3) — accent-focused bar slope ---------- */
+    .ab-row {
+      display: grid; grid-template-columns: 170px 1fr 90px;
+      gap: 16px; align-items: center; margin-bottom: 14px;
+    }
+    .ab-row-label {
+      font-size: 1rem; font-weight: 600; color: var(--slide-fg);
+    }
+    .ab-row-track {
+      position: relative; height: 26px; background: #f1f5f9; border-radius: 5px; overflow: hidden;
+    }
+    .ab-row-fill {
+      position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px;
+    }
+    .ab-row-val {
+      font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums;
+      text-align: right; color: var(--slide-fg);
+    }
+    .ab-row-val .delta { color: var(--accent-orange); font-weight: 700; }
+    .ab-row-val .delta.muted { color: var(--slide-fg-faint); }
+
+    /* ---------- CTA slide ---------- */
+    .cta-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;
+      margin-top: 40px;
+    }
+    .cta-card {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 14px; padding: 24px;
+    }
+    .cta-card .cta-eyebrow {
+      font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: #bbf7d0; margin-bottom: 10px;
+    }
+    .cta-card .cta-line {
+      font-size: 1.05rem; font-weight: 500; color: #ecfdf5; line-height: 1.35;
+    }
+
+    /* ---------- Pipeline (extension slide chrome) ----------
+       The pipeline slide opts OUT of the section-level flex layout
+       (via .pipeline-slide override below) — flex column with the SVG inside
+       was distorting positions of <text text-anchor="middle"> children in
+       Chrome. Plain block layout works identically to v1. */
+    .reveal .slides section.pipeline-slide {
+      display: block !important;
+      padding: 40px 64px;
+    }
+    .pipeline-frame { padding-top: 14px; width: 100%; }
+    .pipeline-svg { display: block; width: 100%; height: auto; max-width: 1120px; margin: 0 auto; }
+
+    /* ---------- Limitations / extension columns ---------- */
+    .two-col {
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 36px; margin-top: 18px;
+    }
+    .two-col h3 { font-size: 1.15rem; margin-bottom: 6px; }
+    .two-col p { font-size: 1rem; }
+
+    /* ---------- Extension small ablation table ---------- */
+    .ext-ab-table { width: 100%; border-collapse: collapse; font-size: 1rem; margin-top: 18px; }
+    .ext-ab-table th {
+      font-size: 0.78rem; font-weight: 700; color: var(--slide-fg-faint);
+      text-transform: uppercase; letter-spacing: 0.08em;
+      text-align: center; padding: 8px; border-bottom: 2px solid var(--slide-border);
+    }
+    .ext-ab-table th:first-child { text-align: left; }
+    .ext-ab-table td { padding: 9px 8px; text-align: center; border-bottom: 1px solid #edf2f7; }
+    .ext-ab-table td:first-child { text-align: left; font-weight: 600; color: var(--slide-fg); }
+    .ext-ab-cell { display: inline-block; min-width: 36px; padding: 3px 9px; border-radius: 5px;
+      font-variant-numeric: tabular-nums; font-weight: 600; }
+    .ext-ab-cell.best { background: #dcfce7; color: var(--sierra-green); }
+    .ext-ab-cell.bad  { background: #fef2f2; color: var(--accent-red); }
+    .ext-ab-cell.mid  { background: #f8fafc; color: var(--slide-fg-muted); }
+    .ext-ab-delta { font-size: 0.82rem; color: #94a3b8; margin-left: 4px; }
+
+    /* ---------- Reveal.js fragment polish ---------- */
+    .reveal .slides section .fragment { transition: all 0.4s ease; }
+
+    /* Sub-eyebrow used to label the act number on a slide */
+    .act-eyebrow {
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--slide-fg-faint);
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+<div class="reveal">
+  <div class="slides">
+
+    <!-- ============================================================
+         ACT 0 — TITLE
+         ============================================================ -->
+
+    <!-- SLIDE 1: title -->
+    <section class="hero">
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <span class="eyebrow">ICML 2026 · RESEARCH</span>
+        <h1 style="font-size: 7rem;"><span class="tau-symbol">τ</span>-Voice</h1>
+        <p style="font-size: 1.7rem; max-width: 1000px; line-height: 1.3; margin-top: 8px;">
+          Benchmarking live voice agents on real-world tasks.
+        </p>
+        <p style="font-size: 1.05rem; margin-top: 28px; line-height: 1.55;">
+          <strong>Soham Ray</strong> · <strong>Keshav Dhandhania</strong> · <strong>Victor Barres</strong> · <strong>Karthik Narasimhan</strong>
+        </p>
+        <p class="meta" style="font-size: 0.9rem; margin-top: 4px;">
+          Sierra AI &nbsp;·&nbsp; Princeton University
+        </p>
+      </div>
+      <aside class="notes">
+        Hi, I'm presenting τ-Voice — a benchmark for full-duplex voice agents on grounded customer-service tasks. Joint work with Sierra and Princeton. I'll spend five minutes on what we built, what we found, and where voice agents are headed.
+      </aside>
+    </section>
+
+    <!-- ============================================================
+         ACT 1 — HOOK & QUESTION
+         ============================================================ -->
+
+    <!-- SLIDE 2: hook -->
+    <section>
+      <div class="act-eyebrow">Act 1 · The question</div>
+      <p class="hook-quote">
+        Voice agents are <em>everywhere</em>.
+        <br><br>
+        But can they actually <em>do the job?</em>
+      </p>
+      <aside class="notes">
+        Voice agents are everywhere right now — OpenAI Realtime, Gemini Live, xAI Grok. They sound charming, they hold conversations. But the question we care about is harder: can they actually complete a customer-service task — reason about the request, call the right tool, modify the database correctly — under realistic audio conditions?
+      </aside>
+    </section>
+
+    <!-- SLIDE 3: the gap nobody is measuring -->
+    <section>
+      <span class="eyebrow">The gap nobody is measuring</span>
+      <h2 style="font-size: 2.5rem; max-width: 1100px;">Today's benchmarks split voice agents in half.</h2>
+
+      <div class="vs-split">
+        <div class="vs-card">
+          <div class="vs-card-eyebrow">Audio benchmarks</div>
+          <h3>Conversation quality</h3>
+          <p>
+            <span class="vs-card-has">✓ Interrupt, yield, backchannel</span><br>
+            <span class="vs-card-missing">✗ No real tools, no verifiable task</span>
+          </p>
+        </div>
+        <div class="vs-arrow">+</div>
+        <div class="vs-card">
+          <div class="vs-card-eyebrow">Task benchmarks</div>
+          <h3>Did the agent solve it?</h3>
+          <p>
+            <span class="vs-card-has">✓ Tools, policy, deterministic eval</span><br>
+            <span class="vs-card-missing">✗ Text only — no real audio</span>
+          </p>
+        </div>
+      </div>
+
+      <p class="footnote-line" style="text-align: center; margin-top: 32px;">
+        We need <strong>both</strong>, on the <strong>same call</strong>, under <strong>realistic conditions</strong>.
+      </p>
+      <aside class="notes">
+        Today's evaluation landscape splits the problem in half. Audio benchmarks measure conversational dynamics — does the model interrupt politely, yield gracefully — but never check whether the agent actually solved the caller's problem. Task benchmarks rigorously verify tool calls and policy adherence, but only in text. We need both, on the same call, with realistic audio.
+      </aside>
+    </section>
+
+    <!-- ============================================================
+         ACT 2 — THE ANSWER (τ-Voice in one slide)
+         ============================================================ -->
+
+    <!-- SLIDE 4: τ-Voice in one slide -->
+    <section>
+      <span class="eyebrow">Our answer</span>
+      <h2 style="font-size: 2.5rem;"><span class="tau-symbol">τ</span>-Voice combines all three.</h2>
+
+      <div class="pillar-row">
+        <div class="pillar">
+          <span class="pillar-icon">🎯</span>
+          <div class="pillar-stat">278</div>
+          <div class="pillar-label">Grounded tasks</div>
+          <p class="pillar-sub">Inherited byte-for-byte from τ-bench. Voice and text agents compared on the same problem.</p>
+        </div>
+        <div class="pillar">
+          <span class="pillar-icon">🎙️</span>
+          <div class="pillar-stat">200 ms</div>
+          <div class="pillar-label">Full-duplex ticks</div>
+          <p class="pillar-sub">Overlap, interruptions, backchannels. The agent can be cut off mid-sentence.</p>
+        </div>
+        <div class="pillar">
+          <span class="pillar-icon">🎚️</span>
+          <div class="pillar-stat">7</div>
+          <div class="pillar-label">Voice personas + realistic audio</div>
+          <p class="pillar-sub">Diverse accents, environmental noise, G.711 µ-law, frame drops, LLM turn-taking.</p>
+        </div>
+      </div>
+
+      <p class="pillar-callout">
+        Same tasks, same evaluator, same leaderboard &mdash; <strong>voice numbers compare directly to text.</strong>
+      </p>
+      <aside class="notes">
+        τ-Voice is the first benchmark to combine three things that have so far been evaluated in isolation: 278 grounded customer-service tasks inherited from τ-bench, a full-duplex orchestration layer with 200-millisecond ticks for real overlap and interruptions, and a controllable voice user simulator with diverse personas and realistic audio. Critically, the tasks, tools, and evaluator are byte-for-byte identical to the text benchmark — so voice numbers plot directly on the same axis as text.
+      </aside>
+    </section>
+
+    <!-- ============================================================
+         ACT 3 — FINDINGS
+         ============================================================ -->
+
+    <!-- SLIDE 5: Finding 1 — the progress chart, full-bleed -->
+    <section style="padding: 40px 52px;">
+      <span class="eyebrow">Finding 1</span>
+      <h2 style="font-size: 2.4rem;">Voice closed <span style="color: var(--sierra-green);">22 pp</span> of the gap to text — in 8 months.</h2>
+      <div class="chart-frame" style="margin-top: 14px;">
+        <svg class="progress-svg" id="progressSvg"
+             viewBox="0 0 1180 460" xmlns="http://www.w3.org/2000/svg"
+             role="img" aria-label="τ-voice progress over time"
+             style="display: block; width: 100%; height: auto;"></svg>
+      </div>
+      <p class="footnote-line" style="margin-top: 10px;">
+        Same 278 tasks. Same deterministic evaluator. The most recent jump (<strong>+29 pp in 2 months</strong>) tracks the reasoning-unlocks-tool-use pattern we already saw in text.
+      </p>
+      <aside class="notes">
+        Because τ-Voice inherits its tasks and evaluator from τ-bench, voice numbers plot directly on the same axis as text. This chart is exactly that view. Each dot is a voice model at its public release date. The dashed green line is the running best — the voice frontier. The two grey horizontal lines are text reference points: the reasoning ceiling at 85% and the non-reasoning baseline at 54%.
+
+        Eight months ago, the voice frontier was 30%. Today it's 67%. The latest jump — that 29-point step from xAI — is a reasoning-enabled audio-native model. We've seen this pattern before, in text: adding explicit reasoning unlocks tool-use reliability. Voice now retains roughly 79% of text capability, up from about 45% when we wrote the paper. Same tasks, same evaluator, no asterisks.
+      </aside>
+    </section>
+
+    <!-- SLIDE 6: Finding 2 — hero number for failure attribution -->
+    <section class="stat-slide">
+      <span class="eyebrow">Finding 2</span>
+      <div class="stat-hero">79&ndash;90<span style="font-size: 0.55em;">%</span></div>
+      <div class="stat-caption">
+        of failures are <strong>the agent</strong> — not the simulator.
+      </div>
+
+      <div class="fail-bars" style="max-width: 1020px; width: 100%;">
+        <div class="fail-bar">
+          <div class="fail-bar-label">
+            Voice-Fragile
+            <small>text passes, voice-Clean fails</small>
+          </div>
+          <div class="fail-bar-track"><div class="fail-bar-fill" style="width: 79%;">Agent · 79%</div></div>
+          <div class="fail-bar-total">34 / 43</div>
+        </div>
+        <div class="fail-bar">
+          <div class="fail-bar-label">
+            Noise-Fragile
+            <small>voice-Clean passes, Realistic fails</small>
+          </div>
+          <div class="fail-bar-track"><div class="fail-bar-fill" style="width: 90%;">Agent · 90%</div></div>
+          <div class="fail-bar-total">43 / 48</div>
+        </div>
+      </div>
+
+      <p class="stat-footnote">
+        Two raters · 91 failed simulations · 84% inter-rater agreement. The bottleneck is reasoning and authentication transcription — <em>not</em> the user simulator.
+      </p>
+      <aside class="notes">
+        The biggest risk with any new benchmark is: maybe the failures are just simulator artefacts. So we did a manual audit — two raters labelled all 91 failed simulations across two cohorts. The Voice-Fragile cohort is tasks where text passes but voice-Clean fails — that isolates the cost of going voice-native. The Noise-Fragile cohort is tasks where Clean passes but Realistic fails — that isolates the cost of realistic acoustics.
+
+        In both cohorts, 79 to 90 percent of failures are the agent, not the simulator. The dominant categories are reasoning failures even when transcription is clean, and authentication transcription failures — the agent fails to hear a name spelled letter by letter. The benchmark is measuring real agent limitations.
+      </aside>
+    </section>
+
+    <!-- SLIDE 7: Finding 3 — accents as the accessibility issue -->
+    <section>
+      <span class="eyebrow">Finding 3 · Accessibility</span>
+      <h2 style="font-size: 2.3rem;">Of "realistic" factors, <span style="color: var(--accent-orange);">accents</span> hurt most — and unevenly.</h2>
+      <p class="headline-sub" style="margin-top: 14px;">
+        Drop from Clean baseline when only that factor is added (Retail domain, paper era):
+      </p>
+
+      <div style="margin-top: 26px; max-width: 1020px;">
+        <div class="ab-row">
+          <div class="ab-row-label">Background noise</div>
+          <div class="ab-row-track"><div class="ab-row-fill" style="width: 8%; background: #93c5fd;"></div></div>
+          <div class="ab-row-val">&minus;4 pp <span class="delta muted">avg</span></div>
+        </div>
+        <div class="ab-row">
+          <div class="ab-row-label">Turn-taking</div>
+          <div class="ab-row-track"><div class="ab-row-fill" style="width: 14%; background: #fdba74;"></div></div>
+          <div class="ab-row-val">&minus;7 pp <span class="delta muted">avg</span></div>
+        </div>
+        <div class="ab-row">
+          <div class="ab-row-label" style="color: var(--accent-orange); font-weight: 700;">Accents</div>
+          <div class="ab-row-track">
+            <div class="ab-row-fill" style="width: 36%; background: var(--accent-orange);"></div>
+          </div>
+          <div class="ab-row-val" style="color: var(--accent-orange);">&minus;18 pp <span class="delta">worst</span></div>
+        </div>
+      </div>
+
+      <p class="footnote-line" style="margin-top: 28px;">
+        Per-provider variance is huge: <strong style="color: var(--accent-orange);">Grok loses 18 pp</strong> to accents alone (38% of its clean capability); <strong>Gemini barely moves (&minus;1 pp).</strong> Robustness to realistic audio is <em>also an accessibility issue.</em>
+      </p>
+      <aside class="notes">
+        We ablated each ingredient of "realistic" one factor at a time. On average, noise costs 4 points, turn-taking 7. Accents cost up to 18 points — by far the largest single factor. And the per-provider variance is enormous: xAI's Grok loses 38 percent of its clean capability to accents alone, while Google's Gemini is essentially unaffected. That's not just a benchmark number — that's an accessibility issue. Users with non-standard accents are being systematically underserved by some voice models and not others. Because we induce accents through TTS personas, take the absolute numbers as indicative — but the per-provider spread is real.
+      </aside>
+    </section>
+
+    <!-- ============================================================
+         ACT 4 — CTA + CLOSE
+         ============================================================ -->
+
+    <!-- SLIDE 8: CTA -->
+    <section class="hero">
+      <span class="eyebrow">Try it · build on it</span>
+      <h2 style="color: #fff; font-size: 3.4rem; max-width: 1000px; line-height: 1.1;">
+        Open. Reproducible.<br>Yours to extend.
+      </h2>
+
+      <div class="cta-grid">
+        <a href="https://github.com/sierra-research/tau2-bench" style="text-decoration: none; border: none;">
+          <div class="cta-card">
+            <div class="cta-eyebrow">Code</div>
+            <div class="cta-line">github.com/sierra-research/tau2-bench</div>
+          </div>
+        </a>
+        <a href="https://taubench.com" style="text-decoration: none; border: none;">
+          <div class="cta-card">
+            <div class="cta-eyebrow">Live leaderboard</div>
+            <div class="cta-line">taubench.com — voice, text, per-domain, trajectories</div>
+          </div>
+        </a>
+        <a href="/blog/tau-voice-examples.html" style="text-decoration: none; border: none;">
+          <div class="cta-card">
+            <div class="cta-eyebrow">Audio examples</div>
+            <div class="cta-line">Hear failures: Clean vs Realistic, same task</div>
+          </div>
+        </a>
+      </div>
+
+      <p style="font-size: 1rem; color: rgba(255,255,255,0.65); margin-top: 36px; max-width: 1000px;">
+        Voice agents will be in production whether or not we measure them carefully. <strong style="color:#bbf7d0;">We'd rather measure them carefully.</strong>
+      </p>
+      <aside class="notes">
+        Everything is open source — the tasks, the simulator, the audio effects, the turn-taking policy, the evaluator. Every audio example on the examples page comes from a real τ-Voice run. Every voice submission on the leaderboard ships with its trajectories so you can replay the conversations end-to-end.
+
+        If you build voice agents, evaluate them, or just want to know where they break, we'd love your contributions. Thank you.
+      </aside>
+    </section>
+
+    <!-- SLIDE 9: Thank you -->
+    <section class="hero" style="text-align: center; align-items: center;">
+      <h1 style="font-size: 7rem; letter-spacing: -0.03em;">Thank you.</h1>
+      <p style="font-size: 1.8rem; margin-top: 28px; color: rgba(255,255,255,0.85);">Questions?</p>
+      <p style="font-size: 1.1rem; margin-top: 32px;">
+        <a href="https://github.com/sierra-research/tau2-bench">github.com/sierra-research/tau2-bench</a>
+        &nbsp;·&nbsp;
+        <a href="https://taubench.com">taubench.com</a>
+      </p>
+    </section>
+
+    <!-- ============================================================
+         EXTENSION MATERIAL (slides 10+; up to ~20 min)
+         ============================================================ -->
+
+    <!-- SLIDE 10: section divider -->
+    <section class="section-divider" style="align-items: flex-start;">
+      <div class="act-eyebrow">Part 2</div>
+      <h2 style="font-size: 3.8rem;">Extension material</h2>
+      <p class="headline-sub" style="font-size: 1.4rem; margin-top: 12px;">
+        Methods, full breakdowns, limitations.
+      </p>
+      <aside class="notes">If we have more than 5 minutes — here's the deeper material.</aside>
+    </section>
+
+    <!-- SLIDE 11: Audio generation pipeline (full-bleed) -->
+    <section class="pipeline-slide">
+      <span class="eyebrow">Voice user simulator</span>
+      <h2 style="font-size: 2rem;">Realistic audio, deterministic recipe.</h2>
+      <div class="pipeline-frame">
+        <svg class="pipeline-svg" viewBox="0 0 980 380" xmlns="http://www.w3.org/2000/svg"
+             preserveAspectRatio="xMidYMid meet"
+             role="img" aria-label="Audio generation pipeline">
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#94a3b8"/>
+            </marker>
+            <marker id="arrLight" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#cbd5e1"/>
+            </marker>
+            <linearGradient id="genGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#f8fafc"/><stop offset="100%" stop-color="#eef2f7"/>
+            </linearGradient>
+            <linearGradient id="chanGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#fef2f2"/><stop offset="100%" stop-color="#fee2e2"/>
+            </linearGradient>
+          </defs>
+          <g font-family="inherit" fill="#1a202c">
+            <rect x="15" y="50" width="130" height="40" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.2"/>
+            <text x="27" y="77" font-size="16">📚</text>
+            <text x="50" y="75" font-size="11" font-weight="600">Audio library</text>
+
+            <rect x="15" y="125" width="130" height="40" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.2"/>
+            <text x="27" y="151" font-size="16">⏱</text>
+            <text x="50" y="150" font-size="11" font-weight="600">Scheduler</text>
+
+            <rect x="15" y="200" width="130" height="58" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.2"/>
+            <text x="27" y="227" font-size="16">🗣</text>
+            <text x="50" y="226" font-size="11" font-weight="600">Voice Personas</text>
+            <text x="80" y="245" text-anchor="middle" font-size="9" font-weight="500" fill="#64748b">7 personas</text>
+
+            <text x="80" y="315" text-anchor="middle" font-size="11" font-style="italic" fill="#64748b">Simulated user message</text>
+            <path d="M 80 300 L 80 263" fill="none" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#arr)"/>
+
+            <rect x="180" y="35" width="290" height="240" rx="14" fill="url(#genGrad)" stroke="#cbd5e1" stroke-width="1.2"/>
+            <text x="325" y="22" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="0.08em" fill="#64748b">GENERATORS</text>
+
+            <rect x="200" y="55" width="250" height="40" rx="6" fill="#fff" stroke="#60a5fa" stroke-width="1.6"/>
+            <text x="325" y="80" text-anchor="middle" font-size="13" font-weight="600">Background Noise</text>
+
+            <rect x="200" y="105" width="250" height="40" rx="6" fill="#fff" stroke="#f59e0b" stroke-width="1.6" stroke-dasharray="5 3"/>
+            <text x="325" y="123" text-anchor="middle" font-size="13" font-weight="600">Bursts</text>
+            <text x="325" y="138" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">Poisson</text>
+
+            <rect x="200" y="155" width="250" height="40" rx="6" fill="#fff" stroke="#a78bfa" stroke-width="1.6" stroke-dasharray="5 3"/>
+            <text x="325" y="173" text-anchor="middle" font-size="13" font-weight="600">Out-of-turn Speech</text>
+            <text x="325" y="188" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">Poisson</text>
+
+            <rect x="200" y="205" width="250" height="40" rx="6" fill="#fff" stroke="#10b981" stroke-width="1.6" stroke-dasharray="5 3"/>
+            <text x="325" y="230" text-anchor="middle" font-size="13" font-weight="600">Speech</text>
+
+            <g fill="none">
+              <line x1="145" y1="70"  x2="200" y2="75"  stroke="#cbd5e1" stroke-width="1.4" marker-end="url(#arrLight)"/>
+              <line x1="145" y1="142" x2="200" y2="125" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrLight)"/>
+              <line x1="145" y1="148" x2="200" y2="175" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrLight)"/>
+              <line x1="145" y1="229" x2="200" y2="225" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arrLight)"/>
+            </g>
+
+            <g fill="none" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="4 3">
+              <path d="M 15 145 L 5 145 L 5 355 L 610 355"/>
+              <line x1="610" y1="355" x2="610" y2="175" marker-end="url(#arrLight)"/>
+              <path d="M 610 355 L 800 355"/>
+              <line x1="800" y1="355" x2="800" y2="216" marker-end="url(#arrLight)"/>
+            </g>
+
+            <g fill="none" stroke="#94a3b8" stroke-width="1.4">
+              <path d="M 450 75  C 480 75,  500 115, 503 135" marker-end="url(#arr)"/>
+              <path d="M 450 125 C 475 125, 485 140, 489 148" marker-end="url(#arr)"/>
+              <path d="M 450 175 C 475 175, 485 170, 489 162" marker-end="url(#arr)"/>
+              <path d="M 450 225 C 480 225, 500 195, 503 175" marker-end="url(#arr)"/>
+            </g>
+
+            <circle cx="510" cy="155" r="22" fill="#0f172a" stroke="#0f172a"/>
+            <line x1="500" y1="155" x2="520" y2="155" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="510" y1="145" x2="510" y2="165" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+
+            <line x1="532" y1="155" x2="545" y2="155" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#arr)"/>
+            <rect x="545" y="135" width="130" height="40" rx="6" fill="#fff" stroke="#fb923c" stroke-width="1.6" stroke-dasharray="5 3"/>
+            <text x="610" y="153" text-anchor="middle" font-size="12.5" font-weight="600">Dynamic Muffling</text>
+            <text x="610" y="168" text-anchor="middle" font-size="10" font-weight="500" fill="#64748b">Poisson</text>
+
+            <line x1="675" y1="155" x2="700" y2="155" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#arr)"/>
+
+            <rect x="700" y="60" width="200" height="190" rx="14" fill="url(#chanGrad)" stroke="#fca5a5" stroke-width="1.2"/>
+            <text x="800" y="48" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="0.08em" fill="#991b1b">CHANNEL DEGRADATION</text>
+
+            <rect x="720" y="80" width="160" height="58" rx="6" fill="#fff" stroke="#fb7185" stroke-width="1.6"/>
+            <text x="800" y="105" text-anchor="middle" font-size="13" font-weight="600">Telephony Conversion</text>
+            <text x="800" y="123" text-anchor="middle" font-size="10.5" font-weight="500" fill="#64748b">G.711 µ-law · 8 kHz</text>
+
+            <rect x="720" y="158" width="160" height="58" rx="6" fill="#fff" stroke="#fb7185" stroke-width="1.6" stroke-dasharray="5 3"/>
+            <text x="800" y="183" text-anchor="middle" font-size="13" font-weight="600">Frame Drops</text>
+            <text x="800" y="201" text-anchor="middle" font-size="10.5" font-weight="500" fill="#64748b">Gilbert–Elliott</text>
+
+            <line x1="800" y1="138" x2="800" y2="158" stroke="#cbd5e1" stroke-width="1.2"/>
+
+            <line x1="905" y1="155" x2="935" y2="155" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#arr)"/>
+            <g transform="translate(942, 142)">
+              <rect x="0"  y="6"  width="3" height="14" rx="1" fill="#0f172a"/>
+              <rect x="5"  y="2"  width="3" height="22" rx="1" fill="#0f172a"/>
+              <rect x="10" y="-2" width="3" height="30" rx="1" fill="#0f172a"/>
+              <rect x="15" y="4"  width="3" height="18" rx="1" fill="#0f172a"/>
+              <rect x="20" y="8"  width="3" height="10" rx="1" fill="#0f172a"/>
+            </g>
+            <text x="954" y="195" text-anchor="middle" font-size="10" fill="#64748b">to agent</text>
+
+            <g transform="translate(720, 28)" font-size="11" fill="#64748b">
+              <rect x="0"   y="-9" width="14" height="14" rx="3" fill="#fff" stroke="#94a3b8" stroke-width="1.5"/>
+              <text x="22"  y="2" font-weight="600">continuous</text>
+              <rect x="120" y="-9" width="14" height="14" rx="3" fill="#fff" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 2"/>
+              <text x="142" y="2" font-weight="600">intermittent</text>
+            </g>
+          </g>
+        </svg>
+      </div>
+      <p class="footnote-line" style="margin-top: 8px;">
+        Tick-based: four generators (noise, bursts, out-of-turn, speech) → mix → muffle → telephony + frame drops. Reproducible from a fixed seed.
+      </p>
+      <aside class="notes">
+        Each tick is 200 ms. Four generators run in parallel: background noise from a sound library, Poisson-scheduled bursts and out-of-turn speech, and the user's speech through one of seven personas. They mix, get muffled randomly to simulate phone movement, and then pass through G.711 µ-law and Gilbert-Elliott frame drops. A separate LLM-driven turn-taking policy decides every 2 seconds whether the user interrupts, yields, or backchannels. Critically, this all runs decoupled from wall-clock time — so the user simulator can use the strongest LLM we have, without a real-time budget.
+      </aside>
+    </section>
+
+    <!-- SLIDE 12: Clean vs Realistic breakdown (extension) -->
+    <section>
+      <span class="eyebrow">Per-provider · paper era</span>
+      <h2 style="font-size: 2.4rem;">Every provider takes a hit when audio gets real.</h2>
+
+      <div style="margin-top: 26px; max-width: 1080px;">
+        <!-- Google -->
+        <div style="margin-bottom: 22px;">
+          <div style="font-size: 1.1rem; font-weight: 700; color: var(--slide-fg); margin-bottom: 4px;">Google &nbsp;<span style="font-size: 0.85rem; color: var(--slide-fg-faint); font-weight: 400;">gemini-live-2.5</span></div>
+          <div class="ab-row" style="margin-bottom: 6px;">
+            <div class="ab-row-label">Clean</div>
+            <div class="ab-row-track"><div class="ab-row-fill" style="width: 31%; background: #60a5fa;"></div></div>
+            <div class="ab-row-val">31%</div>
+          </div>
+          <div class="ab-row">
+            <div class="ab-row-label">Realistic</div>
+            <div class="ab-row-track"><div class="ab-row-fill" style="width: 26%; background: #1d4ed8;"></div></div>
+            <div class="ab-row-val">26% <span class="delta">&minus;5</span></div>
+          </div>
+        </div>
+
+        <!-- OpenAI -->
+        <div style="margin-bottom: 22px;">
+          <div style="font-size: 1.1rem; font-weight: 700; color: var(--slide-fg); margin-bottom: 4px;">OpenAI &nbsp;<span style="font-size: 0.85rem; color: var(--slide-fg-faint); font-weight: 400;">gpt-realtime-1.5</span></div>
+          <div class="ab-row" style="margin-bottom: 6px;">
+            <div class="ab-row-label">Clean</div>
+            <div class="ab-row-track"><div class="ab-row-fill" style="width: 49%; background: #34d399;"></div></div>
+            <div class="ab-row-val">49%</div>
+          </div>
+          <div class="ab-row">
+            <div class="ab-row-label">Realistic</div>
+            <div class="ab-row-track"><div class="ab-row-fill" style="width: 35%; background: #047857;"></div></div>
+            <div class="ab-row-val">35% <span class="delta">&minus;14</span></div>
+          </div>
+        </div>
+
+        <!-- xAI -->
+        <div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: var(--slide-fg); margin-bottom: 4px;">xAI &nbsp;<span style="font-size: 0.85rem; color: var(--slide-fg-faint); font-weight: 400;">grok-voice-fast-1.0</span></div>
+          <div class="ab-row" style="margin-bottom: 6px;">
+            <div class="ab-row-label">Clean</div>
+            <div class="ab-row-track"><div class="ab-row-fill" style="width: 51%; background: #fbbf24;"></div></div>
+            <div class="ab-row-val">51%</div>
+          </div>
+          <div class="ab-row">
+            <div class="ab-row-label">Realistic</div>
+            <div class="ab-row-track"><div class="ab-row-fill" style="width: 38%; background: #b45309;"></div></div>
+            <div class="ab-row-val">38% <span class="delta">&minus;13</span></div>
+          </div>
+        </div>
+      </div>
+
+      <p class="footnote-line" style="margin-top: 22px;">
+        <strong>Google</strong> is the most robust (loses only ~17% relative). <strong>xAI</strong> tops both regimes. <strong>OpenAI</strong> wins Retail (71% Clean — the single best per-domain score) but degrades the most when audio gets messy.
+      </p>
+      <aside class="notes">Every provider takes a hit moving from Clean to Realistic — the drop varies from 5 to 14 percentage points. Google is the most robust; xAI leads overall; OpenAI peaks in Retail but degrades most under realistic conditions.</aside>
+    </section>
+
+    <!-- SLIDE 13: Full error breakdown (extension) -->
+    <section>
+      <span class="eyebrow">Failure attribution · detail</span>
+      <h2 style="font-size: 2.2rem;">Reasoning and authentication dominate.</h2>
+
+      <div class="two-col" style="margin-top: 22px;">
+        <div>
+          <h3>Voice-Fragile cohort <span style="font-weight:400; color: var(--slide-fg-faint); font-size: 0.85rem;">— 43 failures</span></h3>
+          <table style="width:100%; border-collapse: collapse; margin-top: 10px; font-size: 0.95rem;">
+            <tbody>
+              <tr><td style="padding: 4px 0;"><span style="display:inline-block; width:10px; height:10px; background:#b91c1c; border-radius:50%; margin-right:8px;"></span>Logical</td><td style="text-align:right; font-variant-numeric: tabular-nums;">13 &nbsp; <strong>30%</strong></td></tr>
+              <tr><td style="padding: 4px 0;"><span style="display:inline-block; width:10px; height:10px; background:#d97706; border-radius:50%; margin-right:8px;"></span>Transcription</td><td style="text-align:right; font-variant-numeric: tabular-nums;">10 &nbsp; <strong>23%</strong></td></tr>
+              <tr><td style="padding: 4px 0;"><span style="display:inline-block; width:10px; height:10px; background:#7c3aed; border-radius:50%; margin-right:8px;"></span>Hallucination</td><td style="text-align:right; font-variant-numeric: tabular-nums;">6 &nbsp; <strong>14%</strong></td></tr>
+              <tr><td style="padding: 4px 0;"><span style="display:inline-block; width:10px; height:10px; background:#2563eb; border-radius:50%; margin-right:8px;"></span>Timeout</td><td style="text-align:right; font-variant-numeric: tabular-nums;">4 &nbsp; <strong>9%</strong></td></tr>
+              <tr><td style="padding: 4px 0;"><span style="display:inline-block; width:10px; height:10px; background:#0891b2; border-radius:50%; margin-right:8px;"></span>VAD / unresponsive</td><td style="text-align:right; font-variant-numeric: tabular-nums;">1 &nbsp; <strong>2%</strong></td></tr>
+              <tr><td style="padding: 4px 0; color: var(--slide-fg-faint);"><span style="display:inline-block; width:10px; height:10px; background:#94a3b8; border-radius:50%; margin-right:8px;"></span>User simulator (Logical)</td><td style="text-align:right; font-variant-numeric: tabular-nums; color: var(--slide-fg-faint);">9 &nbsp; <strong>21%</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h3>Noise-Fragile cohort <span style="font-weight:400; color: var(--slide-fg-faint); font-size: 0.85rem;">— 48 failures</span></h3>
+          <table style="width:100%; border-collapse: collapse; margin-top: 10px; font-size: 0.95rem;">
+            <tbody>
+              <tr><td style="padding: 4px 0;"><span style="display:inline-block; width:10px; height:10px; background:#b91c1c; border-radius:50%; margin-right:8px;"></span>Logical</td><td style="text-align:right; font-variant-numeric: tabular-nums;">16 &nbsp; <strong>33%</strong></td></tr>
+              <tr><td style="padding: 4px 0;"><span style="display:inline-block; width:10px; height:10px; background:#d97706; border-radius:50%; margin-right:8px;"></span>Transcription</td><td style="text-align:right; font-variant-numeric: tabular-nums;">16 &nbsp; <strong>33%</strong></td></tr>
+              <tr><td style="padding: 4px 0;"><span style="display:inline-block; width:10px; height:10px; background:#7c3aed; border-radius:50%; margin-right:8px;"></span>Hallucination</td><td style="text-align:right; font-variant-numeric: tabular-nums;">6 &nbsp; <strong>12%</strong></td></tr>
+              <tr><td style="padding: 4px 0;"><span style="display:inline-block; width:10px; height:10px; background:#0891b2; border-radius:50%; margin-right:8px;"></span>VAD / unresponsive</td><td style="text-align:right; font-variant-numeric: tabular-nums;">4 &nbsp; <strong>8%</strong></td></tr>
+              <tr><td style="padding: 4px 0;"><span style="display:inline-block; width:10px; height:10px; background:#2563eb; border-radius:50%; margin-right:8px;"></span>Timeout</td><td style="text-align:right; font-variant-numeric: tabular-nums;">1 &nbsp; <strong>2%</strong></td></tr>
+              <tr><td style="padding: 4px 0; color: var(--slide-fg-faint);"><span style="display:inline-block; width:10px; height:10px; background:#94a3b8; border-radius:50%; margin-right:8px;"></span>User sim. (Early term. + Logical)</td><td style="text-align:right; font-variant-numeric: tabular-nums; color: var(--slide-fg-faint);">5 &nbsp; <strong>10%</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p class="footnote-line" style="margin-top: 20px;">
+        Voice-Fragile: <strong>reasoning leads</strong> even with clean audio.
+        Noise-Fragile: <strong>reasoning &amp; transcription tied</strong>.
+        Authentication transcription is the recurring bottleneck.
+      </p>
+      <aside class="notes">Drilling deeper into the two cohorts: in Voice-Fragile, reasoning failures are the largest single bucket — agents fail to put information together across turns. In Noise-Fragile, transcription joins reasoning as a co-leader — the audio breaks first, then the agent loops on authentication. Across both, authentication transcription is the recurring choke point.</aside>
+    </section>
+
+    <!-- SLIDE 14: 4 failure modes (extension) -->
+    <section>
+      <span class="eyebrow">Recurring patterns</span>
+      <h2 style="font-size: 2.2rem;">Four failure modes we see again and again.</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 26px;">
+        <div style="border:1px solid var(--slide-border); border-radius: 12px; padding: 18px 22px; background: #fff;">
+          <div style="font-size: 1.7rem; margin-bottom: 6px;">🔤 &nbsp;<strong style="font-size: 1.05rem;">Authentication transcription</strong></div>
+          <p style="font-size: 0.95rem; margin: 0;">User spells <code style="background: #edf2f7; padding: 1px 5px; border-radius: 3px;">m-e-i-p</code>, agent hears <code style="background: #edf2f7; padding: 1px 5px; border-radius: 3px;">n-e-a-p</code>, lookup fails, agent loops.</p>
+        </div>
+        <div style="border:1px solid var(--slide-border); border-radius: 12px; padding: 18px 22px; background: #fff;">
+          <div style="font-size: 1.7rem; margin-bottom: 6px;">🧠 &nbsp;<strong style="font-size: 1.05rem;">Lost-track-of-multi-step</strong></div>
+          <p style="font-size: 0.95rem; margin: 0;">User asks for two things in one breath. Agent handles the first; never circles back.</p>
+        </div>
+        <div style="border:1px solid var(--slide-border); border-radius: 12px; padding: 18px 22px; background: #fff;">
+          <div style="font-size: 1.7rem; margin-bottom: 6px;">💭 &nbsp;<strong style="font-size: 1.05rem;">Hallucinated completion</strong></div>
+          <p style="font-size: 0.95rem; margin: 0;">Agent says <em>"I've updated your address"</em> — no tool call. Harder to catch in voice; no visible trace.</p>
+        </div>
+        <div style="border:1px solid var(--slide-border); border-radius: 12px; padding: 18px 22px; background: #fff;">
+          <div style="font-size: 1.7rem; margin-bottom: 6px;">🤐 &nbsp;<strong style="font-size: 1.05rem;">Goes silent on you</strong></div>
+          <p style="font-size: 0.95rem; margin: 0;">After repeated auth failures, the agent simply stops responding. The customer hangs up.</p>
+        </div>
+      </div>
+      <aside class="notes">Four recurring patterns. Authentication is the most operationally damaging — it gates everything else. Hallucinated completions are the most dangerous — there's no visible trace in voice, no way for the user to spot it.</aside>
+    </section>
+
+    <!-- SLIDE 15: Ablation table (extension) -->
+    <section>
+      <span class="eyebrow">Ablation · Retail</span>
+      <h2 style="font-size: 2.2rem;">Per-factor cost, per provider.</h2>
+
+      <table class="ext-ab-table" style="margin-top: 30px;">
+        <thead>
+          <tr><th>Condition</th><th>Google</th><th>OpenAI</th><th>xAI</th><th>Average</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Clean</td>
+            <td><span class="ext-ab-cell mid">45</span></td>
+            <td><span class="ext-ab-cell best">71</span></td>
+            <td><span class="ext-ab-cell mid">48</span></td>
+            <td><span class="ext-ab-cell mid">55</span></td>
+          </tr>
+          <tr>
+            <td>+ Noise</td>
+            <td><span class="ext-ab-cell mid">40</span><span class="ext-ab-delta">&minus;4</span></td>
+            <td><span class="ext-ab-cell best">67</span><span class="ext-ab-delta">&minus;4</span></td>
+            <td><span class="ext-ab-cell mid">46</span><span class="ext-ab-delta">&minus;2</span></td>
+            <td><span class="ext-ab-cell mid">51</span><span class="ext-ab-delta">&minus;4</span></td>
+          </tr>
+          <tr style="background: #fff7ed;">
+            <td>+ Accents</td>
+            <td><span class="ext-ab-cell mid">44</span><span class="ext-ab-delta">&minus;1</span></td>
+            <td><span class="ext-ab-cell best">60</span><span class="ext-ab-delta">&minus;11</span></td>
+            <td><span class="ext-ab-cell bad">30</span><span class="ext-ab-delta" style="color: var(--accent-orange);">&minus;18</span></td>
+            <td><span class="ext-ab-cell mid">44</span><span class="ext-ab-delta">&minus;10</span></td>
+          </tr>
+          <tr>
+            <td>+ Turn-taking</td>
+            <td><span class="ext-ab-cell bad">33</span><span class="ext-ab-delta">&minus;11</span></td>
+            <td><span class="ext-ab-cell best">57</span><span class="ext-ab-delta">&minus;14</span></td>
+            <td><span class="ext-ab-cell mid">52</span><span class="ext-ab-delta">+4</span></td>
+            <td><span class="ext-ab-cell mid">47</span><span class="ext-ab-delta">&minus;7</span></td>
+          </tr>
+          <tr>
+            <td>Realistic (all)</td>
+            <td><span class="ext-ab-cell bad">30</span><span class="ext-ab-delta">&minus;15</span></td>
+            <td><span class="ext-ab-cell best">45</span><span class="ext-ab-delta">&minus;26</span></td>
+            <td><span class="ext-ab-cell mid">39</span><span class="ext-ab-delta">&minus;10</span></td>
+            <td><span class="ext-ab-cell mid">38</span><span class="ext-ab-delta">&minus;17</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="footnote-line" style="margin-top: 22px;">
+        Accents are the worst factor on average (&minus;10 pp) — and the per-provider spread (xAI &minus;18 vs Google &minus;1) is what makes this an accessibility story.
+      </p>
+    </section>
+
+    <!-- SLIDE 16: Speech activity timeline (extension) -->
+    <section style="padding: 28px 56px;">
+      <span class="eyebrow">Anatomy of a call</span>
+      <h2 style="font-size: 2rem;">Six minutes of overlapping speech, in one figure.</h2>
+      <div style="margin-top: 18px; flex: 1; min-height: 0; border: 1px solid var(--slide-border); border-radius: 12px; overflow: hidden; background: #fafbfc;">
+        <iframe src="/blog/tau-voice-figure.html"
+                style="display: block; width: 100%; height: 100%; min-height: 480px; border: none;"
+                title="τ-voice speech activity timeline"></iframe>
+      </div>
+      <aside class="notes">Retail simulation. Top: six minutes of user/agent speech with realistic acoustic effects. Inset A: the audio the agent receives — clean speech plus street noise plus a car-horn burst plus non-agent-directed speech. Inset B: a turn-taking moment — the agent must decide what to ignore and when to yield.</aside>
+    </section>
+
+    <!-- SLIDE 17: Limitations -->
+    <section>
+      <span class="eyebrow">Limitations</span>
+      <h2 style="font-size: 2.4rem;">What <span class="tau-symbol">τ</span>-Voice does <em>not</em> (yet) measure.</h2>
+
+      <div class="two-col" style="margin-top: 24px;">
+        <div>
+          <h3>English only, TTS-mediated accents</h3>
+          <p>Diverse accents are induced by ElevenLabs personas, not recorded speakers. Absolute numbers are <em>indicative</em>.</p>
+          <h3 style="margin-top: 20px;">No agent speech-quality scoring</h3>
+          <p>We measure <em>what</em> the agent says — not how naturally it says it.</p>
+        </div>
+        <div>
+          <h3>Transcript injection on user side</h3>
+          <p>The user simulator reads the agent's transcript, not its audio. Agent speech was intelligible in 100% of sampled cases — but worth revisiting as voice models get more expressive.</p>
+          <h3 style="margin-top: 20px;">Cascaded baselines</h3>
+          <p>The framework supports cascaded ASR→LLM→TTS pipelines; a head-to-head with audio-native is future work.</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- Reveal.js initialisation -->
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script>
+  Reveal.initialize({
+    width: 1280, height: 720,
+    margin: 0,
+    minScale: 0.2, maxScale: 2.0,
+    slideNumber: 'c/t',
+    hash: true,
+    transition: 'slide',
+    controlsTutorial: false,
+    plugins: [ RevealNotes ],
+  });
+</script>
+
+<!-- ============= Progress chart (Finding 1) — full-bleed variant =============
+     Uses the same `subs` data as v1 / the published blog, but rendered for a
+     larger 1180×540 viewBox so the chart fills the slide. Pure SVG. -->
+<script>
+(function() {
+  'use strict';
+  const ORG_LOGOS = {
+    'OpenAI': '/openai.svg',
+    'Google': '/Google__G__logo.svg.png',
+    'xAI':    '/xai-logo.svg',
+  };
+  const ORG_TINT = {
+    'OpenAI': '#10A37F', 'Google': '#4285F4', 'xAI': '#111111',
+  };
+  const subs = [
+    { d: '2025-08-28', name: 'gpt-realtime-1.0',                          org: 'OpenAI', vals: [36.0, 36.0, 19.3] },
+    { d: '2025-12-12', name: 'gemini-live-2.5-flash-native-audio',        org: 'Google', vals: [29.8, 30.0, 17.5] },
+    { d: '2025-12-17', name: 'grok-voice-fast-1.0',                       org: 'xAI',    vals: [38.6, 36.0, 40.4] },
+    { d: '2026-02-23', name: 'gpt-realtime-1.5',                          org: 'OpenAI', vals: [44.7, 40.0, 21.1] },
+    { d: '2026-03-26', name: 'gemini-3.1-flash-live (thinking-high)',     org: 'Google', vals: [45.6, 64.0, 21.9] },
+    { d: '2026-03-26', name: 'gemini-3.1-flash-live (thinking-minimal)',  org: 'Google', vals: [26.3, 42.0, 17.5] },
+    { d: '2026-04-23', name: 'grok-voice-think-fast-1.0',                 org: 'xAI',    vals: [62.3, 66.0, 73.7] },
+  ];
+  subs.forEach(s => {
+    s.score = s.vals.reduce((a, b) => a + b, 0) / s.vals.length;
+    s.date = new Date(s.d + 'T00:00:00Z');
+    s.tint = ORG_TINT[s.org] || '#888';
+  });
+  subs.sort((a, b) => a.date - b.date);
+
+  let running = -Infinity;
+  const frontierKeys = new Set();
+  subs.forEach(s => { if (s.score > running) { running = s.score; frontierKeys.add(s.name); } });
+
+  const W = 1180, H = 460;
+  const marginTop = 30, marginBottom = 52, marginLeft = 72, marginRight = 56;
+  const plotX0 = marginLeft, plotX1 = W - marginRight;
+  const plotY0 = marginTop,  plotY1 = H - marginBottom;
+  const plotW = plotX1 - plotX0, plotH = plotY1 - plotY0;
+  const yMax = 100;
+
+  const minDate = subs[0].date, maxDate = subs[subs.length - 1].date;
+  const axisStart = new Date(Date.UTC(minDate.getUTCFullYear(), minDate.getUTCMonth(), 1));
+  const axisEnd   = new Date(Date.UTC(maxDate.getUTCFullYear(), maxDate.getUTCMonth() + 1, 1));
+  const totalDays = Math.max(1, (axisEnd - axisStart) / 86400000);
+  const xOf = d => plotX0 + ((d - axisStart) / 86400000 / totalDays) * plotW;
+  const yOf = v => plotY1 - (v / yMax) * plotH;
+
+  const positioned = subs.map(s => ({ ...s, x: xOf(s.date), y: yOf(s.score) }));
+  const dateGroups = {};
+  for (const p of positioned) (dateGroups[p.d] ||= []).push(p);
+  Object.values(dateGroups).forEach(grp => {
+    if (grp.length > 1) {
+      const span = 16;
+      const step = (span * 2) / (grp.length - 1);
+      grp.forEach((p, i) => { p.x += -span + i * step; });
+    }
+  });
+
+  const frontierPts = positioned.filter(p => frontierKeys.has(p.name));
+  let frontierPath = '', areaPath = '';
+  if (frontierPts.length > 0) {
+    frontierPath = `M ${frontierPts[0].x.toFixed(1)} ${frontierPts[0].y.toFixed(1)}`;
+    areaPath = `M ${frontierPts[0].x.toFixed(1)} ${plotY1.toFixed(1)} L ${frontierPts[0].x.toFixed(1)} ${frontierPts[0].y.toFixed(1)}`;
+    for (let i = 1; i < frontierPts.length; i++) {
+      const prev = frontierPts[i - 1], cur = frontierPts[i];
+      frontierPath += ` L ${cur.x.toFixed(1)} ${prev.y.toFixed(1)} L ${cur.x.toFixed(1)} ${cur.y.toFixed(1)}`;
+      areaPath     += ` L ${cur.x.toFixed(1)} ${prev.y.toFixed(1)} L ${cur.x.toFixed(1)} ${cur.y.toFixed(1)}`;
+    }
+    const lastY = frontierPts[frontierPts.length - 1].y;
+    frontierPath += ` L ${plotX1.toFixed(1)} ${lastY.toFixed(1)}`;
+    areaPath     += ` L ${plotX1.toFixed(1)} ${lastY.toFixed(1)} L ${plotX1.toFixed(1)} ${plotY1.toFixed(1)} Z`;
+  }
+
+  const yTicks = [];
+  for (let v = 0; v <= yMax; v += 10) yTicks.push(v);
+
+  const months = [];
+  let cm = new Date(axisStart);
+  while (cm <= axisEnd) {
+    months.push(new Date(cm));
+    cm = new Date(Date.UTC(cm.getUTCFullYear(), cm.getUTCMonth() + 1, 1));
+  }
+  const monthStride = Math.max(1, Math.ceil(months.length / 12));
+  const xTicks = months.filter((_, i) => i % monthStride === 0);
+  const fmtMonth = d => d.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+  const fmtDate  = d => d.toISOString().slice(0, 10);
+
+  const pickAnchor = x => {
+    if (x < plotX0 + 100) return 'start';
+    if (x > plotX1 - 100) return 'end';
+    return 'middle';
+  };
+  const labelOffsets = {};
+  const frontierByX = [...frontierPts].sort((a, b) => a.x - b.x);
+  frontierByX.forEach((p, i) => {
+    labelOffsets[p.name] = { dy: i % 2 === 0 ? -34 : 40, anchor: pickAnchor(p.x) };
+  });
+
+  const dotR = 17, logoSize = 20;
+  const parts = [];
+  parts.push(`<defs>
+    <linearGradient id="frontierFillV2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#047857" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#047857" stop-opacity="0.02"/>
+    </linearGradient>
+    <filter id="dotShadowV2" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="1"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.25"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>`);
+
+  parts.push(`<rect x="${plotX0}" y="${plotY0}" width="${plotW}" height="${plotH}" fill="#ffffff" stroke="#e2e8f0" stroke-width="1" rx="10"/>`);
+
+  yTicks.forEach(v => {
+    const y = yOf(v);
+    parts.push(`<line x1="${plotX0}" y1="${y}" x2="${plotX1}" y2="${y}" stroke="#eef2f7" stroke-width="1"/>`);
+    parts.push(`<text x="${plotX0 - 12}" y="${y + 5}" text-anchor="end" font-size="13" fill="#64748b">${v}%</text>`);
+  });
+  const ycy = (plotY0 + plotY1) / 2;
+  parts.push(`<text x="${plotX0 - 50}" y="${ycy}" transform="rotate(-90 ${plotX0 - 50} ${ycy})" text-anchor="middle" font-size="12" fill="#475569" font-weight="700" letter-spacing="0.12em">OVERALL PASS@1</text>`);
+
+  xTicks.forEach(m => {
+    const xx = xOf(m);
+    parts.push(`<line x1="${xx}" y1="${plotY1}" x2="${xx}" y2="${plotY1 + 5}" stroke="#cbd5e1" stroke-width="1"/>`);
+    parts.push(`<text x="${xx}" y="${plotY1 + 22}" text-anchor="middle" font-size="13" fill="#64748b">${fmtMonth(m)}</text>`);
+  });
+
+  const textRefs = [
+    { v: 85, label: 'Text · reasoning ceiling (85%)' },
+    { v: 54, label: 'Text · non-reasoning baseline (GPT-4.1, 54%)' },
+  ];
+  textRefs.forEach(ref => {
+    const y = yOf(ref.v);
+    parts.push(`<line x1="${plotX0}" y1="${y.toFixed(1)}" x2="${plotX1}" y2="${y.toFixed(1)}" stroke="#94a3b8" stroke-width="1.25" stroke-dasharray="4,4"/>`);
+    parts.push(`<text x="${(plotX0 + 12).toFixed(1)}" y="${(y - 7).toFixed(1)}" text-anchor="start" font-size="13" font-weight="700" fill="#475569" stroke="#ffffff" stroke-width="3.5" stroke-linejoin="round" paint-order="stroke">${ref.label}</text>`);
+  });
+
+  if (areaPath) parts.push(`<path d="${areaPath}" fill="url(#frontierFillV2)"/>`);
+  if (frontierPath) parts.push(`<path d="${frontierPath}" fill="none" stroke="#047857" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="7,5"/>`);
+
+  positioned.forEach(p => {
+    const isFrontier = frontierKeys.has(p.name);
+    parts.push(`<g>`);
+    parts.push(`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${dotR}" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#dotShadowV2)"/>`);
+    parts.push(`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${dotR - 2}" fill="none" stroke="${p.tint}" stroke-width="1.5" opacity="${isFrontier ? 0.9 : 0.45}"/>`);
+    const logo = ORG_LOGOS[p.org];
+    if (logo) {
+      parts.push(`<image href="${logo}" x="${(p.x - logoSize/2).toFixed(1)}" y="${(p.y - logoSize/2).toFixed(1)}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/>`);
+    }
+    parts.push(`<title>${p.name} (${p.org}) · ${fmtDate(p.date)} · ${p.score.toFixed(1)}% overall</title>`);
+    parts.push(`</g>`);
+  });
+
+  positioned.filter(p => frontierKeys.has(p.name)).forEach(p => {
+    const off = labelOffsets[p.name] || { dy: -34, anchor: 'middle' };
+    const lx = p.x, ly = p.y + off.dy;
+    parts.push(`<g>`);
+    parts.push(`<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${off.anchor}" font-size="13" font-weight="700" fill="#0f172a" stroke="#ffffff" stroke-width="3.5" stroke-linejoin="round" paint-order="stroke">${p.name}</text>`);
+    parts.push(`<text x="${lx.toFixed(1)}" y="${(ly + 15).toFixed(1)}" text-anchor="${off.anchor}" font-size="12" font-weight="700" fill="#047857" stroke="#ffffff" stroke-width="3" stroke-linejoin="round" paint-order="stroke">${p.score.toFixed(1)}%</text>`);
+    parts.push(`</g>`);
+  });
+
+  document.getElementById('progressSvg').innerHTML = parts.join('');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+%% =============================================================================
+%% Sierra Beamer Theme
+%% =============================================================================
+%% A clean, professional Beamer theme for Sierra AI presentations
+%% Based on Sierra Template v1.2 from PowerPoint
+%% 
+%% Usage: \usetheme{Sierra}
+%% 
+%% Options:
+%%   - dark: Use dark background variant for all slides
+%%   - minimal: Minimal footer/header
+%%   - notitlebackground: Don't use dark background on title page
+%% 
+%% Compile with: xelatex or lualatex (required for custom fonts)
+%% =============================================================================
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{beamerthemeSierra}[2024/12/03 Sierra Beamer Theme]
+
+%% Options
+\newif\if@sierradark
+\@sierradarkfalse
+\DeclareOption{dark}{\@sierradarktrue}
+
+\newif\if@sierraminimal
+\@sierraminimalfalse
+\DeclareOption{minimal}{\@sierraminimaltrue}
+
+\newif\if@sierratitlebackground
+\@sierratitlebackgroundtrue
+\DeclareOption{notitlebackground}{\@sierratitlebackgroundfalse}
+
+\ProcessOptions\relax
+
+%% Load sub-themes
+\useinnertheme{Sierra}
+\useoutertheme{Sierra}
+\usecolortheme{Sierra}
+
+%% Dark mode adjustments
+\if@sierradark
+  \usecolortheme{Sierradark}
+\fi
+
+%% Required packages
+\RequirePackage{tikz}
+\RequirePackage{graphicx}
+\RequirePackage{fontspec}
+\RequirePackage{etoolbox}
+\RequirePackage{setspace}
+
+%% -----------------------------------------------------------------------------
+%% Font Configuration (requires XeLaTeX or LuaLaTeX)
+%% -----------------------------------------------------------------------------
+%% Sierra uses the Inter font family with specific weights:
+%%   - Inter Light: Title page main title
+%%   - Inter: Body text
+%%   - Inter SemiBold: Frame titles
+%%   - Inter Medium: Slide numbers, card headers
+%% -----------------------------------------------------------------------------
+
+%% -----------------------------------------------------------------------------
+%% Inter Font Configuration
+%% -----------------------------------------------------------------------------
+%% Inter fonts are bundled in the fonts/ directory for portability.
+%% Checks: ./fonts/ (standalone projects) -> ../fonts/ (examples) -> system fonts
+
+% Helper to load Inter from a given path
+\newcommand{\sierraloadinterfonts}[1]{%
+  \setsansfont{Inter}[
+    Path = #1,
+    Extension = .otf,
+    UprightFont = *-Light,
+    BoldFont = *-SemiBold,
+    ItalicFont = *-LightItalic,
+    BoldItalicFont = *-SemiBoldItalic,
+  ]
+  \newfontfamily\interlight{Inter}[
+    Path = #1, Extension = .otf,
+    UprightFont = *-Light, ItalicFont = *-LightItalic,
+  ]
+  \newfontfamily\interregular{Inter}[
+    Path = #1, Extension = .otf,
+    UprightFont = *-Regular, ItalicFont = *-Italic,
+  ]
+  \newfontfamily\intermedium{Inter}[
+    Path = #1, Extension = .otf,
+    UprightFont = *-Medium, ItalicFont = *-MediumItalic,
+  ]
+  \newfontfamily\intersemibold{Inter}[
+    Path = #1, Extension = .otf,
+    UprightFont = *-SemiBold, ItalicFont = *-SemiBoldItalic,
+  ]
+  \newfontfamily\interbold{Inter}[
+    Path = #1, Extension = .otf,
+    UprightFont = *-Bold, ItalicFont = *-BoldItalic,
+  ]
+  \newcommand{\sierrafontsloaded}{true}
+}
+
+% Helper for fallback fonts
+\newcommand{\sierrafallbackfonts}{%
+  \IfFontExistsTF{Helvetica Neue}{
+    \setsansfont{Helvetica Neue}
+  }{
+    \setsansfont{Latin Modern Sans}
+  }
+  \newcommand{\interlight}{}
+  \newcommand{\interregular}{}
+  \newcommand{\intermedium}{}
+  \newcommand{\intersemibold}{\bfseries}
+  \newcommand{\interbold}{\bfseries}
+  \newcommand{\sierrafontsloaded}{false}
+}
+
+% Try ./fonts/ first (standalone projects created by new-project.sh)
+\IfFileExists{fonts/Inter-Light.otf}{
+  \sierraloadinterfonts{fonts/}
+}{
+  % Try ../fonts/ (examples directory in template repo)
+  \IfFileExists{../fonts/Inter-Light.otf}{
+    \sierraloadinterfonts{../fonts/}
+  }{
+    % Try system-installed Inter
+    \IfFontExistsTF{Inter}{
+      \setsansfont{Inter}[
+        UprightFont = *-Light,
+        BoldFont = *-SemiBold,
+        ItalicFont = *-LightItalic,
+        BoldItalicFont = *-SemiBoldItalic,
+      ]
+      \newfontfamily\interlight{Inter}[UprightFont = *-Light, ItalicFont = *-LightItalic]
+      \newfontfamily\interregular{Inter}[UprightFont = *-Regular, ItalicFont = *-Italic]
+      \newfontfamily\intermedium{Inter}[UprightFont = *-Medium, ItalicFont = *-MediumItalic]
+      \newfontfamily\intersemibold{Inter}[UprightFont = *-SemiBold, ItalicFont = *-SemiBoldItalic]
+      \newfontfamily\interbold{Inter}[UprightFont = *-Bold, ItalicFont = *-BoldItalic]
+      \newcommand{\sierrafontsloaded}{true}
+    }{
+      % Final fallback
+      \sierrafallbackfonts
+    }
+  }
+}
+
+%% -----------------------------------------------------------------------------
+%% Navigation and Layout
+%% -----------------------------------------------------------------------------
+
+% Turn off navigation symbols by default
+\setbeamertemplate{navigation symbols}{}
+
+% Minimal mode: hide footer
+\if@sierraminimal
+  \setbeamertemplate{footline}{}
+\fi
+
+%% -----------------------------------------------------------------------------
+%% Export option for title background
+%% -----------------------------------------------------------------------------
+
+\newcommand{\ifsierratitlebackground}[2]{%
+  \if@sierratitlebackground
+    #1%
+  \else
+    #2%
+  \fi
+}
+
+\endinput

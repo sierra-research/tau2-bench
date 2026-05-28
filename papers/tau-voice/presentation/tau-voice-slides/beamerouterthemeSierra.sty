@@ -1,0 +1,95 @@
+%% =============================================================================
+%% Sierra Outer Theme for Beamer
+%% =============================================================================
+%% Controls: header, footer, frame title, sidebars, margins
+%% Based on Sierra Template v1.2 from PowerPoint
+%% =============================================================================
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{beamerouterthemeSierra}[2024/12/03 Sierra Outer Theme]
+
+\RequirePackage{tikz}
+
+%% -----------------------------------------------------------------------------
+%% Margins (matching PowerPoint layout)
+%% -----------------------------------------------------------------------------
+%% PowerPoint has approximately 5% margins on left/right
+%% Title starts at about x=609447 EMUs on a 12192000 EMU wide slide = ~5%
+
+\newlength{\sierraleftmargin}
+\setlength{\sierraleftmargin}{0.05\paperwidth}
+
+\newlength{\sierrarightmargin}
+\setlength{\sierrarightmargin}{0.05\paperwidth}
+
+%% -----------------------------------------------------------------------------
+%% Frame Title
+%% -----------------------------------------------------------------------------
+%% Left-aligned, positioned at top with proper margin
+%% Uses Inter SemiBold at 32pt equivalent
+
+\setbeamertemplate{frametitle}{%
+  \vskip0.8em  % Top padding to prevent cropping
+  \begin{beamercolorbox}[
+    wd=\paperwidth,
+    leftskip=\sierraleftmargin,
+    rightskip=\sierrarightmargin
+  ]{frametitle}
+    \usebeamerfont{frametitle}\insertframetitle
+    \ifx\insertframesubtitle\@empty
+    \else
+      \par\vskip4pt
+      {\usebeamerfont{framesubtitle}\usebeamercolor[fg]{framesubtitle}\insertframesubtitle}
+    \fi
+  \end{beamercolorbox}
+  \vskip0.5em
+}
+
+%% -----------------------------------------------------------------------------
+%% Footer
+%% -----------------------------------------------------------------------------
+%% Minimal footer with page number in bottom right
+%% Uses Inter Medium at 7pt (very small, subtle)
+
+\setbeamertemplate{footline}{%
+  \hbox{%
+    \begin{beamercolorbox}[
+      wd=.92\paperwidth,
+      ht=2ex,
+      dp=1.5ex,
+      right
+    ]{footline}
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[
+      wd=.08\paperwidth,
+      ht=2ex,
+      dp=1.5ex,
+      right,
+      rightskip=\sierrarightmargin
+    ]{footline}
+      {\fontsize{6}{7}\selectfont\intermedium\usebeamercolor[fg]{footline}\insertframenumber}%
+    \end{beamercolorbox}%
+  }%
+  \vskip0pt%
+}
+
+%% -----------------------------------------------------------------------------
+%% Clean Layout (no headers, sidebars, or nav symbols)
+%% -----------------------------------------------------------------------------
+
+\setbeamertemplate{headline}{}
+\setbeamertemplate{sidebar left}{}
+\setbeamertemplate{sidebar right}{}
+\setbeamertemplate{navigation symbols}{}
+
+%% -----------------------------------------------------------------------------
+%% Frame Layout Adjustments
+%% -----------------------------------------------------------------------------
+%% Adjust text margins within frames to match PowerPoint
+
+\setbeamersize{
+  text margin left=\sierraleftmargin,
+  text margin right=\sierrarightmargin
+}
+
+\endinput
