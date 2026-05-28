@@ -146,6 +146,58 @@ def get_response_usage(response: ModelResponse) -> Optional[dict]:
     }
 
 
+def _truncate_messages_to_budget(
+    messages: list[dict],
+    model: str,
+    max_input_tokens: int,
+    tools: Optional[list] = None,
+) -> tuple[list[dict], Optional[dict]]:
+    """Trim oldest messages so the request fits within ``max_input_tokens``.
+
+    Keeps a leading system message, drops the oldest non-system messages first,
+    and strips any orphaned leading ``tool`` messages (whose triggering assistant
+    tool_call was dropped) so the request stays valid for the OpenAI API.
+
+    Returns ``(messages, info)`` where ``info`` is ``None`` if nothing was
+    dropped, else a dict describing the truncation (for logging/trajectory).
+    """
+
+    def count(msgs: list[dict]) -> int:
+        try:
+            return litellm.token_counter(model=model, messages=msgs, tools=tools)
+        except TypeError:
+            # Older litellm without the tools kwarg.
+            return litellm.token_counter(model=model, messages=msgs)
+
+    tokens_before = count(messages)
+    if tokens_before <= max_input_tokens:
+        return messages, None
+
+    head = messages[:1] if messages and messages[0].get("role") == "system" else []
+    tail = messages[len(head) :]
+
+    while tail and count(head + tail) > max_input_tokens:
+        tail.pop(0)
+        # Drop orphaned tool results whose assistant tool_call was just removed.
+        while tail and tail[0].get("role") == "tool":
+            tail.pop(0)
+
+    truncated = head + tail
+    info = {
+        "messages_dropped": len(messages) - len(truncated),
+        "messages_kept": len(truncated),
+        "max_input_tokens": max_input_tokens,
+        "tokens_before": tokens_before,
+        "tokens_after": count(truncated),
+    }
+    logger.warning(
+        f"Context truncated to fit max_input_tokens={max_input_tokens}: dropped "
+        f"{info['messages_dropped']} oldest message(s), {tokens_before} -> "
+        f"{info['tokens_after']} tokens."
+    )
+    return truncated, info
+
+
 def to_tau2_messages(
     messages: list[dict], ignore_roles: set[str] = set()
 ) -> list[Message]:
@@ -533,6 +585,16 @@ def generate(
     if tools_schema and tool_choice is None:
         tool_choice = "auto"
 
+    # Optional hard cap on input context (e.g. via --agent-llm-args
+    # '{"max_input_tokens": 8000}'). Truncates oldest messages before sending so
+    # a large-context model can be evaluated under a smaller effective window.
+    max_input_tokens = kwargs.pop("max_input_tokens", None)
+    context_truncation: Optional[dict] = None
+    if max_input_tokens is not None:
+        litellm_messages, context_truncation = _truncate_messages_to_budget(
+            litellm_messages, model, int(max_input_tokens), tools_schema
+        )
+
     # Prepare request data for logging
     formatted_messages = _format_messages_for_logging(litellm_messages)
     request_data = {
@@ -594,6 +656,7 @@ def generate(
         usage=usage,
         raw_data=response.to_dict(),
         generation_time_seconds=generation_time_seconds,
+        context_truncation=context_truncation,
     )
 
     # Log complete LLM call (request + response)
