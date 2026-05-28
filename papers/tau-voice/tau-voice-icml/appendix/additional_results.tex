@@ -100,6 +100,54 @@ We categorize errors into six types based on observed failure patterns:
     \item \textbf{Early Termination} (User): User ends the call prematurely before the task is fully completed, often due to ambiguous communication where user assumes the task is done when it is not.
 \end{itemize}
 
+\new{\subsection{Skill-Axis Classification of Agent-Attributable Failures}\label{app:skill-classification}}
+
+\new{To assess what type of capability the benchmark's task-completion failures are surfacing, we re-cut the 77 agent-attributable failures (34 Voice-Fragile + 43 Noise-Fragile, matching the 79\%/90\% agent shares in Table~\ref{tab:combined-error-analysis}) along a third axis: \emph{the skill whose absence was the proximal cause of failure}. This axis is orthogonal to the error-type taxonomy above---e.g., a transcription error and a logical error can both reflect the same underlying spelling deficit---and is intended to answer whether failures are concentrated in domain-specific policy knowledge or in general conversational competence.}\why{addresses vw95 W2: data backing for the commonsense vs. policy framing}
+
+\new{\paragraph{Methodology.} The 77 rows correspond to the agent-attributable subset of the reconciled annotations from \S\ref{sec:analysis} (after the 84\%-agreement inter-rater pass and resolution discussion). A single annotator reviewed each row's error type, the free-text notes, and the arbitration notes where present, assigning it to exactly one of six mutually exclusive skill buckets. The assignment rule is ``what skill, if present, would have prevented this failure?''---the proximal absent skill, not the union of contributing factors. Per-row rationales accompany the released annotations.}\why{addresses vw95 W2}
+
+\new{\paragraph{Skill buckets.} Five buckets capture domain-agnostic commonsense conversational skills; one captures domain-specific policy knowledge:}\why{addresses vw95 W2}
+
+\new{\begin{itemize}[nosep,leftmargin=*]
+    \item \textbf{Spelling}: Agent transcribes a spelled-out name, email, or ID incorrectly, blocking authentication or producing a downstream lookup miss.
+    \item \textbf{Conversational grounding}: Agent executes an irreversible action without explicit user confirmation, or fails to share information the user needs to make the next decision.
+    \item \textbf{Conversational honesty}: Agent claims an action was performed when no corresponding tool call exists in the trace, or acts on a wrong item/entity.
+    \item \textbf{Multi-part request tracking}: User makes a compound request; agent completes one part and treats the call as resolved.
+    \item \textbf{Arithmetic / self-consistency}: Agent makes an arithmetic error (refund total, line-item sum) or contradicts an earlier statement in the same call.
+    \item \textbf{Policy-specific knowledge}: Failure requires knowledge of a domain-specific rule in the agent's policy prompt (e.g., one-time-process rule, refund-method policy).
+\end{itemize}}\why{addresses vw95 W2}
+
+\new{\paragraph{Results.} Table~\ref{tab:skill-classification} shows the distribution. 73/77 (94.8\%) of agent-attributable failures fall into the five commonsense buckets; only 4/77 (5.2\%) require domain-specific policy knowledge. Spelling (35.1\%) and conversational grounding (31.2\%) dominate, accounting for nearly two-thirds of all agent-attributable failures.}\why{addresses vw95 W2}
+
+\begin{table}[h]
+\caption{\new{Skill-axis classification of the 77 agent-attributable failures. Five buckets are domain-agnostic commonsense conversational skills; one is domain-specific policy knowledge.}\why{addresses vw95 W2}}
+\label{tab:skill-classification}
+\centering
+\begin{small}
+\new{\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Skill bucket} & \textbf{Count} & \textbf{\%} \\
+\midrule
+\multicolumn{3}{l}{\textit{Domain-agnostic commonsense}} \\
+Spelling & 27 & 35.1\% \\
+Conversational grounding & 24 & 31.2\% \\
+Conversational honesty & 13 & 16.9\% \\
+Multi-part request tracking & 5 & 6.5\% \\
+Arithmetic / self-consistency & 4 & 5.2\% \\
+\midrule
+\textbf{Commonsense subtotal} & \textbf{73} & \textbf{94.8\%} \\
+\midrule
+\multicolumn{3}{l}{\textit{Domain-specific}} \\
+Policy-specific knowledge & 4 & 5.2\% \\
+\midrule
+\textbf{Total} & \textbf{77} & \textbf{100\%} \\
+\bottomrule
+\end{tabular}}
+\end{small}
+\end{table}
+
+\new{\paragraph{Discussion.} The concentration in commonsense buckets indicates that the voice-text gap reported in \S\ref{sec:results} is not primarily a question of domain knowledge---the agents already have the relevant policy text in their prompts---but of general conversational competence under voice conditions. Spelling failures in particular compound under realistic audio (Table~\ref{tab:ablation-single}), since accents and background noise degrade exactly the part of the interaction (letter-by-letter authentication) the agent depends on to begin acting.}\why{addresses vw95 W2}
+
 \new{\subsection{Simulator Realism Validation}\label{app:simulator-realism}}
 
 \new{To validate that the voice user simulator produces interactions that resemble realistic caller behavior, we conducted a small human annotation study.}\why{addresses macs Q3/Q4}
