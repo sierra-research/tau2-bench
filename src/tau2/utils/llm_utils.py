@@ -146,13 +146,13 @@ def get_response_usage(response: ModelResponse) -> Optional[dict]:
     }
 
 
-def _truncate_messages_to_budget(
+def _truncate_dicts_to_budget(
     messages: list[dict],
     model: str,
     max_input_tokens: int,
     tools: Optional[list] = None,
 ) -> tuple[list[dict], Optional[dict]]:
-    """Trim oldest messages so the request fits within ``max_input_tokens``.
+    """Trim oldest litellm-dict messages so the request fits ``max_input_tokens``.
 
     Keeps a leading system message, drops the oldest non-system messages first,
     and strips any orphaned leading ``tool`` messages (whose triggering assistant
@@ -196,6 +196,31 @@ def _truncate_messages_to_budget(
         f"{info['tokens_after']} tokens."
     )
     return truncated, info
+
+
+def _truncate_messages_to_budget(
+    messages: list[Message],
+    model: str,
+    max_input_tokens: int,
+    tools: Optional[list] = None,
+) -> tuple[list[Message], Optional[dict]]:
+    """Trim a tau2 ``Message`` list to fit ``max_input_tokens``.
+
+    Delegates to ``_truncate_dicts_to_budget`` on the 1:1 litellm-dict
+    representation, then slices the original message list to the same shape
+    (preserves a leading system message + a contiguous suffix).
+    """
+    litellm_dicts = to_litellm_messages(messages)
+    truncated_dicts, info = _truncate_dicts_to_budget(
+        litellm_dicts, model, max_input_tokens, tools
+    )
+    if info is None:
+        return messages, None
+    has_system = bool(messages) and isinstance(messages[0], SystemMessage)
+    n_head = 1 if has_system else 0
+    n_suffix = len(truncated_dicts) - n_head
+    suffix = messages[-n_suffix:] if n_suffix > 0 else []
+    return messages[:n_head] + suffix, info
 
 
 def to_tau2_messages(
@@ -439,6 +464,17 @@ def _generate_completions(
     tid = tokenizer_id or qwen3_codec.DEFAULT_TOKENIZER_ID
     tools_schema = [tool.openai_schema for tool in tools] if tools else None
 
+    # Optional input-context cap (matches the native chat path). Use to leave
+    # room for generation under a fixed --max-model-len budget, e.g.
+    # --agent-llm-args '{"max_input_tokens": 6080, "max_tokens": 2048}' for an
+    # 8k-served model.
+    context_truncation: Optional[dict] = None
+    max_input_tokens = kwargs.pop("max_input_tokens", None)
+    if max_input_tokens is not None:
+        messages, context_truncation = _truncate_messages_to_budget(
+            messages, model, int(max_input_tokens), tools_schema
+        )
+
     prompt = qwen3_codec.render_chat(
         messages,
         tools=tools_schema,
@@ -512,6 +548,7 @@ def _generate_completions(
         usage=usage,
         raw_data=response.to_dict(),
         generation_time_seconds=generation_time_seconds,
+        context_truncation=context_truncation,
     )
 
     response_data = {
@@ -594,7 +631,7 @@ def generate(
     max_input_tokens = kwargs.pop("max_input_tokens", None)
     context_truncation: Optional[dict] = None
     if max_input_tokens is not None:
-        litellm_messages, context_truncation = _truncate_messages_to_budget(
+        litellm_messages, context_truncation = _truncate_dicts_to_budget(
             litellm_messages, model, int(max_input_tokens), tools_schema
         )
 
