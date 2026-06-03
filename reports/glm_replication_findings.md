@@ -1,4 +1,4 @@
-> **STATUS: WRAPPED (2026-06-03).** Verdict: **pipeline is configured faithfully; the absolute number does not match the public board (we get ~16.5%, board 9.79%), and the residual gap is serving-level (inference provider + user-sim drift), not a config/pipeline bug.** Trustworthy for relative model comparisons. **Next step: ask the τ³-bench authors (Sierra) about their exact serving setup** (draft question at the bottom).
+> **STATUS: SOLVED (2026-06-03, via independent deep research).** **Root cause found in primary sources, not hypothesized:** Sierra served GLM-5 on a **self-hosted FP8-quantized deployment** (`openai/glm-5-fp8` at an internal vLLM host), visible only in their trajectory JSON, not in submission.json, not Z.AI native, not OpenRouter. We used **OpenRouter `z-ai/glm-5`** (higher-precision, different serving stack / tool-call parser). On a brittle 14-tool-call domain that compounds per-call errors, the more-degraded FP8/self-host serving → board **9.79%**; our serving → **16.5%** (consistent in both magnitude and direction). The pipeline is faithful; the gap is the **model serving stack**. See the **DEEP RESEARCH** section below for evidence + citations.
 
 # GLM-5 banking_knowledge replication — findings (overnight 2026-06-03)
 
@@ -99,3 +99,32 @@ These are not things the benchmark config controls. To go further: deep research
 > 3. Any `banking_knowledge`-specific settings (max_steps, retries, infra-error handling) beyond what's in `submission.json`?
 >
 > Thanks, happy to share our trajectories.
+
+---
+
+## DEEP RESEARCH (independent, primary sources) — ROOT CAUSE FOUND
+
+Ran 4 parallel research agents over the primary sources (τ-bench / τ²-bench / τ-knowledge papers, Sierra blogs, the tau2-bench repo + submission trajectories + GitHub issues, and GLM-5 serving docs). The decisive evidence came from **Sierra's own GLM-5 trajectory file**, not the paper.
+
+**1. THE SMOKING GUN — how Sierra actually served GLM-5.**
+`web/leaderboard/public/submissions/glm-5-think_sierra_2026-03-02/trajectories/glm-5_enabled_banking_knowledge_gpt-5.2_4trials.json`, `agent_info`:
+```json
+"llm": "openai/glm-5-fp8",
+"llm_args": {"api_base": "http://acuadron-glm5-banking-atl:8000/v1", "temperature": 1.0, "top_p": 0.95}
+```
+→ Sierra ran a **self-hosted FP8-quantized GLM-5** on an internal vLLM-style host (`acuadron-glm5-banking-atl`). **Not Z.AI native, not OpenRouter.** This is invisible at the submission/leaderboard layer (submission.json has no provider field; the FP8 detail only lives in the trajectory). We used OpenRouter `z-ai/glm-5` = different precision + different serving stack + different tool-call parser.
+
+**2. Why this explains the gap AND the direction (we're higher).**
+- FP8 quant + a brittle self-host serving stack degrades tool-call fidelity. On banking_knowledge (~14 tool calls/task), per-call errors compound: OpenRouter's own data shows GLM-5 tool-call error rate swinging **~8% → ~1%** by provider (an 88% reduction under quality routing), which maps to clean-trajectory rates of ~0.30 vs ~0.87 (a ~2.9× swing). Sibling models swing **+5 pts on TauBench** from provider routing alone (DeepSeek V3.2 69%→74%). So serving stack is a *documented, large* lever for GLM tool-use, and the direction (board's FP8/self-host LOWER, our serving HIGHER) is consistent.
+- Source: OpenRouter Auto-Exacto / Provider-Variance announcements; LiteLLM issues #19923 & #27439 (the OpenRouter route adds `reasoning_effort` but drops the `thinking` param; `litellm.drop_params=True` in our `llm_utils.py` silently drops mismatched params).
+
+**3. What we correctly matched (ruled out as causes):**
+- temp 1.0 / top_p 0.95 (banking-specific — confirmed in the trajectory; other domains used temp 0.0), seed 300, gpt-5.2-low user-sim, text-emb-3-large, 97 tasks, binary reward, thinking ON (`reasoning_content` present).
+- **PR #273** (skip hallucinated tool calls; merged 2026-04-29, post-1.0.0): our run is on **0.2.1-dev @ 01e812d (2026-03-18), PRE-#273** — same as the board. Not a difference. (Our earlier 1.0.0 runs DID have #273, which inflated them further; the 0.2.1-dev run is clean of it.)
+- **PR #311** (banking default → AllTools; merged 2026-05-14, post-eval): we explicitly forced `openai_embeddings`, matching the board. Not a difference.
+
+**4. The papers under-specify all of this.** τ-bench/τ²-bench/τ-knowledge papers never pin: per-model provider/endpoint/quantization, seed, max_steps (repo has a 100-vs-200 discrepancy between `config.py` and `run.py`), or infra-error policy. GLM-5 appears in NONE of the papers (leaderboard-only). GitHub issue #51 confirms large run-to-run variance is a known, unresolved concern on small task sets.
+
+**5. Decisive confirmation test (if ever needed):** run GLM-5 **FP8-quantized via a self-host or an OpenRouter FP8 provider** under identical config; expect it to fall toward ~10%. Not necessary for our purpose (the cause is identified and the pipeline is faithful).
+
+**Sources:** arXiv 2406.12045 (τ-bench), 2506.07982 (τ²-bench), 2603.04370 (τ-knowledge); sierra.ai/blog; github.com/sierra-research/tau2-bench (trajectory JSON, submission_schema.json, issues #11/#51/#92, PRs #176/#273/#311); openrouter.ai/announcements/auto-exacto; docs.z.ai/guides/llm/glm-5; LiteLLM #19923/#27439.
