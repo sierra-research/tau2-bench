@@ -38,6 +38,7 @@ but is actually an install-time failure).
 
 import getpass
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -424,12 +425,22 @@ class SandboxManager:
                 f"Error: Command blocked - contains '{escape_pattern}' which could escape the sandbox",
             )
 
-        # Execute via srt with working directory set to kb_dir
-        srt_command = ["srt", "--settings", str(self.settings_path), command]
+        # Execute the command in kb_dir. Normally we wrap it in ``srt``, which uses
+        # bubblewrap (bwrap) for OS-level isolation. bwrap needs an unprivileged user
+        # namespace (CLONE_NEWUSER), which Modal's gVisor runtime forbids ("Creating
+        # new namespace failed: Operation not permitted"), so the shell tool dies and
+        # the model silently falls back to BM25/dense. When the surrounding container
+        # is itself a throwaway isolation boundary (Modal), set TAU2_NO_SRT_SANDBOX=1
+        # to run the command directly: bwrap's redundant in that setting, and the
+        # _has_escape_pattern() guard above still blocks ../, ~, $HOME, absolute paths.
+        if os.environ.get("TAU2_NO_SRT_SANDBOX"):
+            exec_command = ["bash", "-c", command]
+        else:
+            exec_command = ["srt", "--settings", str(self.settings_path), command]
 
         try:
             result = subprocess.run(
-                srt_command,
+                exec_command,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
