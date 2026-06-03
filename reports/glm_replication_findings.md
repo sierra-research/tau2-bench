@@ -48,3 +48,26 @@ Per the ask to use the leaderboard's exact version, I git-archaeology'd it:
 2. **Encouraging signal:** 12.24% is over the *easy first-half* (tasks run in seed order; the first ~12 are ~1.5× easier). Over the full 97 it would trend **down toward 9.79%**, far closer than 1.0.0's 13–19%. This **supports** the version/scoring explanation.
 
 **BLOCKER → needs you:** **top up OpenRouter credits**, then I re-run the 0.2.1-dev worktree for a clean 97-task number (`cd /tmp/tau2-021dev && modal run --detach modal_glm_021dev.py`). That gives the faithful, apples-to-apples comparison to 9.79%. Everything else (exact version, config, metric, scoring) is now matched.
+
+---
+
+## FINAL: exact version, clean 97/97 run → 16.49% (version hypothesis REFUTED)
+
+Credits topped up, saver wired in (rollouts now persist to `tau2_rollouts_glm_021dev`). Clean run, **97/97, zero infra errors**.
+
+**Result: pass@1 = 16/97 = 16.49%** on the board's EXACT version (0.2.1-dev @ 01e812d). Board = **9.79%**.
+
+**So the version/scoring change was NOT the cause.** Ruled out, with evidence:
+- **Version:** exact 0.2.1-dev, pre-#273 scoring. Still 16.49%.
+- **Variance:** three runs 13.4% / 18.6% / 16.49% cluster ~16%; three single-trial runs all landing that high is ~impossible if the true rate were 9.79%. Systematic, not noise.
+- **Model checkpoint:** litellm shows `z-ai/glm-5-20260211` = the board's 2026-02-11 GLM-5 release. Same model.
+- **Thinking:** trajectories contain `reasoning_content` → thinking is ON, matching the board's `glm-5-think`.
+- **Config:** user-sim gpt-5.2 low, seed 300, temp 1.0/top_p 0.95, text-emb-3-large, binary reward, 97 tasks — all match.
+
+**Conclusion: the pipeline is configured faithfully, but the residual ~1.6× gap is SERVING-LEVEL, outside the benchmark config.** Most likely:
+1. **OpenRouter provider routing for GLM-5** vs whatever Sierra served it through (native Z.AI?). Our GLM is very thorough (avg 46 messages, 14 tool calls/rollout) on this retrieval domain; a more-agentic serving scores higher.
+2. **3.5-month drift** in the `gpt-5.2` user-simulator (board ran 2026-02-27; we ran 2026-06-03). A more cooperative user-sim makes tasks easier.
+
+These are not things the benchmark config controls. To go further: deep research (does GLM-5-via-OpenRouter differ from Sierra's serving? known tau-bench repro gaps?), or test the provider hypothesis by running GLM-5 through Z.AI's native API.
+
+**Data saved:** `tau2_rollouts_glm_021dev` (97 rollouts, full trajectories) for inspection. Bug log `tau3_replication_log` has all 6 attempts.
