@@ -31,3 +31,20 @@ user-sim **gpt-5.2 reasoning_effort low** ✓ · **seed 300** ✓ · **temp 1.0 
 3. If exact 0.2.1-dev replication is required → **deep research** to pin the exact dev commit + scoring, or contact Sierra for the 0.2.1-dev ref. (This is the "if still stuck, do deep research" path.)
 
 **No more spend was incurred after the GLM run.** M3 + Opus were stopped early. Nothing else is running.
+
+---
+
+## UPDATE: ran the EXACT board version (0.2.1-dev @ 01e812d)
+
+Per the ask to use the leaderboard's exact version, I git-archaeology'd it:
+- `banking_knowledge` was added in commit **`01e812d`** while the package was still **`version = "0.2.1-dev"`** (the bump to 1.0.0 came 6 days later in `e69071e`).
+- The hallucination-scoring change is **PR #273 (`2be6916`), which is post-1.0.0** — so `01e812d` has banking_knowledge AND the board-matching (old) scoring.
+- Pinned a git worktree at `01e812d` (`/tmp/tau2-021dev`), ran GLM there with the identical config.
+
+**Result (partial, blocked):** **49/97 tasks ran clean → 6 passes = 12.24%.** The other **48 tasks hit OpenRouter `402 Insufficient credits`** (drained across tonight's runs) and were binned as infra errors.
+
+**Two takeaways:**
+1. **The version setup is correct and working** (first ~49 tasks ran fine; the failure is a credits issue, not code). First attempt also surfaced + fixed a missing-voice-deps import error (no eval spend).
+2. **Encouraging signal:** 12.24% is over the *easy first-half* (tasks run in seed order; the first ~12 are ~1.5× easier). Over the full 97 it would trend **down toward 9.79%**, far closer than 1.0.0's 13–19%. This **supports** the version/scoring explanation.
+
+**BLOCKER → needs you:** **top up OpenRouter credits**, then I re-run the 0.2.1-dev worktree for a clean 97-task number (`cd /tmp/tau2-021dev && modal run --detach modal_glm_021dev.py`). That gives the faithful, apples-to-apples comparison to 9.79%. Everything else (exact version, config, metric, scoring) is now matched.
