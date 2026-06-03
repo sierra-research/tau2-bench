@@ -80,12 +80,21 @@ These are not things the benchmark config controls. To go further: deep research
 
 **Conclusion (accepted):** the pipeline reproduces the board's setup on **every controllable factor** (version, model checkpoint, thinking, scoring, config). It does **not** reproduce the absolute **9.79%** (we get ~16.5%), and the gap is **serving-level**: most likely the GLM-5 inference provider (OpenRouter vs Sierra's serving) and/or `gpt-5.2` user-sim drift over 3.5 months. **The pipeline is sound for relative model comparisons**, which is what we need it for. Enough time invested here; stopping.
 
+### Paper check (arXiv 2603.04370v1, τ-Knowledge) — confirms the serving explanation
+- **GLM-5 is NOT in the paper.** It evaluates only GPT-5.2, Claude-4.5-Opus/Sonnet, Gemini-3-Pro/Flash. So GLM-5's 9.79% is a **leaderboard submission** (Sierra), not a paper result, the paper doesn't document GLM-5's serving.
+- **Smoking gun:** the paper states models were *"accessed via their respective enterprise APIs."* → GLM-5's board run almost certainly used **Z.AI's native enterprise API**, whereas we used **OpenRouter**. This is the documented root of suspect #1 (serving/provider difference).
+- **Confirms matches:** user-sim *"standardized to GPT-5.2 with low reasoning effort"*; 97 banking tasks; `text-embedding-3-large` retrieval; pass^k = *"probability that a task is successfully completed in all k independent trials"* (consistent with our metric).
+- **Not disclosed in paper:** random seed, max_steps, infra-error handling, agent temperature/top_p/max_tokens. (submission.json fills some: thinking on, temp 1.0/top_p 0.95, seed 300, 4 trials.)
+- Paper code pointer: `github.com/sierra-research/tau2-bench/tree/dev/tau3` (the dev/0.2.1-dev branch we ran).
+
+**Net:** the paper raises our confidence that the gap is the **inference provider** (enterprise/native API vs OpenRouter). The decisive test remains running GLM-5 through **Z.AI's native API**; otherwise the question for the authors is now sharper (see draft below).
+
 **Next step (handed to a human): ask the τ³-bench / tau2-bench authors (Sierra Research) about their serving setup.** Channels: GitHub issue on `sierra-research/tau2-bench`, or the submission contacts `victor@sierra.ai`, `ben.s@sierra.ai`.
 
 **Draft question (ready to send):**
 
 > Hi, we're reproducing the GLM-5 `banking_knowledge` leaderboard result (pass@1 **9.79%**, `glm-5-think` submission, 2026-03-02). On the exact version (`0.2.1-dev` @ commit `01e812d`) with the documented config (gpt-5.2 user-sim `reasoning_effort: low`, seed 300, temp 1.0 / top_p 0.95, text-emb-3-large, thinking on, 97 tasks, 1 trial), we consistently get **~16% pass@1**, not 9.79%. We've ruled out version, scoring, model checkpoint (`z-ai/glm-5-20260211`), thinking, and run-to-run variance. Could you share:
-> 1. **How was GLM-5 served?** Native Z.AI API, or a provider/proxy (we're on OpenRouter, which may route/serve differently)?
+> 1. **How was GLM-5 served?** The τ-Knowledge paper says models were "accessed via their respective enterprise APIs", so we assume GLM-5 went through **Z.AI's native API**. We used **OpenRouter**, which may route/serve differently. Can you confirm the GLM-5 provider for the submission?
 > 2. **Which `gpt-5.2` user-simulator snapshot/date** did you use for the 2026-02-27 eval? We may be seeing drift running it today.
 > 3. Any `banking_knowledge`-specific settings (max_steps, retries, infra-error handling) beyond what's in `submission.json`?
 >
