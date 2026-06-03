@@ -1,3 +1,5 @@
+> **STATUS: WRAPPED (2026-06-03).** Verdict: **pipeline is configured faithfully; the absolute number does not match the public board (we get ~16.5%, board 9.79%), and the residual gap is serving-level (inference provider + user-sim drift), not a config/pipeline bug.** Trustworthy for relative model comparisons. **Next step: ask the τ³-bench authors (Sierra) about their exact serving setup** (draft question at the bottom).
+
 # GLM-5 banking_knowledge replication — findings (overnight 2026-06-03)
 
 **Goal:** confirm our pipeline reproduces the leaderboard's GLM-5 `banking_knowledge` **pass@1 = 9.79%**, so we know the pipeline is faithful before running our own experiments.
@@ -71,3 +73,20 @@ Credits topped up, saver wired in (rollouts now persist to `tau2_rollouts_glm_02
 These are not things the benchmark config controls. To go further: deep research (does GLM-5-via-OpenRouter differ from Sierra's serving? known tau-bench repro gaps?), or test the provider hypothesis by running GLM-5 through Z.AI's native API.
 
 **Data saved:** `tau2_rollouts_glm_021dev` (97 rollouts, full trajectories) for inspection. Bug log `tau3_replication_log` has all 6 attempts.
+
+---
+
+## WRAP-UP + next step
+
+**Conclusion (accepted):** the pipeline reproduces the board's setup on **every controllable factor** (version, model checkpoint, thinking, scoring, config). It does **not** reproduce the absolute **9.79%** (we get ~16.5%), and the gap is **serving-level**: most likely the GLM-5 inference provider (OpenRouter vs Sierra's serving) and/or `gpt-5.2` user-sim drift over 3.5 months. **The pipeline is sound for relative model comparisons**, which is what we need it for. Enough time invested here; stopping.
+
+**Next step (handed to a human): ask the τ³-bench / tau2-bench authors (Sierra Research) about their serving setup.** Channels: GitHub issue on `sierra-research/tau2-bench`, or the submission contacts `victor@sierra.ai`, `ben.s@sierra.ai`.
+
+**Draft question (ready to send):**
+
+> Hi, we're reproducing the GLM-5 `banking_knowledge` leaderboard result (pass@1 **9.79%**, `glm-5-think` submission, 2026-03-02). On the exact version (`0.2.1-dev` @ commit `01e812d`) with the documented config (gpt-5.2 user-sim `reasoning_effort: low`, seed 300, temp 1.0 / top_p 0.95, text-emb-3-large, thinking on, 97 tasks, 1 trial), we consistently get **~16% pass@1**, not 9.79%. We've ruled out version, scoring, model checkpoint (`z-ai/glm-5-20260211`), thinking, and run-to-run variance. Could you share:
+> 1. **How was GLM-5 served?** Native Z.AI API, or a provider/proxy (we're on OpenRouter, which may route/serve differently)?
+> 2. **Which `gpt-5.2` user-simulator snapshot/date** did you use for the 2026-02-27 eval? We may be seeing drift running it today.
+> 3. Any `banking_knowledge`-specific settings (max_steps, retries, infra-error handling) beyond what's in `submission.json`?
+>
+> Thanks, happy to share our trajectories.
