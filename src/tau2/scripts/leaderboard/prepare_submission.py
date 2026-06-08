@@ -182,11 +182,14 @@ def validate_submission(
         return
 
     verify_trajectories(submission_data.trajectory_files, mode=mode)
-    console.print("✅ Submission validation successful!", style="green")
     console.print("📋 Validating submission metrics...", style="bold")
-    validate_submission_metrics(
+    valid_metrics = validate_submission_metrics(
         submission_data.submission, submission_data.results, console
     )
+    if not valid_metrics:
+        console.print("❌ Submission validation failed: metric mismatch", style="red")
+        raise SystemExit(1)
+    console.print("✅ Submission validation successful!", style="green")
 
 
 def get_metrics(
@@ -240,10 +243,11 @@ def get_metrics(
 
 def validate_submission_metrics(
     submission: Submission, submitted_results: list[TrajectoryResults], console: Console
-) -> None:
+) -> bool:
     """
     Validate the submission metrics.
     """
+    errors = []
     warnings = []
     _, computed_domain_results, default_model, default_user_simulator = get_metrics(
         submitted_results
@@ -262,36 +266,42 @@ def validate_submission_metrics(
     for domain, computed_results in computed_domain_results.items():
         domain_results = submission.results.get_domain_results(domain)
         if domain_results is None:
-            warnings.append(
+            errors.append(
                 f"Domain {domain} found in trajectories but missing from submission.json"
             )
             continue
         if domain_results.pass_1 != computed_results.pass_1:
-            warnings.append(
+            errors.append(
                 f"Pass^1 for {domain} does not match computed results {computed_results.pass_1}"
             )
         if domain_results.pass_2 != computed_results.pass_2:
-            warnings.append(
+            errors.append(
                 f"Pass^2 for {domain} does not match computed results {computed_results.pass_2}"
             )
         if domain_results.pass_3 != computed_results.pass_3:
-            warnings.append(
+            errors.append(
                 f"Pass^3 for {domain} does not match computed results {computed_results.pass_3}"
             )
         if domain_results.pass_4 != computed_results.pass_4:
-            warnings.append(
+            errors.append(
                 f"Pass^4 for {domain} does not match computed results {computed_results.pass_4}"
             )
         if domain_results.cost != computed_results.cost:
-            warnings.append(
+            errors.append(
                 f"Cost for {domain} does not match computed results {computed_results.cost}"
             )
     if warnings:
-        console.print(f"❌ {len(warnings)} warning(s) found", style="red")
+        console.print(f"⚠️  {len(warnings)} warning(s) found", style="yellow")
         for warning in warnings:
-            console.print(f"  • {warning}", style="red")
-    else:
-        console.print("✅ Submission metrics validation successful!", style="green")
+            console.print(f"  • {warning}", style="yellow")
+    if errors:
+        console.print(f"❌ {len(errors)} error(s) found", style="red")
+        for error in errors:
+            console.print(f"  • {error}", style="red")
+        return False
+
+    console.print("✅ Submission metrics validation successful!", style="green")
+    return True
 
 
 def _copy_voice_experiment_trimmed(
