@@ -6,11 +6,13 @@ from rich.console import Console
 from tau2.data_model.simulation import (
     AgentInfo,
     Info,
-    Results as TrajectoryResults,
     RewardInfo,
     SimulationRun,
     TerminationReason,
     UserInfo,
+)
+from tau2.data_model.simulation import (
+    Results as TrajectoryResults,
 )
 from tau2.data_model.tasks import EvaluationCriteria, Task, UserScenario
 from tau2.environment.environment import EnvironmentInfo
@@ -103,9 +105,7 @@ def _make_submission(
 
 def test_validate_submission_metrics_accepts_matching_metrics():
     trajectory_results = _make_trajectory_results()
-    submission = _make_submission(
-        retail_results=DomainResults(pass_1=50.0, cost=2.0)
-    )
+    submission = _make_submission(retail_results=DomainResults(pass_1=50.0, cost=2.0))
 
     assert (
         validate_submission_metrics(
@@ -117,9 +117,7 @@ def test_validate_submission_metrics_accepts_matching_metrics():
 
 def test_validate_submission_metrics_rejects_pass_metric_mismatch():
     trajectory_results = _make_trajectory_results()
-    submission = _make_submission(
-        retail_results=DomainResults(pass_1=100.0, cost=2.0)
-    )
+    submission = _make_submission(retail_results=DomainResults(pass_1=100.0, cost=2.0))
 
     assert (
         validate_submission_metrics(
@@ -131,9 +129,7 @@ def test_validate_submission_metrics_rejects_pass_metric_mismatch():
 
 def test_validate_submission_metrics_rejects_cost_mismatch():
     trajectory_results = _make_trajectory_results()
-    submission = _make_submission(
-        retail_results=DomainResults(pass_1=50.0, cost=99.0)
-    )
+    submission = _make_submission(retail_results=DomainResults(pass_1=50.0, cost=99.0))
 
     assert (
         validate_submission_metrics(
@@ -173,9 +169,7 @@ def test_validate_submission_metrics_keeps_metadata_mismatches_as_warnings():
 
 def test_validate_submission_exits_nonzero_on_metric_mismatch(monkeypatch, tmp_path):
     trajectory_results = _make_trajectory_results()
-    submission = _make_submission(
-        retail_results=DomainResults(pass_1=100.0, cost=2.0)
-    )
+    submission = _make_submission(retail_results=DomainResults(pass_1=100.0, cost=2.0))
     submission_data = SubmissionData(
         submission_dir=str(tmp_path),
         submission_file=str(tmp_path / "submission.json"),
