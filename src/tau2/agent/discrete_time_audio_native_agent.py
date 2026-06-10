@@ -80,7 +80,7 @@ from tau2.voice.audio_native.adapter import DiscreteTimeAdapter, create_adapter
 from tau2.voice.audio_native.tick_result import TickResult
 
 # Provider type alias
-AudioNativeProvider = Literal["openai", "gemini", "xai", "nova", "qwen", "livekit"]
+AudioNativeProvider = Literal["openai", "gemini", "xai", "nova", "qwen", "livekit", "pine"]
 
 # VAD config union type (string annotations for lazy resolution)
 VADConfig = Union[

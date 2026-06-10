@@ -143,6 +143,11 @@ DEFAULT_OPENAI_NOISE_REDUCTION = "near_field"  # fixed: "near_field", "far_field
 DEFAULT_OPENAI_VAD_THRESHOLD_LOW = 0.2  # fixed
 DEFAULT_OPENAI_VAD_THRESHOLD_DEFAULT = 0.5  # fixed
 DEFAULT_OPENAI_VAD_THRESHOLD = DEFAULT_OPENAI_VAD_THRESHOLD_DEFAULT
+
+# Pine realtime provider. Pine exposes an OpenAI-Realtime-compatible
+# gateway, so the adapter reuses the OpenAI protocol and only swaps URL + auth.
+DEFAULT_PINE_BASE_URL = "wss://api-preview.pinevoice.ai/v1/realtime"  # overridable via PINE_BASE_URL
+DEFAULT_PINE_MODEL = "pine-realtime-1.0-preview"  # overridable via --audio-native-model
 DEFAULT_OPENAI_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 DEFAULT_OPENAI_TRANSCRIPTION_MODEL = "gpt-4o-transcribe"  # overridable
 DEFAULT_WHISPER_MODEL = "whisper-1"  # fixed
@@ -198,6 +203,7 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
     "nova": DEFAULT_NOVA_MODEL,
     "qwen": DEFAULT_QWEN_MODEL,
     "livekit": "dummy",
+    "pine": DEFAULT_PINE_MODEL,
 }
 
 DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
@@ -207,6 +213,7 @@ DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
     "nova": None,
     "qwen": None,
     "livekit": None,
+    "pine": None,
 }
 
 AUDIO_NATIVE_PROVIDER_TYPES = {
@@ -216,6 +223,7 @@ AUDIO_NATIVE_PROVIDER_TYPES = {
     "nova": "audio_native",
     "qwen": "audio_native",
     "livekit": "cascaded",
+    "pine": "audio_native",
 }
 
 # =============================================================================
