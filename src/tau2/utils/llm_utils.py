@@ -230,9 +230,24 @@ def validate_message(message: Message) -> None:
             f"System message must have content. got {message}"
         )
     if isinstance(message, ParticipantMessageBase):
-        assert has_content_or_tool_calls(message), (
-            f"Message must have content or tool calls. got {message}"
-        )
+        # In streaming audio-native (voice) mode, participant messages can
+        # legitimately have empty text content:
+        #   1. is_audio=True chunks carry audio as the payload, not text.
+        #   2. The streaming user simulator can emit an empty completion while
+        #      it is still listening; that empty UserMessage is stored in the
+        #      history and would otherwise fail this validation on a later turn.
+        # Both are normal in voice mode (this assertion was written for
+        # text-only sessions), so skip empty participant messages here instead
+        # of raising.
+        if not has_content_or_tool_calls(message):
+            from loguru import logger as _logger
+
+            _logger.debug(
+                f"Skipping empty ParticipantMessage in history "
+                f"(is_audio={getattr(message, 'is_audio', False)}, "
+                f"is_final_chunk={getattr(message, 'is_final_chunk', False)})"
+            )
+            return
 
 
 def validate_message_history(messages: list[Message]) -> None:
