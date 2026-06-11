@@ -429,7 +429,7 @@ def sample_voice_config(
     # -------------------------------------------------------------------------
     # Create merged SpeechEffectsConfig
     # -------------------------------------------------------------------------
-    # Side-talk (out-of-turn speech) localization: a language-pack persona's
+    # Out-of-turn speech localization: a language-pack persona's
     # phrase list replaces the English phrases; the rate is a language-level
     # (pack) setting, falling back to the preset value.
     non_directed_phrases = base_speech.non_directed_phrases
@@ -439,15 +439,13 @@ def sample_voice_config(
     )
     if multilingual is not None:
         pack, ml_persona = multilingual
-        if ml_persona.side_talk_phrases:
+        if ml_persona.non_directed_phrases:
             non_directed_phrases = [
                 UserSpeechInsert(text=phrase, type="non_directed_phrase")
-                for phrase in ml_persona.side_talk_phrases
+                for phrase in ml_persona.non_directed_phrases
             ]
         if pack.default_out_of_turn_events_per_minute is not None:
-            speech_insert_events_per_minute = (
-                pack.default_out_of_turn_events_per_minute
-            )
+            speech_insert_events_per_minute = pack.default_out_of_turn_events_per_minute
 
     merged_speech = SpeechEffectsConfig(
         enable_dynamic_muffling=preset.get("enable_muffling", False),

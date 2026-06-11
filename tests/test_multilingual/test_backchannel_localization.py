@@ -1,7 +1,7 @@
 # Copyright Sierra
-"""Tests for persona/language-driven backchannel and side-talk phrases (PR2).
+"""Tests for persona/language-driven backchannel and out-of-turn speech phrases (PR2).
 
-Covers: persona side-talk phrases and pack-level rates flowing into
+Covers: persona out-of-turn speech phrases and pack-level rates flowing into
 SpeechEffectsConfig, backchannel phrase/decision-prompt/Poisson-rate
 resolution in the streaming user simulator, and — critically — that English
 defaults are byte-identical when no language-pack persona is active.
@@ -25,7 +25,7 @@ from tau2.user_simulation_voice_presets import REGULAR_CONFIG, sample_voice_conf
 from tau2.voice_config import BACKCHANNEL_PHRASES, NON_DIRECTED_PHRASES, VOCAL_TICS
 
 XX_BACKCHANNEL_PHRASES = ["mhm-xx", "ji-xx"]
-XX_SIDE_TALK_PHRASES = ["एक मिनट रुको", "अभी फोन पर हूँ"]
+XX_NON_DIRECTED_PHRASES = ["एक मिनट रुको", "अभी फोन पर हूँ"]
 XX_DECISION_PROMPT = "Localized backchannel prompt.\n\n{conversation_history}"
 
 
@@ -48,7 +48,7 @@ def clean_registries():
 
 def make_test_pack(
     backchannel_phrases: Optional[list[str]] = None,
-    side_talk_phrases: Optional[list[str]] = None,
+    non_directed_phrases: Optional[list[str]] = None,
     **pack_overrides,
 ) -> LanguagePack:
     """Build a one-persona pack with the given persona phrase lists (or none)."""
@@ -58,7 +58,7 @@ def make_test_pack(
         short_description="Test-language persona",
         language="xx",
         backchannel_phrases=backchannel_phrases,
-        side_talk_phrases=side_talk_phrases,
+        non_directed_phrases=non_directed_phrases,
         voice_id="fake_voice_id_123",
         verbosity=Verbosity.MINIMAL,
     )
@@ -95,19 +95,19 @@ def make_simulator(persona_config: Optional[PersonaConfig]):
     )
 
 
-class TestSideTalkLocalization:
+class TestNonDirectedPhraseLocalization:
     def test_persona_phrases_reach_speech_effects(self):
         ml_registry.register_language_pack(
-            make_test_pack(side_talk_phrases=XX_SIDE_TALK_PHRASES)
+            make_test_pack(non_directed_phrases=XX_NON_DIRECTED_PHRASES)
         )
         speech = sample_for_persona("tara_testlang_v1").speech_effects_config
-        assert [i.text for i in speech.non_directed_phrases] == XX_SIDE_TALK_PHRASES
+        assert [i.text for i in speech.non_directed_phrases] == XX_NON_DIRECTED_PHRASES
         assert all(i.type == "non_directed_phrase" for i in speech.non_directed_phrases)
 
     def test_pack_rate_applies(self):
         ml_registry.register_language_pack(
             make_test_pack(
-                side_talk_phrases=XX_SIDE_TALK_PHRASES,
+                non_directed_phrases=XX_NON_DIRECTED_PHRASES,
                 default_out_of_turn_events_per_minute=2.0,
             )
         )
@@ -116,7 +116,7 @@ class TestSideTalkLocalization:
 
     def test_rate_falls_back_to_preset_value(self):
         ml_registry.register_language_pack(
-            make_test_pack(side_talk_phrases=XX_SIDE_TALK_PHRASES)
+            make_test_pack(non_directed_phrases=XX_NON_DIRECTED_PHRASES)
         )
         speech = sample_for_persona("tara_testlang_v1").speech_effects_config
         assert (
@@ -148,7 +148,7 @@ class TestEnglishRegression:
         """No persona override: every speech-effects value matches today's English."""
         ml_registry.register_language_pack(
             make_test_pack(
-                side_talk_phrases=XX_SIDE_TALK_PHRASES,
+                non_directed_phrases=XX_NON_DIRECTED_PHRASES,
                 default_out_of_turn_events_per_minute=8.8,
             )
         )

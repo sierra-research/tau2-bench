@@ -72,8 +72,8 @@ class MultilingualPersonaConfig(PersonaConfig):
         "'IN-TG' (Telangana). Trajectory-tagging metadata only.",
     )
     script: Optional[str] = Field(
-        default=None, description="ISO 15924 script code for the matrix language, "
-        "e.g. 'deva'"
+        default=None,
+        description="ISO 15924 script code for the matrix language, e.g. 'deva'",
     )
     pragmatics_clauses: list[str] = Field(
         default_factory=list,
@@ -88,9 +88,9 @@ class MultilingualPersonaConfig(PersonaConfig):
         description="Backchannel continuer phrases for this persona, in the "
         "persona's language/script. None falls back to the English defaults.",
     )
-    side_talk_phrases: Optional[list[str]] = Field(
+    non_directed_phrases: Optional[list[str]] = Field(
         default=None,
-        description="Out-of-turn (side-talk) phrases for this persona — speech "
+        description="Out-of-turn speech phrases for this persona — speech "
         "directed at family, a driver, etc., not at the agent. None falls back "
         "to the English defaults.",
     )
@@ -173,7 +173,7 @@ class LanguagePack(BaseModel):
     )
     default_out_of_turn_events_per_minute: Optional[float] = Field(
         default=None,
-        description="Language-level default side-talk rate. None keeps the global "
+        description="Language-level default out-of-turn speech rate. None keeps the global "
         "default.",
     )
 
@@ -198,9 +198,10 @@ class LanguagePack(BaseModel):
                     f"Persona '{persona_id}' references unknown acoustic preset "
                     f"'{persona.acoustic_preset_id}'"
                 )
-        if self.guidelines_voice_path is not None and not Path(
-            self.guidelines_voice_path
-        ).exists():
+        if (
+            self.guidelines_voice_path is not None
+            and not Path(self.guidelines_voice_path).exists()
+        ):
             raise ValueError(
                 f"Guidelines file does not exist: {self.guidelines_voice_path}"
             )

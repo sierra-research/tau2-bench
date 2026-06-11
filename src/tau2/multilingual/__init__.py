@@ -2,7 +2,7 @@
 """Language Pack registry for multilingual user simulation.
 
 A :class:`LanguagePack` bundles all language-specific *content* for one
-language: persona definitions (each carrying its own backchannel/side-talk
+language: persona definitions (each carrying its own backchannel/out-of-turn speech
 phrase lists), the localized guidelines file, acoustic-preset registrations,
 the language-level backchannel decision prompt, and default behavior
 parameters.

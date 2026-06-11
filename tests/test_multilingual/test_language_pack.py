@@ -56,7 +56,7 @@ def make_test_pack(**overrides) -> LanguagePack:
             "You assume the agent speaks your language.",
         ],
         backchannel_phrases=["mhm-xx", "ji-xx"],
-        side_talk_phrases=["one moment (to family)"],
+        non_directed_phrases=["one moment (to family)"],
         voice_id="fake_voice_id_123",
         tts_voice_prompt="A test speaker in her 30s.",
         acoustic_preset_id="xx_market",
@@ -106,7 +106,7 @@ class TestSchema:
         pack = make_test_pack()
         persona = pack.personas["tara_testlang_v1"]
         assert persona.backchannel_phrases == ["mhm-xx", "ji-xx"]
-        assert persona.side_talk_phrases == ["one moment (to family)"]
+        assert persona.non_directed_phrases == ["one moment (to family)"]
         assert pack.get_acoustic_preset(persona).id == "xx_market"
 
 
@@ -164,12 +164,16 @@ class TestPersonaGuidelines:
         assert "MINIMAL VERBOSITY" in text
 
     def test_guidelines_text_empty_persona_content(self):
-        persona = make_test_pack().personas["tara_testlang_v1"].model_copy(
-            update={
-                "tts_voice_prompt": "",
-                "pragmatics_clauses": [],
-                "verbosity": Verbosity.STANDARD,
-            }
+        persona = (
+            make_test_pack()
+            .personas["tara_testlang_v1"]
+            .model_copy(
+                update={
+                    "tts_voice_prompt": "",
+                    "pragmatics_clauses": [],
+                    "verbosity": Verbosity.STANDARD,
+                }
+            )
         )
         assert persona.to_guidelines_text() is None
 
