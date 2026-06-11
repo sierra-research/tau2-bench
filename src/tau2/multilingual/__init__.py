@@ -2,9 +2,10 @@
 """Language Pack registry for multilingual user simulation.
 
 A :class:`LanguagePack` bundles all language-specific *content* for one
-language: persona definitions, backchannel/side-talk repertoires, the
-localized guidelines file, acoustic-preset registrations, decision-prompt
-overrides, and default behavior parameters.
+language: persona definitions (each carrying its own backchannel/out-of-turn speech
+phrase lists), the localized guidelines file, acoustic-preset registrations,
+the language-level backchannel decision prompt, and default behavior
+parameters.
 
 Shared infra (this package) defines the pack interface, the registry, the
 loader, and the integration touchpoints. A language owner implements exactly
@@ -25,18 +26,14 @@ from tau2.multilingual.registry import (
 )
 from tau2.multilingual.schema import (
     AcousticPreset,
-    BackchannelRepertoire,
     LanguagePack,
     MultilingualPersonaConfig,
-    SideTalkRepertoire,
 )
 
 __all__ = [
     "AcousticPreset",
-    "BackchannelRepertoire",
     "LanguagePack",
     "MultilingualPersonaConfig",
-    "SideTalkRepertoire",
     "get_language_pack",
     "get_multilingual_persona",
     "list_language_packs",

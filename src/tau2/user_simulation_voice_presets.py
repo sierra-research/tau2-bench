@@ -21,6 +21,7 @@ from tau2.data_model.audio_effects import (
     ChannelEffectsConfig,
     SourceEffectsConfig,
     SpeechEffectsConfig,
+    UserSpeechInsert,
 )
 from tau2.data_model.persona import InterruptTendency, PersonaConfig, Verbosity
 from tau2.data_model.voice import SampledVoiceConfig, SpeechComplexity, SynthesisConfig
@@ -428,6 +429,24 @@ def sample_voice_config(
     # -------------------------------------------------------------------------
     # Create merged SpeechEffectsConfig
     # -------------------------------------------------------------------------
+    # Out-of-turn speech localization: a language-pack persona's
+    # phrase list replaces the English phrases; the rate is a language-level
+    # (pack) setting, falling back to the preset value.
+    non_directed_phrases = base_speech.non_directed_phrases
+    speech_insert_events_per_minute = preset.get(
+        "speech_insert_events_per_minute",
+        base_speech.speech_insert_events_per_minute,
+    )
+    if multilingual is not None:
+        pack, ml_persona = multilingual
+        if ml_persona.non_directed_phrases:
+            non_directed_phrases = [
+                UserSpeechInsert(text=phrase, type="non_directed_phrase")
+                for phrase in ml_persona.non_directed_phrases
+            ]
+        if pack.default_out_of_turn_events_per_minute is not None:
+            speech_insert_events_per_minute = pack.default_out_of_turn_events_per_minute
+
     merged_speech = SpeechEffectsConfig(
         enable_dynamic_muffling=preset.get("enable_muffling", False),
         muffle_probability=base_speech.muffle_probability
@@ -445,11 +464,8 @@ def sample_voice_config(
         enable_non_directed_phrases=preset.get(
             "enable_non_directed_phrases", base_speech.enable_non_directed_phrases
         ),
-        non_directed_phrases=base_speech.non_directed_phrases,
-        speech_insert_events_per_minute=preset.get(
-            "speech_insert_events_per_minute",
-            base_speech.speech_insert_events_per_minute,
-        ),
+        non_directed_phrases=non_directed_phrases,
+        speech_insert_events_per_minute=speech_insert_events_per_minute,
     )
 
     # -------------------------------------------------------------------------
