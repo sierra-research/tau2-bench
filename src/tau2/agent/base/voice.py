@@ -61,9 +61,21 @@ class VoiceMixin(
             format=message.audio_format,
             audio_path=message.audio_path,
         )
+        transcription_config = self.voice_settings.transcription_config
+        speech_environment = self.voice_settings.speech_environment
+        if (
+            transcription_config.language is None
+            and speech_environment is not None
+            and speech_environment.language is not None
+        ):
+            # Default the transcription language from the active language-pack
+            # persona. No-op for English runs (language is None).
+            transcription_config = transcription_config.model_copy(
+                update={"language": speech_environment.language}
+            )
         transcription_result = transcribe_audio(
             audio_data=audio_data,
-            config=self.voice_settings.transcription_config,
+            config=transcription_config,
         )
         if transcription_result.error:
             raise ValueError(f"Transcription failed: {transcription_result.error}")

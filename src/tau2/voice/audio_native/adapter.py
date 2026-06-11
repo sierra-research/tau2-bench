@@ -337,6 +337,7 @@ def create_adapter(
     reasoning_effort: Optional[str] = None,
     audio_format: Optional[AudioFormat] = None,
     cascaded_config: Any = None,
+    language: Optional[str] = None,
 ) -> Tuple[DiscreteTimeAdapter, str]:
     """Create a discrete-time adapter for the given provider.
 
@@ -353,6 +354,10 @@ def create_adapter(
         audio_format: Audio format for external communication. Defaults to
             telephony (8kHz μ-law).
         cascaded_config: Configuration for cascaded providers (livekit).
+        language: ISO 639-1 code of the run's active language-pack persona
+            (see tau2.multilingual). Forwarded to provider transcription/STT
+            configs where supported (openai, livekit). None means English
+            (provider defaults unchanged).
 
     Returns:
         Tuple of (adapter, resolved_model).
@@ -395,6 +400,7 @@ def create_adapter(
             model=model,
             reasoning_effort=reasoning_effort,
             audio_format=audio_format,
+            language=language,
         )
     elif provider == "gemini":
         from tau2.voice.audio_native.gemini.discrete_time_adapter import (
@@ -446,6 +452,10 @@ def create_adapter(
         )
 
         config = cascaded_config or CascadedConfig()
+        if language is not None:
+            # Deep copy so shared presets (CASCADED_CONFIGS) are not mutated.
+            config = config.model_copy(deep=True)
+            config.stt.language = language
         adapter = LiveKitCascadedAdapter(
             tick_duration_ms=tick_duration_ms,
             cascaded_config=config,

@@ -26,7 +26,10 @@ class DeepgramSTTConfig(BaseModel):
     Attributes:
         provider: Provider identifier (always "deepgram").
         model: Deepgram model to use. "nova-3" is the latest and most accurate.
-        language: Language code (e.g., "en-US", "es", "fr").
+        language: Language code (e.g., "en-US", "es", "fr"). Defaults to
+            "en-US"; overridden with the run's language-pack code when a
+            multilingual persona is active (see create_adapter in
+            tau2.voice.audio_native.adapter).
         interim_results: Whether to return interim (partial) transcripts.
         vad_events: Whether to emit VAD events (speech start/end).
         endpointing_ms: Silence duration (ms) before considering speech ended.
