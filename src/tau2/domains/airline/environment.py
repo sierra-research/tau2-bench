@@ -8,6 +8,7 @@ from tau2.domains.airline.tools import AirlineTools
 from tau2.domains.airline.utils import (
     AIRLINE_DB_PATH,
     AIRLINE_POLICY_PATH,
+    AIRLINE_TASK_SET_HI_PATH,
     AIRLINE_TASK_SET_PATH,
 )
 from tau2.environment.environment import Environment
@@ -43,6 +44,18 @@ def get_tasks(task_split_name: Optional[str] = "base") -> list[Task]:
             f"Invalid task split name: {task_split_name}. Valid splits are: {task_splits.keys()}"
         )
     return [task for task in tasks if task.id in task_splits[task_split_name]]
+
+
+def get_tasks_hi(task_split_name: Optional[str] = "base") -> list[Task]:
+    """Hindi-localized airline task subset (reuses the airline environment)."""
+    tasks = load_file(AIRLINE_TASK_SET_HI_PATH)
+    tasks = [Task.model_validate(task) for task in tasks]
+    if task_split_name in (None, "base"):
+        return tasks
+    raise ValueError(
+        f"Invalid task split name: {task_split_name}. "
+        "Task set 'airline_hi' only supports the 'base' split."
+    )
 
 
 def get_tasks_split() -> dict[str, list[str]]:
