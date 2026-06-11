@@ -316,6 +316,7 @@ def user_interruption_policy(
 def user_backchannel_policy(
     state: UserStreamingState,
     integration_ticks: int = 1,
+    decision_prompt: Optional[str] = None,
 ) -> ListenerReactionDecision:
     """
     Decide whether the user should backchannel while the agent is speaking.
@@ -329,6 +330,8 @@ def user_backchannel_policy(
         state: The current streaming state
         integration_ticks: Number of consecutive silent ticks before an overlap region ends
             during linearization. Higher values are more tolerant of brief pauses. Default is 1.
+        decision_prompt: Optional override for the backchannel decision prompt template
+            (must contain a {conversation_history} placeholder). None uses the English default.
 
     Returns:
         ListenerReactionDecision with decision and metadata from the LLM call
@@ -350,12 +353,11 @@ def user_backchannel_policy(
     logger.info(f"CHECKING BACKCHANNEL:\nSent to LLM:\n{formatted_history}\n\n\n")
 
     # Build the prompt for backchannel decision using template
-    decision_prompt = BACKCHANNEL_DECISION_PROMPT.format(
-        conversation_history=formatted_history
-    )
+    prompt_template = decision_prompt or BACKCHANNEL_DECISION_PROMPT
+    formatted_prompt = prompt_template.format(conversation_history=formatted_history)
 
     # Create messages for LLM call
-    decision_messages = [UserMessage(role="user", content=decision_prompt)]
+    decision_messages = [UserMessage(role="user", content=formatted_prompt)]
 
     try:
         response = generate(
@@ -500,6 +502,13 @@ class VoiceStreamingUserSimulator(
         self.use_llm_backchannel = use_llm_backchannel
         self.interruption_check_interval = interruption_check_interval
 
+        # Backchannel localization: a language-pack persona's repertoire (or its
+        # pack-level defaults) overrides the phrases, the LLM decision prompt,
+        # and the Poisson rate. Plain English personas keep the defaults above.
+        self.backchannel_phrases: list[str] = BACKCHANNEL_PHRASES
+        self.backchannel_decision_prompt: str = BACKCHANNEL_DECISION_PROMPT
+        self._apply_multilingual_backchannel_overrides()
+
         # Default yield_threshold_when_interrupting to yield_threshold_when_interrupted if not set
         if (
             self.yield_threshold_when_interrupting is None
@@ -589,6 +598,40 @@ class VoiceStreamingUserSimulator(
                 ),
             }
             logger.info(f"Audio taps enabled, output dir: {audio_taps_dir}")
+
+    def _apply_multilingual_backchannel_overrides(self) -> None:
+        """Resolve backchannel overrides from the persona's language pack.
+
+        Selection order for each value: persona repertoire -> pack default ->
+        English default (the attribute's current value). A plain PersonaConfig
+        (no persona_id) or a persona without overrides leaves every value
+        untouched.
+        """
+        persona_id = getattr(self.persona_config, "persona_id", None)
+        if persona_id is None:
+            return
+        from tau2.multilingual.registry import get_multilingual_persona
+
+        multilingual = get_multilingual_persona(persona_id)
+        if multilingual is None:
+            return
+        pack, persona = multilingual
+
+        repertoire = pack.get_backchannel_repertoire(persona)
+        if repertoire is not None and repertoire.phrases:
+            self.backchannel_phrases = repertoire.phrases
+
+        decision_prompt = (
+            repertoire.decision_prompt if repertoire is not None else None
+        ) or pack.backchannel_decision_prompt
+        if decision_prompt:
+            self.backchannel_decision_prompt = decision_prompt
+
+        poisson_rate = repertoire.poisson_rate if repertoire is not None else None
+        if poisson_rate is None:
+            poisson_rate = pack.default_backchannel_poisson_rate
+        if poisson_rate is not None:
+            self.backchannel_poisson_rate = poisson_rate
 
     def validate_turn_taking_settings(self) -> None:
         """Validate the turn-taking settings."""
@@ -803,11 +846,16 @@ class VoiceStreamingUserSimulator(
 
         # Backchannel callback is tied to the use_llm_backchannel config
         if self.use_llm_backchannel:
+            backchannel_decision_prompt = self.backchannel_decision_prompt
 
             def should_backchannel_callback(
                 s: UserStreamingState,
             ) -> ListenerReactionDecision:
-                return user_backchannel_policy(s, integration_ticks=integration_ticks)
+                return user_backchannel_policy(
+                    s,
+                    integration_ticks=integration_ticks,
+                    decision_prompt=backchannel_decision_prompt,
+                )
 
         action, info = basic_turn_taking_policy(
             state,
@@ -1401,7 +1449,7 @@ class VoiceStreamingUserSimulator(
         effects_turn_idx = state.user_utterance_count
 
         # Randomly select a backchannel phrase
-        content = state.backchannel_rng.choice(BACKCHANNEL_PHRASES)
+        content = state.backchannel_rng.choice(self.backchannel_phrases)
 
         user_message = UserMessage(
             role="user",
