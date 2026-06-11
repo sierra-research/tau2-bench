@@ -270,13 +270,15 @@ def sample_voice_config(
     seed: int,
     synthesis_config: SynthesisConfig,
     complexity: SpeechComplexity = "regular",
+    persona_name: Optional[str] = None,
 ) -> SampledVoiceConfig:
     """Sample a complete voice configuration from complexity presets.
 
     This function:
     1. Looks up the complexity preset
-    2. Selects persona deterministically from the preset's persona list (unless provided
-       via synthesis_config.provider_config.persona_name)
+    2. Selects persona deterministically from the preset's persona list (unless
+       forced via `persona_name` or provided via
+       synthesis_config.provider_config.voice_id)
     3. For regular mode, selects environment (indoor/outdoor) and associated audio files
     4. Creates configs with complexity settings applied
     5. Creates PersonaConfig from complexity settings
@@ -284,10 +286,17 @@ def sample_voice_config(
     Each complexity level uses a different seed offset to ensure different persona
     selections across complexity levels for the same base seed.
 
+    When `persona_name` names a language-pack persona (see tau2.multilingual),
+    the returned persona_config is that persona's MultilingualPersonaConfig
+    (the persona author controls verbosity/interrupt tendency), and its
+    acoustic preset (if registered) replaces the indoor/outdoor environment
+    selection.
+
     Args:
         seed: Random seed for reproducibility.
         synthesis_config: Base synthesis configuration with effect configs.
         complexity: Speech environment complexity level ("control" or "regular").
+        persona_name: Optional persona override (e.g. from --user-persona-id).
 
     Returns:
         SampledVoiceConfig with all configs instantiated and complexity settings applied.
@@ -305,12 +314,19 @@ def sample_voice_config(
     # -------------------------------------------------------------------------
     # Sample persona (simulation-level, same speaker throughout)
     # -------------------------------------------------------------------------
-    provider_config = synthesis_config.provider_config
-    voice_id = provider_config.voice_id if provider_config else None
-    persona_name = get_persona_name_by_voice_id(voice_id) if voice_id else None
+    if not persona_name:
+        provider_config = synthesis_config.provider_config
+        voice_id = provider_config.voice_id if provider_config else None
+        persona_name = get_persona_name_by_voice_id(voice_id) if voice_id else None
     if not persona_name:
         persona_names = preset.get("persona_names", CONTROL_PERSONA_NAMES)
         persona_name = rng.choice(persona_names)
+
+    # Language-pack persona? Resolves to (pack, MultilingualPersonaConfig);
+    # None for plain English personas (the default path, unchanged).
+    from tau2.multilingual.registry import get_multilingual_persona
+
+    multilingual = get_multilingual_persona(persona_name)
 
     # -------------------------------------------------------------------------
     # Select environment and audio files
@@ -319,7 +335,34 @@ def sample_voice_config(
     background_noise_file: Optional[str] = None
     burst_noise_files: list[str] = []
 
-    if preset.get("enable_background_noise") or preset.get("enable_burst_noise"):
+    noise_enabled = preset.get("enable_background_noise") or preset.get(
+        "enable_burst_noise"
+    )
+    acoustic_preset = (
+        multilingual[0].get_acoustic_preset(multilingual[1]) if multilingual else None
+    )
+
+    if acoustic_preset is not None and noise_enabled:
+        # Language-pack acoustic preset replaces indoor/outdoor selection.
+        environment = acoustic_preset.id
+        if (
+            preset.get("enable_background_noise")
+            and acoustic_preset.background_noise_files
+        ):
+            bg_filename = rng.choice(acoustic_preset.background_noise_files)
+            bg_path = BACKGROUND_NOISE_CONTINUOUS_DIR / bg_filename
+            if bg_path.exists():
+                background_noise_file = bg_filename
+            else:
+                logger.warning(f"Background noise file not found: {bg_path}")
+        if preset.get("enable_burst_noise"):
+            for burst_filename in acoustic_preset.burst_noise_files:
+                burst_path = BURST_NOISE_DIR / burst_filename
+                if burst_path.exists():
+                    burst_noise_files.append(burst_filename)
+                else:
+                    logger.warning(f"Burst noise file not found: {burst_path}")
+    elif preset.get("enable_background_noise") or preset.get("enable_burst_noise"):
         # Select environment deterministically based on seed
         env_setting = preset.get("environment")
         if env_setting == "auto":
@@ -412,10 +455,15 @@ def sample_voice_config(
     # -------------------------------------------------------------------------
     # Create PersonaConfig from complexity settings
     # -------------------------------------------------------------------------
-    persona_config = PersonaConfig(
-        verbosity=Verbosity(preset["verbosity"]),
-        interrupt_tendency=InterruptTendency(preset["interrupt_tendency"]),
-    )
+    if multilingual is not None:
+        # The language-pack persona IS the persona config (verbosity, interrupt
+        # tendency, and language fields are author-controlled).
+        persona_config = multilingual[1]
+    else:
+        persona_config = PersonaConfig(
+            verbosity=Verbosity(preset["verbosity"]),
+            interrupt_tendency=InterruptTendency(preset["interrupt_tendency"]),
+        )
 
     return SampledVoiceConfig(
         persona_name=persona_name,
@@ -623,6 +671,7 @@ def get_or_load_task_voice_config(
     task_seed: int,
     complexity: SpeechComplexity,
     synthesis_config: SynthesisConfig,
+    persona_name: Optional[str] = None,
 ) -> SampledVoiceConfig:
     """Get voice config for a task, loading from file if available.
 
@@ -632,10 +681,25 @@ def get_or_load_task_voice_config(
         task_seed: Seed to use if sampling is needed.
         complexity: Speech complexity level.
         synthesis_config: Base synthesis config for sampling.
+        persona_name: Optional persona override. When set, pre-sampled configs
+            are bypassed (they bake in a different persona) and the config is
+            sampled on the fly with this persona.
 
     Returns:
         SampledVoiceConfig for the task.
     """
+    if persona_name is not None:
+        logger.info(
+            f"Persona override '{persona_name}' for task {task_id}: sampling "
+            f"voice config on the fly (seed={task_seed}, complexity={complexity})"
+        )
+        return sample_voice_config(
+            seed=task_seed,
+            synthesis_config=synthesis_config,
+            complexity=complexity,
+            persona_name=persona_name,
+        )
+
     config_path = get_task_voice_configs_path(domain)
 
     if config_path.exists():

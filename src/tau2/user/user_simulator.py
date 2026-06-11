@@ -65,16 +65,37 @@ def get_global_user_sim_guidelines(use_tools: bool = False) -> str:
     return user_sim_guidelines
 
 
-def get_global_user_sim_guidelines_voice(use_tools: bool = False) -> str:
+def get_global_user_sim_guidelines_voice(
+    use_tools: bool = False, language: Optional[str] = None
+) -> str:
     """
     Get the global user simulator guidelines for voice mode.
 
     Args:
         use_tools: Whether to use the tools guidelines.
+        language: ISO 639-1 code of an active language pack. If the pack
+            provides localized guidelines, those are used; otherwise falls
+            back to the English guidelines. None means English.
 
     Returns:
         The global user simulator guidelines for voice mode.
     """
+    if language is not None:
+        from tau2.multilingual.registry import get_language_pack
+
+        pack = get_language_pack(language)
+        if pack is not None and pack.guidelines_voice_path is not None:
+            if use_tools:
+                logger.warning(
+                    f"Language pack '{language}' guidelines have no tools "
+                    "variant; using the localized non-tools guidelines."
+                )
+            with open(pack.guidelines_voice_path, "r") as fp:
+                return fp.read()
+        logger.warning(
+            f"No localized voice guidelines for language '{language}'; "
+            "falling back to English guidelines."
+        )
     if use_tools:
         with open(GLOBAL_USER_SIM_GUIDELINES_PATH_VOICE_TOOLS, "r") as fp:
             user_sim_guidelines = fp.read()

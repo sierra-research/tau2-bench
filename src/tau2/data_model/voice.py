@@ -170,6 +170,20 @@ class SpeechEnvironment(BaseModel):
         default=None,
         description="The TTS voice ID actually used for synthesis.",
     )
+    language: Optional[str] = Field(
+        default=None,
+        description="ISO 639-1 language code when a language-pack persona is "
+        "active (see tau2.multilingual). None means English.",
+    )
+    locale: Optional[str] = Field(
+        default=None,
+        description="Region/locale tag of the active language-pack persona.",
+    )
+    persona_id: Optional[str] = Field(
+        default=None,
+        description="persona_id of the active language-pack persona. None for "
+        "plain English voice personas.",
+    )
     background_noise_file: Optional[str] = Field(default=None)
     burst_noise_files: list[str] = Field(
         default_factory=list,
@@ -271,10 +285,26 @@ class SampledVoiceConfig(BaseModel):
 
     def to_speech_environment(self, seed: int) -> "SpeechEnvironment":
         """Create a SpeechEnvironment from this sampled config."""
+        # Language-pack metadata (None for plain English personas).
+        from tau2.multilingual.registry import get_multilingual_persona
+
+        language = None
+        locale = None
+        persona_id = None
+        multilingual = get_multilingual_persona(self.persona_name)
+        if multilingual is not None:
+            pack, persona = multilingual
+            language = pack.language
+            locale = persona.locale
+            persona_id = persona.persona_id
+
         return SpeechEnvironment(
             voice_seed=seed,
             persona_name=self.persona_name,
             voice_id=get_elevenlabs_voice_id(self.persona_name),
+            language=language,
+            locale=locale,
+            persona_id=persona_id,
             background_noise_file=self.background_noise_file,
             burst_noise_files=self.burst_noise_files,
             environment=self.environment,

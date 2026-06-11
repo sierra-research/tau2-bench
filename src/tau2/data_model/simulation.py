@@ -648,6 +648,15 @@ class VoiceRunConfig(BaseRunConfig):
             default=False,
         ),
     ]
+    user_persona_id: Annotated[
+        Optional[str],
+        Field(
+            description="Force a specific user persona by id (e.g. a language-pack "
+            "persona like 'priya_hindi_v1'). None keeps the default per-task "
+            "persona sampling. See tau2.multilingual.",
+            default=None,
+        ),
+    ]
 
     # ---- Properties ----
 
