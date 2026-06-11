@@ -227,6 +227,14 @@ def add_run_args(parser):
         '\'{"verbosity": {"minimal": 0.8, "standard": 0.2}}\'. '
         "If not provided, uses default behavior (standard verbosity).",
     )
+    parser.add_argument(
+        "--user-persona-id",
+        type=str,
+        default=None,
+        help="Force a specific user persona by id for audio-native runs, e.g. a "
+        "language-pack persona like 'priya_hindi_v1' (see tau2.multilingual). "
+        "Bypasses per-task persona sampling. Requires --audio-native.",
+    )
 
     # Audio-native mode arguments
     parser.add_argument(
@@ -668,8 +676,13 @@ def main():
                 speech_complexity=args.speech_complexity,
                 audio_debug=getattr(args, "audio_debug", False),
                 audio_taps=getattr(args, "audio_taps", False),
+                user_persona_id=args.user_persona_id,
             )
         else:
+            if args.user_persona_id:
+                raise ValueError(
+                    "--user-persona-id requires --audio-native (voice mode)."
+                )
             config = TextRunConfig(
                 **shared_kwargs,
                 agent=args.agent,

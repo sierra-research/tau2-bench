@@ -62,6 +62,9 @@ class VoicePersona(BaseModel):
     short_description: str
     prompt: str
     complexity: PersonaComplexity
+    language: Optional[str] = None
+    """ISO 639-1 language code for non-English personas (set by language
+    packs, see tau2.multilingual). None means English."""
 
 
 MATT_DELANEY = VoicePersona(
@@ -154,6 +157,20 @@ ALL_PERSONA_NAMES: list[str] = list(ALL_PERSONAS.keys())
 CONTROL_PERSONA_NAMES: list[str] = [p.name for p in CONTROL_PERSONAS]
 REGULAR_PERSONA_NAMES: list[str] = [p.name for p in REGULAR_PERSONAS]
 DEFAULT_PERSONA_NAME = "matt_delaney"
+
+
+def register_voice_persona(persona: VoicePersona) -> None:
+    """Register an additional voice persona (used by language packs).
+
+    Registered personas become resolvable via ``get_elevenlabs_voice_id`` and
+    selectable by name, but are NOT added to the control/regular sampling
+    pools — they are only used when explicitly requested (e.g. via
+    ``--user-persona-id``), so default English runs are unaffected.
+    """
+    if persona.name in ALL_PERSONAS:
+        raise ValueError(f"Voice persona '{persona.name}' already registered")
+    ALL_PERSONAS[persona.name] = persona
+    ALL_PERSONA_NAMES.append(persona.name)
 
 
 def get_voice_id_overrides() -> list[str]:

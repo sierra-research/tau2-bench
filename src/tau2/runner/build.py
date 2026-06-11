@@ -191,6 +191,7 @@ def build_voice_user(
     domain: Optional[str] = None,
     hallucination_feedback: Optional[str] = None,
     audio_taps_dir: Optional[Path] = None,
+    user_persona_id: Optional[str] = None,
 ) -> FullDuplexUser:
     """Build a full-duplex voice user simulator.
 
@@ -215,6 +216,9 @@ def build_voice_user(
         hallucination_feedback: Optional feedback from a previous hallucination
             check. If provided, appended to user instructions to help avoid
             repeating the same errors on retry.
+        user_persona_id: Optional persona override (e.g. a language-pack
+            persona id like 'priya_hindi_v1'). Bypasses pre-sampled persona
+            selection; see tau2.multilingual.
 
     Returns:
         A fully constructed VoiceStreamingUserSimulator.
@@ -244,6 +248,7 @@ def build_voice_user(
         task_seed=task_seed,
         complexity=speech_complexity,
         synthesis_config=task_voice_settings.synthesis_config,
+        persona_name=user_persona_id,
     )
 
     # Update synthesis_config with merged effect configs
@@ -484,6 +489,7 @@ def build_voice_orchestrator(
         domain=domain,
         hallucination_feedback=hallucination_feedback,
         audio_taps_dir=audio_taps_dir,
+        user_persona_id=config.user_persona_id,
     )
 
     orchestrator = FullDuplexOrchestrator(

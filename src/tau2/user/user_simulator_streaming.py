@@ -620,7 +620,12 @@ class VoiceStreamingUserSimulator(
     def global_simulation_guidelines(self) -> str:
         """The voice-specific simulation guidelines for the user simulator."""
         use_tools = self.tools is not None
-        return get_global_user_sim_guidelines_voice(use_tools=use_tools)
+        # Language-pack personas (MultilingualPersonaConfig) carry a language;
+        # plain PersonaConfig does not, which selects the English guidelines.
+        language = getattr(self.persona_config, "language", None)
+        return get_global_user_sim_guidelines_voice(
+            use_tools=use_tools, language=language
+        )
 
     @property
     def system_prompt(self) -> str:
