@@ -1,4 +1,5 @@
 import json
+from typing import Optional
 
 from tau2.agent.base.streaming import (
     LinearizationStrategy,
@@ -23,6 +24,8 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
         cls,
         task: Task,
         full_trajectory: list[Message],
+        language: Optional[str] = None,
+        script: Optional[str] = None,
     ) -> RewardInfo:
         """
         Calculate the reward for the simulation by using an LLM to evaluate whether the trajectory adheres to all the natural-language assertions
@@ -44,7 +47,7 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             )
 
         nl_assertions_checks = cls.evaluate_nl_assertions(
-            full_trajectory, nl_assertions
+            full_trajectory, nl_assertions, language=language, script=script
         )
 
         # Calculate reward: 1 if all expectations are met, 0 otherwise
@@ -62,6 +65,8 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
         cls,
         trajectory: list[Message],
         nl_assertions: list[str],
+        language: Optional[str] = None,
+        script: Optional[str] = None,
     ) -> list[NLAssertionCheck]:
         """
         Evaluate whether the trajectory meets each expected outcome.
@@ -69,6 +74,10 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
         Args:
             trajectory: List of messages from the conversation
             nl_assertions: List of natural-language assertions to evaluate
+            language: ISO 639-1 language code of the run, when a multilingual
+                persona is active (None for English runs). Used to hint the
+                judge that responses in that language are valid.
+            script: ISO 15924 script code of the run's language, if known.
 
         Returns:
             List of evaluation results for each NL assertion, containing:
@@ -103,6 +112,13 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
                 }
             ]
         }
+        """
+        if language is not None and language.lower() != "en":
+            script_note = f" (script: {script})" if script else ""
+            system_prompt += f"""
+        LANGUAGE
+        - The user speaks the language with ISO 639-1 code '{language}'{script_note}; responses in that language are valid.
+        - Do not mark an expected outcome as unmet merely because the conversation is not in English, uses a different script, is romanized/transliterated, or mixes languages. Judge the meaning of what was said, not the language it was said in.
         """
 
         user_prompt = f"""
@@ -193,6 +209,8 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
         cls,
         task: Task,
         full_trajectory: list[Tick],
+        language: Optional[str] = None,
+        script: Optional[str] = None,
     ) -> RewardInfo:
         """
         Calculate the reward for the simulation by using an LLM to evaluate whether
@@ -217,7 +235,9 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
         # Convert ticks to linearized message history
         messages = cls.ticks_to_message_history(full_trajectory)
 
-        nl_assertions_checks = cls.evaluate_nl_assertions(messages, nl_assertions)
+        nl_assertions_checks = cls.evaluate_nl_assertions(
+            messages, nl_assertions, language=language, script=script
+        )
 
         # Calculate reward: 1 if all expectations are met, 0 otherwise
         all_expectations_met = all(result.met for result in nl_assertions_checks)
@@ -234,10 +254,14 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
         cls,
         trajectory: list[Message],
         nl_assertions: list[str],
+        language: Optional[str] = None,
+        script: Optional[str] = None,
     ) -> list[NLAssertionCheck]:
         """
         Evaluate whether the trajectory meets each expected outcome.
 
         Delegates to NLAssertionsEvaluator.evaluate_nl_assertions.
         """
-        return NLAssertionsEvaluator.evaluate_nl_assertions(trajectory, nl_assertions)
+        return NLAssertionsEvaluator.evaluate_nl_assertions(
+            trajectory, nl_assertions, language=language, script=script
+        )

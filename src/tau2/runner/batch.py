@@ -354,6 +354,7 @@ def run_single_task(
     review_mode: str = "full",
     review_model: Optional[str] = None,
     hallucination_feedback: Optional[str] = None,
+    llm_communicate_judge: Optional[bool] = None,
 ) -> SimulationRun:
     """Run a single task simulation with logging and optional side effects.
 
@@ -377,6 +378,9 @@ def run_single_task(
         auto_review: Run LLM conversation review after simulation.
         review_mode: Review mode ("full" or "user").
         review_model: LLM model to use for review and auth classification.
+        llm_communicate_judge: Force (True) or disable (False) the LLM judge
+            for communicate_info checks. None (default) auto-activates the
+            judge only for non-English runs.
 
     Returns:
         The completed SimulationRun with reward_info attached.
@@ -417,7 +421,10 @@ def run_single_task(
         # Layer 1: Run the simulation
         env_kwargs = _build_env_kwargs(config, task) or None
         simulation = run_simulation(
-            orchestrator, evaluation_type=evaluation_type, env_kwargs=env_kwargs
+            orchestrator,
+            evaluation_type=evaluation_type,
+            env_kwargs=env_kwargs,
+            llm_communicate_judge=llm_communicate_judge,
         )
 
         # Side effects
@@ -468,6 +475,7 @@ def run_tasks(
     evaluation_type: EvaluationType = EvaluationType.ALL,
     console_display: bool = True,
     results_format: str = "json",
+    llm_communicate_judge: Optional[bool] = None,
 ) -> Results:
     """Run simulations for a list of tasks with concurrency, checkpointing, and retries.
 
@@ -670,6 +678,7 @@ def run_tasks(
                 review_mode=config.review_mode,
                 review_model=config.review_model,
                 hallucination_feedback=hallucination_feedback,
+                llm_communicate_judge=llm_communicate_judge,
             )
 
         try:
