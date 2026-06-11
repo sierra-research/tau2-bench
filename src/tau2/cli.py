@@ -504,6 +504,9 @@ def run_intro():
         "banking_knowledge",
         "Knowledge-retrieval-based customer service with configurable RAG pipelines",
     )
+    domain_table.add_row(
+        "hospitality", "Hotel reservations, modifications, and guest services"
+    )
     domain_table.add_row("mock", "Lightweight test domain for development")
     console.print(domain_table)
     console.print()
