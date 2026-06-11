@@ -118,6 +118,7 @@ class OpenAIRealtimeProvider:
         api_key: Optional[str] = None,
         model: Optional[str] = None,
         reasoning_effort: Optional[str] = None,
+        language: Optional[str] = None,
     ):
         """Initialize the OpenAI Realtime provider.
 
@@ -127,6 +128,8 @@ class OpenAIRealtimeProvider:
             model: Model identifier to use. Defaults to DEFAULT_MODEL.
             reasoning_effort: Reasoning effort for thinking models ("minimal",
                 "low", "medium", "high"). If None, not sent to the API.
+            language: ISO 639-1 language code for input audio transcription.
+                Defaults to "en" when None.
 
         Raises:
             ValueError: If no API key is provided or found in environment.
@@ -137,6 +140,7 @@ class OpenAIRealtimeProvider:
 
         self.model = model or self.DEFAULT_MODEL
         self.reasoning_effort = reasoning_effort
+        self.language = language or "en"
         self.ws: Optional[websockets.WebSocketClientProtocol] = None
         self._current_vad_config: Optional[OpenAIVADConfig] = None
         self._audio_format: AudioFormat = TELEPHONY_AUDIO_FORMAT
@@ -334,7 +338,7 @@ class OpenAIRealtimeProvider:
                     "format": audio_fmt,
                     "transcription": {
                         "model": DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
-                        "language": "en",
+                        "language": self.language,
                     },
                     "noise_reduction": {"type": DEFAULT_OPENAI_NOISE_REDUCTION},
                     "turn_detection": self._build_turn_detection_config(vad_config),

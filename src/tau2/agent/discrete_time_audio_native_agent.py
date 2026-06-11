@@ -211,6 +211,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         use_xml_prompt: bool = False,
         cascaded_config: Optional["CascadedConfig"] = None,
         audio_taps_dir: Optional[Path] = None,
+        language: Optional[str] = None,
     ):
         """Initialize the discrete-time audio native agent.
 
@@ -242,6 +243,11 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
                 Only used when provider="livekit". Ignored for other providers.
                 Can be a CascadedConfig instance or None to use defaults.
             audio_taps_dir: Directory to save audio taps. Only used when audio_taps_dir is not None.
+            language: ISO 639-1 language code of the run's active language-pack
+                persona (see tau2.multilingual). When set, the pack's
+                agent_language_clause (if any) is appended to the system prompt
+                and the code is forwarded to provider STT/transcription configs.
+                None means English (behavior unchanged).
         """
         self.tools = tools
         self.domain_policy = domain_policy
@@ -254,6 +260,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         self.reasoning_effort = reasoning_effort
         self.max_inactive_seconds = max_inactive_seconds
         self.cascaded_config = cascaded_config
+        self.language = language
 
         # Audio format (defaults to telephony)
         self.audio_format = audio_format or TELEPHONY_AUDIO_FORMAT
@@ -350,10 +357,34 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         else:
             agent_instruction = AUDIO_NATIVE_VOICE_INSTRUCTION
 
-        return template.format(
+        prompt = template.format(
             agent_instruction=agent_instruction,
             domain_policy=self.domain_policy,
         )
+
+        # Append the language pack's agent-side clause for non-English runs.
+        # No-op when language is None (English), no pack exists for the
+        # language, or the pack defines no clause.
+        language_clause = self._get_agent_language_clause()
+        if language_clause:
+            prompt = f"{prompt}\n\n{language_clause}"
+
+        return prompt
+
+    def _get_agent_language_clause(self) -> Optional[str]:
+        """Resolve the agent-side language clause for the run's language.
+
+        Returns None when the run is English (language is None), the language
+        has no registered pack, or the pack defines no agent_language_clause.
+        """
+        if self.language is None:
+            return None
+        from tau2.multilingual import get_language_pack
+
+        pack = get_language_pack(self.language)
+        if pack is None:
+            return None
+        return pack.agent_language_clause
 
     @property
     def adapter(self) -> DiscreteTimeAdapter:
@@ -367,6 +398,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
                 reasoning_effort=self.reasoning_effort,
                 audio_format=self.audio_format,
                 cascaded_config=self.cascaded_config,
+                language=self.language,
             )
         return self._adapter
 
@@ -800,10 +832,13 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
             - audio_native_config: AudioNativeConfig with provider settings.
               If provided, the following fields are extracted from it:
               tick_duration_ms, send_audio_instant, provider, model, use_xml_prompt.
+            - language: ISO 639-1 code of the run's active language-pack
+              persona. None means English.
             - Individual overrides for any of the above fields.
     """
     audio_native_config = kwargs.get("audio_native_config")
     audio_taps_dir = kwargs.get("audio_taps_dir")
+    language = kwargs.get("language")
     if audio_native_config is not None:
         return DiscreteTimeAudioNativeAgent(
             tools=tools,
@@ -817,6 +852,7 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
             use_xml_prompt=audio_native_config.use_xml_prompt,
             cascaded_config=getattr(audio_native_config, "cascaded_config", None),
             audio_taps_dir=audio_taps_dir,
+            language=language,
         )
     else:
         # Fallback: use individual kwargs or defaults
@@ -828,4 +864,5 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
             provider=kwargs.get("provider", DEFAULT_AUDIO_NATIVE_PROVIDER),
             model=kwargs.get("model"),
             audio_taps_dir=audio_taps_dir,
+            language=language,
         )

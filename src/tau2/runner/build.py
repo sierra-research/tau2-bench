@@ -75,6 +75,7 @@ def build_agent(
     audio_native_config: Optional[AudioNativeConfig] = None,
     solo_mode: bool = False,
     audio_taps_dir: Optional[Path] = None,
+    language: Optional[str] = None,
 ) -> Union[HalfDuplexAgent, FullDuplexAgent]:
     """Build an agent from a registered name and an environment.
 
@@ -90,6 +91,8 @@ def build_agent(
         task: The task (required for some agents like llm_agent_gt, llm_agent_solo).
         audio_native_config: Audio config (full-duplex agents).
         solo_mode: If True, agent tools include both agent and user tools.
+        language: ISO 639-1 code of the run's active language-pack persona
+            (see tau2.multilingual). None means English.
 
     Returns:
         A fully constructed agent instance.
@@ -122,6 +125,7 @@ def build_agent(
         task=task,
         audio_native_config=audio_native_config,
         audio_taps_dir=audio_taps_dir,
+        language=language,
     )
 
 
@@ -265,6 +269,16 @@ def build_voice_user(
     # Set speech environment
     speech_environment = sampled_voice_config.to_speech_environment(task_seed)
     task_voice_settings.speech_environment = speech_environment
+
+    # Default the transcription language from the active language-pack persona.
+    # No-op for English runs (speech_environment.language is None) and when the
+    # caller set a language explicitly.
+    if (
+        task_voice_settings.transcription_config is not None
+        and task_voice_settings.transcription_config.language is None
+        and speech_environment.language is not None
+    ):
+        task_voice_settings.transcription_config.language = speech_environment.language
 
     # Use provided persona config or fall back to sampled config
     if persona_config is None:
@@ -469,11 +483,25 @@ def build_voice_orchestrator(
 
     environment = build_environment(domain, env_kwargs=env_kwargs)
 
+    # Resolve the run's language from the persona override. The agent is built
+    # before the voice user (whose sampled SpeechEnvironment carries the
+    # language), so resolve from config.user_persona_id via the same
+    # language-pack lookup used by SampledVoiceConfig.to_speech_environment.
+    # None (no override, or a plain English persona) means English.
+    user_language = None
+    if config.user_persona_id is not None:
+        from tau2.multilingual import get_multilingual_persona
+
+        multilingual = get_multilingual_persona(config.user_persona_id)
+        if multilingual is not None:
+            user_language = multilingual[0].language
+
     agent = build_agent(
         config.effective_agent,
         environment,
         audio_native_config=config.audio_native_config,
         audio_taps_dir=audio_taps_dir,
+        language=user_language,
     )
 
     user = build_voice_user(
