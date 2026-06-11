@@ -21,6 +21,7 @@ def run_simulation(
     *,
     evaluation_type: EvaluationType = EvaluationType.ALL,
     env_kwargs: Optional[dict] = None,
+    llm_communicate_judge: Optional[bool] = None,
 ) -> SimulationRun:
     """Run a simulation and evaluate the result.
 
@@ -38,6 +39,9 @@ def run_simulation(
         evaluation_type: The type of evaluation to perform. Defaults to ALL.
         env_kwargs: Additional kwargs passed to the evaluator's environment
             constructor (e.g., retrieval_variant for banking_knowledge).
+        llm_communicate_judge: Force (True) or disable (False) the LLM judge
+            for communicate_info checks. None (default) auto-activates the
+            judge only for non-English runs.
 
     Returns:
         SimulationRun with reward_info attached.
@@ -81,6 +85,7 @@ def run_simulation(
         domain=domain,
         mode=mode,
         env_kwargs=env_kwargs,
+        llm_communicate_judge=llm_communicate_judge,
     )
     simulation.reward_info = reward_info
 
