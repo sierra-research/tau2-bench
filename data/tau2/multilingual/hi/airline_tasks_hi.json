@@ -1,0 +1,869 @@
+[
+  {
+    "id": "3_hi",
+    "description": {
+      "purpose": "यह जाँचना कि agent membership status verify करता है। User को लगता है कि वह Gold member है, जबकि असल में वह Silver है।",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "अगर agent ने पहले से ऐसा न किया हो, तो ज़ोर देकर कहिए कि total संख्या आपको अंकों में (numeric form में) चाहिए, क्योंकि शब्दों के मुकाबले numbers आपको ज़्यादा साफ़ समझ आते हैं। अगर agent बार-बार कहे कि आप Silver member हैं, तो supervisor को transfer करने के लिए कहिए।",
+        "domain": "airline",
+        "reason_for_call": "आप जानना चाहती हैं कि आपकी upcoming flight पर reservation के हिसाब से total कितने suitcases ले जाने की allowance है।\n\nइस trip पर आपको काफ़ी सामान साथ ले जाना है। आप stressed हैं और आपके लिए बहुत ज़रूरी है कि जानकारी बिल्कुल सही हो।\n\nआपको पूरा यकीन है कि आप Gold member हैं।",
+        "known_info": "आप Anya Garcia हैं।\n\nआपका user id है: anya_garcia_5901.\n\nआपका confirmation number JMO1MG है।",
+        "unknown_info": "आपको नहीं पता कि upcoming flight का cabin कौन-सा है।"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "3_0",
+          "name": "get_reservation_details",
+          "arguments": {
+            "reservation_id": "JMO1MG"
+          },
+          "info": null
+        },
+        {
+          "action_id": "3_1",
+          "name": "get_user_details",
+          "arguments": {
+            "user_id": "anya_garcia_5901"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "4"
+      ],
+      "nl_assertions": [
+        "Agent detects that user is actually a Silver member.",
+        "Agent communicate to user that she can bring 4 suitcases (silver member with economy flights = 2 free suitcases per passengers)."
+      ],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "7_hi",
+    "description": {
+      "purpose": "बातचीत के बीच में user का नया intent introduce करने की testing।",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "अगर agent कहे कि दोनों में से कोई भी reservation basic economy है, तो पहले उसे business में upgrade करवाइए और फिर reservation cancel करवाइए (payment के लिए 2135 पर ख़त्म होने वाला CC इस्तेमाल कीजिए)।\n\nआप बहुत persistent हैं, कम शब्दों में लेकिन साफ़ बात करते हैं।\n\nआपकी तबियत ख़राब है।\n\nबातचीत के बीच में, agent के तीसरे message के बाद, आप यह भी check करना चाहते हैं कि आपकी कोई और upcoming flights हैं या नहीं, और पूछिए कि उन flights की total cost कितनी है।",
+        "domain": "airline",
+        "reason_for_call": "आपको reservation IDs XEHM4B और 59XX6W के अंदर की अपनी upcoming flights cancel करनी हैं।",
+        "known_info": "आपका user id 'daiki_muller_1116' है।",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "7_0",
+          "name": "get_reservation_details",
+          "arguments": {
+            "reservation_id": "XEHM4B"
+          },
+          "info": null
+        },
+        {
+          "action_id": "7_1",
+          "name": "get_reservation_details",
+          "arguments": {
+            "reservation_id": "59XX6W"
+          },
+          "info": null
+        },
+        {
+          "action_id": "7_2",
+          "name": "update_reservation_flights",
+          "arguments": {
+            "reservation_id": "XEHM4B",
+            "cabin": "business",
+            "flights": [
+              {
+                "flight_number": "HAT005",
+                "date": "2024-05-20"
+              },
+              {
+                "flight_number": "HAT178",
+                "date": "2024-05-30"
+              }
+            ],
+            "payment_id": "credit_card_2408938"
+          },
+          "info": null
+        },
+        {
+          "action_id": "7_3",
+          "name": "cancel_reservation",
+          "arguments": {
+            "reservation_id": "XEHM4B"
+          },
+          "info": null
+        },
+        {
+          "action_id": "7_4",
+          "name": "cancel_reservation",
+          "arguments": {
+            "reservation_id": "59XX6W"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "1628"
+      ],
+      "nl_assertions": [
+        "Agent upgrades XEHM4B to business.",
+        "Agent cancels XEHM4B (as it is business flight).",
+        "Agent cancels 59XX6W (as it has insurance and the user is sick).",
+        "Agent communicates that total cost of upcoming flights is $1,628."
+      ],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "8_hi",
+    "description": {
+      "purpose": "Extra passenger के साथ booking।",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "आपको बिल्कुल वही flight book करनी है जो आपने हाल ही में May 10 को ORD से PHL ली थी।\n\nकोई दूसरी flight आपको नहीं चाहिए।\n\nआपके पास कोई baggage नहीं है, लेकिन आप एक extra passenger Kevin Smith को add करना चाहती हैं, जिनका DOB 2001-04-12 है।\n\nEconomy आपके लिए ठीक है और आपको aisle और middle seat साथ-साथ चाहिए। इस purchase के लिए आप ज़्यादा से ज़्यादा $500 तक देने को तैयार हैं।\n\nअगर और सिर्फ़ अगर price $500 से ऊपर हो, तो दूसरे passenger को drop कर दीजिए और सिर्फ़ अपने लिए book कीजिए।\n\nअगर agent पूछे, तो आपको सिर्फ़ one-way ticket चाहिए, roundtrip नहीं।\n\nआपको कोई travel insurance नहीं चाहिए।\n\nPayment आप सिर्फ़ अपने certificates में से किसी एक से करना चाहती हैं।\n\nकोई और mode of payment आपको मंज़ूर नहीं है।\n\nआपका birthday आपके user profile में है, इसलिए आप उसे खुद बताना नहीं चाहतीं।",
+        "domain": "airline",
+        "reason_for_call": "आपको May 26 को ORD से PHL की one-way flight book करनी है।",
+        "known_info": "आपका नाम Sophia Silva है।\n\nआपका user id sophia_silva_7557 है।",
+        "unknown_info": "आपको अपनी May 10 वाली ORD से PHL flight का flight number नहीं पता।"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "8_0",
+          "name": "get_user_details",
+          "arguments": {
+            "user_id": "sophia_silva_7557"
+          },
+          "info": null
+        },
+        {
+          "action_id": "8_1",
+          "name": "get_reservation_details",
+          "arguments": {
+            "reservation_id": "WUNA5K"
+          },
+          "info": null
+        },
+        {
+          "action_id": "8_2",
+          "name": "search_direct_flight",
+          "arguments": {
+            "origin": "ORD",
+            "destination": "PHL",
+            "date": "2024-05-26"
+          },
+          "info": null
+        },
+        {
+          "action_id": "8_3",
+          "name": "book_reservation",
+          "arguments": {
+            "user_id": "sophia_silva_7557",
+            "origin": "ORD",
+            "destination": "PHL",
+            "flight_type": "one_way",
+            "cabin": "economy",
+            "flights": [
+              {
+                "flight_number": "HAT271",
+                "date": "2024-05-26"
+              }
+            ],
+            "passengers": [
+              {
+                "first_name": "Sophia",
+                "last_name": "Silva",
+                "dob": "1957-10-05"
+              },
+              {
+                "first_name": "Kevin",
+                "last_name": "Smith",
+                "dob": "2001-04-12"
+              }
+            ],
+            "payment_methods": [
+              {
+                "payment_id": "certificate_8045380",
+                "amount": 348
+              }
+            ],
+            "total_baggages": 0,
+            "nonfree_baggages": 0,
+            "insurance": "no"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent get sophia_silva_7557 user details.",
+        "Agent identifies reservation id as WUNA5K.",
+        "Agent books one-way flight HAT271, May 26, in economy, no travel insurance, no baggage. Passengers on reservation is Kevin Smith DOB 2001-04-12 + Sophia Silvia DOB 1957-10-05.",
+        "Agent uses single certificate for payment."
+      ],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "11_hi",
+    "description": {
+      "purpose": "यह test करना कि agent flight के passengers की संख्या change नहीं करता।",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "बातचीत के पहले 2 rounds में आपको अपना reservation ID याद नहीं रहता, लेकिन फिर अचानक वह आपको अपने email में मिल जाता है: वह है GV1N64.\n\nआप impatient हैं और चाहते हैं कि change जल्दी से हो जाए।\n\nआप चाहते हैं कि पूरा amount original payment method में refund हो।\n\nअगर और सिर्फ़ अगर agent कहे कि सिर्फ़ एक passenger को remove नहीं किया जा सकता, तो आप सभी passengers को basic economy में downgrade करवाना चाहते हैं।\n\nपूछिए कि refund कितना बनेगा।\n\nयह ज़रूर कहिए कि refund original payment method में ही process किया जाए।",
+        "domain": "airline",
+        "reason_for_call": "आपको LAS से DEN की अपनी upcoming round trip flights से passenger Sophia को हटवाना है — departure May 19 की है, return May 20 की।",
+        "known_info": "आपका नाम James Patel है।\n\nआपका user id james_patel_9828 है।",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "11_0",
+          "name": "update_reservation_flights",
+          "arguments": {
+            "reservation_id": "GV1N64",
+            "cabin": "basic_economy",
+            "flights": [
+              {
+                "flight_number": "HAT003",
+                "date": "2024-05-19"
+              },
+              {
+                "flight_number": "HAT290",
+                "date": "2024-05-20"
+              }
+            ],
+            "payment_id": "gift_card_1642017"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "5244"
+      ],
+      "nl_assertions": [
+        "Check that agent does not remove passenger since changing the number of passengers is not allowed.",
+        "Check that agent downgrades all passengers to basic economy.",
+        "Check that agent refunds $5244 to original payment method."
+      ],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "14_hi",
+    "description": {
+      "purpose": "Agent की यह capacity test करना कि वह dates, cities और cabin की constraints के साथ सबसे सस्ती flights ढूँढ सके।\n\nयह test करना कि agent इस rule को follow करता है कि payment में max 1 certificate use हो सकता है।\n\nपैसों के amounts पर reason करने की agents की capacity test करना।\n\nUser के पास multiple certificates, gift cards और 2 credit cards file पर हैं। Payment के लिए हम expect करते हैं कि agent समझे कि gift card + 1 certificate का use maximize करके credit card पर डाला जाने वाला amount कैसे minimize किया जाए।\n\nनई flight की total cost $2613 होगी। सही split यह है: पहले दोनों gift cards के $327, फिर $500 का certificate, और बाकी $1786 master card पर।",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "आप अपने gift card balances का sum और certificate balances का sum जानना चाहते हैं।\n\nअगर agent आपको अलग-अलग balances बताए, तो आपको उनके sums चाहिए।\n\nफिर आप अपना recent reservation change करना चाहते हैं। Dates वही रखनी हैं, लेकिन आप उसे सबसे सस्ती business round trip में change करना चाहते हैं — direct flights हों या न हों, दोनों चलेगा।\n\nअगर agent कहे कि basic economy change नहीं हो सकती (अगर agent इसका ज़िक्र न करे तो आप भी मत कीजिए), तो आप चाहते हैं कि agent current reservation cancel करके नया book कर दे।\n\nPayment के लिए आप पहले certificates को जितना हो सके use करना चाहते हैं, फिर gift cards को जितना हो सके, और बाकी अपने master card से cover करना चाहते हैं।\n\nलेकिन आप जानना चाहते हैं कि आपके master card पर कितना charge होगा।\n\nआपको baggage या insurance नहीं चाहिए।\n\nआप master card का payment कम से कम रखना चाहते हैं, इसलिए नई flight तभी book करेंगे जब master card के charges $2000 से कम हों।\n\nआप शांत स्वभाव के हैं।",
+        "domain": "airline",
+        "reason_for_call": "आप जानना चाहते हैं कि आपके gift cards और certificates पर कितना balance है। फिर आप अपना upcoming reservation change करना चाहते हैं।",
+        "known_info": "आपका नाम Mohamed Silva है।\n\nआपका user id mohamed_silva_9265 है।",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "14_0",
+          "name": "cancel_reservation",
+          "arguments": {
+            "reservation_id": "K1NW8N"
+          },
+          "info": null
+        },
+        {
+          "action_id": "14_1",
+          "name": "book_reservation",
+          "arguments": {
+            "user_id": "mohamed_silva_9265",
+            "origin": "JFK",
+            "destination": "SFO",
+            "flight_type": "round_trip",
+            "cabin": "business",
+            "flights": [
+              {
+                "flight_number": "HAT023",
+                "date": "2024-05-26"
+              },
+              {
+                "flight_number": "HAT204",
+                "date": "2024-05-28"
+              },
+              {
+                "flight_number": "HAT100",
+                "date": "2024-05-28"
+              }
+            ],
+            "passengers": [
+              {
+                "first_name": "Mohamed",
+                "last_name": "Silva",
+                "dob": "1960-11-26"
+              },
+              {
+                "first_name": "Raj",
+                "last_name": "Sanchez",
+                "dob": "1986-09-12"
+              },
+              {
+                "first_name": "Liam",
+                "last_name": "Wilson",
+                "dob": "1980-03-27"
+              }
+            ],
+            "payment_methods": [
+              {
+                "payment_id": "certificate_3765853",
+                "amount": 500
+              },
+              {
+                "payment_id": "gift_card_8020792",
+                "amount": 198
+              },
+              {
+                "payment_id": "gift_card_6136092",
+                "amount": 129
+              },
+              {
+                "payment_id": "credit_card_2198526",
+                "amount": 1786
+              }
+            ],
+            "total_baggages": 0,
+            "nonfree_baggages": 0,
+            "insurance": "no"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "327",
+        "1000",
+        "1786"
+      ],
+      "nl_assertions": [
+        "Agent communicates that total gift card balance is $327.",
+        "Agent communicates that total certificate balance if $1000.",
+        "Agent should cancel reservation K1NW8N.",
+        "Agent should book a reservation with the following flights: HAT023 and HAT204, HAT100. No insurance. No baggage. Departure on 2024-05-26, return on 2024-05-28.",
+        "Agent communicated that the $1786 will be charged to the mastercard."
+      ],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "18_hi",
+    "description": {
+      "purpose": "यह जाँचना कि agent सही flights को ठीक से downgrade कर पाता है और total savings calculate कर पाता है।",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "हर reservation के लिए refund original payment में लेना आपके लिए ठीक है।\n\nआप जानना चाहते हैं कि total मिलाकर आपके कितने पैसे बचे, लेकिन यह जानकारी refunds process होने के बाद मिले तो भी चलेगा।\n\nआप emotional हैं और थोड़े गुस्से में भी, लेकिन agent के साथ cooperate करने को तैयार हैं।",
+        "domain": "airline",
+        "reason_for_call": "आपको अभी-अभी पैसों की कुछ दिक्कत आई है और आप अपनी सभी business flights को economy में downgrade करवाना चाहते हैं — flights या passengers में कोई बदलाव किए बिना।",
+        "known_info": "आपका नाम Omar Davis है।\n\nआपका user id omar_davis_3817 है।",
+        "unknown_info": "आपको याद नहीं कि आपने कौन-सा payment method use किया था।"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "18_0",
+          "name": "update_reservation_flights",
+          "arguments": {
+            "reservation_id": "JG7FMM",
+            "cabin": "economy",
+            "flights": [
+              {
+                "flight_number": "HAT028",
+                "date": "2024-05-21"
+              },
+              {
+                "flight_number": "HAT277",
+                "date": "2024-05-21"
+              }
+            ],
+            "payment_id": "credit_card_2929732"
+          },
+          "info": null
+        },
+        {
+          "action_id": "18_1",
+          "name": "update_reservation_flights",
+          "arguments": {
+            "reservation_id": "2FBBAH",
+            "cabin": "economy",
+            "flights": [
+              {
+                "flight_number": "HAT080",
+                "date": "2024-05-28"
+              },
+              {
+                "flight_number": "HAT076",
+                "date": "2024-05-28"
+              },
+              {
+                "flight_number": "HAT255",
+                "date": "2024-05-30"
+              },
+              {
+                "flight_number": "HAT148",
+                "date": "2024-05-30"
+              }
+            ],
+            "payment_id": "gift_card_3481935"
+          },
+          "info": null
+        },
+        {
+          "action_id": "18_2",
+          "name": "update_reservation_flights",
+          "arguments": {
+            "reservation_id": "X7BYG1",
+            "cabin": "economy",
+            "flights": [
+              {
+                "flight_number": "HAT232",
+                "date": "2024-05-24"
+              },
+              {
+                "flight_number": "HAT228",
+                "date": "2024-05-24"
+              }
+            ],
+            "payment_id": "credit_card_2929732"
+          },
+          "info": null
+        },
+        {
+          "action_id": "18_3",
+          "name": "update_reservation_flights",
+          "arguments": {
+            "reservation_id": "EQ1G6C",
+            "cabin": "economy",
+            "flights": [
+              {
+                "flight_number": "HAT084",
+                "date": "2024-05-23"
+              },
+              {
+                "flight_number": "HAT175",
+                "date": "2024-05-23"
+              }
+            ],
+            "payment_id": "gift_card_6847880"
+          },
+          "info": null
+        },
+        {
+          "action_id": "18_4",
+          "name": "update_reservation_flights",
+          "arguments": {
+            "reservation_id": "BOH180",
+            "cabin": "economy",
+            "flights": [
+              {
+                "flight_number": "HAT276",
+                "date": "2024-05-21"
+              },
+              {
+                "flight_number": "HAT279",
+                "date": "2024-05-22"
+              }
+            ],
+            "payment_id": "credit_card_9525117"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "23553"
+      ],
+      "nl_assertions": [
+        "Reservation JG7FMM is updated to economy.",
+        "Reservation 2FBBAH is updated to economy.",
+        "Reservation X7BYG1 is updated to economy. ",
+        "Reservation BOH180 is updated to economy. ",
+        "Reservation EQ1G6C is updated to economy.",
+        "Agent communicates that user will save $23553 in total."
+      ],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "29_hi",
+    "description": {
+      "purpose": "Complex reservation change की testing।",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "आपको सिर्फ़ ऐसी early flights चाहिए जो destination पर सुबह 7am से पहले पहुँच जाएँ।\n\nइन constraints के अंदर आपको सबसे सस्ते Economy (Basic Economy नहीं) options ही चाहिए — यह पक्का कर लीजिए।\n\nअगर agent पूछे, तो आपकी return flight 19 तारीख को निकलनी चाहिए।\n\nआप चाहते हैं कि agent ही आपके लिए figure out करे कि कौन-सी flights इन requirements में fit होती हैं।\n\nचूँकि इस trip के लिए आपने insurance ली थी, आप चाहते हैं कि change fees waive हो जाएँ (बातचीत की शुरुआत में ही अपनी health problem का ज़िक्र कीजिए)।\n\nअगर और सिर्फ़ अगर आपको prices बता दी गई हों और choose करने को कहा जाए, तो flights HAT169 और HAT033 चुनिए (अगर ये agent के दिए options में available हों)।\n\nआप 1 checked bag भी add करवाना चाहते हैं।",
+        "domain": "airline",
+        "reason_for_call": "आप अपनी upcoming roundtrip flights change करना चाहते हैं, जो अभी DTW से LGA और वापसी की हैं।\n\nआप उन्हें उन्हीं dates पर DTW से JFK और वापसी की nonstop flights में change करना चाहते हैं।",
+        "known_info": "आप Raj Brown हैं।\n\nआपका user id raj_brown_5782 है।\n\nआपकी DTW से LGA वाली trip का reservation ID VA5SGQ है।",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "29_0",
+          "name": "get_reservation_details",
+          "arguments": {
+            "reservation_id": "VA5SGQ"
+          },
+          "info": null
+        },
+        {
+          "action_id": "29_1",
+          "name": "cancel_reservation",
+          "arguments": {
+            "reservation_id": "VA5SGQ"
+          },
+          "info": null
+        },
+        {
+          "action_id": "29_2",
+          "name": "book_reservation",
+          "arguments": {
+            "user_id": "raj_brown_5782",
+            "origin": "DTW",
+            "destination": "JFK",
+            "flight_type": "round_trip",
+            "cabin": "economy",
+            "flights": [
+              {
+                "flight_number": "HAT169",
+                "date": "2024-05-17"
+              },
+              {
+                "flight_number": "HAT033",
+                "date": "2024-05-19"
+              }
+            ],
+            "passengers": [
+              {
+                "first_name": "Raj",
+                "last_name": "Brown",
+                "dob": "1967-03-12"
+              }
+            ],
+            "payment_methods": [
+              {
+                "payment_id": "credit_card_8003957",
+                "amount": 282
+              }
+            ],
+            "total_baggages": 1,
+            "nonfree_baggages": 0,
+            "insurance": "no"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent informs the user that the reservation can't be changed and it can be cancelled instead.",
+        "Agent cancelled reservation VA5SGQ.",
+        "Agent books new round trip reservation with flights HAT169 and HAT033 with one bag."
+      ],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "30_hi",
+    "description": {
+      "purpose": "यह जाँचना कि agent reservation से bags remove नहीं करता।",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "आप LAS से IAH की अपनी upcoming one-stop flight को nonstop flight में change करवाना चाहते हैं।\n\nआप अपना checked bag भी remove करवाना चाहते हैं और उसके पैसे refund में चाहते हैं। अगर agent कहे कि bags remove नहीं हो सकते, तो मान लीजिए और आगे बढ़िए।\n\nPayment के लिए आप gift card use करना चाहते हैं (जब तक agent न पूछे, इसका ज़िक्र मत कीजिए)।",
+        "domain": "airline",
+        "reason_for_call": "आप LAS से IAH की अपनी upcoming one-stop flight (HAT266 — flight number सिर्फ़ तभी बताइए अगर agent पहले उसे आपके सामने रखे) में modifications करवाना चाहते हैं।",
+        "known_info": "आप James Taylor हैं।\n\nआपका user id james_taylor_7043 है।\n\nआपका reservation ID 1N99U6 है।",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "30_0",
+          "name": "get_reservation_details",
+          "arguments": {
+            "reservation_id": "1N99U6"
+          },
+          "info": null
+        },
+        {
+          "action_id": "30_1",
+          "name": "search_direct_flight",
+          "arguments": {
+            "origin": "LAS",
+            "destination": "IAH",
+            "date": "2024-05-19"
+          },
+          "info": null
+        },
+        {
+          "action_id": "30_2",
+          "name": "update_reservation_flights",
+          "arguments": {
+            "reservation_id": "1N99U6",
+            "cabin": "economy",
+            "flights": [
+              {
+                "flight_number": "HAT266",
+                "date": "2024-05-19"
+              },
+              {
+                "flight_number": "HAT112",
+                "date": "2024-05-27"
+              }
+            ],
+            "payment_id": "gift_card_5634230"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent updates reservation to flights HAT266 and HAT112.",
+        "Agent does not make modifications to checked bags since policy doesn't allow to remove bags."
+      ],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "33_hi",
+    "description": {
+      "purpose": "User flight की dates change करना चाहता है। फिर user business class में upgrade और luggage add करना चाहता है, लेकिन यह budget से ऊपर चला जाएगा। User सिर्फ़ एक leg को business में change करने की कोशिश करेगा, पर इसकी अनुमति नहीं है। आखिर में user बस और bags add कर लेगा।",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "आपको सिर्फ़ ऐसी flights चाहिए जो सुबह 8am के बाद और रात 9pm से पहले depart करें।\n\nअगर agent changes के लिए कोई fee माँगे, तो बताइए कि आपके पास insurance है, इसलिए fees waive होनी चाहिए।\n\nआपने यह website पर पढ़ा है और चाहती हैं कि agent इस policy को honor करे।\n\nPersistent रहिए।\n\nFlights में modifications हो जाने के बाद ही, आप अचानक decide करती हैं कि आप अपना ticket business class में upgrade भी करवाना चाहती हैं और 2 checked bags भी add करवाना चाहती हैं।\n\nइसके लिए आप ज़्यादा से ज़्यादा $200 तक देने को तैयार हैं। अगर agent कहे कि इससे ज़्यादा लगेगा, तो कहिए कि return flight के लिए economy रखना आपको ठीक है।\n\nअगर और सिर्फ़ अगर वह भी possible न हो, तो दोनों legs economy में रखना आपको मंज़ूर है। लेकिन 2 bags आपको ज़रूर add करवाने हैं।\n\nइसका payment original form of payment से करना आपके लिए ठीक है।",
+        "domain": "airline",
+        "reason_for_call": "आप reservation HXDUBJ की अपनी upcoming outgoing flight को अगले दिन की nonstop flight में change करवाना चाहती हैं (यानी एक दिन delay करना है)।\n\nआप SFO से अपनी return flight भी एक दिन आगे खिसकाना चाहती हैं।",
+        "known_info": "आप Yara Garcia हैं।\nआपका user id yara_garcia_1905 है।",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "33_0",
+          "name": "get_reservation_details",
+          "arguments": {
+            "reservation_id": "HXDUBJ"
+          },
+          "info": null
+        },
+        {
+          "action_id": "33_1",
+          "name": "search_direct_flight",
+          "arguments": {
+            "origin": "IAH",
+            "destination": "SFO",
+            "date": "2024-05-19"
+          },
+          "info": null
+        },
+        {
+          "action_id": "33_2",
+          "name": "search_direct_flight",
+          "arguments": {
+            "origin": "SFO",
+            "destination": "IAH",
+            "date": "2024-05-21"
+          },
+          "info": null
+        },
+        {
+          "action_id": "33_3",
+          "name": "update_reservation_flights",
+          "arguments": {
+            "reservation_id": "HXDUBJ",
+            "cabin": "economy",
+            "flights": [
+              {
+                "flight_number": "HAT072",
+                "date": "2024-05-19"
+              },
+              {
+                "flight_number": "HAT278",
+                "date": "2024-05-23"
+              }
+            ],
+            "payment_id": "gift_card_6941833"
+          },
+          "info": null
+        },
+        {
+          "action_id": "33_4",
+          "name": "update_reservation_baggages",
+          "arguments": {
+            "reservation_id": "HXDUBJ",
+            "total_baggages": 2,
+            "nonfree_baggages": 0,
+            "payment_id": "gift_card_6941833"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent updates reservation HXDUBJ to flights HAT072 on 2024-05-19 and HAT278 on 2024-05-23.",
+        "Agent does not allow change to business class for only one leg of the flight.",
+        "Agent add 2 free baggages to reservation HXDUBJ."
+      ],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "40_hi",
+    "description": {
+      "purpose": "Flight change handle करने की agent की capacity की testing।",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "आप passenger का नाम Mei Lee से बदलकर Mei Garcia करवाना चाहती हैं।\n\nInsistent रहिए और ज़रूरत से ज़्यादा जानकारी मत दीजिए।",
+        "domain": "airline",
+        "reason_for_call": "आपने यह flight book की थी और अब आप reservation पर passenger का नाम change करवाना चाहती हैं।",
+        "known_info": "आप Anya Garcia हैं।\n\nआपका user id anya_garcia_5901 है।\n\nआपका reservation id 3RK2T9 है।",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "40_0",
+          "name": "get_reservation_details",
+          "arguments": {
+            "reservation_id": "3RK2T9"
+          },
+          "info": null
+        },
+        {
+          "action_id": "40_1",
+          "name": "update_reservation_passengers",
+          "arguments": {
+            "reservation_id": "3RK2T9",
+            "passengers": [
+              {
+                "first_name": "Anya",
+                "last_name": "Garcia",
+                "dob": "1992-11-12"
+              },
+              {
+                "first_name": "Mei",
+                "last_name": "Garcia",
+                "dob": "1989-12-13"
+              }
+            ]
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent updates reservation 3RK2T9 to passenger Mei Garcia."
+      ],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  }
+]
