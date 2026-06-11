@@ -6,11 +6,13 @@ per-language content owners. A language owner authors instances of these
 models (one ``LanguagePack`` per language) and never edits shared code.
 
 The schema is deliberately small: typed fields exist only where code branches
-on them (registry keys, repertoire/voice/preset references) or where the
-research output reports them (``cs_density_target``, ``cultural_register``).
+on them (registry keys, voice/preset references, injectable phrase lists).
 All behavioral language content — register, code-switching, politeness,
-rituals — lives in author-written ``pragmatics_clauses``, because free text
-is the only representation that generalizes across languages.
+rituals — lives in the author-written ``tts_voice_prompt`` and
+``pragmatics_clauses``, because free text is the only representation that
+generalizes across languages. Persona differences are expressed through those
+prompts plus per-persona phrase lists; language-wide behavior (decision
+prompts, firing rates) lives on the pack.
 """
 
 from pathlib import Path
@@ -19,49 +21,6 @@ from typing import Optional
 from pydantic import BaseModel, Field, model_validator
 
 from tau2.data_model.persona import PersonaConfig
-
-
-class BackchannelRepertoire(BaseModel):
-    """Language/persona-specific backchannel phrases and firing behavior.
-
-    Consumed by the streaming user simulator's backchannel subsystem (the
-    parameterization of that subsystem lands separately; this schema is the
-    contract). When no repertoire is active, the simulator uses the English
-    module-global defaults in ``voice_config.py``.
-    """
-
-    id: str = Field(description="Unique repertoire id within the pack")
-    phrases: list[str] = Field(
-        description="Backchannel continuer phrases, in the pack's language/script"
-    )
-    decision_prompt: Optional[str] = Field(
-        default=None,
-        description="Override for the LLM backchannel decision prompt. None falls "
-        "back to the pack-level override, then to the English default.",
-    )
-    poisson_rate: Optional[float] = Field(
-        default=None,
-        description="Override for the Poisson backchannel rate (events/sec of agent "
-        "speech). None falls back to the global default.",
-    )
-
-
-class SideTalkRepertoire(BaseModel):
-    """Language/persona-specific out-of-turn (side-talk) phrases.
-
-    Localizes ``NON_DIRECTED_PHRASES`` (e.g. speaking to family or a driver,
-    not to the agent).
-    """
-
-    id: str = Field(description="Unique repertoire id within the pack")
-    phrases: list[str] = Field(
-        description="Non-directed speech phrases, in the pack's language/script"
-    )
-    events_per_minute: Optional[float] = Field(
-        default=None,
-        description="Override for out-of-turn speech rate. None falls back to the "
-        "global default.",
-    )
 
 
 class AcousticPreset(BaseModel):
@@ -116,21 +75,6 @@ class MultilingualPersonaConfig(PersonaConfig):
         default=None, description="ISO 15924 script code for the matrix language, "
         "e.g. 'deva'"
     )
-    cs_density_target: Optional[float] = Field(
-        default=None,
-        ge=0.0,
-        le=1.0,
-        description="Target fraction of embedded-language (e.g. English) insertions. "
-        "Metadata for reporting/analysis only — never injected into prompts and "
-        "never measured post-hoc. The author expresses code-switching behavior "
-        "natively in pragmatics_clauses.",
-    )
-    cultural_register: Optional[str] = Field(
-        default=None,
-        description="Free-text cultural/religious register, e.g. 'hindu_neutral', "
-        "'muslim'. Metadata for reporting/analysis only — never injected into "
-        "prompts.",
-    )
     pragmatics_clauses: list[str] = Field(
         default_factory=list,
         description="Freeform prompt-injected clauses, authored natively by the "
@@ -139,13 +83,16 @@ class MultilingualPersonaConfig(PersonaConfig):
         "rituals, indirect-refusal patterns, frustration patterns, and the "
         "persona's expectation of the agent's language fluency.",
     )
-    backchannel_repertoire_id: Optional[str] = Field(
+    backchannel_phrases: Optional[list[str]] = Field(
         default=None,
-        description="Id of a BackchannelRepertoire in the same pack",
+        description="Backchannel continuer phrases for this persona, in the "
+        "persona's language/script. None falls back to the English defaults.",
     )
-    burst_repertoire_id: Optional[str] = Field(
+    side_talk_phrases: Optional[list[str]] = Field(
         default=None,
-        description="Id of a SideTalkRepertoire in the same pack",
+        description="Out-of-turn (side-talk) phrases for this persona — speech "
+        "directed at family, a driver, etc., not at the agent. None falls back "
+        "to the English defaults.",
     )
     voice_id: Optional[str] = Field(
         default=None,
@@ -206,16 +153,12 @@ class LanguagePack(BaseModel):
         default_factory=dict,
         description="Personas keyed by persona_id",
     )
-    backchannel_repertoires: dict[str, BackchannelRepertoire] = Field(
-        default_factory=dict
-    )
-    side_talk_repertoires: dict[str, SideTalkRepertoire] = Field(default_factory=dict)
     acoustic_presets: dict[str, AcousticPreset] = Field(default_factory=dict)
     backchannel_decision_prompt: Optional[str] = Field(
         default=None,
-        description="Pack-level override for the LLM backchannel decision prompt "
-        "(language-appropriate examples and density). Persona repertoires may "
-        "override it further.",
+        description="Language-level override for the LLM backchannel decision "
+        "prompt (language-appropriate examples and density). Must contain a "
+        "{conversation_history} placeholder. None keeps the English default.",
     )
     agent_language_clause: Optional[str] = Field(
         default=None,
@@ -248,23 +191,6 @@ class LanguagePack(BaseModel):
                     f"the pack language is '{self.language}'"
                 )
             if (
-                persona.backchannel_repertoire_id is not None
-                and persona.backchannel_repertoire_id
-                not in self.backchannel_repertoires
-            ):
-                raise ValueError(
-                    f"Persona '{persona_id}' references unknown backchannel "
-                    f"repertoire '{persona.backchannel_repertoire_id}'"
-                )
-            if (
-                persona.burst_repertoire_id is not None
-                and persona.burst_repertoire_id not in self.side_talk_repertoires
-            ):
-                raise ValueError(
-                    f"Persona '{persona_id}' references unknown side-talk "
-                    f"repertoire '{persona.burst_repertoire_id}'"
-                )
-            if (
                 persona.acoustic_preset_id is not None
                 and persona.acoustic_preset_id not in self.acoustic_presets
             ):
@@ -282,20 +208,6 @@ class LanguagePack(BaseModel):
 
     def get_persona(self, persona_id: str) -> Optional[MultilingualPersonaConfig]:
         return self.personas.get(persona_id)
-
-    def get_backchannel_repertoire(
-        self, persona: MultilingualPersonaConfig
-    ) -> Optional[BackchannelRepertoire]:
-        if persona.backchannel_repertoire_id is None:
-            return None
-        return self.backchannel_repertoires.get(persona.backchannel_repertoire_id)
-
-    def get_side_talk_repertoire(
-        self, persona: MultilingualPersonaConfig
-    ) -> Optional[SideTalkRepertoire]:
-        if persona.burst_repertoire_id is None:
-            return None
-        return self.side_talk_repertoires.get(persona.burst_repertoire_id)
 
     def get_acoustic_preset(
         self, persona: MultilingualPersonaConfig

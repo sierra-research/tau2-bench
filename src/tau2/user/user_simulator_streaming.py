@@ -502,9 +502,9 @@ class VoiceStreamingUserSimulator(
         self.use_llm_backchannel = use_llm_backchannel
         self.interruption_check_interval = interruption_check_interval
 
-        # Backchannel localization: a language-pack persona's repertoire (or its
-        # pack-level defaults) overrides the phrases, the LLM decision prompt,
-        # and the Poisson rate. Plain English personas keep the defaults above.
+        # Backchannel localization: a language-pack persona's phrase list and
+        # its pack's decision prompt / Poisson rate override the defaults
+        # above. Plain English personas keep them untouched.
         self.backchannel_phrases: list[str] = BACKCHANNEL_PHRASES
         self.backchannel_decision_prompt: str = BACKCHANNEL_DECISION_PROMPT
         self._apply_multilingual_backchannel_overrides()
@@ -602,10 +602,10 @@ class VoiceStreamingUserSimulator(
     def _apply_multilingual_backchannel_overrides(self) -> None:
         """Resolve backchannel overrides from the persona's language pack.
 
-        Selection order for each value: persona repertoire -> pack default ->
-        English default (the attribute's current value). A plain PersonaConfig
-        (no persona_id) or a persona without overrides leaves every value
-        untouched.
+        Phrases come from the persona; the decision prompt and Poisson rate
+        are language-level (pack) settings. A plain PersonaConfig (no
+        persona_id) or a persona/pack without overrides leaves every value
+        untouched (the English defaults).
         """
         persona_id = getattr(self.persona_config, "persona_id", None)
         if persona_id is None:
@@ -617,21 +617,12 @@ class VoiceStreamingUserSimulator(
             return
         pack, persona = multilingual
 
-        repertoire = pack.get_backchannel_repertoire(persona)
-        if repertoire is not None and repertoire.phrases:
-            self.backchannel_phrases = repertoire.phrases
-
-        decision_prompt = (
-            repertoire.decision_prompt if repertoire is not None else None
-        ) or pack.backchannel_decision_prompt
-        if decision_prompt:
-            self.backchannel_decision_prompt = decision_prompt
-
-        poisson_rate = repertoire.poisson_rate if repertoire is not None else None
-        if poisson_rate is None:
-            poisson_rate = pack.default_backchannel_poisson_rate
-        if poisson_rate is not None:
-            self.backchannel_poisson_rate = poisson_rate
+        if persona.backchannel_phrases:
+            self.backchannel_phrases = persona.backchannel_phrases
+        if pack.backchannel_decision_prompt:
+            self.backchannel_decision_prompt = pack.backchannel_decision_prompt
+        if pack.default_backchannel_poisson_rate is not None:
+            self.backchannel_poisson_rate = pack.default_backchannel_poisson_rate
 
     def validate_turn_taking_settings(self) -> None:
         """Validate the turn-taking settings."""

@@ -17,10 +17,8 @@ from tau2.data_model.voice import SynthesisConfig
 from tau2.data_model.voice_personas import get_elevenlabs_voice_id
 from tau2.multilingual.schema import (
     AcousticPreset,
-    BackchannelRepertoire,
     LanguagePack,
     MultilingualPersonaConfig,
-    SideTalkRepertoire,
 )
 from tau2.user.user_simulator import (
     get_global_user_sim_guidelines_voice,
@@ -53,14 +51,12 @@ def make_test_pack(**overrides) -> LanguagePack:
         language="xx",
         locale="XX-TS",
         script="test",
-        cs_density_target=0.3,
-        cultural_register="test_register",
         pragmatics_clauses=[
             "You greet with 'testgreeting'.",
             "You assume the agent speaks your language.",
         ],
-        backchannel_repertoire_id="xx_default",
-        burst_repertoire_id="xx_household",
+        backchannel_phrases=["mhm-xx", "ji-xx"],
+        side_talk_phrases=["one moment (to family)"],
         voice_id="fake_voice_id_123",
         tts_voice_prompt="A test speaker in her 30s.",
         acoustic_preset_id="xx_market",
@@ -70,16 +66,6 @@ def make_test_pack(**overrides) -> LanguagePack:
         language="xx",
         display_name="Testlang",
         personas={persona.persona_id: persona},
-        backchannel_repertoires={
-            "xx_default": BackchannelRepertoire(
-                id="xx_default", phrases=["mhm-xx", "ji-xx"]
-            )
-        },
-        side_talk_repertoires={
-            "xx_household": SideTalkRepertoire(
-                id="xx_household", phrases=["one moment (to family)"]
-            )
-        },
         acoustic_presets={
             "xx_market": AcousticPreset(
                 id="xx_market",
@@ -102,12 +88,12 @@ class TestSchema:
         with pytest.raises(ValueError, match="language"):
             make_test_pack(personas={persona.persona_id: persona})
 
-    def test_unknown_repertoire_id_rejected(self):
+    def test_unknown_acoustic_preset_rejected(self):
         pack = make_test_pack()
         persona = pack.personas["tara_testlang_v1"].model_copy(
-            update={"backchannel_repertoire_id": "missing"}
+            update={"acoustic_preset_id": "missing"}
         )
-        with pytest.raises(ValueError, match="backchannel"):
+        with pytest.raises(ValueError, match="acoustic"):
             make_test_pack(personas={persona.persona_id: persona})
 
     def test_persona_key_must_match_persona_id(self):
@@ -116,11 +102,11 @@ class TestSchema:
         with pytest.raises(ValueError, match="does not match"):
             make_test_pack(personas={"wrong_key": persona})
 
-    def test_repertoire_lookups(self):
+    def test_persona_phrase_lists_and_preset_lookup(self):
         pack = make_test_pack()
         persona = pack.personas["tara_testlang_v1"]
-        assert pack.get_backchannel_repertoire(persona).phrases == ["mhm-xx", "ji-xx"]
-        assert pack.get_side_talk_repertoire(persona).id == "xx_household"
+        assert persona.backchannel_phrases == ["mhm-xx", "ji-xx"]
+        assert persona.side_talk_phrases == ["one moment (to family)"]
         assert pack.get_acoustic_preset(persona).id == "xx_market"
 
 
@@ -176,9 +162,6 @@ class TestPersonaGuidelines:
         assert "You assume the agent speaks your language." in text
         # Inherited PersonaConfig behavior still present (minimal verbosity)
         assert "MINIMAL VERBOSITY" in text
-        # Metadata fields are reporting-only: no template prose is generated
-        assert "30%" not in text
-        assert "test_register" not in text
 
     def test_guidelines_text_empty_persona_content(self):
         persona = make_test_pack().personas["tara_testlang_v1"].model_copy(
