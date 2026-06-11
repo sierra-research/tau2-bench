@@ -5,9 +5,12 @@ These models are the frozen interface between the shared infrastructure and
 per-language content owners. A language owner authors instances of these
 models (one ``LanguagePack`` per language) and never edits shared code.
 
-Field names are language-agnostic by design (``tv_form_default``, not
-``aap_default``; ``cultural_register`` is a free string) so that future
-languages (e.g. Mandarin) slot in without schema changes.
+The schema is deliberately small: typed fields exist only where code branches
+on them (registry keys, repertoire/voice/preset references) or where the
+research output reports them (``cs_density_target``, ``cultural_register``).
+All behavioral language content — register, code-switching, politeness,
+rituals — lives in author-written ``pragmatics_clauses``, because free text
+is the only representation that generalizes across languages.
 """
 
 from pathlib import Path
@@ -105,43 +108,36 @@ class MultilingualPersonaConfig(PersonaConfig):
     )
     language: str = Field(description="ISO 639-1 language code, e.g. 'hi'")
     locale: Optional[str] = Field(
-        default=None, description="Region/locale tag, e.g. 'IN-MH'"
+        default=None,
+        description="ISO 3166-2 subdivision code, e.g. 'IN-MH' (Maharashtra), "
+        "'IN-TG' (Telangana). Trajectory-tagging metadata only.",
     )
     script: Optional[str] = Field(
         default=None, description="ISO 15924 script code for the matrix language, "
         "e.g. 'deva'"
-    )
-    matrix_language: Optional[str] = Field(
-        default=None,
-        description="The grammatical matrix language when code-switching, if "
-        "different from `language`",
     )
     cs_density_target: Optional[float] = Field(
         default=None,
         ge=0.0,
         le=1.0,
         description="Target fraction of embedded-language (e.g. English) insertions. "
-        "Prompt-authoring target only; nothing measures it post-hoc.",
-    )
-    tv_form_default: Optional[str] = Field(
-        default=None,
-        description="Default T-V politeness form toward the agent, e.g. 'aap'",
+        "Metadata for reporting/analysis only — never injected into prompts and "
+        "never measured post-hoc. The author expresses code-switching behavior "
+        "natively in pragmatics_clauses.",
     )
     cultural_register: Optional[str] = Field(
         default=None,
         description="Free-text cultural/religious register, e.g. 'hindu_neutral', "
-        "'muslim'",
+        "'muslim'. Metadata for reporting/analysis only — never injected into "
+        "prompts.",
     )
     pragmatics_clauses: list[str] = Field(
         default_factory=list,
-        description="Freeform prompt-injectable clauses describing pragmatics: "
-        "indirect-refusal patterns, code-switch triggers, frustration patterns, "
-        "greeting/closing rituals.",
-    )
-    agent_capability_expectation: Optional[str] = Field(
-        default=None,
-        description="The persona's prior on the agent's fluency in their language, "
-        "and how they react when it is not met.",
+        description="Freeform prompt-injected clauses, authored natively by the "
+        "language owner. This is where ALL behavioral language content lives: "
+        "register, code-switching behavior, politeness forms, greeting/closing "
+        "rituals, indirect-refusal patterns, frustration patterns, and the "
+        "persona's expectation of the agent's language fluency.",
     )
     backchannel_repertoire_id: Optional[str] = Field(
         default=None,
@@ -170,47 +166,25 @@ class MultilingualPersonaConfig(PersonaConfig):
     def to_guidelines_text(self) -> Optional[str]:
         """Persona guidelines for the ``<PERSONA_GUIDELINES>`` system-prompt slot.
 
-        Extends the base PersonaConfig guidelines (verbosity etc.) with a
-        language/identity block assembled from this persona's fields.
+        Extends the base PersonaConfig guidelines (verbosity etc.) with the
+        author's verbatim persona content: the speaker-identity prompt and the
+        pragmatics clauses. No prose is generated from metadata fields — the
+        language owner controls all language/register phrasing natively.
         """
         sections: list[str] = []
         base = super().to_guidelines_text()
         if base:
             sections.append(base)
 
-        lines: list[str] = ["## PERSONA AND LANGUAGE"]
+        lines: list[str] = []
         if self.tts_voice_prompt:
             lines.append(self.tts_voice_prompt.strip())
-        lang_bits = [f"You speak {self.language}"]
-        if self.matrix_language:
-            lang_bits.append(f"with {self.matrix_language} as your matrix language")
-        if self.script:
-            lang_bits.append(f"written in the '{self.script}' script")
-        lines.append(" ".join(lang_bits) + ".")
-        if self.cs_density_target is not None:
-            lines.append(
-                f"Roughly {round(self.cs_density_target * 100)}% of your words are "
-                "English insertions (code-switching); the rest stay in your "
-                "language. Code-switch the way a real speaker of your profile "
-                "does — never translate whole sentences."
-            )
-        if self.tv_form_default:
-            lines.append(
-                f"You default to the '{self.tv_form_default}' politeness form when "
-                "addressing the agent."
-            )
-        if self.cultural_register:
-            lines.append(
-                f"Your cultural register is '{self.cultural_register}'; greetings, "
-                "exclamations, and religious phrasing follow it naturally."
-            )
-        if self.agent_capability_expectation:
-            lines.append(self.agent_capability_expectation.strip())
         for clause in self.pragmatics_clauses:
             lines.append(clause.strip())
+        if lines:
+            sections.append("\n\n".join(["## PERSONA AND LANGUAGE"] + lines))
 
-        sections.append("\n\n".join(lines))
-        return "\n\n".join(sections)
+        return "\n\n".join(sections) if sections else None
 
 
 class LanguagePack(BaseModel):

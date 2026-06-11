@@ -54,10 +54,11 @@ def make_test_pack(**overrides) -> LanguagePack:
         locale="XX-TS",
         script="test",
         cs_density_target=0.3,
-        tv_form_default="formal-you",
         cultural_register="test_register",
-        pragmatics_clauses=["You greet with 'testgreeting'."],
-        agent_capability_expectation="You assume the agent speaks your language.",
+        pragmatics_clauses=[
+            "You greet with 'testgreeting'.",
+            "You assume the agent speaks your language.",
+        ],
         backchannel_repertoire_id="xx_default",
         burst_repertoire_id="xx_household",
         voice_id="fake_voice_id_123",
@@ -166,18 +167,28 @@ class TestRegistry:
 
 
 class TestPersonaGuidelines:
-    def test_guidelines_text_includes_language_fields(self):
+    def test_guidelines_text_is_author_content_verbatim(self):
         persona = make_test_pack().personas["tara_testlang_v1"]
         text = persona.to_guidelines_text()
         assert "PERSONA AND LANGUAGE" in text
         assert "A test speaker in her 30s." in text
-        assert "30%" in text
-        assert "formal-you" in text
-        assert "test_register" in text
         assert "testgreeting" in text
         assert "You assume the agent speaks your language." in text
         # Inherited PersonaConfig behavior still present (minimal verbosity)
         assert "MINIMAL VERBOSITY" in text
+        # Metadata fields are reporting-only: no template prose is generated
+        assert "30%" not in text
+        assert "test_register" not in text
+
+    def test_guidelines_text_empty_persona_content(self):
+        persona = make_test_pack().personas["tara_testlang_v1"].model_copy(
+            update={
+                "tts_voice_prompt": "",
+                "pragmatics_clauses": [],
+                "verbosity": Verbosity.STANDARD,
+            }
+        )
+        assert persona.to_guidelines_text() is None
 
 
 class TestSampling:
