@@ -302,6 +302,29 @@ def test_book_extra_services(env: Environment):
         env.tools.book_extra_services("HV-1010", "SVC_PARKING", 1)
 
 
+def test_book_extra_services_order_insensitive():
+    """Extras lines merge per service and stay sorted by service ID, so the
+    final DB state is identical regardless of booking order."""
+    env_a = get_environment()
+    env_a.tools.book_extra_services("HV-1006", "SVC_BREAKFAST", 12)
+    env_a.tools.book_extra_services("HV-1006", "SVC_SPA", 2)
+    env_a.tools.book_extra_services("HV-1006", "SVC_PARKING", 3)
+    env_b = get_environment()
+    env_b.tools.book_extra_services("HV-1006", "SVC_PARKING", 3)
+    env_b.tools.book_extra_services("HV-1006", "SVC_SPA", 2)
+    env_b.tools.book_extra_services("HV-1006", "SVC_BREAKFAST", 12)
+    res_a = env_a.tools.db.reservations["HV-1006"]
+    res_b = env_b.tools.db.reservations["HV-1006"]
+    assert res_a == res_b
+    assert res_a.total_amount == 1158
+    # Booking the same service again merges into the existing line.
+    env_a.tools.book_extra_services("HV-1006", "SVC_PARKING", 1)
+    assert len(res_a.extras) == 3
+    parking = next(e for e in res_a.extras if e.service_id == "SVC_PARKING")
+    assert parking.quantity == 4
+    assert parking.amount == 96
+
+
 def test_knowledge_base(env: Environment):
     pets = env.tools.knowledge_base("can I bring my dog")
     assert "32" in pets
@@ -329,6 +352,8 @@ def test_user_online_checkin(env: Environment):
         env.user_tools.submit_online_checkin("HV-1005", "Patel", "16:00")
     with pytest.raises(ValueError):  # window not open (check-in June 20)
         env.user_tools.submit_online_checkin("HV-1001", "Dvorak", "15:00")
+    # A failed attempt must not leave any trace in the DB.
+    assert not env.tools.db.reservations["HV-1001"].online_checkin_completed
     with pytest.raises(ValueError):  # wrong name
         env.user_tools.submit_online_checkin("HV-1004", "Patel", "15:00")
     with pytest.raises(ValueError):  # bad time format
@@ -363,7 +388,7 @@ def test_get_response_tool_call(env: Environment):
 
 def test_tasks_load_and_split():
     tasks = get_tasks()
-    assert len(tasks) == 15
+    assert len(tasks) == 25
     splits = get_tasks_split()
     assert set(splits["base"]) == {task.id for task in tasks}
 

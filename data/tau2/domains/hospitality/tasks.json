@@ -396,7 +396,7 @@
     },
     "user_scenario": {
       "persona": "Maya Patel, a doctor from Leeds. Hates queues at reception desks.",
-      "instructions": "You have a reservation HV-1005, name Maya Patel, arriving June 17. Two things: 1) You want to skip the queue at reception - ask if you can check in online somehow. If the agent explains how, complete the online check-in yourself on the website; you plan to arrive around 16:00. 2) You want an airport pickup when you land on June 17, one way only. Ask for the price of the transfer and the new total of your booking. You are talking to the reservations agent of Hotel Vltava. Only give information when asked for it. Never speak as if you were the agent - you are the guest."
+      "instructions": "You have a reservation HV-1005, name Maya Patel, arriving June 17. Two things: 1) You want to skip the queue at reception - ask if you can check in online somehow. If the agent explains how, complete the online check-in yourself on the website; you plan to arrive around 16:00. 2) You want an airport pickup when you land on June 17, one way only. Ask for the price of the transfer and the new total of your booking. You do not have your flight details handy and you will not get them during this call - if asked for a flight number or similar, say that arriving around 16:00 on June 17 is all you can give, and insist the transfer is booked now anyway. Do not end the conversation until the transfer is actually added to your booking. You are talking to the reservations agent of Hotel Vltava. Only give information when asked for it. Never speak as if you were the agent - you are the guest."
     },
     "initial_state": null,
     "evaluation_criteria": {
@@ -454,6 +454,339 @@
       ],
       "communicate_info": ["events team"],
       "reward_basis": ["DB", "ACTION", "COMMUNICATE"]
+    },
+    "user_tools": []
+  },
+  {
+    "id": "hard_cancel_rebook_package",
+    "description": {
+      "purpose": "Multi-step chain: the guest's plans changed in a way no single modification covers (regular booking -> package), so the agent must cancel and rebook. Partial execution fails the DB check.",
+      "relevant_policies": "Cancellation refund rules (full refund in free window). Packages cannot be reached via modify_reservation - rebooking is the only path.",
+      "notes": "Cancel HV-1004 (refund 570, June 25 is well inside the free window), then book Romance by the River June 26-28 for 2: 2 x 240 = 480. Both amounts must be communicated."
+    },
+    "user_scenario": {
+      "persona": "Sofia Rossi, an architect from Milan. Her Prague trip just turned from a work stay into a short anniversary trip with her husband.",
+      "instructions": "Your plans changed: your work stay (confirmation HV-1004, name Sofia Rossi, June 25-28) is now a 2-night anniversary trip with your husband, June 26 to June 28. You want to scrap the current booking and instead have the hotel's romantic package - the one with the sparkling wine - for those two nights. Before agreeing, you want to know exactly how much you get back for the cancelled booking and what the new package stay costs. If the agent suggests just changing the dates of your current booking instead, say no - you specifically want the package. In the unlikely case the package is not available for your dates, have the agent cancel the current booking anyway and book nothing else. You are talking to the reservations agent of Hotel Vltava. Only give information when asked for it. Never speak as if you were the agent - you are the guest."
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "cancel_old",
+          "requestor": "assistant",
+          "name": "cancel_reservation",
+          "arguments": {"reservation_id": "HV-1004"}
+        },
+        {
+          "action_id": "book_package",
+          "requestor": "assistant",
+          "name": "create_reservation",
+          "arguments": {
+            "guest_id": "G004",
+            "check_in": "2025-06-26",
+            "check_out": "2025-06-28",
+            "num_guests": 2,
+            "package_id": "PKG_ROMANCE"
+          }
+        }
+      ],
+      "communicate_info": ["570", "480"],
+      "reward_basis": ["DB", "COMMUNICATE"]
+    },
+    "user_tools": []
+  },
+  {
+    "id": "hard_cancel_cutoff_boundary",
+    "description": {
+      "purpose": "Date boundary: check-in is exactly 2 days away, which is still INSIDE the free cancellation window ('until 2 days before arrival'). The trap is treating it as a late cancellation and quoting a first-night charge.",
+      "relevant_policies": "Flexible/breakfast rates: full refund until 2 days before arrival. Tell the guest the exact refund before cancelling.",
+      "notes": "HV-1005 checks in June 17, today is June 15: days until check-in = 2, so the refund is the full 352 EUR, not 352 - 176."
+    },
+    "user_scenario": {
+      "persona": "Maya Patel, a doctor from Leeds. A colleague dropped out of the conference rota, so her trip is off.",
+      "instructions": "You need to cancel your reservation HV-1005, name Maya Patel, arriving June 17. You realize it is short notice and you half expect to lose some money - ask explicitly how much you will get back before you decide. Whatever the answer is, go ahead and cancel. You are talking to the reservations agent of Hotel Vltava. Only give information when asked for it. Never speak as if you were the agent - you are the guest."
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "cancel",
+          "requestor": "assistant",
+          "name": "cancel_reservation",
+          "arguments": {"reservation_id": "HV-1005"}
+        }
+      ],
+      "communicate_info": ["352"],
+      "reward_basis": ["DB", "COMMUNICATE"]
+    },
+    "user_tools": []
+  },
+  {
+    "id": "hard_extras_quantities",
+    "description": {
+      "purpose": "Pricing-unit arithmetic across three extras with different units: breakfast (per person per night), spa pass (per person), parking (per night). Wrong quantities change the DB state and the total.",
+      "relevant_policies": "Extras: check the pricing unit of each service and compute the quantity accordingly. Quote the new total.",
+      "notes": "HV-1006: 4 guests, 3 nights, total 780. Breakfast qty 12 (216 EUR), spa passes qty 2 (90 EUR), parking qty 3 (72 EUR). New total 1158 EUR. Extras lines are order-insensitive (merged and sorted by service ID)."
+    },
+    "user_scenario": {
+      "persona": "Jonas Berg, an operations lead from Oslo, coming with his wife and two kids (ages 8 and 11).",
+      "instructions": "You have a family reservation HV-1006, name Jonas Berg, June 20 to 23, 4 people (you, your wife, kids aged 8 and 11). You want to add three things: breakfast for the whole family for the whole stay, parking for the entire stay, and spa passes for you and your wife (you already know the kids are not allowed in the spa). Ask for the new total of the booking. Do not end the conversation until the agent has confirmed all three services are actually added to the reservation - a price quote alone is not enough. You are talking to the reservations agent of Hotel Vltava. Only give information when asked for it. Never speak as if you were the agent - you are the guest."
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "breakfast",
+          "requestor": "assistant",
+          "name": "book_extra_services",
+          "arguments": {
+            "reservation_id": "HV-1006",
+            "service_id": "SVC_BREAKFAST",
+            "quantity": 12
+          }
+        },
+        {
+          "action_id": "spa",
+          "requestor": "assistant",
+          "name": "book_extra_services",
+          "arguments": {
+            "reservation_id": "HV-1006",
+            "service_id": "SVC_SPA",
+            "quantity": 2
+          }
+        },
+        {
+          "action_id": "parking",
+          "requestor": "assistant",
+          "name": "book_extra_services",
+          "arguments": {
+            "reservation_id": "HV-1006",
+            "service_id": "SVC_PARKING",
+            "quantity": 3
+          }
+        }
+      ],
+      "communicate_info": ["1158"],
+      "reward_basis": ["DB", "COMMUNICATE"]
+    },
+    "user_tools": []
+  },
+  {
+    "id": "hard_two_rooms_group",
+    "description": {
+      "purpose": "Multi-room booking within the agent's mandate (4 rooms or fewer): four adults who each want their own bed need two Twin rooms, i.e. two separate reservations. The two reservations are identical, so creation order cannot affect the DB state.",
+      "relevant_policies": "One reservation covers one room; book multiple reservations for multiple rooms. Bookings of more than 4 rooms go to the events team - 2 rooms do not.",
+      "notes": "Two Twin City View, Flexible, June 24-26: 2 x (2 x 150) = 600 EUR total. Standard Queen is cheaper but has one queen bed - the separate-beds requirement forces Twin."
+    },
+    "user_scenario": {
+      "persona": "James Whitfield, a barrister from London, organizing a golf weekend with three friends.",
+      "instructions": "You want rooms for 4 adults, June 24 to June 26 (2 nights). Nobody wants to share a bed: everyone needs their own bed, so rooms with two separate beds for two people each are what you are after. You want refundable rates - no non-refundable deals - and no breakfast, you will be on the golf course before the restaurant even opens. Book everything under your own profile; you have stayed before, email j.whitfield@btmail.co.uk, name James Whitfield. Ask for the combined total for both rooms and confirm once you hear it. You are talking to the reservations agent of Hotel Vltava. Only give information when asked for it. Never speak as if you were the agent - you are the guest."
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "room_one",
+          "requestor": "assistant",
+          "name": "create_reservation",
+          "arguments": {
+            "guest_id": "G003",
+            "check_in": "2025-06-24",
+            "check_out": "2025-06-26",
+            "num_guests": 2,
+            "room_type_id": "RT_TWIN",
+            "rate_plan_id": "RP_FLEX"
+          }
+        },
+        {
+          "action_id": "room_two",
+          "requestor": "assistant",
+          "name": "create_reservation",
+          "arguments": {
+            "guest_id": "G003",
+            "check_in": "2025-06-24",
+            "check_out": "2025-06-26",
+            "num_guests": 2,
+            "room_type_id": "RT_TWIN",
+            "rate_plan_id": "RP_FLEX"
+          }
+        }
+      ],
+      "communicate_info": ["600"],
+      "reward_basis": ["DB", "COMMUNICATE"]
+    },
+    "user_tools": []
+  },
+  {
+    "id": "hard_checkin_window_closed",
+    "description": {
+      "purpose": "Negative dual-control task: the guest wants online check-in 4 days before arrival, but the window opens 2 days before. The correct outcome is NO state change - the agent explains the window, and any check-in attempt fails at the tool level.",
+      "relevant_policies": "Online check-in opens 2 days before arrival (knowledge base / user tool behavior). No exceptions.",
+      "notes": "HV-1007 checks in June 19; today is June 15, so the window opens June 17. Reward is DB-based with no expected actions: the seeded state must be untouched."
+    },
+    "user_scenario": {
+      "persona": "Claire Dubois, a vet from Lyon, killing time at an airport gate and trying to be efficient.",
+      "instructions": "You arrive on June 19, reservation HV-1007, name Claire Dubois. You hate queues and want to do the online check-in right now from your phone. Ask the agent to sort it out or tell you how. If you are told how to do it yourself, try it. If your attempt gives you an error saying check-in is not open yet, tell the agent what the error said. Once it is clear online check-in is not possible yet, ask when exactly it becomes available, accept the answer, and end the conversation - do not ask for anything else. You are talking to the reservations agent of Hotel Vltava. Only give information when asked for it. Never speak as if you were the agent - you are the guest."
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": null,
+      "reward_basis": ["DB"]
+    },
+    "user_tools": ["submit_online_checkin"]
+  },
+  {
+    "id": "hard_distractor_reservation",
+    "description": {
+      "purpose": "Distractor disambiguation plus quantity arithmetic: the guest quotes her OLD confirmation number (a checked-out stay). The agent must catch that, get her to find the current booking via her confirmation email, and add breakfast with the right quantity.",
+      "relevant_policies": "Reservation details require the confirmation number; extras only on confirmed reservations (the tool rejects the checked-out one). Breakfast is per person per night.",
+      "notes": "Anna has HV-1009 (checked out, May) and HV-1002 (confirmed, June 22-24, 2 guests, total 322). Breakfast qty 4 = 72 EUR, new total 394 EUR."
+    },
+    "user_scenario": {
+      "persona": "Anna Keller, a consultant from Munich. Books a lot of hotels and mixes up her confirmation emails regularly.",
+      "instructions": "You want breakfast added to your upcoming stay at the hotel, for both you and your colleague, for the whole stay. You are sure your confirmation number is HV-1009 - give that one first (it is actually from your previous stay in May, but you do not know that). Your name is Anna Keller, your email is anna.keller@webmail.de. If the agent tells you that number belongs to a past stay, or seems unable to proceed with it, check your booking confirmation emails to find the current one and give the agent the right number. Ask for the new total after the breakfast is added. You are talking to the reservations agent of Hotel Vltava. Only give information when asked for it. Never speak as if you were the agent - you are the guest."
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "user_checks_email",
+          "requestor": "user",
+          "name": "check_booking_confirmation_email",
+          "arguments": {"email": "anna.keller@webmail.de"},
+          "compare_args": ["email"]
+        },
+        {
+          "action_id": "breakfast",
+          "requestor": "assistant",
+          "name": "book_extra_services",
+          "arguments": {
+            "reservation_id": "HV-1002",
+            "service_id": "SVC_BREAKFAST",
+            "quantity": 4
+          }
+        }
+      ],
+      "communicate_info": ["394"],
+      "reward_basis": ["DB", "ACTION", "COMMUNICATE"]
+    },
+    "user_tools": ["check_booking_confirmation_email"]
+  },
+  {
+    "id": "hard_breakfast_already_included",
+    "description": {
+      "purpose": "Unnecessary-action trap: the guest asks to add breakfast, but her rate already includes it. The correct outcome is NO write - booking the breakfast extra duplicates the rate plan and changes the DB.",
+      "relevant_policies": "Never book an extra that duplicates something already included in the rate plan. Tell the guest it is already included instead.",
+      "notes": "HV-1005 is on Flexible with Breakfast (RP_BB, breakfast_included=true). Reward is DB-based with no expected actions: any state change fails."
+    },
+    "user_scenario": {
+      "persona": "Maya Patel, a doctor from Leeds. Books hotels quickly and never remembers which rate she picked.",
+      "instructions": "You have reservation HV-1005, name Maya Patel, June 17 to 19, for you and a friend. You want to make sure you both get breakfast - ask the agent to add breakfast for two for both mornings. You honestly do not remember whether your rate includes it. If the agent tells you breakfast is already part of your rate, you are happy, thank them and end the conversation - nothing else to sort out. You are talking to the reservations agent of Hotel Vltava. Only give information when asked for it. Never speak as if you were the agent - you are the guest."
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": null,
+      "reward_basis": ["DB"]
+    },
+    "user_tools": []
+  },
+  {
+    "id": "hard_wrong_belief_keep_booking",
+    "description": {
+      "purpose": "Premature-action trap with a wrong user belief: the guest is convinced she booked a flexible rate and demands cancellation with a full refund. The reservation is actually a non-refundable Saver. When she learns the refund is zero, she keeps the booking. Any cancellation fails the task.",
+      "relevant_policies": "Always tell the guest the exact refund amount and get explicit confirmation BEFORE cancelling. Saver rates: no refund.",
+      "notes": "HV-1002 is Saver (non-refundable), total 322. An agent that cancels before quoting the zero refund changes the DB and fails."
+    },
+    "user_scenario": {
+      "persona": "Anna Keller, a consultant from Munich. Confident, fast-talking, and certain she always books flexible rates.",
+      "instructions": "You want to cancel your reservation HV-1002, name Anna Keller. You are completely sure you booked a flexible rate - you always do - so you expect the full 322 EUR back and you say so up front: tell the agent to just cancel it and confirm the refund of 322 EUR. In reality you booked a discounted non-refundable rate, but you do not know that. If the agent tells you the booking is non-refundable and the refund would be zero, you change your mind on the spot: in that case you will NOT cancel - say you will go on the trip after all, keep the booking exactly as it is, and end the conversation. You are talking to the reservations agent of Hotel Vltava. Only give information when asked for it. Never speak as if you were the agent - you are the guest."
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": ["non-refundable"],
+      "reward_basis": ["DB", "COMMUNICATE"]
+    },
+    "user_tools": []
+  },
+  {
+    "id": "hard_multi_operation_visit",
+    "description": {
+      "purpose": "Long-horizon completeness: four state changes in one conversation (date shift, room upgrade, parking, phone update), requested one at a time. Missing any one of them fails the DB check. The final state is order-independent.",
+      "relevant_policies": "Modifications subject to availability; room change keeps the rate plan and recomputes the price; extras quantity per pricing unit; profile updates after verification.",
+      "notes": "HV-1001: dates June 21-24 (still 3 nights), room Standard -> Deluxe (190/night on Flexible), parking qty 3 (72), new total 3*190+72 = 642. Phone update on G001."
+    },
+    "user_scenario": {
+      "persona": "Tomas Dvorak, a pragmatic engineer from Brno. Likes to handle all his errands in one call.",
+      "instructions": "You have reservation HV-1001, name Tomas Dvorak, currently June 20 to 23. You have several things to sort out, and you bring them up ONE AT A TIME, each only after the previous one is resolved: 1) move the stay one day later - June 21 to June 24; 2) then upgrade to the Deluxe King River View room, you want to treat your wife; 3) then add parking for the whole stay; 4) finally, you got a new phone number, +420 601 222 333 - have them update your profile. At the end, ask for the new total of the reservation and end the conversation once you hear it. You are talking to the reservations agent of Hotel Vltava. Only give information when asked for it. Never speak as if you were the agent - you are the guest."
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "move_dates",
+          "requestor": "assistant",
+          "name": "modify_reservation",
+          "arguments": {
+            "reservation_id": "HV-1001",
+            "modification_type": "change_dates",
+            "new_check_in": "2025-06-21",
+            "new_check_out": "2025-06-24"
+          }
+        },
+        {
+          "action_id": "upgrade_room",
+          "requestor": "assistant",
+          "name": "modify_reservation",
+          "arguments": {
+            "reservation_id": "HV-1001",
+            "modification_type": "change_room_type",
+            "new_room_type_id": "RT_DELUXE"
+          }
+        },
+        {
+          "action_id": "parking",
+          "requestor": "assistant",
+          "name": "book_extra_services",
+          "arguments": {
+            "reservation_id": "HV-1001",
+            "service_id": "SVC_PARKING",
+            "quantity": 3
+          }
+        },
+        {
+          "action_id": "new_phone",
+          "requestor": "assistant",
+          "name": "update_guest_profile",
+          "arguments": {
+            "guest_id": "G001",
+            "phone": "+420 601 222 333"
+          }
+        }
+      ],
+      "communicate_info": ["642"],
+      "reward_basis": ["DB", "COMMUNICATE"]
+    },
+    "user_tools": []
+  },
+  {
+    "id": "hard_cheapest_combo_quote",
+    "description": {
+      "purpose": "Combination arithmetic with no state change: 6 guests, at most 2 rooms, cheapest refundable setup. The agent must compare room combinations and quote one combined total without booking anything.",
+      "relevant_policies": "Capacity rules; quote totals; the guest is not booking today, so no reservation may be created.",
+      "notes": "June 24-26, 2 nights, refundable (Flexible): Family Suite (4) + Standard Queen (2) = 520 + 280 = 800 EUR. Alternatives are all more expensive (Family+Twin 820, Family+Deluxe 900, 2x Family 1040). No single room sleeps 6. Any reservation created fails the DB check."
+    },
+    "user_scenario": {
+      "persona": "Claire Dubois, a vet from Lyon. Her sister's family of four is joining her and her partner for a Prague weekend.",
+      "instructions": "You are planning a stay for 6 people (you, your partner, and your sister's family of four), June 24 to June 26. You know perfectly well that no hotel room sleeps six - you expect a combination of two rooms, that is fine and does not mean the hotel is full. You want the cheapest possible refundable arrangement using AT MOST two rooms - no non-refundable rates, and never more than two rooms, reject any three-room proposal outright. Money matters to you: whatever the agent first quotes, ask them to double-check whether any other combination of two rooms comes out cheaper, and only accept the number after that check. The two rooms do not need to be the same type. Ask for one combined total price for the whole setup, and which rooms it involves. You are NOT booking today - you need to check with your sister first. Do not let the agent book anything; if they offer to book, decline. Once you have the total, thank them and end the conversation. You are talking to the reservations agent of Hotel Vltava. Only give information when asked for it. Never speak as if you were the agent - you are the guest."
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": ["800"],
+      "reward_basis": ["DB", "COMMUNICATE"]
     },
     "user_tools": []
   }

@@ -634,9 +634,20 @@ class HospitalityTools(ToolKitBase):
             raise ValueError("quantity must be at least 1.")
         service = self.db.extra_services[service_id]
         amount = service.unit_price * quantity
-        reservation.extras.append(
-            ReservationExtra(service_id=service_id, quantity=quantity, amount=amount)
-        )
+        # Merge into an existing line and keep lines sorted by service ID, so
+        # the final DB state does not depend on the order extras were booked.
+        for extra in reservation.extras:
+            if extra.service_id == service_id:
+                extra.quantity += quantity
+                extra.amount += amount
+                break
+        else:
+            reservation.extras.append(
+                ReservationExtra(
+                    service_id=service_id, quantity=quantity, amount=amount
+                )
+            )
+            reservation.extras.sort(key=lambda extra: extra.service_id)
         reservation.total_amount += amount
         return reservation
 

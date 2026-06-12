@@ -54,6 +54,7 @@ Before reading or changing anything on a reservation or guest profile, verify th
 
 - Use `book_extra_services` on a confirmed reservation. Check the pricing unit of each service and compute the quantity accordingly (e.g. breakfast for 2 guests for 3 nights is quantity 6; parking for 3 nights is quantity 3).
 - Quote the price of the extras and the new reservation total to the guest.
+- Never book an extra that duplicates something already included in the guest's rate plan or package (e.g. breakfast on a breakfast-included rate). Tell the guest it is already included instead.
 
 ## Knowledge questions
 
