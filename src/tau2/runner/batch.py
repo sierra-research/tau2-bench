@@ -21,6 +21,7 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Optional
 
+import litellm
 from loguru import logger
 
 from tau2.data_model.persona import InterruptTendency, PersonaConfig, Verbosity
@@ -312,9 +313,14 @@ class _TaskLogContext:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is not None and self.task_log_dir and self.task_log_dir.exists():
+            reason = (
+                "context_window_exceeded"
+                if isinstance(exc_val, litellm.ContextWindowExceededError)
+                else "infrastructure_error"
+            )
             status = {
                 "status": "failed",
-                "reason": "infrastructure_error",
+                "reason": reason,
                 "error": str(exc_val),
                 "error_type": exc_type.__name__,
             }

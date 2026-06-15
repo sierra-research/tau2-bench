@@ -1244,6 +1244,15 @@ class TerminationReason(str, Enum):
     UNEXPECTED_ERROR = "unexpected_error"
 
 
+# Termination reasons for simulations that never produced an evaluable rollout
+# (they failed before or during execution rather than completing). These are
+# excluded from metric denominators.
+NON_EVALUABLE_TERMINATION_REASONS: tuple[TerminationReason, ...] = (
+    TerminationReason.INFRASTRUCTURE_ERROR,
+    TerminationReason.CONTEXT_WINDOW_EXCEEDED,
+)
+
+
 class SimulationRun(BaseModel):
     """
     Simulation run for the given task.
