@@ -85,15 +85,22 @@ uv sync                      # installs the `voice` extras (websockets, pyaudio,
 export PINE_API_KEY="<your Pine access_token from step 1>"
 # PINE_BASE_URL defaults to wss://api-preview.pinevoice.ai/v1/realtime
 
-# Standard tau2-bench user-simulator + grader (OpenAI; needs gpt-4.1 access)
-export OPENAI_API_KEY="<your OpenAI key>"
+# User-simulator LLM (OpenRouter)
+export OPENROUTER_API_KEY="<your OpenRouter key>"
 
 # User-side TTS voice (ElevenLabs) — official tau2-bench voice setup
 export ELEVENLABS_API_KEY="<your ElevenLabs key>"
 ```
 
-This submission used `openrouter/openai/gpt-5.2` as the simulated user via
-`--user-llm` (set `OPENROUTER_API_KEY`); any tau2-supported user LLM works.
+**Models.** This submission ran the **user simulator** on
+`openrouter/openai/gpt-5.2` (passed via `--user-llm`, hence `OPENROUTER_API_KEY`).
+The **evaluator / judge models** (NL-assertion grader, env-interface, review judge,
+voice turn-taking) are left at tau2-bench's shipped defaults — we did not change
+`config.py`, and the exact evaluator model isn't material to the scores, so you can
+run them as-is. If you do run grading on those defaults, provide the corresponding
+provider key (`OPENAI_API_KEY` for `gpt-4.1`, `ANTHROPIC_API_KEY` for
+`claude-opus-4-5`), or point them at any provider you prefer. The agent itself is
+the Pine realtime endpoint, so it has no tau2-side LLM model.
 
 > Note: the per-persona `TAU2_VOICE_ID_*` overrides used to produce the
 > published audio are non-official voice IDs. Omit them to use the official
