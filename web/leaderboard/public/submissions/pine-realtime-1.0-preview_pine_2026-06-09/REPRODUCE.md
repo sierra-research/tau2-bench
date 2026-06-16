@@ -12,9 +12,14 @@ The public endpoint is `wss://api-preview.pinevoice.ai/v1/realtime`.
 
 ## 1. Get a Pine API key (email + verification code)
 
-Authenticate through the Pine gateway. It proxies email verification and caches
-the token → user mapping as it issues your token, so the token then works
-against the realtime API with a plain `Authorization: Bearer <token>` header.
+Authenticate through the Pine gateway. A Pine user-id cannot be derived from an
+access token, so the realtime API resolves your user from a token → user mapping
+the gateway maintains. Verifying *through the gateway* (the `api-preview.pinevoice.ai`
+host below — **not** `19pine.ai` directly) registers that mapping as it issues your
+token, so the token then works on the socket with a plain `Authorization: Bearer
+<token>` header. Capture **both** the `access_token` and your user `id` from the
+verify response — you need the `id` if you have to register the token manually
+(see the note after step **b** and Troubleshooting).
 
 **a. Request a code** — a 4-digit code is emailed to you:
 
@@ -37,12 +42,26 @@ curl -X POST https://api-preview.pinevoice.ai/api/v2/auth/verify \
         "code": "1234",
         "request_token": "abc..."
       }'
-# -> response includes "access_token": "<your durable Pine API key>"
+# -> {"status":"success","data":{"access_token":"<durable Pine API key>","id":"<your user id>"}}
 ```
 
-The `access_token` is your `PINE_API_KEY`. Because you verified *through the
-gateway*, it is already registered with the realtime API — no extra headers
-needed. (See https://tau-bench.pinevoice.ai/ for the same flow with a live demo.)
+The `data.access_token` is your `PINE_API_KEY`; keep `data.id` (your user id) too.
+Because you verified *through the gateway*, the token is normally registered with
+the realtime API already — no extra headers needed.
+
+**If your first run 401s on the WebSocket upgrade** (`invalid or expired
+credential` / `token not registered …`), the token → user mapping wasn't seeded.
+Register it once with a single call that carries your user id, then re-run:
+
+```bash
+curl -X POST https://api-preview.pinevoice.ai/v1/realtime/client_secrets \
+  -H "Authorization: Bearer ${PINE_API_KEY}" \
+  -H "X-Pine-User-Id: <data.id from above>" \
+  -H "Content-Type: application/json" -d '{}'
+# 200 here registers the token; you can discard the returned ephemeral secret.
+```
+
+(See https://tau-bench.pinevoice.ai/ for the same flow with a live demo.)
 
 ---
 
@@ -50,7 +69,7 @@ needed. (See https://tau-bench.pinevoice.ai/ for the same flow with a live demo.
 
 ```bash
 git clone <this-fork> tau2-bench && cd tau2-bench
-git checkout submission/pine-realtime-1.0-preview-2026-06-09
+git checkout submission/pine-realtime-1.0-preview
 uv sync                      # installs the `voice` extras (websockets, pyaudio, scipy, ...)
 ```
 
@@ -111,6 +130,17 @@ done
 The agent loads as `discrete_time_audio_native_agent → pine/pine-realtime-1.0-preview`.
 Results (per-task reward, transcripts, audio) are written under
 `data/simulations/<save-to>/`.
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `401` on the WS upgrade — `token not registered with the realtime gateway: …` or `invalid or expired credential` | The `pine` provider presents `PINE_API_KEY` as a bearer token directly on the socket, and the gateway has no token → user mapping for it (verified off-gateway, or the verify response didn't seed it). | Run the one-time registration `curl` in step **1** (it sends `X-Pine-User-Id`), then re-run. Make sure you verified against `api-preview.pinevoice.ai`, not `19pine.ai`. |
+| `Pine API key not provided. Set the PINE_API_KEY env var.` | `PINE_API_KEY` unset. | Export the `data.access_token` from step **1**. |
+| Voice deps missing / `libportaudio.so.2: cannot open shared object file` | PortAudio not installed (or not on the linker path on minimal hosts). | `sudo apt-get install -y portaudio19-dev`, then `uv sync`. |
+| `ELEVENLABS_API_KEY not found` | User-simulator TTS key unset. | Export `ELEVENLABS_API_KEY` (step **3**). |
 
 ---
 
