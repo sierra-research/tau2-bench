@@ -14,14 +14,14 @@ Setup (PowerShell, from tau2-bench root):
     # .env in tau2-bench: ANTHROPIC_API_KEY=... and OPENAI_API_KEY=... (user sim)
 
     uv run python examples/agents/return_exchange_agent_tau2.py `
-        --return-agent-path "C:\dev\Return-and-Exchange-agent-main" `
+        --return-agent-path "C:/dev/Return-and-Exchange-agent-main" `
         --task-ids 0 1 2 `
         --user-llm openai/gpt-4.1-mini
 
 Full retail base split:
 
     uv run python examples/agents/return_exchange_agent_tau2.py `
-        --return-agent-path "C:\dev\Return-and-Exchange-agent-main"
+        --return-agent-path "C:/dev/Return-and-Exchange-agent-main"
 """
 
 from __future__ import annotations
@@ -51,12 +51,81 @@ from tau2.environment.toolkit import Tool
 from tau2.registry import registry
 from tau2.runner import run_domain
 
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None  # type: ignore[misc, assignment]
+
 DEFAULT_RETURN_AGENT_PATH = os.environ.get(
     "RETURN_AGENT_PATH",
     "C:\\dev\\Return-and-Exchange-agent-main",
 )
 
 AGENT_NAME = "return_exchange_agent"
+
+
+def _tau2_project_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _load_env_files(return_agent_path: Path) -> None:
+    """Load tau2-bench .env then return-agent .env (does not override existing vars)."""
+    if load_dotenv is None:
+        return
+    load_dotenv(_tau2_project_root() / ".env")
+    agent_env = return_agent_path / ".env"
+    if agent_env.is_file():
+        load_dotenv(agent_env, override=False)
+
+
+def _is_placeholder_key(value: str | None) -> bool:
+    if not value:
+        return True
+    lowered = value.strip().lower()
+    return lowered.startswith("<") or "your_key" in lowered or lowered == "sk-..."
+
+
+def _preflight(return_agent_path: Path, user_llm: str) -> None:
+    errors: list[str] = []
+
+    script_path = (
+        _tau2_project_root() / "examples" / "agents" / "return_exchange_agent_tau2.py"
+    )
+    if not script_path.is_file():
+        errors.append(f"Integration script missing at {script_path}")
+
+    if not return_agent_path.is_dir():
+        errors.append(
+            f"Return-and-Exchange agent folder not found: {return_agent_path}\n"
+            "  Clone: git clone https://github.com/annagibaeva/Return-and-Exchange-agent.git "
+            "C:\\dev\\Return-and-Exchange-agent-main"
+        )
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    if _is_placeholder_key(anthropic_key):
+        errors.append(
+            "ANTHROPIC_API_KEY is missing or still a placeholder.\n"
+            "  Edit C:\\dev\\tau2-bench\\.env OR C:\\dev\\Return-and-Exchange-agent-main\\.env"
+        )
+
+    if user_llm.startswith("openai/") and _is_placeholder_key(
+        os.environ.get("OPENAI_API_KEY")
+    ):
+        errors.append(
+            "OPENAI_API_KEY is missing (needed for --user-llm openai/... user simulator).\n"
+            "  Edit C:\\dev\\tau2-bench\\.env"
+        )
+
+    try:
+        import anthropic  # noqa: F401
+    except ImportError:
+        errors.append("Install deps: uv pip install anthropic PyYAML")
+
+    if errors:
+        print("Preflight failed — fix these before running:\n")
+        for i, err in enumerate(errors, 1):
+            print(f"  {i}. {err}\n")
+        raise SystemExit(1)
 
 
 def _add_return_agent_to_path(return_agent_path: Path) -> None:
@@ -414,12 +483,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     return_path = Path(args.return_agent_path)
-    if not return_path.is_dir():
-        raise SystemExit(
-            f"Return-and-Exchange agent not found at {return_path}. "
-            "Clone https://github.com/annagibaeva/Return-and-Exchange-agent "
-            "or pass --return-agent-path."
-        )
+    _load_env_files(return_path)
+    _preflight(return_path, args.user_llm)
 
     def factory_with_path(tools, domain_policy, **kwargs):
         kwargs["return_agent_path"] = str(return_path)
@@ -437,7 +502,7 @@ def main() -> None:
         num_trials=args.num_trials,
         max_concurrency=args.max_concurrency,
         task_ids=args.task_ids,
-        task_split_name="base" if args.task_ids is None else None,
+        task_split_name="base",
         save_to=args.save_to,
     )
 
