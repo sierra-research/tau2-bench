@@ -30,7 +30,21 @@ Shows how to customize the agent's decision-making process to improve tool-use a
 python examples/agents/react_agent.py
 ```
 
-### `custom_agent_eval.py` -- Power user path
+### `return_exchange_agent_tau2.py` — External Return-and-Exchange agent
+
+Evaluates the [Return-and-Exchange agent](https://github.com/annagibaeva/Return-and-Exchange-agent) against the τ-bench **retail** domain (returns/exchanges). Uses your agent's skills and supervisor with τ-bench retail tools.
+
+```powershell
+# From tau2-bench root (PowerShell)
+uv pip install anthropic PyYAML
+uv run python examples/agents/return_exchange_agent_tau2.py `
+  --return-agent-path "C:\dev\Return-and-Exchange-agent-main" `
+  --task-ids 0 1 2 `
+  --user-llm openai/gpt-4.1-mini
+```
+
+Requires `ANTHROPIC_API_KEY` (agent) and a user-simulator key in `.env` (e.g. `OPENAI_API_KEY`).
+
 
 Builds all components manually without the registry. Shows:
 
