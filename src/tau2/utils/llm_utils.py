@@ -172,7 +172,21 @@ def to_litellm_messages(messages: list[Message]) -> list[dict]:
     litellm_messages = []
     for message in messages:
         if isinstance(message, UserMessage):
-            litellm_messages.append({"role": "user", "content": message.content})
+            litellm_message = {"role": "user", "content": message.content}
+            if message.is_tool_call():
+                litellm_message["tool_calls"] = [
+                    {
+                        "id": tc.id,
+                        "name": tc.name,
+                        "function": {
+                            "name": tc.name,
+                            "arguments": json.dumps(tc.arguments),
+                        },
+                        "type": "function",
+                    }
+                    for tc in message.tool_calls
+                ]
+            litellm_messages.append(litellm_message)
         elif isinstance(message, AssistantMessage):
             tool_calls = None
             if message.is_tool_call():
