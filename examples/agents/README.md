@@ -32,19 +32,66 @@ python examples/agents/react_agent.py
 
 ### `return_exchange_agent_tau2.py` — External Return-and-Exchange agent
 
-Evaluates the [Return-and-Exchange agent](https://github.com/annagibaeva/Return-and-Exchange-agent) against the τ-bench **retail** domain (returns/exchanges). Uses your agent's skills and supervisor with τ-bench retail tools.
+Evaluates the [Return-and-Exchange agent](https://github.com/annagibaeva/Return-and-Exchange-agent) against the τ-bench **retail** domain (returns/exchanges). Uses your agent's skills and τ-bench retail supervisor with real retail tools.
 
 ```powershell
 # From tau2-bench root (PowerShell)
-uv pip install anthropic PyYAML
+uv sync --extra return_exchange
 uv run python examples/agents/return_exchange_agent_tau2.py `
   --return-agent-path "C:\dev\Return-and-Exchange-agent-main" `
   --task-ids 0 1 2 `
   --user-llm openai/gpt-4.1-mini
 ```
 
-Requires `ANTHROPIC_API_KEY` (agent) and a user-simulator key in `.env` (e.g. `OPENAI_API_KEY`).
+Requires `ANTHROPIC_API_KEY` (agent + supervisor) and a user-simulator key in `.env` (e.g. `OPENAI_API_KEY`).
 
+#### Pass^k reliability and cost-per-resolution
+
+τ-bench scores **pass^k** (probability a task passes all *k* trials). Under outcome-based pricing, **margin per resolution = price per case − cost per resolved case** — so track both reliability and cost together.
+
+Each run logs **tokens per conversation** on every simulation (`sim.info.token_usage` in `results.json`) and prints a cost summary when the eval finishes:
+
+| Component | What it bills |
+|-----------|----------------|
+| `agent` | Claude turns (tool + text) |
+| `supervisor` | Retail policy audit (LLM path only; deterministic fast-path = $0) |
+| `user_simulator` | τ-bench user simulator (replaces the golden-set **judge** tax) |
+
+**Cost model (claude-sonnet-4-6):** $3/M input, $15/M output tokens.
+
+| Run | Tasks | Trials | Pass^1 | Cost / conversation | Cost / resolved case |
+|-----|-------|--------|--------|---------------------|----------------------|
+| Supervisor on (tasks 0–2) | 3 | 1 | 100% | see run output | see run output |
+| Supervisor off (tasks 0–2) | 3 | 1 | 50% | see run output | see run output |
+| Full retail base + supervisor | 114 | 1 | TBD | TBD | TBD |
+
+Re-run with `--num-trials 4` for pass^4 reliability. A full pass^k sweep (agent + supervisor + user sim, multi-turn) is roughly **~170 billed LLM calls** for the golden-set harness at k=5; τ-bench retail scales with task count × trials.
+
+Example cost block after a run:
+
+```text
+==================================================
+COST PER RESOLUTION
+==================================================
+  Total: $0.0842  (42,100 in / 3,200 out, 18 billed LLM calls across 3 conversations)
+  Per conversation (avg over k=1): $0.0281
+  Per resolved case (reward=1): $0.0315 (2/3 resolved)
+  agent          $0.0610  (12 calls, ...)
+  supervisor     $0.0040  (2 calls, ...)
+  user_simulator $0.0192  (6 calls, ...)
+```
+
+Pass^k without supervisor (A/B):
+
+```powershell
+uv run python examples/agents/return_exchange_agent_tau2.py `
+  --return-agent-path "C:\dev\Return-and-Exchange-agent-main" `
+  --task-ids 0 1 2 `
+  --no-supervisor `
+  --save-to return-exchange-ab-no-supervisor
+```
+
+### `custom_agent_eval.py` — Manual orchestrator wiring
 
 Builds all components manually without the registry. Shows:
 

@@ -51,6 +51,13 @@ from tau2.environment.toolkit import Tool
 from tau2.registry import registry
 from tau2.runner import run_domain
 
+_AGENTS_DIR = Path(__file__).resolve().parent
+if str(_AGENTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_AGENTS_DIR))
+
+from cost_report import annotate_results, print_cost_summary
+from usage import UsageTracker, anthropic_to_tau2_usage, cost_usd
+
 try:
     from dotenv import load_dotenv
 except ImportError:
@@ -119,7 +126,7 @@ def _preflight(return_agent_path: Path, user_llm: str) -> None:
     try:
         import anthropic  # noqa: F401
     except ImportError:
-        errors.append("Install deps: uv pip install anthropic PyYAML")
+        errors.append("Install deps: uv sync --extra return_exchange")
 
     if errors:
         print("Preflight failed — fix these before running:\n")
@@ -304,14 +311,43 @@ When the request is resolved or must escalate, give a clear final message to the
 customer."""
 
 
+def _anthropic_message_cost(model: str, response) -> tuple[float, dict]:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return 0.0, {}
+    input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
+    output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+    return (
+        cost_usd(model, input_tokens, output_tokens),
+        anthropic_to_tau2_usage(input_tokens, output_tokens),
+    )
+
+
+def _merge_assistant_usage(
+    base: dict,
+    *,
+    supervisor_cost: float = 0.0,
+    supervisor_usage: dict | None = None,
+) -> dict:
+    merged = dict(base)
+    if supervisor_usage:
+        merged["supervisor_input_tokens"] = supervisor_usage.get("prompt_tokens", 0)
+        merged["supervisor_output_tokens"] = supervisor_usage.get("completion_tokens", 0)
+    if supervisor_cost:
+        merged["supervisor_cost_usd"] = supervisor_cost
+    return merged
+
+
 class ReturnExchangeTau2AgentState:
     def __init__(
         self,
         system_messages: list[SystemMessage],
         messages: list[APICompatibleMessage],
+        usage_tracker: UsageTracker | None = None,
     ):
         self.system_messages = system_messages
         self.messages = messages
+        self.usage_tracker = usage_tracker or UsageTracker()
 
 
 class ReturnExchangeTau2Agent(HalfDuplexAgent[ReturnExchangeTau2AgentState]):
@@ -345,7 +381,7 @@ class ReturnExchangeTau2Agent(HalfDuplexAgent[ReturnExchangeTau2AgentState]):
         self._anthropic_tools = tau2_tools_to_anthropic(tools)
 
         if self.use_supervisor:
-            from supervisor import supervised_reply
+            from retail_supervisor import supervised_reply
 
             self._supervised_reply = supervised_reply
         else:
@@ -380,6 +416,8 @@ class ReturnExchangeTau2Agent(HalfDuplexAgent[ReturnExchangeTau2AgentState]):
             tools=self._anthropic_tools,
             messages=anthropic_messages,
         )
+        state.usage_tracker.record("agent", self.model, response)
+        agent_cost, agent_usage = _anthropic_message_cost(self.model, response)
 
         if response.stop_reason == "tool_use":
             tool_calls: list[ToolCall] = []
@@ -396,23 +434,51 @@ class ReturnExchangeTau2Agent(HalfDuplexAgent[ReturnExchangeTau2AgentState]):
                 break  # retail policy: one tool per turn
 
             assistant_message = AssistantMessage.text(
-                content=None, tool_calls=tool_calls
+                content=None,
+                tool_calls=tool_calls,
+                cost=agent_cost or None,
+                usage=agent_usage or None,
             )
             state.messages.append(assistant_message)
             return assistant_message, state
 
         draft = "".join(b.text for b in response.content if b.type == "text")
 
+        supervisor_cost = 0.0
+        supervisor_usage: dict = {}
         if self._supervised_reply is not None:
             customer_msgs = _customer_messages_for_supervisor(state.messages)
             trace = _trace_from_history(state.messages)
+            before = len(state.usage_tracker.records)
             final_text, _verdict = self._supervised_reply(
-                customer_msgs, draft, trace, client=self._client
+                customer_msgs,
+                draft,
+                trace,
+                client=self._client,
+                usage_tracker=state.usage_tracker,
             )
+            for rec in state.usage_tracker.records[before:]:
+                if rec.component != "supervisor":
+                    continue
+                supervisor_cost += rec.cost_usd
+                supervisor_usage = anthropic_to_tau2_usage(
+                    supervisor_usage.get("prompt_tokens", 0) + rec.input_tokens,
+                    supervisor_usage.get("completion_tokens", 0) + rec.output_tokens,
+                )
         else:
             final_text = draft
 
-        assistant_message = AssistantMessage.text(content=final_text)
+        total_cost = agent_cost + supervisor_cost
+        assistant_message = AssistantMessage.text(
+            content=final_text,
+            cost=total_cost or None,
+            usage=_merge_assistant_usage(
+                agent_usage,
+                supervisor_cost=supervisor_cost,
+                supervisor_usage=supervisor_usage or None,
+            )
+            or None,
+        )
         state.messages.append(assistant_message)
         return assistant_message, state
 
@@ -508,10 +574,17 @@ def main() -> None:
 
     print(f"Return-and-Exchange agent path: {return_path}")
     print(f"Tasks: {args.task_ids or 'full base split'}")
-    print(f"Results → data/simulations/{args.save_to}/")
+    print(f"Results -> data/simulations/{args.save_to}/")
     print()
 
-    run_domain(config)
+    results = run_domain(config)
+    usage = annotate_results(results)
+    print_cost_summary(usage, num_trials=args.num_trials)
+
+    save_path = _tau2_project_root() / "data" / "simulations" / args.save_to / "results.json"
+    if save_path.is_file():
+        save_path.write_text(results.model_dump_json(indent=2), encoding="utf-8")
+
     print()
     print("Done. View results:")
     print("  uv run tau2 view")
