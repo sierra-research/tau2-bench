@@ -92,12 +92,28 @@ export OPENROUTER_API_KEY="<your OpenRouter key>"
 export ELEVENLABS_API_KEY="<your ElevenLabs key>"
 ```
 
-**Models.** This submission ran the **user simulator** on
-`openrouter/openai/gpt-5.2` (passed via `--user-llm`, hence `OPENROUTER_API_KEY`).
-The **evaluator / judge models** (NL-assertion grader, env-interface, review judge,
-voice turn-taking) are left at tau2-bench's shipped defaults — we did not change
-`config.py`, and the exact evaluator model isn't material to the scores, so you can
-run them as-is. If you do run grading on those defaults, provide the corresponding
+**Models.** This submission uses the **standard voice user simulator v1.0 =
+`gpt-4.1`**, matching the other voice leaderboard entries. The v1.0 user simulator
+has **two** model slots that both must be `gpt-4.1` for a standard run:
+
+1. the **user-content LLM** — passed via `--user-llm openrouter/openai/gpt-4.1`
+   (hence `OPENROUTER_API_KEY`); and
+2. the **turn-taking decision model** that drives the simulated caller's
+   interrupt/backchannel timing — `VOICE_USER_SIMULATOR_DECISION_MODEL` in
+   `src/tau2/config.py`. The standard v1.0 value is `gpt-4.1`; **ensure it is set
+   to `openrouter/openai/gpt-4.1`** before running.
+
+> **Correction (2026-06-24).** An earlier revision of this submission reported
+> airline 78.0 / retail 78.1 / telecom 78.1 using a **non-standard gpt-5.2**
+> simulated user in *both* slots (user-content and turn-taking).
+> Those numbers are not comparable to the rest of the board (which uses gpt-4.1)
+> and have been superseded by the standard gpt-4.1 numbers in `submission.json`.
+> To reproduce the gpt-4.1 numbers, keep both slots on `gpt-4.1` as above.
+
+The remaining **evaluator / grader models** (NL-assertion grader, env-interface,
+review judge) are left at tau2-bench's shipped defaults and held identical to the
+original run, so the only variable versus the earlier 78.x revision is the
+simulated user. If you run grading on those defaults, provide the corresponding
 provider key (`OPENAI_API_KEY` for `gpt-4.1`, `ANTHROPIC_API_KEY` for
 `claude-opus-4-5`), or point them at any provider you prefer. The agent itself is
 the Pine realtime endpoint, so it has no tau2-side LLM model.
@@ -116,7 +132,7 @@ Single task (smoke test):
 uv run tau2 run \
   --domain airline --task-ids 0 \
   --audio-native --audio-native-provider pine \
-  --user-llm openrouter/openai/gpt-5.2 \
+  --user-llm openrouter/openai/gpt-4.1 \
   --speech-complexity regular \
   --num-trials 1 --max-concurrency 1 \
   --save-to my_pine_run
@@ -128,7 +144,7 @@ Full domain (all tasks):
 for d in airline retail telecom; do
   uv run tau2 run \
     --domain "$d" --audio-native --audio-native-provider pine \
-    --user-llm openrouter/openai/gpt-5.2 \
+    --user-llm openrouter/openai/gpt-4.1 \
     --speech-complexity regular --num-trials 1 \
     --save-to "pine_${d}"
 done
