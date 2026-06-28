@@ -1,0 +1,61 @@
+{
+  "model_name": "DRQ-27B TauSynth-GRIPO-Multistage",
+  "model_organization": "SuperQ",
+  "submitting_organization": "SuperQ",
+  "submission_date": "2026-06-28",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "litianyu7@xiaomi.com",
+    "name": "SuperQ Evaluation Team",
+    "github": null
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "drq-27b-tausynth-gripo-multistage_airline_gpt-5.5_4trials.json",
+    "retail": "drq-27b-tausynth-gripo-multistage_retail_gpt-5.5_4trials.json",
+    "telecom": "drq-27b-tausynth-gripo-multistage_telecom_gpt-5.5_4trials.json"
+  },
+  "references": [
+    {
+      "title": "SuperQ drq-27b-tausynth-gripo-multistage evaluation code",
+      "url": "https://github.com/AiObserver/SuperQ",
+      "type": "other"
+    }
+  ],
+  "results": {
+    "airline": {
+      "pass_1": 62.5,
+      "pass_2": 53.0,
+      "pass_3": 47.5,
+      "pass_4": 44.0,
+      "cost": 0.0
+    },
+    "retail": {
+      "pass_1": 85.52631578947368,
+      "pass_2": 80.11695906432749,
+      "pass_3": 75.87719298245614,
+      "pass_4": 71.9298245614035,
+      "cost": 0.0
+    },
+    "telecom": {
+      "pass_1": 23.684210526315788,
+      "pass_2": 18.128654970760234,
+      "pass_3": 14.473684210526317,
+      "pass_4": 11.403508771929824,
+      "cost": 0.0
+    }
+  },
+  "methodology": {
+    "evaluation_date": "2026-06-27",
+    "tau2_bench_version": "tau2-bench main checkout used for local evaluation; see checklist for local path and result hashes",
+    "user_simulator": "openai/gpt-5.5",
+    "notes": "Custom text submission. Agent is the DRQ-27B TauSynth-GRIPO-Multistage model, based on a Qwen3.5-27B model trained through three stages: (1) GRIPO RL on tau-style synthetic trajectories and tau-bench-style interaction data, (2) GRIPO-MOPD second-stage trajectory/tool-use repair and multi-checkpoint distillation to mitigate seesaw regressions, and (3) GRIPO-SFT OpenAI-format instruction-following training for chat/tool-call protocol compliance. The resulting merged model was served through a local vLLM OpenAI-compatible endpoint as model tau27_targeted_sft_merged. User simulator was gpt-5.5 for all four domains. The three core tau3 text domains (airline, retail, telecom) were evaluated on the base split with 4 trials per task and no task filters. Reported Pass^k uses C(c,k)/C(n,k) per task, then arithmetic mean over tasks; aggregate core-domain averages, if reported separately, use the unweighted mean over airline, retail, and telecom. Training methodology: GRIPO RL: Agentic reinforcement learning based on tau-style synthetic trajectories and tau-bench-style interaction data, producing the step500 GRIPO posttraining checkpoint used as the main initialization. GRIPO-MOPD two-stage training: A second-stage trajectory and tool-use repair phase that applies MOPD-style multi-teacher or multi-checkpoint distillation to reduce seesaw regressions across tau3 domains and consolidate complementary checkpoint behaviors. GRIPO-SFT OpenAI-format instruction-following training: Supervised fine-tuning on OpenAI-compatible chat and tool-call format data to improve instruction following, function-call formatting, schema-valid arguments, and local vLLM OpenAI-compatible serving behavior. Secondary contact: ryantianyuli@aliyun.com.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "Full core-domain runs: airline 50x4, retail 114x4, telecom 114x4. No infrastructure_error terminations in the final core-domain results. Raw trajectory/results files are hosted externally in the trajectory repository."
+    }
+  }
+}
