@@ -1,0 +1,511 @@
+domain: telecom
+
+injections:
+  # --- Task-blocking injections ---
+  #
+  # Enforcement types:
+  #   API-enforced:  The write tool itself rejects the call (raises ValueError).
+  #   Diagnostic:    Agent misdiagnoses the issue and never attempts the correct action.
+  #                  The write tool would accept the call, but the agent doesn't make it.
+  #
+  # Both create measurable reward=0.0 for standard agents and reward=1.0 for
+  # robust/verify agents that detect the inconsistency and re-fetch.
+
+  # T1: Block resume_line — suspended line shows as Active via get_details_by_id
+  # ENFORCEMENT: API-enforced — resume_line raises ValueError("Line must be suspended to resume")
+  # if status is not Suspended or Pending Activation.
+  - id: telecom_block_resume_active_line
+    type: status_flip
+    target_tool: get_details_by_id
+    description: >
+      A suspended line incorrectly shows status as "Active" when looked up by ID.
+      Agent sees active line and never identifies suspension as root cause,
+      wasting investigation on other troubleshooting steps.
+      Real-world cause: suspension status propagation delay in line management system.
+    difficulty: 2
+    mutations:
+      - field_path: status
+        action: flip
+        flip_map:
+          "Suspended": "Active"
+    precondition:
+      status: "Suspended"
+    task_keywords:
+      - "service"
+      - "not working"
+      - "suspended"
+      - "line"
+      - "no service"
+      - "call"
+      - "can't make"
+      - "overdue"
+    detection_signals:
+      - "line is active"
+      - "status shows active"
+      - "still no service"
+      - "doesn't match"
+      - "inconsistent"
+    recovery_signals:
+      - "get_details_by_id"
+      - "resume_line"
+      - "check status"
+      - "verify line"
+    blocks_actions:
+      - "resume_line"
+      - "send_payment_request"
+
+  # T2: Block refuel_data — data usage shows under limit
+  # ENFORCEMENT: Diagnostic — refuel_data has no status guard (check is commented out in
+  # tools.py:629-630). Agent misdiagnoses: sees low usage → pursues wrong troubleshooting
+  # path (APN, VPN, roaming) → never calls refuel_data → task fails.
+  - id: telecom_block_refuel_low_usage
+    type: corrupt_field
+    target_tool: get_data_usage
+    description: >
+      Data usage shows 0.5 GB (well under plan limit) but line has actually exceeded
+      its data allowance. Agent finds no data overage and never calls refuel_data,
+      investigating other causes like roaming, APN, VPN.
+      Real-world cause: billing system aggregation delay.
+    difficulty: 3
+    mutations:
+      - field_path: data_used_gb
+        action: set
+        value: 0.5
+    task_keywords:
+      - "data"
+      - "internet"
+      - "slow"
+      - "not working"
+      - "usage"
+      - "speed"
+    detection_signals:
+      - "data usage looks fine"
+      - "still not working"
+      - "usage is normal"
+      - "within limit"
+      - "only used"
+    recovery_signals:
+      - "refuel_data"
+      - "get_data_usage"
+      - "re-check"
+      - "still not working"
+    blocks_actions:
+      - "refuel_data"
+
+  # T3: Block enable_roaming — roaming shows as already enabled
+  # ENFORCEMENT: Diagnostic — enable_roaming has a soft check (returns "already enabled"
+  # message, no error). Agent sees roaming_enabled=true → skips enable_roaming → guides
+  # user through device-side steps that don't fix the server-side issue.
+  - id: telecom_block_enable_roaming
+    type: corrupt_field
+    target_tool: get_details_by_id
+    description: >
+      Line shows roaming_enabled=true even though server-side roaming is actually
+      disabled. Agent skips calling enable_roaming and focuses on device-side
+      troubleshooting that doesn't resolve the real issue.
+      Real-world cause: roaming activation cache not yet propagated.
+    difficulty: 3
+    mutations:
+      - field_path: roaming_enabled
+        action: set
+        value: true
+    precondition:
+      roaming_enabled: false
+    task_keywords:
+      - "roaming"
+      - "abroad"
+      - "international"
+      - "data not working"
+      - "traveling"
+      - "france"
+      - "overseas"
+    detection_signals:
+      - "roaming is already enabled"
+      - "roaming shows true"
+      - "still not working"
+      - "despite roaming"
+      - "inconsistent"
+    recovery_signals:
+      - "enable_roaming"
+      - "check line details"
+      - "get_details_by_id"
+      - "re-check"
+    blocks_actions:
+      - "enable_roaming"
+
+  # T4: Block send_payment_request — overdue bill shows as Paid
+  # ENFORCEMENT: Diagnostic — send_payment_request does NOT check bill status (docstring
+  # explicitly warns: "does not check if the bill is already PAID"). Agent sees Paid bill →
+  # concludes no overdue balance → never sends payment request → resume chain blocked.
+  - id: telecom_block_payment_bill_paid
+    type: status_flip
+    target_tool: get_bills_for_customer
+    description: >
+      An overdue bill incorrectly shows status as "Paid" in the bill listing.
+      Agent cannot identify the overdue bill to send a payment request for,
+      blocking the entire payment → resume chain.
+      Real-world cause: payment confirmation delay / billing database sync issue.
+    difficulty: 3
+    mutations:
+      - field_path: 0.status
+        action: flip
+        flip_map:
+          "Overdue": "Paid"
+    precondition:
+      0.status: "Overdue"
+    task_keywords:
+      - "service"
+      - "no service"
+      - "suspended"
+      - "can't make"
+      - "overdue"
+      - "bill"
+      - "payment"
+    detection_signals:
+      - "no overdue bills"
+      - "bill is paid"
+      - "already paid"
+      - "still suspended"
+      - "doesn't match"
+    recovery_signals:
+      - "get_bills_for_customer"
+      - "check bill status"
+      - "get_details_by_id"
+      - "still suspended"
+    blocks_actions:
+      - "send_payment_request"
+      - "resume_line"
+
+  # T5: Block suspend_line — active line shows as Suspended via get_details_by_id
+  # ENFORCEMENT: API-enforced — suspend_line raises ValueError("Line must be active to suspend")
+  # if status is not Active.
+  - id: telecom_block_suspend_already_suspended
+    type: status_flip
+    target_tool: get_details_by_id
+    description: >
+      An active line incorrectly shows status as "Suspended" when looked up by ID.
+      Agent sees suspended line and refuses to suspend it (already suspended),
+      failing to execute the customer's suspension request.
+      Real-world cause: stale status cache from a previously reversed suspension.
+    difficulty: 2
+    mutations:
+      - field_path: status
+        action: flip
+        flip_map:
+          "Active": "Suspended"
+    precondition:
+      status: "Active"
+    task_keywords:
+      - "suspend"
+      - "pause"
+      - "hold"
+      - "line"
+      - "stop service"
+      - "traveling"
+      - "lost"
+      - "stolen"
+    detection_signals:
+      - "already suspended"
+      - "line is suspended"
+      - "shows suspended"
+      - "doesn't match"
+      - "inconsistent"
+    recovery_signals:
+      - "get_details_by_id"
+      - "suspend_line"
+      - "check status"
+      - "verify line"
+    blocks_actions:
+      - "suspend_line"
+
+  # T6: Block refuel_data via inflated data limit — agent sees plenty of headroom
+  # ENFORCEMENT: Diagnostic — get_data_usage returns data_limit_gb from the plan.
+  # If limit appears very high, agent calculates "used 8GB of 100GB" → no overage →
+  # pursues wrong troubleshooting path → never calls refuel_data.
+  - id: telecom_block_refuel_high_limit
+    type: corrupt_field
+    target_tool: get_data_usage
+    description: >
+      Data limit shows 100 GB (plan actually has 5 GB cap). Agent calculates
+      the user is well within their data allowance and concludes data overage
+      is not the issue, investigating other causes instead of refueling.
+      Real-world cause: plan migration left stale unlimited-tier limit in cache.
+    difficulty: 3
+    mutations:
+      - field_path: data_limit_gb
+        action: set
+        value: 100.0
+    task_keywords:
+      - "data"
+      - "internet"
+      - "slow"
+      - "not working"
+      - "usage"
+      - "speed"
+      - "exceeded"
+    detection_signals:
+      - "within limit"
+      - "plenty of data"
+      - "data limit is 100"
+      - "still not working"
+      - "doesn't match"
+    recovery_signals:
+      - "get_data_usage"
+      - "refuel_data"
+      - "re-check"
+      - "check plan"
+    blocks_actions:
+      - "refuel_data"
+
+  # T7: Block enable_roaming via false speed test — agent thinks data is working
+  # ENFORCEMENT: Diagnostic — if speed test shows good results, agent concludes
+  # data connection is fine and focuses on app-level troubleshooting instead
+  # of investigating roaming as root cause.
+  - id: telecom_block_roaming_false_speed
+    type: corrupt_field
+    target_tool: run_speed_test
+    description: >
+      Speed test returns good results (50 Mbps download) even though the user
+      has no actual data connection abroad. Agent sees healthy speed test and
+      concludes the data path is working, focusing on app-level or device-side
+      issues instead of enabling roaming.
+      Real-world cause: speed test cached from last domestic connection.
+    difficulty: 3
+    mutations:
+      - field_path: download_speed_mbps
+        action: set
+        value: 50.0
+    task_keywords:
+      - "roaming"
+      - "abroad"
+      - "international"
+      - "data not working"
+      - "traveling"
+      - "france"
+      - "overseas"
+      - "internet"
+    detection_signals:
+      - "speed looks fine"
+      - "speed test shows good"
+      - "still not working"
+      - "despite good speed"
+      - "inconsistent"
+    recovery_signals:
+      - "run_speed_test"
+      - "enable_roaming"
+      - "get_details_by_id"
+      - "re-check"
+    blocks_actions:
+      - "enable_roaming"
+
+  # T8: Block suspend_line via Closed status — agent sees permanently closed line
+  # ENFORCEMENT: API-enforced — suspend_line raises ValueError("Line must be active
+  # to suspend") for any status that isn't Active, including Closed.
+  - id: telecom_block_suspend_closed_line
+    type: status_flip
+    target_tool: get_details_by_id
+    description: >
+      An active line incorrectly shows status as "Closed" (permanently terminated).
+      Agent sees a closed line and tells the user the line is no longer available,
+      refusing the suspension request and potentially escalating unnecessarily.
+      Real-world cause: line closure event from a cancelled account migration
+      was applied to the wrong line ID.
+    difficulty: 2
+    mutations:
+      - field_path: status
+        action: flip
+        flip_map:
+          "Active": "Closed"
+    precondition:
+      status: "Active"
+    task_keywords:
+      - "suspend"
+      - "pause"
+      - "hold"
+      - "line"
+      - "stop service"
+      - "traveling"
+      - "lost"
+      - "stolen"
+    detection_signals:
+      - "line is closed"
+      - "permanently closed"
+      - "no longer active"
+      - "doesn't match"
+      - "inconsistent"
+    recovery_signals:
+      - "get_details_by_id"
+      - "suspend_line"
+      - "check status"
+      - "verify line"
+    blocks_actions:
+      - "suspend_line"
+
+  # --- Cosmetic / diagnostic-confusion injections (no blocks_actions) ---
+
+  # T9 (cosmetic): False Network Diagnostic — network shows "connected" but user has no service
+  - id: telecom_false_network_status
+    type: status_flip
+    target_tool: check_network_status
+    description: >
+      Network status reports "connected" but user actually has no service.
+      Real-world cause: status bar lag, modem reporting delay.
+      Agent should investigate further when user reports issues despite "good" status.
+    difficulty: 2
+    mutations:
+      - field_path: network_connection_status
+        action: set
+        value: "connected"
+    task_keywords:
+      - "data"
+      - "internet"
+      - "service"
+      - "network"
+      - "not working"
+      - "no service"
+    detection_signals:
+      - "still no service"
+      - "not working"
+      - "try another"
+      - "run a speed test"
+      - "inconsistent"
+    recovery_signals:
+      - "run_speed_test"
+      - "check_sim_status"
+      - "reboot_device"
+      - "toggle_airplane_mode"
+      - "check_network_status"
+    blocks_actions: []
+
+  # T10 (cosmetic): Misleading APN Settings — APN looks correct but is actually broken
+  - id: telecom_misleading_apn
+    type: corrupt_field
+    target_tool: check_apn_settings
+    description: >
+      APN settings show correct values but MMS still doesn't work.
+      Real-world cause: APN config cached but not applied after a change.
+      Agent should try resetting APN despite it looking correct.
+    difficulty: 3
+    mutations:
+      - field_path: mmsc
+        action: set
+        value: "http://mms.carrier.com"
+    task_keywords:
+      - "mms"
+      - "data"
+      - "internet"
+      - "settings"
+      - "picture message"
+    detection_signals:
+      - "APN looks correct"
+      - "settings look fine"
+      - "still can't send"
+      - "MMS not working"
+    recovery_signals:
+      - "reset_apn_settings"
+      - "set_apn_settings"
+      - "reboot_device"
+      - "can_send_mms"
+    blocks_actions: []
+
+  # T11 (cosmetic): False SIM Status — SIM shows "ready" but is actually locked
+  - id: telecom_false_sim_status
+    type: status_flip
+    target_tool: check_sim_status
+    description: >
+      SIM card status reports "ready" but SIM is actually locked or unseated.
+      Real-world cause: stale SIM controller state.
+      Agent should try reseating SIM when other fixes don't work.
+    difficulty: 2
+    mutations:
+      - field_path: sim_status
+        action: set
+        value: "ready"
+    task_keywords:
+      - "service"
+      - "not working"
+      - "sim"
+      - "network"
+      - "no service"
+      - "call"
+    detection_signals:
+      - "SIM looks fine"
+      - "SIM is ready"
+      - "still no service"
+      - "try reseating"
+    recovery_signals:
+      - "reseat_sim_card"
+      - "check_sim_status"
+      - "reboot_device"
+      - "toggle_airplane_mode"
+    blocks_actions: []
+
+  # T12 (cosmetic): Bill Amount Corruption — total_due inflated in bill listing
+  - id: telecom_bill_amount_corruption
+    type: corrupt_field
+    target_tool: get_bills_for_customer
+    description: >
+      A bill's total_due is corrupted to a much higher amount ($999.99) in the listing.
+      Agent communicates the wrong payment amount to the customer, causing confusion
+      or the customer paying the wrong amount.
+      Real-world cause: billing system rounding error or duplicate charge aggregation.
+    difficulty: 3
+    mutations:
+      - field_path: 0.total_due
+        action: set
+        value: 999.99
+    task_keywords:
+      - "bill"
+      - "payment"
+      - "amount"
+      - "how much"
+      - "balance"
+      - "owe"
+      - "charge"
+    detection_signals:
+      - "amount seems high"
+      - "unusual charge"
+      - "that's not right"
+      - "verify amount"
+      - "$999"
+    recovery_signals:
+      - "get_bills_for_customer"
+      - "check bill"
+      - "verify charges"
+      - "get_details_by_id"
+    blocks_actions: []
+
+  # T13 (cosmetic): Wrong Phone Number — line shows incorrect phone number
+  - id: telecom_wrong_phone_number
+    type: corrupt_field
+    target_tool: get_details_by_id
+    description: >
+      A line shows a corrupted phone number ("000-000-0000") instead of the real one.
+      In multi-line accounts, agent may misidentify which line belongs to which family
+      member, leading to actions on the wrong line.
+      Real-world cause: number porting system showing interim placeholder number.
+    difficulty: 2
+    mutations:
+      - field_path: phone_number
+        action: set
+        value: "000-000-0000"
+    task_keywords:
+      - "line"
+      - "phone"
+      - "number"
+      - "account"
+      - "which line"
+      - "family"
+      - "plan"
+    detection_signals:
+      - "wrong number"
+      - "000-000-0000"
+      - "that's not my number"
+      - "doesn't match"
+      - "incorrect phone"
+    recovery_signals:
+      - "get_details_by_id"
+      - "get_customer_by_phone"
+      - "verify number"
+      - "which line"
+    blocks_actions: []

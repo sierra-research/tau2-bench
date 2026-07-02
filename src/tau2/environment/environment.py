@@ -19,6 +19,25 @@ from tau2.environment.tool import Tool
 from tau2.environment.toolkit import ToolKitBase, ToolSignature, get_tool_signatures
 
 
+class ToolResponseMismatchError(ValueError):
+    """Raised when a replayed tool response doesn't match the recorded one.
+
+    Subclasses ValueError for backwards compatibility with existing handlers.
+    Experiments that intercept tool responses (e.g. error injection) can catch
+    this specifically instead of string-matching ValueError messages.
+    """
+
+    def __init__(self, tool_call, actual_response, expected_response):
+        self.tool_call = tool_call
+        self.actual_response = actual_response
+        self.expected_response = expected_response
+        super().__init__(
+            f"Tool call:\n{tool_call}\n\n"
+            f"Returned:\n{actual_response}\n\n"
+            f"Expected:\n{expected_response}"
+        )
+
+
 class EnvironmentInfo(BaseModel):
     """
     Environment information.
@@ -385,8 +404,10 @@ class Environment:
             except json.JSONDecodeError:
                 expected_content = expected_response.content
             if content != expected_content:
-                raise ValueError(
-                    f"Tool call:\n{tool_call}\n\nReturned:\n{response}\n\nExpected:\n{expected_response}"
+                raise ToolResponseMismatchError(
+                    tool_call=tool_call,
+                    actual_response=response,
+                    expected_response=expected_response,
                 )
         self.sync_tools()
 

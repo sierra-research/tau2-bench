@@ -2740,6 +2740,25 @@ wheels = [
 ]
 
 [[package]]
+name = "tau-robustness"
+version = "0.1.0"
+source = { editable = "src/experiments/tau-robustness" }
+dependencies = [
+    { name = "loguru" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "tau2" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "loguru", specifier = ">=0.7.3" },
+    { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "tau2", editable = "." },
+]
+
+[[package]]
 name = "tau2"
 version = "1.0.0"
 source = { editable = "." }
@@ -2793,6 +2812,7 @@ all = [
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "seaborn" },
+    { name = "tau-robustness" },
     { name = "tqdm" },
     { name = "websockets" },
 ]
@@ -2814,6 +2834,9 @@ gym = [
 knowledge = [
     { name = "openai" },
     { name = "rank-bm25" },
+]
+robustness = [
+    { name = "tau-robustness" },
 ]
 voice = [
     { name = "aiohttp" },
@@ -2878,7 +2901,8 @@ requires-dist = [
     { name = "scipy", marker = "extra == 'voice'", specifier = ">=1.10.0" },
     { name = "seaborn", marker = "extra == 'experiments'", specifier = ">=0.13.2" },
     { name = "tabulate", specifier = ">=0.9.0" },
-    { name = "tau2", extras = ["voice", "knowledge", "gym", "dev", "experiments"], marker = "extra == 'all'" },
+    { name = "tau-robustness", marker = "extra == 'robustness'", editable = "src/experiments/tau-robustness" },
+    { name = "tau2", extras = ["voice", "knowledge", "gym", "dev", "experiments", "robustness"], marker = "extra == 'all'" },
     { name = "tenacity", specifier = ">=9.0.0" },
     { name = "toml", specifier = ">=0.10.2" },
     { name = "tqdm", marker = "extra == 'voice'", specifier = ">=4.0" },
@@ -2886,7 +2910,7 @@ requires-dist = [
     { name = "uvicorn", specifier = ">=0.34.0" },
     { name = "websockets", marker = "extra == 'voice'", specifier = ">=13.0" },
 ]
-provides-extras = ["voice", "knowledge", "gym", "dev", "experiments", "all"]
+provides-extras = ["voice", "knowledge", "gym", "dev", "experiments", "robustness", "all"]
 
 [[package]]
 name = "tenacity"

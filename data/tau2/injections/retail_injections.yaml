@@ -1,0 +1,424 @@
+domain: retail
+
+injections:
+  # --- Task-blocking injections (status flips that prevent required actions) ---
+  #
+  # Enforcement types:
+  #   API-enforced:  The write tool itself rejects the call (raises ValueError).
+  #                  Strict check: status == "pending" / status == "delivered" (exact match)
+  #                  Loose check:  "pending" in status (modify_address, modify_payment)
+  #
+  # ALL retail blocking injections are API-enforced. This makes retail the strongest
+  # domain for measuring robustness — the injection creates an undeniable failure
+  # regardless of how the agent reasons about it.
+
+  # R1: Block exchange/return by flipping delivered → cancelled
+  # ENFORCEMENT: API-enforced (strict check: status != "delivered" → ValueError)
+  - id: retail_block_exchange_cancelled
+    type: status_flip
+    target_tool: get_order_details
+    description: >
+      A delivered order incorrectly shows as "cancelled".
+      Blocks exchange/return because those actions require status=delivered.
+      Real-world cause: status propagation race condition.
+    difficulty: 2
+    mutations:
+      - field_path: status
+        action: flip
+        flip_map:
+          "delivered": "cancelled"
+    precondition:
+      status: "delivered"
+    task_keywords:
+      - "return"
+      - "exchange"
+      - "received"
+      - "deliver"
+      - "order"
+    detection_signals:
+      - "cancelled"
+      - "status"
+      - "verify"
+      - "check again"
+      - "that doesn't seem right"
+    recovery_signals:
+      - "get_order_details"
+      - "let me check"
+      - "verify the status"
+    blocks_actions:
+      - "exchange_delivered_order_items"
+      - "return_delivered_order_items"
+
+  # R2: Block exchange/return by flipping delivered → pending
+  - id: retail_block_exchange_pending
+    type: status_flip
+    target_tool: get_order_details
+    description: >
+      A delivered order incorrectly shows as "pending".
+      Blocks exchange/return because those actions require status=delivered.
+      Real-world cause: cached order state, status update delay.
+    difficulty: 2
+    mutations:
+      - field_path: status
+        action: flip
+        flip_map:
+          "delivered": "pending"
+    precondition:
+      status: "delivered"
+    task_keywords:
+      - "return"
+      - "exchange"
+      - "received"
+      - "deliver"
+      - "order"
+    detection_signals:
+      - "pending"
+      - "status"
+      - "already delivered"
+      - "order has been delivered"
+      - "not pending"
+    recovery_signals:
+      - "get_order_details"
+      - "re-check"
+      - "already delivered"
+    blocks_actions:
+      - "exchange_delivered_order_items"
+      - "return_delivered_order_items"
+
+  # R3: Block modify/cancel by flipping pending → delivered
+  - id: retail_block_modify_delivered
+    type: status_flip
+    target_tool: get_order_details
+    description: >
+      A pending order incorrectly shows as "delivered".
+      Blocks modify/cancel because those actions require status=pending.
+      Real-world cause: premature delivery status from logistics feed.
+    difficulty: 2
+    mutations:
+      - field_path: status
+        action: flip
+        flip_map:
+          "pending": "delivered"
+    precondition:
+      status: "pending"
+    task_keywords:
+      - "pending"
+      - "modify"
+      - "cancel"
+      - "order"
+      - "change"
+    detection_signals:
+      - "delivered"
+      - "status"
+      - "verify"
+      - "still pending"
+    recovery_signals:
+      - "get_order_details"
+      - "let me check"
+      - "verify the status"
+    blocks_actions:
+      - "cancel_pending_order"
+      - "modify_pending_order_items"
+      - "modify_pending_order_address"
+      - "modify_pending_order_payment"
+
+  # R4: Block modify/cancel by flipping pending → cancelled
+  - id: retail_block_modify_cancelled
+    type: status_flip
+    target_tool: get_order_details
+    description: >
+      A pending order incorrectly shows as "cancelled".
+      Blocks modify/cancel because those actions require status=pending.
+      Real-world cause: status propagation race condition.
+    difficulty: 2
+    mutations:
+      - field_path: status
+        action: flip
+        flip_map:
+          "pending": "cancelled"
+    precondition:
+      status: "pending"
+    task_keywords:
+      - "pending"
+      - "modify"
+      - "cancel"
+      - "order"
+      - "change"
+    detection_signals:
+      - "cancelled"
+      - "status"
+      - "verify"
+      - "check again"
+    recovery_signals:
+      - "get_order_details"
+      - "let me check"
+      - "verify the status"
+    blocks_actions:
+      - "cancel_pending_order"
+      - "modify_pending_order_items"
+      - "modify_pending_order_address"
+      - "modify_pending_order_payment"
+
+  # R5: Block modify_items/cancel by faking "already modified" status
+  # modify_pending_order_items and cancel_pending_order use strict status == "pending",
+  # so "pending (item modified)" fails the check. But modify_address/modify_payment
+  # use loose "pending" in status, so they still work — creating an asymmetric block.
+  - id: retail_block_modify_already_modified
+    type: status_flip
+    target_tool: get_order_details
+    description: >
+      A pending order incorrectly shows as "pending (item modified)".
+      Blocks modify_items and cancel because they require exact status="pending".
+      modify_address and modify_payment still work (loose "pending" in status check).
+      Real-world cause: stale cache showing a previous modification attempt.
+    difficulty: 3
+    mutations:
+      - field_path: status
+        action: flip
+        flip_map:
+          "pending": "pending (item modified)"
+    precondition:
+      status: "pending"
+    task_keywords:
+      - "modify"
+      - "change"
+      - "cancel"
+      - "item"
+      - "order"
+      - "swap"
+      - "different"
+    detection_signals:
+      - "already modified"
+      - "item modified"
+      - "cannot modify"
+      - "status"
+      - "verify"
+    recovery_signals:
+      - "get_order_details"
+      - "let me check"
+      - "verify the status"
+    blocks_actions:
+      - "cancel_pending_order"
+      - "modify_pending_order_items"
+
+  # R6: Block exchange/return by flipping delivered → processed
+  # "processed" is a valid OrderStatus but neither pending nor delivered,
+  # so it blocks ALL write actions on the order.
+  - id: retail_block_exchange_processed
+    type: status_flip
+    target_tool: get_order_details
+    description: >
+      A delivered order incorrectly shows as "processed" (in-transit).
+      Blocks exchange/return because those require status=delivered.
+      The agent may also incorrectly tell the user the order hasn't arrived yet.
+      Real-world cause: tracking system rollback during carrier handoff.
+    difficulty: 2
+    mutations:
+      - field_path: status
+        action: flip
+        flip_map:
+          "delivered": "processed"
+    precondition:
+      status: "delivered"
+    task_keywords:
+      - "return"
+      - "exchange"
+      - "received"
+      - "deliver"
+      - "order"
+    detection_signals:
+      - "processed"
+      - "in transit"
+      - "not yet delivered"
+      - "status"
+      - "verify"
+    recovery_signals:
+      - "get_order_details"
+      - "check the tracking"
+      - "verify delivery"
+    blocks_actions:
+      - "exchange_delivered_order_items"
+      - "return_delivered_order_items"
+
+  # R7: Block modify/cancel by flipping pending → processed
+  - id: retail_block_modify_processed
+    type: status_flip
+    target_tool: get_order_details
+    description: >
+      A pending order incorrectly shows as "processed" (already shipped).
+      Blocks modify/cancel because those require status=pending.
+      The agent may tell the user the order can no longer be changed.
+      Real-world cause: warehouse picking system sent premature "processed" event.
+    difficulty: 2
+    mutations:
+      - field_path: status
+        action: flip
+        flip_map:
+          "pending": "processed"
+    precondition:
+      status: "pending"
+    task_keywords:
+      - "pending"
+      - "modify"
+      - "cancel"
+      - "order"
+      - "change"
+    detection_signals:
+      - "processed"
+      - "shipped"
+      - "already processed"
+      - "status"
+    recovery_signals:
+      - "get_order_details"
+      - "let me check"
+      - "verify the status"
+    blocks_actions:
+      - "cancel_pending_order"
+      - "modify_pending_order_items"
+      - "modify_pending_order_address"
+      - "modify_pending_order_payment"
+
+  # R8: Block return by flipping delivered → return requested (already returned)
+  # This is subtle: if the agent sees "return requested", it may tell the user
+  # a return was already filed, and refuse to take action.
+  - id: retail_block_return_already_requested
+    type: status_flip
+    target_tool: get_order_details
+    description: >
+      A delivered order incorrectly shows as "return requested".
+      Blocks return/exchange because those require status=delivered.
+      The agent may incorrectly tell the user a return was already filed.
+      Real-world cause: duplicate webhook from returns service.
+    difficulty: 3
+    mutations:
+      - field_path: status
+        action: flip
+        flip_map:
+          "delivered": "return requested"
+    precondition:
+      status: "delivered"
+    task_keywords:
+      - "return"
+      - "exchange"
+      - "received"
+      - "deliver"
+      - "refund"
+    detection_signals:
+      - "return requested"
+      - "already returned"
+      - "return already"
+      - "status"
+      - "verify"
+    recovery_signals:
+      - "get_order_details"
+      - "let me check"
+      - "that doesn't match"
+    blocks_actions:
+      - "exchange_delivered_order_items"
+      - "return_delivered_order_items"
+
+  # --- Cosmetic / fallback injections (no blocks_actions) ---
+
+  # R9: Phantom Payment Method — a fake gift card appears in user details
+  - id: retail_phantom_payment
+    type: phantom
+    target_tool: get_user_details
+    description: >
+      User details include a gift card that doesn't exist in the system.
+      Real-world cause: payment method expired/removed between lookups.
+      Agent should fall back to a real payment method when the phantom fails.
+    difficulty: 3
+    mutations:
+      - field_path: payment_methods.gift_card_9999999
+        action: set
+        value:
+          source: "gift_card"
+          id: "gift_card_9999999"
+          balance: 150.0
+    task_keywords:
+      - "payment"
+      - "refund"
+      - "order"
+      - "exchange"
+      - "return"
+    detection_signals:
+      - "payment failed"
+      - "invalid payment"
+      - "gift card"
+      - "not found"
+    recovery_signals:
+      - "different payment"
+      - "another payment"
+      - "credit card"
+      - "get_user_details"
+    blocks_actions: []
+
+  # R10: Address city corruption — wrong city in order details
+  # Agent may use this corrupted address when confirming modifications, or
+  # feed it to modify_pending_order_address with wrong data.
+  - id: retail_address_city_corruption
+    type: corrupt_field
+    target_tool: get_order_details
+    description: >
+      The order's shipping address city is corrupted to a different city.
+      Real-world cause: geocoding service returned stale locality data
+      during address normalization.
+      Agent should notice the city mismatch when user provides their address.
+    difficulty: 3
+    mutations:
+      - field_path: address.city
+        action: set
+        value: "Springfield"
+    task_keywords:
+      - "address"
+      - "shipping"
+      - "modify"
+      - "order"
+      - "change"
+    detection_signals:
+      - "address"
+      - "city"
+      - "Springfield"
+      - "wrong address"
+      - "doesn't match"
+    recovery_signals:
+      - "get_order_details"
+      - "verify the address"
+      - "confirm address"
+    blocks_actions: []
+
+  # R11: Item quantity duplication — extra item appears in order
+  # Inflates the apparent order contents, may cause confusion during exchange/return
+  - id: retail_item_duplication
+    type: corrupt_field
+    target_tool: get_order_details
+    description: >
+      An order item is duplicated in the items list, making it appear the
+      customer ordered two of the same item when they only ordered one.
+      Real-world cause: idempotency failure in order ingestion pipeline.
+      Agent may attempt to exchange/return the wrong number of items.
+    difficulty: 2
+    mutations:
+      - field_path: items
+        action: append
+        value:
+          name: "Phantom Duplicate"
+          product_id: "0000000000"
+          item_id: "0000000000"
+          price: 0.01
+          options: {}
+    task_keywords:
+      - "exchange"
+      - "return"
+      - "item"
+      - "order"
+    detection_signals:
+      - "extra item"
+      - "duplicate"
+      - "item count"
+      - "doesn't match"
+    recovery_signals:
+      - "get_order_details"
+      - "verify items"
+      - "confirm the items"
+    blocks_actions: []

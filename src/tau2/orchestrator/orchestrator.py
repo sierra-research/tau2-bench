@@ -310,6 +310,21 @@ class BaseOrchestrator(ABC, Generic[BaseAgentT, BaseUserT, TrajectoryItemT]):
             message_history=message_history,
         )
 
+    def _process_tool_response(
+        self,
+        tool_call: ToolCall,
+        tool_msg: ToolMessage,
+        step_count: int,
+        batch_size: int,
+    ) -> ToolMessage:
+        """Hook for subclasses to intercept/modify tool responses.
+
+        Called after the environment produces a response and before it is
+        appended to the trajectory. Override this in subclasses to inject
+        errors, add logging, etc. Base implementation is a no-op passthrough.
+        """
+        return tool_msg
+
     def _execute_tool_calls(self, tool_calls: list[ToolCall]) -> list[ToolMessage]:
         """
         Execute tool calls and return results.
@@ -320,11 +335,16 @@ class BaseOrchestrator(ABC, Generic[BaseAgentT, BaseUserT, TrajectoryItemT]):
         Returns:
             List of ToolMessage results from the environment.
         """
+        batch_size = len(tool_calls)
         tool_results = []
         for tool_call in tool_calls:
             tool_result = self.environment.get_response(tool_call)
             if tool_result.error:
                 self.num_errors += 1
+            else:
+                tool_result = self._process_tool_response(
+                    tool_call, tool_result, self.step_count, batch_size
+                )
             tool_results.append(tool_result)
         return tool_results
 
