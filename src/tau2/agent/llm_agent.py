@@ -58,6 +58,8 @@ class LLMAgent(
     A half-duplex LLM agent for turn-based conversations.
     """
 
+    TRANSFER_TOOL_NAME = "transfer_to_human_agents"
+
     def __init__(
         self,
         tools: List[Tool],
@@ -133,6 +135,15 @@ class LLMAgent(
             **self.llm_args,
         )
         return assistant_message
+
+    @classmethod
+    def is_stop(cls, message: AssistantMessage) -> bool:
+        """Stop after the agent explicitly escalates to a human agent."""
+        if not message.tool_calls:
+            return False
+        return any(
+            tool_call.name == cls.TRANSFER_TOOL_NAME for tool_call in message.tool_calls
+        )
 
 
 AGENT_GT_INSTRUCTION = """
