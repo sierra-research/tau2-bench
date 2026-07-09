@@ -84,3 +84,35 @@ def test_solo_agent_transfer_tool_is_stop(solo_agent: LLMSoloAgent):
     assert normalized_msg.content == solo_agent.STOP_TOKEN
     assert normalized_msg.tool_calls is None
     assert solo_agent.is_stop(normalized_msg)
+
+
+def test_llm_agent_transfer_tool_is_stop():
+    msg = AssistantMessage(
+        role="assistant",
+        tool_calls=[
+            ToolCall(
+                id="call_transfer",
+                name="transfer_to_human_agents",
+                arguments={"summary": "Need specialist support"},
+                requestor="assistant",
+            )
+        ],
+    )
+
+    assert LLMAgent.is_stop(msg)
+
+
+def test_llm_agent_non_transfer_tool_is_not_stop():
+    msg = AssistantMessage(
+        role="assistant",
+        tool_calls=[
+            ToolCall(
+                id="call_other",
+                name="get_user_profile",
+                arguments={"user_id": "user_123"},
+                requestor="assistant",
+            )
+        ],
+    )
+
+    assert not LLMAgent.is_stop(msg)
