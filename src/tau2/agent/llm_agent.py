@@ -415,7 +415,7 @@ class LLMSoloAgent(
         """
         is_stop = False
         for tool_call in message.tool_calls:
-            if tool_call.name == self.STOP_FUNCTION_NAME:
+            if tool_call.name == self.STOP_FUNCTION_NAME or tool_call.name == self.TRANSFER_TOOL_NAME:
                 is_stop = True
                 break
         if is_stop:
