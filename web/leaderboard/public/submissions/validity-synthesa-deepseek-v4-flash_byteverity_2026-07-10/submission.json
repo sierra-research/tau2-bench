@@ -1,0 +1,48 @@
+{
+  "model_name": "Validity-Synthesa DeepSeek-V4-Flash Banking Agent",
+  "model_organization": "ByteVerity",
+  "submitting_organization": "ByteVerity",
+  "submission_date": "2026-07-10",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "mohit@byteverity.com",
+    "name": "Mohit",
+    "github": "mohitunplugged"
+  },
+  "results": {
+    "banking_knowledge": {
+      "pass_1": 51.546391752577314,
+      "cost": 0.0322235676,
+      "retrieval_config": "terminal_use"
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "banking_knowledge": "banking_knowledge_results.json"
+  },
+  "references": [
+    {
+      "title": "Validity repository",
+      "url": "https://github.com/byteverity/validity",
+      "type": "github"
+    },
+    {
+      "title": "Synthesa repository",
+      "url": "https://github.com/byteverity/synthesa",
+      "type": "github"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-07-10",
+    "tau2_bench_version": "1.0.0",
+    "user_simulator": "gpt-4.1-2025-04-14",
+    "notes": "Full 97-task banking_knowledge submission, 1 trial per task, base split, no task filters, terminal_use retrieval, zero infrastructure errors. The agent is a neuro-symbolic system combining two ByteVerity products: Synthesa (neural) uses fireworks_ai/deepseek-v4-flash to propose the next action and operands from the conversation, retrieved banking knowledge-base context, and observed state; Validity (symbolic) is a deterministic engine that tracks banking task state, validates policy and operands, gates actions, and certifies completion. It decides; the model proposes. All checks are against banking policy, the knowledge base, available tools, conversation, and observed state only; the system never reads or uses benchmark gold labels, reward, or evaluator outputs during the run. The user simulator AND evaluator model are the standard gpt-4.1-2025-04-14 (user/eval temperature 0.0, max_tokens 1024) so this run is apples-to-apples with the standard leaderboard's user simulator rather than a same-family (DeepSeek) user simulator. Honest note on the standard user simulator: on user-owned-tool tasks (for example task_034, which requires the customer to emit request_human_agent_transfer), the standard gpt-4.1 user simulator does not always emit the required user-initiated tool calls, which causes those tasks to fail for a simulator-behavior reason rather than an agent-capability reason; the reported pass_1 is therefore a conservative floor relative to a same-model user-simulator run. This is the same neuro-symbolic harness used in the ByteVerity airline submission (PR #376), where the agent LLM is a different model (cerebras/gpt-oss-120b) — the deterministic Validity/Synthesa layer is held fixed while the neural model changes across domains. Reported cost is tau2 avg_agent_cost (agent side). Terminations: 83 user_stop, 14 max_steps, 0 infrastructure_error.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "Custom Validity/Synthesa guarded banking harness with terminal_use retrieval. All 97 base banking tasks were run for 1 trial each with no task filters and zero infrastructure errors; no tasks were omitted. Agent LLM fireworks_ai/deepseek-v4-flash; standard user simulator and evaluator gpt-4.1-2025-04-14. The system gates only on banking policy, the knowledge base, available tools, conversation, and observed state; it never uses gold labels, reward, or evaluator outputs during the run."
+    }
+  }
+}
