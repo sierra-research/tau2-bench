@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Optional
 
+from loguru import logger
+
 from tau2.data_model.simulation import RewardInfo, SimulationRun, TerminationReason
 from tau2.data_model.tasks import RewardType, Task
 from tau2.environment.toolkit import ToolType, get_tool_types
@@ -85,7 +87,76 @@ class EvaluationType(str, Enum):
     ALL_WITH_NL_ASSERTIONS_IGNORE_BASIS = "all_with_nl_assertions_ignore_basis"
 
 
+class EvaluationCriteriaError(ValueError):
+    """A task's ``reward_basis`` references a reward type the chosen
+    ``evaluation_type`` does not compute.
+
+    This signals a task/configuration error, not a per-simulation grading
+    failure, so ``evaluate_simulation`` re-raises it rather than swallowing it
+    in the graceful-degradation guard.
+    """
+
+
 def evaluate_simulation(
+    simulation: SimulationRun,
+    task: Task,
+    evaluation_type: EvaluationType,
+    solo_mode: bool,
+    domain: str,
+    mode: CommunicationMode = CommunicationMode.HALF_DUPLEX,
+    env_kwargs: dict = None,
+) -> RewardInfo:
+    """Evaluate a simulation, degrading gracefully on unexpected errors.
+
+    This is a thin guard around :func:`_evaluate_simulation`. Grading replays the
+    recorded trajectory against a fresh environment; if an environment tool is
+    non-deterministic (e.g. its result depends on wall-clock time), the replay can
+    diverge and raise. Such an exception would otherwise propagate out and abort an
+    entire multi-task run (see issue #387). Here it is caught and returned as a
+    ``reward=0.0`` result with the error recorded in ``info`` so a single bad
+    simulation cannot take down the batch. Genuine configuration errors
+    (:class:`EvaluationCriteriaError`) are re-raised so they still surface loudly.
+    """
+    try:
+        return _evaluate_simulation(
+            simulation=simulation,
+            task=task,
+            evaluation_type=evaluation_type,
+            solo_mode=solo_mode,
+            domain=domain,
+            mode=mode,
+            env_kwargs=env_kwargs,
+        )
+    except EvaluationCriteriaError:
+        raise
+    except Exception as e:
+        logger.warning(
+            f"Evaluation raised {type(e).__name__} for task "
+            f"{getattr(task, 'id', '<unknown>')}; grading as reward=0.0 to avoid "
+            f"aborting the run: {e}"
+        )
+        reward_basis = (
+            task.evaluation_criteria.reward_basis
+            if task.evaluation_criteria is not None
+            else None
+        )
+        return RewardInfo(
+            reward=0.0,
+            reward_basis=reward_basis,
+            info={
+                "error": f"{type(e).__name__}: {e}",
+                "note": (
+                    "Evaluation raised an unexpected exception and was graded as "
+                    "reward=0.0 so a single simulation cannot abort a batch run. "
+                    "This can happen when an environment tool is non-deterministic "
+                    "(e.g. time-dependent state) and replay-based grading diverges. "
+                    "See issue #387."
+                ),
+            },
+        )
+
+
+def _evaluate_simulation(
     simulation: SimulationRun,
     task: Task,
     evaluation_type: EvaluationType,
@@ -224,7 +295,7 @@ def evaluate_simulation(
             evaluated_bases |= nl_bases
         unevaluated = task_reward_basis - evaluated_bases
         if unevaluated:
-            raise ValueError(
+            raise EvaluationCriteriaError(
                 f"Task reward_basis includes {unevaluated} but these were "
                 f"not evaluated. evaluation_type={evaluation_type.value}"
             )
