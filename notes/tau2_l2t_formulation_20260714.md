@@ -113,7 +113,42 @@ Minxing's `run_baseline.py`, the feature dimension was recognized as `d_x =
 12`, and the proposed model trained for 5 epochs. This validates the current
 bridge from tau2 `results.json` outputs to an L2T-compatible dataset.
 
-## 7. Limitations
+## 7. 30-epoch L2T pilot
+
+A longer L2T pilot used the same task-level dataset:
+
+```text
+/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/tau2_l2t_success_retail_airline_50_filtered_20260714.pkl
+```
+
+and wrote outputs to:
+
+```text
+/Users/xuyida/Research/physics_informed_testing/share_code/results/tau2_l2t_success_retail_airline_50_filtered_20260714_epochs30
+```
+
+The run used `proposed_only`, `epochs=30`, `batch_train=16`, `batch_val=16`,
+`skip_sweeps=True`, `num_workers=0`, and `time_window=0.1 3.0`. The dataset
+loaded successfully, `d_x` was overridden from 2 to 12, and the recognized
+shapes were `X = (93, 12)` and `trajectory = (93, 64)`.
+
+Endpoint metrics:
+
+- Epoch 1: `train-loss=36.175673`, `train-recon=2.269067`,
+  `train-div=0.724943`, `train-acc=0.6250`, `val-recon=2.332024`,
+  `val-div=0.654115`, `val-acc=0.6316`.
+- Epoch 30: `train-loss=3.042825`, `train-recon=2.411330`,
+  `train-div=0.999976`, `train-acc=0.6406`, `val-recon=2.574448`,
+  `val-div=1.000000`, `val-acc=0.6316`.
+
+Interpretation: this is still a pilot, not a final benchmark. The longer run
+confirms that the tau2-derived dataset can be used for longer L2T training,
+but validation accuracy stayed around `0.6316`, so this does not show strong
+performance improvement yet. Because `N = 93` is small and `skip_sweeps=True`,
+the result should be treated as a feasibility check rather than a
+model-performance claim.
+
+## 8. Limitations
 
 This is a pilot, not a benchmark-level result.
 
@@ -127,7 +162,7 @@ This is a pilot, not a benchmark-level result.
 - Abnormal terminations were filtered out, so separate analysis is needed if
   max-step failures or tool-error loops are considered part of harmfulness.
 
-## 8. Next experimental directions
+## 9. Next experimental directions
 
 1. Treat write-burden shift as the first primary tau2 harmful-shift candidate,
    especially zero/one expected write -> two or more expected writes.

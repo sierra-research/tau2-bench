@@ -83,7 +83,44 @@ This verifies the bridge:
 tau2 results.json -> filtered L2T-compatible pickle -> run_baseline.py training
 ```
 
-## 6. Shift-level harmfulness definition
+## 6. 30-epoch L2T pilot
+
+A longer pilot run was also completed using the same filtered input pickle:
+
+```text
+/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/tau2_l2t_success_retail_airline_50_filtered_20260714.pkl
+```
+
+Output directory:
+
+```text
+/Users/xuyida/Research/physics_informed_testing/share_code/results/tau2_l2t_success_retail_airline_50_filtered_20260714_epochs30
+```
+
+The command used `proposed_only`, `epochs=30`, `batch_train=16`,
+`batch_val=16`, `skip_sweeps=True`, `num_workers=0`, and
+`time_window=0.1 3.0`.
+
+Observed setup and endpoints:
+
+- The dataset loaded successfully.
+- `d_x` was overridden from 2 to 12.
+- Shapes were recognized as `X = (93, 12)` and `trajectory = (93, 64)`.
+- Epoch 1: `train-loss=36.175673`, `train-recon=2.269067`,
+  `train-div=0.724943`, `train-acc=0.6250`, `val-recon=2.332024`,
+  `val-div=0.654115`, `val-acc=0.6316`.
+- Epoch 30: `train-loss=3.042825`, `train-recon=2.411330`,
+  `train-div=0.999976`, `train-acc=0.6406`, `val-recon=2.574448`,
+  `val-div=1.000000`, `val-acc=0.6316`.
+
+This remains a pilot, not a final benchmark. The longer run confirms that the
+tau2-derived dataset can be used for longer L2T training, but validation
+accuracy stayed around `0.6316`, so it does not yet show strong performance
+improvement. Because `N = 93` is small and `skip_sweeps=True`, the result
+should be treated as a feasibility check rather than a model-performance
+claim.
+
+## 7. Shift-level harmfulness definition
 
 Harmfulness is computed at the shift level, not from an individual task label.
 
@@ -97,7 +134,7 @@ A positive `drop_pp` means the target group has lower task success than the
 source group. In this pilot summary, `harmful_candidate = true` when
 `drop_pp > 10`.
 
-## 7. Top harmful-shift candidates
+## 8. Top harmful-shift candidates
 
 Source table:
 `data/processed/tau2_shift_level_summary_20260714.csv`
@@ -116,7 +153,7 @@ more expected write actions, with a 36.59 percentage-point drop.
 The domain shift `retail -> airline` has an 11.52 percentage-point drop, but
 it is not the strongest shift in this pilot.
 
-## 8. Interpretation
+## 9. Interpretation
 
 The strongest current signal is not domain change alone. The larger drops are
 associated with increased write-action burden and interaction complexity:
@@ -128,7 +165,7 @@ state-changing tool calls. The current evidence is descriptive and based on a
 small filtered pilot, so it should not be interpreted causally or as final
 benchmark performance.
 
-## 9. Next steps
+## 10. Next steps
 
 1. Confirm with Minxing that the task-level label convention is correct:
    `y = 1` means task success.
