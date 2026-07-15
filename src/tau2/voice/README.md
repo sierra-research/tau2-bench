@@ -13,6 +13,7 @@ tau2 run --domain retail --audio-native --num-tasks 1 --verbose-logs
 | OpenAI Realtime | `--audio-native-provider openai` | `OPENAI_API_KEY` |
 | Google Gemini Live | `--audio-native-provider gemini` | `GOOGLE_API_KEY` |
 | xAI Grok Voice | `--audio-native-provider xai` | `XAI_API_KEY` |
+| AAI | `--audio-native-provider aai` | `AAI_WS_URL` (local host mode) |
 
 The default provider is `openai`. Use `--audio-native-model` to override the default model for a provider.
 
@@ -133,6 +134,7 @@ See the [Voice Persona Setup Guide](../../docs/voice-personas.md) for step-by-st
 | `OPENAI_API_KEY` | OpenAI Realtime provider |
 | `GOOGLE_API_KEY` | Gemini Live provider |
 | `XAI_API_KEY` | xAI Grok Voice provider |
+| `AAI_WS_URL` | AAI voice-agent host (local mode) |
 | `ELEVENLABS_API_KEY` | User simulator TTS (synthesis) |
 | `DEEPGRAM_API_KEY` | Transcription (Deepgram nova-2, nova-3) |
 | `TAU2_VOICE_ID_*` | Custom voice ID overrides (see [Voice Persona Setup](../../docs/voice-personas.md)) |
