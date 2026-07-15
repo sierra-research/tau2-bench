@@ -1,0 +1,45 @@
+{
+  "model_name": "Humains-Cascaded-Voice",
+  "model_organization": "humains.com",
+  "submitting_organization": "humains.com",
+  "submission_date": "2026-07-15",
+  "submission_type": "custom",
+  "modality": "voice",
+  "contact_info": {
+    "email": "nissan@humains.com",
+    "name": "Nissan Yaron",
+    "github": "Nisyron"
+  },
+  "is_new": true,
+  "trajectories_available": false,
+  "results": {
+    "airline": {
+      "pass_1": 66.0
+    }
+  },
+  "voice_config": {
+    "provider": "humains (custom cascaded; not one of the native audio-realtime providers)",
+    "model": "gemini-3.5-flash (thinkingLevel=low, via Vertex AI; same-model AI-Studio fallback on transient Vertex 429s)",
+    "tick_duration_seconds": 0.2,
+    "max_steps_seconds": 600,
+    "user_tts_provider": "soniox/tts-rt-v1 (persona-equivalent substitute for held-out elevenlabs/eleven_v3 voices)"
+  },
+  "references": [
+    {
+      "title": "Trajectory bundle (results.json + simulations/ + audio) - 50 tasks, hosted",
+      "url": "https://github.com/Nisyron/tau2-bench-airline-trajectories/releases/download/voice-v2-stock-0.66/tau_voice_clean_66_bundle.tar.gz",
+      "type": "other"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-07-15",
+    "tau2_bench_version": "v2.0 (voice, FULL_DUPLEX)",
+    "user_simulator": "v1.0",
+    "notes": "CUSTOM CASCADED VOICE AGENT (not a native audio-realtime model). Pipeline: Soniox STT (stt-rt-v5) -> Humains bCortex multi-state orchestrator (gemini-3.5-flash via Vertex AI, thinkingLevel=low; same-model AI-Studio fallback on transient Vertex 429s) -> OpenAI TTS (gpt-4o-mini-tts, voice 'alloy'), with a turn-taking politeness adapter between the bench and bCortex (dead-air filler, liveness/ear watchdogs, 2-second collision-protection turn-taking, backchannel gate; barge-in disabled). REPRODUCIBILITY: this board was produced on our canonical deployed bCortex platform with NO patches, so it maps one-to-one to a fully runnable stock system. PROMPT DISCLOSURE: for the leakage audit we provide the FEW-SHOT EXAMPLES and DIRECT INSTRUCTIONS in full, verbatim; only platform-specific elements (the output/CoT schema and the prompt-generator scaffolding) are withheld as platform IP -- they are identical across our unrelated production domains and contain no airline or benchmark-derived content. TTS substitution: Soniox persona-equivalent voices in place of the held-out ElevenLabs voices (credits exhausted) -- expecting Sierra to re-run with held-out voices per the voice policy. Single trial, Pass^1 only. All 50 airline tasks at 'regular' speech complexity; no omissions. Note: audio_native_config.provider is recorded as 'humains' (custom cascade), outside the current tau2 provider enum -- to be handled per the custom-submission coordination path.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "Custom cascaded scaffold + custom multi-state prompts + custom turn-taking adapter, produced on our canonical STOCK bCortex platform (no patches; fully reproducible). All 50 airline tasks scored, regular complexity, 1 trial. Few-shot examples and direct instructions provided in full for the leakage audit; platform-specific output schema / generator scaffolding withheld as IP."
+    }
+  }
+}
