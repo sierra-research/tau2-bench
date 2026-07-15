@@ -189,6 +189,14 @@ DEFAULT_QWEN_INPUT_SAMPLE_RATE = 16000  # fixed, API-defined
 DEFAULT_QWEN_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 
 # =============================================================================
+# AAI PROVIDER (local voice-agent host; overridable URL/rates)
+# =============================================================================
+DEFAULT_AAI_WS_URL = "ws://localhost:3000/websocket"  # overridable via AAI_WS_URL
+DEFAULT_AAI_MODEL = "host"  # fixed, determined by endpoint
+DEFAULT_AAI_INPUT_SAMPLE_RATE = 16000  # PCM16 sent to aai (STT)
+DEFAULT_AAI_OUTPUT_SAMPLE_RATE = 24000  # PCM16 received from aai (TTS)
+
+# =============================================================================
 # PROVIDER REGISTRY (derived from above)
 # =============================================================================
 DEFAULT_AUDIO_NATIVE_MODELS = {
