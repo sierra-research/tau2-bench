@@ -23,6 +23,7 @@ from pydantic import BaseModel
 
 from tau2.config import (
     DEFAULT_AAI_CONFIG_FRAME_TIMEOUT,
+    DEFAULT_AAI_GREETING,
     DEFAULT_AAI_INPUT_SAMPLE_RATE,
     DEFAULT_AAI_MODEL,
     DEFAULT_AAI_OUTPUT_SAMPLE_RATE,
@@ -111,6 +112,7 @@ class AAIVoiceAgentProvider:
         tts_sample_rate: int = DEFAULT_AAI_OUTPUT_SAMPLE_RATE,
         system_prompt: str = "",
         tools: tuple = (),
+        greeting: str = DEFAULT_AAI_GREETING,
     ):
         """Initialize the AAI voice agent provider.
 
@@ -121,12 +123,15 @@ class AAIVoiceAgentProvider:
             tts_sample_rate: Sample rate for audio received from AAI (default: 24000).
             system_prompt: System instructions for the agent.
             tools: Tools available to the agent.
+            greeting: Spoken by the host agent on session start so the call does
+                not open with dead air. Empty string disables it.
         """
         self.ws_url = ws_url or os.environ.get("AAI_WS_URL") or DEFAULT_AAI_WS_URL
         self.input_sample_rate = input_sample_rate
         self.tts_sample_rate = tts_sample_rate
         self.system_prompt = system_prompt
         self.tools = tools
+        self.greeting = greeting
         self.ws: Optional[websockets.WebSocketClientProtocol] = None
         self._buffered_events: List[BaseAAIEvent] = []
 
@@ -202,15 +207,18 @@ class AAIVoiceAgentProvider:
         Returns:
             Configuration message dict with proper AAI host format.
         """
+        host: Dict = {
+            "systemPrompt": system_prompt,
+            "tools": self._format_tools_for_api(tools),
+        }
+        if self.greeting:
+            host["greeting"] = self.greeting
         return {
             "type": "config",
             "audioFormat": "pcm16",
             "sampleRate": self.input_sample_rate,
             "ttsSampleRate": self.tts_sample_rate,
-            "host": {
-                "systemPrompt": system_prompt,
-                "tools": self._format_tools_for_api(tools),
-            },
+            "host": host,
         }
 
     @websocket_retry

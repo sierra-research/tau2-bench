@@ -198,6 +198,10 @@ DEFAULT_AAI_OUTPUT_SAMPLE_RATE = 24000  # PCM16 received from aai (TTS)
 DEFAULT_AAI_CONFIG_FRAME_TIMEOUT = (
     10.0  # seconds to await the server config handshake frame
 )
+# Spoken by the host agent on session start so the call doesn't open with dead
+# air while the S2S model waits through the user's first turn. Empty string
+# disables the greeting.
+DEFAULT_AAI_GREETING = "Thank you for calling. How can I help you today?"
 
 # =============================================================================
 # PROVIDER REGISTRY (derived from above)

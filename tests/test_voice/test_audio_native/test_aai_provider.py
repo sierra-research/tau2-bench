@@ -57,6 +57,17 @@ class TestAAIVoiceAgentProvider:
         assert config["ttsSampleRate"] == 24000
         assert config["host"]["systemPrompt"] == "Test prompt"
         assert config["host"]["tools"] == []
+        # A default greeting is sent so the call doesn't open with dead air.
+        assert config["host"]["greeting"]
+
+    def test_build_config_message_greeting(self) -> None:
+        """A custom greeting is forwarded; an empty greeting is omitted."""
+        with_greeting = AAIVoiceAgentProvider(greeting="Hi there.")
+        assert with_greeting._build_config_message("p", [])["host"]["greeting"] == (
+            "Hi there."
+        )
+        without = AAIVoiceAgentProvider(greeting="")
+        assert "greeting" not in without._build_config_message("p", [])["host"]
 
     def test_build_config_message_with_tools(self) -> None:
         """Test _build_config_message includes tools with correct structure."""
