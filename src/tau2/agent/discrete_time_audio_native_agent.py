@@ -45,6 +45,7 @@ from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
 from loguru import logger
 
 if TYPE_CHECKING:
+    from tau2.voice.audio_native.aai.provider import AAIVADConfig
     from tau2.voice.audio_native.gemini.provider import GeminiVADConfig
     from tau2.voice.audio_native.livekit.config import CascadedConfig
     from tau2.voice.audio_native.nova.provider import NovaVADConfig
@@ -80,7 +81,7 @@ from tau2.voice.audio_native.adapter import DiscreteTimeAdapter, create_adapter
 from tau2.voice.audio_native.tick_result import TickResult
 
 # Provider type alias
-AudioNativeProvider = Literal["openai", "gemini", "xai", "nova", "qwen", "livekit"]
+AudioNativeProvider = Literal["openai", "gemini", "xai", "nova", "qwen", "aai", "livekit"]
 
 # VAD config union type (string annotations for lazy resolution)
 VADConfig = Union[
@@ -89,6 +90,7 @@ VADConfig = Union[
     "XAIVADConfig",
     "NovaVADConfig",
     "QwenVADConfig",
+    "AAIVADConfig",
 ]
 
 AUDIO_NATIVE_VOICE_INSTRUCTION = """
@@ -288,6 +290,10 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             from tau2.voice.audio_native.qwen.provider import QwenVADConfig
 
             self.vad_config = QwenVADConfig()
+        elif provider == "aai":
+            from tau2.voice.audio_native.aai.provider import AAIVADConfig
+
+            self.vad_config = AAIVADConfig()
         elif provider == "livekit":
             from tau2.voice.audio_native.livekit.discrete_time_adapter import (
                 LiveKitVADConfig,

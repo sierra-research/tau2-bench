@@ -326,7 +326,7 @@ class DiscreteTimeAdapter(ABC):
 # ---------------------------------------------------------------------------
 
 # Providers where the model is determined by the endpoint, not a parameter
-_PROVIDERS_WITH_ENDPOINT_DETERMINED_MODEL = ("xai",)
+_PROVIDERS_WITH_ENDPOINT_DETERMINED_MODEL = ("xai", "aai")
 
 
 def create_adapter(
@@ -345,7 +345,7 @@ def create_adapter(
     and the resolved model name.
 
     Args:
-        provider: Provider identifier (openai, gemini, xai, nova, qwen,
+        provider: Provider identifier (openai, gemini, xai, nova, qwen, aai,
             livekit).
         tick_duration_ms: Duration of each tick in milliseconds.
         send_audio_instant: If True, send audio in one call per tick.
@@ -437,6 +437,16 @@ def create_adapter(
             tick_duration_ms=tick_duration_ms,
             send_audio_instant=send_audio_instant,
             model=model,
+            reasoning_effort=reasoning_effort,
+        )
+    elif provider == "aai":
+        from tau2.voice.audio_native.aai.discrete_time_adapter import (
+            DiscreteTimeAAIAdapter,
+        )
+
+        adapter = DiscreteTimeAAIAdapter(
+            tick_duration_ms=tick_duration_ms,
+            send_audio_instant=send_audio_instant,
             reasoning_effort=reasoning_effort,
         )
     elif provider == "livekit":

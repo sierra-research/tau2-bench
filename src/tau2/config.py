@@ -208,6 +208,7 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
     "xai": DEFAULT_XAI_MODEL,
     "nova": DEFAULT_NOVA_MODEL,
     "qwen": DEFAULT_QWEN_MODEL,
+    "aai": DEFAULT_AAI_MODEL,
     "livekit": "dummy",
 }
 
@@ -217,6 +218,7 @@ DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
     "xai": None,
     "nova": None,
     "qwen": None,
+    "aai": None,
     "livekit": None,
 }
 
@@ -226,6 +228,7 @@ AUDIO_NATIVE_PROVIDER_TYPES = {
     "xai": "audio_native",
     "nova": "audio_native",
     "qwen": "audio_native",
+    "aai": "audio_native",
     "livekit": "cascaded",
 }
 
