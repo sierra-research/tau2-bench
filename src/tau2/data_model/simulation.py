@@ -72,7 +72,7 @@ class AudioNativeConfig(BaseModel):
     # Provider selection
     provider: Literal["openai", "gemini", "xai", "nova", "qwen", "aai", "livekit"] = Field(
         default=DEFAULT_AUDIO_NATIVE_PROVIDER,
-        description="Audio native API provider: 'openai' (OpenAI Realtime), 'gemini' (Gemini Live), 'xai' (xAI Grok Voice Agent), 'nova' (Amazon Nova Sonic), 'qwen' (Alibaba Qwen Omni), 'aai' (AssemblyAI voice-agent host), or 'livekit' (LiveKit cascaded STT→LLM→TTS)",
+        description="Audio native API provider: 'openai' (OpenAI Realtime), 'gemini' (Gemini Live), 'xai' (xAI Grok Voice Agent), 'nova' (Amazon Nova Sonic), 'qwen' (Alibaba Qwen Omni), 'aai' (local aai voice-agent host), or 'livekit' (LiveKit cascaded STT→LLM→TTS)",
     )
 
     # Cascaded config (for livekit provider)

@@ -1,7 +1,8 @@
-"""AssemblyAI audio-native integration.
+"""aai audio-native integration.
 
-AAI provides speech-to-speech capabilities through a local WebSocket-based
-voice-agent host. The host communicates via bidirectional WebSocket with
+aai (the @alexkroman1/aai voice-agent framework) provides speech-to-speech
+capabilities through a local WebSocket-based voice-agent host — distinct from
+the separate `assemblyai` provider. The host communicates via bidirectional WebSocket with
 speech transcription, agent responses, and tool/function calling support.
 
 Key features:
