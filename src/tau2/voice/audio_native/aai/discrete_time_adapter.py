@@ -18,6 +18,8 @@ from typing import Any, List, Optional
 from loguru import logger
 
 from tau2.config import (
+    DEFAULT_AAI_INPUT_SAMPLE_RATE,
+    DEFAULT_AAI_OUTPUT_SAMPLE_RATE,
     DEFAULT_AUDIO_NATIVE_CONNECT_TIMEOUT,
     DEFAULT_AUDIO_NATIVE_DISCONNECT_TIMEOUT,
     DEFAULT_AUDIO_NATIVE_TICK_TIMEOUT_BUFFER,
@@ -51,9 +53,10 @@ from tau2.voice.utils.audio_preprocessing import (
     resample_audio,
 )
 
-# aai host WebSocket audio rates (see AAIVoiceAgentProvider defaults).
-AAI_SEND_SAMPLE_RATE = 16000
-AAI_RECEIVE_SAMPLE_RATE = 24000
+# aai host WebSocket audio rates (shared with AAIVoiceAgentProvider via
+# tau2.config so the two sides can't drift).
+AAI_SEND_SAMPLE_RATE = DEFAULT_AAI_INPUT_SAMPLE_RATE
+AAI_RECEIVE_SAMPLE_RATE = DEFAULT_AAI_OUTPUT_SAMPLE_RATE
 AAI_RECEIVE_AUDIO_FORMAT = AudioFormat(
     encoding=AudioEncoding.PCM_S16LE,
     sample_rate=AAI_RECEIVE_SAMPLE_RATE,
@@ -89,6 +92,10 @@ class DiscreteTimeAAIAdapter(DiscreteTimeAdapter):
         self._bg_loop = BackgroundAsyncLoop()
         self._connected = False
         self._turn_index = 0
+        # Turn ids interrupted by a barge-in (AAISpeechStartedEvent); their
+        # reply_done is expected to carry zero audio/transcript, so the
+        # loud-failure guard in _process_event skips them.
+        self._interrupted_turn_ids: set[str] = set()
 
     @property
     def provider(self) -> AAIVoiceAgentProvider:
@@ -264,24 +271,30 @@ class DiscreteTimeAAIAdapter(DiscreteTimeAdapter):
                 self._buffered_agent_audio.clear()
             result.was_truncated = True
             result.skip_item_id = self._current_item_id
+            if self._current_item_id is not None:
+                self._interrupted_turn_ids.add(self._current_item_id)
 
         elif isinstance(event, AAISpeechStoppedEvent):
             result.vad_events.append("speech_stopped")
 
-        elif isinstance(event, (AAIReplyDoneEvent, AAIAudioDoneEvent)):
-            if isinstance(event, AAIReplyDoneEvent):
-                item_id = self._current_item_id
-                ut = self._utterance_transcripts.get(item_id) if item_id else None
-                if ut is not None:
-                    if ut.audio_bytes_received == 0:
-                        logger.warning(f"Reply {item_id} completed with no audio")
-                    if ut.transcript_received == "":
-                        logger.warning(
-                            f"Reply {item_id} completed with no transcript — "
-                            "possible event schema mismatch"
-                        )
-                self._turn_index += 1
-                self._current_item_id = None
+        elif isinstance(event, AAIReplyDoneEvent):
+            item_id = self._current_item_id
+            was_interrupted = item_id in self._interrupted_turn_ids
+            ut = self._utterance_transcripts.get(item_id) if item_id else None
+            if ut is not None and not was_interrupted:
+                if ut.audio_bytes_received == 0:
+                    logger.warning(f"Reply {item_id} completed with no audio")
+                if ut.transcript_received == "":
+                    logger.warning(
+                        f"Reply {item_id} completed with no transcript — "
+                        "possible event schema mismatch"
+                    )
+            self._interrupted_turn_ids.discard(item_id)
+            self._turn_index += 1
+            self._current_item_id = None
+
+        elif isinstance(event, AAIAudioDoneEvent):
+            logger.debug("Audio playback done")
 
         elif isinstance(event, AAIErrorEvent):
             logger.error(f"aai host error: {event.code} {event.message}")
