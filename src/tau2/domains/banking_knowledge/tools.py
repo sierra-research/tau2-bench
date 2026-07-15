@@ -1055,6 +1055,13 @@ class KnowledgeTools(ToolKitBase):
             return f"Error: Invalid card_action. Must be one of: {valid_card_actions}"
 
         # Validate disputed_amount is positive
+        try:
+            disputed_amount = float(disputed_amount)
+        except (ValueError, TypeError):
+            return (
+                f"Error: Invalid disputed_amount '{disputed_amount}'. Must be a number."
+            )
+
         if disputed_amount <= 0:
             return "Error: disputed_amount must be a positive number."
 
@@ -1684,6 +1691,11 @@ For deposits without available images, the dispute will proceed based on custome
         if not user_id or not credit_card_account_id or amount is None or not reason:
             return "Error: Missing required parameters (user_id, credit_card_account_id, amount, reason)."
 
+        try:
+            amount = float(amount)
+        except (ValueError, TypeError):
+            return f"Error: Invalid amount '{amount}'. Must be a number."
+
         if amount <= 0:
             return "Error: Credit amount must be positive."
 
@@ -2259,7 +2271,10 @@ For deposits without available images, the dispute will proceed based on custome
             current_limit = 0.0
 
         # Update the credit limit
-        new_limit = float(new_credit_limit)
+        try:
+            new_limit = float(new_credit_limit)
+        except (ValueError, TypeError):
+            return f"Error: Invalid new_credit_limit '{new_credit_limit}'. Must be a number."
         self.db.credit_card_accounts.data[credit_card_account_id]["credit_limit"] = (
             f"${new_limit:.2f}"
         )
@@ -4681,6 +4696,11 @@ class KnowledgeUserTools(ToolKitBase):
         if credit_card_type not in self.CREDIT_CARD_REWARDS:
             available_cards = list(self.CREDIT_CARD_REWARDS.keys())
             return f"Error: Unknown credit card type '{credit_card_type}'. Available types: {available_cards}"
+
+        try:
+            amount = float(amount)
+        except (ValueError, TypeError):
+            return f"Error: Invalid amount '{amount}'. Must be a number."
 
         # Generate a deterministic transaction ID
         transaction_id = generate_transaction_id(
