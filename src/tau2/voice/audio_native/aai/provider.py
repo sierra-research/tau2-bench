@@ -22,6 +22,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from tau2.config import (
+    DEFAULT_AAI_CONFIG_FRAME_TIMEOUT,
     DEFAULT_AAI_INPUT_SAMPLE_RATE,
     DEFAULT_AAI_MODEL,
     DEFAULT_AAI_OUTPUT_SAMPLE_RATE,
@@ -30,6 +31,8 @@ from tau2.config import (
 from tau2.utils.retry import websocket_retry
 from tau2.voice.audio_native.aai.events import (
     AAIAudioChunkEvent,
+    AAIConfigEvent,
+    AAIErrorEvent,
     AAITimeoutEvent,
     BaseAAIEvent,
     parse_aai_event,
@@ -235,30 +238,45 @@ class AAIVoiceAgentProvider:
             config_msg = self._build_config_message(self.system_prompt, self.tools)
             await self.ws.send(json.dumps(config_msg))
 
-            # Wait for config acknowledgment with per-frame timeout
+            # Wait for the config handshake frame, bounded by a timeout so we
+            # never hang forever if the host accepts the socket but never
+            # initializes the agent. Each recv is individually bounded; any
+            # non-config frame received in the meantime is buffered (not
+            # dropped) so it can be surfaced by the next
+            # receive_events_for_duration() call.
             while True:
                 try:
-                    frame = await asyncio.wait_for(self.ws.recv(), timeout=0.1)
-                except asyncio.TimeoutError:
-                    # Timeout waiting for config ack; buffer other frames
-                    continue
+                    frame = await asyncio.wait_for(
+                        self.ws.recv(), timeout=DEFAULT_AAI_CONFIG_FRAME_TIMEOUT
+                    )
+                except asyncio.TimeoutError as e:
+                    raise RuntimeError(
+                        f"aai host did not send a config frame within "
+                        f"{DEFAULT_AAI_CONFIG_FRAME_TIMEOUT}s; the agent did not "
+                        "initialize"
+                    ) from e
 
-                # Check if it's a config ack
-                if isinstance(frame, str):
-                    try:
-                        data = json.loads(frame)
-                        event = parse_aai_event(data)
-                        if event.type == "config":
-                            logger.info("AAI Provider: Config acknowledged")
-                            break
-                        else:
-                            # Buffer non-config events for later retrieval
-                            self._buffered_events.append(event)
-                    except json.JSONDecodeError:
-                        logger.warning(f"Failed to parse JSON frame: {frame}")
-                else:
+                if isinstance(frame, bytes):
                     # Binary frame (audio); buffer as audio chunk event
                     self._buffered_events.append(AAIAudioChunkEvent(pcm16=frame))
+                    continue
+
+                try:
+                    data = json.loads(frame)
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to parse JSON frame: {frame}")
+                    continue
+
+                event = parse_aai_event(data)
+                if isinstance(event, AAIConfigEvent):
+                    logger.info("AAI Provider: Config acknowledged")
+                    break
+                if isinstance(event, AAIErrorEvent):
+                    raise RuntimeError(
+                        f"aai host returned an error during handshake: {event.message}"
+                    )
+                # Buffer any other event for later retrieval
+                self._buffered_events.append(event)
 
             logger.info("AAI Provider: Connected and configured")
 
@@ -347,18 +365,9 @@ class AAIVoiceAgentProvider:
 
             except asyncio.TimeoutError:
                 yield AAITimeoutEvent(type="timeout")
-            except websockets.ConnectionClosed as e:
+            except (websockets.ConnectionClosed, websockets.ConnectionClosedError) as e:
                 logger.error(
                     f"AAI Provider: Connection closed "
-                    f"(code={e.code}, reason='{e.reason or 'no reason'}')"
-                )
-                raise RuntimeError(
-                    f"WebSocket connection closed unexpectedly "
-                    f"(code={e.code}, reason='{e.reason or 'no reason'}')"
-                ) from e
-            except websockets.ConnectionClosedError as e:
-                logger.error(
-                    f"AAI Provider: Connection error "
                     f"(code={e.code}, reason='{e.reason or 'no reason'}')"
                 )
                 raise RuntimeError(

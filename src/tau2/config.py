@@ -195,6 +195,9 @@ DEFAULT_AAI_WS_URL = "ws://localhost:3000/websocket"  # overridable via AAI_WS_U
 DEFAULT_AAI_MODEL = "host"  # fixed, determined by endpoint
 DEFAULT_AAI_INPUT_SAMPLE_RATE = 16000  # PCM16 sent to aai (STT)
 DEFAULT_AAI_OUTPUT_SAMPLE_RATE = 24000  # PCM16 received from aai (TTS)
+DEFAULT_AAI_CONFIG_FRAME_TIMEOUT = (
+    10.0  # seconds to await the server config handshake frame
+)
 
 # =============================================================================
 # PROVIDER REGISTRY (derived from above)
