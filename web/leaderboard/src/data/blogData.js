@@ -103,6 +103,16 @@ export const AUTHORS = {
 // is resolved against import.meta.env.BASE_URL.
 export const BLOG_POSTS = [
   {
+    slug: 'stanford-aims-talk',
+    title: 'The τ-bench Family: Guest Lecture at the Stanford AIMS Seminar',
+    category: 'Talk',
+    date: 'July 2026',
+    description:
+      'Slides from a guest lecture at the Stanford AIMS Seminar tracing the τ-bench family — from the original tool-agent-user substrate through dual control and knowledge to full-duplex voice — including how pausing time makes a realistic, controllable voice benchmark possible.',
+    href: 'talks/stanford-aims-tau.html',
+    authorSlugs: ['soham-ray'],
+  },
+  {
     slug: 'tau-voice-sierra',
     title: 'τ-voice: Benchmarking Real-Time Voice Agents on Real-World Tasks',
     category: 'Research',
