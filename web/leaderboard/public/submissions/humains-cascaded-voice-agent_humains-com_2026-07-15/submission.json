@@ -1,0 +1,45 @@
+{
+  "model_name": "Humains-Cascaded-Voice",
+  "model_organization": "humains.com",
+  "submitting_organization": "humains.com",
+  "submission_date": "2026-07-15",
+  "submission_type": "custom",
+  "modality": "voice",
+  "contact_info": {
+    "email": "nissan@humains.com",
+    "name": "Nissan Yaron",
+    "github": "Nisyron"
+  },
+  "is_new": true,
+  "trajectories_available": false,
+  "results": {
+    "airline": {
+      "pass_1": 66.0
+    }
+  },
+  "voice_config": {
+    "provider": "humains (custom cascaded; not one of the native audio-realtime providers)",
+    "model": "gemini-3.5-flash (thinkingLevel=low, via Vertex AI; same-model AI-Studio fallback on transient Vertex 429s)",
+    "tick_duration_seconds": 0.2,
+    "max_steps_seconds": 600,
+    "user_tts_provider": "soniox/tts-rt-v1 (persona-equivalent substitute for held-out elevenlabs/eleven_v3 voices)"
+  },
+  "references": [
+    {
+      "title": "Trajectory bundle (results.json + simulations/ + audio) - 50 tasks, hosted",
+      "url": "https://github.com/Nisyron/tau2-bench-airline-trajectories/releases/download/voice-v2-stock-0.66/tau_voice_clean_66_bundle.tar.gz",
+      "type": "other"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-07-15",
+    "tau2_bench_version": "v2.0 (voice, FULL_DUPLEX)",
+    "user_simulator": "v1.0",
+    "notes": "CUSTOM CASCADED VOICE AGENT (not a native audio-realtime model), evaluated on tau2-bench airline FULL_DUPLEX at regular speech complexity. PIPELINE: Soniox STT (stt-rt-v5) as the agent ear, feeding a Humains bCortex multi-state orchestrator (gemini-3.5-flash via Vertex AI at thinkingLevel=low, with a same-model AI-Studio fallback on transient Vertex 429s), whose text is spoken by OpenAI TTS (gpt-4o-mini-tts, voice 'alloy'). A turn-taking politeness adapter sits between the bench tick loop and bCortex: barge-in disabled; a 2-second collision-protection window (brief overlaps and backchannels do not cut the agent off, a sustained 2s+ barge-in does); dead-air filler spoken on entering 'thinking'; plus liveness and ear watchdogs and a transcript freshness floor. EVALUATION: standard voice user-simulator v1.0 (gpt-4.1-2025-04-14, temperature 0.0); eval-side transcription via Deepgram nova-3; reward combines database-state correctness with the required-communication checks. Single trial, Pass^1 = 66.0 (33/50), all 50 airline tasks, no omissions. REPRODUCIBILITY: this board is a full re-run on our canonical deployed (stock) bCortex platform with no core patches. It replaces an earlier board produced against a locally-patched bCortex core that was not reproducible on the stock platform (as that submission's caveat disclosed). The stock re-run shifted the distribution slightly and settled at 66.0, and it maps one-to-one to a runnable system; the exact config can be pinned for the held-out-voice re-run. USER-SIM VOICE: the user-simulator audio was rendered by Soniox tts-rt-v1 (via TAU2_TTS_PROVIDER=soniox), a persona-equivalent substitute for the held-out ElevenLabs voices, which are not public. The elevenlabs/eleven_v3 recorded in results.json voice_settings is the framework's pre-reroute template config (serialized before the provider override is applied) and does not reflect the actual audio path; the rendered audio in the bundle is the Soniox output. Because these are non-official voices, the score is a self-report pending a re-run with the official held-out voices per the voice policy. PROMPT DISCLOSURE: the agent's few-shot examples and direct instructions are available privately to the maintainers for a leakage audit; platform-specific elements (the output/CoT schema and the prompt-generator scaffolding) are withheld as platform IP, are identical across our unrelated production domains, and contain no airline or benchmark-derived content. PROVIDER FIELD: audio_native_config.provider is recorded as 'humains' (custom cascade), outside the current tau2 provider enum, to be handled per the custom-submission coordination path.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "Custom cascaded scaffold, custom multi-state prompts, and a custom turn-taking adapter, produced on our canonical deployed (stock) bCortex platform (no core patches; fully reproducible; replaces an earlier locally-patched-core board). All 50 airline tasks scored, regular complexity, 1 trial. User-simulator audio rendered by Soniox tts-rt-v1 (persona-equivalent substitute for the held-out ElevenLabs voices); results.json voice_settings records the pre-reroute elevenlabs/eleven_v3 template. Few-shot examples and direct instructions available privately for the leakage audit; platform-specific output schema / generator scaffolding withheld as IP."
+    }
+  }
+}
