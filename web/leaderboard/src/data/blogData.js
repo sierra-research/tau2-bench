@@ -110,7 +110,7 @@ export const BLOG_POSTS = [
     description:
       'Slides from a guest lecture at the Stanford AIMS Seminar tracing the τ-bench family — from the original tool-agent-user substrate through dual control and knowledge to full-duplex voice — including how pausing time makes a realistic, controllable voice benchmark possible.',
     href: 'talks/stanford-aims-tau.html',
-    authorSlugs: ['soham-ray'],
+    authorSlugs: ['soham-ray', 'victor-barres', 'honghua-dong'],
   },
   {
     slug: 'tau-voice-sierra',
