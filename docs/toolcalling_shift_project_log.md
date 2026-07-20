@@ -855,3 +855,87 @@ Ready for human review of the proposed inclusion/exclusion set in `docs/pr_tau2_
 ### Next step
 
 Stage the proposed inclusion set, leave excluded local artifacts untracked/ignored, then commit with proposed message `feat: add tau2 stage1 shift analysis workflow` and open a PR titled `Add tau2 Stage 1 context-shift analysis workflow`.
+
+## 2026-07-20 — BFCL Shift Analysis
+
+### Objective
+
+Add BFCL as a third, real evaluated tool-calling dataset to compare category-level context shifts against tau2 task-level outcomes and API-Bank evaluator-pipeline records. BFCL was added because it provides more real evaluator-labeled outcomes than the current tau2 sample while avoiding API-Bank's synthetic-negative limitation.
+
+### Source data
+
+- Source file: `data/processed/bfcl/bfcl_v4_non_live_1240_xy.jsonl`.
+- Compact source summary: `data/processed/bfcl/bfcl_v4_non_live_1240_summary.json`.
+- Records: 1,240 unique BFCL v4 non-live single-turn evaluated model outcomes.
+- Model: `gpt-4o-mini-2024-07-18-FC`.
+- Label scope: `test_case_level`.
+- Label origin: `bfcl_evaluator`.
+- Synthetic rows: false.
+- Y distribution: 1,059 successes and 181 failures.
+- Category counts and success rates: `simple_python` 400, 350/400 = 0.8750; `multiple` 200, 176/200 = 0.8800; `parallel` 200, 174/200 = 0.8700; `parallel_multiple` 200, 160/200 = 0.8000; `irrelevance` 240, 199/240 = 0.8292.
+
+### X, S, Y representation
+
+- X is stored in `x_raw` and contains BFCL prompt/context and function information.
+- S is stored in `s_raw` and contains the evaluated model result.
+- Y is stored in `y` as binary test-case correctness from the BFCL evaluator.
+- The BFCL builder now validates that every row has `id`, `x_raw`, `s_raw`, and valid `y`.
+
+### Candidate shifts
+
+Primary complexity shifts:
+
+- `bfcl_simple_python_to_multiple`
+- `bfcl_simple_python_to_parallel`
+- `bfcl_simple_python_to_parallel_multiple`
+- `bfcl_multiple_to_parallel_multiple`
+- `bfcl_parallel_to_parallel_multiple`
+
+Behavioral/abstention shift:
+
+- `bfcl_simple_python_to_irrelevance`
+
+Candidate groups are defined only from BFCL `category` metadata. They do not use `y`, `s_raw`, evaluator errors, label scope, label origin, or synthetic-status fields.
+
+### Threshold-sensitive findings
+
+The BFCL uncertainty analysis uses Newcombe-Wilson 95% confidence intervals, deterministic bootstrap with 10,000 replicates and seed 1, two-proportion p-values, and Benjamini-Hochberg adjustment across the six BFCL shifts. Under the full-CI rule, all six shifts are inconclusive at `d=0.05`; `simple_python -> multiple` and `simple_python -> parallel` are candidate harmless at `d=0.10`; five of six shifts are candidate harmless at `d=0.15`; and no BFCL shift is candidate harmful at any tested threshold.
+
+### Cross-dataset interpretation
+
+BFCL, tau2, and API-Bank are complementary studies with different label scopes and are not pooled as IID rows. tau2 currently has 105 real task-level outcomes; API-Bank has 1,016 API-call-level correctness records with 508 reference positives and 508 synthetic negatives; BFCL has 1,240 real evaluated test-case-level outcomes.
+
+### Git inclusion set
+
+Proposed included files:
+
+- `scripts/build_bfcl_shift_inventory.py`
+- `scripts/analyze_bfcl_shift_uncertainty.py`
+- `tests/test_build_bfcl_shift_inventory.py`
+- `tests/test_analyze_bfcl_shift_uncertainty.py`
+- `docs/bfcl_data_source_audit.md`
+- `docs/bfcl_shift_inventory.md`
+- `docs/bfcl_shift_uncertainty.md`
+- `docs/toolcalling_cross_dataset_findings.md`
+- `docs/toolcalling_shift_project_log.md`
+- `data/processed/bfcl/bfcl_v4_non_live_1240_xy.jsonl`
+- `data/processed/bfcl/bfcl_v4_non_live_1240_summary.json`
+- `data/processed/bfcl/bfcl_v4_non_live_shift_inventory.jsonl`
+- `data/processed/bfcl/bfcl_v4_non_live_shift_inventory_summary.json`
+- `data/processed/bfcl/bfcl_v4_non_live_shift_uncertainty.jsonl`
+- `data/processed/bfcl/bfcl_v4_non_live_shift_uncertainty_summary.json`
+
+Explicit exclusions:
+
+- Gorilla raw result directories.
+- Gorilla score directories.
+- API keys and `.env` files.
+- Temporary canary files.
+- Caches.
+- Generated Python bytecode.
+
+The 2.1 MB sample-level BFCL JSONL is included because it is the direct reproducibility input. The compact BFCL input summary is included. No new `.gitignore` rule was needed in this pass because the required BFCL reproducibility inputs are visible to Git, while existing ignore rules already exclude `.env`, caches, temporary files, and Python bytecode; no Gorilla raw or score directories were present in this working tree.
+
+### Limitations
+
+The BFCL analysis is exploratory, category-level, and non-causal. It verifies local processed artifacts and does not re-run the upstream BFCL evaluator. Candidate contrasts reuse category groups across shifts and should not be treated as independent discoveries. Results do not imply deployment safety or a retraining requirement.
