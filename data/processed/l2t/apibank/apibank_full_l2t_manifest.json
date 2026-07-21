@@ -1,0 +1,187 @@
+{
+  "array_contract": {
+    "X_dtype": "float32",
+    "X_shape": [
+      1016,
+      402
+    ],
+    "class_distribution": {
+      "0": 508,
+      "1": 508
+    },
+    "duplicate_sample_ids": [],
+    "infinite_value_counts": {
+      "X": 0,
+      "traj_s": 0
+    },
+    "nan_counts": {
+      "X": 0,
+      "traj_s": 0
+    },
+    "traj_s_dtype": "float32",
+    "traj_s_shape": [
+      1016,
+      404
+    ],
+    "y_dtype": "int64",
+    "y_shape": [
+      1016
+    ]
+  },
+  "converter_script": "scripts/convert_apibank_to_l2t_pkl.py",
+  "converter_version": "l2t_model_bridge_20260720",
+  "dataset": "api_bank",
+  "feature_definitions": {
+    "X": {
+      "embedding_model_name": "sentence-transformers/all-MiniLM-L6-v2",
+      "mapping": "Existing toolcalling_numerical_full API-Bank X rows: normalized x_text embedding concatenated with structural pre-call context features.",
+      "ordered_structural_feature_names": [
+        "context_text_length",
+        "history_turn_count",
+        "user_turn_count",
+        "assistant_turn_count",
+        "available_tool_count",
+        "target_or_expected_tool_call_count",
+        "requires_authentication",
+        "requires_write",
+        "domain_id",
+        "context_text_length__missing",
+        "history_turn_count__missing",
+        "user_turn_count__missing",
+        "assistant_turn_count__missing",
+        "available_tool_count__missing",
+        "target_or_expected_tool_call_count__missing",
+        "requires_authentication__missing",
+        "requires_write__missing",
+        "domain_id__missing"
+      ],
+      "shape_source": "toolcalling_numerical_full.npz['X'][source_dataset == 'api_bank']"
+    },
+    "traj.s": {
+      "compatibility_note": "Minxing's loader has no separate fixed S-vector input; each S row is supplied as traj['s'] so the existing loader can form one-step sequence pairs.",
+      "embedding_model_name": "sentence-transformers/all-MiniLM-L6-v2",
+      "mapping": "Existing toolcalling_numerical_full API-Bank S rows used as the fixed sequence consumed by Minxing make_sequence_pairs.",
+      "ordered_structural_feature_names": [
+        "trajectory_length",
+        "tool_call_count",
+        "unique_tool_count",
+        "read_call_count",
+        "write_call_count",
+        "tool_error_count",
+        "retry_count",
+        "argument_count",
+        "has_exception",
+        "termination_success_signal",
+        "trajectory_length__missing",
+        "tool_call_count__missing",
+        "unique_tool_count__missing",
+        "read_call_count__missing",
+        "write_call_count__missing",
+        "tool_error_count__missing",
+        "retry_count__missing",
+        "argument_count__missing",
+        "has_exception__missing",
+        "termination_success_signal__missing"
+      ],
+      "shape_source": "toolcalling_numerical_full.npz['S'][source_dataset == 'api_bank']"
+    }
+  },
+  "label_origin": {
+    "reference_api_call": 508,
+    "synthetic_corruption": 508
+  },
+  "label_scope": "api_call_level",
+  "label_semantics": "Y=1 means correct API call under the current API-Bank pilot definition; Y=0 means synthetic corrupted API call.",
+  "minxing_contract": {
+    "X": "float32 array with shape (N, d_x); consumed as context/features",
+    "loader_behavior": "run_baseline.py casts X, y, and traj['s'] to float32 and builds o_hist/o_next via make_sequence_pairs",
+    "required_pickle_keys": [
+      "X",
+      "y",
+      "traj"
+    ],
+    "required_traj_keys": [
+      "s"
+    ],
+    "traj.s": "float32 array with shape (N, T); converted by Minxing loader into one-step sequence pairs",
+    "y": "binary array with shape (N,); consumed as positive/negative label for safety-style classification metrics"
+  },
+  "model_facing_exclusions": [
+    "label_scope",
+    "label_origin",
+    "is_synthetic",
+    "pair_id",
+    "group_ids",
+    "corruption_type",
+    "validation_status",
+    "validation_error",
+    "y"
+  ],
+  "output_pickle": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/l2t/apibank/apibank_full_l2t.pkl",
+  "pair_grouping": {
+    "group_id_payload_key": "group_ids",
+    "metadata_key": "metadata[].pair_id",
+    "pair_count": 508,
+    "pair_size_distribution": {
+      "2": 508
+    },
+    "supervised_diagnostic_note": "Positive and synthetic-negative rows are paired; supervised diagnostics must split by pair_id to avoid train/validation leakage."
+  },
+  "sample_count": 1016,
+  "source_input": {
+    "numerical_manifest": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/toolcalling_numerical_full_manifest.json",
+    "numerical_npz": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/toolcalling_numerical_full.npz",
+    "unified_jsonl": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/unified_toolcalling_apibank.jsonl"
+  },
+  "source_numerical_manifest_summary": {
+    "final_s_dimension": 404,
+    "final_x_dimension": 402,
+    "label_counts_by_dataset": {
+      "api_bank": {
+        "0": 508,
+        "1": 508
+      },
+      "tau2": {
+        "0": 60,
+        "1": 33
+      }
+    },
+    "leakage_audit": {
+      "decisions": [
+        "Excluded y, label_origin, is_synthetic, variant, corruption_type, validation_status, and validation_error from model-facing text and structural features.",
+        "API-Bank X text and X structural features are derived from pre-call history and available API names only, so positive/negative members of a pair share X.",
+        "API-Bank execution results are excluded from S text to avoid leaking evaluator outcomes.",
+        "API-Bank has_exception and termination_success_signal are marked unavailable in structural S features because they could trivially encode synthetic-negative validation status in future builds.",
+        "tau2 reward and db_match metadata are excluded from model-facing text and structural features."
+      ],
+      "excluded_metadata_only_fields": [
+        "corruption_type",
+        "is_synthetic",
+        "label_origin",
+        "validation_error",
+        "validation_status",
+        "variant",
+        "y"
+      ],
+      "model_facing_field_name_hits": {}
+    }
+  },
+  "split": {
+    "seed": 1,
+    "splitter": "numpy.random.RandomState(seed).permutation with first int(0.8*N) samples used for training",
+    "train_class_distribution": {
+      "0": 408,
+      "1": 404
+    },
+    "train_size": 812,
+    "validation_class_distribution": {
+      "0": 100,
+      "1": 104
+    },
+    "validation_size": 204
+  },
+  "synthetic_counts": {
+    "False": 508,
+    "True": 508
+  }
+}

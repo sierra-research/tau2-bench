@@ -1,0 +1,65 @@
+{
+  "datasets": {
+    "apibank": {
+      "batch_train": 128,
+      "input_data": "data/processed/l2t/apibank/apibank_full_l2t.pkl",
+      "label_scope": "API-Bank synthetic success/failure label; balanced but synthetic label provenance.",
+      "time_window": [
+        0.05,
+        20.15
+      ]
+    },
+    "bfcl": {
+      "batch_train": 128,
+      "input_data": "data/processed/l2t/bfcl/bfcl_v4_non_live_1240_l2t.pkl",
+      "label_scope": "BFCL v4 non-live executable/correct tool-call outcome; strongly positive-majority validation split.",
+      "time_window": [
+        0.05,
+        1.55
+      ]
+    },
+    "tau2": {
+      "batch_train": 16,
+      "input_data": "data/processed/tau2_l2t_success_retail_airline_50_filtered_20260714.pkl",
+      "label_scope": "tau2 retail/airline task success after filtering; small filtered sample.",
+      "time_window": [
+        0.05,
+        3.15
+      ]
+    }
+  },
+  "modes": {
+    "label_bce": {
+      "inputs_used": "X only",
+      "label_use": "Y is the direct BCE target for an existing X-only MLP baseline.",
+      "minxing_model_name": "label_bce",
+      "objective": "binary cross-entropy on benchmark success label"
+    },
+    "proposed_only": {
+      "inputs_used": "X and S",
+      "label_use": "Y is used for compatibility evaluation metrics, not as a direct supervised head.",
+      "minxing_model_name": "proposed",
+      "objective": "stability_asymmetric_recon(delta=10.0) + lambda_mmd=0.01 * MMD"
+    },
+    "reconstruction_only": {
+      "inputs_used": "X and S",
+      "label_use": "Y is used for compatibility evaluation metrics, not for training.",
+      "minxing_model_name": "reconstruction_only",
+      "objective": "plain sequence reconstruction MSE (asym_recon_delta=1, lambda_mmd=0)"
+    }
+  },
+  "pickle_contract": {
+    "S": "payload['traj']['s'] float32 array (N, T), converted to o_hist/o_next sequence pairs.",
+    "X": "float32 array (N, d_x), Minxing context/features.",
+    "Y": "binary success label (N,), used as safety-style compatibility metric target.",
+    "required_keys": [
+      "X",
+      "y",
+      "traj"
+    ],
+    "required_traj_keys": [
+      "s"
+    ]
+  },
+  "schema_version": "minxing_l2t_compatibility_metadata_v1"
+}

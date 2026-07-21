@@ -1,941 +1,943 @@
 # LLM Tool-Calling Context Shift Project Log
 
-This file is the persistent project log for the LLM tool-calling context shift project. Future Codex sessions should read this file before editing project artifacts and append chronological entries rather than overwriting or deleting previous entries.
+Last consolidated: 2026-07-21.
+
+This is the canonical handoff document for the LLM tool-calling context-shift
+project. Future ChatGPT, Codex, and Claude sessions should read this file before
+editing project artifacts.
 
 Log rules:
 
-- Distinguish verified facts from assumptions and proposed next steps.
-- Do not claim that smoke tests are performance benchmarks.
-- Do not describe synthetic API-Bank negatives as naturally occurring LLM failures.
-- Preserve the distinction between task-level and API-call-level labels.
-- Keep entries append-only after this initial project summary.
+- Distinguish completed work, current conclusions, and planned work.
+- Do not claim that smoke tests or compatibility runs are performance
+  benchmarks.
+- Do not describe synthetic API-Bank negatives as naturally occurring LLM
+  failures.
+- Preserve label-scope distinctions across tau2, BFCL, and API-Bank.
+- Preserve `Y=0` labels. Do not redefine all outcomes as `Y=1`.
+- Do not pool tau2, BFCL, and API-Bank as IID samples from one task.
+- Keep code and data changes out of this log unless the user explicitly asks for
+  implementation work.
 
-## 1. Research Motivation
+## 1. Project Overview
 
-An LLM tool-calling agent may work well when deployed at Company A, while Company B has a different business context, tools, policies, workflows, or user distribution. The naive response to any context shift is to collect new data and fine-tune or retrain the model, but fine-tuning and retraining are costly.
+Research motivation: an LLM tool-calling agent can work at one company or
+deployment setting and then be deployed into another setting with different
+tools, policies, workflows, business objects, user requests, or error modes. The
+naive response to any such context change is to collect new data and adapt,
+fine-tune, or retrain. That can be expensive and unnecessary.
 
-The research goal is to determine whether a context shift is actually harmful before retraining. Some context shifts may substantially change X or S while causing little or no change in P(Y=1). Such harmless or business-orthogonal shifts may not require retraining. The project should study harmful, harmless, and possibly beneficial shifts.
+The core deployment question is a company/source-context to target-context
+question: given data from a source context, can we tell whether a target context
+shift is likely to change benchmark success before deciding to adapt the model?
 
-Use:
+The project goal is to identify shifts that are:
+
+- harmful: target success is meaningfully lower than source success;
+- harmless: target success is practically unchanged;
+- beneficial: target success is meaningfully higher;
+- inconclusive: current samples and intervals do not support one of the above.
+
+The practical value is to avoid unnecessary adaptation or retraining when the
+shift changes `X` or `S` but not the probability of success, while still
+surfacing contexts where success appears to degrade.
+
+## 2. Formal Formulation
+
+`X` is the task or deployment context. It may include the user request, domain,
+available tools, tool schemas, policies, expected action counts, environment
+state, and other pre-execution context.
+
+`S` is the LLM/tool-calling interaction trajectory. It can include user
+messages, assistant messages, tool calls, arguments, tool outputs, errors,
+retries, termination state, or a derived numeric trajectory representation.
+
+`Y` is benchmark success or correctness. It is binary in the current
+implementations, but its scope depends on the dataset:
+
+- tau2: task-level benchmark success;
+- BFCL: test-case-level evaluator correctness;
+- API-Bank: API-call-level correctness under the current pilot construction.
+
+The outcome shift is:
 
 ```text
 Delta_Y = P_target(Y=1) - P_source(Y=1)
 ```
 
-Conceptually:
+`Y` is not fixed to 1. Failures and synthetic negatives are preserved as `Y=0`
+where the source artifacts define them.
 
-- harmful shift: Delta_Y is meaningfully negative
-- harmless shift: Delta_Y is approximately zero
-- beneficial shift: Delta_Y is positive
+Current practical thresholds are `delta_practical = 0.05, 0.10, 0.15`.
+Classifications use the full 95% confidence interval for `Delta_Y`:
 
-No numerical threshold is frozen yet.
+- `candidate_harmful`: upper 95% CI < `-d`;
+- `candidate_harmless`: full 95% CI is inside `[-d, d]`;
+- `candidate_beneficial`: lower 95% CI > `d`;
+- `inconclusive`: all other cases.
 
-## 2. Current X, S, Y Formulation
+The primary interval in current tau2 and BFCL analyses is a Newcombe-Wilson
+difference-in-proportions interval. A deterministic nonparametric bootstrap
+interval with 10,000 replicates and seed 1 is also recorded. Multiple testing is
+adjusted with Benjamini-Hochberg across the analyzed shifts for each dataset.
 
-X is the task and deployment context available before or during execution. It may include the user request, domain, available tools, tool schemas, policies, expected action complexity, and environment context.
+These labels are exploratory statistical labels only. They do not imply
+causality, deployment safety, or an automatic retraining decision.
 
-S is the tool-calling interaction trajectory. It includes user messages, assistant messages, tool/API calls, arguments, outputs, errors, retries, and termination.
+## 3. Relationship To Minxing's Method
 
-Y is correctness or final task success. Its exact meaning depends on `label_scope` and `source_dataset`.
+Minxing Zheng's method lives in the sibling repository:
 
-Important distinction:
+```text
+/Users/xuyida/Research/physics_informed_testing
+```
 
-- tau2 uses task-level success labels.
-- API-Bank pilot uses API-call-level correctness labels.
+Reference entry point:
 
-## 3. tau2-Bench Pilot
+```text
+/Users/xuyida/Research/physics_informed_testing/share_code/experiment/run_baseline.py
+```
 
-Verified facts:
+What is being transferred from Minxing's method setting:
 
-- Data source: tau2-bench retail and airline.
-- Source/target interpretation: retail is the source domain and airline is the target domain.
-- Local task counts observed: retail 114, airline 50, telecom 2285, banking knowledge 97.
-- Pilot executions: retail 50 run with 46 retained after filtering; airline 50 run with 47 retained after filtering; total retained 93.
-- The 46/50 and 47/50 counts are retained simulation counts, not train/test splits.
+- the external-data pickle interface;
+- deterministic train/validation splitting;
+- existing model modes and objectives;
+- the idea of using context `X` and trajectory `S` to diagnose safety or
+  success-related shifts.
 
-Current tau2 X:
+The abstract project formulation is `X/S/Y` for LLM tool-calling. The current
+Minxing reference implementation is physics-specific and uses reconstructed
+trajectory safety scores. The current bridge is therefore a compatibility
+bridge, not a proof that the physics-specific thresholded reconstruction
+semantics already match tool-calling success.
 
-- 12 structured features.
-- Includes domain indicators, expected action counts, read/write counts, DB mutation requirement, and evaluator-component indicators.
+Exact Minxing pickle contract used by the bridge:
 
-Current tau2 S:
+- top-level keys: `X`, `y`, `traj`;
+- `X`: `float32` array with shape `(N, d_x)`;
+- `y`: binary array with shape `(N,)`;
+- `traj["s"]`: `float32` array with shape `(N, T)`;
+- `X`, `y`, and `traj["s"]` must share the same first dimension;
+- Minxing casts arrays to `float32`, builds one-step sequence pairs from
+  `traj["s"]`, and splits with
+  `numpy.random.RandomState(seed).permutation`.
 
-- Fixed-length event sequence of length 64.
-- Codes: 0 padding, 1 user message, 2 assistant text, 3 read tool call, 4 write tool call, 5 successful tool response, 6 tool error, 7 end.
-- This is a coarse structural representation and does not preserve full semantics, tool names, arguments, or output content.
+Current semantic mismatch: `proposed_only` and `reconstruction_only` make
+safety-style predictions by thresholding reconstructed trajectories under a time
+window. tau2, BFCL, and API-Bank labels instead encode benchmark success or
+correctness. This mismatch likely explains the observed one-class sequence-mode
+collapses.
 
-Current tau2 Y:
+This does not invalidate benchmark success as `Y`. It means Minxing's current
+thresholded reconstructed-trajectory score is not yet proven to be a valid
+surrogate for LLM tool-calling success. Benchmark success remains the correct
+outcome variable for this project; the semantic bridge from reconstruction score
+to success still needs design and validation.
 
-- `y = 1` only when the existing converted benchmark reward label is 1.
-- Otherwise `y = 0`.
-- This is a task-level label.
-- It does not require exact trajectory match against a reference trajectory.
+## 4. Dataset Inventory
 
-Filtering:
+### tau2
 
-- Normal termination.
-- Valid reward information.
-- Required evaluator checks present.
-- Filtering logic should remain auditable.
+- Source repository: `/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench`,
+  origin `https://github.com/YidaXu04/tau2-bench.git`, upstream
+  `https://github.com/sierra-research/tau2-bench.git`.
+- Current real shift-analysis sample count: 105 task-level outcomes after
+  Stage 1, from 93 baseline retained records plus 12 Stage 1 retained records.
+- Original Minxing-compatibility pickle sample count: 93 filtered retail/airline
+  records in `data/processed/tau2_l2t_success_retail_airline_50_filtered_20260714.pkl`.
+- X representation, unified baseline: 12 structured numeric features including
+  domain indicators, expected action/read/write counts, DB mutation requirement,
+  and evaluator-component indicators.
+- X representation, numerical artifact: 384-dimensional text embedding plus 18
+  structural features, final `X=(N,402)`.
+- S representation, unified baseline: fixed-length 64-event structural
+  trajectory with event codes for user, assistant, read call, write call, tool
+  response, tool error, end, and padding.
+- S representation, numerical artifact: 384-dimensional text embedding plus 20
+  structural features, final `S=(N,404)`.
+- Y definition: `y=1` only when the converted benchmark reward is 1.0;
+  otherwise `y=0`.
+- Label scope: `task_level`.
+- Label origin: `tau2_benchmark_reward`.
+- Synthetic status: non-synthetic.
+- Class counts: baseline 93 has 60 failures and 33 successes; Stage 1 adds 8
+  failures and 4 successes; merged 105 has 68 failures and 37 successes.
+- Important limitations: small sample sizes; candidate shifts reuse records
+  across definitions; current S is coarse and does not preserve full tool names,
+  arguments, outputs, or message semantics; observed trajectory-length/tool-call
+  groups cannot be assigned before running a task.
 
-## 4. tau2 Sequence-Model Compatibility Test
+### BFCL
 
-Verified facts:
+- Source repository: `/Users/xuyida/Research/llm-toolcalling-benchmarks/gorilla`,
+  origin `https://github.com/ShishirPatil/gorilla.git`.
+- Processed source file:
+  `data/processed/bfcl/bfcl_v4_non_live_1240_xy.jsonl`.
+- Compact source summary:
+  `data/processed/bfcl/bfcl_v4_non_live_1240_summary.json`.
+- Sample count: 1,240 BFCL v4 non-live single-turn evaluated model outcomes.
+- Model: `gpt-4o-mini-2024-07-18-FC`.
+- X representation: `x_raw` stores prompt/context and function information.
+  L2T bridge converts this to 17 structural features from BFCL prompt and tool
+  schema context only.
+- S representation: `s_raw` stores evaluated model result. L2T bridge converts
+  `s_raw.model_result` to a 32-step event sequence.
+- Y definition: binary BFCL evaluator correctness for the test case.
+- Label scope: `test_case_level`.
+- Label origin: `bfcl_evaluator`.
+- Synthetic status: non-synthetic.
+- Class counts: 1,059 successes and 181 failures; overall accuracy 0.8540.
+- Category counts: `simple_python` 400, `multiple` 200, `parallel` 200,
+  `parallel_multiple` 200, `irrelevance` 240.
+- Category success rates: simple 0.8750, multiple 0.8800, parallel 0.8700,
+  parallel-multiple 0.8000, irrelevance 0.8292.
+- Important limitations: category-level exploratory contrasts; does not rerun
+  the upstream BFCL evaluator; candidate contrasts reuse category groups; no
+  deployment-safety or retraining-required claim follows from these labels.
+  BFCL irrelevance includes an abstention criterion, so call-vs-no-call behavior
+  is part of that category's evaluator definition and should be reported
+  separately from non-irrelevance tool-call competence.
 
-- Input: 93 samples.
-- X shape: `(93, 12)`.
-- S shape: `(93, 64)`.
-- Configuration: model `proposed`, epochs 30, `batch_train` 16, `batch_val` 16, train/validation split 74/19, `d_x` 12, `d_o` 1, `tau` 1.0, `time_window` `[0.1, 3.0]`, `skip_sweeps` true.
-- The train loader used `drop_last=True`, so train metrics were computed over 64 samples per epoch.
+### API-Bank
 
-Observed metrics:
+- Source repository: `/Users/xuyida/Research/llm-toolcalling-benchmarks/DAMO-ConvAI`,
+  origin `https://github.com/YidaXu04/DAMO-ConvAI.git`, upstream
+  `https://github.com/AlibabaResearch/DAMO-ConvAI.git`.
+- Unified source file:
+  `data/processed/unified_toolcalling_apibank.jsonl`.
+- Sample count: 1,016 API-call-level records, composed of 508 reference positive
+  API calls and 508 synthetic corrupted negatives.
+- X representation, unified: 5 numeric features:
+  `assistant_turn_count`, `available_api_count`, `history_length`,
+  `previous_api_call_count`, `user_turn_count`.
+- X representation, numerical/L2T: rows from
+  `toolcalling_numerical_full.npz["X"][source_dataset == "api_bank"]`, final
+  `X=(1016,402)`.
+- S representation, unified: 4 numeric features:
+  `api_name_id`, `argument_count`, `has_exception`, `output_is_success`.
+- S representation, numerical/L2T: rows from
+  `toolcalling_numerical_full.npz["S"][source_dataset == "api_bank"]`, final
+  `S=(1016,404)`.
+- Y definition: `Y=1` for correct reference API calls and `Y=0` for validated
+  synthetic corrupted calls.
+- Label scope: `api_call_level`.
+- Label origin: 508 `reference_api_call`, 508 `synthetic_corruption`.
+- Synthetic status: positives are non-synthetic references; negatives are
+  synthetic corruptions.
+- Class counts: 508 successes and 508 failures.
+- Corruption types: `missing_required_argument` 137, `wrong_api_name` 140,
+  `wrong_argument_type` 114, `wrong_argument_value` 117.
+- Important limitations: negatives are not natural LLM failures; labels are
+  balanced by construction; positive/negative paired records can leak across
+  ordinary random splits unless split by pair/group; API-Bank deltas are not
+  valid estimates of natural deployment success-rate shifts. The supervised
+  diagnostic row-level split placed 160/508 pairs across train and validation,
+  so pair-grouped splitting is required for clean supervised API-Bank
+  diagnostics.
 
-- `train_safety_acc` started at 0.625 and ended at 0.640625.
-- Validation safety accuracy remained 0.631578947368421.
-- `train_safety_y1_acc` remained 0.0.
-- `train_safety_y0_acc` remained 1.0.
-- `validation_safety_y1_acc` remained 0.0.
-- `validation_safety_y0_acc` remained 1.0.
+## 5. Tau2 Work Completed
+
+Task/domain filtering:
+
+- Local task counts observed earlier: retail 114, airline 50, telecom 2,285,
+  banking knowledge 97.
+- Initial retained records: 46 retail and 47 airline after filtering, 93 total.
+- Filtering requires normal termination, valid reward information, required
+  evaluator checks, and auditable conversion logic.
+- Telecom was tested for feasibility: one task took about 362 seconds, hit a
+  TPM/rate-limit issue, reached max steps, had reward 0, and cost about
+  `0.095`. Telecom remains technically possible but unsuitable for immediate
+  scaling without a cost-control plan.
+
+Source/target setup:
+
+- Baseline source/target contrast uses retail as source and airline as target.
+- Additional tau2 shifts compare write requirement, expected action count,
+  observed trajectory length, and observed tool-call count.
+
+Numerical representation:
+
+- Full unified numerical artifact for tau2 plus API-Bank has `X=(1109,402)`,
+  `S=(1109,404)`, `y=(1109,)`.
+- Embedding model is `sentence-transformers/all-MiniLM-L6-v2`; manifest package
+  version is 5.6.0.
+- No duplicate sample IDs, NaNs, or infinite values were reported.
+- Model-facing leakage fields such as `y`, `label_origin`, `is_synthetic`,
+  `variant`, `corruption_type`, `validation_status`, and `validation_error` are
+  excluded from model-facing text and structural features.
+
+Stage 1 shift analysis:
+
+- Stage 1 selected 12 unused retail tasks by X/task characteristics, not by
+  observed `Y`.
+- Selected task IDs: `54`, `55`, `64`, `71`, `72`, `74`, `76`, `81`, `57`,
+  `62`, `50`, `70`.
+- Composition: 8 `two_plus_writes`, 2 `no_write`, 2 `low_action_one_write`.
+- Execution/ingestion completed: 12 attempted, 12 completed, 12 retained, 0
+  filtered.
+- Stage 1 outcome distribution: 8 failures, 4 successes.
+- Observed Stage 1 cost: 0.0706581.
+- Merged tau2 record count: 105, with 68 failures and 37 successes.
+
+Harmful candidate results:
+
+- Before Stage 1, `tau2_zero_or_one_write_to_two_plus_writes` was
+  `candidate_harmful` at `d=0.05`, `d=0.10`, and `d=0.15`.
+- After Stage 1, the same shift has `Delta_Y=-0.3271`,
+  95% CI `[-0.4634, -0.1371]`, and is `candidate_harmful` at `d=0.05` and
+  `d=0.10`, but `inconclusive` at `d=0.15`.
+- All other current tau2 shifts are inconclusive under the full-CI rule.
+- CI widths decreased for all six tau2 shifts after Stage 1.
+
+Uncertainty and additional-sampling analysis:
+
+- Baseline and Stage 1 analyses use Newcombe-Wilson 95% intervals, deterministic
+  bootstrap intervals with 10,000 replicates and seed 1, and Benjamini-Hochberg
+  adjustment.
+- Additional sampling plans were generated without running new simulations at
+  the planning stage.
+- The Stage 1 plan intentionally targeted the multiple-write contrast and does
+  not support causal interpretation.
+
+Previous Minxing compatibility run and collapse result:
+
+- The original 93-sample tau2 Minxing run used `X=(93,12)`, `S=(93,64)`.
+- The earlier 30-epoch `proposed` compatibility run predicted all validation
+  samples as `Y=0`; validation accuracy equaled the validation majority-class
+  rate 12/19 = 0.6316.
+- The current 5-epoch compatibility matrix reproduces the sequence-mode
+  collapse for tau2 in `proposed_only` and `reconstruction_only`.
+
+## 6. API-Bank Work Completed
+
+Pilot/full construction:
+
+- Local API-Bank level-1/level-2 inspection found 264 dialogues, 508 API
+  reference steps, 508 API events, and zero exceptions in reference trajectories.
+- No released model-prediction files were found locally.
+- The pilot creates a balanced API-call-level dataset from reference positives
+  and synthetic negatives.
+
+Positive and synthetic-negative counts:
+
+- 508 positive reference API calls.
+- 508 synthetic negative API calls.
+- 1,016 total API-call-level records.
+
+Corruption types:
+
+- `missing_required_argument`: 137.
+- `wrong_api_name`: 140.
+- `wrong_argument_type`: 114.
+- `wrong_argument_value`: 117.
+- 508/508 negatives were validated as incorrect through evaluator/API
+  correctness logic.
+- `GetToday` supported API-name corruption only; fallback count was 25.
+- Sensitive values were redacted; the first reported build recorded 2,872
+  redacted sensitive values.
+
+Unified/numerical representation:
+
+- Unified API-Bank X dimension: 5.
+- Unified API-Bank S dimension: 4.
+- Numerical/L2T API-Bank `X=(1016,402)`, `S=(1016,404)`, `y=(1016,)`.
+- Positive and negative pair members share pre-call `X` when both are selected;
+  candidate-call `S` differs.
+
+Limitations and paired-sample leakage concern:
+
+- Synthetic negatives are not natural LLM failures.
+- API-Bank is suitable for schema, representation, evaluator, and pipeline
+  diagnostics, not for estimating real deployment harmful shifts.
+- Random row-level train/validation splits can put paired positive/negative
+  records across splits. The corrected supervised diagnostic uses grouped
+  splitting by pair ID. The previous row-level split crossed 160/508 pairs.
+
+## 7. BFCL Work Completed
+
+BFCL version/subsets/model:
+
+- Dataset: BFCL v4 non-live single-turn subset.
+- Processed rows: 1,240.
+- Model: `gpt-4o-mini-2024-07-18-FC`.
+- Categories: `simple_python`, `multiple`, `parallel`, `parallel_multiple`,
+  `irrelevance`.
+
+Per-category and overall results:
+
+- Overall: 1,059/1,240 correct, success rate 0.8540.
+- `simple_python`: 350/400 correct, 0.8750.
+- `multiple`: 176/200 correct, 0.8800.
+- `parallel`: 174/200 correct, 0.8700.
+- `parallel_multiple`: 160/200 correct, 0.8000.
+- `irrelevance`: 199/240 correct, 0.8292.
+
+Shift analysis findings:
+
+- Six BFCL category contrasts were analyzed.
+- At `d=0.05`, all six are inconclusive.
+- At `d=0.10`, `bfcl_simple_python_to_multiple` and
+  `bfcl_simple_python_to_parallel` are `candidate_harmless`; the other four are
+  inconclusive.
+- At `d=0.15`, five are `candidate_harmless`; only
+  `bfcl_multiple_to_parallel_multiple` remains inconclusive.
+- No BFCL shift is `candidate_harmful` or `candidate_beneficial` under the
+  tested full-CI rule.
+- `bfcl_simple_python_to_irrelevance` is a behavioral/abstention contrast, not a
+  primary complexity shift.
+- BFCL irrelevance rows should be interpreted separately because correct
+  abstention is part of the evaluator definition. In the current encoding,
+  correct irrelevance behavior is often free text/no function call and incorrect
+  behavior is typically a function call.
+
+Label semantics:
+
+- `Y=1` means BFCL evaluator marked the test case correct.
+- `Y=0` means incorrect under the BFCL evaluator.
+- Label scope is `test_case_level`; label origin is `bfcl_evaluator`; rows are
+  non-synthetic.
+
+PR/merge status where recoverable:
+
+- tau2 Stage 1 workflow was merged as PR #1, commit `3b09ca5`, with feature
+  commit `2c7744d`.
+- BFCL shift analysis was merged as PR #2, commit `00ddf01`, with feature
+  commit `acf3ea4`.
+- Current HEAD is `00ddf01` and branch `feat/l2t-multisource-model-bridge` is
+  at the same commit as local `main`, `origin/main`, and `origin/HEAD`, before
+  the current untracked L2T bridge files are committed.
+
+## 8. L2T Bridge Work On Current Branch
+
+Current branch:
+
+```text
+feat/l2t-multisource-model-bridge
+```
+
+Converter scripts:
+
+- `scripts/l2t_model_bridge.py`
+- `scripts/convert_bfcl_to_l2t_pkl.py`
+- `scripts/convert_apibank_to_l2t_pkl.py`
+- `scripts/evaluate_l2t_supervised_baselines.py`
+- `scripts/run_minxing_l2t_compatibility.py`
+
+Shared bridge utilities:
+
+- `CONVERTER_VERSION = "l2t_model_bridge_20260720"`.
+- Shared validation checks required keys, shapes, binary labels, duplicate sample
+  IDs, NaN counts, infinite-value counts, class distribution, and Minxing split
+  summaries.
+- Shared contract summary records `X`, `y`, `traj["s"]`, and loader behavior.
+
+Generated pickle paths:
+
+- BFCL:
+  `data/processed/l2t/bfcl/bfcl_v4_non_live_1240_l2t.pkl`.
+- API-Bank:
+  `data/processed/l2t/apibank/apibank_full_l2t.pkl`.
+- Existing tau2 compatibility pickle:
+  `data/processed/tau2_l2t_success_retail_airline_50_filtered_20260714.pkl`
+  is ignored in Git and should not be committed.
+- BFCL/API-Bank L2T pickles under `data/processed/l2t/**/*.pkl` are also
+  ignored local derived artifacts regenerated by their converter scripts.
+
+Manifests:
+
+- `data/processed/l2t/bfcl/bfcl_v4_non_live_1240_l2t_manifest.json`.
+- `data/processed/l2t/apibank/apibank_full_l2t_manifest.json`.
+- `data/processed/l2t/diagnostics/l2t_supervised_diagnostic_summary.json`.
+- `data/processed/l2t/diagnostics/l2t_supervised_diagnostic_results.csv`.
+- `data/processed/l2t/diagnostics/l2t_supervised_diagnostic_best_by_view.csv`.
+- `data/processed/l2t/diagnostics/minxing_compatibility_5ep/l2t_compat_comparison_5ep.csv`.
+- `data/processed/l2t/diagnostics/minxing_compatibility_5ep/minxing_compatibility_summary_5ep.json`.
+- `data/processed/l2t/diagnostics/minxing_compatibility_5ep/commands_configuration.json`.
+- `data/processed/l2t/diagnostics/minxing_compatibility_5ep/dataset_mode_metadata.json`.
+
+Exact X/S/y shapes and dtypes:
+
+| Dataset | X | S / `traj["s"]` | y | Class counts |
+| --- | ---: | ---: | ---: | --- |
+| tau2 compatibility pickle | `(93,12)` | `(93,64)` | `(93,)` | 60 `Y=0`, 33 `Y=1` |
+| BFCL L2T | `float32 (1240,17)` | `float32 (1240,32)` | `int64 (1240,)` | 181 `Y=0`, 1059 `Y=1` |
+| API-Bank L2T | `float32 (1016,402)` | `float32 (1016,404)` | `int64 (1016,)` | 508 `Y=0`, 508 `Y=1` |
+
+Validation performed:
+
+- BFCL and API-Bank manifests report no duplicate sample IDs.
+- BFCL and API-Bank manifests report NaN counts `X=0`, `traj_s=0`.
+- BFCL and API-Bank manifests report infinite-value counts `X=0`, `traj_s=0`.
+- BFCL manifest excludes evaluator error fields, label metadata, synthetic
+  status, and `y` from model-facing arrays.
+- API-Bank manifest carries forward the numerical artifact leakage audit and
+  excludes label scope, label origin, synthetic flag, corruption type,
+  validation status/error, and `y`.
+- API-Bank converter now preserves `pair_id` as non-model metadata in
+  `metadata[].pair_id` and `group_ids`; these fields are excluded from
+  model-facing `X` and `traj["s"]`.
+- BFCL sequence encoding canonically sorts function names and argument keys for
+  deterministic output, trading away original JSON key order.
+
+Tests added:
+
+- `tests/test_l2t_model_bridge_converters.py`
+- `tests/test_evaluate_l2t_supervised_baselines.py`
+- `tests/test_run_minxing_l2t_compatibility.py`
+
+## 9. Supervised Diagnostic Baselines
+
+Purpose: check whether the bridge representations contain ordinary supervised
+signal for `Y` under controlled classifiers. This is not a replacement for
+Minxing's L2T objective.
+
+BFCL split: deterministic row split with `seed=1`, implemented to match the
+split logic observed in Minxing's referenced entry point:
+
+```python
+perm = np.random.RandomState(seed).permutation(N)
+n_train = int(0.8 * N)
+```
+
+API-Bank split: deterministic grouped split by `pair_id` with `seed=1`. The
+previous row-level split crossed 160/508 pairs. The grouped split has 406 train
+pairs and 102 validation pairs, 812/204 rows, class counts 406/406 and 102/102,
+and zero cross-split pairs.
+
+Feature views: `X-only`, `S-only`, and `X+S`, evaluated separately by dataset
+and BFCL subset.
+Preprocessing is fitted on training data only through sklearn pipelines.
+
+Best non-permuted results:
+
+| Dataset | Subset | View | Best model | Acc | Bal acc | Macro-F1 | Confusion matrix |
+| --- | --- | --- | --- | ---: | ---: | ---: | --- |
+| BFCL | all categories | X+S | small MLP | 0.9032 | 0.6338 | 0.6737 | `[[8,20],[4,216]]` |
+| BFCL | non-irrelevance | X+S | class-weighted logistic regression | 0.7150 | 0.6606 | 0.5667 | `[[13,9],[48,130]]` |
+| BFCL | irrelevance only | S-only | logistic regression | 1.0000 | 1.0000 | 1.0000 | `[[8,0],[0,40]]` |
+| BFCL | irrelevance only | X+S | logistic regression | 1.0000 | 1.0000 | 1.0000 | `[[8,0],[0,40]]` |
+| API-Bank | all pairs | X-only | small MLP | 0.5000 | 0.5000 | 0.4988 | `[[46,56],[46,56]]` |
+| API-Bank | all pairs | S-only | random forest | 0.9461 | 0.9461 | 0.9460 | `[[93,9],[2,100]]` |
+| API-Bank | all pairs | X+S | small MLP | 0.9510 | 0.9510 | 0.9509 | `[[93,9],[1,101]]` |
+
+Repeated shuffled-label controls now use 10 deterministic trials per
+dataset/subset/view/model. Selected null summaries:
+
+| Dataset | Subset | View/model | Bal acc mean/std/min/max | Macro-F1 mean |
+| --- | --- | --- | ---: | ---: |
+| BFCL | all categories | X+S small MLP | 0.5087 / 0.0108 / 0.4886 / 0.5286 | 0.4975 |
+| BFCL | irrelevance only | S-only logistic regression | 0.5062 / 0.0187 / 0.5000 / 0.5625 | 0.4662 |
+| API-Bank | all pairs | S-only random forest | 0.4966 / 0.0425 / 0.4265 / 0.5637 | 0.4954 |
+| API-Bank | all pairs | X+S small MLP | 0.5088 / 0.0255 / 0.4608 / 0.5441 | 0.5082 |
 
 Interpretation:
 
-- The model predicted every sample as `y=0`.
-- Validation accuracy equals the validation majority-class rate, 12/19.
-- This run verified pipeline compatibility only.
-- It did not demonstrate useful predictive learning and must not be presented as a performance benchmark.
+- BFCL contains supervised signal, but it is split between general tool-call
+  competence and irrelevance abstention behavior. Non-irrelevance results are
+  now reported separately from all-category results.
+- API-Bank has strong signal in `S`, not in `X`. This matches the construction:
+  paired positive/negative records share pre-call `X`, while candidate-call `S`
+  differs. These are synthetic negatives, not natural LLM failures.
+- Corrected leakage audit reports no exact `y` or exact `1-y` columns in
+  API-Bank `X` or `S`, while documenting constant/inert API-Bank structural
+  slots: 12 constant `X` columns and 15 constant `S` columns in the current
+  pilot.
+- The supervised baselines show the bridge can expose `Y` signal. The Minxing
+  sequence-mode collapse is therefore more consistent with objective/semantic
+  mismatch than with a completely signal-free bridge.
 
-## 5. Telecom Feasibility Test
+Leakage concerns:
 
-Verified facts:
+- Numeric-array field-name audits did not find explicit label metadata in
+  model-facing arrays.
+- Pair leakage is addressed for API-Bank supervised diagnostics with grouped
+  splitting; it remains a concern for any row-level ablation or compatibility
+  run that uses synthetic pairs.
+- Do not use these supervised baselines as final scientific evidence for
+  harmful/harmless deployment shifts.
 
-- Telecom is technically runnable.
-- One tested task took approximately 362 seconds.
-- It encountered a TPM/rate-limit issue.
-- It reached max steps.
-- Reward was 0.
-- Approximate agent cost was $0.095.
+## 10. Minxing Compatibility Study
 
-Conclusion: telecom is technically possible, but currently too slow, costly, and unstable for immediate scaling.
+Three existing model modes tested:
 
-## 6. API-Bank Investigation
+- `proposed_only`: Minxing model name `proposed`; inputs `X` and `S`; objective
+  `stability_asymmetric_recon(delta=10.0) + lambda_mmd=0.01 * MMD`.
+- `label_bce`: Minxing model name `label_bce`; input `X` only; binary
+  cross-entropy on benchmark success label.
+- `reconstruction_only`: Minxing model name `reconstruction_only`; inputs `X`
+  and `S`; plain sequence reconstruction MSE with `asym_recon_delta=1` and
+  `lambda_mmd=0`.
 
-Verified facts:
+All nine 5-epoch results used `epochs=5`, `seed=1`, no sweeps, and dataset-
+specific time windows. Compact table:
 
-- API-Bank contains successful reference tool-use dialogues.
-- The README reports 314 evaluation dialogues, 753 evaluation API calls, 1,888 training dialogues, 2,138 APIs, and 1,000 domains.
-- Local level-1/level-2 inspection found 264 dialogues, 508 API reference steps, 508 API events, and zero exceptions in the reference trajectories.
-- Therefore, the released local dialogues are primarily successful references.
-- No released model-prediction files were found in the repository.
-- API-Bank provides X and S directly, but not naturally occurring positive and negative Y labels in the reference files.
+| Dataset | Mode | Inputs | Train/Val | Val dist | Acc | Bal acc | Macro-F1 | Y=0 recall | Y=1 recall | Confusion matrix | Collapse |
+| --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| tau2 | `proposed_only` | X+S | 74/19 | 12/7 | 0.632 | 0.500 | 0.387 | 1.000 | 0.000 | `[[12,0],[7,0]]` | Y=0 |
+| tau2 | `label_bce` | X | 74/19 | 12/7 | 0.526 | 0.446 | 0.424 | 0.750 | 0.143 | `[[9,3],[6,1]]` | no |
+| tau2 | `reconstruction_only` | X+S | 74/19 | 12/7 | 0.632 | 0.500 | 0.387 | 1.000 | 0.000 | `[[12,0],[7,0]]` | Y=0 |
+| BFCL | `proposed_only` | X+S | 992/248 | 28/220 | 0.113 | 0.500 | 0.101 | 1.000 | 0.000 | `[[28,0],[220,0]]` | Y=0 |
+| BFCL | `label_bce` | X | 992/248 | 28/220 | 0.887 | 0.500 | 0.470 | 0.000 | 1.000 | `[[0,28],[0,220]]` | Y=1 |
+| BFCL | `reconstruction_only` | X+S | 992/248 | 28/220 | 0.113 | 0.500 | 0.101 | 1.000 | 0.000 | `[[28,0],[220,0]]` | Y=0 |
+| API-Bank | `proposed_only` | X+S | 812/204 | 100/104 | 0.510 | 0.500 | 0.338 | 0.000 | 1.000 | `[[0,100],[0,104]]` | Y=1 |
+| API-Bank | `label_bce` | X | 812/204 | 100/104 | 0.549 | 0.548 | 0.547 | 0.490 | 0.606 | `[[49,51],[41,63]]` | no |
+| API-Bank | `reconstruction_only` | X+S | 812/204 | 100/104 | 0.510 | 0.500 | 0.338 | 0.000 | 1.000 | `[[0,100],[0,104]]` | Y=1 |
 
-API-Bank evaluator:
+Format compatibility conclusion:
 
-- API-call predictions can be evaluated as correct or incorrect.
-- The evaluator checks API name, parameters, execution result, and reference result.
-- Text responses use ROUGE-L.
-- The current project uses only binary API-call correctness for the pilot.
+- All three converted pickle files satisfy Minxing's external-data contract.
+- All three datasets load, produce sequence pairs, train through selected
+  existing modes, and emit validation metrics under the deterministic split.
 
-## 7. API-Bank Synthetic Correctness Pilot
+Semantic compatibility conclusion:
 
-Verified facts:
+- Semantic compatibility is not established.
+- Sequence modes use a thresholded reconstructed-trajectory safety score, while
+  `Y` here is benchmark success/correctness.
+- `label_bce` directly targets `Y`, but it is an X-only supervised baseline, not
+  evidence for the reconstruction/MMD shift-detection method.
 
-- Records: 508 positive reference API calls and 508 synthetic negative API calls, for 1,016 total records.
-- Balanced labels: 508 positive and 508 negative.
+Collapse findings:
 
-Negative corruption distribution:
+- tau2 sequence modes collapse to `Y=0`.
+- BFCL sequence modes collapse to `Y=0`, the validation minority class.
+- API-Bank sequence modes collapse to `Y=1`.
+- BFCL `label_bce` collapses to `Y=1`, matching the validation majority class.
 
-- `missing_required_argument`: 137
-- `wrong_api_name`: 140
-- `wrong_argument_type`: 114
-- `wrong_argument_value`: 117
+Why longer 30-epoch sequence-mode runs are not currently justified:
 
-Validation:
+- The 5-epoch sequence modes already collapse under the current semantic
+  interpretation.
+- Longer `proposed_only` or `reconstruction_only` runs would mostly test whether
+  a mismatched induced classifier remains collapsed.
+- A cautious 30-epoch API-Bank `label_bce` run could answer an X-only supervised
+  baseline question, but not the Minxing reconstruction/MMD harmful-shift
+  question.
+- The next scientific action should clarify the semantic bridge between
+  tool-calling success labels and Minxing's safety score.
 
-- 508/508 negatives validated as incorrect through evaluator/API correctness logic.
-- Only `GetToday` supported API-name corruption only.
-- Fallback count: 25.
-- Sensitive values were redacted.
-- Total redacted sensitive values from the first reported build: 2,872.
+Maintained reproducibility runner:
 
-Important limitation:
+- `scripts/run_minxing_l2t_compatibility.py`
+- The runner imports Minxing's existing `share_code/experiment/run_baseline.py`
+  at runtime, sets `sys.dont_write_bytecode = True`, and fingerprints Minxing
+  source files before and after a run. It fails if imported Minxing source files
+  change.
 
-- Synthetic negatives are not natural LLM failures.
-- This pilot is suitable for schema, representation, evaluator, and pipeline development.
-- It should not be used to estimate real-world harmful shifts in P(Y=1).
+Compact artifact bundle:
 
-## 8. Unified Dataset Schema
+```text
+data/processed/l2t/diagnostics/minxing_compatibility_5ep/
+```
 
-Verified facts:
+The bundle intentionally excludes large prediction CSVs, training histories,
+checkpoints, and redundant result folders.
 
-tau2:
+## 11. Current Repository Structure And Responsibilities
 
-- Records: 93.
-- Labels: 0 = 60, 1 = 33.
-- `label_scope`: `task_level`.
-- `label_origin`: `tau2_benchmark_reward`.
-- `is_synthetic`: false.
-- X dimension: 12.
-- S dimension: 64.
+`tau2-bench`:
 
-API-Bank:
+- Main working repository for this project.
+- Path: `/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench`.
+- Current branch: `feat/l2t-multisource-model-bridge`.
+- It is acceptable to modify this repository when asked, subject to the user's
+  scope restrictions.
 
-- Records: 1,016.
-- Labels: 0 = 508, 1 = 508.
-- `label_scope`: `api_call_level`.
-- Positive label origin: `reference_api_call`.
-- Negative label origin: `synthetic_corruption`.
-- Synthetic negatives: 508.
-- Non-synthetic positive references: 508.
-- X dimension: 5.
-- S dimension: 4.
+`DAMO-ConvAI`:
 
-Combined bookkeeping totals:
+- Source/reference repository for API-Bank.
+- Path: `/Users/xuyida/Research/llm-toolcalling-benchmarks/DAMO-ConvAI`.
+- Should not be modified for this branch.
+- Current status observed on 2026-07-21: `main...upstream/main [ahead 2]`.
 
-- Total records across separate files: 1,109.
-- Synthetic true: 508.
-- Synthetic false: 601.
+`gorilla`:
 
-Important compatibility warnings:
+- Source/reference repository for BFCL.
+- Path: `/Users/xuyida/Research/llm-toolcalling-benchmarks/gorilla`.
+- Should not be modified for this branch.
+- Current status observed on 2026-07-21: `main...origin/main` with untracked
+  BFCL local generated files:
+  `berkeley-function-call-leaderboard/bfcl_canary_sample_labels.jsonl`,
+  `berkeley-function-call-leaderboard/bfcl_v4_non_live_1240_summary.json`,
+  `berkeley-function-call-leaderboard/bfcl_v4_non_live_1240_xy.jsonl`, and
+  `berkeley-function-call-leaderboard/local_canary_backup/`.
 
-- Task-level versus API-call-level labels.
-- Benchmark outcomes versus synthetic corruptions.
-- Different X dimensions.
-- Different S representations.
-- The datasets must not yet be treated as IID samples from one task.
-- The two datasets remain in separate JSONL files.
+`physics_informed_testing`:
 
-Existing files:
+- Minxing's reference implementation repository.
+- Path: `/Users/xuyida/Research/physics_informed_testing`.
+- Should not be modified unless the user explicitly authorizes Minxing-core
+  changes.
+- Current status observed on 2026-07-21: `main...origin/main` with untracked
+  result folders for the 5-epoch compatibility matrix and
+  `results/l2t_compat_comparison_5ep.csv`.
+
+## 12. Important Files
+
+Core scripts:
 
 - `scripts/build_unified_toolcalling_dataset.py`
-- `tests/test_build_unified_toolcalling_dataset.py`
-- `data/processed/unified_toolcalling_tau2.jsonl`
-- `data/processed/unified_toolcalling_apibank.jsonl`
-- `data/processed/unified_toolcalling_manifest.json`
-
-Tests:
-
-- 8 pytest tests passed.
-- ruff passed.
-
-## 9. Open Research Questions
-
-- How should text and structured trajectory content be converted into numerical representations?
-- Which information belongs in X versus S?
-- Should evaluator-side features be excluded from X if unavailable at deployment time?
-- How should task-level and API-call-level labels be related?
-- How can real, non-synthetic failures be collected economically?
-- How should harmful versus harmless shifts be defined statistically?
-- What practical threshold in Delta_Y should trigger retraining?
-- How should source and target groups be constructed without label leakage?
-- Can business-domain changes be orthogonal to the underlying tool-use mechanism?
-
-## 10. Immediate Next Step
-
-The next task is to create a 200-sample numerical-representation pilot:
-
-- tau2: all 93 records.
-- API-Bank: deterministic sample of 107 records.
-- Serialize raw X and S into non-leaking text.
-- Embed X and S into fixed-dimensional vectors.
-- Concatenate embeddings with shared structural features.
-- Do not train a predictive model yet.
-
-## 2026-07-17 — Numerical Representation Pilot
-
-### Objective
-
-Create a 200-sample numerical-representation pilot that converts unified tau2 and API-Bank X/S records into shared numerical arrays without training a predictive model and without introducing label leakage into model-facing text or structural features.
-
-### Files added or changed
-
-- Added `scripts/build_toolcalling_numerical_representation.py`.
-- Added `tests/test_build_toolcalling_numerical_representation.py`.
-- Added generated outputs:
-  - `data/processed/toolcalling_numerical_pilot.npz`
-  - `data/processed/toolcalling_numerical_pilot.jsonl`
-  - `data/processed/toolcalling_numerical_pilot_manifest.json`
-- Added this project log at `docs/toolcalling_shift_project_log.md`.
-- Updated `pyproject.toml` to add `sentence-transformers>=3.0.0` under the existing `experiments` optional dependency group.
-- Updated `uv.lock` through `uv add --optional experiments 'sentence-transformers>=3.0.0'`.
-
-## 2026-07-17 — Tau2 Shift Uncertainty Analysis
-
-### Objective
-
-Add exploratory statistical uncertainty estimates for the eligible tau2 candidate shifts only, preserving the existing source/target definitions and excluding API-Bank synthetic correctness labels from harmful/harmless interpretation.
-
-### Files added or changed
-
-- Added `scripts/analyze_tau2_shift_uncertainty.py`.
-- Added `tests/test_analyze_tau2_shift_uncertainty.py`.
-- Added generated outputs:
-  - `data/processed/tau2_shift_uncertainty.jsonl`
-  - `data/processed/tau2_shift_uncertainty_summary.json`
-  - `docs/tau2_shift_uncertainty.md`
-- Applied ruff's mechanical import-spacing fix to four older shift scripts so the requested full `ruff check` command passes.
-
-### Verified facts
-
-- Eligible tau2 shifts analyzed: 6.
-- API-Bank rows analyzed: 0.
-- Bootstrap configuration: 10,000 replicates, seed 1, resampling within source and target groups separately.
-- Primary confidence interval: Newcombe-Wilson difference in proportions.
-- Multiple testing method: Benjamini-Hochberg adjustment across the six eligible tau2 shifts.
-- Classification counts under `delta_practical` 0.05, 0.10, and 0.15 were identical: 1 `candidate_harmful` and 5 `inconclusive`.
-- `tau2_zero_or_one_write_to_two_plus_writes` was the only `candidate_harmful` shift under all three thresholds.
-
-### Validation
-
-- `uv run --extra dev pytest tests/test_analyze_tau2_shift_uncertainty.py tests/test_build_toolcalling_shift_inventory.py -q` passed with 21 tests.
-- `uv run --extra dev ruff check` passed.
-
-### Interpretation
-
-This analysis is exploratory and small-sample. It does not train a predictive model, does not use `y` to redefine group membership, does not imply causal effects, and does not independently authorize deployment decisions.
-
-### Commands run
-
-- `uv run --extra dev pytest tests/test_build_toolcalling_numerical_representation.py -q`
-- `uv run --extra dev ruff check scripts/build_toolcalling_numerical_representation.py tests/test_build_toolcalling_numerical_representation.py`
-- `uv add --optional experiments 'sentence-transformers>=3.0.0'`
-- `uv run --extra dev pytest tests/test_build_toolcalling_numerical_representation.py -q`
-- `uv run --extra dev ruff check scripts/build_toolcalling_numerical_representation.py tests/test_build_toolcalling_numerical_representation.py`
-- `uv run --extra experiments python scripts/build_toolcalling_numerical_representation.py --tau2-limit 93 --apibank-limit 107 --seed 1`
-- `uv run --extra experiments python - <<'PY' ...` to inspect generated NPZ shapes.
-
-### Data counts
-
-Verified output counts:
-
-- Total records: 200.
-- tau2 records: 93.
-- API-Bank records: 107.
-- tau2 labels: 0 = 60, 1 = 33.
-- API-Bank labels in selected sample: 0 = 53, 1 = 54.
-- Synthetic records: 53.
-- Non-synthetic records: 147.
-- API-Bank complete positive/negative pairs selected: 53.
-- API-Bank all selected pairs complete: false, because the requested API-Bank sample size of 107 is odd.
-
-### Representation decisions
-
-- X text and S text are deterministic.
-- tau2 X text uses domain, task id, expected action counts, structured task requirements, and an explicit note that exact tool schemas are unavailable in the unified pilot record.
-- tau2 S text serializes the 0-7 event sequence into symbolic event names and records that the representation is coarse.
-- API-Bank X text uses only pre-call dialogue history and available API names.
-- API-Bank S text uses only the candidate API name and candidate arguments.
-- API-Bank execution results are excluded from model-facing S text.
-- API-Bank `has_exception` and `termination_success_signal` are marked unavailable in model-facing S structural features because they could trivially encode synthetic-negative validation status in future builds.
-- tau2 reward and `db_match` metadata are excluded from model-facing text and structural features.
-- Positive and negative API-Bank pair members have identical X text and X structural features when both members are selected.
-- The embedding model is exactly `sentence-transformers/all-MiniLM-L6-v2`.
-- The installed `sentence-transformers` package version reported in the manifest is 5.6.0.
-
-### Output shapes
-
-Verified NPZ contents:
-
-- `X`: `(200, 402)`, `float32`.
-- `S`: `(200, 404)`, `float32`.
-- `y`: `(200,)`, `int64`.
-- `sample_ids`: `(200,)`.
-- `source_dataset`: `(200,)`.
-- `label_scope`: `(200,)`.
-- `is_synthetic`: `(200,)`, `bool`.
-
-Dimension breakdown:
-
-- X embedding dimension: 384.
-- S embedding dimension: 384.
-- X structural dimension: 18.
-- S structural dimension: 20.
-- Final X dimension: 402.
-- Final S dimension: 404.
-
-### Leakage audit
-
-Verified manifest results:
-
-- Duplicate sample IDs: none.
-- NaN counts: `X = 0`, `S = 0`.
-- Infinite-value counts: `X = 0`, `S = 0`.
-- Model-facing leakage field-name hits: none.
-- Embedding norm summaries are approximately normalized to 1.0 for both X and S embeddings.
-
-Excluded metadata-only fields from model-facing text and structural features:
-
-- `corruption_type`
-- `is_synthetic`
-- `label_origin`
-- `validation_error`
-- `validation_status`
-- `variant`
-- `y`
-
-### Test results
-
-Verified:
-
-- `uv run --extra dev pytest tests/test_build_toolcalling_numerical_representation.py -q`: 11 passed, 2 warnings.
-- `uv run --extra dev ruff check scripts/build_toolcalling_numerical_representation.py tests/test_build_toolcalling_numerical_representation.py`: all checks passed.
-
-The pytest warnings were unrelated to this builder: a Python 3.13 `audioop` deprecation warning from voice utilities and an unknown pytest config option warning for `asyncio_default_fixture_loop_scope`.
-
-### Verified findings
-
-- The requested 200-record numerical pilot was generated successfully.
-- The JSONL output stores serialized text, structural features, labels, and metadata, but does not store embeddings directly.
-- The NPZ output stores the numerical arrays and required metadata arrays.
-- The generated manifest records feature order, missing-feature counts, text-length summaries, duplicate IDs, NaN/inf counts, embedding norms, coarse tau2 serialization count, API-Bank pair completeness, leakage-audit decisions, compatibility warnings, and embedding model/package information.
-- No classifier, sequence model, predictive accuracy, harmful/harmless shift labels, or source dataset mutations were introduced.
-
-## 2026-07-17 — Full Numerical Dataset and Shift Inventory
-
-### Objective
-
-Scale the numerical representation from the 200-record pilot to all unified tau2 and API-Bank records, then build a descriptive inventory of candidate source/target context shifts without training a predictive model and without assigning final harmful/harmless labels.
-
-### Files added or changed
-
-- Updated `scripts/build_toolcalling_numerical_representation.py` with full-data mode and full-output file names.
-- Added `scripts/build_toolcalling_shift_inventory.py`.
-- Updated `tests/test_build_toolcalling_numerical_representation.py`.
-- Added `tests/test_build_toolcalling_shift_inventory.py`.
-- Added generated outputs:
-  - `data/processed/toolcalling_numerical_full.npz`
-  - `data/processed/toolcalling_numerical_full.jsonl`
-  - `data/processed/toolcalling_numerical_full_manifest.json`
-  - `data/processed/toolcalling_shift_inventory.jsonl`
-  - `data/processed/toolcalling_shift_inventory_summary.json`
-  - `docs/toolcalling_shift_inventory.md`
-- Appended this entry to `docs/toolcalling_shift_project_log.md`.
-
-### Commands run
-
-- `uv run --extra dev pytest tests/test_build_toolcalling_numerical_representation.py tests/test_build_toolcalling_shift_inventory.py -q`
-- `uv run --extra dev ruff check scripts/build_toolcalling_numerical_representation.py scripts/build_toolcalling_shift_inventory.py tests/test_build_toolcalling_numerical_representation.py tests/test_build_toolcalling_shift_inventory.py`
-- `uv run --extra experiments python scripts/build_toolcalling_numerical_representation.py --full-data`
-- `uv run --extra dev python scripts/build_toolcalling_shift_inventory.py`
-- `uv run --extra dev python - <<'PY' ...` to inspect generated NPZ shapes, manifest counts, leakage audit, and inventory rows.
-
-### Full data counts
-
-Verified full numerical output counts:
-
-- Total records: 1,109.
-- tau2 records: 93.
-- API-Bank records: 1,016.
-- tau2 labels: 0 = 60, 1 = 33.
-- API-Bank labels: 0 = 508, 1 = 508.
-- Label scopes: `task_level` = 93, `api_call_level` = 1,016.
-- Synthetic records: 508.
-- Non-synthetic records: 601.
-
-### Numerical output shapes
-
-Verified NPZ contents:
-
-- `X`: `(1109, 402)`.
-- `S`: `(1109, 404)`.
-- `y`: `(1109,)`.
-- X embedding dimension: 384.
-- S embedding dimension: 384.
-- X structural dimension: 18.
-- S structural dimension: 20.
-
-### Candidate shift definitions
-
-tau2 candidate groupings:
-
-- `tau2_retail_to_airline`: retail domain to airline domain.
-- `tau2_no_write_to_write_required`: expected write count 0 to expected write count at least 1.
-- `tau2_zero_or_one_write_to_two_plus_writes`: expected write count <= 1 to expected write count >= 2.
-- `tau2_few_to_many_expected_actions`: lower quartile to upper quartile of expected action count; thresholds 1.0 and 6.0.
-- `tau2_short_to_long_trajectory`: lower quartile to upper quartile of trajectory length; thresholds 19.0 and 33.0.
-- `tau2_few_to_many_tool_calls`: lower quartile to upper quartile of observed tool-call count; thresholds 3.0 and 9.0.
-
-API-Bank candidate groupings:
-
-- `api_bank_no_auth_to_auth_required`: no authentication signal to authentication-required context/API.
-- `api_bank_short_to_long_dialogue_history`: lower quartile to upper quartile of dialogue-history length; thresholds 3.0 and 8.0.
-- `api_bank_one_tool_to_multiple_tools_available`: one available API to multiple available APIs.
-- `api_bank_few_to_many_arguments`: lower quartile to upper quartile of candidate argument count; thresholds 1.0 and 3.0.
-- `api_bank_simple_call_to_multi_step_context`: previous API-call count 0 to previous API-call count at least 1.
-- `api_bank_domain_or_tool_family_comparison`: recorded as failed/unsupported because unified API-Bank domain metadata is unavailable.
-
-### Descriptive results
-
-Inventory status: 12 candidate rows, 11 eligible, 1 failed.
-
-tau2 descriptive results:
-
-- `tau2_retail_to_airline`: n = 46 -> 47, delta_y = -0.1152, X distance = 4.2353, S distance = 4.6796.
-- `tau2_no_write_to_write_required`: n = 26 -> 67, delta_y = -0.1481, X distance = 4.1591, S distance = 10.4401.
-- `tau2_zero_or_one_write_to_two_plus_writes`: n = 69 -> 24, delta_y = -0.3659, X distance = 4.3299, S distance = 14.0699.
-- `tau2_few_to_many_expected_actions`: n = 25 -> 36, delta_y = -0.0789, X distance = 8.0470, S distance = 12.6480.
-- `tau2_short_to_long_trajectory`: n = 27 -> 28, delta_y = -0.2685, X distance = 4.6089, S distance = 28.4241.
-- `tau2_few_to_many_tool_calls`: n = 25 -> 26, delta_y = -0.2092, X distance = 4.9653, S distance = 28.5383.
-
-API-Bank descriptive results:
-
-- `api_bank_no_auth_to_auth_required`: n = 472 -> 544, delta_y = 0.0000, X distance = 151.2239, S distance = 0.9240.
-- `api_bank_short_to_long_dialogue_history`: n = 276 -> 350, delta_y = 0.0000, X distance = 697.2969, S distance = 1.4473.
-- `api_bank_one_tool_to_multiple_tools_available`: n = 212 -> 804, delta_y = 0.0000, X distance = 265.9932, S distance = 0.4071.
-- `api_bank_few_to_many_arguments`: n = 374 -> 306, delta_y = 0.1150, X distance = 294.6998, S distance = 2.8494.
-- `api_bank_simple_call_to_multi_step_context`: n = 522 -> 494, delta_y = 0.0000, X distance = 451.7896, S distance = 0.7280.
-- `api_bank_domain_or_tool_family_comparison`: failed with n = 0 -> 0.
-
-### Validity distinctions
-
-- tau2 outcome type is `real_benchmark_task_outcome`.
-- API-Bank outcome type is `synthetic_api_call_correctness`.
-- API-Bank delta_y values cannot be interpreted as real deployment success-rate shifts because the negative samples are synthetic corruptions and labels are balanced by construction.
-- Task-level and API-call-level labels remain separate.
-- The report uses descriptive terms only: candidate negative-outcome shift, candidate stable-outcome shift, and candidate positive-outcome shift.
-- No final harmful, harmless, or beneficial classification was assigned.
-
-### Leakage audit
-
-Verified:
-
-- Full numerical duplicate sample IDs: none.
-- Full numerical NaN counts: `X = 0`, `S = 0`.
-- Full numerical infinite-value counts: `X = 0`, `S = 0`.
-- Model-facing leakage field-name hits: none.
-- Inventory group-definition fields do not use `y`.
-- Inventory group-definition fields do not use `variant`, `corruption_type`, `label_origin`, `is_synthetic`, `validation_status`, or `validation_error`.
-
-### Test results
-
-Verified:
-
-- `uv run --extra dev pytest tests/test_build_toolcalling_numerical_representation.py tests/test_build_toolcalling_shift_inventory.py -q`: 20 passed, 2 warnings.
-- `uv run --extra dev ruff check scripts/build_toolcalling_numerical_representation.py scripts/build_toolcalling_shift_inventory.py tests/test_build_toolcalling_numerical_representation.py tests/test_build_toolcalling_shift_inventory.py`: all checks passed.
-
-The pytest warnings were unrelated to these builders: a Python 3.13 `audioop` deprecation warning from voice utilities and an unknown pytest config option warning for `asyncio_default_fixture_loop_scope`.
-
-### Verified findings
-
-- The full numerical dataset was generated without overwriting the 200-record pilot outputs.
-- Full API-Bank pair completeness is 508 complete pairs and all selected pairs complete.
-- tau2 coarse trajectory serialization count is 93.
-- Candidate shifts are deterministic and record exact grouping rules, thresholds, source/target group sizes, label counts, y means, raw delta_y, and X/S centroid distances.
-- API-Bank domain/tool-family comparison is currently unsuitable because domain metadata is not reliable in the unified API-Bank records.
-
-### Limitations
-
-- API-Bank negative labels are synthetic corruptions and are balanced by construction.
-- tau2 and API-Bank labels are not equivalent and should not be pooled for final shift conclusions.
-- tau2 sample sizes remain small for final harmful/harmless classification.
-- No confidence intervals or practical significance thresholds have been applied.
-- No predictive model was trained.
-
-### Next step
-
-Define a practical delta_y threshold and confidence-interval procedure, then apply it first to eligible tau2 candidate shifts before considering any synthetic API-Bank analyses as representation or evaluator stress tests only.
-
-## 2026-07-17 — Tau2 Additional Sampling Plan
-
-### Objective
-
-Create a targeted additional-data collection plan for tau2 without running new LLM simulations, changing shift definitions, training a model, or using API-Bank synthetic outcomes.
-
-### Files added or changed
-
-- Added `scripts/plan_tau2_additional_sampling.py`.
-- Added `tests/test_plan_tau2_additional_sampling.py`.
-- Added generated outputs:
-  - `data/processed/tau2_additional_sampling_plan.json`
-  - `docs/tau2_additional_sampling_plan.md`
-- Appended this project-log entry.
-
-### Verified findings
-
-- The plan includes all 6 eligible tau2 shifts and excludes API-Bank.
-- Current evidence remains unchanged: `tau2_zero_or_one_write_to_two_plus_writes` is `candidate_harmful` at practical thresholds 0.05, 0.10, and 0.15; the other 5 eligible tau2 shifts are inconclusive.
-- The current tau2 dataset still contains 93 retained real task-level outcomes.
-- Local task-pool audit found 114 retail tasks, 50 airline tasks, 2,285 telecom tasks, and 97 banking-knowledge tasks.
-- Retail has 46 retained outcomes and 68 tasks without retained outcomes; 64 retail tasks were not previously attempted in the 2026-07-14 retail run.
-- Airline has 47 retained outcomes, but all 50 local airline tasks appear in the 2026-07-14 airline simulation result file.
-- The proposed Stage 1 batch contains 12 unused retail tasks: 8 with two or more expected write actions, 2 with no expected write actions, and 2 low-action one-write tasks.
-- Task selection uses local task definitions and prior task IDs only; it does not use observed `y`.
-- Telecom remains technically runnable but currently unsuitable for large runs without a separate cost-control plan because the feasibility test was slow, rate-limited, reached max steps, and cost approximately $0.095 for one unsuccessful task.
-
-### Planning methods
-
-- Precision estimates use a normal approximation for difference-in-proportions 95% CI half-width targets 0.15, 0.10, and 0.05.
-- Power estimates use a standard two-sided two-sample proportions normal approximation with alpha 0.05 and power 0.80 for effect sizes 0.15, 0.10, and 0.05.
-- Equivalence estimates are reported as CI-screening approximations where current `delta_y` is inside the practical margin; otherwise they are explicitly unavailable rather than invented.
-- All estimates are planning approximations, not guarantees.
-
-### Test results
-
-- `uv run pytest tests/test_plan_tau2_additional_sampling.py`: 10 passed, 2 warnings.
-- `uv run ruff check scripts/plan_tau2_additional_sampling.py tests/test_plan_tau2_additional_sampling.py`: all checks passed.
-- `uv run ruff check`: all checks passed.
-- `uv run pytest`: collection failed because optional repo dependencies are not installed in the current environment (`a2a`, `agentify_tau_bench`, `websockets`, `rank_bm25`, `gymnasium`, and `pyaudio`). The failure occurred before running the suite and is unrelated to the added planner tests.
-
-### Limitations
-
-- The current tau2 outcome set is still small.
-- Candidate shift definitions reuse records and are not independent.
-- Observed trajectory-length and observed tool-call-count group membership cannot be assigned to unused tasks before running them.
-- The proposed Stage 1 batch is intentionally conservative and should be followed by a rerun of the uncertainty analysis before any larger collection.
-
-## 2026-07-17 — Tau2 Stage 1 Collection Preparation
-
-### Objective
-
-Prepare a reproducible tau2 retail Stage 1 collection workflow from the existing additional-sampling plan, generate and validate a dry-run manifest, add a dry-run-first runner, and add post-run ingestion/update tooling without executing real LLM simulations.
-
-### Selected task IDs
-
-Selected retail task IDs: `54`, `55`, `64`, `71`, `72`, `74`, `76`, `81`, `57`, `62`, `50`, `70`.
-
-### Selection composition
-
-- `two_plus_writes`: 8 tasks (`54`, `55`, `64`, `71`, `72`, `74`, `76`, `81`)
-- `no_write`: 2 tasks (`57`, `62`)
-- `low_action_one_write`: 2 tasks (`50`, `70`)
-
-### Dry-run command
-
-Manifest builder:
-
-```text
-uv run python scripts/build_tau2_stage1_manifest.py
-```
-
-Runner dry-run:
-
-```text
-uv run python scripts/run_tau2_stage1.py
-```
-
-Dry-run result: `data/processed/tau2_stage1_run_status.json` records 12 dry-run tasks, 0 completed executions, 0 observed cost, and stop reason `finished`.
-
-### Runtime and cost controls
-
-- Real execution requires explicit `--execute`; the runner defaults to dry-run mode.
-- The runner executes one retail task at a time with `--num-trials 1`, `--max-concurrency 1`, seed `20260717`, verbose logs, and `--auto-resume`.
-- Native tau2 outputs remain under `data/simulations/tau2_stage1_raw/task_<task_id>/results.json`.
-- One preserved raw result copy per completed task is written under `data/processed/tau2_stage1_raw/task_<task_id>.json`.
-- Status is written incrementally to `data/processed/tau2_stage1_run_status.json`.
-- Optional stop controls include `--max-total-cost` and default stop-on-first-error behavior unless `--continue-on-error` is supplied.
-
-### Files added or changed
-
-- Added `scripts/build_tau2_stage1_manifest.py`.
-- Added `scripts/run_tau2_stage1.py`.
-- Added `scripts/ingest_tau2_stage1_results.py`.
-- Added `tests/test_build_tau2_stage1_manifest.py`.
-- Added `tests/test_run_tau2_stage1.py`.
-- Added `tests/test_ingest_tau2_stage1_results.py`.
-- Generated `data/processed/tau2_stage1_manifest.json`.
-- Generated `docs/tau2_stage1_manifest.md`.
-- Generated dry-run status `data/processed/tau2_stage1_run_status.json`.
-- Appended this project-log entry.
-
-### Tests
-
-- `uv run --extra dev pytest tests/test_build_tau2_stage1_manifest.py tests/test_run_tau2_stage1.py tests/test_ingest_tau2_stage1_results.py -q`: 15 passed, 2 warnings.
-- `uv run --extra dev ruff check scripts/build_tau2_stage1_manifest.py scripts/run_tau2_stage1.py scripts/ingest_tau2_stage1_results.py tests/test_build_tau2_stage1_manifest.py tests/test_run_tau2_stage1.py tests/test_ingest_tau2_stage1_results.py`: all checks passed.
-
-The warnings were unrelated to the Stage 1 code: a Python 3.13 `audioop` deprecation warning from voice utilities and an unknown pytest config option warning for `asyncio_default_fixture_loop_scope`.
-
-### Verified findings
-
-- The manifest contains exactly 12 unique retail task IDs.
-- The selected composition is exactly 8 `two_plus_writes`, 2 `no_write`, and 2 `low_action_one_write`.
-- No selected task is marked previously attempted or previously retained.
-- Selection is tied to the existing additional-sampling plan and local retail task definitions.
-- Selection policy records that observed `y`, reward, and prior success/failure labels are not used.
-- Telecom is excluded.
-- The runner defaults to dry-run mode and mock-tested execution requires `--execute`.
-- Resume behavior skips already preserved raw task files.
-- Ingestion reuses the original tau2 conversion/filtering helpers and writes Stage 1 retained records separately.
-- Stage 1 analysis mode writes versioned `_stage1` outputs and does not overwrite baseline uncertainty outputs.
-
-### Limitations
-
-- No real Stage 1 LLM simulations were executed in this task.
-- Therefore `data/processed/tau2_stage1_retained.jsonl`, `data/processed/tau2_stage1_ingestion_summary.json`, and Stage 1 uncertainty outputs have not been produced from real outcomes yet.
-- Estimated maximum LLM calls is a conservative planning bound, not an observed usage count.
-- The proposed command uses the existing pilot model configuration (`gpt-4o-mini` for both agent and user); execution should be reviewed before approval.
-
-### Next step
-
-Review the selected task IDs and proposed real execution command. If approved, run:
-
-```text
-uv run python scripts/run_tau2_stage1.py --execute
-```
-
-## 2026-07-17 — Tau2 Stage 1 Canary Support
-
-### Issue found
-
-The Stage 1 runner did not accept a canary task selector. Running:
-
-```text
-uv run python scripts/run_tau2_stage1.py --task-id 54 --execute
-```
-
-failed at argument parsing with `unrecognized arguments: --task-id 54`.
-
-### Implementation
-
-- Added optional `--task-id TASK_ID` support to `scripts/run_tau2_stage1.py`.
-- When omitted, the runner still processes the full Stage 1 manifest.
-- When supplied, the runner validates the task ID against the manifest and processes only that task.
-- Unknown task IDs are rejected before any task execution.
-- Dry-run remains the default; real subprocess execution still requires `--execute`.
-- Canary runs use the same per-task output paths as full runs: `data/processed/tau2_stage1_raw/task_<task_id>.json` and `data/simulations/tau2_stage1_raw/task_<task_id>/results.json`.
-- Completed canary output is not moved or duplicated; a later full run skips the completed task automatically through the existing preserved raw-result check.
-
-### Canary eligibility
-
-Verified task `54` is present in `data/processed/tau2_stage1_manifest.json`, belongs to `two_plus_writes`, has 12 expected actions, 9 reads, 3 writes, requires DB mutation, is not marked previously attempted, and is not marked previously retained. No preserved raw output for task `54` was present before this dry-run-only canary check, so it is eligible for the canary.
-
-### Dry-run result
-
-Command run:
-
-```text
-uv run python scripts/run_tau2_stage1.py --task-id 54
-```
-
-Result: `data/processed/tau2_stage1_run_status.json` records exactly one selected task (`54`), `dry_run_count` 1, `completed_count` 0, status `dry_run`, and stop reason `finished`. No real LLM simulation was executed.
-
-### Tests
-
-- `uv run --extra dev pytest tests/test_run_tau2_stage1.py -q`: 9 passed, 2 warnings.
-- `uv run --extra dev ruff check scripts/run_tau2_stage1.py tests/test_run_tau2_stage1.py`: all checks passed.
-
-The warnings were unrelated to the Stage 1 runner changes: a Python 3.13 `audioop` deprecation warning from voice utilities and an unknown pytest config option warning for `asyncio_default_fixture_loop_scope`.
-
-### Exact real canary command
-
-```text
-uv run python scripts/run_tau2_stage1.py --task-id 54 --execute
-```
-
-### Next step
-
-If approved, run the exact real canary command above for task `54`, inspect the preserved raw result and status JSON, then run the full Stage 1 command. The later full run should skip task `54` automatically if the canary completed successfully.
-
-## 2026-07-17 — Tau2 Stage 1 Post-Collection Analysis
-
-### Objective
-
-Integrate the 12 retained Stage 1 tau2 records with the original 93 tau2 records, then rebuild tau2-only numerical data, the shift inventory, uncertainty analysis, and pre/post comparison using versioned Stage 1 outputs.
-
-### Stage 1 execution summary
-
-Stage 1 execution and ingestion were complete before this analysis: 12 attempted, 12 completed, 12 retained, 0 filtered, with 4/12 successes and total observed cost 0.0706581. Task selection was targeted by X/task characteristics, not observed outcomes.
-
-### Merge counts
-
-- Baseline records: 93
-- Stage 1 records: 12
-- Merged records: 105
-- Merged y distribution: {"0": 68, "1": 37}
-
-### Numerical shapes
-
-- X: (105, 402)
-- S: (105, 404)
-- y: (105,)
-
-### Pre/post shift results
-
-- `tau2_retail_to_airline`: source_n=58, target_n=47, delta_y=-0.0987, 95% CI=[-0.2687, 0.0844], d=0.05 inconclusive, d=0.10 inconclusive, d=0.15 inconclusive
-- `tau2_no_write_to_write_required`: source_n=29, target_n=76, delta_y=-0.1325, 95% CI=[-0.3320, 0.0658], d=0.05 inconclusive, d=0.10 inconclusive, d=0.15 inconclusive
-- `tau2_zero_or_one_write_to_two_plus_writes`: source_n=73, target_n=32, delta_y=-0.3271, 95% CI=[-0.4634, -0.1371], d=0.05 candidate_harmful, d=0.10 candidate_harmful, d=0.15 inconclusive
-- `tau2_few_to_many_expected_actions`: source_n=28, target_n=39, delta_y=-0.1053, 95% CI=[-0.3263, 0.1252], d=0.05 inconclusive, d=0.10 inconclusive, d=0.15 inconclusive
-- `tau2_short_to_long_trajectory`: source_n=28, target_n=35, delta_y=-0.2786, 95% CI=[-0.4833, -0.0371], d=0.05 inconclusive, d=0.10 inconclusive, d=0.15 inconclusive
-- `tau2_few_to_many_tool_calls`: source_n=26, target_n=33, delta_y=-0.2191, 95% CI=[-0.4355, 0.0226], d=0.05 inconclusive, d=0.10 inconclusive, d=0.15 inconclusive
-
-### Candidate-harmful shift result
-
-`tau2_zero_or_one_write_to_two_plus_writes` remains candidate_harmful at all three practical thresholds after adding Stage 1 records: False. Post-Stage-1 classifications are d=0.05 `candidate_harmful`, d=0.10 `candidate_harmful`, and d=0.15 `inconclusive`.
-
-### Classification changes
-
-tau2_zero_or_one_write_to_two_plus_writes
-
-### CI-width changes
-
-CI widths narrowed for: tau2_retail_to_airline, tau2_no_write_to_write_required, tau2_zero_or_one_write_to_two_plus_writes, tau2_few_to_many_expected_actions, tau2_short_to_long_trajectory, tau2_few_to_many_tool_calls
-
-### Verified findings
-
-- Baseline tau2/API-Bank files were not overwritten.
-- API-Bank data were not modified.
-- Six tau2 shift definitions and thresholds were preserved from the baseline inventory.
-- No predictive model was trained.
-
-### Limitations
-
-The analysis remains exploratory and relatively small. The shifts reuse records across non-independent definitions, and results should not be interpreted causally or as proof that a shift is harmful or harmless.
-
-### Next step
-
-Use these versioned Stage 1 results to decide whether another targeted collection stage is warranted before considering adaptation or retraining.
-
-## 2026-07-17 — Stage 1 PR Preparation
-
-### Scope
-
-Prepared the branch for one coherent GitHub PR covering the tau2 L2T and Stage 1 context-shift workflow. This pass audited changed and untracked files, proposed the Git inclusion/exclusion set, added narrow ignore rules for local generated artifacts, validated the dependency and script diffs, verified core scientific invariants from generated manifests, and created `docs/pr_tau2_stage1_shift_analysis.md`.
-
-No commit, push, PR creation, or deletion of local research outputs was performed.
-
-### Included files
-
-Proposed PR contents include workflow scripts, targeted tests, documentation, dependency files, `.gitignore`, the project log, `docs/pr_tau2_stage1_shift_analysis.md`, and compact machine-readable manifests/summaries needed to understand or reproduce the experiment.
-
-The four pre-existing script diffs are mechanical Ruff/import-spacing blank-line removals only:
-
-- `scripts/analyze_shift_groups.py`
-- `scripts/build_shift_level_dataset.py`
-- `scripts/build_shift_level_summary.py`
-- `scripts/convert_tau2_results_to_l2t_pkl.py`
-
-### Excluded local artifacts
-
-Proposed local-only artifacts are binary arrays/pickles, raw Stage 1 result copies, runtime status logs, and regenerable large JSONL outputs:
-
-- `data/processed/*.pkl`
-- `data/processed/*.npz`
-- `data/processed/tau2_stage1_raw/`
-- `data/processed/tau2_stage1_run_status.json`
-- `data/processed/toolcalling_numerical_*.jsonl`
-- `data/processed/unified_toolcalling_*.jsonl`
-
-Added these exact narrow `.gitignore` rules. An existing local `.env` and `.DS_Store` appear only in ignored-file status through pre-existing ignore rules and are not proposed for tracking. No model weight files appeared in normal changed/untracked status.
-
-### Validation
-
-Targeted workflow tests:
-
-```text
-uv run --extra dev pytest tests/test_build_unified_toolcalling_dataset.py tests/test_build_toolcalling_numerical_representation.py tests/test_build_toolcalling_shift_inventory.py tests/test_analyze_tau2_shift_uncertainty.py tests/test_plan_tau2_additional_sampling.py tests/test_build_tau2_stage1_manifest.py tests/test_run_tau2_stage1.py tests/test_ingest_tau2_stage1_results.py tests/test_build_tau2_stage1_analysis.py -q
-```
-
-Result: 83 passed, 2 warnings. The warnings were the existing voice `audioop` deprecation warning and an unknown pytest config option warning for `asyncio_default_fixture_loop_scope`.
-
-Ruff over all changed Python source and test files passed.
-
-`git diff --check` passed.
-
-Full-repository pytest collection with only `--extra dev` failed separately because optional dependencies for unrelated suites are not installed: `a2a`, `agentify_tau_bench`, `websockets`, `rank_bm25`, `gymnasium`, and `pyaudio`. The collection check reported 895 collected tests and 13 collection errors. This is not a failure of the targeted Stage 1 workflow tests.
-
-### Main result
-
-Verified facts from artifacts:
-
-- Original tau2 records: 93.
-- Stage 1 retained records: 12.
-- Merged tau2 records: 105.
-- Merged y distribution: 68 zero and 37 one.
-- Task selection uses X/task characteristics and does not use `y`.
-- All six baseline tau2 shift definitions are preserved.
-- `tau2_zero_or_one_write_to_two_plus_writes` is `candidate_harmful` at d=0.05 and d=0.10, and `inconclusive` at d=0.15.
-- Baseline outputs were not overwritten by versioned Stage 1 outputs.
-
-### Limitations
-
-The Stage 1 analysis remains exploratory and small-sample. Candidate shifts reuse records across non-independent definitions. API-Bank synthetic negatives remain API-call-level synthetic correctness labels and are not evidence of natural LLM failure rates. The lockfile adds the `sentence-transformers` stack and includes Hugging Face resolver churn that should be reviewed with the dependency diff.
-
-### Review status
-
-Ready for human review of the proposed inclusion/exclusion set in `docs/pr_tau2_stage1_shift_analysis.md`. The branch is not staged, committed, pushed, or opened as a PR.
-
-### Next step
-
-Stage the proposed inclusion set, leave excluded local artifacts untracked/ignored, then commit with proposed message `feat: add tau2 stage1 shift analysis workflow` and open a PR titled `Add tau2 Stage 1 context-shift analysis workflow`.
-
-## 2026-07-20 — BFCL Shift Analysis
-
-### Objective
-
-Add BFCL as a third, real evaluated tool-calling dataset to compare category-level context shifts against tau2 task-level outcomes and API-Bank evaluator-pipeline records. BFCL was added because it provides more real evaluator-labeled outcomes than the current tau2 sample while avoiding API-Bank's synthetic-negative limitation.
-
-### Source data
-
-- Source file: `data/processed/bfcl/bfcl_v4_non_live_1240_xy.jsonl`.
-- Compact source summary: `data/processed/bfcl/bfcl_v4_non_live_1240_summary.json`.
-- Records: 1,240 unique BFCL v4 non-live single-turn evaluated model outcomes.
-- Model: `gpt-4o-mini-2024-07-18-FC`.
-- Label scope: `test_case_level`.
-- Label origin: `bfcl_evaluator`.
-- Synthetic rows: false.
-- Y distribution: 1,059 successes and 181 failures.
-- Category counts and success rates: `simple_python` 400, 350/400 = 0.8750; `multiple` 200, 176/200 = 0.8800; `parallel` 200, 174/200 = 0.8700; `parallel_multiple` 200, 160/200 = 0.8000; `irrelevance` 240, 199/240 = 0.8292.
-
-### X, S, Y representation
-
-- X is stored in `x_raw` and contains BFCL prompt/context and function information.
-- S is stored in `s_raw` and contains the evaluated model result.
-- Y is stored in `y` as binary test-case correctness from the BFCL evaluator.
-- The BFCL builder now validates that every row has `id`, `x_raw`, `s_raw`, and valid `y`.
-
-### Candidate shifts
-
-Primary complexity shifts:
-
-- `bfcl_simple_python_to_multiple`
-- `bfcl_simple_python_to_parallel`
-- `bfcl_simple_python_to_parallel_multiple`
-- `bfcl_multiple_to_parallel_multiple`
-- `bfcl_parallel_to_parallel_multiple`
-
-Behavioral/abstention shift:
-
-- `bfcl_simple_python_to_irrelevance`
-
-Candidate groups are defined only from BFCL `category` metadata. They do not use `y`, `s_raw`, evaluator errors, label scope, label origin, or synthetic-status fields.
-
-### Threshold-sensitive findings
-
-The BFCL uncertainty analysis uses Newcombe-Wilson 95% confidence intervals, deterministic bootstrap with 10,000 replicates and seed 1, two-proportion p-values, and Benjamini-Hochberg adjustment across the six BFCL shifts. Under the full-CI rule, all six shifts are inconclusive at `d=0.05`; `simple_python -> multiple` and `simple_python -> parallel` are candidate harmless at `d=0.10`; five of six shifts are candidate harmless at `d=0.15`; and no BFCL shift is candidate harmful at any tested threshold.
-
-### Cross-dataset interpretation
-
-BFCL, tau2, and API-Bank are complementary studies with different label scopes and are not pooled as IID rows. tau2 currently has 105 real task-level outcomes; API-Bank has 1,016 API-call-level correctness records with 508 reference positives and 508 synthetic negatives; BFCL has 1,240 real evaluated test-case-level outcomes.
-
-### Git inclusion set
-
-Proposed included files:
-
+- `scripts/build_toolcalling_numerical_representation.py`
+- `scripts/build_toolcalling_shift_inventory.py`
+- `scripts/analyze_tau2_shift_uncertainty.py`
+- `scripts/plan_tau2_additional_sampling.py`
+- `scripts/build_tau2_stage1_manifest.py`
+- `scripts/run_tau2_stage1.py`
+- `scripts/ingest_tau2_stage1_results.py`
+- `scripts/build_tau2_stage1_analysis.py`
 - `scripts/build_bfcl_shift_inventory.py`
 - `scripts/analyze_bfcl_shift_uncertainty.py`
+- `scripts/l2t_model_bridge.py`
+- `scripts/convert_bfcl_to_l2t_pkl.py`
+- `scripts/convert_apibank_to_l2t_pkl.py`
+- `scripts/evaluate_l2t_supervised_baselines.py`
+- `scripts/run_minxing_l2t_compatibility.py`
+
+Core tests:
+
+- `tests/test_build_unified_toolcalling_dataset.py`
+- `tests/test_build_toolcalling_numerical_representation.py`
+- `tests/test_build_toolcalling_shift_inventory.py`
+- `tests/test_analyze_tau2_shift_uncertainty.py`
+- `tests/test_plan_tau2_additional_sampling.py`
+- `tests/test_build_tau2_stage1_manifest.py`
+- `tests/test_run_tau2_stage1.py`
+- `tests/test_ingest_tau2_stage1_results.py`
+- `tests/test_build_tau2_stage1_analysis.py`
 - `tests/test_build_bfcl_shift_inventory.py`
 - `tests/test_analyze_bfcl_shift_uncertainty.py`
+- `tests/test_l2t_model_bridge_converters.py`
+- `tests/test_evaluate_l2t_supervised_baselines.py`
+- `tests/test_run_minxing_l2t_compatibility.py`
+
+Docs and result summaries:
+
+- `docs/toolcalling_shift_project_log.md`
+- `docs/toolcalling_shift_inventory.md`
+- `docs/tau2_shift_uncertainty.md`
+- `docs/tau2_shift_uncertainty_stage1.md`
+- `docs/tau2_additional_sampling_plan.md`
+- `docs/tau2_stage1_manifest.md`
+- `docs/pr_tau2_stage1_shift_analysis.md`
 - `docs/bfcl_data_source_audit.md`
 - `docs/bfcl_shift_inventory.md`
 - `docs/bfcl_shift_uncertainty.md`
 - `docs/toolcalling_cross_dataset_findings.md`
-- `docs/toolcalling_shift_project_log.md`
+- `docs/l2t_multisource_model_bridge.md`
+- `docs/l2t_supervised_diagnostic_baselines.md`
+- `docs/l2t_minxing_compatibility_study.md`
+
+Processed artifacts and manifests:
+
+- `data/processed/unified_toolcalling_manifest.json`
+- `data/processed/toolcalling_numerical_full_manifest.json`
+- `data/processed/toolcalling_shift_inventory_summary.json`
+- `data/processed/tau2_shift_uncertainty_summary.json`
+- `data/processed/tau2_stage1_ingestion_summary.json`
+- `data/processed/tau2_shift_uncertainty_stage1_summary.json`
+- `data/processed/tau2_shift_stage1_comparison.json`
 - `data/processed/bfcl/bfcl_v4_non_live_1240_xy.jsonl`
 - `data/processed/bfcl/bfcl_v4_non_live_1240_summary.json`
-- `data/processed/bfcl/bfcl_v4_non_live_shift_inventory.jsonl`
 - `data/processed/bfcl/bfcl_v4_non_live_shift_inventory_summary.json`
-- `data/processed/bfcl/bfcl_v4_non_live_shift_uncertainty.jsonl`
 - `data/processed/bfcl/bfcl_v4_non_live_shift_uncertainty_summary.json`
+- `data/processed/l2t/bfcl/bfcl_v4_non_live_1240_l2t_manifest.json`
+- `data/processed/l2t/apibank/apibank_full_l2t_manifest.json`
+- `data/processed/l2t/diagnostics/l2t_supervised_diagnostic_summary.json`
+- `data/processed/l2t/diagnostics/l2t_supervised_diagnostic_results.csv`
+- `data/processed/l2t/diagnostics/l2t_supervised_diagnostic_best_by_view.csv`
+- `data/processed/l2t/diagnostics/l2t_supervised_diagnostic_permutation_summary.csv`
+- `data/processed/l2t/diagnostics/minxing_compatibility_5ep/minxing_compatibility_summary_5ep.json`
 
-Explicit exclusions:
+Minxing reference entry point:
 
-- Gorilla raw result directories.
-- Gorilla score directories.
-- API keys and `.env` files.
-- Temporary canary files.
-- Caches.
-- Generated Python bytecode.
+- `/Users/xuyida/Research/physics_informed_testing/share_code/experiment/run_baseline.py`
 
-The 2.1 MB sample-level BFCL JSONL is included because it is the direct reproducibility input. The compact BFCL input summary is included. No new `.gitignore` rule was needed in this pass because the required BFCL reproducibility inputs are visible to Git, while existing ignore rules already exclude `.env`, caches, temporary files, and Python bytecode; no Gorilla raw or score directories were present in this working tree.
+## 13. Validation Status
 
-### Limitations
+Current L2T bridge review-fix validation on 2026-07-21:
 
-The BFCL analysis is exploratory, category-level, and non-causal. It verifies local processed artifacts and does not re-run the upstream BFCL evaluator. Candidate contrasts reuse category groups across shifts and should not be treated as independent discoveries. Results do not imply deployment safety or a retraining requirement.
+- `uv run --extra dev pytest tests/test_l2t_model_bridge_converters.py tests/test_evaluate_l2t_supervised_baselines.py tests/test_run_minxing_l2t_compatibility.py -q`
+  passed: 18 passed, 2 warnings.
+- Warnings were the existing `audioop` deprecation warning from
+  `src/tau2/voice/utils/audio_preprocessing.py` and the existing unknown pytest
+  config option warning for `asyncio_default_fixture_loop_scope`.
+- `uv run --extra dev ruff check scripts/l2t_model_bridge.py scripts/convert_bfcl_to_l2t_pkl.py scripts/convert_apibank_to_l2t_pkl.py scripts/evaluate_l2t_supervised_baselines.py scripts/run_minxing_l2t_compatibility.py tests/test_l2t_model_bridge_converters.py tests/test_evaluate_l2t_supervised_baselines.py tests/test_run_minxing_l2t_compatibility.py`
+  passed.
+- `git diff --check` passed.
+- `git status --ignored --short` shows nested L2T pickles ignored:
+  `data/processed/l2t/apibank/apibank_full_l2t.pkl` and
+  `data/processed/l2t/bfcl/bfcl_v4_non_live_1240_l2t.pkl`.
+
+Prior Stage 1 validation recorded in this log:
+
+- Targeted tau2 Stage 1 workflow tests passed: 83 passed, 2 warnings.
+- Ruff over changed Python source and tests passed.
+- Full-repository pytest collection with only `--extra dev` previously failed
+  because optional unrelated dependencies were not installed: `a2a`,
+  `agentify_tau_bench`, `websockets`, `rank_bm25`, `gymnasium`, and `pyaudio`.
+  That was a collection/environment limitation, not a targeted workflow test
+  failure.
+
+Repository hygiene checks:
+
+- Current branch has untracked L2T bridge files and generated compact artifacts.
+- Ignored local artifacts include `.env`, caches, binary arrays/pickles, raw
+  Stage 1 results, simulation outputs, and Python bytecode.
+- No commit or push has been performed for the current L2T bridge work.
+
+Outstanding review concerns:
+
+- Generated L2T pickles should remain ignored local artifacts; commit only
+  compact manifests, diagnostics, docs, scripts, and tests.
+- API-Bank pair/group splitting is addressed for supervised diagnostics, but the
+  synthetic-negative construction still limits interpretation.
+- Minxing semantic compatibility remains unresolved.
+
+## 14. Current Git State
+
+Repository:
+
+```text
+/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench
+```
+
+Branch:
+
+```text
+feat/l2t-multisource-model-bridge
+```
+
+HEAD observed before this documentation edit:
+
+```text
+00ddf01 (HEAD -> feat/l2t-multisource-model-bridge, origin/main, origin/HEAD, main) Merge pull request #2 from YidaXu04/feat/bfcl-shift-analysis
+```
+
+Tracked/untracked files before this documentation edit:
+
+- No tracked modifications were present.
+- Untracked L2T bridge files were present under:
+  `data/processed/l2t/`, `docs/l2t_minxing_compatibility_study.md`,
+  `docs/l2t_multisource_model_bridge.md`,
+  `docs/l2t_supervised_diagnostic_baselines.md`,
+  five scripts, and three tests.
+
+Tracked/untracked files after this documentation edit:
+
+- This file is modified:
+  `docs/toolcalling_shift_project_log.md`.
+- The L2T bridge files remain untracked.
+- Nothing has been staged, committed, or pushed in this documentation-only
+  consolidation.
+
+Sibling-repository status where relevant:
+
+- `DAMO-ConvAI`: `main...upstream/main [ahead 2]`; do not modify.
+- `gorilla`: `main...origin/main` plus untracked BFCL local generated files; do
+  not modify.
+- `physics_informed_testing`: `main...origin/main` plus untracked compatibility
+  result folders; do not modify unless explicitly authorized.
+
+## 15. Immediate Next Step
+
+The immediate next step is an independent Claude review of the complete current
+branch:
+
+1. Ask Claude to review the full `feat/l2t-multisource-model-bridge` branch,
+   including untracked scripts, tests, docs, manifests, and artifact-inclusion
+   choices.
+2. Fix critical or major findings with Codex.
+3. Rerun targeted validation and `git diff --check`.
+4. Stage only the intended inclusion set.
+5. Commit locally.
+6. Push to the user's fork.
+7. Open a PR into the user's own `main`.
+8. Squash merge and clean up the branch after review.
+
+Never open a PR to upstream `sierra-research/tau2-bench` for this research
+branch unless the user explicitly changes that instruction.
+
+## 16. Open Questions And Risks
+
+- API-Bank grouped/paired splitting: supervised diagnostics now use a grouped
+  split by `pair_id`, but any row-level ablation or Minxing compatibility run
+  must still be interpreted with pair leakage in mind.
+- Permutation-control interpretation: supervised diagnostics now report 10-trial
+  deterministic null summaries. These controls address the earlier single-run
+  shuffled-label artifact but do not make synthetic API-Bank negatives natural
+  LLM failures.
+- Semantic validity of S representations: tau2 uses coarse structural event
+  sequences, BFCL uses compact candidate-call events, and API-Bank uses fixed
+  numerical S rows as Minxing `traj["s"]`.
+- Limits of current Minxing implementation: sequence modes threshold
+  reconstructed trajectory scores that are not yet semantically aligned with
+  tool-calling success.
+- Sample size and class imbalance: tau2 remains small; BFCL validation is
+  strongly positive-majority; API-Bank is balanced by construction but
+  synthetic.
+- Dataset label scopes differ: task-level, test-case-level, and API-call-level
+  labels should not be conflated.
+- Artifact inclusion risk: binary pickles, NumPy archives, raw result folders,
+  checkpoints, and large prediction CSVs should remain ignored local artifacts.
+  The minimal reproducibility set is scripts, tests, docs, compact manifests,
+  and compact diagnostic JSON/CSV outputs.
+
+## 17. Do-Not-Do List
+
+- Do not run long experiments yet.
+- Do not modify Minxing core code yet.
+- Do not pool tau2, BFCL, and API-Bank as IID rows.
+- Do not redefine all `Y` values as 1.
+- Do not commit raw result folders, checkpoints, large prediction CSVs, training
+  histories, or redundant Minxing result directories.
+- Do not modify `DAMO-ConvAI` or `gorilla`.
+- Do not submit upstream PRs.
+- Do not treat synthetic API-Bank negatives as natural LLM failures.
+- Do not claim deployment safety, causal harm, or retraining necessity from the
+  current exploratory classifications.
+
+## 18. New-Session Handoff
+
+Copy-paste this section into a new session:
+
+```text
+Current status:
+- Repo: /Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench
+- Branch: feat/l2t-multisource-model-bridge
+- HEAD before current untracked L2T bridge work: 00ddf01, merged BFCL PR #2.
+- The current branch adds an L2T bridge for BFCL and API-Bank, supervised
+  diagnostics, a Minxing compatibility runner, compact manifests, and docs.
+- Nothing has been committed or pushed for the L2T bridge work.
+- Do not modify DAMO-ConvAI, gorilla, or physics_informed_testing unless the
+  user explicitly asks.
+
+Exact next action:
+- Review the implemented fixes and regenerated compact diagnostics.
+- Rerun targeted validation and git diff --check if anything changes.
+- Commit, push to YidaXu04/tau2-bench, open PR into the user's own main, then
+  squash merge and clean up.
+- Never open a PR to upstream sierra-research/tau2-bench.
+
+Files to inspect first:
+- docs/toolcalling_shift_project_log.md
+- docs/l2t_multisource_model_bridge.md
+- docs/l2t_supervised_diagnostic_baselines.md
+- docs/l2t_minxing_compatibility_study.md
+- scripts/l2t_model_bridge.py
+- scripts/convert_bfcl_to_l2t_pkl.py
+- scripts/convert_apibank_to_l2t_pkl.py
+- scripts/evaluate_l2t_supervised_baselines.py
+- scripts/run_minxing_l2t_compatibility.py
+- tests/test_l2t_model_bridge_converters.py
+- tests/test_evaluate_l2t_supervised_baselines.py
+- tests/test_run_minxing_l2t_compatibility.py
+- data/processed/l2t/** manifests and compact diagnostic summaries
+
+Commands to check git status and run validation:
+- git status --short --branch
+- git status --ignored --short
+- uv run --extra dev pytest tests/test_l2t_model_bridge_converters.py tests/test_evaluate_l2t_supervised_baselines.py tests/test_run_minxing_l2t_compatibility.py -q
+- uv run --extra dev ruff check scripts/l2t_model_bridge.py scripts/convert_bfcl_to_l2t_pkl.py scripts/convert_apibank_to_l2t_pkl.py scripts/evaluate_l2t_supervised_baselines.py scripts/run_minxing_l2t_compatibility.py tests/test_l2t_model_bridge_converters.py tests/test_evaluate_l2t_supervised_baselines.py tests/test_run_minxing_l2t_compatibility.py
+- git diff --check
+```

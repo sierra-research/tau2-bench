@@ -1,0 +1,665 @@
+{
+  "epochs": 5,
+  "high_level_findings": {
+    "format_compatibility": "All three converted pickle files satisfy Minxing external-data contract and run through existing modes.",
+    "label_bce_baseline": "Useful X-only supervised baseline, but not evidence for Minxing reconstruction/MMD shift detection.",
+    "semantic_compatibility": "Current sequence safety score is not aligned with benchmark success labels; sequence modes collapse to one class in these 5-epoch diagnostics.",
+    "thirty_epoch_followup": "Not justified for proposed_only or reconstruction_only without a stronger semantic bridge; API-Bank label_bce is the only weak candidate for a cautious follow-up."
+  },
+  "maintained_runner": "scripts/run_minxing_l2t_compatibility.py",
+  "minxing_reference_repo": "/Users/xuyida/Research/physics_informed_testing",
+  "research_question_answered": "Can these LLM tool-calling datasets be represented and executed through Minxing current implementation?",
+  "research_question_not_answered": "Does Minxing reconstruction/MMD method improve harmful-shift detection for LLM tool-calling?",
+  "runs": [
+    {
+      "completed_run_config": {
+        "asym_recon_delta": 10.0,
+        "batch_train": 16,
+        "batch_val": 512,
+        "d_h": 128,
+        "d_o": 1,
+        "d_v": 1,
+        "d_x": 12,
+        "dataset_name": "tau2",
+        "dt": 0.05,
+        "epochs": 5,
+        "hidden_dec": 128,
+        "hidden_enc": 512,
+        "input_data": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/tau2_l2t_success_retail_airline_50_filtered_20260714.pkl",
+        "lambda_mmd": 0.01,
+        "latent_batch_size": 4096,
+        "loss_type": "stability_asymmetric_recon",
+        "lr": 0.003,
+        "lr_enc": 0.003,
+        "minxing_entrypoint": "/Users/xuyida/Research/physics_informed_testing/share_code/experiment/run_baseline.py",
+        "mode": "proposed_only",
+        "mode_resolved": "proposed",
+        "num_workers": 0,
+        "output_dir": "/Users/xuyida/Research/physics_informed_testing/results/tau2_proposed_only_5ep",
+        "seed": 1,
+        "stride": 1,
+        "tau": 1.0,
+        "time_window": [
+          0.05,
+          3.15
+        ],
+        "weight_decay": 1e-05,
+        "weight_decay_enc": 1e-05
+      },
+      "completed_run_source_dir": "/Users/xuyida/Research/physics_informed_testing/results/tau2_proposed_only_5ep",
+      "dataset": "tau2",
+      "inputs_used": "X and S",
+      "mode": "proposed_only",
+      "reproduce_command": "python scripts/run_minxing_l2t_compatibility.py --minxing-repo /Users/xuyida/Research/physics_informed_testing --dataset tau2 --input-data data/processed/tau2_l2t_success_retail_airline_50_filtered_20260714.pkl --mode proposed_only --epochs 5 --seed 1 --batch-train 16 --batch-val 512 --num-workers 0 --time-window 0.05 3.15 --output-dir results/tau2_proposed_only_5ep",
+      "runtime_sec": 1.0378859170014039,
+      "train_class_distribution": {
+        "0": 48,
+        "1": 26
+      },
+      "train_size": 74,
+      "training_objective": "stability_asymmetric_recon(delta=10.0) + lambda_mmd=0.01 * MMD",
+      "val_class_distribution": {
+        "0": 12,
+        "1": 7
+      },
+      "val_size": 19,
+      "validation_metrics": {
+        "accuracy": 0.631578947368421,
+        "balanced_accuracy": 0.5,
+        "confusion_matrix": {
+          "fn": 7,
+          "fp": 0,
+          "tn": 12,
+          "tp": 0
+        },
+        "macro_f1": 0.3870967741935484,
+        "majority_baseline": 0.631578947368421,
+        "one_class_collapse": true,
+        "predicted_classes": [
+          0
+        ],
+        "recall_y0": 1.0,
+        "recall_y1": 0.0
+      }
+    },
+    {
+      "completed_run_config": {
+        "asym_recon_delta": 10.0,
+        "batch_train": 16,
+        "batch_val": 512,
+        "d_h": 128,
+        "d_o": 1,
+        "d_v": 1,
+        "d_x": 12,
+        "dataset_name": "tau2",
+        "dt": 0.05,
+        "epochs": 5,
+        "hidden_dec": 128,
+        "hidden_enc": 512,
+        "input_data": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/tau2_l2t_success_retail_airline_50_filtered_20260714.pkl",
+        "lambda_mmd": 0.01,
+        "latent_batch_size": 4096,
+        "loss_type": "stability_asymmetric_recon",
+        "lr": 0.003,
+        "lr_enc": 0.003,
+        "minxing_entrypoint": "/Users/xuyida/Research/physics_informed_testing/share_code/experiment/run_baseline.py",
+        "mode": "label_bce",
+        "mode_resolved": "label_bce",
+        "num_workers": 0,
+        "output_dir": "/Users/xuyida/Research/physics_informed_testing/results/tau2_label_bce_5ep",
+        "seed": 1,
+        "stride": 1,
+        "tau": 1.0,
+        "time_window": [
+          0.05,
+          3.15
+        ],
+        "weight_decay": 1e-05,
+        "weight_decay_enc": 1e-05
+      },
+      "completed_run_source_dir": "/Users/xuyida/Research/physics_informed_testing/results/tau2_label_bce_5ep",
+      "dataset": "tau2",
+      "inputs_used": "X only",
+      "mode": "label_bce",
+      "reproduce_command": "python scripts/run_minxing_l2t_compatibility.py --minxing-repo /Users/xuyida/Research/physics_informed_testing --dataset tau2 --input-data data/processed/tau2_l2t_success_retail_airline_50_filtered_20260714.pkl --mode label_bce --epochs 5 --seed 1 --batch-train 16 --batch-val 512 --num-workers 0 --time-window 0.05 3.15 --output-dir results/tau2_label_bce_5ep",
+      "runtime_sec": 2.4200941669987515,
+      "train_class_distribution": {
+        "0": 48,
+        "1": 26
+      },
+      "train_size": 74,
+      "training_objective": "binary cross-entropy on benchmark success label",
+      "val_class_distribution": {
+        "0": 12,
+        "1": 7
+      },
+      "val_size": 19,
+      "validation_metrics": {
+        "accuracy": 0.5263157894736842,
+        "balanced_accuracy": 0.4464285714285714,
+        "confusion_matrix": {
+          "fn": 6,
+          "fp": 3,
+          "tn": 9,
+          "tp": 1
+        },
+        "macro_f1": 0.4242424242424242,
+        "majority_baseline": 0.631578947368421,
+        "one_class_collapse": false,
+        "predicted_classes": [
+          0,
+          1
+        ],
+        "recall_y0": 0.75,
+        "recall_y1": 0.14285714285714285
+      }
+    },
+    {
+      "completed_run_config": {
+        "asym_recon_delta": 10.0,
+        "batch_train": 16,
+        "batch_val": 512,
+        "d_h": 128,
+        "d_o": 1,
+        "d_v": 1,
+        "d_x": 12,
+        "dataset_name": "tau2",
+        "dt": 0.05,
+        "epochs": 5,
+        "hidden_dec": 128,
+        "hidden_enc": 512,
+        "input_data": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/tau2_l2t_success_retail_airline_50_filtered_20260714.pkl",
+        "lambda_mmd": 0.01,
+        "latent_batch_size": 4096,
+        "loss_type": "stability_asymmetric_recon",
+        "lr": 0.003,
+        "lr_enc": 0.003,
+        "minxing_entrypoint": "/Users/xuyida/Research/physics_informed_testing/share_code/experiment/run_baseline.py",
+        "mode": "reconstruction_only",
+        "mode_resolved": "reconstruction_only",
+        "num_workers": 0,
+        "output_dir": "/Users/xuyida/Research/physics_informed_testing/results/tau2_reconstruction_only_5ep",
+        "seed": 1,
+        "stride": 1,
+        "tau": 1.0,
+        "time_window": [
+          0.05,
+          3.15
+        ],
+        "weight_decay": 1e-05,
+        "weight_decay_enc": 1e-05
+      },
+      "completed_run_source_dir": "/Users/xuyida/Research/physics_informed_testing/results/tau2_reconstruction_only_5ep",
+      "dataset": "tau2",
+      "inputs_used": "X and S",
+      "mode": "reconstruction_only",
+      "reproduce_command": "python scripts/run_minxing_l2t_compatibility.py --minxing-repo /Users/xuyida/Research/physics_informed_testing --dataset tau2 --input-data data/processed/tau2_l2t_success_retail_airline_50_filtered_20260714.pkl --mode reconstruction_only --epochs 5 --seed 1 --batch-train 16 --batch-val 512 --num-workers 0 --time-window 0.05 3.15 --output-dir results/tau2_reconstruction_only_5ep",
+      "runtime_sec": 0.9629168749088421,
+      "train_class_distribution": {
+        "0": 48,
+        "1": 26
+      },
+      "train_size": 74,
+      "training_objective": "plain sequence reconstruction MSE (asym_recon_delta=1, lambda_mmd=0)",
+      "val_class_distribution": {
+        "0": 12,
+        "1": 7
+      },
+      "val_size": 19,
+      "validation_metrics": {
+        "accuracy": 0.631578947368421,
+        "balanced_accuracy": 0.5,
+        "confusion_matrix": {
+          "fn": 7,
+          "fp": 0,
+          "tn": 12,
+          "tp": 0
+        },
+        "macro_f1": 0.3870967741935484,
+        "majority_baseline": 0.631578947368421,
+        "one_class_collapse": true,
+        "predicted_classes": [
+          0
+        ],
+        "recall_y0": 1.0,
+        "recall_y1": 0.0
+      }
+    },
+    {
+      "completed_run_config": {
+        "asym_recon_delta": 10.0,
+        "batch_train": 128,
+        "batch_val": 512,
+        "d_h": 128,
+        "d_o": 1,
+        "d_v": 1,
+        "d_x": 17,
+        "dataset_name": "bfcl",
+        "dt": 0.05,
+        "epochs": 5,
+        "hidden_dec": 128,
+        "hidden_enc": 512,
+        "input_data": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/l2t/bfcl/bfcl_v4_non_live_1240_l2t.pkl",
+        "lambda_mmd": 0.01,
+        "latent_batch_size": 4096,
+        "loss_type": "stability_asymmetric_recon",
+        "lr": 0.003,
+        "lr_enc": 0.003,
+        "minxing_entrypoint": "/Users/xuyida/Research/physics_informed_testing/share_code/experiment/run_baseline.py",
+        "mode": "proposed_only",
+        "mode_resolved": "proposed",
+        "num_workers": 0,
+        "output_dir": "/Users/xuyida/Research/physics_informed_testing/results/bfcl_proposed_only_5ep",
+        "seed": 1,
+        "stride": 1,
+        "tau": 1.0,
+        "time_window": [
+          0.05,
+          1.55
+        ],
+        "weight_decay": 1e-05,
+        "weight_decay_enc": 1e-05
+      },
+      "completed_run_source_dir": "/Users/xuyida/Research/physics_informed_testing/results/bfcl_proposed_only_5ep",
+      "dataset": "bfcl",
+      "inputs_used": "X and S",
+      "mode": "proposed_only",
+      "reproduce_command": "python scripts/run_minxing_l2t_compatibility.py --minxing-repo /Users/xuyida/Research/physics_informed_testing --dataset bfcl --input-data data/processed/l2t/bfcl/bfcl_v4_non_live_1240_l2t.pkl --mode proposed_only --epochs 5 --seed 1 --batch-train 128 --batch-val 512 --num-workers 0 --time-window 0.05 1.55 --output-dir results/bfcl_proposed_only_5ep",
+      "runtime_sec": 1.7435429169563577,
+      "train_class_distribution": {
+        "0": 153,
+        "1": 839
+      },
+      "train_size": 992,
+      "training_objective": "stability_asymmetric_recon(delta=10.0) + lambda_mmd=0.01 * MMD",
+      "val_class_distribution": {
+        "0": 28,
+        "1": 220
+      },
+      "val_size": 248,
+      "validation_metrics": {
+        "accuracy": 0.11290322580645161,
+        "balanced_accuracy": 0.5,
+        "confusion_matrix": {
+          "fn": 220,
+          "fp": 0,
+          "tn": 28,
+          "tp": 0
+        },
+        "macro_f1": 0.10144927536231885,
+        "majority_baseline": 0.8870967741935484,
+        "one_class_collapse": true,
+        "predicted_classes": [
+          0
+        ],
+        "recall_y0": 1.0,
+        "recall_y1": 0.0
+      }
+    },
+    {
+      "completed_run_config": {
+        "asym_recon_delta": 10.0,
+        "batch_train": 128,
+        "batch_val": 512,
+        "d_h": 128,
+        "d_o": 1,
+        "d_v": 1,
+        "d_x": 17,
+        "dataset_name": "bfcl",
+        "dt": 0.05,
+        "epochs": 5,
+        "hidden_dec": 128,
+        "hidden_enc": 512,
+        "input_data": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/l2t/bfcl/bfcl_v4_non_live_1240_l2t.pkl",
+        "lambda_mmd": 0.01,
+        "latent_batch_size": 4096,
+        "loss_type": "stability_asymmetric_recon",
+        "lr": 0.003,
+        "lr_enc": 0.003,
+        "minxing_entrypoint": "/Users/xuyida/Research/physics_informed_testing/share_code/experiment/run_baseline.py",
+        "mode": "label_bce",
+        "mode_resolved": "label_bce",
+        "num_workers": 0,
+        "output_dir": "/Users/xuyida/Research/physics_informed_testing/results/bfcl_label_bce_5ep",
+        "seed": 1,
+        "stride": 1,
+        "tau": 1.0,
+        "time_window": [
+          0.05,
+          1.55
+        ],
+        "weight_decay": 1e-05,
+        "weight_decay_enc": 1e-05
+      },
+      "completed_run_source_dir": "/Users/xuyida/Research/physics_informed_testing/results/bfcl_label_bce_5ep",
+      "dataset": "bfcl",
+      "inputs_used": "X only",
+      "mode": "label_bce",
+      "reproduce_command": "python scripts/run_minxing_l2t_compatibility.py --minxing-repo /Users/xuyida/Research/physics_informed_testing --dataset bfcl --input-data data/processed/l2t/bfcl/bfcl_v4_non_live_1240_l2t.pkl --mode label_bce --epochs 5 --seed 1 --batch-train 128 --batch-val 512 --num-workers 0 --time-window 0.05 1.55 --output-dir results/bfcl_label_bce_5ep",
+      "runtime_sec": 0.7254923339933157,
+      "train_class_distribution": {
+        "0": 153,
+        "1": 839
+      },
+      "train_size": 992,
+      "training_objective": "binary cross-entropy on benchmark success label",
+      "val_class_distribution": {
+        "0": 28,
+        "1": 220
+      },
+      "val_size": 248,
+      "validation_metrics": {
+        "accuracy": 0.8870967741935484,
+        "balanced_accuracy": 0.5,
+        "confusion_matrix": {
+          "fn": 0,
+          "fp": 28,
+          "tn": 0,
+          "tp": 220
+        },
+        "macro_f1": 0.4700854700854701,
+        "majority_baseline": 0.8870967741935484,
+        "one_class_collapse": true,
+        "predicted_classes": [
+          1
+        ],
+        "recall_y0": 0.0,
+        "recall_y1": 1.0
+      }
+    },
+    {
+      "completed_run_config": {
+        "asym_recon_delta": 10.0,
+        "batch_train": 128,
+        "batch_val": 512,
+        "d_h": 128,
+        "d_o": 1,
+        "d_v": 1,
+        "d_x": 17,
+        "dataset_name": "bfcl",
+        "dt": 0.05,
+        "epochs": 5,
+        "hidden_dec": 128,
+        "hidden_enc": 512,
+        "input_data": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/l2t/bfcl/bfcl_v4_non_live_1240_l2t.pkl",
+        "lambda_mmd": 0.01,
+        "latent_batch_size": 4096,
+        "loss_type": "stability_asymmetric_recon",
+        "lr": 0.003,
+        "lr_enc": 0.003,
+        "minxing_entrypoint": "/Users/xuyida/Research/physics_informed_testing/share_code/experiment/run_baseline.py",
+        "mode": "reconstruction_only",
+        "mode_resolved": "reconstruction_only",
+        "num_workers": 0,
+        "output_dir": "/Users/xuyida/Research/physics_informed_testing/results/bfcl_reconstruction_only_5ep",
+        "seed": 1,
+        "stride": 1,
+        "tau": 1.0,
+        "time_window": [
+          0.05,
+          1.55
+        ],
+        "weight_decay": 1e-05,
+        "weight_decay_enc": 1e-05
+      },
+      "completed_run_source_dir": "/Users/xuyida/Research/physics_informed_testing/results/bfcl_reconstruction_only_5ep",
+      "dataset": "bfcl",
+      "inputs_used": "X and S",
+      "mode": "reconstruction_only",
+      "reproduce_command": "python scripts/run_minxing_l2t_compatibility.py --minxing-repo /Users/xuyida/Research/physics_informed_testing --dataset bfcl --input-data data/processed/l2t/bfcl/bfcl_v4_non_live_1240_l2t.pkl --mode reconstruction_only --epochs 5 --seed 1 --batch-train 128 --batch-val 512 --num-workers 0 --time-window 0.05 1.55 --output-dir results/bfcl_reconstruction_only_5ep",
+      "runtime_sec": 1.756489458028227,
+      "train_class_distribution": {
+        "0": 153,
+        "1": 839
+      },
+      "train_size": 992,
+      "training_objective": "plain sequence reconstruction MSE (asym_recon_delta=1, lambda_mmd=0)",
+      "val_class_distribution": {
+        "0": 28,
+        "1": 220
+      },
+      "val_size": 248,
+      "validation_metrics": {
+        "accuracy": 0.11290322580645161,
+        "balanced_accuracy": 0.5,
+        "confusion_matrix": {
+          "fn": 220,
+          "fp": 0,
+          "tn": 28,
+          "tp": 0
+        },
+        "macro_f1": 0.10144927536231885,
+        "majority_baseline": 0.8870967741935484,
+        "one_class_collapse": true,
+        "predicted_classes": [
+          0
+        ],
+        "recall_y0": 1.0,
+        "recall_y1": 0.0
+      }
+    },
+    {
+      "completed_run_config": {
+        "asym_recon_delta": 10.0,
+        "batch_train": 128,
+        "batch_val": 512,
+        "d_h": 128,
+        "d_o": 1,
+        "d_v": 1,
+        "d_x": 402,
+        "dataset_name": "apibank",
+        "dt": 0.05,
+        "epochs": 5,
+        "hidden_dec": 128,
+        "hidden_enc": 512,
+        "input_data": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/l2t/apibank/apibank_full_l2t.pkl",
+        "lambda_mmd": 0.01,
+        "latent_batch_size": 4096,
+        "loss_type": "stability_asymmetric_recon",
+        "lr": 0.003,
+        "lr_enc": 0.003,
+        "minxing_entrypoint": "/Users/xuyida/Research/physics_informed_testing/share_code/experiment/run_baseline.py",
+        "mode": "proposed_only",
+        "mode_resolved": "proposed",
+        "num_workers": 0,
+        "output_dir": "/Users/xuyida/Research/physics_informed_testing/results/apibank_proposed_only_5ep",
+        "seed": 1,
+        "stride": 1,
+        "tau": 1.0,
+        "time_window": [
+          0.05,
+          20.15
+        ],
+        "weight_decay": 1e-05,
+        "weight_decay_enc": 1e-05
+      },
+      "completed_run_source_dir": "/Users/xuyida/Research/physics_informed_testing/results/apibank_proposed_only_5ep",
+      "dataset": "apibank",
+      "inputs_used": "X and S",
+      "mode": "proposed_only",
+      "reproduce_command": "python scripts/run_minxing_l2t_compatibility.py --minxing-repo /Users/xuyida/Research/physics_informed_testing --dataset apibank --input-data data/processed/l2t/apibank/apibank_full_l2t.pkl --mode proposed_only --epochs 5 --seed 1 --batch-train 128 --batch-val 512 --num-workers 0 --time-window 0.05 20.15 --output-dir results/apibank_proposed_only_5ep",
+      "runtime_sec": 11.897909249993972,
+      "train_class_distribution": {
+        "0": 408,
+        "1": 404
+      },
+      "train_size": 812,
+      "training_objective": "stability_asymmetric_recon(delta=10.0) + lambda_mmd=0.01 * MMD",
+      "val_class_distribution": {
+        "0": 100,
+        "1": 104
+      },
+      "val_size": 204,
+      "validation_metrics": {
+        "accuracy": 0.5098039215686274,
+        "balanced_accuracy": 0.5,
+        "confusion_matrix": {
+          "fn": 0,
+          "fp": 100,
+          "tn": 0,
+          "tp": 104
+        },
+        "macro_f1": 0.33766233766233766,
+        "majority_baseline": 0.5098039215686274,
+        "one_class_collapse": true,
+        "predicted_classes": [
+          1
+        ],
+        "recall_y0": 0.0,
+        "recall_y1": 1.0
+      }
+    },
+    {
+      "completed_run_config": {
+        "asym_recon_delta": 10.0,
+        "batch_train": 128,
+        "batch_val": 512,
+        "d_h": 128,
+        "d_o": 1,
+        "d_v": 1,
+        "d_x": 402,
+        "dataset_name": "apibank",
+        "dt": 0.05,
+        "epochs": 5,
+        "hidden_dec": 128,
+        "hidden_enc": 512,
+        "input_data": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/l2t/apibank/apibank_full_l2t.pkl",
+        "lambda_mmd": 0.01,
+        "latent_batch_size": 4096,
+        "loss_type": "stability_asymmetric_recon",
+        "lr": 0.003,
+        "lr_enc": 0.003,
+        "minxing_entrypoint": "/Users/xuyida/Research/physics_informed_testing/share_code/experiment/run_baseline.py",
+        "mode": "label_bce",
+        "mode_resolved": "label_bce",
+        "num_workers": 0,
+        "output_dir": "/Users/xuyida/Research/physics_informed_testing/results/apibank_label_bce_5ep",
+        "seed": 1,
+        "stride": 1,
+        "tau": 1.0,
+        "time_window": [
+          0.05,
+          20.15
+        ],
+        "weight_decay": 1e-05,
+        "weight_decay_enc": 1e-05
+      },
+      "completed_run_source_dir": "/Users/xuyida/Research/physics_informed_testing/results/apibank_label_bce_5ep",
+      "dataset": "apibank",
+      "inputs_used": "X only",
+      "mode": "label_bce",
+      "reproduce_command": "python scripts/run_minxing_l2t_compatibility.py --minxing-repo /Users/xuyida/Research/physics_informed_testing --dataset apibank --input-data data/processed/l2t/apibank/apibank_full_l2t.pkl --mode label_bce --epochs 5 --seed 1 --batch-train 128 --batch-val 512 --num-workers 0 --time-window 0.05 20.15 --output-dir results/apibank_label_bce_5ep",
+      "runtime_sec": 0.7091489579761401,
+      "train_class_distribution": {
+        "0": 408,
+        "1": 404
+      },
+      "train_size": 812,
+      "training_objective": "binary cross-entropy on benchmark success label",
+      "val_class_distribution": {
+        "0": 100,
+        "1": 104
+      },
+      "val_size": 204,
+      "validation_metrics": {
+        "accuracy": 0.5490196078431373,
+        "balanced_accuracy": 0.5478846153846153,
+        "confusion_matrix": {
+          "fn": 41,
+          "fp": 51,
+          "tn": 49,
+          "tp": 63
+        },
+        "macro_f1": 0.5468855625301785,
+        "majority_baseline": 0.5098039215686274,
+        "one_class_collapse": false,
+        "predicted_classes": [
+          0,
+          1
+        ],
+        "recall_y0": 0.49,
+        "recall_y1": 0.6057692307692307
+      }
+    },
+    {
+      "completed_run_config": {
+        "asym_recon_delta": 10.0,
+        "batch_train": 128,
+        "batch_val": 512,
+        "d_h": 128,
+        "d_o": 1,
+        "d_v": 1,
+        "d_x": 402,
+        "dataset_name": "apibank",
+        "dt": 0.05,
+        "epochs": 5,
+        "hidden_dec": 128,
+        "hidden_enc": 512,
+        "input_data": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/l2t/apibank/apibank_full_l2t.pkl",
+        "lambda_mmd": 0.01,
+        "latent_batch_size": 4096,
+        "loss_type": "stability_asymmetric_recon",
+        "lr": 0.003,
+        "lr_enc": 0.003,
+        "minxing_entrypoint": "/Users/xuyida/Research/physics_informed_testing/share_code/experiment/run_baseline.py",
+        "mode": "reconstruction_only",
+        "mode_resolved": "reconstruction_only",
+        "num_workers": 0,
+        "output_dir": "/Users/xuyida/Research/physics_informed_testing/results/apibank_reconstruction_only_5ep",
+        "seed": 1,
+        "stride": 1,
+        "tau": 1.0,
+        "time_window": [
+          0.05,
+          20.15
+        ],
+        "weight_decay": 1e-05,
+        "weight_decay_enc": 1e-05
+      },
+      "completed_run_source_dir": "/Users/xuyida/Research/physics_informed_testing/results/apibank_reconstruction_only_5ep",
+      "dataset": "apibank",
+      "inputs_used": "X and S",
+      "mode": "reconstruction_only",
+      "reproduce_command": "python scripts/run_minxing_l2t_compatibility.py --minxing-repo /Users/xuyida/Research/physics_informed_testing --dataset apibank --input-data data/processed/l2t/apibank/apibank_full_l2t.pkl --mode reconstruction_only --epochs 5 --seed 1 --batch-train 128 --batch-val 512 --num-workers 0 --time-window 0.05 20.15 --output-dir results/apibank_reconstruction_only_5ep",
+      "runtime_sec": 11.565899124951102,
+      "train_class_distribution": {
+        "0": 408,
+        "1": 404
+      },
+      "train_size": 812,
+      "training_objective": "plain sequence reconstruction MSE (asym_recon_delta=1, lambda_mmd=0)",
+      "val_class_distribution": {
+        "0": 100,
+        "1": 104
+      },
+      "val_size": 204,
+      "validation_metrics": {
+        "accuracy": 0.5098039215686274,
+        "balanced_accuracy": 0.5,
+        "confusion_matrix": {
+          "fn": 0,
+          "fp": 100,
+          "tn": 0,
+          "tp": 104
+        },
+        "macro_f1": 0.33766233766233766,
+        "majority_baseline": 0.5098039215686274,
+        "one_class_collapse": true,
+        "predicted_classes": [
+          1
+        ],
+        "recall_y0": 0.0,
+        "recall_y1": 1.0
+      }
+    }
+  ],
+  "schema_version": "minxing_l2t_compatibility_summary_v1",
+  "split": {
+    "implementation": "np.random.RandomState(seed).permutation(N)",
+    "seed": 1,
+    "train_fraction": 0.8
+  },
+  "study_date": "2026-07-21",
+  "sweeps": "disabled",
+  "temporary_runner_used_for_completed_matrix": "/private/tmp/minxing_l2t_compat_run.py"
+}

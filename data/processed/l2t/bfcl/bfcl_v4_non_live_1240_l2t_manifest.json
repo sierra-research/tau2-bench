@@ -1,0 +1,126 @@
+{
+  "array_contract": {
+    "X_dtype": "float32",
+    "X_shape": [
+      1240,
+      17
+    ],
+    "class_distribution": {
+      "0": 181,
+      "1": 1059
+    },
+    "duplicate_sample_ids": [],
+    "infinite_value_counts": {
+      "X": 0,
+      "traj_s": 0
+    },
+    "nan_counts": {
+      "X": 0,
+      "traj_s": 0
+    },
+    "traj_s_dtype": "float32",
+    "traj_s_shape": [
+      1240,
+      32
+    ],
+    "y_dtype": "int64",
+    "y_shape": [
+      1240
+    ]
+  },
+  "category_counts": {
+    "irrelevance": 240,
+    "multiple": 200,
+    "parallel": 200,
+    "parallel_multiple": 200,
+    "simple_python": 400
+  },
+  "converter_script": "scripts/convert_bfcl_to_l2t_pkl.py",
+  "converter_version": "l2t_model_bridge_20260720",
+  "dataset": "bfcl_v4_non_live",
+  "feature_definitions": {
+    "X": {
+      "mapping": "BFCL prompt/tool schema structural features only; no evaluator result or label fields.",
+      "ordered_feature_names": [
+        "category_simple_python",
+        "category_multiple",
+        "category_parallel",
+        "category_parallel_multiple",
+        "category_irrelevance",
+        "question_message_count",
+        "question_text_length_log1p",
+        "function_count",
+        "function_name_chars_log1p",
+        "function_description_chars_log1p",
+        "parameter_count",
+        "required_parameter_count",
+        "max_parameters_per_function",
+        "max_required_parameters_per_function",
+        "has_parallel_category",
+        "has_multiple_category",
+        "has_irrelevance_category"
+      ]
+    },
+    "traj.s": {
+      "event_vocabulary": {
+        "0": "padding",
+        "1": "candidate_function_call",
+        "2": "arguments_json_parse_success",
+        "3": "arguments_json_parse_error",
+        "4": "scalar_argument",
+        "5": "list_or_object_argument",
+        "6": "null_argument",
+        "7": "end"
+      },
+      "mapping": "Fixed-length candidate tool-call event sequence from s_raw.model_result.",
+      "trajectory_length": 32
+    }
+  },
+  "label_origin": {
+    "bfcl_evaluator": 1240
+  },
+  "label_scope": "test_case_level",
+  "label_semantics": "Y=1 means BFCL evaluator marked the test case correct; Y=0 means incorrect.",
+  "minxing_contract": {
+    "X": "float32 array with shape (N, d_x); consumed as context/features",
+    "loader_behavior": "run_baseline.py casts X, y, and traj['s'] to float32 and builds o_hist/o_next via make_sequence_pairs",
+    "required_pickle_keys": [
+      "X",
+      "y",
+      "traj"
+    ],
+    "required_traj_keys": [
+      "s"
+    ],
+    "traj.s": "float32 array with shape (N, T); converted by Minxing loader into one-step sequence pairs",
+    "y": "binary array with shape (N,); consumed as positive/negative label for safety-style classification metrics"
+  },
+  "model_facing_exclusions": [
+    "metadata.evaluation_error_type",
+    "metadata.evaluation_error",
+    "label_scope",
+    "label_origin",
+    "is_synthetic",
+    "y"
+  ],
+  "output_pickle": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/l2t/bfcl/bfcl_v4_non_live_1240_l2t.pkl",
+  "sample_count": 1240,
+  "source_counts": {
+    "bfcl_v4": 1240
+  },
+  "source_input": "/Users/xuyida/Research/llm-toolcalling-benchmarks/tau2-bench/data/processed/bfcl/bfcl_v4_non_live_1240_xy.jsonl",
+  "split": {
+    "seed": 1,
+    "splitter": "numpy.random.RandomState(seed).permutation with first int(0.8*N) samples used for training",
+    "train_class_distribution": {
+      "0": 153,
+      "1": 839
+    },
+    "train_size": 992,
+    "validation_class_distribution": {
+      "0": 28,
+      "1": 220
+    },
+    "validation_size": 248
+  }
+}
