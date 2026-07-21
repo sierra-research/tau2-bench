@@ -50,10 +50,49 @@ def get_communication_mode(
     return CommunicationMode.HALF_DUPLEX
 
 
+def _load_fresh_tasks(results: Results, console: Optional[Console] = None) -> Results:
+    """Replace the task definitions embedded in the results with the current
+    ones from the data directory, matched by task id.
+
+    The embedded tasks record what the grading criteria were when the run was
+    produced. Re-grading against updated criteria (e.g. after a task fix ships)
+    requires reloading them; simulations whose task id no longer exists keep
+    their embedded definition and a warning is emitted.
+    """
+    from tau2.registry import registry
+
+    domain = results.info.environment_info.domain_name
+    fresh = {task.id: task for task in registry.get_tasks_loader(domain)(None)}
+    missing = [task.id for task in results.tasks if task.id not in fresh]
+    if missing and console:
+        console.print(
+            f"  ⚠️  {len(missing)} task(s) not found in current data dir, "
+            f"keeping embedded definitions: {missing}",
+            style="yellow",
+        )
+    results.tasks = [fresh.get(task.id, task) for task in results.tasks]
+    return results
+
+
+def _build_eval_env_kwargs(domain: str, task) -> Optional[dict]:
+    """Env kwargs needed so re-grading matches live grading for a domain.
+
+    banking_knowledge needs the per-task read_log_allowlist: without it the
+    required-read assertions (derived from the golden trajectory) silently
+    stop discriminating. Mirrors tau2.runner.build._build_env_kwargs.
+    """
+    if domain == "banking_knowledge":
+        from tau2.runner.build import _derive_read_log_allowlist
+
+        return {"read_log_allowlist": _derive_read_log_allowlist(task)}
+    return None
+
+
 def compute_simulation_rewards(
     results: Results,
     evaluation_type: EvaluationType = EvaluationType.ALL,
     console: Optional[Console] = None,
+    fresh_tasks: bool = False,
 ) -> Results:
     """
     Compute and update rewards for all simulations in the results.
@@ -62,8 +101,12 @@ def compute_simulation_rewards(
         results: The Results object containing simulations to evaluate
         evaluation_type: Type of evaluation to perform
         console: Optional Rich console for output
+        fresh_tasks: Re-grade against the current task definitions from the
+            data directory instead of the ones embedded in the results file.
     """
     results = deepcopy(results)
+    if fresh_tasks:
+        results = _load_fresh_tasks(results, console=console)
     domain = results.info.environment_info.domain_name
     solo_mode = is_solo_mode(results)
     tasks = {task.id: task for task in results.tasks}
@@ -86,6 +129,8 @@ def compute_simulation_rewards(
                 evaluation_type=evaluation_type,
                 solo_mode=solo_mode,
                 mode=get_communication_mode(results, simulation),
+                env_kwargs=_build_eval_env_kwargs(domain, task),
+                strict_replay=False,
             )
 
             # Update the simulation with new reward info
@@ -104,6 +149,7 @@ def evaluate_trajectories(
     input_paths: list[str],
     output_dir: str | None = None,
     evaluation_type: EvaluationType = EvaluationType.ALL,
+    fresh_tasks: bool = False,
 ) -> None:
     """
     Evaluate trajectories and optionally save updated results with recomputed rewards.
@@ -112,6 +158,8 @@ def evaluate_trajectories(
         input_paths: List of paths to trajectory files, directories, or glob patterns
         output_dir: Optional directory to save updated results files. If None, only displays metrics.
         evaluation_type: Type of evaluation to perform
+        fresh_tasks: Re-grade against the current task definitions from the data
+            directory instead of the ones embedded in each results file.
     """
     files = expand_paths(input_paths, extension=".json")
     console = ConsoleDisplay.console
@@ -149,7 +197,10 @@ def evaluate_trajectories(
 
             # Compute and update rewards (returns new Results object)
             updated_results = compute_simulation_rewards(
-                results=results, evaluation_type=evaluation_type, console=console
+                results=results,
+                evaluation_type=evaluation_type,
+                console=console,
+                fresh_tasks=fresh_tasks,
             )
             console.print(
                 f"  ✅ Computed rewards for {len(updated_results.simulations)} simulation(s)",
@@ -209,6 +260,11 @@ def make_parser():
         "--output-dir",
         help="Directory to save updated trajectory files with recomputed rewards. If not provided, only displays metrics.",
     )
+    parser.add_argument(
+        "--fresh-tasks",
+        action="store_true",
+        help="Re-grade against the current task definitions from the data directory instead of the ones embedded in each results file.",
+    )
     return parser
 
 
@@ -217,7 +273,7 @@ def main():
     logger.configure(handlers=[{"sink": sys.stderr, "level": "ERROR"}])
     parser = make_parser()
     args = parser.parse_args()
-    evaluate_trajectories(args.paths, args.output_dir)
+    evaluate_trajectories(args.paths, args.output_dir, fresh_tasks=args.fresh_tasks)
 
 
 if __name__ == "__main__":

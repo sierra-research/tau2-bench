@@ -3,6 +3,7 @@ import './App.css'
 import TrajectoryVisualizer from './components/TrajectoryVisualizer'
 import Leaderboard from './components/Leaderboard'
 import LeaderboardPreview from './components/LeaderboardPreview'
+import EvolutionTimeline from './components/EvolutionTimeline'
 import Blog from './components/Blog'
 
 function App() {
@@ -33,7 +34,6 @@ function App() {
   
   const [currentView, setCurrentView] = useState(getInitialView())
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [papersDropdownOpen, setPapersDropdownOpen] = useState(false)
 
   // Handle navigation with URL updates
   const navigateTo = (view) => {
@@ -150,6 +150,7 @@ function App() {
             <button onClick={() => navigateTo('trajectory-visualizer')} className={`nav-link ${currentView === 'trajectory-visualizer' ? 'active' : ''}`}>Visualizer</button>
             <button onClick={() => navigateTo('blog')} className={`nav-link ${currentView === 'blog' ? 'active' : ''}`}>Blog</button>
             <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)}>GitHub</a>
+            <a href="https://github.com/sierra-research/tau2-bench/blob/main/docs/leaderboard-submission.md" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)}>Submit Results</a>
           </div>
         </div>
       </nav>
@@ -159,9 +160,10 @@ function App() {
         <div className="notification-container">
           <span className="notification-badge">NEW</span>
           <span className="notification-text">
-            τ-bench now supports the <strong>banking domain</strong> and a <strong>voice mode</strong>, introduced by the{' '}
-            <a href={`${import.meta.env.BASE_URL}blog/tau-knowledge.html`} className="notification-link">τ-knowledge</a> and{' '}
-            <a href={`${import.meta.env.BASE_URL}blog/tau-voice-examples.html`} className="notification-link">τ-voice examples</a>.
+            τ³-bench is here: <a href={`${import.meta.env.BASE_URL}blog/tau-knowledge.html`} className="notification-link"><strong>τ-knowledge</strong></a> evaluates
+            agents on knowledge-intensive tasks, and{' '}
+            <a href="https://sierra.ai/blog/tau-voice-benchmarking-real-time-voice-agents-on-real-world-tasks" className="notification-link"><strong>τ-voice</strong></a> benchmarks
+            real-time voice agents.
           </span>
         </div>
       </div>
@@ -181,47 +183,17 @@ function App() {
                 </div>
 
                 <p className="hero-description">
-                  Benchmarking AI agents in collaborative real-world scenarios. 
-                  τ-bench challenges agents to coordinate, guide, and assist users 
-                  in achieving shared objectives across complex enterprise domains.
+                  Can AI agents reliably complete real-world tasks? 
+                  τ-bench measures how well agents converse with users, call tools, 
+                  retrieve knowledge, and follow policy across enterprise domains — in text and voice.
                 </p>
-
-                <div className="hero-actions">
-                  <div className="button-row">
-                    <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer">
-                      <button className="btn-primary">View on GitHub</button>
-                    </a>
-                    <a href="https://github.com/sierra-research/tau2-bench/blob/main/docs/leaderboard-submission.md" target="_blank" rel="noopener noreferrer">
-                      <button className="btn-secondary">Submit Results</button>
-                    </a>
-                  </div>
-                  <div className="button-row">
-                    <div className="hero-dropdown" onMouseEnter={() => setPapersDropdownOpen(true)} onMouseLeave={() => setPapersDropdownOpen(false)}>
-                      <button className="btn-secondary">
-                        Read Papers <span className="dropdown-arrow">▾</span>
-                      </button>
-                      <div className={`hero-dropdown-menu ${papersDropdownOpen ? 'open' : ''}`}>
-                        <div className="hero-submenu-item">
-                          <span className="hero-submenu-label">τ³-bench <span className="submenu-arrow">›</span></span>
-                          <div className="hero-submenu">
-                            <a href="https://arxiv.org/abs/2603.04370" target="_blank" rel="noopener noreferrer">τ-Knowledge</a>
-                            <a href="https://arxiv.org/abs/2603.13686" target="_blank" rel="noopener noreferrer">τ-Voice</a>
-                          </div>
-                        </div>
-                        <a href="https://arxiv.org/abs/2506.07982" target="_blank" rel="noopener noreferrer">τ²-bench</a>
-                        <a href="https://arxiv.org/abs/2406.12045" target="_blank" rel="noopener noreferrer">τ-bench</a>
-                      </div>
-                    </div>
-                    <button className="btn-secondary" onClick={() => navigateTo('blog')}>Blog</button>
-                  </div>
-                </div>
 
                 <LeaderboardPreview onViewFullLeaderboard={() => navigateTo('leaderboard')} />
               </div>
             </div>
           </section>
 
-
+          <EvolutionTimeline />
         </>
       ) : currentView === 'leaderboard' ? (
         <Leaderboard />

@@ -1,6 +1,6 @@
 .leaderboard-preview {
   width: 100%;
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -27,19 +27,58 @@
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  /* Each card is a link to its track's full leaderboard */
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.preview-table-wrapper:hover {
+  border-color: #a7d7c5;
+  box-shadow: 0 4px 14px rgba(6, 95, 70, 0.12);
+  transform: translateY(-2px);
 }
 
 .preview-table-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #4a5568;
-  padding: 14px 16px;
+  padding: 14px 12px;
   margin: 0;
   border-bottom: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   gap: 8px;
   text-align: left;
+  white-space: nowrap;
+}
+
+.preview-table-subtitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #a0aec0;
+  letter-spacing: 0.2px;
+}
+
+/* The mode reads differently from the domain list: darker, heavier, and
+   separated by a vertical divider instead of the interpunct. */
+.preview-mode {
+  color: #718096;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.preview-subtitle-divider {
+  width: 1px;
+  height: 10px;
+  background: #cbd5e0;
 }
 
 .preview-mode-badge {
@@ -48,13 +87,19 @@
   border-radius: 4px;
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  /* No uppercase: the badges are τ-track names and τ must stay lowercase */
+  letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 
-.preview-mode-badge.text {
+.preview-mode-badge.core {
   background: #ebf8ff;
   color: #2b6cb0;
+}
+
+.preview-mode-badge.knowledge {
+  background: #fffbeb;
+  color: #b45309;
 }
 
 .preview-mode-badge.voice {
@@ -73,18 +118,18 @@
   color: #a0aec0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  padding: 8px 16px;
+  padding: 8px 12px;
   text-align: left;
   border-bottom: 1px solid #f1f5f9;
 }
 
 .preview-rank-col {
-  width: 40px;
+  width: 36px;
   text-align: center !important;
 }
 
 .preview-score-col {
-  width: 80px;
+  width: 64px;
   text-align: right !important;
 }
 
@@ -102,12 +147,12 @@
 
 .preview-rank {
   text-align: center;
-  padding: 10px 16px;
+  padding: 10px 8px;
   font-size: 16px;
 }
 
 .preview-model {
-  padding: 10px 16px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -120,7 +165,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 180px;
+  max-width: 130px;
 }
 
 .preview-model-org {
@@ -130,7 +175,7 @@
 }
 
 .preview-score {
-  padding: 10px 16px;
+  padding: 10px 12px;
   text-align: right;
   font-size: 15px;
   font-weight: 700;
@@ -149,25 +194,26 @@
 }
 
 .preview-cta {
-  background: none;
-  border: 2px solid #e2e8f0;
-  color: #065f46;
-  font-size: 14px;
+  background: #065f46;
+  border: 2px solid #065f46;
+  color: white;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  padding: 10px 24px;
+  padding: 12px 28px;
   border-radius: 8px;
   transition: all 0.15s ease;
 }
 
 .preview-cta:hover {
-  background: #f0fdf4;
-  border-color: #065f46;
-  color: #047857;
+  background: #047857;
+  border-color: #047857;
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(6, 95, 70, 0.25);
 }
 
-@media (max-width: 768px) {
+/* Three cards need more room than two did; stack a little earlier. */
+@media (max-width: 900px) {
   .preview-tables {
     flex-direction: column;
     gap: 16px;

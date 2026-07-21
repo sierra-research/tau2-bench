@@ -758,6 +758,11 @@ def main():
         "--output-dir",
         help="Directory to save updated trajectory files with recomputed rewards. If not provided, only displays metrics.",
     )
+    evaluate_parser.add_argument(
+        "--fresh-tasks",
+        action="store_true",
+        help="Re-grade against the current task definitions from the data directory instead of the ones embedded in each results file.",
+    )
     evaluate_parser.set_defaults(func=lambda args: run_evaluate_trajectories(args))
 
     # Review command - LLM-based conversation review
@@ -1018,7 +1023,9 @@ def run_evaluate_trajectories(args):
 
     logger.configure(handlers=[{"sink": sys.stderr, "level": "ERROR"}])
 
-    evaluate_trajectories(args.paths, args.output_dir)
+    evaluate_trajectories(
+        args.paths, args.output_dir, fresh_tasks=getattr(args, "fresh_tasks", False)
+    )
 
 
 def run_review(args):

@@ -9,6 +9,7 @@ from tau2.domains.banking_knowledge.data_model import TransactionalDB
 from tau2.domains.banking_knowledge.db_query import (
     add_to_db,
     query_database_tool,
+    query_db,
     update_record_in_db,
 )
 from tau2.domains.banking_knowledge.utils import (
@@ -2995,12 +2996,17 @@ For deposits without available images, the dispute will proceed based on custome
     def get_bank_account_transactions_9173(self, account_id: str) -> str:
         """Retrieve the transaction history for a bank account.
 
+        Transactions are returned in reverse chronological order (most recent
+        first).
+
         Args:
             account_id (string): The bank account ID to retrieve transactions for
 
         Returns:
             Bank account transactions retrieved successfully.
         """
+        from datetime import datetime
+
         if not account_id:
             return "Error: Missing required parameter: account_id"
 
@@ -3008,11 +3014,28 @@ For deposits without available images, the dispute will proceed based on custome
         if account_id not in self.db.accounts.data:
             return f"Error: Account '{account_id}' not found."
 
-        txn_result = query_database_tool(
+        txns = query_db(
             "bank_account_transaction_history",
-            f'{{"account_id": "{account_id}"}}',
             db=self.db,
+            return_ids=True,
+            account_id=account_id,
         )
+
+        # The knowledge doc for this tool guarantees reverse chronological
+        # order (most recent first). The sort must stay stable: same-date
+        # records keep their stored order, which under the most-recent-first
+        # contract identifies the later-listed record as the earlier one
+        # (tie-breaker for duplicate-charge disputes).
+        def txn_sort_key(item):
+            date_str = str(item[1].get("date", ""))
+            for fmt in ("%m/%d/%Y %H:%M:%S", "%m/%d/%Y"):
+                try:
+                    return datetime.strptime(date_str, fmt)
+                except ValueError:
+                    continue
+            return datetime.min
+
+        txns = sorted(txns, key=txn_sort_key, reverse=True)
 
         result_parts = [
             "Bank account transactions retrieved successfully.",
@@ -3021,11 +3044,16 @@ For deposits without available images, the dispute will proceed based on custome
             f"Transactions for account {account_id}:",
         ]
 
-        if (
-            "No records found" not in txn_result
-            and "No results found" not in txn_result
-        ):
-            result_parts.append(txn_result)
+        if txns:
+            formatted_lines = [
+                f"Found {len(txns)} record(s) in 'bank_account_transaction_history':\n"
+            ]
+            for i, (record_id, record) in enumerate(txns, 1):
+                formatted_lines.append(f"{i}. Record ID: {record_id}")
+                for field, value in record.items():
+                    formatted_lines.append(f"   {field}: {value}")
+                formatted_lines.append("")
+            result_parts.append("\n".join(formatted_lines))
         else:
             result_parts.append("\nNo transactions found for this account.")
 

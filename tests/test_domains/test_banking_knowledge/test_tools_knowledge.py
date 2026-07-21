@@ -3012,6 +3012,55 @@ class TestReadOnlyDiscoverableAgentTools:
         assert not resp.error
         assert "transactions" in resp.content.lower()
 
+    def test_get_bank_account_transactions_reverse_chronological(
+        self, environment: Environment
+    ):
+        def txn(txn_id: str, date: str) -> dict:
+            return {
+                "transaction_id": txn_id,
+                "account_id": "chk_001",
+                "date": date,
+                "description": "TEST TRANSACTION",
+                "amount": -10.0,
+                "type": "debit_card_purchase",
+                "status": "posted",
+            }
+
+        # Insert deliberately out of chronological order, with a same-date
+        # duplicate pair and a timestamped date.
+        environment.tools.db.bank_account_transaction_history.data.update(
+            {
+                "btxn_dup_first": txn("btxn_dup_first", "11/11/2025"),
+                "btxn_dup_second": txn("btxn_dup_second", "11/11/2025"),
+                "btxn_oldest": txn("btxn_oldest", "11/01/2025"),
+                "btxn_newest": txn("btxn_newest", "11/13/2025"),
+                "btxn_timestamped": txn("btxn_timestamped", "11/12/2025 14:30:00"),
+            }
+        )
+
+        resp = call_discoverable_agent(
+            environment,
+            "get_bank_account_transactions_9173",
+            {
+                "account_id": "chk_001",
+            },
+        )
+        assert not resp.error
+
+        listed_ids = [
+            line.split("Record ID:")[1].strip()
+            for line in resp.content.splitlines()
+            if "Record ID:" in line
+        ]
+        # Most recent first; same-date records keep their stored order.
+        assert listed_ids == [
+            "btxn_newest",
+            "btxn_timestamped",
+            "btxn_dup_first",
+            "btxn_dup_second",
+            "btxn_oldest",
+        ]
+
     def test_get_debit_cards_by_account(self, environment: Environment):
         resp = call_discoverable_agent(
             environment,

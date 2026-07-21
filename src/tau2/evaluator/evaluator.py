@@ -93,6 +93,7 @@ def evaluate_simulation(
     domain: str,
     mode: CommunicationMode = CommunicationMode.HALF_DUPLEX,
     env_kwargs: dict = None,
+    strict_replay: bool = True,
 ) -> RewardInfo:
     """
     Evaluate the simulation based on the evaluation type.
@@ -106,6 +107,11 @@ def evaluate_simulation(
         mode: The communication mode (HALF_DUPLEX or FULL_DUPLEX).
               Defaults to HALF_DUPLEX. In FULL_DUPLEX mode, evaluation uses
               simulation.ticks instead of simulation.messages.
+        strict_replay: Whether the environment replay should raise when a
+              replayed tool call's output differs from the recorded one.
+              Live evaluation keeps the default (True); trajectory re-grading
+              passes False so recorded outputs that cosmetically predate
+              current tool code do not abort the replay.
 
     Returns:
         RewardInfo with the evaluation results.
@@ -169,6 +175,7 @@ def evaluate_simulation(
             full_trajectory=trajectory,
             solo_mode=solo_mode,
             env_kwargs=env_kwargs,
+            strict_replay=strict_replay,
         )
     elif evaluation_type == EvaluationType.NL_ASSERTIONS:
         reward_info = NLEvaluator.calculate_reward(
@@ -193,6 +200,7 @@ def evaluate_simulation(
             full_trajectory=trajectory,
             solo_mode=solo_mode,
             env_kwargs=env_kwargs,
+            strict_replay=strict_replay,
         )
         action_reward_info = ActEvaluator.calculate_reward(
             task=task,

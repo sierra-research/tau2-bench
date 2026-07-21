@@ -2,7 +2,14 @@ import React, { useState, useEffect } from 'react'
 import './Leaderboard.css'
 import ProgressView from './ProgressView'
 
-const BENCHMARK_VALUES = new Set(['text', 'voice'])
+// The leaderboard is split into three buckets, one per benchmark track:
+// τ³-Banking (published as τ-knowledge), τ³-Voice (published as τ-voice:
+// retail/airline/telecom in real-time voice), and τ²-bench (core:
+// retail/airline/telecom in text, near saturation).
+const BENCHMARK_VALUES = new Set(['core', 'knowledge', 'voice'])
+
+// Pre-bucket URLs and localStorage used benchmark=text for what is now 'core'.
+const normalizeBenchmark = (value) => (value === 'text' ? 'core' : value)
 
 const getBenchmarkFromHash = () => {
   const hash = window.location.hash.slice(1)
@@ -11,7 +18,7 @@ const getBenchmarkFromHash = () => {
   // benchmark on the same view, so accept either route.
   if (route !== 'leaderboard' && route !== 'progress') return null
 
-  const value = new URLSearchParams(queryString).get('benchmark')
+  const value = normalizeBenchmark(new URLSearchParams(queryString).get('benchmark'))
   return BENCHMARK_VALUES.has(value) ? value : null
 }
 
@@ -19,12 +26,18 @@ const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
   || `${import.meta.env.BASE_URL}submissions`
 
 const NO_CACHE = { cache: 'no-cache' }
-const TEXT_DEFAULT_DOMAIN = 'banking_knowledge'
-const TEXT_DOMAINS = [
-  { key: 'banking_knowledge', label: '🏦 Banking' },
+const CORE_DOMAINS = [
+  { key: 'overall', label: '📊 Overall' },
   { key: 'retail', label: '🛍️ Retail' },
   { key: 'airline', label: '✈️ Airline' },
   { key: 'telecom', label: '📱 Telecom' },
+]
+// TODO(voice-banking): when banking is supported in voice mode, add a
+// Text | Voice modality toggle inside the Knowledge bucket rather than a
+// banking domain tab under Voice. That keeps the Voice bucket's Overall
+// (core 3 domains) stable and keeps all knowledge scores in one place.
+const KNOWLEDGE_DOMAINS = [
+  { key: 'banking_knowledge', label: '🏦 Banking' },
 ]
 const VOICE_DOMAINS = [
   { key: 'overall', label: '📊 Overall' },
@@ -32,6 +45,51 @@ const VOICE_DOMAINS = [
   { key: 'airline', label: '✈️ Airline' },
   { key: 'telecom', label: '📱 Telecom' },
 ]
+
+// Key order determines toggle order: newest tracks first.
+const BENCHMARK_CONFIG = {
+  knowledge: {
+    label: 'τ³-Banking',
+    icon: '🏦',
+    title: 'τ³-Banking Leaderboard',
+    description: 'Text agents resolving banking customer-service tasks over a ~700-document knowledge base. Published as τ-knowledge.',
+    // Shown on hover wherever the track name appears without room for the
+    // full description; maps the display name back to the paper name.
+    hoverNote: 'τ³-Banking was published as τ-knowledge',
+    modality: 'text',
+    domains: KNOWLEDGE_DOMAINS,
+    defaultDomain: 'banking_knowledge',
+    breakdownDomains: ['banking_knowledge'],
+  },
+  voice: {
+    label: 'τ³-Voice',
+    icon: '🎙️',
+    title: 'τ³-Voice Leaderboard',
+    description: 'Real-time, full-duplex voice agents on retail, airline, and telecom customer-service tasks. Published as τ-voice.',
+    hoverNote: 'τ³-Voice was published as τ-voice',
+    modality: 'voice',
+    domains: VOICE_DOMAINS,
+    defaultDomain: 'overall',
+    breakdownDomains: ['retail', 'airline', 'telecom'],
+  },
+  core: {
+    label: 'τ²-bench',
+    icon: '📝',
+    title: 'τ²-bench Leaderboard',
+    description: 'Text agents on retail, airline, and telecom customer-service tasks, where the agent and the user both act on the world.',
+    modality: 'text',
+    domains: CORE_DOMAINS,
+    defaultDomain: 'overall',
+    breakdownDomains: ['retail', 'airline', 'telecom'],
+  },
+}
+
+const DOMAIN_CARDS = {
+  retail: { key: 'retail', label: 'Retail', icon: '🛍️', desc: 'Order cancellations, returns, exchanges, address changes, and product inquiries.' },
+  airline: { key: 'airline', label: 'Airline', icon: '✈️', desc: 'Flight bookings, modifications, cancellations, refunds, baggage, and compensation.' },
+  telecom: { key: 'telecom', label: 'Telecom', icon: '📱', desc: 'Technical support for connectivity issues, bill payments, and plan management.' },
+  banking_knowledge: { key: 'banking_knowledge', label: 'Banking', icon: '🏦', desc: 'Banking customer service with knowledge retrieval over policy documents.' },
+}
 
 const formatVoicePipeline = (pipeline) => {
   if (!pipeline) return ''
@@ -172,22 +230,24 @@ const formatInteractionValue = (value, unit) => {
 }
 
 const Leaderboard = () => {
-  // Benchmark selector: 'text' (τ-bench) or 'voice' (τ-voice)
+  // Benchmark selector: 'core' (τ²-bench), 'knowledge' (τ-knowledge), or
+  // 'voice' (τ-voice)
   const [benchmark, setBenchmark] = useState(() => {
     const fromHash = getBenchmarkFromHash()
     if (fromHash) return fromHash
 
-    const fromStorage = localStorage.getItem('benchmark')
-    return BENCHMARK_VALUES.has(fromStorage) ? fromStorage : 'text'
+    const fromStorage = normalizeBenchmark(localStorage.getItem('benchmark'))
+    // Default to the first toggle position (newest track)
+    return BENCHMARK_VALUES.has(fromStorage) ? fromStorage : 'knowledge'
   })
   // Add unified domain selection state with localStorage persistence
   const [domain, setDomain] = useState(() => {
-    const storedBenchmark = localStorage.getItem('benchmark')
+    const storedBenchmark = normalizeBenchmark(localStorage.getItem('benchmark'))
     const storedDomain = localStorage.getItem('domain')
-    const validDomains = storedBenchmark === 'voice' ? VOICE_DOMAINS : TEXT_DOMAINS
-    return validDomains.some(({ key }) => key === storedDomain)
+    const config = BENCHMARK_CONFIG[storedBenchmark] || BENCHMARK_CONFIG.knowledge
+    return config.domains.some(({ key }) => key === storedDomain)
       ? storedDomain
-      : (storedBenchmark === 'voice' ? 'overall' : TEXT_DEFAULT_DOMAIN)
+      : config.defaultDomain
   })
   // Selected pass^k metric (1-4) with localStorage persistence
   const [selectedPassK, setSelectedPassK] = useState(() => {
@@ -315,18 +375,19 @@ const Leaderboard = () => {
             submission.results.banking_knowledge?.pass_4 || null
           ]
           
-          // Calculate overall averages (only if all 4 domains have data)
+          // Overall = average of the three core domains (retail, airline,
+          // telecom), only when all three have data. Banking is scored
+          // separately in the Knowledge bucket.
           const hasRetailData = submission.results.retail?.pass_1 !== null && submission.results.retail?.pass_1 !== undefined
           const hasAirlineData = submission.results.airline?.pass_1 !== null && submission.results.airline?.pass_1 !== undefined
           const hasTelecomData = submission.results.telecom?.pass_1 !== null && submission.results.telecom?.pass_1 !== undefined
-          const hasBankingData = submission.results.banking_knowledge?.pass_1 !== null && submission.results.banking_knowledge?.pass_1 !== undefined
           
-          const overallData = (hasRetailData && hasAirlineData && hasTelecomData && hasBankingData) 
+          const overallData = (hasRetailData && hasAirlineData && hasTelecomData) 
             ? [0, 1, 2, 3].map(passIndex => {
-                const values = [retailData[passIndex], airlineData[passIndex], telecomData[passIndex], bankingData[passIndex]].filter(val => val !== null)
+                const values = [retailData[passIndex], airlineData[passIndex], telecomData[passIndex]].filter(val => val !== null)
                 return values.length > 0 ? values.reduce((sum, val) => sum + val, 0) / values.length : null
               })
-            : [null, null, null, null] // No overall score if missing any domain
+            : [null, null, null, null] // No overall score if missing any core domain
           
           const modelData = {
             modelName: submission.model_name,
@@ -451,9 +512,9 @@ const Leaderboard = () => {
   }, [domain])
 
   useEffect(() => {
-    const domainsForBenchmark = benchmark === 'voice' ? VOICE_DOMAINS : TEXT_DOMAINS
-    if (!domainsForBenchmark.some(({ key }) => key === domain)) {
-      setDomain(benchmark === 'voice' ? 'overall' : TEXT_DEFAULT_DOMAIN)
+    const config = BENCHMARK_CONFIG[benchmark]
+    if (!config.domains.some(({ key }) => key === domain)) {
+      setDomain(config.defaultDomain)
     }
   }, [benchmark, domain])
 
@@ -492,16 +553,13 @@ const Leaderboard = () => {
   const handleBenchmarkChange = (newBenchmark) => {
     setBenchmark(newBenchmark)
     setExpandedRows(new Set())
+    const config = BENCHMARK_CONFIG[newBenchmark]
+    if (!config.domains.some(({ key }) => key === domain)) {
+      setDomain(config.defaultDomain)
+    }
     if (newBenchmark === 'voice') {
-      // Voice doesn't have banking_knowledge or a meaningful overall (no banking)
-      // Reset to 'overall' which will show avg of available domains
-      if (domain === 'banking_knowledge') {
-        setDomain('overall')
-      }
       // Voice only has pass^1
       setSelectedPassK(1)
-    } else if (domain === 'overall') {
-      setDomain(TEXT_DEFAULT_DOMAIN)
     }
   }
 
@@ -567,9 +625,11 @@ const Leaderboard = () => {
     )
   }
 
+  const benchConfig = BENCHMARK_CONFIG[benchmark]
+
   const hasUnverifiedSubmission = Object.values(passKData).some(data => {
     // Filter by benchmark modality
-    if (data.modality !== benchmark) return false
+    if (data.modality !== benchConfig.modality) return false
     if (data.isLegacy && !showLegacy) return false
     const isStandard = data.submissionType === 'standard' || !data.submissionType
     const isCustom = data.submissionType === 'custom'
@@ -584,7 +644,8 @@ const Leaderboard = () => {
 
   // Determine domains available for current benchmark
   const isVoice = benchmark === 'voice'
-  const availableDomains = isVoice ? VOICE_DOMAINS : TEXT_DOMAINS
+  const availableDomains = benchConfig.domains
+  const benchmarkKeys = Object.keys(BENCHMARK_CONFIG)
 
   // For voice overall, only average the 3 non-banking domains
   const voiceDomains = ['retail', 'airline', 'telecom']
@@ -594,35 +655,36 @@ const Leaderboard = () => {
     <div className="leaderboard-container">
       {/* Benchmark Selector */}
       <div className="benchmark-selector">
-        <div className="benchmark-toggle-container">
-          <button
-            className={`benchmark-toggle-option ${benchmark === 'text' ? 'active' : ''}`}
-            onClick={() => handleBenchmarkChange('text')}
-          >
-            <span className="benchmark-icon">📝</span> τ-bench
-          </button>
-          <button
-            className={`benchmark-toggle-option ${benchmark === 'voice' ? 'active' : ''}`}
-            onClick={() => handleBenchmarkChange('voice')}
-          >
-            <span className="benchmark-icon">🎙️</span> τ-voice
-          </button>
+        <div className="benchmark-toggle-container" style={{ '--benchmark-count': benchmarkKeys.length }}>
+          {benchmarkKeys.map((key) => (
+            <button
+              key={key}
+              className={`benchmark-toggle-option ${benchmark === key ? 'active' : ''}`}
+              onClick={() => handleBenchmarkChange(key)}
+              title={BENCHMARK_CONFIG[key].hoverNote}
+            >
+              <span className="benchmark-icon">{BENCHMARK_CONFIG[key].icon}</span> {BENCHMARK_CONFIG[key].label}
+            </button>
+          ))}
           <div
             className="benchmark-toggle-slider"
             style={{
-              transform: benchmark === 'text' ? 'translateX(0%)' : 'translateX(100%)'
+              width: `calc((100% - 8px) / ${benchmarkKeys.length})`,
+              transform: `translateX(${benchmarkKeys.indexOf(benchmark) * 100}%)`
             }}
           />
         </div>
       </div>
 
       <div className="leaderboard-title-row">
-        <h2 className="leaderboard-title">{isVoice ? 'τ-voice Leaderboard' : 'τ-bench Leaderboard'}</h2>
+        <h2 className="leaderboard-title">{benchConfig.title}</h2>
       </div>
+      <p className="leaderboard-subtitle">{benchConfig.description}</p>
 
       {/* Combined Controls Row — applies to both ranking and progress views */}
       <div className="leaderboard-controls">
-        {/* Domain Toggle Switch */}
+        {/* Domain Toggle Switch (hidden when the bucket has a single domain) */}
+        {availableDomains.length > 1 && (
         <div className="domain-toggle-switch">
           <div className="toggle-container domain-toggle-container" style={{ '--domain-count': availableDomains.length }}>
             {availableDomains.map(d => (
@@ -643,6 +705,7 @@ const Leaderboard = () => {
             />
           </div>
         </div>
+        )}
 
         {/* Submission Type Filter */}
         <div className="submission-type-filter">
@@ -664,7 +727,7 @@ const Leaderboard = () => {
             <span className="checkbox-checkmark"></span>
             <span className="checkbox-label">Custom</span>
           </label>
-          {!isVoice && (
+          {benchmark === 'core' && (
             <label className="checkbox-container">
               <input 
                 type="checkbox" 
@@ -708,7 +771,7 @@ const Leaderboard = () => {
       </div>
 
       {/* Table View */}
-      {(!showStandard && !showCustom && (isVoice || !showLegacy)) ? (
+      {(!showStandard && !showCustom && (benchmark !== 'core' || !showLegacy)) ? (
           <div className="filter-empty-state">
             <div className="empty-icon">🔍</div>
             <h3>No Results</h3>
@@ -831,7 +894,7 @@ const Leaderboard = () => {
                 const modelStats = Object.entries(passKData)
                   .filter(([, data]) => {
                     // Filter by benchmark modality
-                    if (data.modality !== benchmark) {
+                    if (data.modality !== benchConfig.modality) {
                       return false
                     }
                     // Filter out legacy submissions unless toggled on
@@ -851,7 +914,7 @@ const Leaderboard = () => {
                       return voiceDomains.some(d => data[d]?.some(val => val !== null))
                     }
                     
-                    // For overall domain, only include models that have data for all 4 domains
+                    // For overall domain, only include models that have data for all core domains
                     if (domain === 'overall') {
                       return data.overall.some(val => val !== null)
                     }
@@ -1153,19 +1216,7 @@ const Leaderboard = () => {
                     <tr className="domain-detail-row">
                       <td colSpan={isVoice ? 12 : 8} className="domain-detail-cell">
                         <div className="domain-breakdown">
-                          {(isVoice
-                            ? [
-                                { key: 'retail', label: 'Retail', icon: '🛍️', desc: 'Order cancellations, returns, exchanges, address changes, and product inquiries.' },
-                                { key: 'airline', label: 'Airline', icon: '✈️', desc: 'Flight bookings, modifications, cancellations, refunds, baggage, and compensation.' },
-                                { key: 'telecom', label: 'Telecom', icon: '📱', desc: 'Technical support for connectivity issues, bill payments, and plan management.' },
-                              ]
-                            : [
-                                { key: 'retail', label: 'Retail', icon: '🛍️', desc: 'Order cancellations, returns, exchanges, address changes, and product inquiries.' },
-                                { key: 'airline', label: 'Airline', icon: '✈️', desc: 'Flight bookings, modifications, cancellations, refunds, baggage, and compensation.' },
-                                { key: 'telecom', label: 'Telecom', icon: '📱', desc: 'Technical support for connectivity issues, bill payments, and plan management.' },
-                                { key: 'banking_knowledge', label: 'Banking', icon: '🏦', desc: 'Banking customer service with knowledge retrieval over policy documents.' },
-                              ]
-                          ).map(({ key, label, icon, desc }) => {
+                          {benchConfig.breakdownDomains.map((k) => DOMAIN_CARDS[k]).map(({ key, label, icon, desc }) => {
                             const value = model.data[key]?.[selectedPassK - 1]
                             const submissionInfo = fullSubmissionData[model.key]
                             const hasTraj = submissionInfo?.trajectories_available && submissionInfo?.trajectory_files?.[key]
