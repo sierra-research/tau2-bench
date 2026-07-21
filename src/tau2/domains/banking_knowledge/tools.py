@@ -879,6 +879,12 @@ class KnowledgeTools(ToolKitBase):
             if partial_refund_amount is None:
                 return "Error: partial_refund_amount is required when resolution_requested is 'partial_refund'."
 
+        if partial_refund_amount is not None:
+            try:
+                partial_refund_amount = float(partial_refund_amount)
+            except (ValueError, TypeError):
+                return f"Error: Invalid partial_refund_amount '{partial_refund_amount}'. Must be a number."
+
         # Generate a deterministic dispute ID
         dispute_id = generate_dispute_id(user_id, transaction_id)
 
