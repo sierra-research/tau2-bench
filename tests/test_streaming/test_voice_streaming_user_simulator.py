@@ -13,7 +13,7 @@ This test suite verifies that the voice streaming user simulator works correctly
 import pytest
 
 from tau2.data_model.audio import AudioEncoding, AudioFormat
-from tau2.data_model.message import AssistantMessage, UserMessage
+from tau2.data_model.message import AssistantMessage, ToolCall, UserMessage
 from tau2.data_model.voice import SynthesisConfig, VoiceSettings
 from tau2.user.user_simulator_streaming import VoiceStreamingUserSimulator
 
@@ -444,6 +444,54 @@ def test_voice_streaming_user_role_flipping(
     # Test flip_roles method
     flipped = state.flip_roles()
     assert flipped is not None
+
+
+def test_flip_roles_drops_empty_and_whitespace_turns(
+    streaming_user: VoiceStreamingUserSimulator,
+):
+    """Empty/whitespace-only turns are dropped when flipping roles.
+
+    Regression: such turns used to leak through as content-less messages and
+    fail validate_message_history (which strips whitespace before asserting a
+    message has content or tool calls).
+    """
+    messages = [
+        UserMessage(role="user", content="I want to fly to Seattle"),
+        UserMessage(role="user", content="   "),  # whitespace-only -> dropped
+        UserMessage(role="user", content=""),  # empty -> dropped
+        AssistantMessage(role="assistant", content="Sure, when?"),
+        AssistantMessage(role="assistant", content="  "),  # whitespace -> dropped
+    ]
+
+    flipped = streaming_user._flip_roles_for_llm(messages)
+
+    # Only the two non-empty turns survive, with roles flipped.
+    assert len(flipped) == 2
+    assert isinstance(flipped[0], AssistantMessage)
+    assert flipped[0].content == "I want to fly to Seattle"
+    assert isinstance(flipped[1], UserMessage)
+    assert flipped[1].content == "Sure, when?"
+
+
+def test_flip_roles_keeps_empty_content_tool_call(
+    streaming_user: VoiceStreamingUserSimulator,
+):
+    """A user tool call with empty content is retained (is_tool_call() is true)."""
+    tool_call = ToolCall(
+        id="call_1",
+        name="book_flight",
+        arguments={"destination": "Seattle"},
+        requestor="user",
+    )
+    messages = [
+        UserMessage(role="user", content="", tool_calls=[tool_call]),
+    ]
+
+    flipped = streaming_user._flip_roles_for_llm(messages)
+
+    assert len(flipped) == 1
+    assert isinstance(flipped[0], AssistantMessage)
+    assert flipped[0].tool_calls == [tool_call]
 
 
 # --- Tool Call Tests ---
