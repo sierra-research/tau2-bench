@@ -1,0 +1,147 @@
+{
+  "model_name": "Pine Voice Preview",
+  "model_organization": "Pine AI",
+  "submitting_organization": "Pine AI",
+  "submission_date": "2026-07-28",
+  "submission_type": "custom",
+  "modality": "voice",
+  "contact_info": {
+    "email": "arvinx@19pine.ai",
+    "name": "Arvin Xu",
+    "github": "a7vinx"
+  },
+  "results": {
+    "retail": {
+      "pass_1": 65.78947368421053
+    },
+    "airline": {
+      "pass_1": 66.0
+    },
+    "telecom": {
+      "pass_1": 89.47368421052632
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "airline",
+    "retail": "retail",
+    "telecom": "telecom"
+  },
+  "references": [
+    {
+      "title": "Pine AI",
+      "url": "https://19pine.ai",
+      "type": "other"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-07-28",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "v1.0",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "Standard tau-voice agent prompt, user-simulator prompt, domain policies (data/tau2/domains/<domain>/policy.md), tool schemas, tool results, and evaluator are byte-identical to upstream -- no file in the tau-voice repo is modified. The agent additionally receives a prepended scaffold system message defining each agent's identity and role (real-time voice agent vs. background tool-calling agent), the responsibilities it owns, and how the two coordinate and share context. Full base splits: retail 114, airline 50, telecom 114; 1 trial per task at regular speech complexity; no task omitted. User-side voices are local ElevenLabs personas from setup_voices (not Sierra-managed submission voices)."
+    },
+    "notes": "Custom submission from Pine AI. The agent is a two-agent system: (1) a voice agent handling real-time speech via a customized ASR -> LLM -> TTS pipeline coordinated by a custom interaction model that governs turn-taking, backchanneling, and other conversational dynamics; (2) a background agent (gemini-3.5-flash) that issues the tool calls for the operational task. The two agents share context.\nAll voice-side models are the same production models serving 19pine.ai -- not benchmark-trained. No files in this tau-voice repo are modified. On top of the standard tau-voice agent system prompt, we prepend an additional scaffold system message that defines each agent's identity and role (the real-time voice agent vs. the background tool-calling agent), the responsibilities each one owns, and how the two coordinate and share context.\nFull base splits evaluated on all three domains (retail 114, airline 50, telecom 114), 1 trial per task, --speech-complexity regular. User simulator is the standard v1.0 pipeline (gpt-4.1). User-side voices are local ElevenLabs personas created via the standard setup_voices script; not Sierra-managed submission voices.\nWe observed material score sensitivity to the user-simulator LLM on the leaderboard, so we also publish a companion result under the same agent with a stronger simulator LLM (see corresponding submission with user_simulator = \"gpt-5.5-2026-04-23 (xhigh)\")."
+  },
+  "voice_config": {
+    "provider": "Pine AI",
+    "model": "pine-voice-preview",
+    "tick_duration_seconds": 0.2,
+    "max_steps_seconds": 1200.0,
+    "user_tts_provider": "elevenlabs/eleven_v3"
+  },
+  "interaction_metrics": {
+    "version": "1.0",
+    "config": {
+      "tick_duration_sec": 0.2,
+      "no_yield_window_sec": 2.0,
+      "backchannel_yield_window_sec": 1.0,
+      "vocal_tic_yield_window_sec": 1.0,
+      "non_directed_yield_window_sec": 1.0,
+      "vocal_tic_response_window_sec": 2.0,
+      "non_directed_response_window_sec": 2.0
+    },
+    "domains": {
+      "airline": {
+        "response_latency_mean": 1.736687631027253,
+        "yield_latency_mean": 1.0745283018867926,
+        "response_rate": 0.8472468916518651,
+        "yield_rate": 0.42147117296222664,
+        "agent_interruption_rate": 0.6589698046181173,
+        "selectivity_backchannel": 0.9166666666666666,
+        "selectivity_vocal_tic": 0.5662650602409638,
+        "selectivity_non_directed": 0.3870967741935484,
+        "counts": {
+          "n_simulations": 50,
+          "response_total": 563,
+          "yield_total": 503,
+          "backchannel_total": 48,
+          "vocal_tic_total": 83,
+          "non_directed_total": 31,
+          "agent_interrupts_count": 371
+        }
+      },
+      "retail": {
+        "response_latency_mean": 1.8889408099688463,
+        "yield_latency_mean": 1.0963855421686748,
+        "response_rate": 0.8675675675675676,
+        "yield_rate": 0.45521023765996343,
+        "agent_interruption_rate": 0.5466216216216216,
+        "selectivity_backchannel": 0.9595959595959596,
+        "selectivity_vocal_tic": 0.5132275132275133,
+        "selectivity_non_directed": 0.40740740740740744,
+        "counts": {
+          "n_simulations": 114,
+          "response_total": 1480,
+          "yield_total": 1094,
+          "backchannel_total": 99,
+          "vocal_tic_total": 189,
+          "non_directed_total": 81,
+          "agent_interrupts_count": 809
+        }
+      },
+      "telecom": {
+        "response_latency_mean": 1.648922056384741,
+        "yield_latency_mean": 1.0574821852731593,
+        "response_rate": 0.8861131520940485,
+        "yield_rate": 0.3604452054794521,
+        "agent_interruption_rate": 0.6252755326965467,
+        "selectivity_backchannel": 0.9333333333333333,
+        "selectivity_vocal_tic": 0.47814910025706936,
+        "selectivity_non_directed": 0.4411764705882353,
+        "counts": {
+          "n_simulations": 114,
+          "response_total": 2722,
+          "yield_total": 2336,
+          "backchannel_total": 90,
+          "vocal_tic_total": 389,
+          "non_directed_total": 136,
+          "agent_interrupts_count": 1702
+        }
+      }
+    },
+    "overall": {
+      "response_latency_mean": 1.7581834991269467,
+      "yield_latency_mean": 1.0761320097762088,
+      "response_rate": 0.8669758704378271,
+      "yield_rate": 0.4123755387005474,
+      "agent_interruption_rate": 0.6102889863120952,
+      "selectivity_backchannel": 0.9365319865319864,
+      "selectivity_vocal_tic": 0.5192138912418488,
+      "selectivity_non_directed": 0.41189355072973033,
+      "counts": {
+        "n_simulations": 278,
+        "response_total": 4765,
+        "yield_total": 3933,
+        "backchannel_total": 237,
+        "vocal_tic_total": 661,
+        "non_directed_total": 248,
+        "agent_interrupts_count": 2882
+      }
+    }
+  },
+  "reasoning_effort": "enabled"
+}
