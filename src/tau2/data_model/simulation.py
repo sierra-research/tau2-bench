@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Optional, Union
 
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing_extensions import Annotated
 
 if TYPE_CHECKING:
@@ -25,6 +25,7 @@ from tau2.config import (
     DEFAULT_LLM_AGENT,
     DEFAULT_LLM_ARGS_AGENT,
     DEFAULT_LLM_ARGS_USER,
+    DEFAULT_LLM_EVAL_USER_SIMULATOR,
     DEFAULT_LLM_USER,
     DEFAULT_LOG_LEVEL,
     DEFAULT_MAX_CONCURRENCY,
@@ -419,6 +420,13 @@ class BaseRunConfig(BaseModel):
             default="full",
         ),
     ]
+    review_model: Annotated[
+        str,
+        Field(
+            description="LLM model to use for review calls when auto_review is enabled.",
+            default=DEFAULT_LLM_EVAL_USER_SIMULATOR,
+        ),
+    ]
     hallucination_retries: Annotated[
         int,
         Field(
@@ -455,6 +463,13 @@ class BaseRunConfig(BaseModel):
     ]
 
     # ---- Abstract-ish properties (subclasses must override) ----
+
+    @model_validator(mode="after")
+    def _default_banking_retrieval_config(self) -> "BaseRunConfig":
+        """Default retrieval_config to alltools for banking_knowledge."""
+        if self.domain == "banking_knowledge" and self.retrieval_config is None:
+            object.__setattr__(self, "retrieval_config", "alltools")
+        return self
 
     @property
     def effective_agent(self) -> str:

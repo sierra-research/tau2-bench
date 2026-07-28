@@ -9,6 +9,7 @@ from tau2.domains.banking_knowledge.data_model import TransactionalDB
 from tau2.domains.banking_knowledge.db_query import (
     add_to_db,
     query_database_tool,
+    query_db,
     update_record_in_db,
 )
 from tau2.domains.banking_knowledge.utils import (
@@ -33,6 +34,7 @@ from tau2.domains.banking_knowledge.utils import (
 )
 from tau2.environment.toolkit import (
     DISCOVERABLE_ATTR,
+    MUTATES_STATE_ATTR,
     ToolKitBase,
     ToolType,
     is_discoverable_tool,
@@ -342,6 +344,16 @@ class KnowledgeTools(ToolKitBase):
         super().__init__(db)
         self._user_discoverable_tools_state: Dict[str, Dict[str, Any]] = {}
         self._agent_discoverable_tools_state: Dict[str, Dict[str, Any]] = {}
+        # Names of read-only discoverable tools whose calls should be logged to
+        # the agent_discoverable_tools table during eval. Populated at task
+        # setup from the golden trajectory so that required-read assertions
+        # still discriminate, while extra validation reads don't pollute the
+        # DB hash. See get_environment(read_log_allowlist=...).
+        self._read_log_allowlist: set[str] = set()
+
+    def set_read_log_allowlist(self, allowlist: Optional[set]) -> None:
+        """Replace the read-call DB-logging allowlist."""
+        self._read_log_allowlist = set(allowlist or [])
 
     def get_user_discoverable_tools_state(self) -> Dict[str, Dict[str, Any]]:
         """Get the current state of user discoverable tools (for sharing with user tools)."""
@@ -655,9 +667,12 @@ class KnowledgeTools(ToolKitBase):
                 f"You must first use `unlock_discoverable_agent_tool` to unlock this tool before calling it."
             )
 
-        # Parse arguments
+        # Parse arguments. JSON does not distinguish ints from floats (33 and 33.0
+        # are the same JSON number), so normalize all numbers to float. Otherwise
+        # deterministic IDs and DB-state hashes would depend on how the caller
+        # happened to spell the number.
         try:
-            args_dict = json.loads(arguments)
+            args_dict = json.loads(arguments, parse_int=float)
         except json.JSONDecodeError as e:
             return f"Error: Invalid JSON in arguments: {e}"
 
@@ -668,10 +683,19 @@ class KnowledgeTools(ToolKitBase):
         except TypeError as e:
             return f"Error: Invalid arguments: {e}"
 
-        # Record the call in the database for evaluation (only unique tool names)
-        agent_tool_record = {"tool_name": agent_tool_name, "status": "CALLED"}
-        record_id = generate_agent_discoverable_tool_id(agent_tool_name)
-        add_to_db("agent_discoverable_tools", record_id, agent_tool_record, db=self.db)
+        # Record the call in the database for evaluation. Only state-mutating
+        # underlying tools, plus read tools explicitly required by the task's
+        # golden trajectory (the allowlist), are logged. Extra read-only
+        # validation calls (e.g. precondition checks the agent did out of
+        # caution) are intentionally skipped so they don't break the DB-hash
+        # comparison in EnvironmentEvaluator.
+        underlying_mutates = getattr(method, MUTATES_STATE_ATTR, False)
+        if underlying_mutates or agent_tool_name in self._read_log_allowlist:
+            agent_tool_record = {"tool_name": agent_tool_name, "status": "CALLED"}
+            record_id = generate_agent_discoverable_tool_id(agent_tool_name)
+            add_to_db(
+                "agent_discoverable_tools", record_id, agent_tool_record, db=self.db
+            )
 
         return result
 
@@ -1990,6 +2014,17 @@ For deposits without available images, the dispute will proceed based on custome
         ):
             return "Error: Missing required parameters."
 
+        # Normalize to int (the documented type) so the stored record and the
+        # response render identically whether the caller sent 2500 or 2500.0.
+        # Fractional values are rejected rather than truncated.
+        try:
+            requested_increase_amount = float(requested_increase_amount)
+        except (TypeError, ValueError):
+            return "Error: Invalid requested_increase_amount. Must be a whole number."
+        if not requested_increase_amount.is_integer():
+            return "Error: Invalid requested_increase_amount. Must be a whole number of dollars."
+        requested_increase_amount = int(requested_increase_amount)
+
         if requested_increase_amount <= 0:
             return "Error: Requested increase amount must be positive."
 
@@ -2711,6 +2746,12 @@ For deposits without available images, the dispute will proceed based on custome
         if not account_id or amount is None or not credit_type:
             return "Error: Missing required parameters."
 
+        # Validate amount is a positive number
+        try:
+            amount = float(amount)
+        except (TypeError, ValueError):
+            return "Error: Invalid credit amount. Must be a number."
+
         if amount <= 0:
             return "Error: Credit amount must be positive."
 
@@ -2789,6 +2830,12 @@ For deposits without available images, the dispute will proceed based on custome
         """
         if not account_id or amount is None or not credit_type:
             return "Error: Missing required parameters."
+
+        # Validate amount is a positive number
+        try:
+            amount = float(amount)
+        except (TypeError, ValueError):
+            return "Error: Invalid credit amount. Must be a number."
 
         if amount <= 0:
             return "Error: Credit amount must be positive."
@@ -2934,12 +2981,17 @@ For deposits without available images, the dispute will proceed based on custome
     def get_bank_account_transactions_9173(self, account_id: str) -> str:
         """Retrieve the transaction history for a bank account.
 
+        Transactions are returned in reverse chronological order (most recent
+        first).
+
         Args:
             account_id (string): The bank account ID to retrieve transactions for
 
         Returns:
             Bank account transactions retrieved successfully.
         """
+        from datetime import datetime
+
         if not account_id:
             return "Error: Missing required parameter: account_id"
 
@@ -2947,11 +2999,28 @@ For deposits without available images, the dispute will proceed based on custome
         if account_id not in self.db.accounts.data:
             return f"Error: Account '{account_id}' not found."
 
-        txn_result = query_database_tool(
+        txns = query_db(
             "bank_account_transaction_history",
-            f'{{"account_id": "{account_id}"}}',
             db=self.db,
+            return_ids=True,
+            account_id=account_id,
         )
+
+        # The knowledge doc for this tool guarantees reverse chronological
+        # order (most recent first). The sort must stay stable: same-date
+        # records keep their stored order, which under the most-recent-first
+        # contract identifies the later-listed record as the earlier one
+        # (tie-breaker for duplicate-charge disputes).
+        def txn_sort_key(item):
+            date_str = str(item[1].get("date", ""))
+            for fmt in ("%m/%d/%Y %H:%M:%S", "%m/%d/%Y"):
+                try:
+                    return datetime.strptime(date_str, fmt)
+                except ValueError:
+                    continue
+            return datetime.min
+
+        txns = sorted(txns, key=txn_sort_key, reverse=True)
 
         result_parts = [
             "Bank account transactions retrieved successfully.",
@@ -2960,11 +3029,16 @@ For deposits without available images, the dispute will proceed based on custome
             f"Transactions for account {account_id}:",
         ]
 
-        if (
-            "No records found" not in txn_result
-            and "No results found" not in txn_result
-        ):
-            result_parts.append(txn_result)
+        if txns:
+            formatted_lines = [
+                f"Found {len(txns)} record(s) in 'bank_account_transaction_history':\n"
+            ]
+            for i, (record_id, record) in enumerate(txns, 1):
+                formatted_lines.append(f"{i}. Record ID: {record_id}")
+                for field, value in record.items():
+                    formatted_lines.append(f"   {field}: {value}")
+                formatted_lines.append("")
+            result_parts.append("\n".join(formatted_lines))
         else:
             result_parts.append("\nNo transactions found for this account.")
 
@@ -3939,10 +4013,15 @@ For deposits without available images, the dispute will proceed based on custome
         if new_limit is None:
             return "Error: Missing required parameter: new_limit."
 
+        # Reject fractional values rather than truncating them to the
+        # documented integer type.
         try:
-            new_limit = int(new_limit)
+            new_limit = float(new_limit)
         except (ValueError, TypeError):
             return f"Error: new_limit must be an integer, got '{new_limit}'."
+        if not new_limit.is_integer():
+            return f"Error: new_limit must be an integer, got '{new_limit}'."
+        new_limit = int(new_limit)
 
         if new_limit <= 0:
             return "Error: new_limit must be a positive amount."
@@ -4344,6 +4423,13 @@ class KnowledgeUserTools(ToolKitBase):
                 f"Must be one of: {self.VALID_CREDIT_CARD_TYPES}"
             )
 
+        # Normalize to float so the deterministic application ID and stored record
+        # do not depend on whether the caller sent 100000 or 100000.0
+        try:
+            annual_income = float(annual_income)
+        except (TypeError, ValueError):
+            return "Error: Invalid annual_income. Must be a number."
+
         # Generate a deterministic application ID from the input parameters
         # This ensures the same inputs produce the same ID for environment evaluation
         application_id = generate_application_id(
@@ -4451,9 +4537,12 @@ class KnowledgeUserTools(ToolKitBase):
         if not self.has_discoverable_tool(discoverable_tool_name):
             return f"Error: Unknown discoverable tool '{discoverable_tool_name}'."
 
-        # Parse arguments
+        # Parse arguments. JSON does not distinguish ints from floats (33 and 33.0
+        # are the same JSON number), so normalize all numbers to float. Otherwise
+        # deterministic IDs and DB-state hashes would depend on how the caller
+        # happened to spell the number.
         try:
-            args_dict = json.loads(arguments)
+            args_dict = json.loads(arguments, parse_int=float)
         except json.JSONDecodeError as e:
             return f"Error: Invalid JSON in arguments: {e}"
 

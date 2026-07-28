@@ -826,7 +826,10 @@ def main(
     only_show_all_failed: bool = False,
     sim_dir: Optional[str] = None,
     expanded_ticks: bool = False,
+    max_tool_result_length: Optional[int] = 500,
 ):
+    ConsoleDisplay.max_tool_result_length = max_tool_result_length
+
     # Get available simulation files
     if sim_file is None:
         custom_sim_dir = Path(sim_dir) if sim_dir else None

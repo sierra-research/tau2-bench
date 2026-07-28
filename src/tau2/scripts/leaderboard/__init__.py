@@ -70,6 +70,7 @@ from .submission import (
     SubmissionData,
     Verification,
     VoiceConfig,
+    VoicePipeline,
 )
 
 __all__ = [
@@ -84,6 +85,7 @@ __all__ = [
     "Verification",
     "Reference",
     "VoiceConfig",
+    "VoicePipeline",
     "LeaderboardManifest",
     "LeaderboardEntry",
     "SubmissionData",

@@ -15,7 +15,7 @@ Both modalities share the same [validation](#step-3-validate-your-submission), [
 
 Your submission should meet these constraints:
 
-1. **Domain coverage** — we recommend including results for all three core domains (`retail`, `airline`, `telecom`). You may submit results for a single domain, but the leaderboard's "Overall" column only appears when all four domains (including `banking_knowledge`) have Pass^1 scores
+1. **Domain coverage** — we recommend including results for all current text domains (`banking_knowledge`, `retail`, `airline`, `telecom`). You may submit results for a single domain; the leaderboard ranks submissions per domain.
 2. **Consistent model configuration** — all trajectory files must use the same agent model and user simulator with identical arguments across all domains
 3. **One result per domain** — each domain should appear exactly once
 4. **All tasks completed** — run evaluation on all tasks within each domain (don't use `--task-ids` or `--num-tasks` filters)
@@ -83,17 +83,19 @@ Trajectory files are saved in `data/simulations/`.
 The banking domain requires a retrieval configuration for the knowledge base. You must include a `retrieval_config` field in your `banking_knowledge` results specifying which retrieval method was used.
 
 ```bash
-# Banking domain with terminal-based retrieval
-tau2 run --domain banking_knowledge --retrieval-config terminal_use --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4
+# Banking domain with AllTools retrieval
+tau2 run --domain banking_knowledge --retrieval-config alltools --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4
 
-# Banking domain with BM25 retrieval
-tau2 run --domain banking_knowledge --retrieval-config bm25 --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4
+# Banking domain with AllTools retrieval using OpenRouter/Qwen embeddings
+tau2 run --domain banking_knowledge --retrieval-config alltools-qwen --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4
 ```
 
 Common `retrieval_config` values:
 
 | Config | Description |
 |--------|-------------|
+| `alltools` | BM25 + OpenAI dense retrieval + shell access |
+| `alltools-qwen` | BM25 + Qwen dense retrieval + shell access |
 | `terminal_use` | Agent navigates the knowledge base via shell commands (grep, cat, find, etc.) |
 | `openai_embeddings` | Dense retrieval using OpenAI's text-embedding-3-large model |
 | `qwen_embeddings` | Dense retrieval using Qwen3-Embedding model |
@@ -242,7 +244,8 @@ For voice submissions, `prepare` does the following:
 2. **Converts to directory-based format** — if source results are in monolithic JSON format, they are automatically converted to the directory layout (`results.json` metadata + `simulations/` with individual sim files).
 3. **Copies only canonical audio** — for each task, only the canonical simulation's `audio/` subdirectory from `artifacts/` is kept. Non-canonical simulation directories, `hallucination_discarded/`, `llm_debug/`, `sim_status.json`, and `task.log` are all skipped.
 4. **Extracts `voice_config`** — provider, model, tick duration, and user TTS settings are extracted from the trajectory data and embedded in `submission.json`.
-5. **Sets `modality: "voice"`** and prompts for the voice user simulator version (defaulting to `VOICE_USER_SIMULATOR_VERSION`).
+5. **Computes `interaction_metrics`** — the interaction-quality panel (latency, responsiveness, interrupts, selectivity) is computed from the tick-level trajectory data and embedded in `submission.json`. See [Interaction Metrics](interaction-metrics.md).
+6. **Sets `modality: "voice"`** and prompts for the voice user simulator version (defaulting to `VOICE_USER_SIMULATOR_VERSION`).
 
 Output structure:
 
@@ -400,6 +403,7 @@ Your `submission.json` must follow the schema defined in [`web/leaderboard/publi
 | `references` | array | — | Links to papers, documentation, repos |
 | `methodology` | object | — | Evaluation methodology details |
 | `voice_config` | object | — | Voice-specific configuration (required for voice) |
+| `interaction_metrics` | object | — | Voice interaction metrics computed from trajectories; see [Interaction Metrics](#interaction-metrics) |
 | `model_release` | object | — | Model release metadata (release date + announcement link); see [Model Release](#model-release) |
 
 ### Domain Results
@@ -448,6 +452,26 @@ Required when `modality` is `"voice"`:
 | `tick_duration_seconds` | No | Duration of each simulation tick in seconds |
 | `max_steps_seconds` | No | Maximum simulation duration in seconds |
 | `user_tts_provider` | No | User simulator TTS provider/model (e.g. `"elevenlabs/eleven_v3"`) |
+
+### Interaction Metrics
+
+Voice submissions carry an `interaction_metrics` block with the τ-voice
+interaction-quality panel (response/yield latency, response/yield rate, agent
+interruption rate, and selectivity for backchannels, vocal tics, and
+non-directed speech), computed offline from the tick-level trajectories. It is
+generated automatically by `tau2 submit prepare` for voice submissions and
+**recomputed by maintainers from the submitted trajectories during review** —
+submitter-provided values are always replaced.
+
+The block contains a `version` stamp, the detection-window `config`,
+per-domain panels under `domains`, and the cross-domain average under
+`overall`; every rate is accompanied by its event counts. See
+[Interaction Metrics documentation](interaction-metrics.md) for full metric
+definitions, and compute it yourself with:
+
+```bash
+tau2 submit interaction-metrics <experiment-dirs> --output interaction_metrics.json
+```
 
 ## Verification System
 
@@ -514,7 +538,7 @@ Include a `verification` section in the `methodology` object:
     "retail": { "pass_1": 75.2, "pass_2": 68.1, "pass_3": 62.3, "pass_4": 57.8, "cost": 0.15 },
     "airline": { "pass_1": 65.4, "pass_2": 60.1, "pass_3": 56.2, "pass_4": 53.0, "cost": 0.12 },
     "telecom": { "pass_1": 58.9, "pass_2": 52.1, "pass_3": 47.6, "pass_4": 43.2, "cost": 0.18 },
-    "banking_knowledge": { "pass_1": 22.5, "pass_2": 17.3, "pass_3": 13.1, "pass_4": 10.2, "cost": 1.05, "retrieval_config": "terminal_use" }
+    "banking_knowledge": { "pass_1": 22.5, "pass_2": 17.3, "pass_3": 13.1, "pass_4": 10.2, "cost": 1.05, "retrieval_config": "alltools" }
   },
   "methodology": {
     "evaluation_date": "2025-01-10",
@@ -592,6 +616,24 @@ Voice submissions set `modality` to `"voice"` and include a `voice_config` objec
     "max_steps_seconds": 600,
     "user_tts_provider": "elevenlabs/eleven_v3"
   },
+  "interaction_metrics": {
+    "version": "1.0",
+    "config": { "tick_duration_sec": 0.2, "no_yield_window_sec": 2.0, "...": 0.0 },
+    "domains": {
+      "retail": {
+        "response_latency_mean": 1.44,
+        "yield_latency_mean": 0.62,
+        "response_rate": 0.998,
+        "yield_rate": 1.0,
+        "agent_interruption_rate": 0.2,
+        "selectivity_backchannel": 0.04,
+        "selectivity_vocal_tic": 0.06,
+        "selectivity_non_directed": 0.15,
+        "counts": { "n_simulations": 114, "response_total": 891, "yield_total": 566, "backchannel_total": 77, "vocal_tic_total": 83, "non_directed_total": 134, "agent_interrupts_count": 179 }
+      }
+    },
+    "overall": { "...": "per-metric mean across domains, counts summed" }
+  },
   "methodology": {
     "evaluation_date": "2026-03-01",
     "tau2_bench_version": "v2.0",
@@ -639,6 +681,7 @@ See `web/leaderboard/public/submissions/A_EXAMPLE_voice-model_example-org_2026-0
 - [ ] PR description includes link to externally hosted trajectory data
 - [ ] **New provider:** PR includes audio-native adapter implementation and documentation
 - [ ] Results use "regular" speech complexity only
+- [ ] `interaction_metrics` recomputed from the submitted trajectories (done automatically by `review_submission.py`; submitter-provided values must not be trusted)
 - [ ] No duplicate submissions
 
 ## Questions?

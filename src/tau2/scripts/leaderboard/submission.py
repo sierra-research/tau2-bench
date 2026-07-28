@@ -195,6 +195,18 @@ class Methodology(BaseModelNoExtra):
     )
 
 
+class VoicePipeline(BaseModelNoExtra):
+    """Component model identifiers for a cascaded voice submission."""
+
+    asr: Optional[str] = Field(
+        None, description="ASR / speech-to-text model identifier"
+    )
+    llm: Optional[str] = Field(None, description="LLM model identifier")
+    tts: Optional[str] = Field(
+        None, description="TTS / speech synthesis model identifier"
+    )
+
+
 class VoiceConfig(BaseModelNoExtra):
     """Voice-specific configuration for reproducing audio-native evaluations."""
 
@@ -217,6 +229,105 @@ class VoiceConfig(BaseModelNoExtra):
     user_tts_provider: Optional[str] = Field(
         None,
         description="User simulator TTS provider and model (e.g. 'elevenlabs/eleven_v3')",
+    )
+    pipeline: Optional[VoicePipeline] = Field(
+        None,
+        description="Component models used by a cascaded voice pipeline",
+    )
+
+
+class InteractionMetricsCounts(BaseModelNoExtra):
+    """Event counts backing the interaction-metric rates (denominators)."""
+
+    n_simulations: Optional[int] = Field(
+        None, description="Number of tick-bearing simulations analyzed"
+    )
+    response_total: Optional[int] = Field(
+        None, description="User turns eligible for an agent response"
+    )
+    yield_total: Optional[int] = Field(
+        None, description="User interruptions of agent speech"
+    )
+    backchannel_total: Optional[int] = Field(
+        None, description="User backchannels during agent speech"
+    )
+    vocal_tic_total: Optional[int] = Field(
+        None, description="Vocal tic events (e.g. 'um', coughs)"
+    )
+    non_directed_total: Optional[int] = Field(
+        None, description="Non-agent-directed speech events (e.g. 'hold on')"
+    )
+    agent_interrupts_count: Optional[int] = Field(
+        None, description="Times the agent started speaking over the user"
+    )
+
+
+class InteractionMetricsPanel(BaseModelNoExtra):
+    """The τ-voice interaction-metric panel for one domain (or the overall average).
+
+    Latencies are in seconds (lower is better). Rates and selectivity are
+    fractions in [0, 1] (higher is better), except agent_interruption_rate,
+    which counts agent-interrupts-user events per response-eligible user turn
+    (lower is better, and it can exceed 1 when the agent interrupts the same
+    turn more than once). Selectivity values are correct-rates
+    (1 - error rate).
+    """
+
+    response_latency_mean: Optional[float] = Field(
+        None, description="L_R: mean seconds from user turn end to agent response"
+    )
+    yield_latency_mean: Optional[float] = Field(
+        None, description="L_Y: mean seconds for agent to stop when interrupted"
+    )
+    response_rate: Optional[float] = Field(
+        None, description="R_R: fraction of user turns that got an agent response"
+    )
+    yield_rate: Optional[float] = Field(
+        None,
+        description="R_Y: fraction of user interruptions where the agent yielded",
+    )
+    agent_interruption_rate: Optional[float] = Field(
+        None,
+        description="I_A: agent-interrupts-user events per user turn (lower is better)",
+    )
+    selectivity_backchannel: Optional[float] = Field(
+        None,
+        description="S_BC: fraction of user backchannels the agent correctly talked through",
+    )
+    selectivity_vocal_tic: Optional[float] = Field(
+        None,
+        description="S_VT: fraction of vocal tics the agent correctly ignored",
+    )
+    selectivity_non_directed: Optional[float] = Field(
+        None,
+        description="S_ND: fraction of non-directed speech the agent correctly ignored",
+    )
+    counts: Optional[InteractionMetricsCounts] = Field(
+        None, description="Event counts backing each rate"
+    )
+
+
+class InteractionMetrics(BaseModelNoExtra):
+    """Voice interaction metrics computed offline from full-duplex trajectories.
+
+    Computed by `tau2 submit interaction-metrics` (and automatically during
+    voice submission preparation); recomputed by maintainers from the
+    submitted trajectories during review.
+    """
+
+    version: Optional[str] = Field(
+        None, description="Version stamp of the metric computation code"
+    )
+    config: Optional[dict[str, float]] = Field(
+        None,
+        description="Detection windows and tick duration used for extraction (seconds)",
+    )
+    domains: Optional[dict[str, InteractionMetricsPanel]] = Field(
+        None, description="Per-domain interaction metric panels"
+    )
+    overall: Optional[InteractionMetricsPanel] = Field(
+        None,
+        description="Cross-domain average (per-metric mean over available domains)",
     )
 
 
@@ -329,6 +440,11 @@ class Submission(BaseModelNoExtra):
     voice_config: Optional[VoiceConfig] = Field(
         None,
         description="Voice-specific configuration for audio-native evaluations (only for voice submissions)",
+    )
+    interaction_metrics: Optional[InteractionMetrics] = Field(
+        None,
+        description="Voice interaction metrics (latency, responsiveness, interrupts, "
+        "selectivity) computed from full-duplex trajectories (only for voice submissions)",
     )
     model_release: Optional[ModelRelease] = Field(
         None,

@@ -30,6 +30,7 @@ import warnings
 from pathlib import Path
 from typing import Optional
 
+from tau2.config import DEFAULT_LLM_EVAL_USER_SIMULATOR
 from tau2.data_model.persona import PersonaConfig
 from tau2.data_model.simulation import (
     AudioNativeConfig,
@@ -94,6 +95,7 @@ def run_task(
     audio_taps: bool = False,
     auto_review: bool = False,
     review_mode: str = "full",
+    review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
     solo_mode: bool = False,
     hallucination_feedback: Optional[str] = None,
     retrieval_config: Optional[str] = None,
@@ -119,6 +121,7 @@ def run_task(
             audio_taps=audio_taps,
             auto_review=auto_review,
             review_mode=review_mode,
+            review_model=review_model,
             verbose_logs=verbose_logs,
             retrieval_config=retrieval_config,
             retrieval_config_kwargs=retrieval_config_kwargs,
@@ -138,6 +141,7 @@ def run_task(
             enforce_communication_protocol=enforce_communication_protocol,
             auto_review=auto_review,
             review_mode=review_mode,
+            review_model=review_model,
             verbose_logs=verbose_logs,
             retrieval_config=retrieval_config,
             retrieval_config_kwargs=retrieval_config_kwargs,
@@ -155,6 +159,7 @@ def run_task(
         audio_taps=audio_taps,
         auto_review=auto_review,
         review_mode=review_mode,
+        review_model=review_model,
         hallucination_feedback=hallucination_feedback,
     )
 
@@ -189,6 +194,7 @@ def run_tasks(
     auto_resume: bool = False,
     auto_review: bool = False,
     review_mode: str = "full",
+    review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
     solo_mode: bool = False,
     hallucination_retries: int = 0,
     retrieval_config: Optional[str] = None,
@@ -221,6 +227,7 @@ def run_tasks(
             auto_resume=auto_resume,
             auto_review=auto_review,
             review_mode=review_mode,
+            review_model=review_model,
             hallucination_retries=hallucination_retries,
             verbose_logs=verbose_logs,
             retrieval_config=retrieval_config,
@@ -247,6 +254,7 @@ def run_tasks(
             auto_resume=auto_resume,
             auto_review=auto_review,
             review_mode=review_mode,
+            review_model=review_model,
             hallucination_retries=hallucination_retries,
             verbose_logs=verbose_logs,
             retrieval_config=retrieval_config,

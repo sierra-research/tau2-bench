@@ -595,11 +595,13 @@ def _compute_and_cache_embeddings(
 
 def get_unique_embedder_configs_for_retrieval_configs(
     retrieval_config_names: List[str],
+    retrieval_config_kwargs: Optional[dict] = None,
 ) -> List[Tuple[str, Dict[str, Any]]]:
     """Get unique embedder configurations for a list of retrieval config names.
 
     Args:
         retrieval_config_names: List of retrieval config names (e.g., ["classic_rag_qwen", "classic_rag_openai"])
+        retrieval_config_kwargs: Optional kwargs for retrieval configs.
 
     Returns:
         List of unique (embedder_type, embedder_params) tuples
@@ -619,6 +621,9 @@ def get_unique_embedder_configs_for_retrieval_configs(
         ),
         "openai_embeddings": ("openai", {"model": "text-embedding-3-large"}),
         "openai_embeddings_reranker": ("openai", {"model": "text-embedding-3-large"}),
+        "alltools": ("openai", {"model": "text-embedding-3-large"}),
+        "AllTools": ("openai", {"model": "text-embedding-3-large"}),
+        "alltools-qwen": ("openrouter", {"model": "qwen3-embedding-8b"}),
     }
 
     seen = set()

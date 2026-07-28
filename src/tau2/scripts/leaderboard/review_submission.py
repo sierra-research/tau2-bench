@@ -34,6 +34,13 @@ from urllib.request import urlopen
 from rich.console import Console
 
 from tau2.data_model.simulation import Results as TrajectoryResults
+from tau2.metrics.voice_interaction_metrics import NoVoiceTicksError
+from tau2.scripts.leaderboard.compute_interaction_metrics import (
+    build_interaction_metrics_block,
+    compute_metrics_for_loaded_results,
+    config_with_resolved_ticks,
+    resolve_experiment_config,
+)
 from tau2.scripts.leaderboard.prepare_submission import (
     validate_submission_metrics,
     validate_submission_traj_set,
@@ -154,18 +161,60 @@ def _build_trajectory_map(
     return mapping
 
 
+def _compute_interaction_metrics(
+    results_list: list[TrajectoryResults],
+    console: Console,
+) -> dict | None:
+    """Recompute voice interaction metrics from the reviewed trajectories.
+
+    Maintainer-side recomputation is the anti-gaming guarantee: the values on
+    the leaderboard come from the submitted tick data, not from self-reported
+    numbers.
+    """
+    domain_metrics: dict[str, dict] = {}
+    resolved_configs = []
+    for results in results_list:
+        domain = results.info.environment_info.domain_name
+        if domain in domain_metrics:
+            raise ValueError(
+                f"Domain {domain} appears in multiple trajectory files"
+            )
+        try:
+            domain_metrics[domain] = compute_metrics_for_loaded_results(results)
+            resolved_configs.append(resolve_experiment_config(results))
+            console.print(f"  [green]OK[/green] {domain}")
+        except NoVoiceTicksError:
+            console.print(
+                f"  [yellow]WARN[/yellow] {domain}: no tick data, "
+                "skipping interaction metrics for this domain"
+            )
+    if not domain_metrics:
+        return None
+    return build_interaction_metrics_block(
+        domain_metrics, config_with_resolved_ticks(None, resolved_configs)
+    )
+
+
 def _update_submission_json(
     submission_dir: Path,
     trajectory_map: dict[str, str],
     console: Console,
+    interaction_metrics: dict | None = None,
 ) -> None:
-    """Update submission.json with trajectory references."""
+    """Update submission.json with trajectory references and recomputed metrics."""
     submission_file = submission_dir / SUBMISSION_FILE_NAME
     with open(submission_file) as f:
         data = json.load(f)
 
     data["trajectories_available"] = True
     data["trajectory_files"] = trajectory_map
+    if interaction_metrics is not None:
+        if data.get("interaction_metrics") not in (None, interaction_metrics):
+            console.print(
+                "  [yellow]Replacing submitter-provided interaction_metrics "
+                "with recomputed values[/yellow]"
+            )
+        data["interaction_metrics"] = interaction_metrics
 
     with open(submission_file, "w") as f:
         json.dump(data, f, indent=2, default=str)
@@ -399,9 +448,19 @@ def main():
     for domain, name in trajectory_map.items():
         console.print(f"  {domain} -> {name}")
 
+    # Recompute interaction metrics from the reviewed trajectories (voice only)
+    interaction_metrics = None
+    if is_voice:
+        console.print(
+            "\n[bold]Step 5b: Recomputing voice interaction metrics...[/bold]"
+        )
+        interaction_metrics = _compute_interaction_metrics(results, console)
+
     # Update submission.json
     console.print("\n[bold]Step 6: Updating submission.json...[/bold]")
-    _update_submission_json(submission_dir, trajectory_map, console)
+    _update_submission_json(
+        submission_dir, trajectory_map, console, interaction_metrics
+    )
 
     if args.upload:
         # Upload

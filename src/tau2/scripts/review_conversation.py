@@ -18,6 +18,9 @@ Usage:
 
     # With custom output path
     python -m tau2.scripts.review_conversation results.json -o review.json
+
+    # With a custom LiteLLM-compatible review model
+    python -m tau2.scripts.review_conversation results.json --review-model gpt-4.1
 """
 
 import argparse
@@ -35,6 +38,7 @@ from rich.markdown import Markdown
 from rich.progress import Progress
 from rich.table import Table
 
+from tau2.config import DEFAULT_LLM_EVAL_USER_SIMULATOR
 from tau2.data_model.simulation import (
     AuthenticationClassification,
     Results,
@@ -190,6 +194,7 @@ def review_simulation_full(
     task: Task,
     results: Results,
     interruption_enabled: bool = False,
+    review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
 ) -> tuple[Review, AuthenticationClassification, str]:
     """
     Review a single simulation for both agent and user errors, plus auth classification.
@@ -213,6 +218,7 @@ def review_simulation_full(
         user_info=user_info,
         policy=policy,
         interruption_enabled=interruption_enabled,
+        review_model=review_model,
     )
 
     # review_simulation returns Review for FULL mode, auth_classification is not None
@@ -228,6 +234,7 @@ def run_full_review(
     interruption_enabled: bool = False,
     show_details: bool = False,
     max_concurrency: int = 32,
+    review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
     console: Optional[Console] = None,
 ) -> FullReviewOutput:
     """Run full review (agent + user) for all simulations."""
@@ -249,7 +256,7 @@ def run_full_review(
     total_cost = 0.0
 
     console.print(
-        f"\n🔍 Reviewing {len(results.simulations)} simulation(s) [mode: full, concurrency: {max_concurrency}]...",
+        f"\n🔍 Reviewing {len(results.simulations)} simulation(s) [mode: full, model: {review_model}, concurrency: {max_concurrency}]...",
         style="bold",
     )
 
@@ -270,6 +277,7 @@ def run_full_review(
                 task=task,
                 results=results,
                 interruption_enabled=interruption_enabled,
+                review_model=review_model,
             )
 
             # Determine trial number
@@ -414,6 +422,7 @@ def review_simulation_user(
     task: Task,
     results: Results,
     interruption_enabled: bool = False,
+    review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
 ) -> tuple[UserOnlyReview, str]:
     """
     Review a single simulation for user simulator errors only.
@@ -433,6 +442,7 @@ def review_simulation_user(
         mode=ReviewMode.USER,
         user_info=user_info,
         interruption_enabled=interruption_enabled,
+        review_model=review_model,
     )
 
     # review_simulation returns UserOnlyReview for USER mode
@@ -447,6 +457,7 @@ def run_user_review(
     interruption_enabled: bool = False,
     show_details: bool = False,
     max_concurrency: int = 32,
+    review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
     console: Optional[Console] = None,
 ) -> UserReviewOutput:
     """Run user simulator review for all simulations."""
@@ -461,7 +472,7 @@ def run_user_review(
     total_cost = 0.0
 
     console.print(
-        f"\n🔍 Reviewing {len(results.simulations)} simulation(s) [mode: user, concurrency: {max_concurrency}]...",
+        f"\n🔍 Reviewing {len(results.simulations)} simulation(s) [mode: user, model: {review_model}, concurrency: {max_concurrency}]...",
         style="bold",
     )
 
@@ -482,6 +493,7 @@ def run_user_review(
                 task=task,
                 results=results,
                 interruption_enabled=interruption_enabled,
+                review_model=review_model,
             )
 
             # Determine trial number
@@ -597,6 +609,7 @@ def review(
     limit: Optional[int] = None,
     task_ids: Optional[list[str]] = None,
     log_llm: bool = False,
+    review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
 ) -> Optional[Union[FullReviewOutput, UserReviewOutput]]:
     """
     Review conversation trajectories for all simulations in a results file.
@@ -611,6 +624,7 @@ def review(
         limit: Optional limit on number of simulations to review.
         task_ids: Optional list of task IDs to filter simulations.
         log_llm: Whether to log LLM request/response.
+        review_model: LLM model to use for review calls.
 
     Returns:
         FullReviewOutput or UserReviewOutput depending on mode, or None if aborted.
@@ -672,6 +686,7 @@ def review(
             interruption_enabled=interruption_enabled,
             show_details=show_details,
             max_concurrency=max_concurrency,
+            review_model=review_model,
             console=console,
         )
     else:
@@ -681,6 +696,7 @@ def review(
             interruption_enabled=interruption_enabled,
             show_details=show_details,
             max_concurrency=max_concurrency,
+            review_model=review_model,
             console=console,
         )
         _ = "_user_review.json"
@@ -1017,6 +1033,9 @@ Examples:
 
   # For full-duplex simulations with interruption
   python -m tau2.scripts.review_conversation run results.json --interruption-enabled
+
+  # Use a different LiteLLM-compatible review model
+  python -m tau2.scripts.review_conversation run results.json --review-model gpt-4.1
         """,
     )
     run_parser.add_argument(
@@ -1061,6 +1080,12 @@ Examples:
         "--verbose",
         action="store_true",
         help="Enable verbose logging.",
+    )
+    run_parser.add_argument(
+        "--review-model",
+        type=str,
+        default=DEFAULT_LLM_EVAL_USER_SIMULATOR,
+        help=f"LLM model to use for review calls. Default is {DEFAULT_LLM_EVAL_USER_SIMULATOR}.",
     )
 
     # Display subcommand
@@ -1197,6 +1222,7 @@ def main():
                 interruption_enabled=args.interruption_enabled,
                 show_details=args.show_details,
                 max_concurrency=args.max_concurrency,
+                review_model=args.review_model,
             )
 
     elif args.command == "display":

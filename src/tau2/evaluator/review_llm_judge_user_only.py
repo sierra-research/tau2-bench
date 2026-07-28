@@ -317,6 +317,7 @@ class UserOnlyReviewer:
         user_info: UserInfo,
         task: Task,
         full_trajectory: list[Message],
+        review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
     ) -> UserOnlyReview:
         """
         Review whether the user simulator behaved according to the task instructions.
@@ -325,6 +326,7 @@ class UserOnlyReviewer:
             user_info: Information about the user simulator configuration.
             task: The task containing user scenario instructions.
             full_trajectory: List of messages from the conversation.
+            review_model: LLM model to use for review.
 
         Returns:
             UserOnlyReview with any errors found.
@@ -342,6 +344,7 @@ class UserOnlyReviewer:
             user_guidelines=user_guidelines,
             user_instructions=user_instructions,
             full_trajectory=full_trajectory,
+            review_model=review_model,
         )
 
     @classmethod
@@ -390,6 +393,7 @@ class UserOnlyReviewer:
         user_guidelines: str,
         user_instructions: str,
         full_trajectory: list[Message],
+        review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
     ) -> UserOnlyReview:
         """
         Review whether the user simulator behaved according to the task instructions.
@@ -398,6 +402,7 @@ class UserOnlyReviewer:
             user_guidelines: The global user simulator guidelines.
             user_instructions: The specific user instructions for this task.
             full_trajectory: List of messages from the conversation.
+            review_model: LLM model to use for review.
 
         Returns:
             UserOnlyReview with any errors found.
@@ -416,7 +421,7 @@ class UserOnlyReviewer:
         ]
 
         assistant_message = generate(
-            model=DEFAULT_LLM_EVAL_USER_SIMULATOR,
+            model=review_model,
             messages=messages,
             call_name="llm_judge_user_only_review",
         )
@@ -469,6 +474,7 @@ class FullDuplexUserOnlyReviewer:
         task: Task,
         full_trajectory: list[Tick],
         interruption_enabled: bool = False,
+        review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
     ) -> UserOnlyReview:
         """
         Review whether the user simulator behaved according to the task instructions.
@@ -480,6 +486,7 @@ class FullDuplexUserOnlyReviewer:
             task: The task containing user scenario instructions.
             full_trajectory: List of Tick objects from full-duplex simulation.
             interruption_enabled: Whether the user simulator was configured to interrupt.
+            review_model: LLM model to use for review.
 
         Returns:
             UserOnlyReview with any errors found.
@@ -513,7 +520,7 @@ class FullDuplexUserOnlyReviewer:
         ]
 
         assistant_message = generate(
-            model=DEFAULT_LLM_EVAL_USER_SIMULATOR,
+            model=review_model,
             messages=llm_messages,
             call_name="llm_judge_user_only_streaming_review",
         )

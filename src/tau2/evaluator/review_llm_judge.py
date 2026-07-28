@@ -420,6 +420,7 @@ class ConversationReviewer:
         task: Task,
         full_trajectory: list,
         policy: str,
+        review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
     ) -> Review:
         """
         Review whether both the user simulator and the agent behaved correctly.
@@ -429,6 +430,7 @@ class ConversationReviewer:
             task: The task containing user scenario and evaluation criteria.
             full_trajectory: List of messages from the conversation.
             policy: The policy the agent must follow.
+            review_model: LLM model to use for review.
 
         Returns:
             Review with any error found.
@@ -454,6 +456,7 @@ class ConversationReviewer:
             example_action_trajectory=example_action_trajectory,
             natural_language_assertions=nl_assertions,
             full_trajectory=full_trajectory,
+            review_model=review_model,
         )
 
     @classmethod
@@ -472,6 +475,7 @@ class ConversationReviewer:
         example_action_trajectory: str,
         natural_language_assertions: str,
         full_trajectory: list,
+        review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
     ) -> Review:
         """
         Review whether the conversation proceeded correctly.
@@ -483,6 +487,7 @@ class ConversationReviewer:
             example_action_trajectory: An example sequence of actions that could complete the task.
             natural_language_assertions: Assertions the agent must satisfy.
             full_trajectory: List of messages from the conversation.
+            review_model: LLM model to use for review.
 
         Returns:
             Review with any error found.
@@ -505,7 +510,7 @@ class ConversationReviewer:
         ]
 
         assistant_message = generate(
-            model=DEFAULT_LLM_EVAL_USER_SIMULATOR,
+            model=review_model,
             messages=messages,
             call_name="llm_judge_review",
         )
@@ -565,6 +570,7 @@ class FullDuplexConversationReviewer:
         full_trajectory: list[Tick],
         policy: str,
         interruption_enabled: bool = False,
+        review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
     ) -> Review:
         """
         Review whether both the user simulator and the agent behaved correctly.
@@ -577,6 +583,7 @@ class FullDuplexConversationReviewer:
             full_trajectory: List of Tick objects from full-duplex simulation.
             policy: The policy the agent must follow.
             interruption_enabled: Whether the user simulator was configured to interrupt.
+            review_model: LLM model to use for review.
 
         Returns:
             Review with any error found.
@@ -616,7 +623,7 @@ class FullDuplexConversationReviewer:
         ]
 
         assistant_message = generate(
-            model=DEFAULT_LLM_EVAL_USER_SIMULATOR,
+            model=review_model,
             messages=llm_messages,
             call_name="llm_judge_streaming_review",
         )

@@ -307,6 +307,33 @@ def build_voice_user(
 # =============================================================================
 
 
+def _derive_read_log_allowlist(task: Task) -> set:
+    """Set of discoverable-tool names required by the task's golden trajectory.
+
+    The banking_knowledge ``call_discoverable_agent_tool`` wrapper logs every
+    call to the ``agent_discoverable_tools`` DB table, which is then hashed
+    for the env-eval reward. For READ-only discoverable tools this means any
+    extra validation call (e.g. an agent reading a balance "just in case")
+    diverges the hash and zeros the reward — even though the KB explicitly
+    encourages such reads.
+
+    To keep the "agent must call this read to verify" assertion (tasks 046,
+    085, etc.) while not punishing extra reads, we extract the set of tool
+    names appearing in golden ``call_discoverable_agent_tool`` actions and
+    pass it as an allowlist to the toolkit. Calls to writes are always
+    logged; calls to reads are only logged when in this set.
+    """
+    allowlist: set = set()
+    if task.evaluation_criteria is None:
+        return allowlist
+    for action in task.evaluation_criteria.actions or []:
+        if action.name == "call_discoverable_agent_tool":
+            name = (action.arguments or {}).get("agent_tool_name")
+            if name:
+                allowlist.add(name)
+    return allowlist
+
+
 def _build_env_kwargs(config: RunConfig, task: Task) -> dict:
     """Build env_kwargs from a RunConfig for the environment constructor.
 
@@ -318,9 +345,11 @@ def _build_env_kwargs(config: RunConfig, task: Task) -> dict:
     if retrieval_config is not None:
         env_kwargs["retrieval_variant"] = retrieval_config
         env_kwargs["task"] = task
-        retrieval_config_kwargs = getattr(config, "retrieval_config_kwargs", None)
-        if retrieval_config_kwargs:
-            env_kwargs["retrieval_kwargs"] = retrieval_config_kwargs
+        rk = dict(getattr(config, "retrieval_config_kwargs", None) or {})
+        if rk:
+            env_kwargs["retrieval_kwargs"] = rk
+    if getattr(config, "domain", None) == "banking_knowledge":
+        env_kwargs["read_log_allowlist"] = _derive_read_log_allowlist(task)
     return env_kwargs
 
 
