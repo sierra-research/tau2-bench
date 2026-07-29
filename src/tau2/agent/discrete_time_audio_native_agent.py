@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from tau2.voice.audio_native.livekit.config import CascadedConfig
     from tau2.voice.audio_native.nova.provider import NovaVADConfig
     from tau2.voice.audio_native.openai.provider import OpenAIVADConfig
+    from tau2.voice.audio_native.pipecat.config import PipecatConfig  # noqa: F401
     from tau2.voice.audio_native.qwen.provider import QwenVADConfig
     from tau2.voice.audio_native.xai.provider import XAIVADConfig
 
@@ -80,7 +81,9 @@ from tau2.voice.audio_native.adapter import DiscreteTimeAdapter, create_adapter
 from tau2.voice.audio_native.tick_result import TickResult
 
 # Provider type alias
-AudioNativeProvider = Literal["openai", "gemini", "xai", "nova", "qwen", "livekit"]
+AudioNativeProvider = Literal[
+    "openai", "gemini", "xai", "nova", "qwen", "livekit", "pipecat"
+]
 
 # VAD config union type (string annotations for lazy resolution)
 VADConfig = Union[
@@ -239,8 +242,9 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
                 - True: Use XML tags
                 - False: Use plain text (no XML tags)
             cascaded_config: Configuration for cascaded (STT→LLM→TTS) providers.
-                Only used when provider="livekit". Ignored for other providers.
-                Can be a CascadedConfig instance or None to use defaults.
+                Only used when provider is a cascaded provider (``livekit``
+                or ``pipecat``); ignored otherwise. Can be a ``CascadedConfig``
+                / ``PipecatConfig`` instance or None to use defaults.
             audio_taps_dir: Directory to save audio taps. Only used when audio_taps_dir is not None.
         """
         self.tools = tools
@@ -294,6 +298,12 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             )
 
             self.vad_config = LiveKitVADConfig()
+        elif provider == "pipecat":
+            from tau2.voice.audio_native.pipecat.discrete_time_adapter import (
+                PipecatVADConfig,
+            )
+
+            self.vad_config = PipecatVADConfig()
         else:  # nova
             from tau2.voice.audio_native.nova.provider import NovaVADConfig
 
@@ -815,7 +825,11 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
             model=audio_native_config.model,
             reasoning_effort=audio_native_config.reasoning_effort,
             use_xml_prompt=audio_native_config.use_xml_prompt,
-            cascaded_config=getattr(audio_native_config, "cascaded_config", None),
+            cascaded_config=getattr(
+                audio_native_config,
+                "effective_cascaded_config",
+                getattr(audio_native_config, "cascaded_config", None),
+            ),
             audio_taps_dir=audio_taps_dir,
         )
     else:

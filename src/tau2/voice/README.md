@@ -6,6 +6,12 @@
 tau2 run --domain retail --audio-native --num-tasks 1 --verbose-logs
 ```
 
+For a cascaded STT → LLM → TTS pipeline via [Pipecat](https://github.com/pipecat-ai/pipecat):
+
+```bash
+tau2 run --domain retail --audio-native --audio-native-provider pipecat --pipecat-config default --num-tasks 1 --verbose-logs
+```
+
 ## Providers
 
 | Provider | Flag | Requirements |
@@ -13,8 +19,11 @@ tau2 run --domain retail --audio-native --num-tasks 1 --verbose-logs
 | OpenAI Realtime | `--audio-native-provider openai` | `OPENAI_API_KEY` |
 | Google Gemini Live | `--audio-native-provider gemini` | `GOOGLE_API_KEY` |
 | xAI Grok Voice | `--audio-native-provider xai` | `XAI_API_KEY` |
+| Pipecat (cascaded STT → LLM → TTS) | `--audio-native-provider pipecat --pipecat-config <preset>` | `DEEPGRAM_API_KEY`, `OPENAI_API_KEY`, `CARTESIA_API_KEY` (preset-dependent) |
 
 The default provider is `openai`. Use `--audio-native-model` to override the default model for a provider.
+
+For Pipecat, the preset (`--pipecat-config`) selects the STT/LLM/TTS combination. Available presets: `default` (Deepgram + OpenAI gpt-4.1 + Cartesia), `openai-thinking` (gpt-5.2 with high reasoning), `openai-only` (all-OpenAI cascade — only requires `OPENAI_API_KEY`). See [`audio_native/pipecat/README.md`](audio_native/pipecat/README.md) for full details.
 
 ## Speech Complexity
 
@@ -42,6 +51,7 @@ tau2 run --domain retail --audio-native --speech-complexity regular
 | `--audio-native` | — | Enable voice full-duplex mode |
 | `--audio-native-provider` | `openai` | Provider to use (see table above) |
 | `--audio-native-model` | per-provider | Override model |
+| `--pipecat-config` | `default` | Pipecat preset (only with `--audio-native-provider pipecat`) |
 | `--speech-complexity` | `regular` | Speech complexity level |
 | `--tick-duration` | `0.2` | Simulation timestep in seconds |
 | `--max-steps-seconds` | `600` | Maximum conversation duration |
@@ -130,9 +140,10 @@ See the [Voice Persona Setup Guide](../../docs/voice-personas.md) for step-by-st
 
 | Variable | Used by |
 |----------|---------|
-| `OPENAI_API_KEY` | OpenAI Realtime provider |
+| `OPENAI_API_KEY` | OpenAI Realtime provider, Pipecat (LLM / STT / TTS depending on preset) |
 | `GOOGLE_API_KEY` | Gemini Live provider |
 | `XAI_API_KEY` | xAI Grok Voice provider |
 | `ELEVENLABS_API_KEY` | User simulator TTS (synthesis) |
-| `DEEPGRAM_API_KEY` | Transcription (Deepgram nova-2, nova-3) |
+| `DEEPGRAM_API_KEY` | Transcription (Deepgram nova-2, nova-3); Pipecat STT/TTS presets |
+| `CARTESIA_API_KEY` | Pipecat Cartesia TTS (`default`, `openai-thinking` presets) |
 | `TAU2_VOICE_ID_*` | Custom voice ID overrides (see [Voice Persona Setup](../../docs/voice-personas.md)) |

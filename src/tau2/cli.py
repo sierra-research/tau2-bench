@@ -239,7 +239,7 @@ def add_run_args(parser):
     parser.add_argument(
         "--audio-native-provider",
         type=str,
-        choices=["openai", "gemini", "xai", "livekit"],
+        choices=["openai", "gemini", "xai", "livekit", "pipecat"],
         default=DEFAULT_AUDIO_NATIVE_PROVIDER,
         help=f"Audio native API provider. Default is '{DEFAULT_AUDIO_NATIVE_PROVIDER}'.",
     )
@@ -250,6 +250,14 @@ def add_run_args(parser):
         help="Cascaded config preset name for livekit provider. "
         "Available presets: 'default', 'openai-thinking'. "
         "See tau2.voice.audio_native.livekit.config for details.",
+    )
+    parser.add_argument(
+        "--pipecat-config",
+        type=str,
+        default=None,
+        help="Pipecat config preset name for the pipecat provider. "
+        "Available presets: 'default', 'openai-thinking', 'openai-only'. "
+        "See tau2.voice.audio_native.pipecat.config for details.",
     )
     parser.add_argument(
         "--audio-native-model",
@@ -609,6 +617,7 @@ def main():
                 provider=args.audio_native_provider,
                 model=audio_native_model,
                 cascaded_config_name=args.cascaded_config,
+                pipecat_config_name=args.pipecat_config,
                 reasoning_effort=args.reasoning_effort,
                 # Timing
                 tick_duration_seconds=args.tick_duration,

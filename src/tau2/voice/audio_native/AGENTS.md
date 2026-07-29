@@ -14,7 +14,7 @@
 
 5. **Provider-specific event handling goes in `_process_event()`.** The provider's `_execute_tick()` should call `_process_event()` for each event. Audio chunks, tool calls, VAD events, and utterance transcripts are populated there.
 
-6. **LiveKit is different.** It uses a cascaded pipeline (STT→LLM→TTS) with its own `run_tick()` and doesn't use the template method. This is intentional — the interaction model is fundamentally different from WebSocket-based providers.
+6. **LiveKit and Pipecat are different.** Both use cascaded pipelines (STT→LLM→TTS) with their own `run_tick()` and don't use the template method. This is intentional — the interaction model is fundamentally different from WebSocket-based providers. The Pipecat adapter wraps a Pipecat `Pipeline` and bridges it to the tick loop via an in-memory `QueueTransport`.
 
 ## File Structure
 
