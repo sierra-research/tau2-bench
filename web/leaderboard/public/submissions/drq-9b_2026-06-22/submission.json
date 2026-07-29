@@ -1,0 +1,70 @@
+{
+  "model_name": "DRQ-9B",
+  "model_organization": "DRQ Team",
+  "submitting_organization": "DRQ Team",
+  "submission_date": "2026-06-22",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "litianyu7@xiaomi.com",
+    "name": "Wang",
+    "github": null
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "qwen3.5-9b-tau3-step40_airline_mimo-v2.5-pro_4trials.json",
+    "retail": "qwen3.5-9b-tau3-step40_retail_mimo-v2.5-pro_4trials.json",
+    "telecom": "qwen3.5-9b-tau3-step40_telecom_mimo-v2.5-pro_4trials.json",
+    "banking_knowledge": "qwen3.5-9b-tau3-step40_banking_knowledge_mimo-v2.5-pro_bm25-grep_4trials.json"
+  },
+  "references": [
+    {
+      "title": "τ-bench / τ³-bench evaluation framework",
+      "url": "https://github.com/sierra-research/tau2-bench",
+      "type": "github"
+    }
+  ],
+  "results": {
+    "retail": {
+      "pass_1": 66.22807017543859,
+      "pass_2": 52.19298245614035,
+      "pass_3": 42.76315789473684,
+      "pass_4": 35.96491228070175,
+      "cost": 0.0
+    },
+    "airline": {
+      "pass_1": 67.0,
+      "pass_2": 56.666666666666664,
+      "pass_3": 50.0,
+      "pass_4": 46.0,
+      "cost": 0.0
+    },
+    "telecom": {
+      "pass_1": 23.464912280701753,
+      "pass_2": 17.251461988304094,
+      "pass_3": 14.692982456140353,
+      "pass_4": 13.157894736842104,
+      "cost": 0.0
+    },
+    "banking_knowledge": {
+      "pass_1": 3.0927835051546393,
+      "pass_2": 1.8900343642611686,
+      "pass_3": 1.2886597938144329,
+      "pass_4": 1.0309278350515463,
+      "cost": 0.0,
+      "retrieval_config": "bm25_grep"
+    }
+  },
+  "methodology": {
+    "evaluation_date": "2026-06-15",
+    "tau2_bench_version": "custom checkout, source-compatible with tau2-bench leaderboard schema as of 2026-06-22",
+    "user_simulator": "mimo-v2.5-pro",
+    "notes": "Custom text submission. Agent display name: DRQ. Agent is the DRQ-9B checkpoint fine-tuned/trained on the tau3/tau2-bench customer-service environment and served through an OpenAI-compatible vLLM endpoint. Evaluation used the base split across airline, retail, telecom, and banking_knowledge with 4 trials per task, max_steps=40, temperature=0.0, tau2 llm_agent scaffold, and user_simulator mimo-v2.5-pro. Banking knowledge used bm25_grep retrieval. Pass^k values are computed with the official tau2-bench pass-hat-k formula C(success_count,k)/C(num_trials,k), averaged over tasks per domain. The prior banking_knowledge infrastructure_error for task_063 trial=3 seed=1567 was rerun on 2026-06-22; the replacement trajectory terminated normally with max_steps and reward 0.0, so banking_knowledge pass_4 is now defined. That single infra rerun used openai/gpt-5.5 as the user simulator after repeated provider-side message-format failures with Mimo; all other trajectories used mimo-v2.5-pro. For leaderboard validation, trajectory metadata keeps the common reported user_simulator and agent args across domains.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "Full base split evaluated for all four domains with 4 trials per task. The banking_knowledge task_063 trial=3 infra failure was rerun and now terminates normally with reward 0.0."
+    }
+  }
+}
