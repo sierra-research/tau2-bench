@@ -1,0 +1,13 @@
+# Reduce recurring conflict noise in main -> project-branch sync merges
+# (see SYNC.md).
+#
+# 'union' keeps both sides' lines in append-mostly files instead of
+# conflicting.
+CHANGELOG.md merge=union
+github-release-body.md merge=union
+
+# uv.lock should never be hand-merged: take the current branch's version and
+# regenerate with `uv lock` after the merge. The 'ours' driver must be enabled
+# once per clone:
+#   git config merge.ours.driver true
+uv.lock merge=ours

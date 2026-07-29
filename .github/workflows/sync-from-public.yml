@@ -1,0 +1,102 @@
+name: Sync from public tau2-bench
+
+# Weekly sync of the public tau2-bench repo into this private repo.
+# See SYNC.md for the full process and conflict-resolution guide.
+#
+# 1. Merge public main -> private main (expected conflict-free; fails loudly
+#    if not).
+# 2. Open a sync PR from main into each project branch, assigned to the
+#    branch owner. Conflicted PRs are resolved manually by the owner.
+
+on:
+  schedule:
+    - cron: "0 14 * * 1" # Mondays 14:00 UTC / 7am PT
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_PAT || github.token }}
+
+      - name: Merge public main into private main
+        run: |
+          git config user.name "tau2-sync-bot"
+          git config user.email "tau2-sync-bot@users.noreply.github.com"
+          git remote add public https://github.com/sierra-research/tau2-bench.git
+          git fetch public main --no-tags
+          if git merge-base --is-ancestor public/main HEAD; then
+            echo "Private main already contains public main; nothing to do."
+            exit 0
+          fi
+          if ! git merge public/main --no-edit -m "chore: sync public tau2-bench main ($(date -u +%F))"; then
+            echo "::error::Merging public main into private main conflicted. This should be rare (private main carries almost no unique changes). Resolve locally: git fetch public && git merge public/main, then push."
+            exit 1
+          fi
+          git push origin main
+
+  open-sync-prs:
+    needs: sync-main
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - branch: hyper-tau
+            assignee: benshi34
+          - branch: soham/tau-multilingual
+            assignee: soham-sierra
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_PAT || github.token }}
+
+      - name: Open sync PR into ${{ matrix.branch }}
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_PAT || github.token }}
+        run: |
+          branch="${{ matrix.branch }}"
+          assignee="${{ matrix.assignee }}"
+          safe="${branch//\//-}"
+          sync_branch="sync/main-into-${safe}"
+
+          git fetch origin "$branch" main --no-tags
+
+          if git merge-base --is-ancestor origin/main "origin/$branch"; then
+            echo "$branch already contains main; nothing to sync."
+            exit 0
+          fi
+
+          # Never touch an open sync PR: it may carry manual conflict
+          # resolutions. It will pick up this week's main after it merges.
+          existing=$(gh pr list --head "$sync_branch" --base "$branch" --state open --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            echo "Sync PR #$existing is still open; leaving it untouched."
+            exit 0
+          fi
+
+          git push origin "origin/main:refs/heads/$sync_branch" --force
+
+          {
+            echo "Weekly automated sync of \`main\` (which tracks public tau2-bench) into \`$branch\`."
+            echo
+            echo "- **Merge with a merge commit — never squash** (squashing recreates the same conflicts next week)."
+            echo "- If this PR has conflicts, see [SYNC.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/SYNC.md) for the resolution recipe."
+          } > /tmp/pr-body.md
+
+          gh pr create \
+            --base "$branch" \
+            --head "$sync_branch" \
+            --title "Sync: merge main into $branch ($(date -u +%F))" \
+            --assignee "$assignee" \
+            --body-file /tmp/pr-body.md
