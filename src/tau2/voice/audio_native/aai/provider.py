@@ -113,6 +113,7 @@ class AAIVoiceAgentProvider:
         system_prompt: str = "",
         tools: tuple = (),
         greeting: str = DEFAULT_AAI_GREETING,
+        api_key: Optional[str] = None,
     ):
         """Initialize the AAI voice agent provider.
 
@@ -125,8 +126,17 @@ class AAIVoiceAgentProvider:
             tools: Tools available to the agent.
             greeting: Spoken by the host agent on session start so the call does
                 not open with dead air. Empty string disables it.
+            api_key: Platform API key, sent as a bearer token on the upgrade.
+                Defaults to ASSEMBLYAI_API_KEY. Required only when pointing at
+                a deployed agent on the AAI platform: host mode there lets this
+                client replace the agent's prompt and tools while spending the
+                owner's credentials, so the platform demands proof of slug
+                ownership. A local `aai dev` host gates on AAI_ALLOW_HOST
+                instead and ignores the header, so leaving this unset keeps the
+                usual local workflow working.
         """
         self.ws_url = ws_url or os.environ.get("AAI_WS_URL") or DEFAULT_AAI_WS_URL
+        self.api_key = api_key or os.environ.get("ASSEMBLYAI_API_KEY") or ""
         self.input_sample_rate = input_sample_rate
         self.tts_sample_rate = tts_sample_rate
         self.system_prompt = system_prompt
@@ -238,9 +248,14 @@ class AAIVoiceAgentProvider:
         # Build the URL with host=1 flag
         url = self._with_host_flag(self.ws_url)
 
+        # Header, not a query parameter: a URL travels through proxy logs,
+        # shell history, and Referer headers, and this token is the whole
+        # platform credential.
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+
         try:
             logger.info(f"AAI Provider: Connecting to {url}")
-            self.ws = await websockets.connect(url)
+            self.ws = await websockets.connect(url, additional_headers=headers)
 
             # Build and send config message
             config_msg = self._build_config_message(self.system_prompt, self.tools)

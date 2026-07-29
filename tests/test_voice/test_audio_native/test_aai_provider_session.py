@@ -145,3 +145,58 @@ def test_receive_events_for_duration_maps_binary_frame_to_audio_chunk():
     assert len(events) == 1
     assert isinstance(events[0], AAIAudioChunkEvent)
     assert events[0].pcm16 == b"\x01\x02\x03\x04"
+
+
+def _capture_connect(monkeypatch, fake_ws):
+    """Like `_patch_connect`, but records the kwargs the provider passed."""
+    captured = {}
+
+    async def fake_connect(url, *args, **kwargs):
+        captured["url"] = url
+        captured.update(kwargs)
+        return fake_ws
+
+    monkeypatch.setattr(
+        "tau2.voice.audio_native.aai.provider.websockets.connect", fake_connect
+    )
+    return captured
+
+
+def test_connect_sends_bearer_token_when_configured(monkeypatch):
+    """A deployed agent gates host mode on the owner's API key, since host mode
+    replaces its prompt and tools while spending the owner's credentials."""
+    fake_ws = FakeWebSocket([json.dumps({"type": "config", "config": {}})])
+    captured = _capture_connect(monkeypatch, fake_ws)
+    provider = AAIVoiceAgentProvider(
+        ws_url="ws://localhost:3000/websocket", api_key="secret-key"
+    )
+
+    asyncio.run(provider.connect())
+
+    assert captured["additional_headers"] == {"Authorization": "Bearer secret-key"}
+    # Never in the URL: that leaks through proxy logs, history, and Referer.
+    assert "secret-key" not in captured["url"]
+
+
+def test_connect_reads_the_key_from_the_environment(monkeypatch):
+    monkeypatch.setenv("ASSEMBLYAI_API_KEY", "env-key")
+    fake_ws = FakeWebSocket([json.dumps({"type": "config", "config": {}})])
+    captured = _capture_connect(monkeypatch, fake_ws)
+    provider = AAIVoiceAgentProvider(ws_url="ws://localhost:3000/websocket")
+
+    asyncio.run(provider.connect())
+
+    assert captured["additional_headers"] == {"Authorization": "Bearer env-key"}
+
+
+def test_connect_omits_the_header_without_a_key(monkeypatch):
+    """A local `aai dev` host gates on AAI_ALLOW_HOST and wants no header, so
+    the usual local workflow keeps working with nothing configured."""
+    monkeypatch.delenv("ASSEMBLYAI_API_KEY", raising=False)
+    fake_ws = FakeWebSocket([json.dumps({"type": "config", "config": {}})])
+    captured = _capture_connect(monkeypatch, fake_ws)
+    provider = AAIVoiceAgentProvider(ws_url="ws://localhost:3000/websocket")
+
+    asyncio.run(provider.connect())
+
+    assert captured["additional_headers"] == {}
