@@ -47,6 +47,7 @@ const VOICE_DOMAINS = [
   { key: 'retail', label: '🛍️ Retail' },
   { key: 'airline', label: '✈️ Airline' },
   { key: 'telecom', label: '📱 Telecom' },
+  { key: 'banking_knowledge', label: '🏦 Banking' },
 ]
 
 // Key order determines toggle order: newest tracks first.
@@ -73,7 +74,9 @@ const BENCHMARK_CONFIG = {
     modality: 'voice',
     domains: VOICE_DOMAINS,
     defaultDomain: 'overall',
-    breakdownDomains: ['retail', 'airline', 'telecom'],
+    // Banking is excluded from the Overall average but still gets a breakdown
+    // card, so a banking-only submission has somewhere to show its score.
+    breakdownDomains: ['retail', 'airline', 'telecom', 'banking_knowledge'],
   },
   core: {
     label: 'τ²-bench',
@@ -245,9 +248,15 @@ const Leaderboard = () => {
   })
   // Add unified domain selection state with localStorage persistence
   const [domain, setDomain] = useState(() => {
+    // Resolve the benchmark the same way its own initializer does (URL wins),
+    // so a direct load of ?benchmark=voice gets voice's default domain rather
+    // than one stored under another track.
     const storedBenchmark = normalizeBenchmark(localStorage.getItem('benchmark'))
-    const storedDomain = localStorage.getItem('domain')
-    const config = BENCHMARK_CONFIG[storedBenchmark] || BENCHMARK_CONFIG.knowledge
+    const urlBenchmark = getBenchmarkFromUrl()
+    const config = BENCHMARK_CONFIG[urlBenchmark || storedBenchmark] || BENCHMARK_CONFIG.knowledge
+    const storedDomain = (!urlBenchmark || urlBenchmark === storedBenchmark)
+      ? localStorage.getItem('domain')
+      : null
     return config.domains.some(({ key }) => key === storedDomain)
       ? storedDomain
       : config.defaultDomain
@@ -267,6 +276,8 @@ const Leaderboard = () => {
   })
   const [showCustom, setShowCustom] = useState(() => {
     const stored = localStorage.getItem('showCustom')
+    // Every track defaults to standard-only: custom rows aren't comparable to
+    // the rest of the board, so they're opt-in rather than mixed in by default.
     return stored === null ? false : stored === 'true'
   })
   // Legacy submissions toggle
@@ -554,8 +565,11 @@ const Leaderboard = () => {
       setDomain(config.defaultDomain)
     }
     if (newBenchmark === 'voice') {
-      // Voice only has pass^1
+      // Voice only has pass^1; default view is Overall with all submission types
       setSelectedPassK(1)
+      setDomain('overall')
+      setShowStandard(true)
+      setShowCustom(true)
     }
   }
 
@@ -643,7 +657,8 @@ const Leaderboard = () => {
   const availableDomains = benchConfig.domains
   const benchmarkKeys = Object.keys(BENCHMARK_CONFIG)
 
-  // For voice overall, only average the 3 non-banking domains
+  // Voice overall averages the 3 original domains only; banking_knowledge is
+  // shown as its own column but excluded so older submissions stay comparable
   const voiceDomains = ['retail', 'airline', 'telecom']
 
   return (
@@ -765,6 +780,21 @@ const Leaderboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Voice Overall scope note */}
+      {isVoice && domain === 'overall' && (
+        <div className="domain-scope-note">
+          <span className="domain-scope-icon">ⓘ</span>
+          <span>
+            See the new{' '}
+            <button className="domain-scope-link" onClick={() => setDomain('banking_knowledge')}>
+              🏦 Banking
+            </button>
+            {' '}domain for voice agent performance on long policy tasks.
+            Overall does not include Banking.
+          </span>
+        </div>
+      )}
 
       {/* Table View */}
       {(!showStandard && !showCustom && (benchmark !== 'core' || !showLegacy)) ? (

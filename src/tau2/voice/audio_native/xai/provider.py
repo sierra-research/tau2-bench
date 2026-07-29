@@ -165,14 +165,18 @@ class XAIRealtimeProvider:
         logger.info(f"xAI Realtime API: Connecting to {self.BASE_URL}")
         self.ws = await websockets.connect(self.BASE_URL, additional_headers=headers)
 
-        # Wait for conversation.created event
+        # Wait for the connection-established event. Older xAI endpoints sent
+        # conversation.created; newer ones send session.created (OpenAI-style).
         response = await self.ws.recv()
         data = json.loads(response)
-        if data.get("type") != "conversation.created":
-            raise RuntimeError(f"Expected conversation.created, got {data.get('type')}")
+        event_type = data.get("type")
+        if event_type not in ("conversation.created", "session.created"):
+            raise RuntimeError(
+                f"Expected conversation.created or session.created, got {event_type}"
+            )
 
         # Store conversation/session ID for debugging
-        conv_data = data.get("conversation", {})
+        conv_data = data.get("conversation") or data.get("session") or {}
         self.session_id = conv_data.get("id") or data.get("event_id")
         logger.info(
             f"xAI Realtime API: Connected successfully (session_id={self.session_id})"
