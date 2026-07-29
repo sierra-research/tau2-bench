@@ -79,7 +79,10 @@ jobs:
 
           # Never touch an open sync PR: it may carry manual conflict
           # resolutions. It will pick up this week's main after it merges.
-          existing=$(gh pr list --head "$sync_branch" --base "$branch" --state open --json number --jq '.[0].number')
+          # Matches any open PR into the branch titled "Sync: ..." so that
+          # manually-created sync PRs (different head branches) also count.
+          existing=$(gh pr list --base "$branch" --state open --json number,title \
+            --jq '[.[] | select(.title | startswith("Sync:"))][0].number')
           if [ -n "$existing" ]; then
             echo "Sync PR #$existing is still open; leaving it untouched."
             exit 0
