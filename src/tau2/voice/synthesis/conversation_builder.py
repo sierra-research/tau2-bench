@@ -248,6 +248,31 @@ def generate_audacity_labels(
             f"Generated {len(tc_segments)} tool call labels for {role}: {tc_label_path}"
         )
 
+    # Unified timeline: all events in one file with a type column
+    all_entries = []
+    for role in ["user", "assistant"]:
+        for seg in _collect_speech_segments(ticks, role):
+            start_sec = seg.start_tick * tick_duration_ms / 1000.0
+            end_sec = (seg.end_tick + 1) * tick_duration_ms / 1000.0
+            text = seg.text.replace("\n", " ").replace("\t", " ").strip()
+            if len(text) > 200:
+                text = text[:197] + "..."
+            all_entries.append((start_sec, end_sec, role, text))
+        for seg in _collect_tool_call_segments(ticks, role):
+            start_sec = seg.start_tick * tick_duration_ms / 1000.0
+            end_sec = (seg.end_tick + 1) * tick_duration_ms / 1000.0
+            all_entries.append(
+                (start_sec, end_sec, f"{role}_tool_call", seg.tool_name)
+            )
+
+    all_entries.sort(key=lambda e: e[0])
+    timeline_path = output_dir / "timeline.txt"
+    with open(timeline_path, "w", encoding="utf-8") as f:
+        for start, end, entry_type, text in all_entries:
+            f.write(f"{start:.3f}\t{end:.3f}\t{entry_type}\t{text}\n")
+    label_files["timeline"] = timeline_path
+    logger.debug(f"Generated unified timeline with {len(all_entries)} entries: {timeline_path}")
+
     return label_files
 
 

@@ -86,6 +86,7 @@ def build_command(
     save_to: str,
     *,
     num_tasks: int | None = None,
+    max_steps_seconds: int | None = None,
     seed: int = DEFAULT_SEED,
     user_llm: str = DEFAULT_LLM_USER,
     max_concurrency: int = 8,
@@ -122,6 +123,8 @@ def build_command(
         cmd.extend(["--cascaded-config", spec.cascaded_config])
     if num_tasks is not None:
         cmd.extend(["--num-tasks", str(num_tasks)])
+    if max_steps_seconds is not None:
+        cmd.extend(["--max-steps-seconds", str(max_steps_seconds)])
     return cmd
 
 
@@ -148,6 +151,7 @@ def main():
         help=f"Comma-separated speech complexities. Default: {','.join(DEFAULT_COMPLEXITIES)}",
     )
     parser.add_argument("--num-tasks", type=int, default=None)
+    parser.add_argument("--max-steps-seconds", type=int, default=None)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--user-llm", type=str, default=DEFAULT_LLM_USER)
     parser.add_argument("--max-concurrency", type=int, default=8)
@@ -186,6 +190,7 @@ def main():
             complexity,
             save_to,
             num_tasks=args.num_tasks,
+            max_steps_seconds=args.max_steps_seconds,
             seed=args.seed,
             user_llm=args.user_llm,
             max_concurrency=args.max_concurrency,

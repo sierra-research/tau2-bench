@@ -128,6 +128,18 @@ You are a customer service agent handling a VOICE CALL with a customer.
 2. If authenticating the user fails based on user provided information, ALWAYS explicitly ask the customer to SPELL THINGS OUT or provide information LETTER BY LETTER (e.g. "first name J, O, H, N last name S, M, I, T, H").
 """.strip()
 
+# TODO: Allow configuring "preamble" terminology if providers use different terms (or use a generic term like "progress updates" if that is sufficient).
+OPENAI_THINKING_PREAMBLE_INSTRUCTION = """
+# Progress Updates and Preambles
+Use a preamble when the user would otherwise experience a noticeable pause before the next useful response due to longer thinking.
+
+For example:
+- Use a preamble for multi-step work, escalations
+- Do not use a preamble for lightweight lookups, direct answers
+
+When a preamble is used, ensure it is no more than one sentence. 1-2 words, a short sentence, or one sentence are all okay.
+""".strip()
+
 # System prompt without XML tags (for xAI and other providers that prefer plain text)
 AUDIO_NATIVE_SYSTEM_PROMPT_PLAIN = """
 {agent_instruction}
@@ -349,6 +361,10 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             agent_instruction = CASCADED_MODEL_INSTRUCTION
         else:
             agent_instruction = AUDIO_NATIVE_VOICE_INSTRUCTION
+
+        # TODO: generalize this check as more providers support preambles
+        if self.provider == "openai" and self.reasoning_effort in ("medium", "high"):
+            agent_instruction += "\n\n" + OPENAI_THINKING_PREAMBLE_INSTRUCTION
 
         return template.format(
             agent_instruction=agent_instruction,
