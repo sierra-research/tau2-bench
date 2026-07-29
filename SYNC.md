@@ -5,10 +5,10 @@ repo, plus long-lived project branches (`hyper-tau`, `soham/tau-multilingual`).
 
 ```
 public tau2-bench main
-        │  (weekly merge — automated)
+        │  (daily merge — automated)
         ▼
 private main            <- the sync spine; carries no project work of its own
-        │  (weekly sync PRs — automated, owners resolve conflicts)
+        │  (daily sync PRs — automated, owners resolve conflicts)
         ├──► hyper-tau
         └──► soham/tau-multilingual
 ```
@@ -18,7 +18,7 @@ private main            <- the sync spine; carries no project work of its own
 1. **Horizontal / core changes land upstream-first.** A fix to shared code
    (`src/tau2` core, evaluator, runner, orchestrator, etc.) goes to **public
    main** if it can be public, otherwise to **private main** — never directly
-   to a project branch. It reaches the project branches through the weekly
+   to a project branch. It reaches the project branches through the daily
    sync. Landing core fixes on a project branch and cherry-picking around is
    what created the 4-month divergence this setup replaces.
 2. **Project-specific work stays on the project branch.** PRs target
@@ -29,7 +29,7 @@ private main            <- the sync spine; carries no project work of its own
 ## The automation
 
 [`.github/workflows/sync-from-public.yml`](.github/workflows/sync-from-public.yml)
-runs weekly (and on manual dispatch):
+runs daily (and on manual dispatch):
 
 1. Merges public `main` into private `main` and pushes. This is expected to be
    conflict-free (private main carries almost nothing of its own); the job

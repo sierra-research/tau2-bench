@@ -1,6 +1,6 @@
 name: Sync from public tau2-bench
 
-# Weekly sync of the public tau2-bench repo into this private repo.
+# Daily sync of the public tau2-bench repo into this private repo.
 # See SYNC.md for the full process and conflict-resolution guide.
 #
 # 1. Merge public main -> private main (expected conflict-free; fails loudly
@@ -10,7 +10,7 @@ name: Sync from public tau2-bench
 
 on:
   schedule:
-    - cron: "0 14 * * 1" # Mondays 14:00 UTC / 7am PT
+    - cron: "0 14 * * *" # Daily 14:00 UTC / 7am PT
   workflow_dispatch:
 
 permissions:
@@ -91,7 +91,7 @@ jobs:
           git push origin "origin/main:refs/heads/$sync_branch" --force
 
           {
-            echo "Weekly automated sync of \`main\` (which tracks public tau2-bench) into \`$branch\`."
+            echo "Daily automated sync of \`main\` (which tracks public tau2-bench) into \`$branch\`."
             echo
             echo "- **Merge with a merge commit — never squash** (squashing recreates the same conflicts next week)."
             echo "- If this PR has conflicts, see [SYNC.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/SYNC.md) for the resolution recipe."
