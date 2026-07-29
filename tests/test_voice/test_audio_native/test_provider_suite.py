@@ -84,6 +84,15 @@ PROVIDERS = [
         ),
     ),
     pytest.param(
+        "gptlive",
+        marks=pytest.mark.skipif(
+            # Limited-access confidential alpha: an OPENAI_API_KEY alone does
+            # not imply access, so gate on an explicit opt-in.
+            not os.environ.get("GPTLIVE_TEST_ENABLED"),
+            reason="GPTLIVE_TEST_ENABLED not set",
+        ),
+    ),
+    pytest.param(
         "livekit",
         marks=pytest.mark.skipif(
             not os.environ.get("LIVEKIT_TEST_ENABLED"),
@@ -614,7 +623,9 @@ class TestToolCall:
 BARGE_IN_SYSTEM_PROMPT = (
     "You are a helpful assistant. When asked anything, give a very long, "
     "detailed response. Explain thoroughly with multiple paragraphs. "
-    "Never give short answers."
+    "Never give short answers. Even for greetings or small talk, respond "
+    "with a long, flowing, detailed monologue lasting at least thirty "
+    "seconds. Keep talking; do not stop to ask questions."
 )
 
 # Minimum agent audio ticks to confirm sustained speech before interrupting

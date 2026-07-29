@@ -148,6 +148,27 @@ DEFAULT_OPENAI_TRANSCRIPTION_MODEL = "gpt-4o-transcribe"  # overridable
 DEFAULT_WHISPER_MODEL = "whisper-1"  # fixed
 
 # =============================================================================
+# GPT-LIVE PROVIDER (confidential alpha; overridable model/voice, fixed API constants)
+# =============================================================================
+# NOTE: gpt-live is a limited-access, confidential alpha. Access requires the
+# OpenAI-Alpha header below in addition to a project API key (OPENAI_API_KEY).
+DEFAULT_GPTLIVE_MODEL = "gpt-live-1-boulder-alpha"  # overridable
+DEFAULT_GPTLIVE_BASE_URL = "wss://api.openai.com/v1/live"  # fixed
+GPTLIVE_ALPHA_HEADER_NAME = "OpenAI-Alpha"  # fixed, required for alpha access
+GPTLIVE_ALPHA_HEADER_VALUE = "quicksilver=v2"  # fixed, required for alpha access
+DEFAULT_GPTLIVE_VOICE = "marin"  # overridable, immutable after session start
+DEFAULT_GPTLIVE_DELEGATION_MODEL = "gpt-5.5"  # overridable, Responses backend model
+DEFAULT_GPTLIVE_SAMPLE_RATE = 24000  # fixed, API-defined (PCM16 in AND out)
+
+# Silence gate thresholds (RMS, 16-bit scale). gpt-live emits no speech/VAD
+# events and streams output audio continuously — including silence — so the
+# adapter must decide "is the agent speaking?" from audio energy alone.
+# Hysteresis: gate opens at >= OPEN (observed speech onsets >= 900), closes
+# below CLOSE (observed true silence 0-8; in-utterance noise floor >= 18).
+GPTLIVE_SILENCE_GATE_OPEN_RMS = 100
+GPTLIVE_SILENCE_GATE_CLOSE_RMS = 10
+
+# =============================================================================
 # GEMINI PROVIDER (overridable model/voice, fixed API constants)
 # =============================================================================
 # Auth mode selected from environment:
@@ -193,6 +214,7 @@ DEFAULT_QWEN_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 # =============================================================================
 DEFAULT_AUDIO_NATIVE_MODELS = {
     "openai": DEFAULT_OPENAI_REALTIME_MODEL,
+    "gptlive": DEFAULT_GPTLIVE_MODEL,
     "gemini": DEFAULT_GEMINI_MODEL,
     "xai": DEFAULT_XAI_MODEL,
     "nova": DEFAULT_NOVA_MODEL,
@@ -202,6 +224,7 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
 
 DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
     "openai": None,
+    "gptlive": None,
     "gemini": "high",
     "xai": None,
     "nova": None,
@@ -211,6 +234,7 @@ DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
 
 AUDIO_NATIVE_PROVIDER_TYPES = {
     "openai": "audio_native",
+    "gptlive": "audio_native",
     "gemini": "audio_native",
     "xai": "audio_native",
     "nova": "audio_native",
