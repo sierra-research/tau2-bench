@@ -8,7 +8,8 @@ public tau2-bench main
         │  (daily merge — automated)
         ▼
 private main            <- the sync spine; carries no project work of its own
-        │  (daily sync PRs — automated, owners resolve conflicts)
+        │  (daily sync PRs — automated; conflict-free PRs auto-merge,
+        │   owners resolve conflicted ones)
         ├──► hyper-tau
         └──► soham/tau-multilingual
 ```
@@ -36,8 +37,13 @@ runs daily (and on manual dispatch):
    fails loudly if not.
 2. For each project branch, force-pushes `sync/main-into-<branch>` to the
    current main and opens a PR into the branch, assigned to the branch owner.
-   If last week's sync PR is still open, it is left untouched (no new PR, no
+   If a previous sync PR is still open, it is left untouched (no new PR, no
    force-push over manual conflict resolutions).
+3. Conflict-free sync PRs are merged automatically (merge commit — never
+   squash). Conflicted ones stay open for the branch owner to resolve.
+   Note: the repo has no blocking test CI on PRs today, so "conflict-free"
+   is the only automated gate; if a required check is ever added to the
+   project branches, the auto-merge waits for it via GitHub auto-merge.
 
 ## Resolving a conflicted sync PR
 

@@ -116,9 +116,29 @@ jobs:
             echo "- If this PR has conflicts, see [SYNC.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/SYNC.md) for the resolution recipe."
           } > /tmp/pr-body.md
 
-          gh pr create \
+          pr_url=$(gh pr create \
             --base "$branch" \
             --head "$sync_branch" \
             --title "Sync: merge main into $branch ($(date -u +%F))" \
             --assignee "$assignee" \
-            --body-file /tmp/pr-body.md
+            --body-file /tmp/pr-body.md)
+          echo "Created $pr_url"
+
+          # Auto-merge when conflict-free (merge commit — never squash).
+          # Conflicted PRs stay open for the branch owner to resolve.
+          # --auto waits for required checks if the base branch ever gets
+          # branch protection; without protection it errors on an
+          # already-mergeable PR, so fall back to a direct merge.
+          state=UNKNOWN
+          for _ in $(seq 1 20); do
+            state=$(gh pr view "$pr_url" --json mergeable --jq .mergeable)
+            [ "$state" != "UNKNOWN" ] && break
+            sleep 10
+          done
+          if [ "$state" = "MERGEABLE" ]; then
+            gh pr merge --auto --merge "$pr_url" 2>/dev/null \
+              || gh pr merge --merge "$pr_url"
+            echo "Auto-merged $pr_url"
+          else
+            echo "mergeable=$state — leaving PR open for $assignee to resolve."
+          fi
