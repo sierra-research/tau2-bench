@@ -58,7 +58,13 @@ conflicts in files the branch never deliberately edited as "take main's side".
 
 ## Secrets
 
-The workflow prefers a `SYNC_PAT` repo secret (fine-grained PAT with
-`contents: write` + `pull-requests: write` on this repo). Without it the
-default `GITHUB_TOKEN` is used, which works but does not trigger CI on the
-pushed main or on the sync PRs.
+Auth preference order:
+
+1. **GitHub App** (`tau2-sync-bot`, installed on this repo by IT): secrets
+   `SYNC_APP_ID` + `SYNC_APP_PRIVATE_KEY`. The workflow mints a short-lived
+   installation token per run. Preferred: org-managed, not tied to a person,
+   no expiry rotation, and CI triggers on the PRs it creates.
+2. `SYNC_PAT` repo secret (fine-grained PAT with `contents: write` +
+   `pull-requests: write` on this repo). Legacy fallback.
+3. Default `GITHUB_TOKEN` — works for the main merge, but the org policy
+   blocks it from creating PRs, and it does not trigger CI.
