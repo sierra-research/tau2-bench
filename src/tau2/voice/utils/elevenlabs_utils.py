@@ -75,7 +75,10 @@ def tts_elevenlabs(
             "Audio tags like [cough], [sneeze], [sniffle] only work with v3 models."
         )
 
-    client = ElevenLabs(api_key=api_key)
+    client = ElevenLabs(
+        api_key=api_key,
+        base_url=os.getenv("ELEVENLABS_BASE_URL"),
+    )
 
     voice_id = config.voice_id
 
