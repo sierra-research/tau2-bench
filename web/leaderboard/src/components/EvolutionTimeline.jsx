@@ -90,7 +90,7 @@ const MILESTONES = [
       </>
     ),
     domainsLabel: 'Voice mode',
-    domains: ['🛍️ Retail', '✈️ Airline', '📱 Telecom'],
+    domains: ['🛍️ Retail', '✈️ Airline', '📱 Telecom', '🏦 Banking'],
   },
 ]
 
