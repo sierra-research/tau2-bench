@@ -103,13 +103,14 @@ Common `retrieval_config` values:
 
 If you use a different retrieval method, use a short descriptive string (e.g., `"custom_reranker"`) and document it in `methodology.notes`. The `retrieval_config` value is displayed as a badge on the leaderboard.
 
-#### Cost Tracking (Optional but Recommended)
+#### Cost and Time Tracking (Optional but Recommended)
 
-To enable fair comparisons between models with different pricing structures, we encourage submitting cost information:
+To enable fair comparisons between models with different pricing structures, we encourage submitting cost and time information. **`tau2 submit prepare` computes all of these automatically from your trajectory files** — no manual work is needed if you use the CLI:
 
-1. Calculate average cost per trajectory for each domain
-2. Include costs in USD using the optional `cost` field in your results
-3. Document your cost calculation method in `methodology.notes` if using custom cost tracking
+- `cost` / `user_cost` / `total_cost`: average LLM cost in USD per trajectory (agent-side, user-simulator-side, and combined)
+- `duration_seconds` and the `agent_time_seconds` / `user_time_seconds` / `tool_time_seconds` split: average wall-clock time per trajectory attributed from message timestamps
+
+If you fill these in manually with custom cost tracking, document your method in `methodology.notes`.
 
 ### Prepare Submission
 
@@ -410,8 +411,20 @@ Your `submission.json` must follow the schema defined in [`web/leaderboard/publi
 
 Each domain in `results` accepts:
 - `pass_1` through `pass_4`: Success rate percentage (0-100) or `null`
-- `cost`: Average cost in USD per trajectory or `null`
+- `cost`: Average agent-side LLM cost in USD per trajectory or `null`
+- `user_cost`: Average user-simulator LLM cost in USD per trajectory or `null`
+- `total_cost`: Average total LLM cost (agent + user simulator) in USD per trajectory or `null`
+- `duration_seconds`: Average wall-clock duration of one trajectory in seconds or `null`
+- `agent_time_seconds`: Average wall-clock time attributable to agent LLM calls per trajectory or `null`
+- `user_time_seconds`: Average wall-clock time attributable to user-simulator LLM calls per trajectory or `null`
+- `tool_time_seconds`: Average wall-clock time attributable to tool execution per trajectory or `null`
 - `retrieval_config`: Required for `banking_knowledge` only
+
+Cost and time fields are computed automatically by `tau2 submit prepare` from
+your trajectory files (text submissions only). The time split attributes the
+gap before each message to its producer: gaps before assistant messages are
+agent LLM time, gaps before tool results are tool execution, and gaps before
+user messages are user-simulator time.
 
 ### References
 

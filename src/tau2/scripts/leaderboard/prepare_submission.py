@@ -37,6 +37,42 @@ from tau2.utils.io_utils import expand_paths
 from tau2.utils.utils import get_dict_hash, get_tau2_version
 
 
+def build_domain_results(
+    metrics: AgentMetrics, include_time: bool = True
+) -> DomainResults:
+    """Build a DomainResults block from computed AgentMetrics.
+
+    Used by both submission preparation and validation so the two always
+    agree. Costs are rounded to 5 decimals (USD), times to 2 (seconds).
+
+    Time fields are omitted for voice submissions (include_time=False): the
+    stored simulation duration there is harness wall-clock, not the audio
+    timeline, so it would be misleading.
+    """
+
+    def _pct(val: float | None) -> float | None:
+        return val * 100 if val is not None else None
+
+    def _round(val: float | None, ndigits: int) -> float | None:
+        if val is None or math.isnan(val):
+            return None
+        return round(val, ndigits)
+
+    return DomainResults(
+        pass_1=_pct(metrics.pass_hat_ks.get(1)),
+        pass_2=_pct(metrics.pass_hat_ks.get(2)),
+        pass_3=_pct(metrics.pass_hat_ks.get(3)),
+        pass_4=_pct(metrics.pass_hat_ks.get(4)),
+        cost=_round(metrics.avg_agent_cost, 5),
+        user_cost=_round(metrics.avg_user_cost, 5),
+        total_cost=_round(metrics.avg_total_cost, 5),
+        duration_seconds=_round(metrics.avg_duration, 2) if include_time else None,
+        agent_time_seconds=_round(metrics.avg_agent_time, 2) if include_time else None,
+        user_time_seconds=_round(metrics.avg_user_time, 2) if include_time else None,
+        tool_time_seconds=_round(metrics.avg_tool_time, 2) if include_time else None,
+    )
+
+
 def _detect_voice_mode(results_list: list[TrajectoryResults]) -> bool:
     """Auto-detect whether the submission is voice-based.
 
@@ -223,18 +259,8 @@ def get_metrics(
         # Compute metrics for this trajectory file
         metrics = compute_metrics(results)
         domain_metrics[domain] = metrics
-        # Create DomainResults object (values as percentages, matching submission format)
-        _pct = lambda v: v * 100 if v is not None else None  # noqa: E731
-        cost = metrics.avg_agent_cost
-        if cost is not None and math.isnan(cost):
-            cost = None
-        domain_result = DomainResults(
-            pass_1=_pct(metrics.pass_hat_ks.get(1)),
-            pass_2=_pct(metrics.pass_hat_ks.get(2)),
-            pass_3=_pct(metrics.pass_hat_ks.get(3)),
-            pass_4=_pct(metrics.pass_hat_ks.get(4)),
-            cost=cost,
-        )
+        is_voice = results.info.audio_native_config is not None
+        domain_result = build_domain_results(metrics, include_time=not is_voice)
         # Include retrieval_config for banking_knowledge domain
         if domain == "banking_knowledge" and results.info.retrieval_config:
             domain_result.retrieval_config = results.info.retrieval_config
@@ -584,21 +610,7 @@ def prepare_submission(
                     results
                 )
 
-            # Create DomainResults object
-            def _pct(val: float | None) -> float | None:
-                return val * 100 if val is not None else None
-
-            cost = metrics.avg_agent_cost
-            if cost is not None and math.isnan(cost):
-                cost = None
-
-            domain_result = DomainResults(
-                pass_1=_pct(metrics.pass_hat_ks.get(1)),
-                pass_2=_pct(metrics.pass_hat_ks.get(2)),
-                pass_3=_pct(metrics.pass_hat_ks.get(3)),
-                pass_4=_pct(metrics.pass_hat_ks.get(4)),
-                cost=cost,
-            )
+            domain_result = build_domain_results(metrics, include_time=not is_voice)
             # Include retrieval_config for banking_knowledge domain
             if domain == "banking_knowledge":
                 if results.info.retrieval_config:

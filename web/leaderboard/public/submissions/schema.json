@@ -122,8 +122,92 @@
             }
           ],
           "default": null,
-          "description": "Average cost in USD to run one trajectory in this domain (optional)",
+          "description": "Average agent-side LLM cost in USD to run one trajectory in this domain (optional)",
           "title": "Cost"
+        },
+        "user_cost": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Average user-simulator LLM cost in USD per trajectory (optional)",
+          "title": "User Cost"
+        },
+        "total_cost": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Average total LLM cost (agent + user simulator) in USD per trajectory (optional)",
+          "title": "Total Cost"
+        },
+        "duration_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Average wall-clock duration of one trajectory in seconds (optional)",
+          "title": "Duration Seconds"
+        },
+        "agent_time_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Average wall-clock time attributable to agent LLM calls per trajectory, in seconds (optional)",
+          "title": "Agent Time Seconds"
+        },
+        "user_time_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Average wall-clock time attributable to user-simulator LLM calls per trajectory, in seconds (optional)",
+          "title": "User Time Seconds"
+        },
+        "tool_time_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Average wall-clock time attributable to tool execution per trajectory, in seconds (optional)",
+          "title": "Tool Time Seconds"
         },
         "retrieval_config": {
           "anyOf": [
@@ -847,11 +931,17 @@
           "pass_4": 98.2
         },
         "telecom": {
-          "cost": 10.0,
+          "agent_time_seconds": 84.2,
+          "cost": 0.61,
+          "duration_seconds": 178.4,
           "pass_1": 82.1,
           "pass_2": 90.8,
           "pass_3": 95.3,
-          "pass_4": 98.5
+          "pass_4": 98.5,
+          "tool_time_seconds": 5.3,
+          "total_cost": 0.85,
+          "user_cost": 0.24,
+          "user_time_seconds": 88.9
         }
       },
       "submission_date": "2024-01-15",

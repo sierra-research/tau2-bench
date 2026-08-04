@@ -43,7 +43,37 @@ class DomainResults(BaseModelNoExtra):
     cost: Optional[float] = Field(
         None,
         ge=0,
-        description="Average cost in USD to run one trajectory in this domain (optional)",
+        description="Average agent-side LLM cost in USD to run one trajectory in this domain (optional)",
+    )
+    user_cost: Optional[float] = Field(
+        None,
+        ge=0,
+        description="Average user-simulator LLM cost in USD per trajectory (optional)",
+    )
+    total_cost: Optional[float] = Field(
+        None,
+        ge=0,
+        description="Average total LLM cost (agent + user simulator) in USD per trajectory (optional)",
+    )
+    duration_seconds: Optional[float] = Field(
+        None,
+        ge=0,
+        description="Average wall-clock duration of one trajectory in seconds (optional)",
+    )
+    agent_time_seconds: Optional[float] = Field(
+        None,
+        ge=0,
+        description="Average wall-clock time attributable to agent LLM calls per trajectory, in seconds (optional)",
+    )
+    user_time_seconds: Optional[float] = Field(
+        None,
+        ge=0,
+        description="Average wall-clock time attributable to user-simulator LLM calls per trajectory, in seconds (optional)",
+    )
+    tool_time_seconds: Optional[float] = Field(
+        None,
+        ge=0,
+        description="Average wall-clock time attributable to tool execution per trajectory, in seconds (optional)",
     )
     retrieval_config: Optional[str] = Field(
         None,
@@ -379,7 +409,13 @@ class Submission(BaseModelNoExtra):
                             "pass_2": 90.8,
                             "pass_3": 95.3,
                             "pass_4": 98.5,
-                            "cost": 10.0,
+                            "cost": 0.61,
+                            "user_cost": 0.24,
+                            "total_cost": 0.85,
+                            "duration_seconds": 178.4,
+                            "agent_time_seconds": 84.2,
+                            "user_time_seconds": 88.9,
+                            "tool_time_seconds": 5.3,
                         },
                     },
                     "methodology": {

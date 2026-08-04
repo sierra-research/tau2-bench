@@ -1812,8 +1812,7 @@ class ConsoleDisplay:
             agent_results = ""
             if tick.agent_tool_results:
                 agent_results = "\n".join(
-                    cls.truncate_tool_result(r.content)
-                    for r in tick.agent_tool_results
+                    cls.truncate_tool_result(r.content) for r in tick.agent_tool_results
                 )
 
             agent_turn_action = ""
@@ -1840,8 +1839,7 @@ class ConsoleDisplay:
             user_results = ""
             if tick.user_tool_results:
                 user_results = "\n".join(
-                    cls.truncate_tool_result(r.content)
-                    for r in tick.user_tool_results
+                    cls.truncate_tool_result(r.content) for r in tick.user_tool_results
                 )
 
             user_turn_action = ""
@@ -1989,8 +1987,7 @@ class ConsoleDisplay:
                 )
             if tick.agent_tool_results:
                 info["agent_results"] = "\n".join(
-                    cls.truncate_tool_result(r.content)
-                    for r in tick.agent_tool_results
+                    cls.truncate_tool_result(r.content) for r in tick.agent_tool_results
                 )
             if (
                 tick.agent_chunk
@@ -2013,8 +2010,7 @@ class ConsoleDisplay:
                 )
             if tick.user_tool_results:
                 info["user_results"] = "\n".join(
-                    cls.truncate_tool_result(r.content)
-                    for r in tick.user_tool_results
+                    cls.truncate_tool_result(r.content) for r in tick.user_tool_results
                 )
             if (
                 tick.user_chunk

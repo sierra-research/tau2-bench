@@ -327,8 +327,7 @@ class TestRegradingOptions:
         captured = self._capture_eval_kwargs(monkeypatch, results, fresh_tasks=True)
         current_task = get_tasks("mock", task_ids=["create_task_1"])[0]
         assert (
-            captured[0]["task"].evaluation_criteria
-            == current_task.evaluation_criteria
+            captured[0]["task"].evaluation_criteria == current_task.evaluation_criteria
         )
         assert captured[0]["task"].evaluation_criteria != EvaluationCriteria()
 

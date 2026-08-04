@@ -1,12 +1,14 @@
 import math
 import re
 from collections import defaultdict
+from datetime import datetime
+from typing import Optional
 
 import pandas as pd
 from loguru import logger
 from pydantic import BaseModel
 
-from tau2.data_model.simulation import Results, TerminationReason
+from tau2.data_model.simulation import Results, SimulationRun, TerminationReason
 
 
 def is_successful(reward: float) -> bool:
@@ -16,11 +18,65 @@ def is_successful(reward: float) -> bool:
     return (1 - 1e-6) <= reward <= (1 + 1e-6)
 
 
+def compute_sim_time_breakdown(sim: SimulationRun) -> Optional[dict[str, float]]:
+    """Attribute wall-clock time in a half-duplex simulation to agent/user/tool.
+
+    The gap between two consecutive messages is attributed to the producer of
+    the *later* message: the gap before an assistant message is the agent's
+    LLM call, the gap before a tool message is tool execution, and the gap
+    before a user message is the user simulator's LLM call. The production
+    time of the first message is not observable and is excluded.
+
+    Returns a dict with ``agent_time``, ``user_time``, and ``tool_time`` in
+    seconds, or None if the simulation has no usable message timestamps
+    (e.g. full-duplex simulations, or old trajectories without timestamps).
+    """
+    messages = sim.messages
+    if not messages or len(messages) < 2:
+        return None
+    try:
+        times = [datetime.fromisoformat(m.timestamp) for m in messages]
+    except (TypeError, ValueError):
+        return None
+
+    breakdown = {"agent_time": 0.0, "user_time": 0.0, "tool_time": 0.0}
+    for prev_time, msg, msg_time in zip(times, messages[1:], times[1:]):
+        # Clamp negative gaps (clock skew) to zero.
+        gap = max((msg_time - prev_time).total_seconds(), 0.0)
+        role = getattr(msg, "role", None)
+        if role == "assistant":
+            breakdown["agent_time"] += gap
+        elif role == "user":
+            breakdown["user_time"] += gap
+        elif role == "tool":
+            breakdown["tool_time"] += gap
+    return breakdown
+
+
+def _mean(values: list[Optional[float]]) -> Optional[float]:
+    """Mean of the non-None, non-NaN values; None if there are none."""
+    vals = [v for v in values if v is not None and not math.isnan(v)]
+    return sum(vals) / len(vals) if vals else None
+
+
 class AgentMetrics(BaseModel):
     # Core metrics
     avg_reward: float
     pass_hat_ks: dict[int, float]
     avg_agent_cost: float
+
+    # Cost breakdown (USD, averaged per simulation; None when not recorded)
+    avg_user_cost: Optional[float] = None
+    avg_total_cost: Optional[float] = None  # agent + user, sims with both recorded
+
+    # Time breakdown (seconds, averaged per simulation; None when not derivable).
+    # avg_duration is the stored wall-clock duration of the whole simulation;
+    # the agent/user/tool splits come from message-timestamp gap attribution
+    # (see compute_sim_time_breakdown) and only cover half-duplex simulations.
+    avg_duration: Optional[float] = None
+    avg_agent_time: Optional[float] = None
+    avg_user_time: Optional[float] = None
+    avg_tool_time: Optional[float] = None
 
     # Simulation counts
     total_simulations: int = 0
@@ -101,6 +157,12 @@ class AgentMetrics(BaseModel):
         data = {
             "avg_reward": self.avg_reward,
             "avg_agent_cost": self.avg_agent_cost,
+            "avg_user_cost": self.avg_user_cost,
+            "avg_total_cost": self.avg_total_cost,
+            "avg_duration": self.avg_duration,
+            "avg_agent_time": self.avg_agent_time,
+            "avg_user_time": self.avg_user_time,
+            "avg_tool_time": self.avg_tool_time,
             "total_simulations": self.total_simulations,
             "total_tasks": self.total_tasks,
             "infra_error_count": self.infra_error_count,
@@ -243,6 +305,24 @@ def compute_metrics(results: Results) -> AgentMetrics:
             k = int(match.group(1))
             pass_hat_ks[k] = df_pass_hat_k[column].mean()
     avg_agent_cost = df.agent_cost.mean()
+
+    # Cost breakdown
+    avg_user_cost = _mean([sim.user_cost for sim in evaluated_sims])
+    avg_total_cost = _mean(
+        [
+            sim.agent_cost + sim.user_cost
+            if sim.agent_cost is not None and sim.user_cost is not None
+            else None
+            for sim in evaluated_sims
+        ]
+    )
+
+    # Time breakdown
+    avg_duration = _mean([sim.duration for sim in evaluated_sims])
+    time_breakdowns = [compute_sim_time_breakdown(sim) for sim in evaluated_sims]
+    avg_agent_time = _mean([b["agent_time"] for b in time_breakdowns if b])
+    avg_user_time = _mean([b["user_time"] for b in time_breakdowns if b])
+    avg_tool_time = _mean([b["tool_time"] for b in time_breakdowns if b])
 
     # Counts exclude infrastructure errors
     total_simulations = len(evaluated_sims)
@@ -447,6 +527,12 @@ def compute_metrics(results: Results) -> AgentMetrics:
         avg_reward=avg_reward,
         pass_hat_ks=pass_hat_ks,
         avg_agent_cost=avg_agent_cost,
+        avg_user_cost=avg_user_cost,
+        avg_total_cost=avg_total_cost,
+        avg_duration=avg_duration,
+        avg_agent_time=avg_agent_time,
+        avg_user_time=avg_user_time,
+        avg_tool_time=avg_tool_time,
         total_simulations=total_simulations,
         total_tasks=total_tasks,
         infra_error_count=infra_error_count,
@@ -488,6 +574,17 @@ def display_metrics(metrics: AgentMetrics) -> None:
     for k, pass_hat_k in metrics.pass_hat_ks.items():
         print(f"  k={k}: {pass_hat_k}")
     print(f"💰 Average agent cost: {metrics.avg_agent_cost}")
+    if metrics.avg_user_cost is not None:
+        print(f"💰 Average user cost: {metrics.avg_user_cost}")
+    if metrics.avg_total_cost is not None:
+        print(f"💰 Average total cost: {metrics.avg_total_cost}")
+    if metrics.avg_duration is not None:
+        print(f"⏱️  Average duration: {metrics.avg_duration:.1f}s")
+    if metrics.avg_agent_time is not None:
+        print(
+            f"⏱️  Average time breakdown: agent {metrics.avg_agent_time:.1f}s | "
+            f"user {metrics.avg_user_time:.1f}s | tool {metrics.avg_tool_time:.1f}s"
+        )
 
 
 if __name__ == "__main__":
