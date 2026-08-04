@@ -465,7 +465,7 @@ def run_tasks(
     *,
     save_path: Optional[Path] = None,
     save_dir: Optional[Path] = None,
-    evaluation_type: EvaluationType = EvaluationType.ALL,
+    evaluation_type: EvaluationType = EvaluationType.ALL_WITH_NL_ASSERTIONS,
     console_display: bool = True,
     results_format: str = "json",
 ) -> Results:
@@ -873,6 +873,12 @@ def run_domain(config: RunConfig) -> Results:
 
     # Load tasks
     task_set_name = config.task_set_name or config.domain
+    # In solo mode for telecom, use the solo task set (with updated ticket text)
+    solo_mode = registry.get_agent_metadata(
+        config.effective_agent, "solo_mode", default=False
+    )
+    if solo_mode and task_set_name == "telecom":
+        task_set_name = "telecom_solo"
     tasks = get_tasks(
         task_set_name=task_set_name,
         task_split_name=config.task_split_name,
