@@ -257,16 +257,42 @@ thing":
 ```sh
 uv run python scripts/stt_errors.py retail-stt-default-20 retail-stt-sandbox-20
 
+# every mis-hearing, including ones that changed nothing
+uv run python scripts/stt_errors.py retail-stt-default-20 --all-errors
+
 # include tasks that passed too
 uv run python scripts/stt_errors.py retail-stt-default-20 --all
 ```
 
 Ground truth exists because tau2 *synthesizes* the caller: every `user_chunk`
 carries an `audio_script_gold` naming the exact text spoken. The script pairs
-those against the agent's `user_transcript` wire events and prints said/heard/diff
-per utterance, flagging the ones whose content reaches a tool argument (`⚠️`) —
-names, ZIPs, emails, order ids — since those are where a mis-hearing becomes a
-score.
+those against the agent's `user_transcript` wire events and prints
+said/heard/diff per utterance.
+
+**By default it shows only the mis-hearings it can trace to a failed action**,
+each with a `caused:` line naming the argument:
+
+```
+- DIGITS — numeric substitution (zip / order id / phone)
+  - said:  `K, O, V, A, C, S.`
+  - heard: `K-O-B-A-C-S. Okay, so this one, people`
+  - caused: expected `last_name`='kovacs' was spoken but not heard
+  - caused: agent used `last_name`='kobacs', which only appears in the transcript
+```
+
+The trace runs both directions, and both are needed. A value the caller *said*
+that is missing from what was heard explains an action the agent could not
+perform — it was never told the right thing. A value present in what was heard
+and absent from what was said explains an action performed *wrongly* — the
+mis-hearing became the argument. Only the second catches the wrong-account class,
+where every required datum was spoken and the agent still acted on something
+else.
+
+This matters because most mis-hearings are harmless: on the measured runs only
+**17%** and **23%** of them could be traced to a failed action. A report listing
+all of them invites fixing the loudest rather than the costly one. The count of
+what was hidden is still printed, since that number is also the honest ceiling
+on what a language or endpoint fix would buy.
 
 Errors are classed because the classes need different remedies, and only one of
 them is fixable agent-side:

@@ -244,6 +244,82 @@ def _word_diff(gold: str, heard: str) -> str:
     return "; ".join(bits) if bits else "(normalized forms match)"
 
 
+def _blob(text: str) -> str:
+    """Normalized tokens run together, for substring containment.
+
+    Argument values do not line up with token boundaries: a name spelled letter
+    by letter normalizes to one token (`yusufrossi`) while the expected argument
+    is `Yusuf`, and a ZIP spoken as words becomes `19122` mid-sentence. Matching
+    against the concatenation catches both without a word-boundary rule that
+    would miss them.
+    """
+    return "".join(_normalize(text))
+
+
+def _arg_values(arguments: dict) -> list[tuple[str, str]]:
+    """(argument name, normalized value) for every scalar in a tool call."""
+    out = []
+    for name, value in (arguments or {}).items():
+        items = value if isinstance(value, list) else [value]
+        for item in items:
+            if isinstance(item, (str, int, float)) and not isinstance(item, bool):
+                blob = _blob(str(item))
+                if blob:
+                    out.append((name, blob))
+    return out
+
+
+def _causal_evidence(
+    gold: str,
+    heard: str,
+    expected_args: list[tuple[str, str]],
+    actual_args: list[tuple[str, str]],
+) -> list[str]:
+    """Why this mis-hearing plausibly caused the failure — empty if it didn't.
+
+    Two directions, and both are needed. A value the caller SAID that is missing
+    from what was heard explains an action the agent could not perform (it was
+    never told the right thing). A value present in what was heard and absent
+    from what was said explains an action performed WRONGLY (the mis-hearing
+    became the argument). Reporting only the first would miss the wrong-account
+    class entirely, where every required datum was spoken and the agent still
+    acted on something else.
+    """
+    gold_blob, heard_blob = _blob(gold), _blob(heard)
+    reasons = []
+    for name, value in expected_args:
+        if value and value in gold_blob and value not in heard_blob:
+            reasons.append(f"expected `{name}`={value!r} was spoken but not heard")
+    for name, value in actual_args:
+        if value and value in heard_blob and value not in gold_blob:
+            reasons.append(
+                f"agent used `{name}`={value!r}, which only appears in the transcript"
+            )
+    return reasons
+
+
+def _failed_action_args(
+    sim: dict,
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """Arguments of the checks that FAILED, and of the calls actually made.
+
+    Scoped to failed checks on purpose: an argument from a check that passed
+    cannot be evidence that something went wrong.
+    """
+    reward_info = sim.get("reward_info") or {}
+    expected: list[tuple[str, str]] = []
+    for check in reward_info.get("action_checks") or []:
+        if check.get("action_match"):
+            continue
+        expected += _arg_values((check.get("action") or {}).get("arguments") or {})
+
+    actual: list[tuple[str, str]] = []
+    for tick in sim.get("ticks") or []:
+        for call in tick.get("agent_tool_calls") or []:
+            actual += _arg_values(call.get("arguments") or {})
+    return expected, actual
+
+
 def _latest_trials(index) -> dict[str, dict]:
     entries = index.values() if isinstance(index, dict) else (index or [])
     best: dict[str, dict] = {}
@@ -257,7 +333,7 @@ def _latest_trials(index) -> dict[str, dict]:
     return best
 
 
-def report(run: str, root: Path, include_all: bool, out) -> None:
+def report(run: str, root: Path, include_all: bool, all_errors: bool, out) -> None:
     run_dir = root / "data" / "simulations" / run
     results_path = run_dir / "results.json"
     if not results_path.exists():
@@ -274,8 +350,8 @@ def report(run: str, root: Path, include_all: bool, out) -> None:
 
     print(f"\n## {run}\n", file=out)
     totals: dict[str, int] = {}
-    utterances = errors = 0
-    identity_errors: list[str] = []
+    utterances = errors = causal = 0
+    suppressed = 0
     shown = 0
 
     for entry in sorted(latest.values(), key=lambda e: (e.get("reward") or 0)):
@@ -288,6 +364,10 @@ def report(run: str, root: Path, include_all: bool, out) -> None:
             continue
         sim = json.loads(sim_path.read_text())
         pairs = _align(_gold_utterances(sim), _heard_transcripts(log))
+        expected_args, actual_args = _failed_action_args(sim)
+        # A passing task has no failed action to trace to, so causal filtering
+        # cannot apply — show its mis-hearings as-is when --all asked for them.
+        filtering = not all_errors and reward < 1.0
 
         rows = []
         for gold_group, heard_group in pairs:
@@ -300,43 +380,68 @@ def report(run: str, root: Path, include_all: bool, out) -> None:
                 continue
             kind = _classify(gold, heard, cardinality)
             errors += 1
-            totals[kind] = totals.get(kind, 0) + 1
-            identity = bool(IDENTITY_HINT_RE.search(gold))
-            if identity:
-                identity_errors.append(f"{run} task {entry['task_id']}: {kind}")
-            rows.append((kind, gold, heard, score, identity))
+            reasons = _causal_evidence(gold, heard, expected_args, actual_args)
+            if reasons:
+                causal += 1
+                # Counted per class only when causal: a breakdown over every
+                # mis-hearing would not describe the rows actually printed.
+                totals[kind] = totals.get(kind, 0) + 1
+            elif filtering:
+                suppressed += 1
+                continue
+            rows.append((kind, gold, heard, score, reasons))
 
         if not rows:
             continue
         shown += 1
         print(f"### task `{entry['task_id']}` — reward {reward}\n", file=out)
-        for kind, gold, heard, score, identity in rows:
-            flag = "  ⚠️ **feeds a tool argument**" if identity else ""
-            print(f"- **{kind}**{flag}", file=out)
+        for kind, gold, heard, score, reasons in rows:
+            print(f"- **{kind}**", file=out)
             print(f"  - said:  `{gold}`", file=out)
             print(f"  - heard: `{heard or '(nothing)'}`", file=out)
             print(
                 f"  - diff:  {_word_diff(gold, heard)}  (similarity {score:.2f})",
                 file=out,
             )
+            for reason in reasons:
+                print(f"  - **caused:** {reason}", file=out)
         print("", file=out)
 
     scope = "all tasks" if include_all else "failing tasks"
-    print(f"### Summary ({scope})\n", file=out)
+    lens = (
+        "every mis-hearing"
+        if all_errors
+        else "only mis-hearings traced to a failed action"
+    )
+    print(f"### Summary ({scope}; {lens})\n", file=out)
     print(
         f"- utterances compared: **{utterances}**, mis-heard: **{errors}**"
         + (f"  ({100 * errors / utterances:.0f}%)" if utterances else ""),
         file=out,
     )
-    for kind, n in sorted(totals.items(), key=lambda kv: -kv[1]):
-        print(f"  - {n}x {kind}", file=out)
     print(
-        f"- mis-hearings on utterances that feed a tool argument: "
-        f"**{len(identity_errors)}** — these are the ones that move the score",
+        f"- of those, traced to a failed action: **{causal}**"
+        + (f"  ({100 * causal / errors:.0f}% of mis-hearings)" if errors else ""),
         file=out,
     )
+    for kind, n in sorted(totals.items(), key=lambda kv: -kv[1]):
+        print(f"  - {n}x {kind}", file=out)
+    if suppressed and not all_errors:
+        # Said out loud rather than silently dropped: a filter that hides its own
+        # scope reads as "there were only this many", and the count is also the
+        # honest measure of how much a language/endpoint fix would NOT buy.
+        print(
+            f"- **{suppressed}** further mis-hearing(s) hidden as not traceable to a "
+            f"failed action — `--all-errors` to see them",
+            file=out,
+        )
     if not shown:
-        print("\n_No mis-hearings found in scope._", file=out)
+        print(
+            "\n_No mis-hearings traced to a failed action in scope._"
+            if not all_errors
+            else "\n_No mis-hearings found in scope._",
+            file=out,
+        )
 
 
 def main() -> int:
@@ -344,6 +449,11 @@ def main() -> int:
     parser.add_argument("runs", nargs="+")
     parser.add_argument(
         "--all", action="store_true", help="include passing tasks, not just failures"
+    )
+    parser.add_argument(
+        "--all-errors",
+        action="store_true",
+        help="every mis-hearing, not just those traced to a failed action",
     )
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--out", type=Path)
@@ -360,7 +470,7 @@ def main() -> int:
             file=out,
         )
         for run in args.runs:
-            report(run, args.root, args.all, out)
+            report(run, args.root, args.all, args.all_errors, out)
     finally:
         if args.out:
             out.close()
