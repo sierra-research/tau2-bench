@@ -196,32 +196,54 @@ noisy rather than comparable.
 ## 6. Read the results
 
 ```sh
-for r in retail-stt-default-20 retail-stt-sandbox-20; do
-  echo "== $r"
-  jq '[.simulations[].reward] | add/length' data/simulations/$r/results.json
-done
+uv run python scripts/failure_report.py retail-stt-default-20 retail-stt-sandbox-20
+
+# or, to paste into a coding agent
+uv run python scripts/failure_report.py retail-stt-default-20 --top 12 --out failures.md
 ```
 
-Four traps, in the order they bite:
+The report is ordered the way a fix needs it:
 
-1. **Wait for retries to settle.** A retry *overwrites* the earlier score, so a
-   mid-run average is not the result. Read `results.json` only after both runs
-   exit.
-2. **Result panels print in completion order**, not task order. Take task ids
-   from `results.json`'s `simulation_index`, never from the log's panel order.
-3. **A low reward with high `NL_ASSERTION` means authentication failed**, not
-   that the agent converses badly. A call that never gets past
-   `find_user_id_by_name_zip` executes zero expected actions yet still scores
-   NL 1.0 for handling it gracefully. Since this A/B is about STT, that is the
-   number that should move.
-4. **Failing calls run long.** An agent that cannot authenticate keeps retrying,
-   so any wall-clock cap kills already-doomed conversations preferentially — the
-   worse arm loses more sessions to timeouts than to scoring, which exaggerates
-   the gap.
+- **Run trust first**, before any score — caller-voice 429s, sessions that
+  produced no scored row, reconnects, `error`/`idle_timeout` counts. If these
+  are non-zero, everything below is partly measuring the harness.
+- **Wire anomalies, separately from reward** — transcripts emitted past a turn's
+  terminal `cancelled` frame, user turns that never got a `reply_done`,
+  first-word gaps over 10s, zero-duration speech windows. A 0.0 caused by a
+  provider that never connected is not evidence about agent quality, and the two
+  want different fixes.
+- **Failures worst-first**, each with a named failure mode, the expected action
+  beside the call the agent really made, and the judge's own justification for
+  every missed assertion.
 
-For per-turn detail, the wire events are in
-`data/simulations/<run>/artifacts/task_*/sim_*/task.log` (`grep 'AAI event:'`),
-and the tool-call arguments — which is where STT errors become score errors —
-are in `data/simulations/<run>/simulations/*.json` under each tick's
-`agent_tool_calls`. Note `sim["messages"]` is empty; it is not the place to
-look.
+The argument diff is usually the finding. On an STT-bound domain a wrong call is
+the mis-hearing made visible — and it is worth reading closely, because the
+failure is not always a mangled digit. One measured run returned an item on
+order `#W5490111` with `credit_card_3124723` where the task expected `#W7387996`
+with `paypal_9497703`: a different order *and* payment method, i.e. an
+STT-mangled email that resolved to **a different real user**, scored NL 1.0
+because the call itself was conducted well.
+
+The script handles three traps that produced wrong conclusions when this was
+done by hand — it collapses retries to the highest trial per task (a retry
+*overwrites* the earlier score, so counting every row mixes a superseded score
+into the mean), labels an incomplete run instead of averaging it as final, and
+keeps wire failures out of the reward numbers.
+
+Two more it cannot handle for you:
+
+- **A low reward with high `NL_ASSERTION` means the agent acted wrong, not that
+  it spoke badly** — most often that it never got past authentication, since a
+  call that fails `find_user_id_by_name_zip` executes zero expected actions and
+  still scores NL 1.0 for handling it gracefully. The report names this
+  `NEVER_AUTHENTICATED` / `WRONG_ACTIONS_GOOD_TALK`, but which one you care
+  about is a judgement about what you changed.
+- **Failing calls run long**, because an agent that cannot authenticate keeps
+  retrying. Any wall-clock cap therefore kills already-doomed conversations
+  preferentially, so the worse arm loses more sessions to timeouts than to
+  scoring and the gap looks larger than it is.
+
+For raw detail the report points at both files per failure: the wire events in
+`data/simulations/<run>/artifacts/task_*/sim_*/task.log` (`grep 'AAI event:'`)
+and the per-tick tool calls in `data/simulations/<run>/simulations/*.json`. Note
+`sim["messages"]` is empty in audio-native runs — the ticks are the only record.
