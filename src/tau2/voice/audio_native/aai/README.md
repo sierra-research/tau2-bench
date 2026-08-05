@@ -247,3 +247,53 @@ For raw detail the report points at both files per failure: the wire events in
 `data/simulations/<run>/artifacts/task_*/sim_*/task.log` (`grep 'AAI event:'`)
 and the per-tick tool calls in `data/simulations/<run>/simulations/*.json`. Note
 `sim["messages"]` is empty in audio-native runs — the ticks are the only record.
+
+## 7. Find the STT errors behind a failure
+
+For an STT A/B this is the report that matters, because it is the only one that
+distinguishes "the agent did the wrong thing" from "the agent was told the wrong
+thing":
+
+```sh
+uv run python scripts/stt_errors.py retail-stt-default-20 retail-stt-sandbox-20
+
+# include tasks that passed too
+uv run python scripts/stt_errors.py retail-stt-default-20 --all
+```
+
+Ground truth exists because tau2 *synthesizes* the caller: every `user_chunk`
+carries an `audio_script_gold` naming the exact text spoken. The script pairs
+those against the agent's `user_transcript` wire events and prints said/heard/diff
+per utterance, flagging the ones whose content reaches a tool argument (`⚠️`) —
+names, ZIPs, emails, order ids — since those are where a mis-hearing becomes a
+score.
+
+Errors are classed because the classes need different remedies, and only one of
+them is fixable agent-side:
+
+| class | meaning | agent-side retry helps? |
+| --- | --- | --- |
+| `NON_LATIN_SCRIPT` | English came back in Devanagari/Hebrew/etc. | no — language detection |
+| `NEGATION` | polarity flipped; meaning inverted | no |
+| `EMAIL` | address structure lost (`@` gone) | no |
+| `DIGITS` | ZIP / order id substitution | each retry is an independent coin flip |
+| `SUBSTITUTION` | homophone or proper noun swapped | sometimes — one candidate may be right |
+| `SPLIT` / `MERGED` | utterance boundaries disagree with the simulator's | no — endpointing |
+| `TRUNCATED` / `NOT_HEARD` | most or all of it missing | no |
+| `MINOR` | inflection or filler only | n/a, not worth chasing |
+
+Two things it is careful about, both of which produced false findings in the
+first draft:
+
+- **The comparison is normalized.** A ZIP spoken `"one, nine, one, two, two"`
+  and transcribed `"19122"` is *correct*; so is `"Y-U-S-U-F"` for
+  `"Y, U, S, U, F"`. Raw diffing flags nearly every authentication utterance,
+  which buries the real errors. Digit words fold to digits, digit runs join,
+  hyphens are deleted (not spaced — otherwise `t-shirt` splits into two tokens
+  and a perfect transcript scores as a mismatch), and only what remains counts.
+- **Alignment is not positional.** STT decides utterance boundaries and the
+  simulator decides utterances, and they disagree — a pause or a `[sneeze]`
+  splits one into two. Index pairing shifts every later row after the first
+  split, so the whole rest of the call reads as errors. The script aligns
+  greedily over 1:1, 1:2 and 2:1 and reports the cardinality, because a split is
+  itself a finding: the agent answered half a sentence.
