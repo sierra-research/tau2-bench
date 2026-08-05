@@ -257,11 +257,11 @@ thing":
 ```sh
 uv run python scripts/stt_errors.py retail-stt-default-20 retail-stt-sandbox-20
 
-# every mis-hearing, including ones that changed nothing
+# every mis-hearing, including ones that never reached a tool call
 uv run python scripts/stt_errors.py retail-stt-default-20 --all-errors
 
-# include tasks that passed too
-uv run python scripts/stt_errors.py retail-stt-default-20 --all
+# skip tasks that passed
+uv run python scripts/stt_errors.py retail-stt-default-20 --failing-only
 ```
 
 Ground truth exists because tau2 *synthesizes* the caller: every `user_chunk`
@@ -269,30 +269,50 @@ carries an `audio_script_gold` naming the exact text spoken. The script pairs
 those against the agent's `user_transcript` wire events and prints
 said/heard/diff per utterance.
 
-**By default it shows only the mis-hearings it can trace to a failed action**,
-each with a `caused:` line naming the argument:
+**By default it shows only the mis-hearings that reached a tool call**, across
+every task — including tasks that PASSED, since a mis-heard argument the agent
+recovered from is a near miss worth seeing before it costs a run. Each row
+carries a `caused:` line naming the argument:
 
 ```
-- DIGITS — numeric substitution (zip / order id / phone)
-  - said:  `K, O, V, A, C, S.`
-  - heard: `K-O-B-A-C-S. Okay, so this one, people`
-  - caused: expected `last_name`='kovacs' was spoken but not heard
-  - caused: agent used `last_name`='kobacs', which only appears in the transcript
+- SUBSTITUTION — words swapped (homophone or proper noun)
+  - said:  `M, E, I—D, A, V, I, S. Zip is eight, zero, two, one, seven.`
+  - heard: `M-E-I-D-A-B-I-S. Zip is 80217.`
+  - caused: `find_user_id_by_name_zip.last_name`: agent used 'dabis', which
+            appears in the transcript but not in what the caller said
 ```
 
-The trace runs both directions, and both are needed. A value the caller *said*
-that is missing from what was heard explains an action the agent could not
-perform — it was never told the right thing. A value present in what was heard
-and absent from what was said explains an action performed *wrongly* — the
-mis-hearing became the argument. Only the second catches the wrong-account class,
-where every required datum was spoken and the agent still acted on something
-else.
+The rule needs no expected value, which is what lets it cover passing tasks: an
+argument whose value is in the transcript and was never *said* is a mis-hearing
+that got as far as a tool call. When a failed check does name an expected value,
+two things are added — the reason says what the caller actually said, and a value
+that was spoken but never reached the tool at all is reported too (an action the
+agent could not perform because it was never told the right thing). A value that
+*is* present in what the caller said is never evidence, however unlike the
+transcript it looks.
 
 This matters because most mis-hearings are harmless: on the measured runs only
-**17%** and **23%** of them could be traced to a failed action. A report listing
-all of them invites fixing the loudest rather than the costly one. The count of
-what was hidden is still printed, since that number is also the honest ceiling
-on what a language or endpoint fix would buy.
+**~10%** of them reached a tool call. A report listing all of them invites fixing
+the loudest rather than the costly one. The hidden count is still printed, since
+that number is also the honest ceiling on what a language or endpoint fix would
+buy.
+
+Three false-positive sources were found by reading its own output, and all three
+are worth knowing about if you extend it:
+
+- **Spelled-out separators.** A caller spelling an email says `dot` and `at`
+  aloud; STT writes punctuation. Both are folded, gated on the utterance looking
+  address-ish, so `mia.garcia2723@example.com` stops reading as an error — it is a
+  *correct* transcription.
+- **Cross-word substring matches.** Comparing against a space-less form made
+  `"And when you say that"` contain `usa`, so an agent's `country='usa'` was
+  blamed on an utterance that never mentioned a country. Matching is now anchored
+  to token boundaries (inside one token, or an exact run of consecutive ones).
+- **Asymmetric spelling punctuation.** Gold `"M, E, I—D, A, V, I, S"` against
+  heard `"M-E-I-D-A-B-I-S"`: deleting dashes alone left the gold as
+  `me | id | avis` versus one token for the transcript, so *every* argument looked
+  absent from what the caller said. Spelled runs are collapsed before any
+  dash handling.
 
 Errors are classed because the classes need different remedies, and only one of
 them is fixable agent-side:

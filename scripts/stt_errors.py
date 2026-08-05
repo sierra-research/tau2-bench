@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Diff what the caller SAID against what the agent HEARD, per utterance.
 
-    uv run python scripts/stt_errors.py <run> [<run> ...] [--all] [--out FILE]
+    uv run python scripts/stt_errors.py <run> [<run> ...] [--all-errors] [--out FILE]
 
 tau2 synthesizes the caller's speech from text, so ground truth exists: every
 `user_chunk` carries an `audio_script_gold` naming the exact utterance that was
@@ -9,8 +9,10 @@ spoken. The agent's side of it is the `user_transcript` wire events in the
 session log. Pairing them turns "the agent did the wrong thing" into "the agent
 was told the wrong thing", which are different bugs with different owners.
 
-Defaults to FAILING tasks only (`--all` for every task), since a mis-hearing
-that changed nothing is not what you are looking for.
+Defaults to the mis-hearings that REACHED A TOOL CALL, across every task —
+including tasks that passed, where a mis-heard argument is a near miss worth
+seeing before it costs a run. `--all-errors` widens to every mis-hearing;
+`--failing-only` narrows the tasks.
 
 ## Why the comparison needs normalization
 
@@ -91,7 +93,31 @@ def _normalize(text: str) -> list[str]:
     # spacing them splits one word into two tokens so a perfectly transcribed
     # sentence scores as a mismatch. Deleting also folds a spelled-out
     # "Y-U-S-U-F" straight into "yusuf".
+    # Collapse a spelled-out run FIRST, while its separators are still intact.
+    # The two sides punctuate spelling differently — gold `"M, E, I—D, A, V, I, S"`
+    # against heard `"M-E-I-D-A-B-I-S"` — and deleting dashes alone leaves the gold
+    # as `me | id | avis` (the em-dash fuses I+D into a two-letter token, breaking
+    # the single-letter run) versus one token for the heard side. Every argument
+    # then looked absent from what the caller said: `first_name='mei'` was reported
+    # as a mis-hearing of an utterance that spelled M, E, I aloud.
+    text = re.sub(
+        r"(?:\b[a-z]\b[^a-z0-9]*){2,}",
+        lambda m: re.sub(r"[^a-z]", "", m.group(0)) + " ",
+        text,
+    )
     text = re.sub(r"[-–—]+", "", text)
+    # Address folding. A caller spelling an email says the SEPARATORS aloud
+    # ("mia dot garcia at example dot com") and STT writes them as punctuation
+    # ("mia.garcia2723@example.com") — a correct transcription that could never
+    # match, since punctuation is stripped while the words survive. Dropping the
+    # spoken forms too makes both sides collapse to the same letters.
+    #
+    # Gated on the utterance looking address-ish (an "@", or a spoken "dot"), so
+    # an ordinary "meet me at the store" keeps its "at" and a genuinely dropped
+    # word still reads as a difference. Losing the "@" ENTIRELY is still caught:
+    # the EMAIL class is detected on the raw strings, before any of this.
+    if "@" in text or re.search(r"\bdot\b", text):
+        text = re.sub(r"\b(?:dot|at)\b", " ", text)
     text = re.sub(r"[^a-z0-9']+", " ", text)
     tokens = [NUMBER_WORDS.get(t, t) for t in text.split() if t]
     # Join digit runs, so a spoken "1 9 1 2 2" and a transcribed "19122" are one
@@ -256,68 +282,174 @@ def _blob(text: str) -> str:
     return "".join(_normalize(text))
 
 
-def _arg_values(arguments: dict) -> list[tuple[str, str]]:
-    """(argument name, normalized value) for every scalar in a tool call."""
-    out = []
+def _scalar_args(arguments: dict) -> dict[str, list[str]]:
+    """argument name -> normalized scalar value(s) of one tool call."""
+    out: dict[str, list[str]] = {}
     for name, value in (arguments or {}).items():
         items = value if isinstance(value, list) else [value]
         for item in items:
             if isinstance(item, (str, int, float)) and not isinstance(item, bool):
                 blob = _blob(str(item))
                 if blob:
-                    out.append((name, blob))
+                    out.setdefault(name, []).append(blob)
     return out
+
+
+def _failed_checks(sim: dict) -> list[tuple[str, dict[str, list[str]]]]:
+    """(tool name, expected args) for the action checks that FAILED.
+
+    Only failed checks: an argument from a check that passed cannot be evidence
+    that something went wrong.
+    """
+    out = []
+    for check in (sim.get("reward_info") or {}).get("action_checks") or []:
+        if check.get("action_match"):
+            continue
+        action = check.get("action") or {}
+        name = action.get("name")
+        if name:
+            out.append((name, _scalar_args(action.get("arguments") or {})))
+    return out
+
+
+def _calls_by_name(sim: dict) -> dict[str, list[dict[str, list[str]]]]:
+    """tool name -> each call's normalized arguments, in order."""
+    out: dict[str, list[dict[str, list[str]]]] = {}
+    for tick in sim.get("ticks") or []:
+        for call in tick.get("agent_tool_calls") or []:
+            name = call.get("name")
+            if name:
+                out.setdefault(name, []).append(
+                    _scalar_args(call.get("arguments") or {})
+                )
+    return out
+
+
+# Values shorter than this are not evidence: a two-character argument matches
+# somewhere in almost any transcript by chance.
+MIN_EVIDENCE_LEN = 3
+
+
+def _contains(value: str, text: str) -> bool:
+    """Does `text` really carry `value`, allowing for spelling and run-together?
+
+    Plain substring matching on the concatenated form is too loose and invented
+    findings: `"And when you say that"` collapses to `andwhenyousaythatthats`,
+    which contains `usa` across the `you|say` boundary, so an agent's
+    `country='usa'` was reported as a mis-hearing from an utterance that never
+    mentioned a country.
+
+    A real match is one of two shapes, both anchored to token boundaries:
+
+    - inside a SINGLE token — a spelled-out name arrives as one token
+      (`meidabis`), and `dabis` is genuinely in it;
+    - the exact concatenation of consecutive tokens — a spoken address becomes
+      `mia | garcia | 2723 | example | com`, whose join is the argument value.
+    """
+    if not value:
+        return False
+    tokens = _normalize(text)
+    if any(value in token for token in tokens):
+        return True
+    for i in range(len(tokens)):
+        joined = ""
+        for j in range(i, len(tokens)):
+            joined += tokens[j]
+            if joined == value:
+                return True
+            if len(joined) > len(value):
+                break
+    return False
 
 
 def _causal_evidence(
     gold: str,
     heard: str,
-    expected_args: list[tuple[str, str]],
-    actual_args: list[tuple[str, str]],
+    failed: list[tuple[str, dict[str, list[str]]]],
+    calls: dict[str, list[dict[str, list[str]]]],
 ) -> list[str]:
-    """Why this mis-hearing plausibly caused the failure — empty if it didn't.
+    """Why this mis-hearing reached a tool call — empty if it didn't.
 
-    Two directions, and both are needed. A value the caller SAID that is missing
-    from what was heard explains an action the agent could not perform (it was
-    never told the right thing). A value present in what was heard and absent
-    from what was said explains an action performed WRONGLY (the mis-hearing
-    became the argument). Reporting only the first would miss the wrong-account
-    class entirely, where every required datum was spoken and the agent still
-    acted on something else.
+    The primary rule needs no expected value, so it works whether the task passed
+    or failed: an argument the agent PASSED whose value appears in the transcript
+    and was never said is a mis-hearing that got as far as a tool call. A passing
+    task can contain one — the agent recovered, or the check tolerated it — and
+    those are exactly the near misses worth seeing before they cost a run.
+
+    A value that IS in what the caller said is never evidence, however unlike the
+    transcript it looks. That is what makes a correctly transcribed spelled-out
+    email (`mia.garcia2723@example.com`, said as "dot"/"at") stop being reported:
+    its normalized form is present on both sides.
+
+    When a failed check names an expected value, two things are added: the reason
+    says what the caller actually said, and a value that was spoken but never
+    reached the tool at all is reported too — an action the agent could not
+    perform because it was never told the right thing.
+
+    Expected values are compared PER CALL rather than pooled across calls. An
+    agent retrying authentication gets a different field wrong each time —
+    measured: `{first_name: mei, last_name: kobacs}` then
+    `{first_name: may, last_name: kovacs}`. Pooled, every argument was right in
+    *some* call and the task looked uncaused, when in fact no single call was ever
+    right and each wrong field traces to its own mis-hearing.
     """
-    gold_blob, heard_blob = _blob(gold), _blob(heard)
-    reasons = []
-    for name, value in expected_args:
-        if value and value in gold_blob and value not in heard_blob:
-            reasons.append(f"expected `{name}`={value!r} was spoken but not heard")
-    for name, value in actual_args:
-        if value and value in heard_blob and value not in gold_blob:
-            reasons.append(
-                f"agent used `{name}`={value!r}, which only appears in the transcript"
-            )
+    # A transcript with no matching utterance has no `said` side, so nothing
+    # can be attributed to it — every value would trivially be "not in gold".
+    if not gold.strip():
+        return []
+    reasons: list[str] = []
+    # What the failed checks (if any) expected, so a reason can name it.
+    expected_by_arg: dict[tuple[str, str], list[str]] = {}
+    for tool, expected_args in failed:
+        for name, values in expected_args.items():
+            expected_by_arg.setdefault((tool, name), []).extend(values)
+
+    seen: set[tuple[str, str, str]] = set()
+    for tool, tool_calls in calls.items():
+        for call in tool_calls:
+            for name, values in call.items():
+                for value in values:
+                    if len(value) < MIN_EVIDENCE_LEN:
+                        continue
+                    if not _contains(value, heard) or _contains(value, gold):
+                        continue
+                    key = (tool, name, value)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    said = [
+                        e
+                        for e in expected_by_arg.get((tool, name), [])
+                        if e and e != value and _contains(e, gold)
+                    ]
+                    if said:
+                        reasons.append(
+                            f"`{tool}.{name}`: agent used {value!r} from the transcript, "
+                            f"caller said {said[0]!r}"
+                        )
+                    else:
+                        reasons.append(
+                            f"`{tool}.{name}`: agent used {value!r}, which appears in the "
+                            f"transcript but not in what the caller said"
+                        )
+
+    # A value the caller said that never reached the tool. Needs an expected value,
+    # so this half applies to failed checks only.
+    for tool, expected_args in failed:
+        tool_calls = calls.get(tool, [])
+        for name, expected_values in expected_args.items():
+            for expected in expected_values:
+                if len(expected) < MIN_EVIDENCE_LEN or not _contains(expected, gold):
+                    continue
+                if _contains(expected, heard):
+                    continue  # it was heard; if it still went wrong, not here
+                if any(expected in call.get(name, []) for call in tool_calls):
+                    continue  # it did reach the tool
+                reasons.append(
+                    f"`{tool}.{name}`={expected!r} was spoken but not heard"
+                    + ("" if tool_calls else "; the tool was never called")
+                )
     return reasons
-
-
-def _failed_action_args(
-    sim: dict,
-) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
-    """Arguments of the checks that FAILED, and of the calls actually made.
-
-    Scoped to failed checks on purpose: an argument from a check that passed
-    cannot be evidence that something went wrong.
-    """
-    reward_info = sim.get("reward_info") or {}
-    expected: list[tuple[str, str]] = []
-    for check in reward_info.get("action_checks") or []:
-        if check.get("action_match"):
-            continue
-        expected += _arg_values((check.get("action") or {}).get("arguments") or {})
-
-    actual: list[tuple[str, str]] = []
-    for tick in sim.get("ticks") or []:
-        for call in tick.get("agent_tool_calls") or []:
-            actual += _arg_values(call.get("arguments") or {})
-    return expected, actual
 
 
 def _latest_trials(index) -> dict[str, dict]:
@@ -333,7 +465,7 @@ def _latest_trials(index) -> dict[str, dict]:
     return best
 
 
-def report(run: str, root: Path, include_all: bool, all_errors: bool, out) -> None:
+def report(run: str, root: Path, failing_only: bool, all_errors: bool, out) -> None:
     run_dir = root / "data" / "simulations" / run
     results_path = run_dir / "results.json"
     if not results_path.exists():
@@ -356,7 +488,10 @@ def report(run: str, root: Path, include_all: bool, all_errors: bool, out) -> No
 
     for entry in sorted(latest.values(), key=lambda e: (e.get("reward") or 0)):
         reward = entry.get("reward") or 0
-        if reward >= 1.0 and not include_all:
+        # Every task by default: a mis-heard value can reach a tool call in a
+        # task that still PASSED (the agent recovered, or the check tolerated
+        # it), and those near misses are the cheapest ones to learn from.
+        if failing_only and reward >= 1.0:
             continue
         sim_path = run_dir / "simulations" / f"{entry['id']}.json"
         log = logs.get(entry["id"])
@@ -364,10 +499,9 @@ def report(run: str, root: Path, include_all: bool, all_errors: bool, out) -> No
             continue
         sim = json.loads(sim_path.read_text())
         pairs = _align(_gold_utterances(sim), _heard_transcripts(log))
-        expected_args, actual_args = _failed_action_args(sim)
-        # A passing task has no failed action to trace to, so causal filtering
-        # cannot apply — show its mis-hearings as-is when --all asked for them.
-        filtering = not all_errors and reward < 1.0
+        failed_checks = _failed_checks(sim)
+        calls = _calls_by_name(sim)
+        filtering = not all_errors
 
         rows = []
         for gold_group, heard_group in pairs:
@@ -376,11 +510,18 @@ def report(run: str, root: Path, include_all: bool, all_errors: bool, out) -> No
             cardinality = (len(gold_group), len(heard_group))
             utterances += 1
             score = _similarity(gold, heard) if gold and heard else 0.0
-            if cardinality == (1, 1) and score >= SAME_ENOUGH:
+            # Identical collapsed forms mean the transcript differs only in where
+            # it put the boundaries — a spelled name ("Y, U, S, U, F" / "Y-U-S-U-F"),
+            # a spoken ZIP, an email whose separators were said aloud. Token
+            # similarity scores those below the threshold even though every letter
+            # and digit is right, and each one reported as an error is a
+            # false positive on exactly the utterances that matter most.
+            same_collapsed = bool(gold) and bool(heard) and _blob(gold) == _blob(heard)
+            if cardinality == (1, 1) and (score >= SAME_ENOUGH or same_collapsed):
                 continue
             kind = _classify(gold, heard, cardinality)
             errors += 1
-            reasons = _causal_evidence(gold, heard, expected_args, actual_args)
+            reasons = _causal_evidence(gold, heard, failed_checks, calls)
             if reasons:
                 causal += 1
                 # Counted per class only when causal: a breakdown over every
@@ -407,11 +548,11 @@ def report(run: str, root: Path, include_all: bool, all_errors: bool, out) -> No
                 print(f"  - **caused:** {reason}", file=out)
         print("", file=out)
 
-    scope = "all tasks" if include_all else "failing tasks"
+    scope = "failing tasks" if failing_only else "all tasks"
     lens = (
         "every mis-hearing"
         if all_errors
-        else "only mis-hearings traced to a failed action"
+        else "only mis-hearings that reached a tool call"
     )
     print(f"### Summary ({scope}; {lens})\n", file=out)
     print(
@@ -420,7 +561,7 @@ def report(run: str, root: Path, include_all: bool, all_errors: bool, out) -> No
         file=out,
     )
     print(
-        f"- of those, traced to a failed action: **{causal}**"
+        f"- of those, reached a tool call: **{causal}**"
         + (f"  ({100 * causal / errors:.0f}% of mis-hearings)" if errors else ""),
         file=out,
     )
@@ -431,13 +572,13 @@ def report(run: str, root: Path, include_all: bool, all_errors: bool, out) -> No
         # scope reads as "there were only this many", and the count is also the
         # honest measure of how much a language/endpoint fix would NOT buy.
         print(
-            f"- **{suppressed}** further mis-hearing(s) hidden as not traceable to a "
-            f"failed action — `--all-errors` to see them",
+            f"- **{suppressed}** further mis-hearing(s) hidden as never reaching a "
+            f"tool call — `--all-errors` to see them",
             file=out,
         )
     if not shown:
         print(
-            "\n_No mis-hearings traced to a failed action in scope._"
+            "\n_No mis-hearings reached a tool call in scope._"
             if not all_errors
             else "\n_No mis-hearings found in scope._",
             file=out,
@@ -448,7 +589,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("runs", nargs="+")
     parser.add_argument(
-        "--all", action="store_true", help="include passing tasks, not just failures"
+        "--failing-only",
+        action="store_true",
+        help="skip tasks that passed (default: every task)",
     )
     parser.add_argument(
         "--all-errors",
@@ -470,7 +613,7 @@ def main() -> int:
             file=out,
         )
         for run in args.runs:
-            report(run, args.root, args.all, args.all_errors, out)
+            report(run, args.root, args.failing_only, args.all_errors, out)
     finally:
         if args.out:
             out.close()
