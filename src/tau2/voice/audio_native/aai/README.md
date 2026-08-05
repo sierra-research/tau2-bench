@@ -50,10 +50,14 @@ assumes a local agent.
   dev server falls back to for `ASSEMBLYAI_API_KEY`, so without it the agent
   boots and then fails at STT connect.
 - An SDK build containing `assemblyAIStt({ streamingUrl })`
-  ([agent#976](https://github.com/alexkroman/agent/pull/976)). Without it the
-  descriptor can only select a host via `region: "us" | "eu"`, and arm B below
+  ([agent#976](https://github.com/alexkroman/agent/pull/976), merged). Without it
+  the descriptor can only select a host via `region: "us" | "eu"`, and arm B below
   silently runs on the default endpoint — i.e. you measure nothing and it looks
   like a null result.
+- For `assemblyAIStt({ languages })`, also
+  [agent#978](https://github.com/alexkroman/agent/pull/978). Without it, drop that
+  line from the `agent.ts` below; the run still works, with the language caveat
+  described in "Settings that matter".
 
 ## 2. The agent project
 
@@ -85,8 +89,16 @@ export default agent({
   greeting: "",
   // No sttPrompt on purpose: the harness sends its own via the host config
   // block, keeping the benchmark's STT biasing with the benchmark.
-  stt: assemblyAIStt(streamingUrl ? { streamingUrl } : {}),
-  llm: assemblyAILlm({ model: "gpt-5.5" }),
+  // languages: ["en"] — an unset language is NOT English. Universal-3.5 Pro
+  // code-switches across 18 languages, and unpinned it returned English
+  // utterances transliterated into Devanagari and Hebrew script, authentication
+  // turns included. See "Settings that matter" below.
+  stt: assemblyAIStt({
+    languages: ["en"],
+    ...(streamingUrl ? { streamingUrl } : {}),
+  }),
+  // reasoningEffort: "none" — time-to-first-token IS the voice quality here.
+  llm: assemblyAILlm({ model: "gpt-5.5", reasoningEffort: "none" }),
   tts: assemblyAITts(),
 });
 ```
@@ -343,3 +355,73 @@ first draft:
   split, so the whole rest of the call reads as errors. The script aligns
   greedily over 1:1, 1:2 and 2:1 and reports the cardinality, because a split is
   itself a finding: the agent answered half a sentence.
+
+# Settings that matter (measured, not guessed)
+
+Every number here comes from reading a real run's artifacts. Where a setting was
+left alone, the measurement is the reason.
+
+## Change: `reasoningEffort: "none"` on the LLM
+
+The dominant voice defect is **dead air before the agent's first word**, not
+turn-taking. Measured on a 5-task retail run: 12 of 53 turns waited over 5s for
+the first agent word, median 1.62s, worst **19.1s**. Decomposing all ten gaps
+over 8s, every single one had a real content word first (`Got`, `One`, `Thanks`)
+and **no tool call yet in that turn** — so the gap is the model thinking.
+
+Nothing in the pipeline covers that window. `holdPhrase` fires when a turn
+*opens with a tool call*; the dead-air cover measures *tool execution*. Both are
+downstream of the first token, which is why one of those gaps was the hold phrase
+itself (`One moment.`) arriving 10.9s late. Covering time-to-first-token would
+need a timer armed at turn commit, independent of the model stream — a code
+change, not a setting.
+
+## Change: `languages: ["en"]` on the STT
+
+An unset language is *not* English — Universal-3.5 Pro code-switches across 18
+languages, deciding per turn. Unpinned, English utterances came back
+transliterated: `Hello? Any update?` as `हेलो एनी अपडेट`, and an authentication
+turn as `यूसुफ रॉसी, ज़िप कोड 19122।`, so the tool call built from it was garbage.
+
+Caveat on expectations: on the 20-task runs, **none** of the causal mis-hearings
+(the ones that reached a tool call) were in that class. Pinning the language is
+still right — an auth turn *did* come back in Devanagari, and that is luck rather
+than safety — but do not expect it to move the score much on its own.
+
+## Leave alone: `minBargeInWords` (2), `interruptionMinDurationMs` (500)
+
+**17 of 18 barge-ins were followed by a genuine committed user turn** — one false
+positive in the run. These are correctly tuned for this workload.
+
+`speech_started` → barge-in is median 2.09s, which looks like it wants
+`minBargeInWords: 1`. It does not: that delay is STT partial cadence, not the
+gate. What you would buy is the simulated caller's `"Okay."` and `"Uh-huh."`
+backchannels cutting the agent off mid-sentence.
+
+## Leave alone: `falseInterruptionTimeoutMs` (2000)
+
+The server log looks alarming — `false-interruption resume` followed by
+`resume mooted by committed user turn`, repeatedly — and cancel→commit really
+does straddle the timer (median 1.72s, p75 2.33s, max 4.35s), so a 2000ms window
+fires mid-distribution.
+
+It is nonetheless handled by design: the mooting path aborts the resume **while
+it is still silent** (`!hasTurnSpoken()`), so nothing is played over the caller.
+In the measured log 3 of 4 resumes were mooted and the 4th was the one genuinely
+false interruption. The residual cost is a wasted LLM turn, not audible damage.
+Raising the window would trade that for slower recovery on real false alarms.
+
+## Leave alone: `minTurnSilenceMs` (2000)
+
+It adds ~2s to every turn, so it is the obvious latency target. But the STT
+report finds **SPLIT** errors on this domain — one utterance becoming two turns —
+which means it is sometimes too *short*. Retail authentication is spelled-out
+names and digits with deliberate pauses, so if anything it wants raising here,
+paying latency you are better off recovering from the model.
+
+## Not a setting
+
+Two defects in this list are SDK-side ordering bugs, visible in the wire log and
+unaffected by any constant: `agent_transcript` emitted after a turn's terminal
+`cancelled` frame, and user turns that never receive a `reply_done`. Both are
+reported by `scripts/failure_report.py` under "Wire anomalies".
