@@ -78,6 +78,22 @@ DEFAULT_VOICE_SYNTHESIS_PROVIDER = "elevenlabs"
 DEFAULT_VOICE_TRANSCRIPTION_MODEL = "nova-3"
 DEFAULT_VOICE_MODEL = "eleven_v3"
 
+# Ceiling on TTS calls in flight at once, PROCESS-WIDE (see
+# tau2.voice.synthesis.synthesize). TTS providers cap concurrency per
+# subscription and answer 429 `concurrent_limit_exceeded` over it; ElevenLabs'
+# lower tiers allow 5. Exceeding it is not merely slower — a synthesis that
+# burns its retries is a caller utterance that arrives late or not at all, and
+# `--max-concurrency` does not bound this on its own, because a single
+# simulation fans out (OutOfTurnSpeechGenerator pre-generates its inserts in a
+# thread pool).
+#
+# Default 4, one below the common cap, leaving room for an in-flight retry.
+# This is PER PROCESS: running K benchmarks in parallel against one key allows
+# K x this, so set TAU2_TTS_MAX_CONCURRENCY to floor(cap / K) for those runs
+# (the env override is read in tau2.voice.synthesis.synthesize; this module is
+# deliberately import-free).
+DEFAULT_TTS_MAX_CONCURRENCY = 4
+
 # Text streaming (legacy)
 DEFAULT_TEXT_STREAMING_CHUNK_BY = "words"
 DEFAULT_TEXT_STREAMING_CHUNK_SIZE = 1

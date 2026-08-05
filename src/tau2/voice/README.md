@@ -17,6 +17,10 @@ tau2 run --domain retail --audio-native --num-tasks 1 --verbose-logs
 
 The default provider is `openai`. Use `--audio-native-model` to override the default model for a provider.
 
+The AAI provider needs an agent you run yourself and `AAI_ALLOW_HOST=1` on it —
+see [`audio_native/aai/README.md`](audio_native/aai/README.md) for setup, and for
+a worked STT-endpoint A/B (two dev servers, one agent, one variable).
+
 ## Speech Complexity
 
 The `--speech-complexity` flag controls the realism of the user simulator's speech environment:

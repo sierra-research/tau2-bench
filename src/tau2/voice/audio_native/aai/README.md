@@ -1,0 +1,227 @@
+# AAI audio-native provider
+
+Runs tau2-bench against an [AAI](https://github.com/alexkroman/agent) voice
+agent over its WebSocket session protocol.
+
+**"AAI" here is the `@alexkroman1/aai` agent framework, not AssemblyAI the
+transcription service.** The framework happens to default to AssemblyAI
+providers for STT/LLM/TTS, but the thing under test is an agent you run
+yourself — locally via `aai dev`, or deployed to the AAI platform.
+
+The provider always connects in **host mode** (`?host=1`): tau2 supplies the
+system prompt and the domain's tool schemas, and the agent contributes only its
+provider triple (STT + LLM + TTS). That is what makes this harness useful for
+comparing *speech* pipelines — the reasoning half of the agent is tau2's, held
+constant, so a score difference is attributable to the voice stack.
+
+## Quick start (local agent)
+
+```sh
+# terminal 1 — the agent
+cd ~/Code/agent/<your-project> && AAI_ALLOW_HOST=1 npx aai dev
+
+# terminal 2 — the benchmark
+AAI_WS_URL=ws://localhost:3000/websocket uv run tau2 run \
+  --domain retail --audio-native --audio-native-provider aai \
+  --num-tasks 5 --max-concurrency 1 --save-to my-run --verbose-logs
+```
+
+`AAI_ALLOW_HOST=1` is required and easy to miss. Host mode lets the *client*
+supply the agent definition while the session spends the operator's provider
+credentials, so the AAI dev server refuses it unless explicitly enabled — the
+symptom otherwise is a rejected upgrade, not a helpful error.
+
+`AAI_WS_URL` defaults to `ws://localhost:3000/websocket`, which matches
+`aai dev`'s default port, so the local case needs no override. A **deployed**
+agent uses `wss://<host>/<slug>/websocket` and also needs `ASSEMBLYAI_API_KEY`.
+
+---
+
+# Reproducing the STT endpoint A/B
+
+This is the comparison the provider was built for: the same agent, run twice,
+differing **only** in which STT streaming endpoint it dials. Everything below
+assumes a local agent.
+
+## 1. Prerequisites
+
+- The [agent repo](https://github.com/alexkroman/agent) cloned, with
+  `pnpm install` run and `npx aai login` completed. The login key is what the
+  dev server falls back to for `ASSEMBLYAI_API_KEY`, so without it the agent
+  boots and then fails at STT connect.
+- An SDK build containing `assemblyAIStt({ streamingUrl })`
+  ([agent#976](https://github.com/alexkroman/agent/pull/976)). Without it the
+  descriptor can only select a host via `region: "us" | "eu"`, and arm B below
+  silently runs on the default endpoint — i.e. you measure nothing and it looks
+  like a null result.
+
+## 2. The agent project
+
+Both arms must run **byte-identical agent code**, or a score difference could
+be a source drift between two copies rather than the endpoint. So: one project,
+one `agent.ts`, and the endpoint comes from the environment.
+
+Create a project directory (this lives outside both repos — it is your local
+harness, not a checked-in fixture) whose `node_modules/@alexkroman1/*` link to
+the agent repo's `packages/*`, then write:
+
+```ts
+// agent.ts
+import { agent } from "@alexkroman1/aai";
+import { assemblyAILlm } from "@alexkroman1/aai/llm";
+import { assemblyAIStt } from "@alexkroman1/aai/stt";
+import { assemblyAITts } from "@alexkroman1/aai/tts";
+
+// tau2 connects with ?host=1 and injects its own system prompt + tool schemas,
+// so only this provider triple is inherited — which is what makes this file the
+// right place to A/B an STT endpoint.
+//
+// AAI_STT_URL unset (arm A) leaves the SDK's own default endpoint in place;
+// set (arm B) points the socket at that URL instead.
+const streamingUrl = process.env.AAI_STT_URL;
+
+export default agent({
+  name: "tau2-pipeline",
+  greeting: "",
+  // No sttPrompt on purpose: the harness sends its own via the host config
+  // block, keeping the benchmark's STT biasing with the benchmark.
+  stt: assemblyAIStt(streamingUrl ? { streamingUrl } : {}),
+  llm: assemblyAILlm({ model: "gpt-5.5" }),
+  tts: assemblyAITts(),
+});
+```
+
+`process.env` works here because `aai dev` evaluates the bundle **in the CLI's
+own process** and the bundler sets no Vite `define`. This is a dev-only
+affordance: after `aai deploy` the same code runs in a guest sandbox whose env
+comes from `.env` / `aai secret`, not your shell.
+
+## 3. Start both dev servers
+
+```sh
+# terminal 1 — arm A, default STT host
+cd <project> && AAI_ALLOW_HOST=1 npx aai dev --port 3000
+
+# terminal 2 — arm B, sandbox STT host
+cd <project> && AAI_ALLOW_HOST=1 \
+  AAI_STT_URL=wss://streaming.sandbox000.assemblyai-labs.com/v3/ws \
+  npx aai dev --port 3001
+```
+
+Two servers can share one project directory: with no `client.tsx`, `aai dev`
+starts no Vite server and binds the requested port directly, and it keeps no
+on-disk state.
+
+Wait for each to log `Session mode resolved … mode: 'pipeline'`, then:
+
+```sh
+curl -s -o /dev/null -w "3000:%{http_code} " http://localhost:3000/health
+curl -s -o /dev/null -w "3001:%{http_code}\n" http://localhost:3001/health
+```
+
+The `streamingUrl` must include the versioned path (`/v3/ws`) — the SDK
+supplies that only for its own default host, so a bare origin connects to the
+wrong route.
+
+## 4. Verify arm B before spending a full run on it
+
+Do not skip this. If the cluster rejects the key or the path, every arm-B
+session dies at STT connect and the arm scores 0.0 — which is indistinguishable
+from a quality result in `results.json`.
+
+```sh
+AAI_WS_URL=ws://localhost:3001/websocket uv run tau2 run \
+  --domain retail --audio-native --audio-native-provider aai \
+  --num-tasks 1 --max-concurrency 1 --save-to smoke-sandbox --verbose-logs
+```
+
+Then check terminal 2 for `stt_connect_failed` / `stt_auth_failed`. If the
+cluster needs its own key, restart **only** arm B with it prefixed — a shell
+value beats the login-key fallback, and arm A is untouched:
+
+```sh
+ASSEMBLYAI_API_KEY=<sandbox-key> AAI_ALLOW_HOST=1 \
+  AAI_STT_URL=wss://streaming.sandbox000.assemblyai-labs.com/v3/ws \
+  npx aai dev --port 3001
+```
+
+`AAI_DEBUG=1` on either server logs each STT turn, which is the fastest way to
+confirm words are arriving.
+
+## 5. Run both arms
+
+```sh
+# terminal 3
+AAI_WS_URL=ws://localhost:3000/websocket uv run tau2 run \
+  --domain retail --audio-native --audio-native-provider aai \
+  --num-tasks 20 --max-concurrency 1 --save-to retail-stt-default-20 --verbose-logs
+
+# terminal 4
+AAI_WS_URL=ws://localhost:3001/websocket uv run tau2 run \
+  --domain retail --audio-native --audio-native-provider aai \
+  --num-tasks 20 --max-concurrency 1 --save-to retail-stt-sandbox-20 --verbose-logs
+```
+
+### Concurrency: the TTS cap binds across BOTH runs
+
+The user simulator's voice is ElevenLabs, and its subscription caps concurrent
+requests (5 on lower tiers), answering `429 concurrent_limit_exceeded` over it.
+A synthesis that burns its retries is a **caller utterance that arrives late or
+not at all**, and on retail the delayed ones are disproportionately the
+spelled-out names and ZIPs that authentication depends on — so exceeding the cap
+corrupts the variable this A/B measures.
+
+`--max-concurrency` does not bound it on its own: a single simulation fans out
+(`OutOfTurnSpeechGenerator` pre-generates its inserts in a thread pool).
+`DEFAULT_TTS_MAX_CONCURRENCY` (4) is the real ceiling, enforced by a semaphore
+in `tau2.voice.synthesis.synthesize`.
+
+**That ceiling is per PROCESS.** Two arms in parallel means two semaphores, so
+set each to half the cap:
+
+```sh
+TAU2_TTS_MAX_CONCURRENCY=2 AAI_WS_URL=... uv run tau2 run ...
+```
+
+Or run the arms sequentially and leave it at the default. To confirm afterwards
+that the cap held:
+
+```sh
+grep -c "synthesize_voice failed" data/simulations/<run>/artifacts/task_*/*/task.log
+```
+
+Anything above zero means some caller speech was delayed; treat the run as
+noisy rather than comparable.
+
+## 6. Read the results
+
+```sh
+for r in retail-stt-default-20 retail-stt-sandbox-20; do
+  echo "== $r"
+  jq '[.simulations[].reward] | add/length' data/simulations/$r/results.json
+done
+```
+
+Four traps, in the order they bite:
+
+1. **Wait for retries to settle.** A retry *overwrites* the earlier score, so a
+   mid-run average is not the result. Read `results.json` only after both runs
+   exit.
+2. **Result panels print in completion order**, not task order. Take task ids
+   from `results.json`'s `simulation_index`, never from the log's panel order.
+3. **A low reward with high `NL_ASSERTION` means authentication failed**, not
+   that the agent converses badly. A call that never gets past
+   `find_user_id_by_name_zip` executes zero expected actions yet still scores
+   NL 1.0 for handling it gracefully. Since this A/B is about STT, that is the
+   number that should move.
+4. **Failing calls run long.** An agent that cannot authenticate keeps retrying,
+   so any wall-clock cap kills already-doomed conversations preferentially — the
+   worse arm loses more sessions to timeouts than to scoring, which exaggerates
+   the gap.
+
+For per-turn detail, the wire events are in
+`data/simulations/<run>/artifacts/task_*/sim_*/task.log` (`grep 'AAI event:'`),
+and the tool-call arguments — which is where STT errors become score errors —
+are in `data/simulations/<run>/simulations/*.json` under each tick's
+`agent_tool_calls`. Note `sim["messages"]` is empty; it is not the place to
+look.
