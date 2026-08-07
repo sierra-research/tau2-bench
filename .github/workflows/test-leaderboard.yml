@@ -1,0 +1,44 @@
+name: Leaderboard E2E
+
+# Routing/prerender regression tests for the website. Builds and prerenders
+# dist/ exactly like the deploy workflow (but against the git-tracked
+# submissions data, so no network dependency), then runs Playwright against
+# it with GitHub Pages serving semantics.
+on:
+  pull_request:
+    paths:
+      - 'web/leaderboard/**'
+      - '.github/workflows/test-leaderboard.yml'
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/leaderboard/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web/leaderboard
+        run: npm ci
+
+      - name: Build
+        working-directory: web/leaderboard
+        env:
+          NODE_ENV: production
+        run: npm run build
+
+      - name: Prerender routes
+        working-directory: web/leaderboard
+        run: npm run prerender
+
+      - name: Run e2e tests
+        working-directory: web/leaderboard
+        run: npm run test:e2e

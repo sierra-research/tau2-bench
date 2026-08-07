@@ -39,6 +39,7 @@ def get_environment(
     retrieval_kwargs: Optional[dict] = None,
     task: Optional[Task] = None,
     solo_mode: bool = False,
+    read_log_allowlist: Optional[set] = None,
 ) -> Environment:
     """Get the banking_knowledge domain environment.
 
@@ -55,6 +56,11 @@ def get_environment(
         task: Optional task — needed by ``golden_retrieval`` to inline
             task-specific documents in the prompt.
         solo_mode: Not supported for banking_knowledge.
+        read_log_allowlist: Names of read-only discoverable tools whose calls
+            should be logged to ``agent_discoverable_tools`` for eval. Typically
+            derived from the task's golden trajectory so that required-read
+            assertions still discriminate, while extra validation reads don't
+            pollute the DB hash comparison.
 
     Returns:
         Fully configured Environment for the banking_knowledge domain.
@@ -71,7 +77,9 @@ def get_environment(
     kwargs = retrieval_kwargs or {}
     variant = resolve_variant(variant_name, **kwargs)
 
-    tools = build_tools(variant, db, knowledge_base)
+    tools = build_tools(
+        variant, db, knowledge_base, read_log_allowlist=read_log_allowlist
+    )
     user_tools = KnowledgeUserTools(db)
     policy = build_policy(variant, knowledge_base, task)
 

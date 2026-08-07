@@ -244,7 +244,8 @@ For voice submissions, `prepare` does the following:
 2. **Converts to directory-based format** — if source results are in monolithic JSON format, they are automatically converted to the directory layout (`results.json` metadata + `simulations/` with individual sim files).
 3. **Copies only canonical audio** — for each task, only the canonical simulation's `audio/` subdirectory from `artifacts/` is kept. Non-canonical simulation directories, `hallucination_discarded/`, `llm_debug/`, `sim_status.json`, and `task.log` are all skipped.
 4. **Extracts `voice_config`** — provider, model, tick duration, and user TTS settings are extracted from the trajectory data and embedded in `submission.json`.
-5. **Sets `modality: "voice"`** and prompts for the voice user simulator version (defaulting to `VOICE_USER_SIMULATOR_VERSION`).
+5. **Computes `interaction_metrics`** — the interaction-quality panel (latency, responsiveness, interrupts, selectivity) is computed from the tick-level trajectory data and embedded in `submission.json`. See [Interaction Metrics](interaction-metrics.md).
+6. **Sets `modality: "voice"`** and prompts for the voice user simulator version (defaulting to `VOICE_USER_SIMULATOR_VERSION`).
 
 Output structure:
 
@@ -402,6 +403,7 @@ Your `submission.json` must follow the schema defined in [`web/leaderboard/publi
 | `references` | array | — | Links to papers, documentation, repos |
 | `methodology` | object | — | Evaluation methodology details |
 | `voice_config` | object | — | Voice-specific configuration (required for voice) |
+| `interaction_metrics` | object | — | Voice interaction metrics computed from trajectories; see [Interaction Metrics](#interaction-metrics) |
 | `model_release` | object | — | Model release metadata (release date + announcement link); see [Model Release](#model-release) |
 
 ### Domain Results
@@ -450,6 +452,26 @@ Required when `modality` is `"voice"`:
 | `tick_duration_seconds` | No | Duration of each simulation tick in seconds |
 | `max_steps_seconds` | No | Maximum simulation duration in seconds |
 | `user_tts_provider` | No | User simulator TTS provider/model (e.g. `"elevenlabs/eleven_v3"`) |
+
+### Interaction Metrics
+
+Voice submissions carry an `interaction_metrics` block with the τ-voice
+interaction-quality panel (response/yield latency, response/yield rate, agent
+interruption rate, and selectivity for backchannels, vocal tics, and
+non-directed speech), computed offline from the tick-level trajectories. It is
+generated automatically by `tau2 submit prepare` for voice submissions and
+**recomputed by maintainers from the submitted trajectories during review** —
+submitter-provided values are always replaced.
+
+The block contains a `version` stamp, the detection-window `config`,
+per-domain panels under `domains`, and the cross-domain average under
+`overall`; every rate is accompanied by its event counts. See
+[Interaction Metrics documentation](interaction-metrics.md) for full metric
+definitions, and compute it yourself with:
+
+```bash
+tau2 submit interaction-metrics <experiment-dirs> --output interaction_metrics.json
+```
 
 ## Verification System
 
@@ -594,6 +616,24 @@ Voice submissions set `modality` to `"voice"` and include a `voice_config` objec
     "max_steps_seconds": 600,
     "user_tts_provider": "elevenlabs/eleven_v3"
   },
+  "interaction_metrics": {
+    "version": "1.0",
+    "config": { "tick_duration_sec": 0.2, "no_yield_window_sec": 2.0, "...": 0.0 },
+    "domains": {
+      "retail": {
+        "response_latency_mean": 1.44,
+        "yield_latency_mean": 0.62,
+        "response_rate": 0.998,
+        "yield_rate": 1.0,
+        "agent_interruption_rate": 0.2,
+        "selectivity_backchannel": 0.04,
+        "selectivity_vocal_tic": 0.06,
+        "selectivity_non_directed": 0.15,
+        "counts": { "n_simulations": 114, "response_total": 891, "yield_total": 566, "backchannel_total": 77, "vocal_tic_total": 83, "non_directed_total": 134, "agent_interrupts_count": 179 }
+      }
+    },
+    "overall": { "...": "per-metric mean across domains, counts summed" }
+  },
   "methodology": {
     "evaluation_date": "2026-03-01",
     "tau2_bench_version": "v2.0",
@@ -641,6 +681,7 @@ See `web/leaderboard/public/submissions/A_EXAMPLE_voice-model_example-org_2026-0
 - [ ] PR description includes link to externally hosted trajectory data
 - [ ] **New provider:** PR includes audio-native adapter implementation and documentation
 - [ ] Results use "regular" speech complexity only
+- [ ] `interaction_metrics` recomputed from the submitted trajectories (done automatically by `review_submission.py`; submitter-provided values must not be trusted)
 - [ ] No duplicate submissions
 
 ## Questions?

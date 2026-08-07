@@ -64,6 +64,9 @@ class CascadedEventType(str, Enum):
     TTS_AUDIO = "tts_audio"
     TTS_COMPLETED = "tts_completed"
 
+    # Usage events (billing meters from STT/LLM/TTS legs)
+    USAGE = "usage"
+
     # Control events
     INTERRUPTED = "interrupted"
     ERROR = "error"
@@ -279,6 +282,10 @@ class CascadedVoiceProvider:
 
         # Cancellation
         self._cancel_event: asyncio.Event = asyncio.Event()
+
+        # Usage meters. STT billing is per audio-second streamed, tracked
+        # cumulatively here (Deepgram bills on audio sent, not recognized).
+        self.stt_audio_seconds_sent: float = 0.0
 
     @property
     def state(self) -> ProviderState:
@@ -599,6 +606,7 @@ class CascadedVoiceProvider:
 
             # Push to stream
             self._stt_stream.push_frame(frame)
+            self.stt_audio_seconds_sent += samples_per_channel / sample_rate
             logger.debug(
                 f"Pushed {len(audio)} bytes ({samples_per_channel} samples) to STT"
             )
@@ -794,6 +802,7 @@ class CascadedVoiceProvider:
             # Stream LLM response
             response_text = ""
             tool_calls: List[ToolCall] = []
+            llm_usage = None
 
             async with self._llm_client.chat(
                 chat_ctx=chat_ctx,
@@ -802,6 +811,9 @@ class CascadedVoiceProvider:
                 async for chunk in stream:
                     if self._cancel_event.is_set():
                         break
+
+                    if chunk.usage:
+                        llm_usage = chunk.usage
 
                     if chunk.delta:
                         if chunk.delta.content:
@@ -815,6 +827,9 @@ class CascadedVoiceProvider:
                         if chunk.delta.tool_calls:
                             for tc in chunk.delta.tool_calls:
                                 tool_calls.append(self._parse_tool_call(tc))
+
+            if llm_usage is not None:
+                yield self._make_llm_usage_event(llm_usage)
 
             yield CascadedEvent(
                 type=CascadedEventType.LLM_COMPLETED,
@@ -844,6 +859,20 @@ class CascadedVoiceProvider:
         finally:
             self._state = ProviderState.LISTENING
 
+    def _make_llm_usage_event(self, usage: Any) -> CascadedEvent:
+        """Build a USAGE event from a livekit CompletionUsage object."""
+        return CascadedEvent(
+            type=CascadedEventType.USAGE,
+            data={
+                "component": "llm",
+                "provider": self.config.llm.provider,
+                "model": self.config.llm.model,
+                "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                "completion_tokens": getattr(usage, "completion_tokens", None),
+                "prompt_cached_tokens": getattr(usage, "prompt_cached_tokens", None),
+            },
+        )
+
     async def _process_tts(
         self,
         text: str,
@@ -861,6 +890,18 @@ class CascadedVoiceProvider:
 
         self._state = ProviderState.SPEAKING
         yield CascadedEvent(type=CascadedEventType.TTS_STARTED)
+
+        # TTS bills per character of input text; the full text is submitted
+        # to the API up front, so bill it even if playback is interrupted.
+        yield CascadedEvent(
+            type=CascadedEventType.USAGE,
+            data={
+                "component": "tts",
+                "provider": self.config.tts.provider,
+                "model": self.config.tts.model,
+                "characters": len(text),
+            },
+        )
 
         try:
             # Use synthesize for simpler TTS
@@ -933,6 +974,7 @@ class CascadedVoiceProvider:
             tools = self._format_tools()
             response_text = ""
             tool_calls: List[ToolCall] = []
+            llm_usage = None
 
             async with self._llm_client.chat(
                 chat_ctx=chat_ctx,
@@ -941,6 +983,9 @@ class CascadedVoiceProvider:
                 async for chunk in stream:
                     if self._cancel_event.is_set():
                         break
+
+                    if chunk.usage:
+                        llm_usage = chunk.usage
 
                     if chunk.delta:
                         if chunk.delta.content:
@@ -954,6 +999,9 @@ class CascadedVoiceProvider:
                         if chunk.delta.tool_calls:
                             for tc in chunk.delta.tool_calls:
                                 tool_calls.append(self._parse_tool_call(tc))
+
+            if llm_usage is not None:
+                yield self._make_llm_usage_event(llm_usage)
 
             yield CascadedEvent(
                 type=CascadedEventType.LLM_COMPLETED,

@@ -236,13 +236,23 @@ class NovaUnknownEvent(BaseNovaEvent):
 
 
 class NovaUsageEvent(BaseNovaEvent):
-    """Token usage tracking event (sent frequently during processing)."""
+    """Token usage tracking event (sent frequently during processing).
+
+    Nova's wire format is camelCase, so every field needs an explicit alias
+    (BaseNovaEvent uses extra="ignore", which silently drops unaliased keys).
+    Token counts are RUNNING TOTALS for the completion, not deltas; the
+    ``details`` dict carries {"delta": ..., "total": ...} with per-modality
+    (speechTokens/textTokens) breakdowns.
+    """
 
     event_type: Literal["usageEvent"] = "usageEvent"
-    completion_id: Optional[str] = None
-    total_input_tokens: int = 0
-    total_output_tokens: int = 0
-    total_tokens: int = 0
+    completion_id: Optional[str] = Field(default=None, alias="completionId")
+    session_id: Optional[str] = Field(default=None, alias="sessionId")
+    prompt_name: Optional[str] = Field(default=None, alias="promptName")
+    total_input_tokens: int = Field(default=0, alias="totalInputTokens")
+    total_output_tokens: int = Field(default=0, alias="totalOutputTokens")
+    total_tokens: int = Field(default=0, alias="totalTokens")
+    details: Optional[Dict[str, Any]] = None
 
 
 class NovaMetadataEvent(BaseNovaEvent):

@@ -41,6 +41,7 @@ from tau2.config import (
     DEFAULT_GEMINI_OUTPUT_SAMPLE_RATE,
 )
 from tau2.data_model.message import ToolCall
+from tau2.data_model.usage import UsageRecord
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter
 from tau2.voice.audio_native.async_loop import BackgroundAsyncLoop
@@ -56,6 +57,7 @@ from tau2.voice.audio_native.gemini.events import (
     GeminiTextDeltaEvent,
     GeminiTimeoutEvent,
     GeminiTurnCompleteEvent,
+    GeminiUsageEvent,
 )
 from tau2.voice.audio_native.gemini.provider import GeminiLiveProvider, GeminiVADConfig
 from tau2.voice.audio_native.tick_result import (
@@ -497,6 +499,22 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
 
         elif isinstance(event, GeminiSessionResumptionEvent):
             logger.debug(f"Session resumption update: resumable={event.resumable}")
+
+        elif isinstance(event, GeminiUsageEvent):
+            self.record_usage(
+                UsageRecord.from_gemini_usage_metadata(
+                    model=self.model,
+                    prompt_token_count=event.prompt_token_count,
+                    response_token_count=event.response_token_count,
+                    cached_content_token_count=event.cached_content_token_count,
+                    thoughts_token_count=event.thoughts_token_count,
+                    prompt_tokens_details=event.prompt_tokens_details,
+                    response_tokens_details=event.response_tokens_details,
+                    raw=event.model_dump(
+                        exclude={"type", "event_id"}, exclude_none=True
+                    ),
+                )
+            )
 
         else:
             logger.debug(f"Event {type(event).__name__} received")

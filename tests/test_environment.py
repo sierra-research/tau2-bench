@@ -608,3 +608,54 @@ def test_environment_evaluator_hallucinated_only_scores_zero(
     assert reward_info.reward == 0.0
     assert reward_info.db_check is not None
     assert not reward_info.db_check.db_match
+
+
+def test_environment_set_state_strict_flag(
+    get_environment: Callable[[], Environment],
+):
+    """A replayed mutating tool call whose recorded output differs from the
+    current tool code raises in strict mode (default) and only warns with
+    strict=False (used when re-grading historical trajectories)."""
+    drifted_history = [
+        AssistantMessage(
+            id="2",
+            content=None,
+            role="assistant",
+            tool_calls=[
+                ToolCall(
+                    id="3",
+                    name="create_task",
+                    arguments={"user_id": "user_1", "title": "Important Meeting"},
+                )
+            ],
+        ),
+        ToolMessage(
+            id="3",
+            content='{"task_id": "task_2", "title": "Important Meeting (recorded by older tool code)", "description": null, "status": "pending"}',
+            role="tool",
+        ),
+    ]
+
+    environment = get_environment()
+    with pytest.raises(ValueError):
+        environment.set_state(
+            initialization_data=None,
+            initialization_actions=None,
+            message_history=drifted_history,
+        )
+
+    environment = get_environment()
+    environment.set_state(
+        initialization_data=None,
+        initialization_actions=None,
+        message_history=drifted_history,
+        strict=False,
+    )
+    # The state mutation was still applied.
+    environment.run_env_assertion(
+        EnvAssertion(
+            env_type="assistant",
+            func_name="assert_number_of_tasks",
+            arguments={"user_id": "user_1", "expected_number": 2},
+        )
+    )

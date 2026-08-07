@@ -52,9 +52,10 @@ The script will:
 1. Parse the PR's `submission.json`
 2. Load and validate trajectory files (format, task coverage, trial counts)
 3. Recompute metrics and compare against submitted scores
-4. Update `submission.json` with `trajectories_available: true` and `trajectory_files`
-5. (With `--upload`) Upload trajectories and updated `submission.json` to S3
-6. (With `--upload`) Verify the upload (HTTP 200, file sizes match)
+4. (Voice) Recompute `interaction_metrics` from the tick data, replacing any submitter-provided values
+5. Update `submission.json` with `trajectories_available: true` and `trajectory_files`
+6. (With `--upload`) Upload trajectories and updated `submission.json` to S3
+7. (With `--upload`) Verify the upload (HTTP 200, file sizes match)
 
 ### 4. Verify upload separately (optional)
 
@@ -101,6 +102,25 @@ aws s3api head-object \
 aws s3 rm s3://sierra-tau-bench-public/submissions/<dir>/trajectories/<file> --profile tau-bench-ci
 aws s3 cp /local/path s3://sierra-tau-bench-public/submissions/<dir>/trajectories/<file> --profile tau-bench-ci
 ```
+
+## Backfilling Interaction Metrics
+
+If the interaction-metric code changes in a way that warrants recomputation
+(major refactor — see `INTERACTION_METRICS_VERSION`), or a voice submission is
+missing its `interaction_metrics` block, recompute from the public S3
+trajectories:
+
+```bash
+# All voice submissions in the manifest (downloads trajectories to ~/.cache/tau2/)
+python -m tau2.scripts.leaderboard.backfill_interaction_metrics
+
+# Specific submissions, or a dry run
+python -m tau2.scripts.leaderboard.backfill_interaction_metrics \
+  --submissions gpt-realtime-2_openai_2026-06-24 --dry-run
+```
+
+The script patches the local `web/leaderboard/public/submissions/<dir>/submission.json`
+files; commit them via PR and the GitHub Actions sync pushes them to S3.
 
 ## Troubleshooting
 

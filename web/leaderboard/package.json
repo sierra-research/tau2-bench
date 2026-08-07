@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "generate": "node scripts/generate-author-pages.mjs",
+    "build": "npm run generate && vite build",
+    "prerender": "node scripts/prerender.mjs",
+    "serve:dist": "node scripts/prerender.mjs --serve",
+    "test:e2e": "playwright test",
     "lint": "eslint .",
     "preview": "vite preview",
     "deploy": "npm run build && gh-pages -d dist"
@@ -16,6 +20,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
+    "@playwright/test": "^1.61.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",

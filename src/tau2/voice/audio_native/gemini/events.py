@@ -150,6 +150,23 @@ class GeminiGoAwayEvent(BaseGeminiEvent):
     time_left_seconds: Optional[float] = None
 
 
+class GeminiUsageEvent(BaseGeminiEvent):
+    """Token usage reported by the Live API (LiveServerMessage.usage_metadata).
+
+    Token detail lists are plain dicts of {"modality": str, "token_count": int},
+    converted from the SDK's ModalityTokenCount objects.
+    """
+
+    type: Literal["usage"] = "usage"
+    prompt_token_count: Optional[int] = None
+    response_token_count: Optional[int] = None
+    cached_content_token_count: Optional[int] = None
+    thoughts_token_count: Optional[int] = None
+    total_token_count: Optional[int] = None
+    prompt_tokens_details: Optional[list] = None
+    response_tokens_details: Optional[list] = None
+
+
 class GeminiSessionResumptionEvent(BaseGeminiEvent):
     """Session resumption update from the server.
 
@@ -179,5 +196,6 @@ GeminiEvent = Union[
     GeminiTimeoutEvent,
     GeminiUnknownEvent,
     GeminiGoAwayEvent,
+    GeminiUsageEvent,
     GeminiSessionResumptionEvent,
 ]

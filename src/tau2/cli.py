@@ -41,6 +41,7 @@ from tau2.data_model.simulation import (
 )
 from tau2.domains.banking_knowledge.retrieval import get_all_variant_names
 from tau2.run import get_options, run_domain
+from tau2.runner.work import parse_provider_limits
 
 
 def get_all_retrieval_config_names():
@@ -154,7 +155,24 @@ def add_run_args(parser):
         "--max-concurrency",
         type=int,
         default=DEFAULT_MAX_CONCURRENCY,
-        help=f"The maximum number of concurrent simulations to run. Default is {DEFAULT_MAX_CONCURRENCY}.",
+        help=f"The maximum number of concurrent simulations to run. Default is {DEFAULT_MAX_CONCURRENCY}. "
+        "With --workers, this is the number of simulations each worker process holds.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=0,
+        help="Number of worker processes to spawn. 0 (default) runs simulations in this "
+        "process. N > 0 makes this process a controller that schedules and checkpoints "
+        "while N worker processes execute (N x --max-concurrency simulations in flight); "
+        "use when scaling beyond the single-process concurrency ceiling.",
+    )
+    parser.add_argument(
+        "--provider-limit",
+        type=str,
+        default=None,
+        help='Per-provider concurrency caps in controller mode, e.g. "openai=40,gemini=20". '
+        "Requires --workers.",
     )
     parser.add_argument(
         "--seed",
@@ -239,7 +257,7 @@ def add_run_args(parser):
     parser.add_argument(
         "--audio-native-provider",
         type=str,
-        choices=["openai", "gemini", "xai", "livekit"],
+        choices=["openai", "gemini", "xai", "nova", "qwen", "livekit"],
         default=DEFAULT_AUDIO_NATIVE_PROVIDER,
         help=f"Audio native API provider. Default is '{DEFAULT_AUDIO_NATIVE_PROVIDER}'.",
     )
@@ -260,7 +278,7 @@ def add_run_args(parser):
     parser.add_argument(
         "--reasoning-effort",
         type=str,
-        choices=["minimal", "low", "medium", "high"],
+        choices=["minimal", "low", "medium", "high", "xhigh"],
         default=None,
         help="Reasoning effort for thinking models. Only applies to providers that support it (e.g. OpenAI).",
     )
@@ -647,6 +665,8 @@ def main():
             timeout=args.timeout,
             save_to=args.save_to,
             max_concurrency=args.max_concurrency,
+            workers=args.workers,
+            provider_limits=parse_provider_limits(args.provider_limit),
             seed=args.seed,
             log_level=args.log_level,
             verbose_logs=args.verbose_logs,
@@ -717,6 +737,17 @@ def main():
         action="store_true",
         help="Show expanded tick view instead of consolidated (for full-duplex simulations).",
     )
+    view_parser.add_argument(
+        "--max-tool-result-chars",
+        type=int,
+        default=500,
+        help="Truncate tool results (e.g. retrieved knowledge articles) to this many characters. Default: 500.",
+    )
+    view_parser.add_argument(
+        "--full-tool-results",
+        action="store_true",
+        help="Show full tool results without truncation.",
+    )
     view_parser.set_defaults(func=lambda args: run_view_simulations(args))
 
     # Domain command
@@ -731,6 +762,40 @@ def main():
     # Start command
     start_parser = subparsers.add_parser("start", help="Start all servers")
     start_parser.set_defaults(func=lambda args: run_start_servers())
+
+    # Worker command (executes simulations for a `tau2 run --workers N` controller)
+    worker_parser = subparsers.add_parser(
+        "worker",
+        help="Run a worker process that executes simulations for a tau2 controller "
+        "(see `tau2 run --workers`).",
+    )
+    worker_parser.add_argument(
+        "--controller",
+        type=str,
+        required=True,
+        help="Controller base URL, e.g. http://127.0.0.1:8321",
+    )
+    worker_parser.add_argument(
+        "--slots",
+        type=int,
+        default=10,
+        help="Concurrent simulations this worker holds (default: 10).",
+    )
+    worker_parser.add_argument(
+        "--worker-id",
+        type=str,
+        default=None,
+        help="Worker identity in controller logs (default: hostname-pid).",
+    )
+
+    def worker_command(args):
+        from tau2.runner.worker import run_worker_command
+
+        return run_worker_command(
+            controller=args.controller, slots=args.slots, worker_id=args.worker_id
+        )
+
+    worker_parser.set_defaults(func=worker_command)
 
     # Intro command
     intro_parser = subparsers.add_parser(
@@ -757,6 +822,11 @@ def main():
         "-o",
         "--output-dir",
         help="Directory to save updated trajectory files with recomputed rewards. If not provided, only displays metrics.",
+    )
+    evaluate_parser.add_argument(
+        "--fresh-tasks",
+        action="store_true",
+        help="Re-grade against the current task definitions from the data directory instead of the ones embedded in each results file.",
     )
     evaluate_parser.set_defaults(func=lambda args: run_evaluate_trajectories(args))
 
@@ -912,6 +982,26 @@ def main():
     )
     submit_verify_parser.set_defaults(func=lambda args: run_verify_trajectories(args))
 
+    # Submit interaction-metrics subcommand
+    submit_im_parser = submit_subparsers.add_parser(
+        "interaction-metrics",
+        help="Compute voice interaction metrics (latency, responsiveness, "
+        "interrupts, selectivity) from full-duplex trajectories",
+    )
+    submit_im_parser.add_argument(
+        "input_paths",
+        nargs="+",
+        help="Voice experiment directories (results.json + simulations/) or a "
+        "parent directory such as a submission's trajectories/ dir",
+    )
+    submit_im_parser.add_argument(
+        "--output",
+        "-o",
+        default=None,
+        help="Optional path to write the interaction_metrics JSON block",
+    )
+    submit_im_parser.set_defaults(func=lambda args: run_interaction_metrics(args))
+
     # Convert results format command
     convert_parser = subparsers.add_parser(
         "convert-results",
@@ -947,12 +1037,18 @@ def main():
 def run_view_simulations(args):
     from tau2.scripts.view_simulations import main as view_main
 
+    if args.full_tool_results or args.max_tool_result_chars <= 0:
+        max_tool_result_length = None
+    else:
+        max_tool_result_length = args.max_tool_result_chars
+
     view_main(
         sim_file=args.file,
         only_show_failed=args.only_show_failed,
         only_show_all_failed=args.only_show_all_failed,
         sim_dir=args.dir,
         expanded_ticks=args.expanded_ticks,
+        max_tool_result_length=max_tool_result_length,
     )
 
 
@@ -998,7 +1094,9 @@ def run_evaluate_trajectories(args):
 
     logger.configure(handlers=[{"sink": sys.stderr, "level": "ERROR"}])
 
-    evaluate_trajectories(args.paths, args.output_dir)
+    evaluate_trajectories(
+        args.paths, args.output_dir, fresh_tasks=getattr(args, "fresh_tasks", False)
+    )
 
 
 def run_review(args):
@@ -1072,6 +1170,18 @@ def run_validate_submission(args):
     from tau2.scripts.leaderboard.prepare_submission import validate_submission
 
     validate_submission(submission_dir=args.submission_dir)
+
+
+def run_interaction_metrics(args):
+    """Run the interaction metrics computation command."""
+    from tau2.scripts.leaderboard.compute_interaction_metrics import (
+        compute_interaction_metrics,
+    )
+
+    compute_interaction_metrics(
+        input_paths=args.input_paths,
+        output_path=args.output,
+    )
 
 
 def run_manual_mode():

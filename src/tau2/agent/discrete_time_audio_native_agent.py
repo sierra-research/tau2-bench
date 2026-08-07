@@ -74,10 +74,12 @@ from tau2.data_model.message import (
     ToolMessage,
     UserMessage,
 )
+from tau2.data_model.usage import UsageRecord
 from tau2.environment.tool import Tool
 from tau2.utils.utils import get_now
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter, create_adapter
 from tau2.voice.audio_native.tick_result import TickResult
+from tau2.voice.pricing import compute_tick_cost
 
 # Provider type alias
 AudioNativeProvider = Literal["openai", "gemini", "xai", "nova", "qwen", "livekit"]
@@ -635,6 +637,19 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         audio_content = base64.b64encode(agent_audio).decode("utf-8")
         content = transcript if transcript else None
 
+        # Per-message cost: priced from this tick's delta usage records (most
+        # ticks report none and cost 0.0). Cumulative meters (Nova, xAI audio
+        # minutes, STT) are priced once at session level, not per message, so
+        # SimulationRun.agent_cost — derived from the session usage ledger —
+        # is the authoritative total.
+        usage_records = tick_result.usage_records
+        cost = compute_tick_cost(usage_records) if usage_records else 0.0
+        usage = (
+            {"records": [r.model_dump(exclude_none=True) for r in usage_records]}
+            if usage_records
+            else None
+        )
+
         message = AssistantMessage(
             role="assistant",
             content=content,
@@ -646,6 +661,8 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             contains_speech=has_speech,
             raw_data=tick_result.model_dump(serialize_as_any=True),
             utterance_ids=tick_result.item_ids if tick_result.item_ids else None,
+            cost=cost,
+            usage=usage,
         )
         # Check if this is a stop message (done or transfer tool call)
         message = self._check_if_stop_toolcall(message)
@@ -673,10 +690,21 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             chunk_id=0,
             is_final_chunk=True,
             contains_speech=False,
+            cost=0.0,
         )
         # check if the message should be considered a stop message.
         message = self._check_if_stop_toolcall(message)
         return message
+
+    def get_usage_records(self) -> List[UsageRecord]:
+        """Provider usage records collected by the adapter.
+
+        Safe to call after stop()/cleanup(): the adapter's usage ledger
+        survives disconnect. Returns [] if no adapter was ever created.
+        """
+        if self._adapter is None:
+            return []
+        return self._adapter.get_usage_records()
 
     def create_initial_message(
         self, content: str = "Hi! How can I help you today?"
