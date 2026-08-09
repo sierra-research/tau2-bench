@@ -4,7 +4,7 @@ from tau2.data_model.message import ToolCall
 from tau2.data_model.tasks import EnvAssertion, EnvFunctionCall
 from tau2.domains.telecom.environment import TelecomEnvironment
 from tau2.domains.telecom.tasks.const import TOOL_CALL_GROUNDING, TOOL_CALL_INFO_CHECK
-from tau2.domains.telecom.tasks.manager import TaskManager
+from tau2.domains.telecom.tasks.manager import TaskCustomerScenario, TaskManager
 from tau2.domains.telecom.tasks.mobile_data_issues import (
     data_mode_issues,
     data_usage_exceeded_issues,
@@ -51,16 +51,21 @@ def is_fixed(env: TelecomEnvironment):
 
 
 ### Init Functions
-def set_surrounding(*args, **kwargs) -> list[EnvFunctionCall]:
+def set_surrounding(
+    env: TelecomEnvironment, customer: TaskCustomerScenario
+) -> list[EnvFunctionCall]:
     """
     Set the user info for the mms issue task.
-    User info is expected to be "John Smith" and "555-123-2002".
+    Set the released customer and service-line phone number.
     """
     return [
         EnvFunctionCall(
             env_type="user",
             func_name="set_user_info",
-            arguments={"name": "John Smith", "phone_number": "555-123-2002"},
+            arguments={
+                "name": customer.full_name,
+                "phone_number": customer.phone_number,
+            },
         )
     ]
 

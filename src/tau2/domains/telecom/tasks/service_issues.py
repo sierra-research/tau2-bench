@@ -3,7 +3,7 @@ from tau2.data_model.tasks import EnvAssertion, EnvFunctionCall
 from tau2.domains.telecom.data_model import BillStatus, LineStatus
 from tau2.domains.telecom.environment import TelecomEnvironment
 from tau2.domains.telecom.tasks.const import TOOL_CALL_GROUNDING, TOOL_CALL_INFO_CHECK
-from tau2.domains.telecom.tasks.manager import TaskManager
+from tau2.domains.telecom.tasks.manager import TaskCustomerScenario, TaskManager
 from tau2.domains.telecom.tasks.utils import BaseTask, SelectionSet
 
 OVERDUE_BILL_ID = "B1234321"
@@ -57,7 +57,9 @@ def is_fixed(env: TelecomEnvironment) -> bool:
 
 
 ### Init Functions
-def set_surrounding(env: TelecomEnvironment) -> list[EnvFunctionCall]:
+def set_surrounding(
+    env: TelecomEnvironment, customer: TaskCustomerScenario
+) -> list[EnvFunctionCall]:
     """
     Set the user info for the service issue task.
     """
@@ -65,7 +67,10 @@ def set_surrounding(env: TelecomEnvironment) -> list[EnvFunctionCall]:
         EnvFunctionCall(
             env_type="user",
             func_name="set_user_info",
-            arguments={"name": "John Smith", "phone_number": "555-123-2002"},
+            arguments={
+                "name": customer.full_name,
+                "phone_number": customer.phone_number,
+            },
         )
     ]
 

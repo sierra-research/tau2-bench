@@ -4,7 +4,7 @@ from tau2.data_model.message import ToolCall
 from tau2.data_model.tasks import EnvAssertion, EnvFunctionCall
 from tau2.domains.telecom.environment import TelecomEnvironment
 from tau2.domains.telecom.tasks.const import TOOL_CALL_GROUNDING, TOOL_CALL_INFO_CHECK
-from tau2.domains.telecom.tasks.manager import TaskManager
+from tau2.domains.telecom.tasks.manager import TaskCustomerScenario, TaskManager
 from tau2.domains.telecom.tasks.service_issues import airplane_mode_issues
 from tau2.domains.telecom.tasks.utils import BaseTask, SelectionSet
 from tau2.domains.telecom.user_data_model import NetworkModePreference
@@ -59,16 +59,21 @@ def is_fixed(env: TelecomEnvironment):
 
 
 ### Init Functions
-def set_surrounding(*args, **kwargs) -> list[EnvFunctionCall]:
+def set_surrounding(
+    env: TelecomEnvironment, customer: TaskCustomerScenario
+) -> list[EnvFunctionCall]:
     """
     Set the user info for the mobile data issue task.
-    User info is expected to be "John Smith" and "555-123-2002".
+    Set the released customer and service-line phone number.
     """
     return [
         EnvFunctionCall(
             env_type="user",
             func_name="set_user_info",
-            arguments={"name": "John Smith", "phone_number": "555-123-2002"},
+            arguments={
+                "name": customer.full_name,
+                "phone_number": customer.phone_number,
+            },
         )
     ]
 
@@ -232,14 +237,17 @@ def set_vpn_slow_speed(env: TelecomEnvironment):
 
 
 def set_data_usage_exceeded(env: TelecomEnvironment):
+    user = env.tools.get_customer_by_phone(env.user_tools.db.surroundings.phone_number)
+    line = env.tools._get_line_by_phone(env.user_tools.db.surroundings.phone_number)
+    plan = env.tools._get_plan_by_id(line.plan_id)
     return [
         EnvFunctionCall(
             env_type="assistant",
             func_name="set_data_usage",
             arguments={
-                "customer_id": "C1001",
-                "line_id": "L1002",
-                "data_used_gb": 15.1,
+                "customer_id": user.customer_id,
+                "line_id": line.line_id,
+                "data_used_gb": plan.data_limit_gb + line.data_refueling_gb + 0.1,
             },
         ),
         EnvAssertion(
@@ -251,19 +259,26 @@ def set_data_usage_exceeded(env: TelecomEnvironment):
 
 
 def set_data_usage_exceeded_no_refuel(env: TelecomEnvironment):
+    user = env.tools.get_customer_by_phone(env.user_tools.db.surroundings.phone_number)
+    line = env.tools._get_line_by_phone(env.user_tools.db.surroundings.phone_number)
+    plan = env.tools._get_plan_by_id(line.plan_id)
     return [
         EnvFunctionCall(
             env_type="assistant",
             func_name="refuel_data",
-            arguments={"customer_id": "C1001", "line_id": "L1002", "gb_amount": 2.0},
+            arguments={
+                "customer_id": user.customer_id,
+                "line_id": line.line_id,
+                "gb_amount": 2.0,
+            },
         ),
         EnvFunctionCall(
             env_type="assistant",
             func_name="set_data_usage",
             arguments={
-                "customer_id": "C1001",
-                "line_id": "L1002",
-                "data_used_gb": 17.1,
+                "customer_id": user.customer_id,
+                "line_id": line.line_id,
+                "data_used_gb": plan.data_limit_gb + 2.1,
             },
         ),
         EnvAssertion(
@@ -354,11 +369,17 @@ def fix_set_vpn_slow_speed(env: TelecomEnvironment):
 
 
 def fix_data_usage_exceeded(env: TelecomEnvironment):
+    user = env.tools.get_customer_by_phone(env.user_tools.db.surroundings.phone_number)
+    line = env.tools._get_line_by_phone(env.user_tools.db.surroundings.phone_number)
     return [
         ToolCall(
             requestor="assistant",
             name="refuel_data",
-            arguments={"customer_id": "C1001", "line_id": "L1002", "gb_amount": 2.0},
+            arguments={
+                "customer_id": user.customer_id,
+                "line_id": line.line_id,
+                "gb_amount": 2.0,
+            },
         )
     ]
 

@@ -1,6 +1,7 @@
 import json
 import textwrap
 from copy import deepcopy
+from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 from tau2.data_model.message import ToolCall
@@ -11,6 +12,41 @@ from tau2.utils import DATA_DIR
 
 from .const import PERSONAS
 from .utils import BaseTask, ComposedTask, SelectionSet, compose_tasks
+
+
+@dataclass(frozen=True)
+class TaskCustomerScenario:
+    """A released customer/line pairing supported by generated Telecom tasks."""
+
+    customer_id: str
+    full_name: str
+    phone_number: str
+    line_id: str
+    excluded_issue_names: frozenset[str] = field(default_factory=frozenset)
+
+
+DEFAULT_CUSTOMER_SCENARIOS = (
+    TaskCustomerScenario(
+        customer_id="C1001",
+        full_name="John Smith",
+        phone_number="555-123-2002",
+        line_id="L1002",
+    ),
+    TaskCustomerScenario(
+        customer_id="C1002",
+        full_name="Sarah Johnson",
+        phone_number="555-123-2004",
+        line_id="L1004",
+        excluded_issue_names=frozenset(
+            {
+                "contract_end_suspension",
+                "data_usage_exceeded",
+                "data_usage_exceeded_no_refuel",
+                "overdue_bill_suspension",
+            }
+        ),
+    ),
+)
 
 
 def prepare_base_task(base_task: dict, env: TelecomEnvironment) -> Task:
@@ -47,10 +83,15 @@ class TaskManager:
         ticket: str,
         selection_sets: list[SelectionSet],
         get_env_assertions: Callable[[bool], list[EnvAssertion]],
-        set_surrounding: Callable[[Environment], list[EnvFunctionCall]],
+        set_surrounding: Callable[
+            [Environment, TaskCustomerScenario], list[EnvFunctionCall]
+        ],
         is_fixed: Callable[[Environment], bool],
         task_validator: Optional[Callable[[list[Optional[BaseTask]]], bool]] = None,
         domain: str = "telecom",
+        customer_scenarios: tuple[
+            TaskCustomerScenario, ...
+        ] = DEFAULT_CUSTOMER_SCENARIOS,
     ):
         self.domain = domain
         self.name = name
@@ -78,12 +119,35 @@ class TaskManager:
         self.set_surrounding = set_surrounding
         self.is_fixed = is_fixed
         self.task_validator = task_validator
+        self.customer_scenarios = customer_scenarios
 
-    def create_task(self, composed_task: ComposedTask, persona: str = "None") -> Task:
+    def create_task(
+        self,
+        composed_task: ComposedTask,
+        persona: str = "None",
+        customer_scenario: TaskCustomerScenario = DEFAULT_CUSTOMER_SCENARIOS[0],
+    ) -> Task:
         env = get_environment()
 
-        init_actions = self.set_surrounding(env)
+        init_actions = self.set_surrounding(env, customer_scenario)
         env.run_env_function_calls(init_actions)
+        surroundings = env.user_tools.db.surroundings
+        selected_customer = env.tools.get_customer_by_phone(
+            customer_scenario.phone_number
+        )
+        selected_line = env.tools._get_line_by_phone(customer_scenario.phone_number)
+        if (
+            surroundings.name != customer_scenario.full_name
+            or surroundings.phone_number != customer_scenario.phone_number
+            or selected_customer.customer_id != customer_scenario.customer_id
+            or selected_customer.full_name != customer_scenario.full_name
+            or selected_line.line_id != customer_scenario.line_id
+            or selected_line.line_id not in selected_customer.line_ids
+        ):
+            raise ValueError(
+                "Telecom task customer scenario does not match the released database: "
+                f"{customer_scenario}"
+            )
         for func in composed_task.init_funcs:
             func_calls = func(env)
             env.run_env_function_calls(func_calls)  # env assertion check here
@@ -101,7 +165,7 @@ class TaskManager:
             tool_calls = func(env)
             fix_tool_calls.extend(tool_calls)
 
-        reward_eval_mode = ["ENV_ASSERTION"]
+        reward_eval_mode = ["DB", "ENV_ASSERTION"]
         if expected_failure:
             fix_actions = [
                 {
@@ -135,7 +199,10 @@ class TaskManager:
         final_task["evaluation_criteria"]["env_assertions"] = env_assertions
         final_task["evaluation_criteria"]["reward_basis"] = reward_eval_mode
         final_task["user_scenario"]["persona"] = PERSONAS[persona]
-        final_task["id"] += f"{composed_task.name}[PERSONA:{persona}]"
+        final_task["id"] += (
+            f"{composed_task.name}[CUSTOMER:{customer_scenario.customer_id}]"
+            f"[PERSONA:{persona}]"
+        )
         final_task["description"]["info"] = composed_task.description
         task = Task(**final_task)
         return task
@@ -151,14 +218,20 @@ class TaskManager:
         ]
         tasks = []
         for i, composed_task in enumerate(composed_tasks):
-            print(f"Task {i + 1}")
-            print(composed_task.name)
-            task = self.create_task(composed_task, personas[i])
-            print(task)
-            print("-" * 100)
-            self.verify_task(task)
-            print("-" * 100)
-            tasks.append(task)
+            for customer_scenario in self.customer_scenarios:
+                issue_names = {task.name for task in composed_task.composed_from}
+                if issue_names & customer_scenario.excluded_issue_names:
+                    continue
+                print(f"Task {len(tasks) + 1}")
+                print(composed_task.name)
+                task = self.create_task(
+                    composed_task, personas[i], customer_scenario=customer_scenario
+                )
+                print(task)
+                print("-" * 100)
+                self.verify_task(task)
+                print("-" * 100)
+                tasks.append(task)
         if save_tasks:
             file = (
                 DATA_DIR / "tau2" / "domains" / self.domain / f"{self.name}_tasks.json"

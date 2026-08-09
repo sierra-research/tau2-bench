@@ -118,6 +118,14 @@ def get_persona_from_task_id(task_id: str) -> str:
         raise ValueError(f"Could not extract intent from task_id: {task_id}")
 
 
+def get_customer_from_task_id(task_id: str) -> str:
+    """Extract the explicit customer ID from a multi-customer Telecom task ID."""
+    match = re.search(r"\[CUSTOMER:([A-Z0-9_]+)\]", task_id)
+    if match:
+        return match.group(1)
+    raise ValueError(f"Could not extract customer from task_id: {task_id}")
+
+
 def get_num_issues_from_task_id(task_id: str) -> int:
     """
     Extract the number of issues from the task_id.
