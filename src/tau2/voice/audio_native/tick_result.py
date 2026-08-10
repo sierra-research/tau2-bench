@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from tau2.config import DEFAULT_TELEPHONY_RATE, TELEPHONY_ULAW_SILENCE
 from tau2.data_model.message import ToolCall
+from tau2.data_model.usage import UsageRecord
 from tau2.voice.utils.transcript_utils import get_proportional_text
 
 
@@ -116,6 +117,15 @@ class TickResult(BaseModel):
     tool_calls: List[ToolCall] = Field(
         default_factory=list,
         description="Tool calls detected during this tick",
+    )
+
+    # --- Usage records reported this tick ---
+    # Provider-agnostic: adapters populate this from their usage/billing events.
+    # Intentionally serialized (unlike `events`) so usage survives into the
+    # trajectory via AssistantMessage.raw_data.
+    usage_records: List[UsageRecord] = Field(
+        default_factory=list,
+        description="Normalized provider usage reported during this tick",
     )
 
     # --- Raw agent audio (unpadded) ---

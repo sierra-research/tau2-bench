@@ -22,6 +22,7 @@ from tau2.config import (
     TELEPHONY_ULAW_SILENCE,
 )
 from tau2.data_model.audio import TELEPHONY_AUDIO_FORMAT, AudioFormat
+from tau2.data_model.usage import UsageRecord
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.tick_result import (
     TickResult,
@@ -106,6 +107,12 @@ class DiscreteTimeAdapter(ABC):
         # dict; get_proportional_transcript will forward it automatically.
         self._item_id_map: Optional[dict[str, str]] = None
 
+        # Usage ledger. Survives disconnect() (which only clears tick buffers)
+        # so the orchestrator can collect usage after the agent is stopped.
+        self._usage_records: List[UsageRecord] = []
+        self._tick_usage_buffer: List[UsageRecord] = []
+        self._current_tick_number: Optional[int] = None
+
     @abstractmethod
     def connect(
         self,
@@ -168,11 +175,38 @@ class DiscreteTimeAdapter(ABC):
         logger.debug(f"Queued tool result for call_id={call_id}")
 
     def clear_buffers(self) -> None:
-        """Reset all internal tick state."""
+        """Reset all internal tick state.
+
+        Note: the usage ledger is deliberately NOT cleared — usage must
+        survive disconnect() so it can be collected at simulation end.
+        """
         self._buffered_agent_audio.clear()
         self._utterance_transcripts.clear()
         self._pending_tool_results.clear()
         self._skip_item_id = None
+
+    # -----------------------------------------------------------------------
+    # Usage tracking
+    # -----------------------------------------------------------------------
+
+    def record_usage(self, record: UsageRecord) -> None:
+        """Record a usage observation from the provider.
+
+        Appends to the session ledger (returned by get_usage_records) and to
+        the current tick's buffer (drained into TickResult.usage_records).
+        """
+        if record.tick_number is None:
+            record.tick_number = self._current_tick_number
+        self._usage_records.append(record)
+        self._tick_usage_buffer.append(record)
+
+    def get_usage_records(self) -> List[UsageRecord]:
+        """All usage records collected over the adapter's lifetime.
+
+        Safe to call after disconnect(). Subclasses may override to append
+        live counters (e.g. LiveKit's cumulative STT audio meter).
+        """
+        return list(self._usage_records)
 
     # -----------------------------------------------------------------------
     # Tick lifecycle template
@@ -193,6 +227,7 @@ class DiscreteTimeAdapter(ABC):
         Subclasses implement _execute_tick() and _flush_pending_tool_results().
         """
         tick_start = asyncio.get_running_loop().time()
+        self._current_tick_number = tick_number
 
         # 1. Flush pending tool results
         await self._flush_pending_tool_results()
@@ -238,6 +273,11 @@ class DiscreteTimeAdapter(ABC):
 
         # 9. Update skip state for next tick
         self._skip_item_id = result.skip_item_id
+
+        # 9b. Drain usage records reported during this tick
+        if self._tick_usage_buffer:
+            result.usage_records.extend(self._tick_usage_buffer)
+            self._tick_usage_buffer.clear()
 
         # 10. Update cumulative user audio tracking
         self._cumulative_user_audio_ms += int(result.audio_sent_duration_ms)
@@ -326,7 +366,7 @@ class DiscreteTimeAdapter(ABC):
 # ---------------------------------------------------------------------------
 
 # Providers where the model is determined by the endpoint, not a parameter
-_PROVIDERS_WITH_ENDPOINT_DETERMINED_MODEL = ("xai",)
+_PROVIDERS_WITH_ENDPOINT_DETERMINED_MODEL: tuple[str, ...] = ()
 
 
 def create_adapter(
@@ -415,6 +455,7 @@ def create_adapter(
         adapter = DiscreteTimeXAIAdapter(
             tick_duration_ms=tick_duration_ms,
             send_audio_instant=send_audio_instant,
+            model=model,
             reasoning_effort=reasoning_effort,
         )
     elif provider == "nova":

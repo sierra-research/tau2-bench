@@ -53,6 +53,7 @@ from tau2.data_model.audio_effects import EffectTimeline
 from tau2.data_model.message import Message, Tick
 from tau2.data_model.persona import PersonaConfig
 from tau2.data_model.tasks import Action, EnvAssertion, RewardType, Task
+from tau2.data_model.usage import SessionUsage
 from tau2.data_model.voice import SpeechComplexity, SpeechEnvironment, VoiceSettings
 from tau2.environment.environment import EnvironmentInfo
 from tau2.environment.toolkit import ToolType
@@ -358,6 +359,25 @@ class BaseRunConfig(BaseModel):
         Field(
             description="The maximum number of concurrent simulations to run",
             default=DEFAULT_MAX_CONCURRENCY,
+        ),
+    ]
+    workers: Annotated[
+        int,
+        Field(
+            description="Number of worker processes to spawn. 0 (default) runs "
+            "simulations in this process; N > 0 makes this process a controller "
+            "that schedules and checkpoints while N workers execute, each "
+            "holding up to max_concurrency simulations in flight.",
+            default=0,
+        ),
+    ]
+    provider_limits: Annotated[
+        Optional[dict[str, int]],
+        Field(
+            description="Max concurrently-running simulations per provider, "
+            "enforced at lease time in controller mode (workers > 0), "
+            'e.g. {"openai": 40, "gemini": 20}.',
+            default=None,
         ),
     ]
     seed: Annotated[
@@ -1265,6 +1285,11 @@ class SimulationRun(BaseModel):
     )
     user_cost: Optional[float] = Field(
         description="The cost of the user.", default=None
+    )
+    agent_usage: Optional[SessionUsage] = Field(
+        description="Aggregated provider usage (and cost breakdown) for the "
+        "agent side. Populated for audio-native full-duplex runs.",
+        default=None,
     )
     reward_info: Optional[RewardInfo] = Field(
         description="The reward received by the agent.", default=None

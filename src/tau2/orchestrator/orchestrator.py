@@ -787,11 +787,7 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
         # Wrap up the simulation
         duration = time.perf_counter() - self._run_start_perf
         messages = self.get_trajectory()
-        res = get_cost(messages)
-        if res is None:
-            agent_cost, user_cost = None, None
-        else:
-            agent_cost, user_cost = res
+        agent_cost, user_cost = get_cost(messages)
         # Update voice metadata with final turn_idx values
         self._finalize_voice_metadata(messages)
 

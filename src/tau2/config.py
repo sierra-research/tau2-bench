@@ -162,11 +162,15 @@ DEFAULT_GEMINI_INPUT_SAMPLE_RATE = 16000  # fixed, API-defined
 DEFAULT_GEMINI_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 
 # =============================================================================
-# XAI PROVIDER (overridable voice, fixed API constants)
+# XAI PROVIDER (overridable model/voice, fixed API constants)
 # =============================================================================
 DEFAULT_XAI_REALTIME_BASE_URL = "wss://api.x.ai/v1/realtime"  # fixed
-DEFAULT_XAI_VOICE = "Ara"  # overridable: Ara, Rex, Sal, Eve, Leo
-DEFAULT_XAI_MODEL = "xai-realtime"  # fixed, determined by endpoint
+DEFAULT_XAI_VOICE = "ara"  # overridable; lowercase voice IDs (ara, rex, sal, eve, leo)
+# Model is selected via ?model= query param on the WebSocket URL.
+# Aliases: grok-voice-latest -> grok-voice-think-fast-2.0 (since 2026-08-05).
+# Reasoning: session.update reasoning.effort accepts "high" | "none"
+# (API default "high").
+DEFAULT_XAI_MODEL = "grok-voice-think-fast-2.0"  # overridable
 
 # =============================================================================
 # NOVA PROVIDER (overridable model/voice, fixed API constants)
@@ -183,8 +187,14 @@ DEFAULT_NOVA_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 DEFAULT_QWEN_REALTIME_URL = (
     "wss://dashscope-intl.aliyuncs.com/api-ws/v1/realtime"  # fixed
 )
-DEFAULT_QWEN_MODEL = "qwen3-omni-flash-realtime"  # overridable
-DEFAULT_QWEN_VOICE = "Cherry"  # overridable
+# Qwen3.5-Omni realtime models support tool calling over WebSocket
+# (the older qwen3-omni-flash-realtime accepted tool configs but never
+# invoked them). Flash variant: qwen3.5-omni-flash-realtime.
+# Rate limits:
+# qwen3.5-omni-plus-realtime; 60 (requests per minute); 100,000 (tokens per minute)
+# qwen3.5-omni-plus-realtime-2026-03-15; 60 (requests per minute); 100,000 (tokens per minute)
+DEFAULT_QWEN_MODEL = "qwen3.5-omni-plus-realtime"  # overridable
+DEFAULT_QWEN_VOICE = "Tina"  # overridable; Qwen3.5-Omni-Realtime default voice
 DEFAULT_QWEN_INPUT_SAMPLE_RATE = 16000  # fixed, API-defined
 DEFAULT_QWEN_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 
@@ -203,7 +213,7 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
 DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
     "openai": None,
     "gemini": "high",
-    "xai": None,
+    "xai": "high",
     "nova": None,
     "qwen": None,
     "livekit": None,

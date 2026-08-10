@@ -1,37 +1,26 @@
 """
-Qwen Omni Flash Realtime API provider for real-time voice processing.
+Qwen Omni Realtime API provider for real-time voice processing.
 
 Uses WebSocket for bidirectional audio streaming with Alibaba Cloud's DashScope API.
 The protocol is OpenAI-compatible with minor differences.
 
 Key features:
 - Input: PCM16 16kHz audio
-- Output: PCM24 24kHz audio
+- Output: PCM16 24kHz audio
 - Server-side VAD for barge-in
 - Bidirectional audio conversation
+- Tool/function calling (Qwen3.5-Omni realtime models)
+
+Tool calling notes:
+- Supported by the qwen3.5-omni-plus-realtime and qwen3.5-omni-flash-realtime
+  series. The older qwen3-omni-flash-realtime accepted tool definitions but
+  never invoked them (tested January 2026) -- do not use it with tools.
+- Tool definitions in session.update use the nested OpenAI Chat format
+  ({"type": "function", "function": {...}}), NOT the flattened OpenAI
+  Realtime format.
+- The tool_choice and parallel_tool_calls parameters are not supported.
 
 Reference: https://www.alibabacloud.com/help/en/model-studio/realtime
-
-================================================================================
-⚠️  CRITICAL LIMITATION: TOOL/FUNCTION CALLING DOES NOT WORK  ⚠️
-================================================================================
-
-Despite accepting tools configuration, the Qwen Realtime WebSocket API
-(qwen3-omni-flash-realtime) does NOT actually invoke functions:
-
-1. The model accepts tool definitions in session.update
-2. The model may SAY "let me check that for you"
-3. BUT it never emits function_call events - it generates audio instead
-
-This is a limitation of the REALTIME API specifically. The HTTP API
-(qwen3-omni-flash) DOES support tool calling correctly.
-
-Tested: January 2026
-Status: Audio streaming works, tool calling broken
-Workaround: None available for realtime API
-
-If tool calling is required, use OpenAI, Gemini, or xAI providers instead.
-================================================================================
 """
 
 import asyncio
@@ -84,19 +73,17 @@ class QwenVADConfig(BaseModel):
 
     Attributes:
         mode: VAD mode. Defaults to SERVER_VAD.
-        threshold: Speech detection sensitivity (0.0-1.0). Default: 0.5.
-        prefix_padding_ms: Audio to include before speech start. Default: 300.
-        silence_duration_ms: Silence before turn end. Default: 800.
+        threshold: Speech detection sensitivity (-1.0 to 1.0). Default: 0.5.
+        silence_duration_ms: Silence before turn end (200-6000). Default: 800.
     """
 
     mode: QwenVADMode = QwenVADMode.SERVER_VAD
     threshold: float = 0.5
-    prefix_padding_ms: int = 300
     silence_duration_ms: int = 800
 
 
 class QwenRealtimeProvider:
-    """Qwen Omni Flash Realtime API provider with WebSocket-based communication.
+    """Qwen Omni Realtime API provider with WebSocket-based communication.
 
     This provider manages a persistent WebSocket connection to Alibaba Cloud's
     DashScope Realtime API, enabling real-time bidirectional voice processing.
@@ -122,7 +109,7 @@ class QwenRealtimeProvider:
         await provider.connect()
         await provider.configure_session(
             system_prompt="You are a helpful assistant.",
-            tools=[],  # NOTE: Tools are accepted but never invoked!
+            tools=[],
             vad_config=QwenVADConfig(),
         )
         await provider.send_text("Hello!")
@@ -147,8 +134,8 @@ class QwenRealtimeProvider:
         Args:
             api_key: DashScope API key. If not provided, reads from
                 DASHSCOPE_API_KEY environment variable.
-            model: Model identifier. Defaults to qwen3-omni-flash-realtime.
-            voice: Voice to use. Defaults to Cherry.
+            model: Model identifier. Defaults to DEFAULT_QWEN_MODEL.
+            voice: Voice to use. Defaults to DEFAULT_QWEN_VOICE.
 
         Raises:
             ValueError: If no API key is provided or found in environment.
@@ -219,21 +206,27 @@ class QwenRealtimeProvider:
             return {
                 "type": "server_vad",
                 "threshold": vad_config.threshold,
-                "prefix_padding_ms": vad_config.prefix_padding_ms,
                 "silence_duration_ms": vad_config.silence_duration_ms,
             }
 
     def _format_tools_for_api(self, tools: List[Tool]) -> List[Dict]:
-        """Format tools for the Qwen API (OpenAI-compatible format)."""
+        """Format tools for the Qwen API.
+
+        Unlike the OpenAI Realtime API (which flattens tool definitions),
+        Qwen's session.update expects the nested OpenAI Chat format:
+        {"type": "function", "function": {name, description, parameters}}.
+        """
         formatted_tools = []
         for tool in tools:
             schema = tool.openai_schema
             formatted_tools.append(
                 {
                     "type": "function",
-                    "name": schema["function"]["name"],
-                    "description": schema["function"]["description"],
-                    "parameters": schema["function"]["parameters"],
+                    "function": {
+                        "name": schema["function"]["name"],
+                        "description": schema["function"]["description"],
+                        "parameters": schema["function"]["parameters"],
+                    },
                 }
             )
         return formatted_tools
@@ -249,25 +242,16 @@ class QwenRealtimeProvider:
 
         Args:
             system_prompt: System instructions for the assistant.
-            tools: Must be empty - Qwen Realtime API does not support tools.
+            tools: Tools the model may call. Requires a Qwen3.5-Omni realtime
+                model (the older qwen3-omni-flash-realtime never invokes them).
             vad_config: Voice Activity Detection configuration.
             modality: "audio" for audio in/out, "text" for text only.
 
         Raises:
-            NotImplementedError: If tools are provided (Qwen Realtime doesn't support them).
             RuntimeError: If not connected or configuration fails.
         """
         if not self.is_connected:
             raise RuntimeError("Not connected to API. Call connect() first.")
-
-        # Raise error if tools are provided - Qwen Realtime API does NOT support function calling
-        if tools:
-            raise NotImplementedError(
-                f"QWEN REALTIME API LIMITATION: {len(tools)} tools configured but "
-                "tool/function calling does NOT work with qwen3-omni-flash-realtime. "
-                "The model accepts tool configurations but NEVER invokes them - it generates "
-                "audio responses instead."
-            )
 
         self._current_vad_config = vad_config
 
@@ -277,6 +261,8 @@ class QwenRealtimeProvider:
         else:
             modalities = ["text", "audio"]
 
+        # Note: tool_choice and parallel_tool_calls are not supported by the
+        # Qwen-Omni-Realtime series and must not be sent.
         session_config = {
             "type": "session.update",
             "session": {
@@ -284,7 +270,6 @@ class QwenRealtimeProvider:
                 "modalities": modalities,
                 "voice": self.voice,
                 "tools": self._format_tools_for_api(tools),
-                "tool_choice": "auto",
                 "turn_detection": self._build_turn_detection_config(vad_config),
             },
         }

@@ -35,6 +35,7 @@ from tau2.voice.audio_native.gemini.events import (
     GeminiTextDeltaEvent,
     GeminiTurnCompleteEvent,
     GeminiUnknownEvent,
+    GeminiUsageEvent,
 )
 
 load_dotenv()
@@ -1198,6 +1199,49 @@ class GeminiLiveProvider:
 
         return result
 
+    @staticmethod
+    def _parse_usage_metadata(usage_metadata: Any) -> GeminiUsageEvent:
+        """Convert LiveServerMessage.usage_metadata into a GeminiUsageEvent.
+
+        ModalityTokenCount entries become plain dicts so the event stays
+        serializable and SDK-independent.
+        """
+
+        def _details_to_dicts(details: Any) -> Optional[list]:
+            if not details:
+                return None
+            entries = []
+            for entry in details:
+                modality = getattr(entry, "modality", None)
+                entries.append(
+                    {
+                        "modality": (
+                            getattr(modality, "name", None) or str(modality)
+                            if modality is not None
+                            else None
+                        ),
+                        "token_count": getattr(entry, "token_count", None),
+                    }
+                )
+            return entries
+
+        return GeminiUsageEvent(
+            type="usage",
+            prompt_token_count=getattr(usage_metadata, "prompt_token_count", None),
+            response_token_count=getattr(usage_metadata, "response_token_count", None),
+            cached_content_token_count=getattr(
+                usage_metadata, "cached_content_token_count", None
+            ),
+            thoughts_token_count=getattr(usage_metadata, "thoughts_token_count", None),
+            total_token_count=getattr(usage_metadata, "total_token_count", None),
+            prompt_tokens_details=_details_to_dicts(
+                getattr(usage_metadata, "prompt_tokens_details", None)
+            ),
+            response_tokens_details=_details_to_dicts(
+                getattr(usage_metadata, "response_tokens_details", None)
+            ),
+        )
+
     def _parse_response(self, response: Any) -> List[BaseGeminiEvent]:
         """Parse a Gemini LiveServerMessage into typed events.
 
@@ -1343,6 +1387,11 @@ class GeminiLiveProvider:
                             transcript=transcription.text,
                         )
                     )
+        # Check for usage metadata (token counts for billing)
+        usage_metadata = getattr(response, "usage_metadata", None)
+        if usage_metadata is not None:
+            events.append(self._parse_usage_metadata(usage_metadata))
+
         # If no events were extracted, return unknown event with debug info
         if not events:
             response_type = type(response).__name__

@@ -176,9 +176,7 @@ def _compute_interaction_metrics(
     for results in results_list:
         domain = results.info.environment_info.domain_name
         if domain in domain_metrics:
-            raise ValueError(
-                f"Domain {domain} appears in multiple trajectory files"
-            )
+            raise ValueError(f"Domain {domain} appears in multiple trajectory files")
         try:
             domain_metrics[domain] = compute_metrics_for_loaded_results(results)
             resolved_configs.append(resolve_experiment_config(results))

@@ -26,6 +26,7 @@ from pydantic import BaseModel
 
 from tau2.config import (
     DEFAULT_TELEPHONY_RATE,
+    DEFAULT_XAI_MODEL,
     DEFAULT_XAI_REALTIME_BASE_URL,
     DEFAULT_XAI_VOICE,
 )
@@ -106,6 +107,7 @@ class XAIRealtimeProvider:
     def __init__(
         self,
         api_key: Optional[str] = None,
+        model: Optional[str] = None,
         voice: Optional[str] = None,
         audio_format: XAIAudioFormat = XAIAudioFormat.PCMU,
         sample_rate: int = DEFAULT_TELEPHONY_RATE,
@@ -115,7 +117,10 @@ class XAIRealtimeProvider:
         Args:
             api_key: xAI API key. If not provided, reads from XAI_API_KEY
                 environment variable.
-            voice: Voice to use. One of: Ara, Rex, Sal, Eve, Leo. Defaults to Ara.
+            model: Model to use, passed as ?model= on the WebSocket URL
+                (e.g. grok-voice-think-fast-2.0). Defaults to DEFAULT_XAI_MODEL.
+            voice: Voice to use (lowercase voice ID, e.g. ara, rex, sal, eve,
+                leo). Defaults to ara.
             audio_format: Audio format for input/output. Defaults to PCMU (G.711 μ-law)
                 which is optimal for telephony (no conversion needed).
             sample_rate: Sample rate for PCM format (ignored for PCMU/PCMA).
@@ -128,6 +133,7 @@ class XAIRealtimeProvider:
         if not self.api_key:
             raise ValueError("xAI API key not provided. Set XAI_API_KEY env var.")
 
+        self.model = model or DEFAULT_XAI_MODEL
         self.voice = voice or self.DEFAULT_VOICE
         self.audio_format = audio_format
         self.sample_rate = sample_rate
@@ -162,8 +168,9 @@ class XAIRealtimeProvider:
             "Content-Type": "application/json",
         }
 
-        logger.info(f"xAI Realtime API: Connecting to {self.BASE_URL}")
-        self.ws = await websockets.connect(self.BASE_URL, additional_headers=headers)
+        url = f"{self.BASE_URL}?model={self.model}"
+        logger.info(f"xAI Realtime API: Connecting to {url}")
+        self.ws = await websockets.connect(url, additional_headers=headers)
 
         # Wait for the connection-established event. Older xAI endpoints sent
         # conversation.created; newer ones send session.created (OpenAI-style).
@@ -241,6 +248,7 @@ class XAIRealtimeProvider:
         system_prompt: str,
         tools: List[Tool],
         vad_config: XAIVADConfig,
+        reasoning_effort: Optional[str] = None,
     ) -> None:
         """Configure the realtime session with instructions, tools, and settings.
 
@@ -248,6 +256,8 @@ class XAIRealtimeProvider:
             system_prompt: The system instructions for the assistant.
             tools: List of tools available for the assistant to use.
             vad_config: Voice Activity Detection configuration.
+            reasoning_effort: Reasoning effort, "high" or "none". If None, the
+                API default ("high") applies.
 
         Raises:
             RuntimeError: If not connected or if session configuration fails.
@@ -265,6 +275,8 @@ class XAIRealtimeProvider:
                 "tools": self._format_tools_for_api(tools),
             },
         }
+        if reasoning_effort is not None:
+            session_config["session"]["reasoning"] = {"effort": reasoning_effort}
 
         logger.debug(f"xAI session config: {json.dumps(session_config, indent=2)}")
         await self.ws.send(json.dumps(session_config))

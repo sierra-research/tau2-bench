@@ -40,8 +40,11 @@ from tau2.config import (
     DEFAULT_AUDIO_NATIVE_CONNECT_TIMEOUT,
     DEFAULT_AUDIO_NATIVE_DISCONNECT_TIMEOUT,
     DEFAULT_AUDIO_NATIVE_TICK_TIMEOUT_BUFFER,
+    DEFAULT_XAI_MODEL,
+    DEFAULT_XAI_VOICE,
 )
 from tau2.data_model.message import ToolCall
+from tau2.data_model.usage import UsageRecord
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter
 from tau2.voice.audio_native.async_loop import BackgroundAsyncLoop
@@ -93,28 +96,35 @@ class DiscreteTimeXAIAdapter(DiscreteTimeAdapter):
         self,
         tick_duration_ms: int,
         send_audio_instant: bool = True,
+        model: Optional[str] = None,
         reasoning_effort: Optional[str] = None,
         provider: Optional[XAIRealtimeProvider] = None,
-        voice: str = "Ara",
+        voice: str = DEFAULT_XAI_VOICE,
     ):
         """Initialize the discrete-time xAI adapter.
 
         Args:
             tick_duration_ms: Duration of each tick in milliseconds. Must be > 0.
             send_audio_instant: If True, send audio in one call (discrete-time mode).
-            reasoning_effort: Not supported by xAI. Must be None.
+            model: Model to use (e.g. grok-voice-think-fast-2.0). Defaults to
+                DEFAULT_XAI_MODEL.
+            reasoning_effort: "high" or "none". If None, the API default
+                ("high") applies.
             provider: Optional provider instance. Created lazily if not provided.
-            voice: Voice to use. One of: Ara, Rex, Sal, Eve, Leo. Default: Ara.
+            voice: Voice to use (lowercase voice ID). Default: ara.
         """
-        if reasoning_effort is not None:
+        if reasoning_effort is not None and reasoning_effort not in ("high", "none"):
             raise ValueError(
-                f"xAI provider does not support reasoning_effort (got '{reasoning_effort}')"
+                f"xAI reasoning_effort must be 'high' or 'none' "
+                f"(got '{reasoning_effort}')"
             )
         super().__init__(tick_duration_ms, send_audio_instant=send_audio_instant)
 
         self._chunk_size = int(
             self.audio_format.bytes_per_second * self._voip_interval_ms / 1000
         )
+        self.model = model or DEFAULT_XAI_MODEL
+        self.reasoning_effort = reasoning_effort
         self.voice = voice
 
         # Provider - created lazily if not provided
@@ -125,11 +135,15 @@ class DiscreteTimeXAIAdapter(DiscreteTimeAdapter):
         self._bg_loop = BackgroundAsyncLoop()
         self._connected = False
 
+        # Scopes the cumulative session-audio usage meter per connection
+        self._session_counter = 0
+
     @property
     def provider(self) -> XAIRealtimeProvider:
         """Get the provider, creating it if needed."""
         if self._provider is None:
             self._provider = XAIRealtimeProvider(
+                model=self.model,
                 voice=self.voice,
                 audio_format=XAIAudioFormat.PCMU,  # G.711 μ-law
             )
@@ -171,6 +185,7 @@ class DiscreteTimeXAIAdapter(DiscreteTimeAdapter):
                 timeout=DEFAULT_AUDIO_NATIVE_CONNECT_TIMEOUT,
             )
             self._connected = True
+            self._session_counter += 1
             logger.info(
                 f"DiscreteTimeXAIAdapter connected to xAI API "
                 f"(tick={self.tick_duration_ms}ms, bytes_per_tick={self.bytes_per_tick})"
@@ -192,12 +207,45 @@ class DiscreteTimeXAIAdapter(DiscreteTimeAdapter):
             system_prompt=system_prompt,
             tools=tools,
             vad_config=vad_config,
+            reasoning_effort=self.reasoning_effort,
         )
+
+    def _make_audio_usage_record(self) -> Optional[UsageRecord]:
+        """Cumulative session-audio meter — xAI's voice agent billing basis.
+
+        xAI bills per audio-minute of session time. In the discrete-time
+        simulation, cumulative user audio equals elapsed session audio time.
+        Cumulative semantics + per-session scope keep re-reads and the final
+        flush at disconnect from double counting.
+        """
+        if self._cumulative_user_audio_ms <= 0:
+            return None
+        return UsageRecord(
+            provider="xai",
+            model=self.model,
+            component="realtime",
+            semantics="cumulative",
+            scope_id=f"audio-session-{self._session_counter}",
+            audio_input_seconds=self._cumulative_user_audio_ms / 1000,
+        )
+
+    def get_usage_records(self) -> List[UsageRecord]:
+        """Ledger records plus the live session-audio meter (if connected)."""
+        records = super().get_usage_records()
+        live_audio = self._make_audio_usage_record()
+        if live_audio is not None:
+            records.append(live_audio)
+        return records
 
     def disconnect(self) -> None:
         """Disconnect from the API and clean up resources."""
         if not self._connected:
             return
+
+        # Flush the session-audio meter before the counter is reset below.
+        audio_record = self._make_audio_usage_record()
+        if audio_record is not None:
+            self._usage_records.append(audio_record)
 
         if self._bg_loop.is_running:
             try:
@@ -350,6 +398,18 @@ class DiscreteTimeXAIAdapter(DiscreteTimeAdapter):
 
         elif isinstance(event, XAIResponseDoneEvent):
             logger.debug("Response done (turn complete)")
+            usage = (event.response or {}).get("usage")
+            if usage:
+                # Informational only: xAI bills the voice agent per
+                # audio-minute (see _make_audio_usage_record), not per token.
+                record = UsageRecord.from_openai_realtime_usage(
+                    usage,
+                    provider="xai",
+                    model=self.model,
+                    scope_id=(event.response or {}).get("id"),
+                )
+                record.billable = False
+                self.record_usage(record)
 
         elif isinstance(event, XAIAudioDoneEvent):
             logger.debug(f"Audio done for item {event.item_id}")

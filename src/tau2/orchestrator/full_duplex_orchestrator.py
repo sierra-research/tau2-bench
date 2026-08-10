@@ -30,6 +30,7 @@ from tau2.user.user_simulator import UserSimulator
 from tau2.user.user_simulator_base import FullDuplexUser
 from tau2.utils.llm_utils import get_cost
 from tau2.utils.utils import get_now
+from tau2.voice.pricing import build_session_usage
 from tau2.voice.utils.transcript_utils import compute_proportional_user_transcripts
 
 # Type variables for generic full-duplex orchestrator
@@ -565,11 +566,26 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
 
         # Derive messages for cost computation (not stored in SimulationRun)
         ticks = self.get_trajectory()
-        res = get_cost(self.get_messages())
-        if res is None:
-            agent_cost, user_cost = None, None
-        else:
-            agent_cost, user_cost = res
+        agent_cost, user_cost = get_cost(self.get_messages())
+
+        # Provider usage ledger (audio-native agents). The session-level
+        # aggregation is the authoritative agent cost: it correctly handles
+        # cumulative meters (Nova running totals, xAI audio-minutes, STT)
+        # that per-message costs cannot represent.
+        agent_usage = None
+        if hasattr(self.agent, "get_usage_records"):
+            usage_records = self.agent.get_usage_records()
+            if usage_records:
+                agent_usage = build_session_usage(usage_records)
+                # Authoritative even when None: per-message sums exclude
+                # cumulative meters, so falling back to them would report a
+                # misleading $0 (xAI) or partial sum (LiveKit) for a session
+                # that is actually unpriced.
+                agent_cost = agent_usage.cost
+                logger.info(
+                    f"Agent usage: {agent_usage.num_raw_records} records, "
+                    f"cost={agent_usage.cost} ({agent_usage.cost_breakdown})"
+                )
 
         # Get speech_environment from user's voice_settings if available
         speech_environment = None
@@ -607,6 +623,7 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
             reward_info=None,
             user_cost=user_cost,
             agent_cost=agent_cost,
+            agent_usage=agent_usage,
             ticks=ticks,
             seed=self.seed,
             mode=self.mode.value,

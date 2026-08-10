@@ -1,4 +1,5 @@
 import json
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
 
@@ -1108,7 +1109,13 @@ class ConsoleDisplay:
                 "green" if pass_k > 0.8 else ("yellow" if pass_k > 0.5 else "red")
             )
             table.add_row(f"   Pass^{k}", f"[{pk_color}]{pass_k:.3f}[/]")
-        table.add_row("💰 Avg Cost/Conversation", f"${metrics.avg_agent_cost:.4f}")
+        avg_cost = metrics.avg_agent_cost
+        cost_str = (
+            f"${avg_cost:.4f}"
+            if avg_cost is not None and not math.isnan(avg_cost)
+            else "n/a"
+        )
+        table.add_row("💰 Avg Cost/Conversation", cost_str)
         table.add_row("", "")
 
         # Action metrics
@@ -1812,8 +1819,7 @@ class ConsoleDisplay:
             agent_results = ""
             if tick.agent_tool_results:
                 agent_results = "\n".join(
-                    cls.truncate_tool_result(r.content)
-                    for r in tick.agent_tool_results
+                    cls.truncate_tool_result(r.content) for r in tick.agent_tool_results
                 )
 
             agent_turn_action = ""
@@ -1840,8 +1846,7 @@ class ConsoleDisplay:
             user_results = ""
             if tick.user_tool_results:
                 user_results = "\n".join(
-                    cls.truncate_tool_result(r.content)
-                    for r in tick.user_tool_results
+                    cls.truncate_tool_result(r.content) for r in tick.user_tool_results
                 )
 
             user_turn_action = ""
@@ -1989,8 +1994,7 @@ class ConsoleDisplay:
                 )
             if tick.agent_tool_results:
                 info["agent_results"] = "\n".join(
-                    cls.truncate_tool_result(r.content)
-                    for r in tick.agent_tool_results
+                    cls.truncate_tool_result(r.content) for r in tick.agent_tool_results
                 )
             if (
                 tick.agent_chunk
@@ -2013,8 +2017,7 @@ class ConsoleDisplay:
                 )
             if tick.user_tool_results:
                 info["user_results"] = "\n".join(
-                    cls.truncate_tool_result(r.content)
-                    for r in tick.user_tool_results
+                    cls.truncate_tool_result(r.content) for r in tick.user_tool_results
                 )
             if (
                 tick.user_chunk
