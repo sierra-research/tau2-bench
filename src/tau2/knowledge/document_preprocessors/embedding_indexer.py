@@ -8,6 +8,7 @@ from tau2.knowledge.document_preprocessors.base import (
 from tau2.knowledge.embedders import (
     OpenAIEmbedder,
     OpenRouterEmbedder,
+    OrcaRouterEmbedder,
 )
 from tau2.knowledge.embeddings_cache import get_embeddings_cache
 from tau2.knowledge.registry import register_document_preprocessor
@@ -15,6 +16,7 @@ from tau2.knowledge.registry import register_document_preprocessor
 EMBEDDER_REGISTRY = {
     "openai": OpenAIEmbedder,
     "openrouter": OpenRouterEmbedder,
+    "orcarouter": OrcaRouterEmbedder,
 }
 
 
@@ -58,7 +60,7 @@ class EmbeddingIndexer(BaseDocumentPreprocessor):
             # For document indexing, we explicitly disable the instruction prefix
             # Documents should be embedded as-is (no instruction prefix)
             params = dict(self.embedder_params)
-            if self.embedder_type == "openrouter":
+            if self.embedder_type in ("openrouter", "orcarouter"):
                 # Explicitly set query_instruction to empty to disable it for documents
                 params.setdefault("query_instruction", "")
 
