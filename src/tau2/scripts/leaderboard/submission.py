@@ -11,6 +11,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from tau2.config import VOICE_USER_SIMULATOR_VERSIONS
 from tau2.data_model.simulation import Results as TrajectoryResults
 from tau2.utils.pydantic_utils import BaseModelNoExtra
 
@@ -162,7 +163,9 @@ class Verification(BaseModelNoExtra):
 
     modified_prompts: Optional[bool] = Field(
         None,
-        description="Whether any modifications were made to user simulator or agent prompts",
+        description="Whether any modifications were made to user simulator or agent prompts. "
+        "Disclosure only: prompt changes do not by themselves make a submission 'custom', "
+        "and do not affect verification status",
     )
     omitted_questions: Optional[bool] = Field(
         None,
@@ -185,7 +188,9 @@ class Methodology(BaseModelNoExtra):
     user_simulator: Optional[str] = Field(
         None,
         description="For text: model name (e.g. 'gpt-4.1-2025-04-14'). "
-        "For voice: version identifier (e.g. 'v1.0') anchored to git tag voice-user-sim-<version>.",
+        "For voice: a published version identifier (e.g. 'v1.0', 'v2.0') from "
+        "VOICE_USER_SIMULATOR_VERSIONS, anchored to git tag voice-user-sim-<version>. "
+        "Voice submissions may not name an arbitrary model.",
     )
     notes: Optional[str] = Field(
         None, description="Additional notes about the evaluation methodology"
@@ -409,8 +414,14 @@ class Submission(BaseModelNoExtra):
     submission_date: date = Field(..., description="Date of submission")
     submission_type: Literal["standard", "custom"] = Field(
         "standard",
-        description="Type of submission: 'standard' uses the default tau2-bench scaffold, "
-        "'custom' uses modified scaffolds (multi-model routers, additional tools, custom prompting, etc.)",
+        description="Type of submission, drawn at the architecture of the system under test. "
+        "'standard' is an off-the-shelf model in the default tau2-bench scaffold; configuration "
+        "differences (a different user simulator, reasoning effort, retrieval config, prompt "
+        "adjustments, seeds) are still standard and are disclosed via methodology instead. "
+        "'custom' is an architectural change to the system under test (multi-model routers, added "
+        "agent components such as supervisors or tool-call gates, tools beyond the standard set, "
+        "replaced retrieval subsystems, modified control flow) or a model trained/fine-tuned on "
+        "tau2-bench domains",
     )
     modality: Literal["text", "voice"] = Field(
         "text",
@@ -459,6 +470,32 @@ class Submission(BaseModelNoExtra):
     )
 
     _submission_id: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _validate_voice_user_simulator(self) -> "Submission":
+        """Voice submissions must name a published user-simulator version.
+
+        The simulator's strength materially shifts voice scores, so an arbitrary
+        model identifier here would produce a row that looks comparable to the
+        rest of the board but is not. Text submissions are unconstrained: they
+        record the simulator model directly.
+        """
+        if self.modality != "voice":
+            return self
+        user_simulator = self.methodology.user_simulator if self.methodology else None
+        if user_simulator is None:
+            return self
+        if user_simulator not in VOICE_USER_SIMULATOR_VERSIONS:
+            published = ", ".join(sorted(VOICE_USER_SIMULATOR_VERSIONS))
+            raise ValueError(
+                f"methodology.user_simulator must be a published voice user-simulator "
+                f"version for voice submissions, got {user_simulator!r}. "
+                f"Published versions: {published}. "
+                f"To evaluate against a different simulator, publish it as a new "
+                f"version in VOICE_USER_SIMULATOR_VERSIONS (src/tau2/config.py) and "
+                f"tag it voice-user-sim-<version>."
+            )
+        return self
 
     @property
     def submission_id(self) -> Optional[str]:

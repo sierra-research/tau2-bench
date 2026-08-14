@@ -471,7 +471,7 @@
             }
           ],
           "default": null,
-          "description": "For text: model name (e.g. 'gpt-4.1-2025-04-14'). For voice: version identifier (e.g. 'v1.0') anchored to git tag voice-user-sim-<version>.",
+          "description": "For text: model name (e.g. 'gpt-4.1-2025-04-14'). For voice: a published version identifier (e.g. 'v1.0', 'v2.0') from VOICE_USER_SIMULATOR_VERSIONS, anchored to git tag voice-user-sim-<version>. Voice submissions may not name an arbitrary model.",
           "title": "User Simulator"
         },
         "notes": {
@@ -652,7 +652,7 @@
             }
           ],
           "default": null,
-          "description": "Whether any modifications were made to user simulator or agent prompts",
+          "description": "Whether any modifications were made to user simulator or agent prompts. Disclosure only: prompt changes do not by themselves make a submission 'custom', and do not affect verification status",
           "title": "Modified Prompts"
         },
         "omitted_questions": {
@@ -889,7 +889,7 @@
     },
     "submission_type": {
       "default": "standard",
-      "description": "Type of submission: 'standard' uses the default tau2-bench scaffold, 'custom' uses modified scaffolds (multi-model routers, additional tools, custom prompting, etc.)",
+      "description": "Type of submission, drawn at the architecture of the system under test. 'standard' is an off-the-shelf model in the default tau2-bench scaffold; configuration differences (a different user simulator, reasoning effort, retrieval config, prompt adjustments, seeds) are still standard and are disclosed via methodology instead. 'custom' is an architectural change to the system under test (multi-model routers, added agent components such as supervisors or tool-call gates, tools beyond the standard set, replaced retrieval subsystems, modified control flow) or a model trained/fine-tuned on tau2-bench domains",
       "enum": [
         "standard",
         "custom"

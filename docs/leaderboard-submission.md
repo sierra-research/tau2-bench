@@ -26,39 +26,47 @@ Your submission should meet these constraints:
 
 ## Submission Types: Standard vs Custom
 
-The leaderboard distinguishes between two types of submissions:
+The leaderboard distinguishes between two types of submissions. The line is drawn at the **architecture of the system under test** — not at how the evaluation was configured.
 
 ### Standard Submissions (Default)
 
-Standard submissions evaluate a **general-purpose LLM** using the **default τ-bench scaffold**:
-- A general-purpose LLM as the agent (not specifically trained for this benchmark)
-- The standard tool set provided by τ-bench
-- Default prompts and evaluation protocol
-- No modifications to the evaluation setup
+Standard submissions run a **general-purpose, off-the-shelf LLM** as the agent inside the **default τ-bench scaffold**: the standard tool set, the standard control flow, one model handling the conversation.
 
-If you're evaluating an off-the-shelf LLM using τ-bench as documented without modifications, your submission is **standard**. You don't need to specify `submission_type` in your JSON (it defaults to `"standard"`).
+Configuration choices do **not** make a submission custom. All of the following are still standard:
+
+- A different user simulator — for voice, a different published simulator version (see [Voice User Simulator Versions](#voice-user-simulator-versions)); for text, a different simulator model
+- A different reasoning / thinking effort level
+- Prompt adjustments to the agent policy or system instructions
+- A different retrieval configuration for `banking_knowledge` (report it in `retrieval_config`)
+- Different sampling parameters, seeds, or trial counts
+
+If you're evaluating an off-the-shelf LLM in the default scaffold, your submission is **standard**. You don't need to specify `submission_type` in your JSON (it defaults to `"standard"`).
+
+> **Disclose your configuration.** Choices like the above change how comparable your numbers are to other rows, so they must be reported: `methodology.user_simulator`, `reasoning_effort`, `results.<domain>.retrieval_config`, and `methodology.verification.modified_prompts` are all surfaced on the leaderboard. They are metadata on a standard row, not a separate submission type.
 
 ### Custom Submissions
 
-Custom submissions include **any approach that differs from the standard evaluation**, such as:
+Custom is reserved for submissions where the system under test is **no longer a single off-the-shelf model in the stock scaffold**:
 
-**Modified Scaffolds:**
+**Architectural Changes:**
 - Multi-model routers or model ensembles
-- Additional tools beyond the standard τ-bench tool set
+- Additional agent components — supervisors, critics, verifiers, tool-call gates
+- Tools beyond the standard τ-bench tool set
+- Replaced retrieval subsystems (e.g. an external vector store standing in for the built-in retrieval)
 - Modified agent orchestration or control flow
-- Modified prompts or system instructions
 
 **Domain-Specific Training:**
-- Models trained or fine-tuned specifically on τ-bench domains (airline, retail, telecom customer service)
+- Models trained or fine-tuned specifically on τ-bench domains (airline, retail, telecom, banking customer service)
 - Models trained using τ-bench tasks, reward signals, or evaluation data
 - Models where training data significantly overlaps with τ-bench evaluation scenarios
+
+Rule of thumb: if you removed your addition and re-ran, would you be running a plain model in the stock scaffold? If the only differences left are configuration, it's **standard**. If the addition *is* the contribution, it's **custom**.
 
 Custom submissions **must** include detailed methodology documentation:
 
 1. **Set `submission_type` to `"custom"`** in your `submission.json`
-2. **Provide comprehensive `methodology.notes`** explaining what modifications were made, why, and how the custom system works at a high level
+2. **Provide comprehensive `methodology.notes`** explaining what the added components are, why, and how the custom system works at a high level
 3. **Link to your implementation** in the `references` array (GitHub repo, paper, blog post)
-4. **Set `methodology.verification.modified_prompts` to `true`** if you modified any prompts
 
 ---
 
@@ -147,7 +155,22 @@ Now continue to [Step 3: Validate Your Submission](#step-3-validate-your-submiss
 
 Voice submissions evaluate audio-native models using full-duplex (simultaneous) communication. The voice user simulator is a multi-component system (LLM, TTS via ElevenLabs, transcription via Deepgram, audio effects pipeline, and decision models) that requires specific API keys and infrastructure. Because of this complexity, we recommend that you **open a PR and contact us** so we can coordinate running the evaluation.
 
-The voice user simulator is versioned separately via `VOICE_USER_SIMULATOR_VERSION` in `src/tau2/config.py`, with each version anchored to a git tag (`voice-user-sim-<version>`) for reproducibility.
+### Voice User Simulator Versions
+
+The voice user simulator is published as discrete versions, registered in `VOICE_USER_SIMULATOR_VERSIONS` in `src/tau2/config.py` and anchored to a git tag (`voice-user-sim-<version>`) for reproducibility:
+
+| Version | Simulator LLM | Reasoning effort |
+|---|---|---|
+| `v1.0` | `gpt-4.1-2025-04-14` | — |
+| `v2.0` | `gpt-5.5-2026-04-23` | `xhigh` |
+
+A version **pins the simulator's LLM.** The simulator's strength materially shifts voice scores — the same agent at the same reasoning effort scores several points higher against `v2.0` than `v1.0` — so results are only comparable within a version.
+
+Set `methodology.user_simulator` to a published version identifier, e.g. `"v2.0"`. **Voice submissions may not name an arbitrary model**; validation rejects anything outside the registry. To evaluate against a different simulator, publish it as a new version in `VOICE_USER_SIMULATOR_VERSIONS` and tag it `voice-user-sim-<version>`.
+
+`VOICE_USER_SIMULATOR_VERSION` names the version the leaderboard currently ranks on. Where a model has runs on more than one version, the progress chart plots that version so the trend line stays internally consistent.
+
+Text submissions are unconstrained: record the simulator model directly (e.g. `"gpt-5.2"`).
 
 ### Existing Provider (Adapter Already Integrated)
 
@@ -478,14 +501,14 @@ tau2 submit interaction-metrics <experiment-dirs> --output interaction_metrics.j
 Submissions are classified as **Verified** or **Unverified** on the leaderboard:
 
 **Verified submissions** require:
-- Trajectory data available for review (`trajectories_available: true`)
-- No modifications to standard prompts (`modified_prompts: false`)
+- Trajectory data available for review (`trajectories_available: true`; not applicable to voice, where trajectories are not published)
 - Complete evaluation with no omitted tasks (`omitted_questions: false`)
 
 **Unverified submissions** are marked with a caution icon and may have:
 - Missing trajectory data
-- Modified prompts or evaluation setup
 - Omitted questions or domains
+
+`modified_prompts` does **not** affect verification status. Prompt adjustments are a disclosed configuration choice (see [Submission Types](#submission-types-standard-vs-custom)), and the flag is shown in the submission details either way.
 
 ### Verification Fields
 
@@ -592,7 +615,7 @@ See `web/leaderboard/public/submissions/A_EXAMPLE_new-model_example-org_2025-01-
 
 ### Voice Submission
 
-Voice submissions set `modality` to `"voice"` and include a `voice_config` object. Set `methodology.user_simulator` to the voice user simulator version (e.g., `"v1.0"` — see git tag `voice-user-sim-v1.0`).
+Voice submissions set `modality` to `"voice"` and include a `voice_config` object. Set `methodology.user_simulator` to a published voice user simulator version (e.g., `"v1.0"` — see [Voice User Simulator Versions](#voice-user-simulator-versions)).
 
 ```json
 {
@@ -659,9 +682,9 @@ See `web/leaderboard/public/submissions/A_EXAMPLE_voice-model_example-org_2026-0
 - [ ] Directory name follows convention (`{model_name}_{model_organization}_{date}`)
 - [ ] `manifest.json` updated (`submissions` array)
 - [ ] Contact info is provided
-- [ ] `submission_type` is set correctly (`"standard"` or `"custom"`)
+- [ ] `submission_type` is set correctly — `"custom"` only for architectural changes or domain-specific training, not for configuration differences such as a non-reference user simulator, reasoning effort, or prompt adjustments
 - [ ] **If custom:** detailed `methodology.notes` and `references` with implementation links
-- [ ] **If custom:** `methodology.verification.modified_prompts` is set appropriately
+- [ ] `methodology.user_simulator` and `methodology.verification.modified_prompts` are set accurately (required for standard submissions too)
 - [ ] `trajectory_files` mapping matches actual filenames
 - [ ] 4 trials per domain (check trajectory files)
 - [ ] **If banking domain:** `retrieval_config` field present in `banking_knowledge` results
@@ -677,7 +700,7 @@ See `web/leaderboard/public/submissions/A_EXAMPLE_voice-model_example-org_2026-0
 - [ ] `modality` is `"voice"`, `trajectories_available` is `false`
 - [ ] `voice_config` includes `provider` and `model`
 - [ ] `manifest.json` updated (`voice_submissions` array)
-- [ ] `methodology.user_simulator` set to voice user sim version (e.g., `"v1.0"`)
+- [ ] `methodology.user_simulator` set to a **published** voice user sim version (`"v1.0"` / `"v2.0"`), never a raw model name
 - [ ] PR description includes link to externally hosted trajectory data
 - [ ] **New provider:** PR includes audio-native adapter implementation and documentation
 - [ ] Results use "regular" speech complexity only

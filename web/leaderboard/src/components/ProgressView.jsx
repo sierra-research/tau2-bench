@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import { RANKING_VOICE_USER_SIM } from '../utils/userSimulator'
 import './ProgressView.css'
 
 const ORG_LOGOS = {
@@ -97,6 +98,12 @@ const extractEntries = (
     return true
   }
 
+  // When a voice model has runs on several user-simulator versions, plot the one
+  // the leaderboard ranks on before preferring the higher score: v2.0 is a
+  // stronger simulator than v1.0, so letting it win the dedup would bend the
+  // trend line. Fall back to another version only when it is the model's only
+  // run. Text simulators are unversioned, so there the higher score just wins.
+  const isVoiceBenchmark = BENCHMARK_MODALITY[benchmark] === 'voice'
   const bestByModel = new Map()
   for (const [key, model] of Object.entries(passKData)) {
     if (!passesFilters(model)) continue
@@ -104,9 +111,13 @@ const extractEntries = (
     if (score === null) continue
     const sub = fullSubmissionData[key] || {}
     const modelName = sub.model_name || model.modelName
+    const isRanked =
+      !isVoiceBenchmark || model.userSimulator === RANKING_VOICE_USER_SIM
     const prev = bestByModel.get(modelName)
-    if (!prev || score > prev.score) {
-      bestByModel.set(modelName, { key, score })
+    const wins = !prev
+      || (isRanked !== prev.isRanked ? isRanked : score > prev.score)
+    if (wins) {
+      bestByModel.set(modelName, { key, score, isRanked })
     }
   }
 

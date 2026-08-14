@@ -87,10 +87,38 @@ DEFAULT_TEXT_STREAMING_CONFIG = {
 }
 
 # =============================================================================
-# VOICE USER SIMULATOR (fixed versioning + overridable model)
+# VOICE USER SIMULATOR (published versions)
 # =============================================================================
-VOICE_USER_SIMULATOR_VERSION = "v1.0"  # fixed, bump on changes
-VOICE_USER_SIMULATOR_DECISION_MODEL = "gpt-4.1"  # overridable
+# The voice user simulator is published as discrete versions so that voice
+# results stay comparable across the leaderboard. A version pins the simulator's
+# LLM and reasoning effort; the surrounding pipeline (TTS, transcription, audio
+# effects, turn-taking decision models) is anchored to the matching git tag
+# `voice-user-sim-<version>`.
+#
+# The simulator LLM is deliberately pinned per version rather than configured
+# independently: a stronger simulator measurably shifts scores, so pointing the
+# simulator at an arbitrary model produces numbers that cannot be compared to
+# published results. Leaderboard submissions must therefore name a version from
+# this registry (enforced in scripts/leaderboard/submission.py).
+VOICE_USER_SIMULATOR_VERSIONS = {
+    "v1.0": {
+        "llm": "gpt-4.1-2025-04-14",
+        "reasoning_effort": None,
+        "decision_model": "gpt-4.1",
+    },
+    "v2.0": {
+        "llm": "gpt-5.5-2026-04-23",
+        "reasoning_effort": "xhigh",
+        "decision_model": "gpt-4.1",
+    },
+}
+
+# The version the leaderboard currently ranks on. Bump when the published field
+# is re-run on a newer simulator.
+VOICE_USER_SIMULATOR_VERSION = "v1.0"
+VOICE_USER_SIMULATOR_DECISION_MODEL = VOICE_USER_SIMULATOR_VERSIONS[
+    VOICE_USER_SIMULATOR_VERSION
+]["decision_model"]
 DEFAULT_SPEECH_COMPLEXITY = "regular"  # overridable: "control", "regular"
 
 # =============================================================================

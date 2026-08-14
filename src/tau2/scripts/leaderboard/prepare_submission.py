@@ -7,7 +7,7 @@ from typing import Literal, Optional
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 
-from tau2.config import VOICE_USER_SIMULATOR_VERSION
+from tau2.config import VOICE_USER_SIMULATOR_VERSION, VOICE_USER_SIMULATOR_VERSIONS
 from tau2.data_model.simulation import Results as TrajectoryResults
 from tau2.metrics.agent_metrics import AgentMetrics, compute_metrics
 from tau2.scripts.leaderboard.compute_interaction_metrics import (
@@ -630,8 +630,12 @@ def prepare_submission(
     # Gather required information
     model_name = Prompt.ask("Enter model name", default=default_model_display)
     if is_voice:
+        # Voice submissions must name a published version, not an arbitrary
+        # model: the version pins the simulator LLM, and scores are only
+        # comparable within a version.
         user_simulator = Prompt.ask(
-            "Enter voice user simulator version (see git tags voice-user-sim-*)",
+            "Select voice user simulator version",
+            choices=sorted(VOICE_USER_SIMULATOR_VERSIONS),
             default=VOICE_USER_SIMULATOR_VERSION,
         )
     else:
@@ -657,7 +661,16 @@ def prepare_submission(
         "Should this model be highlighted as new on the leaderboard?", default=True
     )
 
-    # Submission type
+    # Submission type. 'custom' is reserved for architectural changes to the
+    # system under test — configuration differences (user simulator, reasoning
+    # effort, retrieval config, prompt tweaks) stay 'standard' and are disclosed
+    # through the methodology fields below.
+    console.print(
+        "\n[dim]'custom' = architectural change (routers, added agent components, extra "
+        "tools, replaced retrieval) or a model trained on tau2-bench domains.\n"
+        "A different user simulator, reasoning effort, or prompt tweak is still "
+        "'standard' — just disclose it.[/dim]"
+    )
     submission_type = Prompt.ask(
         "Submission type",
         choices=["standard", "custom"],
