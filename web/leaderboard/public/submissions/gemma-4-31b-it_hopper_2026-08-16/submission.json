@@ -1,0 +1,45 @@
+{
+  "model_name": "Gemma 4 31B IT",
+  "model_organization": "Google",
+  "submitting_organization": "Hopper",
+  "submission_date": "2026-08-16",
+  "submission_type": "standard",
+  "modality": "text",
+  "contact_info": {
+    "email": "pavan@withhopper.com",
+    "name": "Pavan Katta",
+    "github": "pavanyellow"
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "telecom": "gemma-4-31b-it_telecom_gpt-5.2_4trials.json"
+  },
+  "references": [
+    {
+      "title": "Hopper — fast inference for voice agents",
+      "url": "https://withhopper.com",
+      "type": "other"
+    }
+  ],
+  "results": {
+    "telecom": {
+      "pass_1": 70.39473684210526,
+      "pass_2": 54.67836257309941,
+      "pass_3": 45.39473684210526,
+      "pass_4": 39.473684210526315,
+      "cost": null
+    }
+  },
+  "methodology": {
+    "evaluation_date": "2026-08-16",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "gpt-5.2",
+    "notes": "Gemma 4 31B IT is natively non-reasoning (no thinking mode). Agent served via OpenRouter pinned to bf16 providers (CoreWeave, Novita, Venice, OpenInference) with allow_fallbacks: false and require_parameters: true; temperature 0. User simulator: gpt-5.2 with reasoning_effort: low. 4 trials, seed 300, max-steps 200, max-errors 10 (defaults). All 456 simulations completed with zero infrastructure errors. Evaluated as part of our voice-agent (no-reasoning-latency) model survey.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "Standard tau2-bench scaffold, default prompts, all tasks on the base split. One infrastructure-only local change: raised the hardcoded httpx connection-pool limit in llm_utils.py to support high --max-concurrency (no effect on prompts, tasks, or scoring)."
+    }
+  }
+}
