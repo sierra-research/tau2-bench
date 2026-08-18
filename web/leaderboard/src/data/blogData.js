@@ -79,111 +79,21 @@ export const AUTHORS = {
     name: 'Shunyu Yao',
     role: 'AI Researcher',
     // No sierra.ai author page; bio compiled from his public profile
-    // (ysymyth.github.io) and the τ-bench paper.
-    bio: 'Shunyu Yao is an AI researcher known for foundational work on language agents, including ReAct, Tree of Thoughts, Reflexion, and CoALA. He is the lead author of the original τ-bench. He holds a PhD in Computer Science from Princeton University, where he was a member of the Princeton NLP group, and studied in the Yao Class at Tsinghua University.',
+    // (ysymyth.github.io) and the τ-bench paper
+    bio: 'Shunyu Yao is an AI researcher known for co-authoring ReAct, Tree of Thoughts, and τ-bench. He completed his PhD at Princeton University.',
     paperKeys: ['tauBench'],
-  },
-  'noah-shinn': {
-    name: 'Noah Shinn',
-    role: 'Research Scientist at Sierra',
-    sierraProfile: 'https://sierra.ai/author/noah-shinn',
-    bio: 'Noah is a research scientist at Sierra. Prior to Sierra, he worked on machine learning and programming language research at Northeastern and MIT.',
-    paperKeys: ['tauBench'],
-  },
-  'honghua-dong': {
-    name: 'Honghua Dong',
-    role: 'PhD candidate, University of Toronto',
-    sierraProfile: 'https://sierra.ai/author/honghua-dong',
-    bio: 'Honghua Dong is a Ph.D. candidate at the University of Toronto. His research focuses on the development and evaluation of language model agents. He is currently interning at Sierra, where he is working to improve language model agents in the domain of customer service.',
-    paperKeys: ['tau2Bench'],
   },
 }
 
-// Newest first. `href` values starting with http are external; everything else
-// is resolved against import.meta.env.BASE_URL.
-export const BLOG_POSTS = [
-  {
-    slug: 'stanford-aims-talk',
-    title: 'The τ-bench Family: Guest Lecture at the Stanford AIMS Seminar',
-    category: 'Talk',
-    date: 'July 2026',
-    description:
-      'Slides from a guest lecture at the Stanford AIMS Seminar tracing the τ-bench family — from the original tool-agent-user substrate through dual control and knowledge to full-duplex voice — including how pausing time makes a realistic, controllable voice benchmark possible.',
-    href: 'talks/stanford-aims-tau.html',
-    authorSlugs: ['soham-ray', 'victor-barres', 'honghua-dong'],
+// Known task evaluation fixes and errata.
+// Used by the leaderboard and visualizer to surface notes about specific tasks.
+export const TASK_ERRATA = {
+  'banking_knowledge/task_048': {
+    issue: 463,
+    summary:
+      'task_048: all 24 gold actions performed, reward 0.00 — ambiguous user goal makes the simulator non-uniform, and loose write args penalize equivalent answers.',
+    details:
+      'The user goal in task_048 was underspecified, causing the simulator to behave non-uniformly across runs. Additionally, the reward function used strict argument matching for write-type tool calls, which incorrectly penalized semantically equivalent answers (e.g., different but valid field orderings or value representations). Fixed by: (1) clarifying the user goal to remove ambiguity, and (2) updating the reward checker to accept equivalent write arguments rather than requiring exact string matches.',
+    fixedIn: 'banking_knowledge v1.1',
   },
-  {
-    slug: 'tau-voice-sierra',
-    title: 'τ-voice: Benchmarking Real-Time Voice Agents on Real-World Tasks',
-    category: 'Research',
-    date: 'May 2026',
-    description:
-      'τ-voice evaluates real-time voice agents on 278 grounded customer-service tasks, pairing deterministic task scoring with realistic, controllable audio — diverse personas, environmental noise, and free-form turn-taking.',
-    href: 'https://sierra.ai/blog/tau-voice-benchmarking-real-time-voice-agents-on-real-world-tasks',
-    authorSlugs: ['soham-ray', 'keshav-dhandhania', 'victor-barres'],
-  },
-  {
-    slug: 'tau3-bench-announcement',
-    title: 'τ³-Bench: Advancing Agent Benchmarking to Knowledge and Voice',
-    category: 'Announcement',
-    date: 'March 2026',
-    description:
-      'τ³-bench extends the benchmark family with the τ-knowledge and τ-voice tracks, advancing agent evaluation to unstructured knowledge and real-time voice.',
-    href: 'https://sierra.ai/blog/bench-advancing-agent-benchmarking-to-knowledge-and-voice',
-    authorSlugs: ['victor-barres', 'ben-shi', 'ola-zytek', 'soham-ray', 'keshav-dhandhania', 'pedram-razavi'],
-  },
-  {
-    slug: 'tau-knowledge',
-    title: 'τ-knowledge',
-    category: 'Research',
-    date: 'February 2026',
-    description:
-      'A benchmark for evaluating AI agents in knowledge-intensive customer support: a realistic fintech knowledge base of 698 documents paired with tasks requiring multi-step reasoning, policy application, and tool use.',
-    href: 'blog/tau-knowledge.html',
-    authorSlugs: ['ben-shi', 'ola-zytek', 'pedram-razavi'],
-  },
-  {
-    slug: 'tau-voice-examples',
-    title: 'τ-voice Examples',
-    category: 'Research',
-    date: 'February 2026',
-    description:
-      'Annotated examples of τ-voice calls — overlapping speech, interruptions, accents, and background noise — showing how the same task can succeed with clean audio and fail under realistic conditions.',
-    href: 'blog/tau-voice-examples.html',
-    authorSlugs: ['soham-ray', 'keshav-dhandhania', 'victor-barres'],
-  },
-  {
-    slug: 'tau3-task-fixes',
-    title: 'τ³-Bench: Fixing Airline + Retail',
-    category: 'Engineering',
-    date: 'February 2026',
-    description:
-      'We audited and fixed 50+ tasks across the airline and retail domains, addressing incorrect expected actions, ambiguous instructions, impossible constraints, and missing fallback behaviors.',
-    href: 'blog/tau3-task-fixes.html',
-    authorSlugs: ['victor-barres', 'ben-shi'],
-  },
-  {
-    slug: 'tau2-bench-announcement',
-    title: 'τ²-bench: Benchmarking Agents in Collaborative Real-World Scenarios',
-    category: 'Announcement',
-    date: 'June 2025',
-    description:
-      'τ²-bench evaluates conversational agents in dual-control environments, where both the agent and the user can act on the world.',
-    href: 'https://sierra.ai/blog/benchmarking-agents-in-collaborative-real-world-scenarios',
-    authorSlugs: ['victor-barres', 'honghua-dong', 'soham-ray', 'karthik-narasimhan'],
-  },
-  {
-    slug: 'tau-bench-announcement',
-    title: 'τ-bench: Benchmarking AI Agents',
-    category: 'Announcement',
-    date: 'June 2024',
-    description:
-      'The original τ-bench, a benchmark for tool-agent-user interaction in real-world domains.',
-    href: 'https://sierra.ai/blog/benchmarking-ai-agents',
-    authorSlugs: ['shunyu-yao', 'noah-shinn', 'pedram-razavi', 'karthik-narasimhan'],
-  },
-]
-
-export const postsByAuthor = (slug) => BLOG_POSTS.filter((p) => p.authorSlugs.includes(slug))
-
-export const authorPhoto = (slug) => `${import.meta.env.BASE_URL}authors/${slug}.jpg`
+}
