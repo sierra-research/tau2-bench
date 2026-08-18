@@ -1,0 +1,61 @@
+{
+  "model_name": "AA Agent v1",
+  "model_organization": "Automation Anywhere",
+  "submitting_organization": "Automation Anywhere",
+  "submission_date": "2026-05-07",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "sandra.wang@automationanywhere.com"
+  },
+  "results": {
+    "retail": {
+      "pass_1": 82.89473684210526,
+      "pass_2": 73.39181286549707,
+      "pass_3": 66.44736842105263,
+      "pass_4": 60.526315789473685,
+      "cost": 1.3002491644067797
+    },
+    "airline": {
+      "pass_1": 84.5,
+      "pass_2": 78.66666666666666,
+      "pass_3": 74.0,
+      "pass_4": 70.0,
+      "cost": 0.9229537482758621
+    },
+    "telecom": {
+      "pass_1": 98.24561403508771,
+      "pass_2": 96.6374269005848,
+      "pass_3": 95.17543859649122,
+      "pass_4": 93.85964912280701,
+      "cost": 1.5865609002463053
+    },
+    "banking_knowledge": {
+      "pass_1": 31.70103092783505,
+      "pass_2": 22.336769759450174,
+      "pass_3": 17.783505154639176,
+      "pass_4": 15.463917525773196,
+      "cost": 3.9864505900900897,
+      "retrieval_config": "terminal_use"
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "airline_results.json",
+    "banking_knowledge": "banking_knowledge_results.json",
+    "retail": "retail_results.json",
+    "telecom": "telecom_results.json"
+  },
+  "methodology": {
+    "evaluation_date": "2026-05-07",
+    "tau2_bench_version": "1.0.0",
+    "user_simulator": "gpt-5.2",
+    "notes": "AA Agent v1 uses claude-opus-4-5-20251101 with high reasoning effort, context-enriched memory retrieval from past successful trajectories and evaluator-driven mid-conversation replanning to improve agent decision-making and task completion.\n\nContext Enrichment\n\nMemory retrieval: relevant memory from past successful trajectories is retrieved via embedding similarity and injected into the system prompt. Memory is cleared and reinitialized after each trial, so each task only has access to memory generated from previous tasks, not from its own execution.\n\nMid-Conversation Course Correction\n\nEvaluator mid-check replan: the external evaluator scores the partial trajectory mid-conversation. If the score is low, feedback is injected as a user message and the agent replans to target the specific issues.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false
+    }
+  },
+  "reasoning_effort": "high"
+}
