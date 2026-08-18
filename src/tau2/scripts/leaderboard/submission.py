@@ -409,8 +409,11 @@ class Submission(BaseModelNoExtra):
     submission_date: date = Field(..., description="Date of submission")
     submission_type: Literal["standard", "custom"] = Field(
         "standard",
-        description="Type of submission: 'standard' uses the default tau2-bench scaffold, "
-        "'custom' uses modified scaffolds (multi-model routers, additional tools, custom prompting, etc.)",
+        description="Type of submission: 'standard' uses the default benchmark-side "
+        "tau2-bench or tau-voice evaluation setup; 'custom' modifies benchmark-side "
+        "prompts, tools, orchestration, user simulation, tasks, or evaluation. Internal "
+        "implementation behind one compatible agent interface does not alone make a "
+        "submission custom.",
     )
     modality: Literal["text", "voice"] = Field(
         "text",

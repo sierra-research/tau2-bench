@@ -30,23 +30,61 @@ The leaderboard distinguishes between two types of submissions:
 
 ### Standard Submissions (Default)
 
-Standard submissions evaluate a **general-purpose LLM** using the **default τ-bench scaffold**:
-- A general-purpose LLM as the agent (not specifically trained for this benchmark)
-- The standard tool set provided by τ-bench
-- Default prompts and evaluation protocol
-- No modifications to the evaluation setup
+Standard submissions use the documented default **benchmark-side evaluation
+setup** for their modality. The model or system being evaluated is treated as
+the product behind its agent interface; its internal implementation does not
+determine the submission type.
 
-If you're evaluating an off-the-shelf LLM using τ-bench as documented without modifications, your submission is **standard**. You don't need to specify `submission_type` in your JSON (it defaults to `"standard"`).
+All standard submissions use:
+
+- The standard task set, domain policies, tools, and evaluator
+- The default user simulator and evaluation protocol for the track
+- No benchmark-side prompt, tool, orchestration, task-selection, or grading
+  modifications
+- No access to hidden task goals, reference actions, evaluator state, or other
+  benchmark data outside the standard agent interface
+- A model or system that was not trained specifically on τ-bench tasks,
+  rewards, or evaluation data
+
+#### Text τ-bench
+
+A standard text submission evaluates a general-purpose LLM through the default
+τ-bench agent scaffold, with the standard tool set and prompts. Replacing or
+augmenting that benchmark-side scaffold with a planner, router, additional
+agent, custom tool, or modified control flow makes the submission custom.
+
+#### τ-voice
+
+A standard voice submission presents one τ-voice-compatible agent interface to
+the benchmark and uses the default τ-voice harness, prompts, domain policies,
+tool schemas and results, user simulator, task set, and evaluator.
+
+The voice system may use any internal product architecture behind that
+interface, including proprietary ASR and TTS, multiple models or agents,
+internal prompts and tools, routing, and orchestration. Those implementation
+details do **not** make the submission custom as long as they are contained
+inside the submitted system and require no benchmark-side evaluation changes.
+A transport or protocol adapter that only connects the system to the standard
+τ-voice agent interface is also allowed.
+
+If you're evaluating an off-the-shelf model or voice system through the
+appropriate standard interface without benchmark-side modifications, your
+submission is **standard**. You don't need to specify `submission_type` in your
+JSON (it defaults to `"standard"`).
 
 ### Custom Submissions
 
-Custom submissions include **any approach that differs from the standard evaluation**, such as:
+Custom submissions include **any approach that changes the benchmark-side
+evaluation setup**, such as:
 
 **Modified Scaffolds:**
-- Multi-model routers or model ensembles
+- Multi-model routers, model ensembles, or additional agents implemented by
+  the benchmark-side submission code
 - Additional tools beyond the standard τ-bench tool set
-- Modified agent orchestration or control flow
-- Modified prompts or system instructions
+- Modified τ-bench or τ-voice orchestration or control flow
+- Modified benchmark-supplied prompts or system instructions
+- A non-default user simulator, task selection, speech configuration, or
+  evaluation protocol
 
 **Domain-Specific Training:**
 - Models trained or fine-tuned specifically on τ-bench domains (airline, retail, telecom customer service)
@@ -58,7 +96,8 @@ Custom submissions **must** include detailed methodology documentation:
 1. **Set `submission_type` to `"custom"`** in your `submission.json`
 2. **Provide comprehensive `methodology.notes`** explaining what modifications were made, why, and how the custom system works at a high level
 3. **Link to your implementation** in the `references` array (GitHub repo, paper, blog post)
-4. **Set `methodology.verification.modified_prompts` to `true`** if you modified any prompts
+4. **Set `methodology.verification.modified_prompts` to `true`** if you
+   modified any benchmark-supplied prompts
 
 ---
 

@@ -764,11 +764,11 @@ const Leaderboard = () => {
                   <h4>Submission Types</h4>
                   <div className="filter-info-item">
                     <strong>Standard</strong>
-                    <p>Results using the default τ-bench scaffold: a base LLM with the standard tool set and prompts.</p>
+                    <p>Results using the default benchmark-side τ-bench or τ-voice setup. A submitted system may use any internal architecture behind one compatible agent interface.</p>
                   </div>
                   <div className="filter-info-item">
                     <strong>Custom</strong>
-                    <p>Results using modified scaffolds, such as multi-model routers, additional tools, custom prompting strategies, or other orchestration approaches.</p>
+                    <p>Results that modify benchmark-side prompts, tools, orchestration, user simulation, tasks, or evaluation, or use benchmark-specific training or data.</p>
                   </div>
                   <div className="filter-info-item">
                     <strong>Legacy (v1)</strong>
