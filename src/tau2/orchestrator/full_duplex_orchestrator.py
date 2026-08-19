@@ -13,6 +13,7 @@ from loguru import logger
 
 from tau2.agent.base.streaming import compute_responsiveness_info
 from tau2.agent.base_agent import FullDuplexAgent
+from tau2.data_model.audio import audio_bytes_to_string
 from tau2.data_model.message import (
     AssistantMessage,
     Message,
@@ -538,6 +539,51 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
             self.termination_reason = TerminationReason.TOO_MANY_ERRORS
         self._check_timeout()
 
+    def _drain_buffered_agent_audio(self) -> None:
+        """Append any unplayed adapter audio to the last recorded tick."""
+        adapter = getattr(self.agent, "adapter", None)
+        buffered_audio = getattr(adapter, "_buffered_agent_audio", None)
+        if not buffered_audio:
+            return
+
+        drain_audio = b"".join(chunk for chunk, _ in buffered_audio)
+        if not drain_audio:
+            buffered_audio.clear()
+            return
+
+        if not self.ticks:
+            logger.warning("No ticks available to drain buffered agent audio")
+            buffered_audio.clear()
+            return
+
+        logger.info(
+            f"Draining {len(drain_audio)} bytes of buffered agent audio into the final tick"
+        )
+
+        last_tick = self.ticks[-1]
+        if last_tick.agent_chunk is None:
+            last_tick.agent_chunk = AssistantMessage(
+                role="assistant",
+                content=None,
+                is_audio=False,
+                audio_content=audio_bytes_to_string(drain_audio),
+                audio_format=getattr(self.agent, "audio_format", None),
+                timestamp=get_now(),
+                contains_speech=True,
+            )
+        else:
+            current_audio = last_tick.agent_chunk.get_audio_bytes() or b""
+            last_tick.agent_chunk.audio_content = audio_bytes_to_string(
+                current_audio + drain_audio
+            )
+            if last_tick.agent_chunk.audio_format is None:
+                last_tick.agent_chunk.audio_format = getattr(
+                    self.agent, "audio_format", None
+                )
+            last_tick.agent_chunk.contains_speech = True
+
+        buffered_audio.clear()
+
     def _finalize(self) -> SimulationRun:
         """
         Finalize the full-duplex simulation and create the SimulationRun result.
@@ -547,6 +593,8 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
         Returns:
             SimulationRun with all simulation data.
         """
+        self._drain_buffered_agent_audio()
+
         # Send stop signals to agent and user, forwarding any pending tool results
         try:
             self.agent.stop(
