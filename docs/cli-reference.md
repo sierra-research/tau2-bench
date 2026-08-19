@@ -23,7 +23,7 @@ tau2 run \
 
 | Option | Description |
 |--------|-------------|
-| `--domain`, `-d` | Domain to evaluate: `airline`, `retail`, `telecom`, `mock`, `banking_knowledge` |
+| `--domain`, `-d` | Domain to evaluate: `airline`, `retail`, `telecom`, `mock`, `banking_knowledge`, `hospitality` |
 | `--agent-llm` | LLM model for the agent |
 | `--user-llm` | LLM model for the user simulator |
 | `--agent-llm-args` | JSON dict of extra args for agent LLM (e.g. `'{"temperature": 0.5}'`) |
