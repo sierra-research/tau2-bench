@@ -2508,14 +2508,14 @@ For deposits without available images, the dispute will proceed based on custome
     def close_bank_account_7392(
         self,
         account_id: str,
-        reason: str = "Customer requested closure",
+        reason: str = "customer_request",
         waive_early_closure_fee: bool = False,
     ) -> str:
         """Close a customer's bank account (checking or savings).
 
         Args:
             account_id (string): The ID of the bank account to close
-            reason (string, optional): The reason for closing the account
+            reason (string, optional): The reason for closing the account. Must be one of: 'customer_request', 'simplifying_finances', 'moving_banks', 'fees_too_high', 'fraud_suspected', 'other'
             waive_early_closure_fee (boolean, optional): Whether to waive early closure fees
 
         Returns:
@@ -2547,6 +2547,18 @@ For deposits without available images, the dispute will proceed based on custome
 
         if not account_id:
             return "Error: Missing required parameter (account_id)."
+
+        # closure_reason enters the hashed DB state; free-form text breaks eval
+        valid_reasons = [
+            "customer_request",
+            "simplifying_finances",
+            "moving_banks",
+            "fees_too_high",
+            "fraud_suspected",
+            "other",
+        ]
+        if reason not in valid_reasons:
+            return f"Error: Invalid reason. Must be one of: {valid_reasons}"
 
         if account_id not in self.db.accounts.data:
             return f"Error: Account '{account_id}' not found."
