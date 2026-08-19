@@ -6,7 +6,11 @@ import pandas as pd
 from loguru import logger
 from pydantic import BaseModel
 
-from tau2.data_model.simulation import Results, TerminationReason
+from tau2.data_model.simulation import (
+    NON_EVALUABLE_TERMINATION_REASONS,
+    Results,
+    TerminationReason,
+)
 
 
 def is_successful(reward: float) -> bool:
@@ -135,14 +139,16 @@ def get_metrics_df(results: Results) -> tuple[pd.DataFrame, int]:
     """
     df = results.to_df()
 
-    infra_count = (
-        df.termination_reason == TerminationReason.INFRASTRUCTURE_ERROR
-    ).sum()
-    if infra_count > 0:
+    non_evaluable_mask = df.termination_reason.apply(
+        lambda r: r in NON_EVALUABLE_TERMINATION_REASONS
+    )
+    non_evaluable_count = int(non_evaluable_mask.sum())
+    if non_evaluable_count > 0:
         logger.warning(
-            f"Excluding {infra_count} infrastructure error simulation(s) from metrics."
+            f"Excluding {non_evaluable_count} non-evaluable simulation(s) "
+            "(infrastructure or context-window errors) from metrics."
         )
-        df = df[df.termination_reason != TerminationReason.INFRASTRUCTURE_ERROR]
+        df = df[~non_evaluable_mask]
 
     if df.empty:
         df["success"] = pd.Series(dtype=bool)
@@ -222,7 +228,7 @@ def compute_metrics(results: Results) -> AgentMetrics:
     evaluated_sims = [
         sim
         for sim in results.simulations
-        if sim.termination_reason != TerminationReason.INFRASTRUCTURE_ERROR
+        if sim.termination_reason not in NON_EVALUABLE_TERMINATION_REASONS
     ]
 
     if not evaluated_sims:
