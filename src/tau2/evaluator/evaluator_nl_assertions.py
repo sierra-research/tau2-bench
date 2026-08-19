@@ -124,7 +124,17 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             call_name="nl_assertions_eval",
             **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
         )
-        result_data = json.loads(assistant_message.content)
+        content = assistant_message.content or ""
+        # Strip markdown code fences if present (some models wrap JSON in ```json)
+        stripped = content.strip()
+        if stripped.startswith("```"):
+            lines = stripped.split("\n")
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            stripped = "\n".join(lines)
+        result_data = json.loads(stripped)
         return [
             NLAssertionCheck(
                 nl_assertion=result["expectedOutcome"],
