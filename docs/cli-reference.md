@@ -24,7 +24,7 @@ tau2 run \
 | Option | Description |
 |--------|-------------|
 | `--domain`, `-d` | Domain to evaluate: `airline`, `retail`, `telecom`, `mock`, `banking_knowledge` |
-| `--agent-llm` | LLM model for the agent |
+| `--agent-llm` | LLM model for the agent (any [LiteLLM](https://docs.litellm.ai/docs/providers) model name, e.g. `gpt-4.1`, `claude-sonnet-4-5`, `azure/<deployment-name>`) |
 | `--user-llm` | LLM model for the user simulator |
 | `--agent-llm-args` | JSON dict of extra args for agent LLM (e.g. `'{"temperature": 0.5}'`) |
 | `--user-llm-args` | JSON dict of extra args for user LLM |
