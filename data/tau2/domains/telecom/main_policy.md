@@ -131,7 +131,7 @@ After you resume the line, the user will have to reboot their device to get serv
 Each plan specify the maxium data usage per month.
 If the user's data usage for a line exceeds the plan's data limit, data connectivity will be lost.
 You can add more data to the line by "refueling" data at a price per GB specified by the plan.
-The maximum amount of data that can be refueled is 2GB.
+Whenever refueling is considered, the amount of data to be refueled must be exactly 2GB.
 To refuel data you should:
 - Ask them how much data they want to refuel
 - Confirm the price
