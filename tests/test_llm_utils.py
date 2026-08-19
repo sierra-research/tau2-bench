@@ -51,6 +51,23 @@ def tool_call_messages() -> list[Message]:
     return messages
 
 
+def test_tool_examples():
+    def calculate_square_with_example(x: int) -> int:
+        """Calculate the square of a number.
+            Args:
+            x (int): The number to calculate the square of.
+        Returns:
+            int: The square of the number.
+        Example:
+            >>> calculate_square_with_example(42)
+            1764
+        """
+        return x * x
+
+    tool = as_tool(calculate_square_with_example)
+    assert all(isinstance(e, str) for e in tool.examples)
+
+
 def test_generate_no_tool_call(model: str, messages: list[Message]):
     response = generate(model, messages)
     assert isinstance(response, AssistantMessage)

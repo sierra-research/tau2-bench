@@ -132,7 +132,12 @@ class Tool(BaseTool):
         ]
 
         # build examples
-        data["examples"] = doc.examples
+        data["examples"] = []
+        for ex in doc.examples:
+            desc = ex.description + "\n" if ex.description is not None else ""
+            snip = ex.snippet if ex.snippet is not None else ""
+            data["examples"].append(f"{desc}{snip}")
+
         return data
 
     @override
