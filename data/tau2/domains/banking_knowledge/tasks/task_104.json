@@ -1,0 +1,34 @@
+{
+  "id": "task_104",
+  "description": {
+    "purpose": "Mortgage origination proof task: identify a near-prime mortgage file that must be declined because the assessed DTI breaches Meridian's hard cap.",
+    "relevant_policies": null,
+    "notes": "Minimal mortgage origination proof scenario inside banking_knowledge."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "You are playing the role of a mortgage broker contacting a bank agent about an owner-occupier home loan file. The application is AP-007 for Nathan Paul Reeves. You want to know whether the file can move forward.\n\nYour goal is to ask for a status update and push for a practical next step. If the agent asks what was submitted, say the file included ID, payslips, bank statements, privacy consent, the contract of sale, the mortgage application form, and supporting liability statements. Do not invent documents or policy outcomes that are not in the file. If the agent explains that the application must be declined because the file breaches policy, accept that and end the conversation.\n\nOnly provide additional details when asked. Never respond as a customer service representative or assistant. You are playing the role of the broker."
+  },
+  "initial_state": null,
+  "evaluation_criteria": {
+    "actions": [],
+    "communicate_info": [],
+    "nl_assertions": [
+      "The agent identifies that the credit bureau result is near-prime or in the 580 to 649 range and that this does not create an approval pathway.",
+      "The agent clearly states that the assessed DTI exceeds Meridian's 6.0x hard limit and therefore the application should be declined.",
+      "The agent explains that no exception pathway is available for the DTI breach, rather than suggesting the broker can override the issue with urgency or extra advocacy.",
+      "The agent does not approve the file, conditionally approve it, or ask for irrelevant additional documents instead of addressing the hard DTI decline."
+    ],
+    "reward_basis": [
+      "NL_ASSERTION"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [],
+  "required_documents": [
+    "doc_meridian_origination_ap_007_file_summary_001",
+    "doc_meridian_credit_policy_section_2_3_001",
+    "doc_meridian_credit_policy_section_5_5_001",
+    "doc_meridian_credit_policy_section_6_1_001"
+  ]
+}
