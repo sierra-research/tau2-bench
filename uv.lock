@@ -116,6 +116,25 @@ wheels = [
 ]
 
 [[package]]
+name = "anthropic"
+version = "0.111.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "docstring-parser" },
+    { name = "httpx" },
+    { name = "jiter" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b9/8a/9afc7305a2ce4b52b30e137f83cd2a6a90b918b3997073db11bb5a1de55a/anthropic-0.111.0.tar.gz", hash = "sha256:39cbda0ac17a6d423e5bf609811bd69b26eddf6299d7a468126e05bc711ce826", size = 934001, upload-time = "2026-06-18T17:31:44.733Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f1/bb/09e82a81885d787f350fb55ca9df865b63140dd28b3b5b3104c4ae261657/anthropic-0.111.0-py3-none-any.whl", hash = "sha256:c14edb36ed80da9099acbd26b5cec810d76606c31f32a0d56a4cf9d4fa9e25ae", size = 929774, upload-time = "2026-06-18T17:31:43.116Z" },
+]
+
+[[package]]
 name = "anyio"
 version = "4.11.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2768,6 +2787,7 @@ dependencies = [
 [package.optional-dependencies]
 all = [
     { name = "aiohttp" },
+    { name = "anthropic" },
     { name = "aws-sdk-bedrock-runtime" },
     { name = "boto3" },
     { name = "deepgram-sdk" },
@@ -2815,6 +2835,9 @@ knowledge = [
     { name = "openai" },
     { name = "rank-bm25" },
 ]
+return-exchange = [
+    { name = "anthropic" },
+]
 voice = [
     { name = "aiohttp" },
     { name = "aws-sdk-bedrock-runtime" },
@@ -2839,6 +2862,7 @@ voice = [
 requires-dist = [
     { name = "addict", specifier = ">=2.4.0" },
     { name = "aiohttp", marker = "extra == 'voice'", specifier = ">=3.0" },
+    { name = "anthropic", marker = "extra == 'return-exchange'", specifier = ">=0.40.0" },
     { name = "aws-sdk-bedrock-runtime", marker = "extra == 'voice'", specifier = ">=0.3.0" },
     { name = "boto3", marker = "extra == 'voice'", specifier = ">=1.35.0" },
     { name = "deepdiff", specifier = ">=8.4.2" },
@@ -2878,7 +2902,7 @@ requires-dist = [
     { name = "scipy", marker = "extra == 'voice'", specifier = ">=1.10.0" },
     { name = "seaborn", marker = "extra == 'experiments'", specifier = ">=0.13.2" },
     { name = "tabulate", specifier = ">=0.9.0" },
-    { name = "tau2", extras = ["voice", "knowledge", "gym", "dev", "experiments"], marker = "extra == 'all'" },
+    { name = "tau2", extras = ["voice", "knowledge", "gym", "dev", "experiments", "return-exchange"], marker = "extra == 'all'" },
     { name = "tenacity", specifier = ">=9.0.0" },
     { name = "toml", specifier = ">=0.10.2" },
     { name = "tqdm", marker = "extra == 'voice'", specifier = ">=4.0" },
@@ -2886,7 +2910,7 @@ requires-dist = [
     { name = "uvicorn", specifier = ">=0.34.0" },
     { name = "websockets", marker = "extra == 'voice'", specifier = ">=13.0" },
 ]
-provides-extras = ["voice", "knowledge", "gym", "dev", "experiments", "all"]
+provides-extras = ["voice", "knowledge", "gym", "dev", "experiments", "return-exchange", "all"]
 
 [[package]]
 name = "tenacity"
