@@ -198,6 +198,34 @@ def test_cancel_reservation(
     )
 
 
+def test_cancel_reservation_releases_booked_seats(
+    environment: Environment, reservation_call: ToolCall
+):
+    flight_info = reservation_call.arguments["flights"][0]
+    cabin = reservation_call.arguments["cabin"]
+    passenger_count = len(reservation_call.arguments["passengers"])
+    flight = environment.tools._get_flight_instance(
+        flight_info.flight_number, flight_info.date
+    )
+    starting_seats = flight.available_seats[cabin]
+
+    booking_response = environment.get_response(reservation_call)
+    assert not booking_response.error
+    booked_reservation = json.loads(booking_response.content)
+    assert flight.available_seats[cabin] == starting_seats - passenger_count
+
+    cancellation_response = environment.get_response(
+        ToolCall(
+            id="cancel-booked-reservation",
+            name="cancel_reservation",
+            arguments={"reservation_id": booked_reservation["reservation_id"]},
+        )
+    )
+
+    assert not cancellation_response.error
+    assert flight.available_seats[cabin] == starting_seats
+
+
 @pytest.fixture
 def reservation_details_call():
     return ToolCall(
