@@ -43,8 +43,28 @@ def log_retry_attempt(retry_state):
     )
 
 
+def is_retryable_api_error(error: BaseException) -> bool:
+    """Return whether an external API error is safe to retry."""
+    if isinstance(
+        error,
+        (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            httpx.TimeoutException,
+            httpx.ConnectError,
+        ),
+    ):
+        return True
+
+    status_code = getattr(error, "status_code", None)
+    if status_code is None:
+        status_code = getattr(getattr(error, "response", None), "status_code", None)
+    return status_code == 429 or (status_code is not None and status_code >= 500)
+
+
 # Standard retry decorator for external API calls
-# Retries on connection errors and timeouts with exponential backoff
+# Retries on transient connection, timeout, rate-limit, and server errors
 api_retry = retry(
     stop=stop_after_attempt(DEFAULT_RETRY_ATTEMPTS),
     wait=wait_exponential(
@@ -52,7 +72,7 @@ api_retry = retry(
         min=DEFAULT_RETRY_MIN_WAIT,
         max=DEFAULT_RETRY_MAX_WAIT,
     ),
-    retry=retry_if_exception_type((ConnectionError, TimeoutError)),
+    retry=retry_if_exception(is_retryable_api_error),
     before_sleep=log_retry_attempt,
     reraise=True,
 )
