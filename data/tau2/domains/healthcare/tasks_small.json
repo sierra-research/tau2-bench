@@ -1,0 +1,4586 @@
+[
+  {
+    "id": "[prescription_refill]no_refills_remaining[PERSONA:None]",
+    "description": {
+      "purpose": "Test prescription refill request handling."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You need to refill your prescription medication.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Follow the agent's instructions. If they ask you to check medication bottles, use the check_medication_bottle tool. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling to request a prescription refill. Help them check prescription status and process refill if available, or guide them to contact their doctor if no refills remain.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "set_prescription_refills",
+          "arguments": {
+            "prescription_id": "rx_001",
+            "refills": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_medication_at_home",
+          "arguments": {
+            "prescription_number": "rx_001",
+            "medication_name": "Lisinopril",
+            "dosage": "10mg once daily",
+            "refills_remaining": 0,
+            "prescribing_doctor": "Dr. Robert Williams",
+            "pharmacy_name": "Community Pharmacy",
+            "pharmacy_phone": "(555) 123-4567"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "transfer_to_nurse",
+          "requestor": "assistant",
+          "name": "transfer_to_nurse",
+          "arguments": {}
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "get_prescription_details"
+          },
+          "assert_value": true,
+          "message": "Agent transferred without checking prescription details first"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_not_called",
+          "arguments": {
+            "tool_name": "request_prescription_refill"
+          },
+          "assert_value": true,
+          "message": "Agent incorrectly attempted to refill prescription that requires nurse escalation"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[prescription_refill]has_refills_available[PERSONA:Easy]",
+    "description": {
+      "purpose": "Test prescription refill request handling."
+    },
+    "user_scenario": {
+      "persona": "\nAs a 42-year-old project manager, you're comfortable with technology and medical systems. You've been managing your own healthcare for years and understand basic medical terminology.\n\nYour health literacy is above average - you can navigate patient portals, understand insurance terminology, and follow medical instructions without much difficulty. You're organized and keep track of your medications and appointments.\n\nIn interactions, you're efficient and to-the-point. You provide requested information clearly and ask focused questions when you need clarification. You appreciate when healthcare staff respect your time and give you actionable next steps.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You need to refill your prescription medication.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Follow the agent's instructions. If they ask you to check medication bottles, use the check_medication_bottle tool. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling to request a prescription refill. Help them check prescription status and process refill if available, or guide them to contact their doctor if no refills remain.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "set_prescription_refills",
+          "arguments": {
+            "prescription_id": "rx_001",
+            "refills": 3
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "set_prescription_status",
+          "arguments": {
+            "prescription_id": "rx_001",
+            "status": "active"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_medication_at_home",
+          "arguments": {
+            "prescription_number": "rx_001",
+            "medication_name": "Lisinopril",
+            "dosage": "10mg once daily",
+            "refills_remaining": 3,
+            "prescribing_doctor": "Dr. Robert Williams",
+            "pharmacy_name": "Community Pharmacy",
+            "pharmacy_phone": "(555) 123-4567"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "check_medication_bottle_1",
+          "requestor": "user",
+          "name": "check_medication_bottle",
+          "arguments": {}
+        },
+        {
+          "action_id": "get_prescription_details_2",
+          "requestor": "assistant",
+          "name": "get_prescription_details",
+          "arguments": {
+            "prescription_id": "rx_001"
+          }
+        },
+        {
+          "action_id": "verify_insurance_coverage_3",
+          "requestor": "assistant",
+          "name": "verify_insurance_coverage",
+          "arguments": {
+            "patient_id": "patient_001",
+            "procedure_type": "prescription_refill"
+          },
+          "compare_args": [
+            "patient_id"
+          ]
+        },
+        {
+          "action_id": "request_prescription_refill_4",
+          "requestor": "assistant",
+          "name": "request_prescription_refill",
+          "arguments": {
+            "patient_id": "patient_001",
+            "prescription_id": "rx_001"
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_prescription_status",
+          "arguments": {
+            "prescription_id": "rx_001",
+            "expected_status": "active"
+          },
+          "assert_value": true,
+          "message": "Prescription status should be active for successful refill"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_prescription_refills_remaining",
+          "arguments": {
+            "prescription_id": "rx_001",
+            "expected_count": 2
+          },
+          "assert_value": true,
+          "message": "Prescription should have 2 refills remaining after processing one refill"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION",
+        "ENV_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "[appointment_scheduling]doctor_available[PERSONA:None]",
+    "description": {
+      "purpose": "Test appointment scheduling with various constraints."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to schedule a medical appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Follow the agent's guidance. Check your calendar and insurance when asked. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) wants to schedule an appointment. Verify insurance, check doctor availability, and book appointment after getting patient confirmation.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_book_appointment",
+            "patient_id": "patient_001",
+            "reason": "Pending booking request - doctor available"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "verify_insurance_coverage_1",
+          "requestor": "assistant",
+          "name": "verify_insurance_coverage",
+          "arguments": {
+            "patient_id": "patient_001",
+            "procedure_type": "routine_checkup"
+          },
+          "compare_args": [
+            "patient_id"
+          ]
+        },
+        {
+          "action_id": "check_available_time_slots_2",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_3",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_4",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "routine_checkup",
+            "date": "2024-05-20",
+            "time": "14:00",
+            "reason": "Routine checkup appointment"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No new appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[appointment_scheduling]limited_availability[PERSONA:Easy]",
+    "description": {
+      "purpose": "Test appointment scheduling with various constraints."
+    },
+    "user_scenario": {
+      "persona": "\nAs a 42-year-old project manager, you're comfortable with technology and medical systems. You've been managing your own healthcare for years and understand basic medical terminology.\n\nYour health literacy is above average - you can navigate patient portals, understand insurance terminology, and follow medical instructions without much difficulty. You're organized and keep track of your medications and appointments.\n\nIn interactions, you're efficient and to-the-point. You provide requested information clearly and ask focused questions when you need clarification. You appreciate when healthcare staff respect your time and give you actionable next steps.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to schedule a medical appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Follow the agent's guidance. Check your calendar and insurance when asked. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) wants to schedule an appointment. Verify insurance, check doctor availability, and book appointment after getting patient confirmation.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_book_appointment",
+            "patient_id": "patient_001",
+            "reason": "Pending booking request - limited availability"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "verify_insurance_coverage_1",
+          "requestor": "assistant",
+          "name": "verify_insurance_coverage",
+          "arguments": {
+            "patient_id": "patient_001",
+            "procedure_type": "routine_checkup"
+          },
+          "compare_args": [
+            "patient_id"
+          ]
+        },
+        {
+          "action_id": "check_available_time_slots_2",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_3",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_4",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "routine_checkup",
+            "date": "2024-05-20",
+            "time": "14:00",
+            "reason": "Routine checkup appointment"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No new appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[appointment_scheduling]no_availability_preferred_times[PERSONA:Hard]",
+    "description": {
+      "purpose": "Test appointment scheduling with various constraints."
+    },
+    "user_scenario": {
+      "persona": "\nAt 68 years old, you're a retired teacher managing several chronic conditions. Medical systems and healthcare terminology can be overwhelming, and you often need extra help navigating the system.\n\nYour health literacy is limited - terms like \"copay,\" \"prior authorization,\" and \"formulary\" confuse you. You have trouble remembering medication names and often refer to them by what they're for (\"my blood pressure pill\"). You prefer when someone walks you through each step slowly.\n\nWhen dealing with healthcare, you get anxious easily. You worry about making mistakes with your medications or missing important appointments. You need frequent reassurance and may ask the same question multiple times to make sure you understood correctly.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to schedule a medical appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Follow the agent's guidance. Check your calendar and insurance when asked. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) wants to schedule an appointment. Verify insurance, check doctor availability, and book appointment after getting patient confirmation.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_book_appointment",
+            "patient_id": "patient_001",
+            "reason": "Pending booking request - preferred times unavailable"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "verify_insurance_coverage_1",
+          "requestor": "assistant",
+          "name": "verify_insurance_coverage",
+          "arguments": {
+            "patient_id": "patient_001",
+            "procedure_type": "routine_checkup"
+          },
+          "compare_args": [
+            "patient_id"
+          ]
+        },
+        {
+          "action_id": "check_available_time_slots_2",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_3",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_4",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "routine_checkup",
+            "date": "2024-05-20",
+            "time": "14:00",
+            "reason": "Routine checkup appointment"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No new appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[appointment_scheduling]insurance_verified[PERSONA:None]",
+    "description": {
+      "purpose": "Test appointment scheduling with various constraints."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to schedule a medical appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Follow the agent's guidance. Check your calendar and insurance when asked. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) wants to schedule an appointment. Verify insurance, check doctor availability, and book appointment after getting patient confirmation.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_book_appointment",
+            "patient_id": "patient_001",
+            "reason": "Pending booking request - insurance verified"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "verify_insurance_coverage_1",
+          "requestor": "assistant",
+          "name": "verify_insurance_coverage",
+          "arguments": {
+            "patient_id": "patient_001",
+            "procedure_type": "routine_checkup"
+          },
+          "compare_args": [
+            "patient_id"
+          ]
+        },
+        {
+          "action_id": "check_available_time_slots_2",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_3",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_4",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "routine_checkup",
+            "date": "2024-05-20",
+            "time": "14:00",
+            "reason": "Routine checkup appointment"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No new appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[appointment_scheduling]no_calendar_conflicts[PERSONA:Easy]",
+    "description": {
+      "purpose": "Test appointment scheduling with various constraints."
+    },
+    "user_scenario": {
+      "persona": "\nAs a 42-year-old project manager, you're comfortable with technology and medical systems. You've been managing your own healthcare for years and understand basic medical terminology.\n\nYour health literacy is above average - you can navigate patient portals, understand insurance terminology, and follow medical instructions without much difficulty. You're organized and keep track of your medications and appointments.\n\nIn interactions, you're efficient and to-the-point. You provide requested information clearly and ask focused questions when you need clarification. You appreciate when healthcare staff respect your time and give you actionable next steps.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to schedule a medical appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Follow the agent's guidance. Check your calendar and insurance when asked. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) wants to schedule an appointment. Verify insurance, check doctor availability, and book appointment after getting patient confirmation.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_book_appointment",
+            "patient_id": "patient_001",
+            "reason": "Pending booking request - no calendar conflicts"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "verify_insurance_coverage_1",
+          "requestor": "assistant",
+          "name": "verify_insurance_coverage",
+          "arguments": {
+            "patient_id": "patient_001",
+            "procedure_type": "routine_checkup"
+          },
+          "compare_args": [
+            "patient_id"
+          ]
+        },
+        {
+          "action_id": "check_available_time_slots_2",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_3",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_4",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "routine_checkup",
+            "date": "2024-05-20",
+            "time": "14:00",
+            "reason": "Routine checkup appointment"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No new appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[appointment_scheduling]has_calendar_conflicts[PERSONA:Hard]",
+    "description": {
+      "purpose": "Test appointment scheduling with various constraints."
+    },
+    "user_scenario": {
+      "persona": "\nAt 68 years old, you're a retired teacher managing several chronic conditions. Medical systems and healthcare terminology can be overwhelming, and you often need extra help navigating the system.\n\nYour health literacy is limited - terms like \"copay,\" \"prior authorization,\" and \"formulary\" confuse you. You have trouble remembering medication names and often refer to them by what they're for (\"my blood pressure pill\"). You prefer when someone walks you through each step slowly.\n\nWhen dealing with healthcare, you get anxious easily. You worry about making mistakes with your medications or missing important appointments. You need frequent reassurance and may ask the same question multiple times to make sure you understood correctly.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to schedule a medical appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Follow the agent's guidance. Check your calendar and insurance when asked. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) wants to schedule an appointment. Verify insurance, check doctor availability, and book appointment after getting patient confirmation.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_calendar_slot",
+          "arguments": {
+            "date": "2024-05-20",
+            "time": "10:00",
+            "available": false,
+            "reason": "Work meeting"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_calendar_slot",
+          "arguments": {
+            "date": "2024-05-20",
+            "time": "14:00",
+            "available": true,
+            "reason": null
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_book_appointment",
+            "patient_id": "patient_001",
+            "reason": "Pending booking request - has calendar conflicts"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "verify_insurance_coverage_1",
+          "requestor": "assistant",
+          "name": "verify_insurance_coverage",
+          "arguments": {
+            "patient_id": "patient_001",
+            "procedure_type": "routine_checkup"
+          },
+          "compare_args": [
+            "patient_id"
+          ]
+        },
+        {
+          "action_id": "check_available_time_slots_2",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_3",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_4",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "routine_checkup",
+            "date": "2024-05-20",
+            "time": "14:00",
+            "reason": "Routine checkup appointment"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No new appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[appointment_scheduling]routine_checkup[PERSONA:None]",
+    "description": {
+      "purpose": "Test appointment scheduling with various constraints."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to schedule a medical appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Follow the agent's guidance. Check your calendar and insurance when asked. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) wants to schedule an appointment. Verify insurance, check doctor availability, and book appointment after getting patient confirmation.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_book_appointment",
+            "patient_id": "patient_001",
+            "reason": "Pending booking request - routine checkup"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "verify_insurance_coverage_1",
+          "requestor": "assistant",
+          "name": "verify_insurance_coverage",
+          "arguments": {
+            "patient_id": "patient_001",
+            "procedure_type": "routine_checkup"
+          },
+          "compare_args": [
+            "patient_id"
+          ]
+        },
+        {
+          "action_id": "check_available_time_slots_2",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_3",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_4",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "routine_checkup",
+            "date": "2024-05-20",
+            "time": "14:00",
+            "reason": "Routine checkup appointment"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No new appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[urgent_triage]mild_fever[PERSONA:None]",
+    "description": {
+      "purpose": "Test urgent care triage with symptom assessment."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You are not feeling well and need medical attention.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Describe your symptoms when asked. Use check_symptoms and take_temperature tools as directed. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is experiencing symptoms. Assess urgency based on fever level, pain severity, and breathing difficulty. Book urgent appointment or transfer to nurse as appropriate.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_temperature",
+          "arguments": {
+            "temperature": 100.2
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_symptom",
+          "arguments": {
+            "description": "Mild fever",
+            "severity": "mild",
+            "duration": "1 day"
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_urgent_triage",
+            "patient_id": "patient_001",
+            "reason": "Pending triage - mild fever"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "take_temperature_1",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {}
+        },
+        {
+          "action_id": "verify_insurance_coverage_2",
+          "requestor": "assistant",
+          "name": "verify_insurance_coverage",
+          "arguments": {
+            "patient_id": "patient_001",
+            "procedure_type": "urgent_care"
+          },
+          "compare_args": [
+            "patient_id"
+          ]
+        },
+        {
+          "action_id": "check_available_time_slots_3",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_4",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_5",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "urgent_care",
+            "date": "2024-05-20",
+            "time": "16:00",
+            "reason": "High fever requiring urgent evaluation"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No urgent appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[urgent_triage]high_fever[PERSONA:Easy]",
+    "description": {
+      "purpose": "Test urgent care triage with symptom assessment."
+    },
+    "user_scenario": {
+      "persona": "\nAs a 42-year-old project manager, you're comfortable with technology and medical systems. You've been managing your own healthcare for years and understand basic medical terminology.\n\nYour health literacy is above average - you can navigate patient portals, understand insurance terminology, and follow medical instructions without much difficulty. You're organized and keep track of your medications and appointments.\n\nIn interactions, you're efficient and to-the-point. You provide requested information clearly and ask focused questions when you need clarification. You appreciate when healthcare staff respect your time and give you actionable next steps.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You are not feeling well and need medical attention.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Describe your symptoms when asked. Use check_symptoms and take_temperature tools as directed. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is experiencing symptoms. Assess urgency based on fever level, pain severity, and breathing difficulty. Book urgent appointment or transfer to nurse as appropriate.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_temperature",
+          "arguments": {
+            "temperature": 102.1
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_symptom",
+          "arguments": {
+            "description": "High fever with chills",
+            "severity": "moderate",
+            "duration": "2 days"
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_urgent_triage",
+            "patient_id": "patient_001",
+            "reason": "Pending triage - high fever"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "take_temperature_1",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {}
+        },
+        {
+          "action_id": "verify_insurance_coverage_2",
+          "requestor": "assistant",
+          "name": "verify_insurance_coverage",
+          "arguments": {
+            "patient_id": "patient_001",
+            "procedure_type": "urgent_care"
+          },
+          "compare_args": [
+            "patient_id"
+          ]
+        },
+        {
+          "action_id": "check_available_time_slots_3",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_4",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_5",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "urgent_care",
+            "date": "2024-05-20",
+            "time": "16:00",
+            "reason": "High fever requiring urgent evaluation"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No urgent appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[urgent_triage]very_high_fever[PERSONA:Hard]",
+    "description": {
+      "purpose": "Test urgent care triage with symptom assessment."
+    },
+    "user_scenario": {
+      "persona": "\nAt 68 years old, you're a retired teacher managing several chronic conditions. Medical systems and healthcare terminology can be overwhelming, and you often need extra help navigating the system.\n\nYour health literacy is limited - terms like \"copay,\" \"prior authorization,\" and \"formulary\" confuse you. You have trouble remembering medication names and often refer to them by what they're for (\"my blood pressure pill\"). You prefer when someone walks you through each step slowly.\n\nWhen dealing with healthcare, you get anxious easily. You worry about making mistakes with your medications or missing important appointments. You need frequent reassurance and may ask the same question multiple times to make sure you understood correctly.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You are not feeling well and need medical attention.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Describe your symptoms when asked. Use check_symptoms and take_temperature tools as directed. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is experiencing symptoms. Assess urgency based on fever level, pain severity, and breathing difficulty. Book urgent appointment or transfer to nurse as appropriate.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_temperature",
+          "arguments": {
+            "temperature": 103.8
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_symptom",
+          "arguments": {
+            "description": "Very high fever with severe chills",
+            "severity": "severe",
+            "duration": "6 hours"
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_urgent_triage",
+            "patient_id": "patient_001",
+            "reason": "Pending triage - very high fever"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "transfer_to_nurse",
+          "requestor": "assistant",
+          "name": "transfer_to_nurse",
+          "arguments": {}
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "check_symptoms"
+          },
+          "assert_value": true,
+          "message": "Agent transferred without assessing symptoms first"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "transfer_to_nurse"
+          },
+          "assert_value": true,
+          "message": "Agent identified severe symptoms but failed to transfer to clinical team"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_not_called",
+          "arguments": {
+            "tool_name": "book_appointment"
+          },
+          "assert_value": true,
+          "message": "Agent incorrectly attempted to book appointment when transfer was required"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[urgent_triage]moderate_pain[PERSONA:None]",
+    "description": {
+      "purpose": "Test urgent care triage with symptom assessment."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You are not feeling well and need medical attention.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Describe your symptoms when asked. Use check_symptoms and take_temperature tools as directed. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is experiencing symptoms. Assess urgency based on fever level, pain severity, and breathing difficulty. Book urgent appointment or transfer to nurse as appropriate.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_symptom",
+          "arguments": {
+            "description": "Moderate body aches and muscle pain",
+            "severity": "moderate",
+            "duration": "1 day"
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_urgent_triage",
+            "patient_id": "patient_001",
+            "reason": "Pending triage - moderate pain"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "take_temperature_1",
+          "requestor": "user",
+          "name": "take_temperature",
+          "arguments": {}
+        },
+        {
+          "action_id": "verify_insurance_coverage_2",
+          "requestor": "assistant",
+          "name": "verify_insurance_coverage",
+          "arguments": {
+            "patient_id": "patient_001",
+            "procedure_type": "urgent_care"
+          },
+          "compare_args": [
+            "patient_id"
+          ]
+        },
+        {
+          "action_id": "check_available_time_slots_3",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_4",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_5",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "urgent_care",
+            "date": "2024-05-20",
+            "time": "16:00",
+            "reason": "High fever requiring urgent evaluation"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No urgent appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[chronic_monitoring]elevated[PERSONA:None]",
+    "description": {
+      "purpose": "Test chronic condition monitoring with home measurements."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to discuss your home health monitoring readings.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home. You manage chronic health conditions.",
+        "task_instructions": "Share your home monitoring readings when asked. Use measure_blood_pressure, measure_blood_glucose, and measure_oxygen_saturation tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling about chronic condition monitoring. Review their blood pressure, glucose, and oxygen saturation readings. Schedule follow-up or transfer to nurse for concerning values.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_bp_monitor",
+          "arguments": {
+            "has_monitor": true,
+            "systolic": 125,
+            "diastolic": 78
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_bp_followup",
+            "patient_id": "patient_001",
+            "reason": "Pending BP monitoring follow-up"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "measure_blood_pressure_1",
+          "requestor": "user",
+          "name": "measure_blood_pressure",
+          "arguments": {}
+        },
+        {
+          "action_id": "check_available_time_slots_2",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_3",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_4",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "follow_up",
+            "date": "2024-05-20",
+            "time": "15:00",
+            "reason": "Follow-up for elevated blood pressure monitoring"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No monitoring appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[chronic_monitoring]stage1[PERSONA:Easy]",
+    "description": {
+      "purpose": "Test chronic condition monitoring with home measurements."
+    },
+    "user_scenario": {
+      "persona": "\nAs a 42-year-old project manager, you're comfortable with technology and medical systems. You've been managing your own healthcare for years and understand basic medical terminology.\n\nYour health literacy is above average - you can navigate patient portals, understand insurance terminology, and follow medical instructions without much difficulty. You're organized and keep track of your medications and appointments.\n\nIn interactions, you're efficient and to-the-point. You provide requested information clearly and ask focused questions when you need clarification. You appreciate when healthcare staff respect your time and give you actionable next steps.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to discuss your home health monitoring readings.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home. You manage chronic health conditions.",
+        "task_instructions": "Share your home monitoring readings when asked. Use measure_blood_pressure, measure_blood_glucose, and measure_oxygen_saturation tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling about chronic condition monitoring. Review their blood pressure, glucose, and oxygen saturation readings. Schedule follow-up or transfer to nurse for concerning values.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_bp_monitor",
+          "arguments": {
+            "has_monitor": true,
+            "systolic": 135,
+            "diastolic": 85
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_bp_followup",
+            "patient_id": "patient_001",
+            "reason": "Pending BP monitoring follow-up - Stage 1 hypertension"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "measure_blood_pressure_1",
+          "requestor": "user",
+          "name": "measure_blood_pressure",
+          "arguments": {}
+        },
+        {
+          "action_id": "check_available_time_slots_2",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_3",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_4",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "follow_up",
+            "date": "2024-05-20",
+            "time": "15:00",
+            "reason": "Follow-up for elevated blood pressure monitoring"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No monitoring appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[chronic_monitoring]stage2[PERSONA:Hard]",
+    "description": {
+      "purpose": "Test chronic condition monitoring with home measurements."
+    },
+    "user_scenario": {
+      "persona": "\nAt 68 years old, you're a retired teacher managing several chronic conditions. Medical systems and healthcare terminology can be overwhelming, and you often need extra help navigating the system.\n\nYour health literacy is limited - terms like \"copay,\" \"prior authorization,\" and \"formulary\" confuse you. You have trouble remembering medication names and often refer to them by what they're for (\"my blood pressure pill\"). You prefer when someone walks you through each step slowly.\n\nWhen dealing with healthcare, you get anxious easily. You worry about making mistakes with your medications or missing important appointments. You need frequent reassurance and may ask the same question multiple times to make sure you understood correctly.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to discuss your home health monitoring readings.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home. You manage chronic health conditions.",
+        "task_instructions": "Share your home monitoring readings when asked. Use measure_blood_pressure, measure_blood_glucose, and measure_oxygen_saturation tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling about chronic condition monitoring. Review their blood pressure, glucose, and oxygen saturation readings. Schedule follow-up or transfer to nurse for concerning values.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_bp_monitor",
+          "arguments": {
+            "has_monitor": true,
+            "systolic": 148,
+            "diastolic": 94
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_bp_followup",
+            "patient_id": "patient_001",
+            "reason": "Pending BP monitoring follow-up - Stage 2 hypertension"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "measure_blood_pressure_1",
+          "requestor": "user",
+          "name": "measure_blood_pressure",
+          "arguments": {}
+        },
+        {
+          "action_id": "check_available_time_slots_2",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_3",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_4",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "follow_up",
+            "date": "2024-05-20",
+            "time": "15:00",
+            "reason": "Follow-up for elevated blood pressure monitoring"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No monitoring appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[chronic_monitoring]prediabetes[PERSONA:None]",
+    "description": {
+      "purpose": "Test chronic condition monitoring with home measurements."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to discuss your home health monitoring readings.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home. You manage chronic health conditions.",
+        "task_instructions": "Share your home monitoring readings when asked. Use measure_blood_pressure, measure_blood_glucose, and measure_oxygen_saturation tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling about chronic condition monitoring. Review their blood pressure, glucose, and oxygen saturation readings. Schedule follow-up or transfer to nurse for concerning values.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_glucose_monitor",
+          "arguments": {
+            "has_monitor": true,
+            "glucose_reading": 112,
+            "measurement_time": "fasting"
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_glucose_followup",
+            "patient_id": "patient_001",
+            "reason": "Pending glucose monitoring follow-up - prediabetes"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "measure_blood_glucose_1",
+          "requestor": "user",
+          "name": "measure_blood_glucose",
+          "arguments": {}
+        },
+        {
+          "action_id": "check_available_time_slots_2",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_3",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_4",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "follow_up",
+            "date": "2024-05-20",
+            "time": "09:00",
+            "reason": "Blood glucose monitoring and diabetes management"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No monitoring appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[chronic_monitoring]diabetes[PERSONA:Easy]",
+    "description": {
+      "purpose": "Test chronic condition monitoring with home measurements."
+    },
+    "user_scenario": {
+      "persona": "\nAs a 42-year-old project manager, you're comfortable with technology and medical systems. You've been managing your own healthcare for years and understand basic medical terminology.\n\nYour health literacy is above average - you can navigate patient portals, understand insurance terminology, and follow medical instructions without much difficulty. You're organized and keep track of your medications and appointments.\n\nIn interactions, you're efficient and to-the-point. You provide requested information clearly and ask focused questions when you need clarification. You appreciate when healthcare staff respect your time and give you actionable next steps.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to discuss your home health monitoring readings.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home. You manage chronic health conditions.",
+        "task_instructions": "Share your home monitoring readings when asked. Use measure_blood_pressure, measure_blood_glucose, and measure_oxygen_saturation tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling about chronic condition monitoring. Review their blood pressure, glucose, and oxygen saturation readings. Schedule follow-up or transfer to nurse for concerning values.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_glucose_monitor",
+          "arguments": {
+            "has_monitor": true,
+            "glucose_reading": 145,
+            "measurement_time": "fasting"
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_glucose_followup",
+            "patient_id": "patient_001",
+            "reason": "Pending glucose monitoring follow-up - diabetes"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "measure_blood_glucose_1",
+          "requestor": "user",
+          "name": "measure_blood_glucose",
+          "arguments": {}
+        },
+        {
+          "action_id": "check_available_time_slots_2",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_3",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_4",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "follow_up",
+            "date": "2024-05-20",
+            "time": "09:00",
+            "reason": "Blood glucose monitoring and diabetes management"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No monitoring appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[chronic_monitoring]mild_hypoxemia[PERSONA:Hard]",
+    "description": {
+      "purpose": "Test chronic condition monitoring with home measurements."
+    },
+    "user_scenario": {
+      "persona": "\nAt 68 years old, you're a retired teacher managing several chronic conditions. Medical systems and healthcare terminology can be overwhelming, and you often need extra help navigating the system.\n\nYour health literacy is limited - terms like \"copay,\" \"prior authorization,\" and \"formulary\" confuse you. You have trouble remembering medication names and often refer to them by what they're for (\"my blood pressure pill\"). You prefer when someone walks you through each step slowly.\n\nWhen dealing with healthcare, you get anxious easily. You worry about making mistakes with your medications or missing important appointments. You need frequent reassurance and may ask the same question multiple times to make sure you understood correctly.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to discuss your home health monitoring readings.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home. You manage chronic health conditions.",
+        "task_instructions": "Share your home monitoring readings when asked. Use measure_blood_pressure, measure_blood_glucose, and measure_oxygen_saturation tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling about chronic condition monitoring. Review their blood pressure, glucose, and oxygen saturation readings. Schedule follow-up or transfer to nurse for concerning values.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_pulse_oximeter",
+          "arguments": {
+            "has_monitor": true,
+            "spo2": 92,
+            "heart_rate": 78
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_symptom",
+          "arguments": {
+            "description": "Mild shortness of breath",
+            "severity": "mild",
+            "duration": "few hours"
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_spo2_followup",
+            "patient_id": "patient_001",
+            "reason": "Pending oxygen saturation monitoring - mild hypoxemia"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "measure_oxygen_saturation_1",
+          "requestor": "user",
+          "name": "measure_oxygen_saturation",
+          "arguments": {}
+        },
+        {
+          "action_id": "check_available_time_slots_2",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        },
+        {
+          "action_id": "check_calendar_3",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_4",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "urgent_care",
+            "date": "2024-05-20",
+            "time": "11:00",
+            "reason": "Low oxygen saturation requiring urgent evaluation"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ],
+          "accepted_values": {
+            "doctor_id": [
+              "doc_001",
+              "doc_003",
+              "doc_006",
+              "doc_008"
+            ]
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No monitoring appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[telehealth_setup]telehealth_consent_needed[PERSONA:None]",
+    "description": {
+      "purpose": "Test telehealth setup with consent and contact management."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to set up a telehealth appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Provide consent when requested. Update emergency contact and acknowledge instructions using the appropriate tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) wants to set up telehealth. Obtain necessary consent, verify emergency contact is current, and ensure patient acknowledges any medical instructions.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "provide_consent",
+          "arguments": {
+            "consent_type": "data_sharing"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "provide_consent_0",
+          "requestor": "user",
+          "name": "provide_consent",
+          "arguments": {
+            "consent_type": "telehealth"
+          }
+        }
+      ],
+      "env_assertions": [],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[telehealth_setup]data_sharing_consent_needed[PERSONA:Easy]",
+    "description": {
+      "purpose": "Test telehealth setup with consent and contact management."
+    },
+    "user_scenario": {
+      "persona": "\nAs a 42-year-old project manager, you're comfortable with technology and medical systems. You've been managing your own healthcare for years and understand basic medical terminology.\n\nYour health literacy is above average - you can navigate patient portals, understand insurance terminology, and follow medical instructions without much difficulty. You're organized and keep track of your medications and appointments.\n\nIn interactions, you're efficient and to-the-point. You provide requested information clearly and ask focused questions when you need clarification. You appreciate when healthcare staff respect your time and give you actionable next steps.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to set up a telehealth appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Provide consent when requested. Update emergency contact and acknowledge instructions using the appropriate tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) wants to set up telehealth. Obtain necessary consent, verify emergency contact is current, and ensure patient acknowledges any medical instructions.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "provide_consent",
+          "arguments": {
+            "consent_type": "telehealth"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "provide_consent_0",
+          "requestor": "user",
+          "name": "provide_consent",
+          "arguments": {
+            "consent_type": "data_sharing"
+          }
+        }
+      ],
+      "env_assertions": [],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[telehealth_setup]missing[PERSONA:Hard]",
+    "description": {
+      "purpose": "Test telehealth setup with consent and contact management."
+    },
+    "user_scenario": {
+      "persona": "\nAt 68 years old, you're a retired teacher managing several chronic conditions. Medical systems and healthcare terminology can be overwhelming, and you often need extra help navigating the system.\n\nYour health literacy is limited - terms like \"copay,\" \"prior authorization,\" and \"formulary\" confuse you. You have trouble remembering medication names and often refer to them by what they're for (\"my blood pressure pill\"). You prefer when someone walks you through each step slowly.\n\nWhen dealing with healthcare, you get anxious easily. You worry about making mistakes with your medications or missing important appointments. You need frequent reassurance and may ask the same question multiple times to make sure you understood correctly.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to set up a telehealth appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Provide consent when requested. Update emergency contact and acknowledge instructions using the appropriate tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) wants to set up telehealth. Obtain necessary consent, verify emergency contact is current, and ensure patient acknowledges any medical instructions.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_emergency_contact",
+          "arguments": {
+            "name": "MISSING - No emergency contact on file",
+            "phone": "000-0000",
+            "relationship": "none"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "update_emergency_contact_0",
+          "requestor": "user",
+          "name": "update_emergency_contact",
+          "arguments": {
+            "name": "Emergency Contact",
+            "phone": "555-0000",
+            "relationship": "family"
+          },
+          "compare_args": []
+        }
+      ],
+      "env_assertions": [],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[telehealth_setup]outdated[PERSONA:None]",
+    "description": {
+      "purpose": "Test telehealth setup with consent and contact management."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to set up a telehealth appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Provide consent when requested. Update emergency contact and acknowledge instructions using the appropriate tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) wants to set up telehealth. Obtain necessary consent, verify emergency contact is current, and ensure patient acknowledges any medical instructions.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_emergency_contact",
+          "arguments": {
+            "name": "Old Contact (disconnected)",
+            "phone": "555-9999",
+            "relationship": "friend"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "update_emergency_contact_0",
+          "requestor": "user",
+          "name": "update_emergency_contact",
+          "arguments": {
+            "name": "Emergency Contact",
+            "phone": "555-0000",
+            "relationship": "family"
+          },
+          "compare_args": []
+        }
+      ],
+      "env_assertions": [],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[telehealth_setup]medication_instructions[PERSONA:Easy]",
+    "description": {
+      "purpose": "Test telehealth setup with consent and contact management."
+    },
+    "user_scenario": {
+      "persona": "\nAs a 42-year-old project manager, you're comfortable with technology and medical systems. You've been managing your own healthcare for years and understand basic medical terminology.\n\nYour health literacy is above average - you can navigate patient portals, understand insurance terminology, and follow medical instructions without much difficulty. You're organized and keep track of your medications and appointments.\n\nIn interactions, you're efficient and to-the-point. You provide requested information clearly and ask focused questions when you need clarification. You appreciate when healthcare staff respect your time and give you actionable next steps.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to set up a telehealth appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Provide consent when requested. Update emergency contact and acknowledge instructions using the appropriate tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) wants to set up telehealth. Obtain necessary consent, verify emergency contact is current, and ensure patient acknowledges any medical instructions.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "acknowledge_instructions",
+          "arguments": {
+            "instruction_type": "post_care"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "acknowledge_instructions",
+          "arguments": {
+            "instruction_type": "pre_surgery"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "acknowledge_instructions_0",
+          "requestor": "user",
+          "name": "acknowledge_instructions",
+          "arguments": {
+            "instruction_type": "medication"
+          },
+          "compare_args": []
+        }
+      ],
+      "env_assertions": [],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[telehealth_setup]post_care_instructions[PERSONA:Hard]",
+    "description": {
+      "purpose": "Test telehealth setup with consent and contact management."
+    },
+    "user_scenario": {
+      "persona": "\nAt 68 years old, you're a retired teacher managing several chronic conditions. Medical systems and healthcare terminology can be overwhelming, and you often need extra help navigating the system.\n\nYour health literacy is limited - terms like \"copay,\" \"prior authorization,\" and \"formulary\" confuse you. You have trouble remembering medication names and often refer to them by what they're for (\"my blood pressure pill\"). You prefer when someone walks you through each step slowly.\n\nWhen dealing with healthcare, you get anxious easily. You worry about making mistakes with your medications or missing important appointments. You need frequent reassurance and may ask the same question multiple times to make sure you understood correctly.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to set up a telehealth appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Provide consent when requested. Update emergency contact and acknowledge instructions using the appropriate tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) wants to set up telehealth. Obtain necessary consent, verify emergency contact is current, and ensure patient acknowledges any medical instructions.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "acknowledge_instructions",
+          "arguments": {
+            "instruction_type": "medication"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "acknowledge_instructions",
+          "arguments": {
+            "instruction_type": "pre_surgery"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "acknowledge_instructions_0",
+          "requestor": "user",
+          "name": "acknowledge_instructions",
+          "arguments": {
+            "instruction_type": "post_care"
+          },
+          "compare_args": []
+        }
+      ],
+      "env_assertions": [],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[telehealth_setup]pre_surgery_instructions[PERSONA:None]",
+    "description": {
+      "purpose": "Test telehealth setup with consent and contact management."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to set up a telehealth appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Provide consent when requested. Update emergency contact and acknowledge instructions using the appropriate tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) wants to set up telehealth. Obtain necessary consent, verify emergency contact is current, and ensure patient acknowledges any medical instructions.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "acknowledge_instructions",
+          "arguments": {
+            "instruction_type": "medication"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "acknowledge_instructions",
+          "arguments": {
+            "instruction_type": "post_care"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "acknowledge_instructions_0",
+          "requestor": "user",
+          "name": "acknowledge_instructions",
+          "arguments": {
+            "instruction_type": "pre_surgery"
+          },
+          "compare_args": []
+        }
+      ],
+      "env_assertions": [],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[test_results_access]normal[PERSONA:None]",
+    "description": {
+      "purpose": "Test accessing and reviewing medical test results."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to check your medical test results.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Ask about your test results. Use open_patient_portal to view results when available. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling about test results. Check result status, direct to patient portal for ready results, or schedule follow-up for reviewed results. Transfer to nurse for critical findings.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_test_results_routine_followup",
+            "patient_id": "patient_001",
+            "reason": "Pending routine follow-up for normal test results"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": true,
+            "test_results": [
+              {
+                "test_name": "HbA1c (Diabetes screening)",
+                "test_date": "2024-05-10",
+                "result": "All test values within normal reference ranges",
+                "notes": "No abnormalities detected"
+              }
+            ],
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "check_test_results_1",
+          "requestor": "assistant",
+          "name": "check_test_results",
+          "arguments": {
+            "patient_id": "patient_001",
+            "test_id": "test_001"
+          }
+        },
+        {
+          "action_id": "verify_insurance_coverage_2",
+          "requestor": "assistant",
+          "name": "verify_insurance_coverage",
+          "arguments": {
+            "patient_id": "patient_001",
+            "procedure_type": "follow_up"
+          }
+        },
+        {
+          "action_id": "check_available_time_slots_3",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-20"
+          },
+          "compare_args": [
+            "doctor_id"
+          ]
+        },
+        {
+          "action_id": "check_calendar_4",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_5",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "follow_up",
+            "date": "2024-05-20",
+            "time": "14:00",
+            "reason": "Routine follow-up to review test results and annual wellness check"
+          },
+          "compare_args": [
+            "patient_id",
+            "doctor_id",
+            "appointment_type"
+          ]
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No follow-up appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[test_results_access]abnormal_minor[PERSONA:Easy]",
+    "description": {
+      "purpose": "Test accessing and reviewing medical test results."
+    },
+    "user_scenario": {
+      "persona": "\nAs a 42-year-old project manager, you're comfortable with technology and medical systems. You've been managing your own healthcare for years and understand basic medical terminology.\n\nYour health literacy is above average - you can navigate patient portals, understand insurance terminology, and follow medical instructions without much difficulty. You're organized and keep track of your medications and appointments.\n\nIn interactions, you're efficient and to-the-point. You provide requested information clearly and ask focused questions when you need clarification. You appreciate when healthcare staff respect your time and give you actionable next steps.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to check your medical test results.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Ask about your test results. Use open_patient_portal to view results when available. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling about test results. Check result status, direct to patient portal for ready results, or schedule follow-up for reviewed results. Transfer to nurse for critical findings.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_test_results_followup",
+            "patient_id": "patient_001",
+            "reason": "Pending test results follow-up - minor abnormalities"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": true,
+            "test_results": [
+              {
+                "test_name": "HbA1c (Diabetes screening)",
+                "test_date": "2024-05-10",
+                "result": "Slightly elevated cholesterol (220 mg/dL) - recommend dietary modifications",
+                "notes": "Minor abnormality - follow-up in 3 months recommended"
+              }
+            ],
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "get_patient_details_0",
+          "requestor": "assistant",
+          "name": "get_patient_details",
+          "arguments": {
+            "full_name": "Sarah Johnson",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "action_id": "check_test_results_1",
+          "requestor": "assistant",
+          "name": "check_test_results",
+          "arguments": {
+            "patient_id": "patient_001",
+            "test_id": "test_001"
+          }
+        },
+        {
+          "action_id": "verify_insurance_coverage_2",
+          "requestor": "assistant",
+          "name": "verify_insurance_coverage",
+          "arguments": {
+            "patient_id": "patient_001",
+            "procedure_type": "follow_up"
+          }
+        },
+        {
+          "action_id": "check_available_time_slots_3",
+          "requestor": "assistant",
+          "name": "check_available_time_slots",
+          "arguments": {
+            "doctor_id": "doc_001",
+            "date": "2024-05-30"
+          },
+          "compare_args": [
+            "doctor_id"
+          ]
+        },
+        {
+          "action_id": "check_calendar_4",
+          "requestor": "user",
+          "name": "check_calendar",
+          "arguments": {}
+        },
+        {
+          "action_id": "book_appointment_5",
+          "requestor": "assistant",
+          "name": "book_appointment",
+          "arguments": {
+            "patient_id": "patient_001",
+            "doctor_id": "doc_001",
+            "appointment_type": "follow_up",
+            "date": "2024-05-30",
+            "time": "10:00",
+            "reason": "Follow-up for abnormal test results - discuss findings and treatment plan"
+          }
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_appointment_count_exceeds_baseline",
+          "arguments": {},
+          "assert_value": true,
+          "message": "No follow-up appointment was created - appointment count did not exceed baseline"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION",
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[test_results_access]abnormal_critical[PERSONA:Hard]",
+    "description": {
+      "purpose": "Test accessing and reviewing medical test results."
+    },
+    "user_scenario": {
+      "persona": "\nAt 68 years old, you're a retired teacher managing several chronic conditions. Medical systems and healthcare terminology can be overwhelming, and you often need extra help navigating the system.\n\nYour health literacy is limited - terms like \"copay,\" \"prior authorization,\" and \"formulary\" confuse you. You have trouble remembering medication names and often refer to them by what they're for (\"my blood pressure pill\"). You prefer when someone walks you through each step slowly.\n\nWhen dealing with healthcare, you get anxious easily. You worry about making mistakes with your medications or missing important appointments. You need frequent reassurance and may ask the same question multiple times to make sure you understood correctly.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You want to check your medical test results.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Ask about your test results. Use open_patient_portal to view results when available. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling about test results. Check result status, direct to patient portal for ready results, or schedule follow-up for reviewed results. Transfer to nurse for critical findings.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_test_results_critical_transfer",
+            "patient_id": "patient_001",
+            "reason": "Pending test results - critical findings requiring immediate attention"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "test_results": [],
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "transfer_to_nurse",
+          "requestor": "assistant",
+          "name": "transfer_to_nurse",
+          "arguments": {}
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "check_test_results"
+          },
+          "assert_value": true,
+          "message": "Agent transferred without checking test results first"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_not_called",
+          "arguments": {
+            "tool_name": "book_appointment"
+          },
+          "assert_value": true,
+          "message": "Agent incorrectly attempted to book appointment when transfer was required"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[patient_mistake]chest_pain_vs_panic_attack[PERSONA:None]",
+    "description": {
+      "purpose": "Test handling of patient misinformation and verification workflows."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You have concerns about your symptoms or medication.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Report your symptoms or medication concerns as you understand them. The agent may ask you to verify information using tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling with health concerns. Verify patient-reported information through objective tools (vitals, medication bottles). Use clinical reasoning to identify discrepancies between patient claims and objective data. CRITICAL SAFETY: Life-threatening symptoms (chest pain, difficulty breathing, severe pain) ALWAYS require immediate transfer to clinical staff, regardless of vital sign readings.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_temperature",
+          "arguments": {
+            "temperature": 98.4
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_symptom",
+          "arguments": {
+            "description": "Severe chest pain radiating to left arm, feels like heart attack, racing heart",
+            "severity": "severe",
+            "duration": "20 minutes"
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_symptom_verification",
+            "patient_id": "patient_001",
+            "reason": "Pending triage - chest pain requiring verification"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "transfer_to_nurse",
+          "requestor": "assistant",
+          "name": "transfer_to_nurse",
+          "arguments": {}
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "get_patient_details"
+          },
+          "assert_value": true,
+          "message": "Agent must verify patient identity before addressing medical concerns"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "check_medication_bottle"
+          },
+          "assert_value": true,
+          "message": "Agent must verify medication details before escalating confusion"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "transfer_to_nurse"
+          },
+          "assert_value": true,
+          "message": "Agent must escalate patient mistake to nurse for clinical review"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[patient_mistake]high_fever_vs_normal_temp[PERSONA:Easy]",
+    "description": {
+      "purpose": "Test handling of patient misinformation and verification workflows."
+    },
+    "user_scenario": {
+      "persona": "\nAs a 42-year-old project manager, you're comfortable with technology and medical systems. You've been managing your own healthcare for years and understand basic medical terminology.\n\nYour health literacy is above average - you can navigate patient portals, understand insurance terminology, and follow medical instructions without much difficulty. You're organized and keep track of your medications and appointments.\n\nIn interactions, you're efficient and to-the-point. You provide requested information clearly and ask focused questions when you need clarification. You appreciate when healthcare staff respect your time and give you actionable next steps.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You have concerns about your symptoms or medication.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Report your symptoms or medication concerns as you understand them. The agent may ask you to verify information using tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling with health concerns. Verify patient-reported information through objective tools (vitals, medication bottles). Use clinical reasoning to identify discrepancies between patient claims and objective data. CRITICAL SAFETY: Life-threatening symptoms (chest pain, difficulty breathing, severe pain) ALWAYS require immediate transfer to clinical staff, regardless of vital sign readings.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_temperature",
+          "arguments": {
+            "temperature": 98.6
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_symptom",
+          "arguments": {
+            "description": "Feeling feverish, very hot and sweaty",
+            "severity": "mild",
+            "duration": "4 hours"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "get_patient_details"
+          },
+          "assert_value": true,
+          "message": "Agent must verify patient identity before addressing medical concerns"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "take_temperature"
+          },
+          "assert_value": true,
+          "message": "Agent must verify patient's fever claim with objective temperature reading"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ENV_ASSERTION"
+      ]
+    }
+  },
+  {
+    "id": "[patient_mistake]wrong_medication_not_working[PERSONA:Hard]",
+    "description": {
+      "purpose": "Test handling of patient misinformation and verification workflows."
+    },
+    "user_scenario": {
+      "persona": "\nAt 68 years old, you're a retired teacher managing several chronic conditions. Medical systems and healthcare terminology can be overwhelming, and you often need extra help navigating the system.\n\nYour health literacy is limited - terms like \"copay,\" \"prior authorization,\" and \"formulary\" confuse you. You have trouble remembering medication names and often refer to them by what they're for (\"my blood pressure pill\"). You prefer when someone walks you through each step slowly.\n\nWhen dealing with healthcare, you get anxious easily. You worry about making mistakes with your medications or missing important appointments. You need frequent reassurance and may ask the same question multiple times to make sure you understood correctly.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You have concerns about your symptoms or medication.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Report your symptoms or medication concerns as you understand them. The agent may ask you to verify information using tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling with health concerns. Verify patient-reported information through objective tools (vitals, medication bottles). Use clinical reasoning to identify discrepancies between patient claims and objective data. CRITICAL SAFETY: Life-threatening symptoms (chest pain, difficulty breathing, severe pain) ALWAYS require immediate transfer to clinical staff, regardless of vital sign readings.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "set_prescription_status",
+          "arguments": {
+            "prescription_id": "rx_001",
+            "status": "active"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_medication_at_home",
+          "arguments": {
+            "prescription_number": "rx_001",
+            "medication_name": "Lisinopril",
+            "dosage": "10mg daily",
+            "refills_remaining": 2,
+            "prescribing_doctor": "Dr. Sarah Martinez",
+            "pharmacy_name": "Community Pharmacy",
+            "pharmacy_phone": "(555) 123-4567"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_medication_at_home",
+          "arguments": {
+            "prescription_number": "rx_003",
+            "medication_name": "Atorvastatin",
+            "dosage": "20mg at bedtime",
+            "refills_remaining": 3,
+            "prescribing_doctor": "Dr. Sarah Martinez",
+            "pharmacy_name": "Community Pharmacy",
+            "pharmacy_phone": "(555) 123-4567"
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_symptom_verification",
+            "patient_id": "patient_001",
+            "reason": "Pending medication confusion verification"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "transfer_to_nurse",
+          "requestor": "assistant",
+          "name": "transfer_to_nurse",
+          "arguments": {}
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "get_patient_details"
+          },
+          "assert_value": true,
+          "message": "Agent must verify patient identity before addressing medical concerns"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "check_medication_bottle"
+          },
+          "assert_value": true,
+          "message": "Agent must verify medication details before escalating confusion"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "transfer_to_nurse"
+          },
+          "assert_value": true,
+          "message": "Agent must escalate patient mistake to nurse for clinical review"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[patient_mistake]wrong_dosage_confusion[PERSONA:None]",
+    "description": {
+      "purpose": "Test handling of patient misinformation and verification workflows."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You have concerns about your symptoms or medication.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home.",
+        "task_instructions": "Report your symptoms or medication concerns as you understand them. The agent may ask you to verify information using tools. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling with health concerns. Verify patient-reported information through objective tools (vitals, medication bottles). Use clinical reasoning to identify discrepancies between patient claims and objective data. CRITICAL SAFETY: Life-threatening symptoms (chest pain, difficulty breathing, severe pain) ALWAYS require immediate transfer to clinical staff, regardless of vital sign readings.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "set_prescription_status",
+          "arguments": {
+            "prescription_id": "rx_001",
+            "status": "active"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_medication_at_home",
+          "arguments": {
+            "prescription_number": "rx_001",
+            "medication_name": "Lisinopril",
+            "dosage": "10mg once daily",
+            "refills_remaining": 2,
+            "prescribing_doctor": "Dr. Sarah Martinez",
+            "pharmacy_name": "Community Pharmacy",
+            "pharmacy_phone": "(555) 123-4567"
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_symptom_verification",
+            "patient_id": "patient_001",
+            "reason": "Pending medication dosage verification"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "transfer_to_nurse",
+          "requestor": "assistant",
+          "name": "transfer_to_nurse",
+          "arguments": {}
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "get_patient_details"
+          },
+          "assert_value": true,
+          "message": "Agent must verify patient identity before addressing medical concerns"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "check_medication_bottle"
+          },
+          "assert_value": true,
+          "message": "Agent must verify medication details before escalating confusion"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "transfer_to_nurse"
+          },
+          "assert_value": true,
+          "message": "Agent must escalate patient mistake to nurse for clinical review"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[critical_triage]hypertensive_crisis_standalone[PERSONA:None]",
+    "description": {
+      "purpose": "Test recognition of critical vital signs requiring immediate escalation."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You're not feeling well and want to check if you need an appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home. You have home health monitoring devices.",
+        "task_instructions": "Report your symptoms as described. You may underestimate the severity. Use home monitoring tools when asked. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling about symptoms. Patient may underestimate severity. CRITICAL: Measure vital signs objectively. Critical values (BP \u2265180/120, glucose <70, O2 <85%) require IMMEDIATE transfer to clinical staff, even if patient reports mild symptoms.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_bp_monitor",
+          "arguments": {
+            "has_monitor": true,
+            "systolic": 192,
+            "diastolic": 128
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_symptom",
+          "arguments": {
+            "description": "Mild headache, feeling a bit off",
+            "severity": "mild",
+            "duration": "2 hours"
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_bp_crisis_triage",
+            "patient_id": "patient_001",
+            "reason": "Pending triage - patient reports headache, needs BP check"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "transfer_to_nurse",
+          "requestor": "assistant",
+          "name": "transfer_to_nurse",
+          "arguments": {}
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "transfer_to_nurse"
+          },
+          "assert_value": true,
+          "message": "Agent must transfer to nurse for critical vital signs"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_not_called",
+          "arguments": {
+            "tool_name": "book_appointment"
+          },
+          "assert_value": true,
+          "message": "Agent incorrectly tried to book appointment for critical emergency"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[critical_triage]hypoglycemia_standalone[PERSONA:Easy]",
+    "description": {
+      "purpose": "Test recognition of critical vital signs requiring immediate escalation."
+    },
+    "user_scenario": {
+      "persona": "\nAs a 42-year-old project manager, you're comfortable with technology and medical systems. You've been managing your own healthcare for years and understand basic medical terminology.\n\nYour health literacy is above average - you can navigate patient portals, understand insurance terminology, and follow medical instructions without much difficulty. You're organized and keep track of your medications and appointments.\n\nIn interactions, you're efficient and to-the-point. You provide requested information clearly and ask focused questions when you need clarification. You appreciate when healthcare staff respect your time and give you actionable next steps.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You're not feeling well and want to check if you need an appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home. You have home health monitoring devices.",
+        "task_instructions": "Report your symptoms as described. You may underestimate the severity. Use home monitoring tools when asked. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling about symptoms. Patient may underestimate severity. CRITICAL: Measure vital signs objectively. Critical values (BP \u2265180/120, glucose <70, O2 <85%) require IMMEDIATE transfer to clinical staff, even if patient reports mild symptoms.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_glucose_monitor",
+          "arguments": {
+            "has_monitor": true,
+            "glucose_reading": 52,
+            "measurement_time": "fasting"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_symptom",
+          "arguments": {
+            "description": "Feeling dizzy and shaky, a bit confused",
+            "severity": "moderate",
+            "duration": "30 minutes"
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_glucose_crisis_triage",
+            "patient_id": "patient_001",
+            "reason": "Pending triage - diabetic patient with dizziness"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "transfer_to_nurse",
+          "requestor": "assistant",
+          "name": "transfer_to_nurse",
+          "arguments": {}
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "transfer_to_nurse"
+          },
+          "assert_value": true,
+          "message": "Agent must transfer to nurse for critical vital signs"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_not_called",
+          "arguments": {
+            "tool_name": "book_appointment"
+          },
+          "assert_value": true,
+          "message": "Agent incorrectly tried to book appointment for critical emergency"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  },
+  {
+    "id": "[critical_triage]severe_hypoxemia_standalone[PERSONA:Hard]",
+    "description": {
+      "purpose": "Test recognition of critical vital signs requiring immediate escalation."
+    },
+    "user_scenario": {
+      "persona": "\nAt 68 years old, you're a retired teacher managing several chronic conditions. Medical systems and healthcare terminology can be overwhelming, and you often need extra help navigating the system.\n\nYour health literacy is limited - terms like \"copay,\" \"prior authorization,\" and \"formulary\" confuse you. You have trouble remembering medication names and often refer to them by what they're for (\"my blood pressure pill\"). You prefer when someone walks you through each step slowly.\n\nWhen dealing with healthcare, you get anxious easily. You worry about making mistakes with your medications or missing important appointments. You need frequent reassurance and may ask the same question multiple times to make sure you understood correctly.\n",
+      "instructions": {
+        "domain": "healthcare",
+        "reason_for_call": "You're not feeling well and want to check if you need an appointment.",
+        "known_info": "You are Sarah Johnson, born on 1985-03-15, currently at home. You have home health monitoring devices.",
+        "task_instructions": "Report your symptoms as described. You may underestimate the severity. Use home monitoring tools when asked. If the tool call does not return updated information, you might need to perform another tool call to get the updated details. \nWhenever the agent asks you about your medical information or documents, always ground your responses on the results of tool calls.\nFor example: If the agent asks about your insurance, always ground your response on the results of the `check_insurance_card` tool call. If the agent asks about symptoms, always ground your response on the results of the `check_symptoms` tool call.\nNever make up information, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      }
+    },
+    "ticket": "Patient Sarah Johnson (DOB: 1985-03-15) is calling about symptoms. Patient may underestimate severity. CRITICAL: Measure vital signs objectively. Critical values (BP \u2265180/120, glucose <70, O2 <85%) require IMMEDIATE transfer to clinical staff, even if patient reports mild symptoms.",
+    "initial_state": {
+      "initialization_actions": [
+        {
+          "env_type": "user",
+          "func_name": "set_user_info",
+          "arguments": {
+            "name": "Sarah Johnson",
+            "patient_id": "patient_001",
+            "date_of_birth": "1985-03-15"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_user_location",
+          "arguments": {
+            "location": "home"
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_portal_info",
+          "arguments": {
+            "upcoming_appointments": [],
+            "recent_visits": [],
+            "test_results_available": false,
+            "messages_count": 0,
+            "outstanding_balance": 0
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "set_pulse_oximeter",
+          "arguments": {
+            "has_monitor": true,
+            "spo2": 82,
+            "heart_rate": 92
+          }
+        },
+        {
+          "env_type": "user",
+          "func_name": "add_symptom",
+          "arguments": {
+            "description": "Short of breath when walking, tired",
+            "severity": "moderate",
+            "duration": "few days"
+          }
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "create_appointment_marker",
+          "arguments": {
+            "appointment_id": "pending_oxygen_crisis_triage",
+            "patient_id": "patient_001",
+            "reason": "Pending triage - patient reports breathing difficulty"
+          }
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "transfer_to_nurse",
+          "requestor": "assistant",
+          "name": "transfer_to_nurse",
+          "arguments": {}
+        }
+      ],
+      "env_assertions": [
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_called",
+          "arguments": {
+            "tool_name": "transfer_to_nurse"
+          },
+          "assert_value": true,
+          "message": "Agent must transfer to nurse for critical vital signs"
+        },
+        {
+          "env_type": "assistant",
+          "func_name": "assert_tool_was_not_called",
+          "arguments": {
+            "tool_name": "book_appointment"
+          },
+          "assert_value": true,
+          "message": "Agent incorrectly tried to book appointment for critical emergency"
+        }
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": [
+        "ACTION"
+      ]
+    }
+  }
+]
