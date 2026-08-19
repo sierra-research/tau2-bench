@@ -53,6 +53,13 @@ from tau2.domains.telecom.environment import (
 from tau2.domains.telecom.environment import (
     get_tasks_split as telecom_domain_get_tasks_split,
 )
+from tau2.domains.hotel.environment import (
+    get_environment as hotel_domain_get_environment,
+)
+from tau2.domains.hotel.environment import get_tasks as hotel_domain_get_tasks
+from tau2.domains.hotel.environment import (
+    get_tasks_split as hotel_domain_get_tasks_split,
+)
 from tau2.environment.environment import Environment
 from tau2.user.user_simulator import DummyUser, UserSimulator
 from tau2.user.user_simulator_base import FullDuplexUser, HalfDuplexUser
@@ -325,6 +332,13 @@ try:
         retail_domain_get_tasks,
         "retail",
         get_task_splits=retail_domain_get_tasks_split,
+    )
+
+    registry.register_domain(hotel_domain_get_environment, "hotel")
+    registry.register_tasks(
+        hotel_domain_get_tasks,
+        "hotel",
+        get_task_splits=hotel_domain_get_tasks_split,
     )
 
     registry.register_domain(telecom_domain_get_environment_manual_policy, "telecom")
