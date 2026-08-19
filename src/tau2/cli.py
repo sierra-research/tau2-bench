@@ -103,6 +103,18 @@ def add_run_args(parser):
         help=f"The arguments to pass to the LLM for the user. Default is '{{\"temperature\": {DEFAULT_LLM_TEMPERATURE_USER}}}'.",
     )
     parser.add_argument(
+        "--llm-nl-assertions",
+        type=str,
+        default=None,
+        help=(
+            "Override the model used by the NL-assertions judge "
+            "(LLM Judge Review). When omitted, the judge falls back to "
+            "--agent-llm if OPENAI_API_KEY isn't set, instead of crashing "
+            "the entire retail/telecom run. Equivalent to setting the "
+            "TAU2_LLM_NL_ASSERTIONS env var."
+        ),
+    )
+    parser.add_argument(
         "--task-set-name",
         type=str,
         default=None,
@@ -603,6 +615,18 @@ def main():
     add_run_args(run_parser)
 
     def run_command(args):
+        # Propagate the NL-assertions judge override + agent/user LLM defaults
+        # to the evaluator via env vars, so single-provider runs (e.g. Bedrock
+        # only, no OPENAI_API_KEY) don't crash in `LLM Judge Review`.
+        import os
+
+        if getattr(args, "llm_nl_assertions", None):
+            os.environ["TAU2_LLM_NL_ASSERTIONS"] = args.llm_nl_assertions
+        if getattr(args, "agent_llm", None):
+            os.environ.setdefault("TAU2_AGENT_LLM", args.agent_llm)
+        if getattr(args, "user_llm", None):
+            os.environ.setdefault("TAU2_USER_LLM", args.user_llm)
+
         user_persona_config = None
         if args.user_persona:
             user_persona_config = PersonaConfig.from_dict(args.user_persona)  # noqa: F841
