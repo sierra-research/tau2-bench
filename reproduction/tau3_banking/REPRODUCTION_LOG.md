@@ -441,3 +441,18 @@
   resume may retain infrastructure-error records only because upstream removes
   those records and retries exactly their task/trial keys; already validated
   `user_stop` simulations remain preserved.
+- Published these guards at
+  `f3c10b6c49cd464f73938bb07a7d08eb3d60d847`, then ran this live no-model
+  preflight against a deliberately new output path:
+
+  ```bash
+  uv run --frozen --extra knowledge python \
+    reproduction/tau3_banking/run.py smoke \
+    --output-dir reproduction/tau3_banking/runs/credit_guard_probe_f3c10b6 \
+    --execute --confirm-paid-api-calls --cost-ceiling-usd 0.25
+  ```
+
+  It returned wrapper exit 2 for insufficient OpenRouter credit, created no
+  output directory, and launched no benchmark child. The current balance is
+  intentionally not committed. A fresh clone of the published commit also
+  emitted the exact guarded dry plan from a clean worktree.
