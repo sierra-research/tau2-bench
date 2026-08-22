@@ -63,7 +63,22 @@ uv run --offline --frozen --extra knowledge python \
 Then, if the plan is correct, run one official task into the fixed gate run
 directory and compare its score and trace. The ceiling is a preflight check
 against historical serialized chat cost, not a provider-side hard spending
-cap.
+cap. Immediately before creating the output directory or launching cache/model/
+Modal children, the wrapper authenticates to OpenRouter's credits endpoint and
+requires remaining credit to cover the mode's full historical chat cost. The
+ignored execution manifest records only an allowlisted numeric credit receipt;
+it never records the key, raw response, headers, or account/key labels.
+
+A zero exit from upstream `tau2 run` is provisional. The wrapper independently
+requires the exact configured task-by-trial product, only `user_stop`
+terminations, zero infrastructure errors, and the existing structural, grading,
+provider, response-ID, usage-cost, and judge-route validations before marking a
+manifest `completed`. A failed check returns nonzero and records
+`post_run_validation_failed`. A provenance-valid checkpoint containing
+infrastructure errors remains resumable: upstream removes only those records
+from the checkpoint and retries their task/trial keys, while preserving every
+validated `user_stop` result. Completion remains impossible until all such
+records have been replaced successfully.
 
 ```bash
 uv run --frozen --extra knowledge python \

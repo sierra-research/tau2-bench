@@ -407,3 +407,37 @@
    confirm raw response provider/model fields in smoke output before the subset.
 4. The official result does not serialize concurrency. Ten was reconstructed
    from launch overlap; it is not a signed metadata field.
+
+## 2026-08-22 — fail-closed credit and checkpoint validation
+
+- A final paid smoke attempt reached OpenRouter but received HTTP 402 for
+  insufficient credit. Upstream `tau2 run` nevertheless exited zero after
+  serializing one `infrastructure_error` simulation, and the wrapper initially
+  treated that process exit as completion. The exact command was:
+
+  ```bash
+  uv run --frozen --extra knowledge python \
+    reproduction/tau3_banking/run.py smoke \
+    --output-dir reproduction/tau3_banking/runs/parity_b5480c1 \
+    --execute --confirm-paid-api-calls --cost-ceiling-usd 0.25
+  ```
+
+  The resulting checkpoint SHA-256 is
+  `88ab27ca094323160596533c43129f6a9e6f2afbb2da9f10508ef5c9e48c4410`;
+  it contains exactly one infrastructure-error record, no generated model
+  response, and no model usage cost. No benchmark result was claimed.
+- Paid execution now performs an authenticated `GET /api/v1/credits` with the
+  authoritative file credential before it creates the output directory or
+  starts cache, model, or Modal children. Both returned totals must be finite
+  and nonnegative, and their difference must cover the selected mode's full
+  historical chat cost. Unavailable, malformed, or insufficient state fails
+  closed. The ignored run manifest stores only the numeric allowlist and check
+  time, never the key, raw response, headers, or response labels; no current
+  balance is committed here.
+- A zero upstream exit is now accepted only after exact task-by-trial coverage,
+  zero infrastructure errors, and the pre-existing structural, grading,
+  provider, response-ID, cost, and judge-route validators all pass. Failure is
+  finalized as `post_run_validation_failed` with wrapper exit 2. A guarded
+  resume may retain infrastructure-error records only because upstream removes
+  those records and retries exactly their task/trial keys; already validated
+  `user_stop` simulations remain preserved.

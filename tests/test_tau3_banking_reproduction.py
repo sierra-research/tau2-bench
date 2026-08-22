@@ -2149,6 +2149,78 @@ class _FakeResponse:
         return self._payload
 
 
+def test_openrouter_credit_preflight_authenticates_and_persists_only_allowlisted_state(
+    monkeypatch,
+):
+    observed = {}
+
+    def open_credit(request, timeout):
+        observed["url"] = request.full_url
+        observed["authorization"] = request.get_header("Authorization")
+        observed["timeout"] = timeout
+        return _FakeResponse(
+            {
+                "data": {
+                    "total_credits": 20.0,
+                    "total_usage": 7.5,
+                    "label": "must-not-be-persisted",
+                }
+            }
+        )
+
+    monkeypatch.setattr(reproduction_run.urllib.request, "urlopen", open_credit)
+    receipt = reproduction_run.fetch_openrouter_credit_state(
+        "not-a-real-secret-key-value", 12.0
+    )
+
+    assert observed == {
+        "url": reproduction_run.OPENROUTER_CREDITS_URL,
+        "authorization": "Bearer not-a-real-secret-key-value",
+        "timeout": 20.0,
+    }
+    assert receipt["remaining_usd"] == 12.5
+    assert receipt["required_usd"] == 12.0
+    assert receipt["sufficient"] is True
+    serialized = json.dumps(receipt)
+    assert "not-a-real-secret-key-value" not in serialized
+    assert "must-not-be-persisted" not in serialized
+    assert "label" not in serialized
+
+
+def test_openrouter_credit_preflight_rejects_insufficient_credit(monkeypatch):
+    monkeypatch.setattr(
+        reproduction_run.urllib.request,
+        "urlopen",
+        lambda request, timeout: _FakeResponse(
+            {"data": {"total_credits": 10.0, "total_usage": 9.0}}
+        ),
+    )
+
+    with pytest.raises(reproduction_run.RunGuardError, match="below"):
+        reproduction_run.fetch_openrouter_credit_state("k" * 20, 2.0)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    (
+        {},
+        {"data": None},
+        {"data": {"total_credits": "10", "total_usage": 1}},
+        {"data": {"total_credits": float("nan"), "total_usage": 1}},
+        {"data": {"total_credits": 10, "total_usage": -1}},
+    ),
+)
+def test_openrouter_credit_preflight_rejects_malformed_api(monkeypatch, payload):
+    monkeypatch.setattr(
+        reproduction_run.urllib.request,
+        "urlopen",
+        lambda request, timeout: _FakeResponse(payload),
+    )
+
+    with pytest.raises(reproduction_run.RunGuardError, match="malformed|invalid"):
+        reproduction_run.fetch_openrouter_credit_state("k" * 20, 1.0)
+
+
 def _endpoint_payload(spec: dict, *, extra_active: bool = False) -> dict:
     endpoints = [
         {
@@ -2479,8 +2551,14 @@ def test_paid_launch_rechecks_results_and_resume_checkpoint_under_lock(
 
     monkeypatch.setattr(reproduction_run, "load_openrouter_key", lambda *args: "k" * 20)
     monkeypatch.setattr(
+        reproduction_run,
+        "fetch_openrouter_credit_state",
+        lambda *args: {"sufficient": True},
+    )
+    monkeypatch.setattr(
         reproduction_run, "build_paid_environment", lambda *args: {"PINNED": "1"}
     )
+    config = {"modes": {"smoke": {"historical_chat_cost_usd": 1.0}}}
 
     def unexpected_launch(*args, **kwargs):
         nonlocal launched
@@ -2493,9 +2571,9 @@ def test_paid_launch_rechecks_results_and_resume_checkpoint_under_lock(
     with pytest.raises(reproduction_run.RunGuardError, match="Results appeared"):
         reproduction_run.execute_paid_plan(
             args=fresh_args,
-            plan={"execution_state": None},
+            plan={"execution_state": None, "historical_chat_cost_usd": 1.0},
             config_path=HARNESS_DIR / "reference.json",
-            config={},
+            config=config,
             command=["paid-child"],
             prewarm_command=["prewarm"],
             manifest_environment={},
@@ -2523,9 +2601,10 @@ def test_paid_launch_rechecks_results_and_resume_checkpoint_under_lock(
             plan={
                 "execution_state": state,
                 "resume_preflight": {"checkpoint_sha256": "old"},
+                "historical_chat_cost_usd": 1.0,
             },
             config_path=HARNESS_DIR / "reference.json",
-            config={},
+            config=config,
             command=["paid-child"],
             prewarm_command=["prewarm"],
             manifest_environment={},
@@ -2541,6 +2620,11 @@ def test_cache_prewarm_rejects_commit_change_before_output_lock(monkeypatch, tmp
     output_dir.mkdir()
     results_path = output_dir / "results.json"
     monkeypatch.setattr(reproduction_run, "load_openrouter_key", lambda *args: "k" * 20)
+    monkeypatch.setattr(
+        reproduction_run,
+        "fetch_openrouter_credit_state",
+        lambda *args: {"sufficient": True},
+    )
     monkeypatch.setattr(
         reproduction_run, "build_paid_environment", lambda *args: {"PINNED": "1"}
     )
@@ -2563,9 +2647,10 @@ def test_cache_prewarm_rejects_commit_change_before_output_lock(monkeypatch, tmp
             plan={
                 "execution_state": None,
                 "preflight_committed_runtime": {"digest": "runtime-A"},
+                "historical_chat_cost_usd": 1.0,
             },
             config_path=HARNESS_DIR / "reference.json",
-            config={},
+            config={"modes": {"smoke": {"historical_chat_cost_usd": 1.0}}},
             command=["paid-child"],
             prewarm_command=["prewarm"],
             manifest_environment={},
@@ -2580,6 +2665,11 @@ def test_cache_prewarm_rejects_commit_change_during_prewarm(monkeypatch, tmp_pat
     output_dir.mkdir()
     results_path = output_dir / "results.json"
     monkeypatch.setattr(reproduction_run, "load_openrouter_key", lambda *args: "k" * 20)
+    monkeypatch.setattr(
+        reproduction_run,
+        "fetch_openrouter_credit_state",
+        lambda *args: {"sufficient": True},
+    )
     monkeypatch.setattr(
         reproduction_run, "build_paid_environment", lambda *args: {"PINNED": "1"}
     )
@@ -2612,9 +2702,10 @@ def test_cache_prewarm_rejects_commit_change_during_prewarm(monkeypatch, tmp_pat
             plan={
                 "execution_state": None,
                 "preflight_committed_runtime": {"digest": "runtime-A"},
+                "historical_chat_cost_usd": 1.0,
             },
             config_path=HARNESS_DIR / "reference.json",
-            config={},
+            config={"modes": {"smoke": {"historical_chat_cost_usd": 1.0}}},
             command=["paid-child"],
             prewarm_command=["prewarm"],
             manifest_environment={},
@@ -2623,6 +2714,379 @@ def test_cache_prewarm_rejects_commit_change_during_prewarm(monkeypatch, tmp_pat
             cache_prewarm_required=True,
         )
     assert subprocess_calls == [["prewarm"]]
+
+
+def test_credit_preflight_fails_before_output_directory_or_paid_child(
+    monkeypatch, tmp_path
+):
+    output_dir = tmp_path / "not-created"
+    monkeypatch.setattr(reproduction_run, "load_openrouter_key", lambda *args: "k" * 20)
+
+    def insufficient(*args, **kwargs):
+        raise reproduction_run.RunGuardError("insufficient test credit")
+
+    monkeypatch.setattr(reproduction_run, "fetch_openrouter_credit_state", insufficient)
+    monkeypatch.setattr(
+        reproduction_run.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("paid child must not launch")
+        ),
+    )
+
+    with pytest.raises(reproduction_run.RunGuardError, match="insufficient"):
+        reproduction_run.execute_paid_plan(
+            args=reproduction_run.parse_args(["smoke", "--execute"]),
+            plan={"execution_state": None, "historical_chat_cost_usd": 1.0},
+            config_path=HARNESS_DIR / "reference.json",
+            config={"modes": {"smoke": {"historical_chat_cost_usd": 1.0}}},
+            command=["paid-child"],
+            prewarm_command=["prewarm"],
+            manifest_environment={},
+            output_dir=output_dir,
+            results_path=output_dir / "results.json",
+            cache_prewarm_required=False,
+        )
+
+    assert not output_dir.exists()
+
+
+def test_resume_preserves_valid_work_and_retries_infrastructure_error(
+    monkeypatch, tmp_path
+):
+    checkpoint = {
+        "info": {"num_trials": 1},
+        "tasks": [{"id": "task_001"}],
+        "simulations": [
+            {
+                "id": "task-001-trial-0",
+                "task_id": "task_001",
+                "trial": 0,
+                "seed": 626729,
+                "termination_reason": "infrastructure_error",
+                "reward_info": None,
+                "mode": "half_duplex",
+            }
+        ],
+    }
+    monkeypatch.setattr(reproduction_run, "_load_checkpoint", lambda path: checkpoint)
+    monkeypatch.setattr(
+        reproduction_run, "_checkpoint_metadata_mismatches", lambda *args: {}
+    )
+    monkeypatch.setattr(
+        reproduction_run, "_validate_simulation_index", lambda *args: None
+    )
+    monkeypatch.setattr(
+        reproduction_run,
+        "_validate_resume_manifest",
+        lambda *args: str(tmp_path / "reproduction_manifest_smoke.json"),
+    )
+    monkeypatch.setattr(
+        reproduction_run,
+        "_validate_completed_resume_simulations",
+        lambda *args, **kwargs: {
+            "completed_simulation_count": 0,
+            "grading_protocol_route_validation": True,
+        },
+    )
+    monkeypatch.setattr(
+        reproduction_run, "digest_checkpoint_artifact", lambda *args: "1" * 64
+    )
+    config = {
+        "modes": {"smoke": {"task_ids": ["task_001"], "trials": [0]}},
+        "recorded_run": {"derived_trial_seeds": [626729]},
+    }
+
+    validation = reproduction_run.validate_resume_checkpoint(
+        tmp_path / "results.json",
+        HARNESS_DIR / "reference.json",
+        config,
+        "smoke",
+        {"runtime": {"head": "test-head"}},
+        reproduction_run.DEFAULT_MODAL_APP,
+        reproduction_run.DEFAULT_MODAL_SANDBOX_TIMEOUT,
+    )
+
+    assert validation["simulation_count"] == 1
+    assert validation["infrastructure_error_count"] == 1
+    assert validation["completed_simulation_validation"] == {
+        "completed_simulation_count": 0,
+        "grading_protocol_route_validation": True,
+    }
+
+
+def test_post_run_infrastructure_failure_manifest_authorizes_exact_retry(
+    monkeypatch, tmp_path
+):
+    config = json.loads((HARNESS_DIR / "reference.json").read_text(encoding="utf-8"))
+    results_path = tmp_path / "results.json"
+    checkpoint = {
+        "info": {"num_trials": 1},
+        "tasks": [{"id": "task_001"}],
+        "simulations": [
+            {
+                "id": "task-001-trial-0",
+                "task_id": "task_001",
+                "trial": 0,
+                "seed": 626729,
+                "termination_reason": "infrastructure_error",
+                "reward_info": None,
+                "mode": "half_duplex",
+            }
+        ],
+    }
+    results_path.write_text(json.dumps(checkpoint))
+    checkpoint_sha256 = reproduction_run.digest_checkpoint_artifact(results_path)
+    state = {"digest": "runtime-cache-state", "runtime": {"head": "test-head"}}
+    manifest_path = tmp_path / "reproduction_manifest_smoke.json"
+    manifest = {
+        "mode": "smoke",
+        "dry_run": False,
+        "status": "post_run_validation_failed",
+        "exit_code": 2,
+        "output_dir": str(tmp_path),
+        "reference_config_sha256": reproduction_run.digest_file(
+            HARNESS_DIR / "reference.json"
+        ),
+        "execution_state": state,
+        "post_run_execution_state": state,
+        "checkpoint_sha256": checkpoint_sha256,
+        "environment": reproduction_run.expected_manifest_environment(config),
+        "command": reproduction_run.build_command(
+            config, "smoke", tmp_path, resume=False
+        ),
+        "prompt_hashes": reproduction_run.expected_prompt_hashes(config),
+        "openrouter_endpoint_inventory": _bound_endpoint_inventory(),
+        "post_run_validation": {
+            "passed": False,
+            "retryable_infrastructure_error": True,
+            "runner_exit_code": 0,
+            "expected_simulation_count": 1,
+            "actual_simulation_count": 1,
+            "infrastructure_error_count": 1,
+            "task_trial_coverage_sha256": reproduction_run.canonical_digest(
+                [["task_001", 0]]
+            ),
+            "checkpoint_sha256": checkpoint_sha256,
+            "completed_simulation_validation": {
+                "completed_simulation_count": 0,
+                "grading_protocol_route_validation": True,
+            },
+        },
+    }
+    manifest_path.write_text(json.dumps(manifest))
+    monkeypatch.setattr(
+        reproduction_run, "_checkpoint_metadata_mismatches", lambda *args: {}
+    )
+
+    validation = reproduction_run.validate_resume_checkpoint(
+        results_path,
+        HARNESS_DIR / "reference.json",
+        config,
+        "smoke",
+        state,
+        reproduction_run.DEFAULT_MODAL_APP,
+        reproduction_run.DEFAULT_MODAL_SANDBOX_TIMEOUT,
+    )
+    assert validation["manifest"] == str(manifest_path)
+    assert validation["infrastructure_error_count"] == 1
+    assert (
+        validation["completed_simulation_validation"]["completed_simulation_count"] == 0
+    )
+
+    for field, invalid_value in (
+        ("retryable_infrastructure_error", False),
+        ("checkpoint_sha256", "0" * 64),
+    ):
+        tampered = copy.deepcopy(manifest)
+        tampered["post_run_validation"][field] = invalid_value
+        manifest_path.write_text(json.dumps(tampered))
+        with pytest.raises(
+            reproduction_run.RunGuardError, match="checkpoint_provenance"
+        ):
+            reproduction_run.validate_resume_checkpoint(
+                results_path,
+                HARNESS_DIR / "reference.json",
+                config,
+                "smoke",
+                state,
+                reproduction_run.DEFAULT_MODAL_APP,
+                reproduction_run.DEFAULT_MODAL_SANDBOX_TIMEOUT,
+            )
+
+
+def test_completed_run_validator_requires_exact_coverage(monkeypatch, tmp_path):
+    config = {
+        "modes": {
+            "smoke": {
+                "task_ids": ["task_001"],
+                "trials": [0],
+                "expected_simulation_count": 1,
+            }
+        }
+    }
+    checkpoint = {
+        "info": {},
+        "tasks": [{"id": "task_001"}],
+        "simulations": [{"task_id": "task_001", "trial": 0}],
+    }
+    monkeypatch.setattr(reproduction_run, "_load_checkpoint", lambda path: checkpoint)
+    monkeypatch.setattr(
+        reproduction_run,
+        "validate_resume_checkpoint",
+        lambda *args: {
+            "simulation_count": 1,
+            "infrastructure_error_count": 0,
+            "checkpoint_sha256": "1" * 64,
+            "completed_simulation_validation": {
+                "completed_simulation_count": 1,
+                "grading_protocol_route_validation": True,
+            },
+        },
+    )
+
+    receipt = reproduction_run.validate_completed_run_checkpoint(
+        tmp_path / "results.json",
+        HARNESS_DIR / "reference.json",
+        config,
+        "smoke",
+        {"digest": "state"},
+        reproduction_run.DEFAULT_MODAL_APP,
+        reproduction_run.DEFAULT_MODAL_SANDBOX_TIMEOUT,
+    )
+    assert receipt["passed"] is True
+    assert receipt["actual_simulation_count"] == 1
+
+    monkeypatch.setattr(
+        reproduction_run,
+        "validate_resume_checkpoint",
+        lambda *args: {
+            "simulation_count": 1,
+            "infrastructure_error_count": 1,
+            "checkpoint_sha256": "1" * 64,
+            "completed_simulation_validation": {
+                "completed_simulation_count": 0,
+                "grading_protocol_route_validation": True,
+            },
+        },
+    )
+    retryable = reproduction_run.validate_completed_run_checkpoint(
+        tmp_path / "results.json",
+        HARNESS_DIR / "reference.json",
+        config,
+        "smoke",
+        {"digest": "state"},
+        reproduction_run.DEFAULT_MODAL_APP,
+        reproduction_run.DEFAULT_MODAL_SANDBOX_TIMEOUT,
+    )
+    assert retryable["passed"] is False
+    assert retryable["retryable_infrastructure_error"] is True
+    assert retryable["infrastructure_error_count"] == 1
+
+    checkpoint["simulations"] = []
+    with pytest.raises(reproduction_run.RunGuardError, match="exact expected"):
+        reproduction_run.validate_completed_run_checkpoint(
+            tmp_path / "results.json",
+            HARNESS_DIR / "reference.json",
+            config,
+            "smoke",
+            {"digest": "state"},
+            reproduction_run.DEFAULT_MODAL_APP,
+            reproduction_run.DEFAULT_MODAL_SANDBOX_TIMEOUT,
+        )
+
+
+@pytest.mark.parametrize(
+    ("termination_reason", "expected_status", "expected_exit_code"),
+    (
+        ("infrastructure_error", "post_run_validation_failed", 2),
+        ("user_stop", "completed", 0),
+    ),
+)
+def test_zero_exit_runner_is_finalized_only_after_checkpoint_validation(
+    monkeypatch,
+    tmp_path,
+    termination_reason,
+    expected_status,
+    expected_exit_code,
+):
+    output_dir = tmp_path / termination_reason
+    results_path = output_dir / "results.json"
+    state = {"digest": "state", "runtime": {"digest": "runtime"}}
+    events = []
+    credit_receipt = {
+        "schema_version": 1,
+        "remaining_usd": 10.0,
+        "required_usd": 1.0,
+        "sufficient": True,
+    }
+    monkeypatch.setattr(reproduction_run, "load_openrouter_key", lambda *args: "k" * 20)
+
+    def credit_check(*args):
+        events.append("credit")
+        return credit_receipt
+
+    monkeypatch.setattr(reproduction_run, "fetch_openrouter_credit_state", credit_check)
+    monkeypatch.setattr(
+        reproduction_run, "build_paid_environment", lambda *args: {"PINNED": "1"}
+    )
+    monkeypatch.setattr(
+        reproduction_run, "capture_reproduction_state", lambda *args, **kwargs: state
+    )
+
+    def runner(*args, **kwargs):
+        assert events == ["credit"]
+        events.append("runner")
+        results_path.write_text(
+            json.dumps({"simulations": [{"termination_reason": termination_reason}]})
+        )
+        return subprocess.CompletedProcess(args[0], 0)
+
+    monkeypatch.setattr(reproduction_run.subprocess, "run", runner)
+
+    def validate_checkpoint(*args):
+        checkpoint = json.loads(results_path.read_text())
+        if checkpoint["simulations"][0]["termination_reason"] == "infrastructure_error":
+            return {
+                "passed": False,
+                "retryable_infrastructure_error": True,
+                "infrastructure_error_count": 1,
+                "expected_simulation_count": 1,
+                "actual_simulation_count": 1,
+                "task_trial_coverage_sha256": "1" * 64,
+                "checkpoint_sha256": "2" * 64,
+                "completed_simulation_validation": {
+                    "completed_simulation_count": 0,
+                    "grading_protocol_route_validation": True,
+                },
+            }
+        return {"passed": True, "actual_simulation_count": 1}
+
+    monkeypatch.setattr(
+        reproduction_run, "validate_completed_run_checkpoint", validate_checkpoint
+    )
+    exit_code = reproduction_run.execute_paid_plan(
+        args=reproduction_run.parse_args(["smoke", "--execute"]),
+        plan={"execution_state": state, "historical_chat_cost_usd": 1.0},
+        config_path=HARNESS_DIR / "reference.json",
+        config={"modes": {"smoke": {"historical_chat_cost_usd": 1.0}}},
+        command=["paid-child"],
+        prewarm_command=["prewarm"],
+        manifest_environment={},
+        output_dir=output_dir,
+        results_path=results_path,
+        cache_prewarm_required=False,
+    )
+
+    assert exit_code == expected_exit_code
+    manifest = json.loads((output_dir / "reproduction_manifest_smoke.json").read_text())
+    assert manifest["status"] == expected_status
+    assert manifest["exit_code"] == expected_exit_code
+    assert manifest["openrouter_credit_state"] == credit_receipt
+    assert manifest["post_run_validation"]["passed"] is (
+        termination_reason == "user_stop"
+    )
+    assert "k" * 20 not in json.dumps(manifest)
 
 
 def test_full_shell_oracle_receipt_is_pinned_reviewed_and_acknowledged(tmp_path):

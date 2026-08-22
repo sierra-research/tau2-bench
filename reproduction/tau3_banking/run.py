@@ -53,6 +53,8 @@ DEFAULT_CREDENTIAL_CONFIG = Path.home() / ".rllm" / "config.json"
 DEFAULT_GATE = HERE / ".state" / "subset_score_parity.json"
 DEFAULT_RUNS_DIR = HERE / "runs"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+OPENROUTER_CREDITS_URL = f"{OPENROUTER_BASE_URL}/credits"
+OPENROUTER_CREDIT_RECEIPT_SCHEMA_VERSION = 1
 FULL_RUN_ENV = "ALLOW_FULL_RUN"
 DEFAULT_MODAL_APP = "tau3-banking-sandboxes"
 DEFAULT_MODAL_SANDBOX_TIMEOUT = 3600
@@ -220,6 +222,71 @@ def load_openrouter_key(path: Path, environment: dict[str, str]) -> str:
             "Ambient OPENROUTER_API_KEY conflicts with the authoritative credential file"
         )
     return key
+
+
+def fetch_openrouter_credit_state(
+    key: str,
+    required_usd: float,
+    *,
+    timeout_seconds: float = 20.0,
+) -> dict[str, Any]:
+    """Authenticate and prove enough OpenRouter credit before any paid child."""
+    if not _is_finite_number(required_usd) or float(required_usd) < 0:
+        raise RunGuardError("Required OpenRouter credit must be finite and nonnegative")
+    request = urllib.request.Request(
+        OPENROUTER_CREDITS_URL,
+        method="GET",
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Bearer {key}",
+            "User-Agent": "tau3-banking-parity-harness/1",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            raw = response.read(1024 * 1024 + 1)
+            status_code = getattr(response, "status", 200)
+    except (OSError, urllib.error.URLError):
+        raise RunGuardError("OpenRouter credit preflight is unavailable") from None
+    if status_code != 200 or len(raw) > 1024 * 1024:
+        raise RunGuardError("OpenRouter credit preflight returned an invalid response")
+    try:
+        payload = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise RunGuardError(
+            "OpenRouter credit preflight returned invalid JSON"
+        ) from None
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(data, dict):
+        raise RunGuardError("OpenRouter credit preflight returned malformed data")
+    total_credits = data.get("total_credits")
+    total_usage = data.get("total_usage")
+    if (
+        not _is_finite_number(total_credits)
+        or not _is_finite_number(total_usage)
+        or float(total_credits) < 0
+        or float(total_usage) < 0
+    ):
+        raise RunGuardError("OpenRouter credit preflight returned invalid totals")
+    total_credits_usd = float(total_credits)
+    total_usage_usd = float(total_usage)
+    remaining_usd = total_credits_usd - total_usage_usd
+    if not math.isfinite(remaining_usd) or remaining_usd < float(required_usd):
+        raise RunGuardError(
+            "OpenRouter credit is below this mode's historical chat cost "
+            f"(${remaining_usd:.6f} available; ${float(required_usd):.6f} required)"
+        )
+    # Only this explicit numeric allowlist is persisted. The credential, raw body,
+    # response headers, and any account/key labels are intentionally discarded.
+    return {
+        "schema_version": OPENROUTER_CREDIT_RECEIPT_SCHEMA_VERSION,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "total_credits_usd": total_credits_usd,
+        "total_usage_usd": total_usage_usd,
+        "remaining_usd": remaining_usd,
+        "required_usd": float(required_usd),
+        "sufficient": True,
+    }
 
 
 def expected_manifest_environment(
@@ -2471,6 +2538,64 @@ def _validate_resume_manifest(
                 and (manifest.get("post_run_execution_state") or {}).get("digest")
                 == current_state["digest"]
             )
+            retryable_infrastructure_provenance = False
+            if (
+                status == "post_run_validation_failed"
+                and source_mode in allowed_source_modes
+            ):
+                post_validation = manifest.get("post_run_validation")
+                checkpoint = _load_checkpoint(results_path)
+                simulations = checkpoint["simulations"]
+                actual_keys = {
+                    (simulation.get("task_id"), simulation.get("trial"))
+                    for simulation in simulations
+                    if isinstance(simulation, dict)
+                }
+                expected_keys = {
+                    (task_id, trial)
+                    for task_id in target_task_ids(config, source_mode)
+                    for trial in config["modes"][source_mode]["trials"]
+                }
+                infrastructure_error_count = sum(
+                    isinstance(simulation, dict)
+                    and simulation.get("termination_reason") == "infrastructure_error"
+                    for simulation in simulations
+                )
+                completed_validation = (
+                    post_validation.get("completed_simulation_validation")
+                    if isinstance(post_validation, dict)
+                    else None
+                )
+                retryable_infrastructure_provenance = (
+                    isinstance(post_validation, dict)
+                    and post_validation.get("passed") is False
+                    and post_validation.get("retryable_infrastructure_error") is True
+                    and post_validation.get("runner_exit_code") == 0
+                    and post_validation.get("expected_simulation_count")
+                    == len(expected_keys)
+                    and post_validation.get("actual_simulation_count")
+                    == len(simulations)
+                    and post_validation.get("infrastructure_error_count")
+                    == infrastructure_error_count
+                    and infrastructure_error_count > 0
+                    and post_validation.get("task_trial_coverage_sha256")
+                    == canonical_digest(
+                        sorted([task_id, trial] for task_id, trial in actual_keys)
+                    )
+                    and post_validation.get("checkpoint_sha256")
+                    == expected_checkpoint_digest
+                    and actual_keys == expected_keys
+                    and isinstance(completed_validation, dict)
+                    and completed_validation.get("completed_simulation_count")
+                    == len(simulations) - infrastructure_error_count
+                    and completed_validation.get("grading_protocol_route_validation")
+                    is True
+                    and manifest.get("exit_code") == 2
+                    and manifest.get("checkpoint_sha256") == expected_checkpoint_digest
+                    and (manifest.get("post_run_execution_state") or {}).get("digest")
+                    == current_state["digest"]
+                    and manifest.get("finalization_errors") is None
+                )
             finalization_errors = manifest.get("finalization_errors")
             stored_post_digest = (manifest.get("post_run_execution_state") or {}).get(
                 "digest"
@@ -2508,6 +2633,7 @@ def _validate_resume_manifest(
                 == current_state["digest"],
                 "checkpoint_provenance": running_checkpoint_provenance
                 or finalized_checkpoint_provenance
+                or retryable_infrastructure_provenance
                 or recoverable_finalization_failure,
                 "environment": manifest.get("environment") == expected_environment,
                 "command": command in valid_commands,
@@ -2806,6 +2932,76 @@ def validate_resume_checkpoint(
     }
 
 
+def validate_completed_run_checkpoint(
+    results_path: Path,
+    config_path: Path,
+    config: dict[str, Any],
+    mode: str,
+    current_state: dict[str, Any],
+    modal_app: str,
+    modal_sandbox_timeout: int,
+) -> dict[str, Any]:
+    """Require a complete, authentic task-by-trial product after runner success."""
+    validation = validate_resume_checkpoint(
+        results_path,
+        config_path,
+        config,
+        mode,
+        current_state,
+        modal_app,
+        modal_sandbox_timeout,
+    )
+    checkpoint = _load_checkpoint(results_path)
+    expected_tasks = set(target_task_ids(config, mode))
+    expected_trials = set(config["modes"][mode]["trials"])
+    expected_keys = {
+        (task_id, trial) for task_id in expected_tasks for trial in expected_trials
+    }
+    actual_tasks = {
+        task.get("id")
+        for task in checkpoint["tasks"]
+        if isinstance(task, dict) and isinstance(task.get("id"), str)
+    }
+    actual_keys = {
+        (simulation.get("task_id"), simulation.get("trial"))
+        for simulation in checkpoint["simulations"]
+        if isinstance(simulation, dict)
+    }
+    configured_count = config["modes"][mode].get("expected_simulation_count")
+    if (
+        not _is_int(configured_count)
+        or configured_count != len(expected_keys)
+        or validation["simulation_count"] != configured_count
+        or actual_tasks != expected_tasks
+        or actual_keys != expected_keys
+    ):
+        raise RunGuardError(
+            "Runner returned zero without exact expected task-by-trial coverage"
+        )
+    infrastructure_error_count = validation["infrastructure_error_count"]
+    completed_validation = validation["completed_simulation_validation"]
+    if (
+        completed_validation.get("completed_simulation_count")
+        != configured_count - infrastructure_error_count
+        or completed_validation.get("grading_protocol_route_validation") is not True
+    ):
+        raise RunGuardError(
+            "Runner returned zero without complete structural, grading, and route validation"
+        )
+    ordered_keys = sorted([task_id, trial] for task_id, trial in actual_keys)
+    receipt = {
+        "passed": infrastructure_error_count == 0,
+        "retryable_infrastructure_error": infrastructure_error_count > 0,
+        "expected_simulation_count": configured_count,
+        "actual_simulation_count": validation["simulation_count"],
+        "infrastructure_error_count": infrastructure_error_count,
+        "task_trial_coverage_sha256": canonical_digest(ordered_keys),
+        "checkpoint_sha256": validation["checkpoint_sha256"],
+        "completed_simulation_validation": completed_validation,
+    }
+    return receipt
+
+
 def write_json_atomic(path: Path, value: dict[str, Any]) -> None:
     """Atomically persist a non-secret run manifest."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -3061,6 +3257,16 @@ def execute_paid_plan(
 ) -> int:
     """Execute one paid plan while one inherited output-directory lease is held."""
     key = load_openrouter_key(args.credential_config, os.environ)
+    required_credit_usd = config["modes"][args.mode]["historical_chat_cost_usd"]
+    if (
+        not _is_finite_number(required_credit_usd)
+        or not _is_finite_number(plan.get("historical_chat_cost_usd"))
+        or float(plan["historical_chat_cost_usd"]) != float(required_credit_usd)
+    ):
+        raise RunGuardError("Paid plan has a stale historical chat cost")
+    plan["openrouter_credit_state"] = fetch_openrouter_credit_state(
+        key, float(required_credit_usd)
+    )
     environment = build_paid_environment(key, manifest_environment)
     with hold_output_run_lock(output_dir) as lock_handle:
         inherited_lock = (lock_handle.fileno(),)
@@ -3219,6 +3425,55 @@ def execute_paid_plan(
             raise RunGuardError(
                 f"Benchmark runner subprocess raised {type(exc).__name__}"
             ) from exc
+        if process.returncode == 0:
+            try:
+                post_run_state = capture_reproduction_state(
+                    REPO_ROOT, require_clean=True, require_cache=True
+                )
+                plan["post_run_validation"] = validate_completed_run_checkpoint(
+                    results_path,
+                    config_path,
+                    config,
+                    args.mode,
+                    post_run_state,
+                    args.modal_app,
+                    args.modal_sandbox_timeout,
+                )
+                if plan["post_run_validation"].get("passed") is not True:
+                    plan["post_run_validation"]["runner_exit_code"] = 0
+                    finalize_execution_manifest(
+                        plan,
+                        manifest_path,
+                        results_path,
+                        status="post_run_validation_failed",
+                        exit_code=2,
+                    )
+                    print(
+                        "error: post-run checkpoint validation found retryable "
+                        "infrastructure-error simulations",
+                        file=sys.stderr,
+                    )
+                    return 2
+            except Exception as exc:
+                plan["post_run_validation"] = {
+                    "passed": False,
+                    "retryable_infrastructure_error": False,
+                    "runner_exit_code": 0,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                }
+                finalize_execution_manifest(
+                    plan,
+                    manifest_path,
+                    results_path,
+                    status="post_run_validation_failed",
+                    exit_code=2,
+                )
+                print(
+                    f"error: post-run checkpoint validation failed: {exc}",
+                    file=sys.stderr,
+                )
+                return 2
         finalized = finalize_execution_manifest(
             plan,
             manifest_path,
