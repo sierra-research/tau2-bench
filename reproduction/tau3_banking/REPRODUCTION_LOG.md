@@ -356,6 +356,39 @@
   live subset and only with `--allow-known-full-shell-drift`; this authorizes a
   distribution-level Modal reproduction, not exact trajectory parity.
 
+## 2026-08-22 — fork publication and fresh-clone receipt
+
+- Published the hardened standalone banking harness to
+  `signalrush/tau2-bench`, branch `agent/tau3-banking-modal-parity`, at commit
+  `16c5a7661f48a2b4c333105d0a46937c424843d4`. The scoped commit contains
+  exactly 19 intended files and no credential-like literals; its parent is the
+  initial Modal harness commit `f1b1658abb0b1382703d8b686a5febf17b3ef4a3`.
+- Before publication, ran the complete offline regression command over the
+  harness, Modal manager/lifecycle, cost, and NL-judge tests: 138 passed and the
+  two intentionally live-model tests were deselected. Ruff check, Ruff format
+  check, `git diff --cached --check`, receipt/fixture digests, and the full-order
+  generator check all passed.
+- Cloned that exact fork branch into a new temporary directory and ran:
+
+  ```bash
+  uv sync --frozen --extra knowledge
+  uv run --frozen --extra knowledge python \
+    reproduction/tau3_banking/fetch_reference.py --artifact all
+  uv run --offline --frozen --extra knowledge python \
+    reproduction/tau3_banking/fetch_reference.py --artifact all --verify-only
+  uv run --offline --frozen --extra knowledge python \
+    reproduction/tau3_banking/generate_full_shell_order.py --check
+  uv run --offline --frozen --extra knowledge python \
+    reproduction/tau3_banking/run.py smoke
+  ```
+
+  Dependency sync installed the pinned lock, the public submission and
+  236-MiB trajectory both passed their committed SHA-256 checks, the generated
+  full order was current, and the dry smoke emitted the exact guarded argv and
+  environment without reading a key or making model, embedding, or Modal
+  calls. `git status --porcelain` remained empty and the clone HEAD equaled the
+  published commit.
+
 ## Open parity risks before any full run
 
 1. The official GPT-5.2 user, GPT-4.1 judge, and `text-embedding-3-large` calls
