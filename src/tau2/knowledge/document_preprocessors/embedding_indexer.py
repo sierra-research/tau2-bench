@@ -9,7 +9,10 @@ from tau2.knowledge.embedders import (
     OpenAIEmbedder,
     OpenRouterEmbedder,
 )
-from tau2.knowledge.embeddings_cache import get_embeddings_cache
+from tau2.knowledge.embeddings_cache import (
+    get_effective_embedder_cache_config,
+    get_embeddings_cache,
+)
 from tau2.knowledge.registry import register_document_preprocessor
 
 EMBEDDER_REGISTRY = {
@@ -46,6 +49,11 @@ class EmbeddingIndexer(BaseDocumentPreprocessor):
         self.batch_size = batch_size
         self.use_cache = use_cache
         self._embedder = None
+
+    def _get_cache_config(self) -> Dict[str, Any]:
+        return get_effective_embedder_cache_config(
+            self.embedder_type, self.embedder_params
+        )
 
     def _get_embedder(self):
         if self._embedder is None:
@@ -87,7 +95,8 @@ class EmbeddingIndexer(BaseDocumentPreprocessor):
 
         if self.use_cache:
             cache = get_embeddings_cache()
-            cached = cache.get(docs_for_cache, self.embedder_type, self.embedder_params)
+            cache_config = self._get_cache_config()
+            cached = cache.get(docs_for_cache, self.embedder_type, cache_config)
 
             if cached is not None:
                 embeddings, doc_ids = cached
@@ -116,7 +125,7 @@ class EmbeddingIndexer(BaseDocumentPreprocessor):
                 self.embedder_type,
                 embeddings,
                 doc_ids,
-                self.embedder_params,
+                self._get_cache_config(),
             )
 
         state[self.state_key] = embeddings

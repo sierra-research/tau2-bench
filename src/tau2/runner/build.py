@@ -391,40 +391,43 @@ def build_text_orchestrator(
     env_kwargs = _build_env_kwargs(config, task)
 
     environment = build_environment(domain, solo_mode=solo_mode, env_kwargs=env_kwargs)
+    try:
+        agent = build_agent(
+            config.effective_agent,
+            environment,
+            llm=config.llm_agent,
+            llm_args=config.llm_args_agent,
+            task=task,
+            solo_mode=solo_mode,
+        )
 
-    agent = build_agent(
-        config.effective_agent,
-        environment,
-        llm=config.llm_agent,
-        llm_args=config.llm_args_agent,
-        task=task,
-        solo_mode=solo_mode,
-    )
+        user = build_user(
+            config.effective_user,
+            environment,
+            task,
+            llm=config.llm_user,
+            llm_args=config.llm_args_user,
+            persona_config=user_persona_config,
+            solo_mode=solo_mode,
+        )
 
-    user = build_user(
-        config.effective_user,
-        environment,
-        task,
-        llm=config.llm_user,
-        llm_args=config.llm_args_user,
-        persona_config=user_persona_config,
-        solo_mode=solo_mode,
-    )
-
-    orchestrator = Orchestrator(
-        domain=domain,
-        agent=agent,
-        user=user,
-        environment=environment,
-        task=task,
-        max_steps=config.effective_max_steps,
-        max_errors=config.max_errors,
-        seed=seed,
-        solo_mode=solo_mode,
-        simulation_id=simulation_id,
-        validate_communication=config.enforce_communication_protocol,
-        timeout=config.timeout,
-    )
+        orchestrator = Orchestrator(
+            domain=domain,
+            agent=agent,
+            user=user,
+            environment=environment,
+            task=task,
+            max_steps=config.effective_max_steps,
+            max_errors=config.max_errors,
+            seed=seed,
+            solo_mode=solo_mode,
+            simulation_id=simulation_id,
+            validate_communication=config.enforce_communication_protocol,
+            timeout=config.timeout,
+        )
+    except Exception:
+        environment.close()
+        raise
 
     logger.debug(
         f"Built text orchestrator: domain={domain}, agent={config.effective_agent}, "
@@ -492,42 +495,45 @@ def build_voice_orchestrator(
     env_kwargs = _build_env_kwargs(config, task)
 
     environment = build_environment(domain, env_kwargs=env_kwargs)
+    try:
+        agent = build_agent(
+            config.effective_agent,
+            environment,
+            audio_native_config=config.audio_native_config,
+            audio_taps_dir=audio_taps_dir,
+        )
 
-    agent = build_agent(
-        config.effective_agent,
-        environment,
-        audio_native_config=config.audio_native_config,
-        audio_taps_dir=audio_taps_dir,
-    )
+        user = build_voice_user(
+            environment,
+            task,
+            config.audio_native_config,
+            llm=config.llm_user,
+            llm_args=config.llm_args_user,
+            voice_settings=user_voice_settings,
+            persona_config=user_persona_config,
+            speech_complexity=config.speech_complexity,
+            seed=seed or 42,
+            domain=domain,
+            hallucination_feedback=hallucination_feedback,
+            audio_taps_dir=audio_taps_dir,
+        )
 
-    user = build_voice_user(
-        environment,
-        task,
-        config.audio_native_config,
-        llm=config.llm_user,
-        llm_args=config.llm_args_user,
-        voice_settings=user_voice_settings,
-        persona_config=user_persona_config,
-        speech_complexity=config.speech_complexity,
-        seed=seed or 42,
-        domain=domain,
-        hallucination_feedback=hallucination_feedback,
-        audio_taps_dir=audio_taps_dir,
-    )
-
-    orchestrator = FullDuplexOrchestrator(
-        domain=domain,
-        agent=agent,
-        user=user,
-        environment=environment,
-        task=task,
-        max_steps=config.effective_max_steps,
-        max_errors=config.max_errors,
-        seed=seed,
-        simulation_id=simulation_id,
-        tick_duration_seconds=config.audio_native_config.tick_duration_seconds,
-        timeout=config.timeout,
-    )
+        orchestrator = FullDuplexOrchestrator(
+            domain=domain,
+            agent=agent,
+            user=user,
+            environment=environment,
+            task=task,
+            max_steps=config.effective_max_steps,
+            max_errors=config.max_errors,
+            seed=seed,
+            simulation_id=simulation_id,
+            tick_duration_seconds=config.audio_native_config.tick_duration_seconds,
+            timeout=config.timeout,
+        )
+    except Exception:
+        environment.close()
+        raise
 
     logger.debug(
         f"Built voice orchestrator: domain={domain}, agent={config.effective_agent}, "

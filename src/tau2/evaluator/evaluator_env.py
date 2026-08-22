@@ -1,3 +1,5 @@
+import sys
+from functools import wraps
 from typing import Callable
 
 from loguru import logger
@@ -14,12 +16,47 @@ from tau2.environment.environment import Environment
 from tau2.evaluator.evaluator_base import EvaluatorBase
 
 
+def _cleanup_evaluator_environments(calculate_reward):
+    """Close every environment returned by an evaluator constructor."""
+
+    @wraps(calculate_reward)
+    def wrapped(cls, environment_constructor, *args, **kwargs):
+        environments: list[Environment] = []
+
+        def tracked_constructor(*constructor_args, **constructor_kwargs):
+            environment = environment_constructor(
+                *constructor_args, **constructor_kwargs
+            )
+            environments.append(environment)
+            return environment
+
+        try:
+            return calculate_reward(cls, tracked_constructor, *args, **kwargs)
+        finally:
+            active_error = sys.exc_info()[0] is not None
+            cleanup_error = None
+            for environment in reversed(environments):
+                try:
+                    environment.close()
+                except Exception as exc:
+                    if cleanup_error is None:
+                        cleanup_error = exc
+                    logger.warning(
+                        f"Failed to close evaluator environment: {type(exc).__name__}"
+                    )
+            if cleanup_error is not None and not active_error:
+                raise cleanup_error
+
+    return wrapped
+
+
 class EnvironmentEvaluator(EvaluatorBase[Message]):
     """
     Evaluator focuses on endstate of the simulation environment.
     """
 
     @classmethod
+    @_cleanup_evaluator_environments
     def calculate_reward(
         cls,
         environment_constructor: Callable[[], Environment],
@@ -226,6 +263,7 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
         return messages
 
     @classmethod
+    @_cleanup_evaluator_environments
     def calculate_reward(
         cls,
         environment_constructor: Callable[[], Environment],

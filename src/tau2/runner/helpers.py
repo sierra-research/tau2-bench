@@ -35,7 +35,8 @@ def get_environment_info(
     env_constructor = registry.get_env_constructor(domain_name)
     if env_kwargs is None:
         env_kwargs = {}
-    return env_constructor(**env_kwargs).get_info(include_tool_info=include_tool_info)
+    with env_constructor(**env_kwargs) as environment:
+        return environment.get_info(include_tool_info=include_tool_info)
 
 
 def load_task_splits(task_set_name: str) -> Optional[dict[str, list[str]]]:

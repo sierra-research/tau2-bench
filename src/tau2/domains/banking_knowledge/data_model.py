@@ -43,7 +43,10 @@ class KnowledgeBase(BaseModel):
         doc_path = Path(documents_dir)
 
         if doc_path.exists():
-            for file_path in doc_path.glob("*.json"):
+            # Filesystem iteration order differs across APFS, ext4, and overlay
+            # filesystems.  A stable order is score-relevant for BM25 ties and
+            # keeps dense-embedding rows portable across benchmark hosts.
+            for file_path in sorted(doc_path.glob("*.json")):
                 with open(file_path, "r") as f:
                     doc_data = json.load(f)
                     doc = Document(**doc_data)

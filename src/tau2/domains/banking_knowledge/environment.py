@@ -80,15 +80,21 @@ def get_environment(
     tools = build_tools(
         variant, db, knowledge_base, read_log_allowlist=read_log_allowlist
     )
-    user_tools = KnowledgeUserTools(db)
-    policy = build_policy(variant, knowledge_base, task)
+    try:
+        user_tools = KnowledgeUserTools(db)
+        policy = build_policy(variant, knowledge_base, task)
 
-    return Environment(
-        domain_name="banking_knowledge",
-        policy=policy,
-        tools=tools,
-        user_tools=user_tools,
-    )
+        return Environment(
+            domain_name="banking_knowledge",
+            policy=policy,
+            tools=tools,
+            user_tools=user_tools,
+        )
+    except Exception:
+        close = getattr(tools, "close", None)
+        if callable(close):
+            close()
+        raise
 
 
 def get_tasks(task_split_name: Optional[str] = None) -> list[Task]:

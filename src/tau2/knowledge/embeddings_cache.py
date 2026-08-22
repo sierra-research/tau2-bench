@@ -12,6 +12,18 @@ _docs_cache: Optional[List[Dict[str, Any]]] = None
 _query_embeddings_cache: Dict[str, np.ndarray] = {}
 
 
+def get_effective_embedder_cache_config(
+    embedder_type: str, embedder_config: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Return cache parameters including output-affecting transport details."""
+    config = dict(embedder_config or {})
+    if embedder_type == "openai":
+        from tau2.knowledge.embedders.openai_embedder import get_openai_cache_config
+
+        return get_openai_cache_config(config)
+    return config
+
+
 def get_cached_docs() -> Optional[List[Dict[str, Any]]]:
     global _docs_cache
     return _docs_cache
@@ -169,8 +181,29 @@ class EmbeddingsCache:
                 with open(cache_file, "rb") as f:
                     cached_data = pickle.load(f)
 
-                if cached_data["doc_ids"] == [doc["id"] for doc in documents]:
-                    return cached_data["embeddings"], cached_data["doc_ids"]
+                requested_ids = [doc["id"] for doc in documents]
+                cached_ids = cached_data.get("doc_ids")
+                embeddings = cached_data.get("embeddings")
+                if cached_ids == requested_ids:
+                    return embeddings, cached_ids
+
+                # The cache key already binds the same document contents, but
+                # older caches may have been written in filesystem-dependent
+                # order. Reorder rows by document ID instead of paying to
+                # recompute identical embeddings. Refuse duplicates or shape
+                # inconsistencies so corrupt caches still invalidate safely.
+                if (
+                    isinstance(cached_ids, list)
+                    and len(cached_ids) == len(requested_ids)
+                    and len(set(cached_ids)) == len(cached_ids)
+                    and set(cached_ids) == set(requested_ids)
+                    and isinstance(embeddings, np.ndarray)
+                    and len(embeddings) == len(cached_ids)
+                ):
+                    row_by_id = {doc_id: row for row, doc_id in enumerate(cached_ids)}
+                    row_order = [row_by_id[doc_id] for doc_id in requested_ids]
+                    return embeddings[row_order], requested_ids
+
                 else:
                     print(
                         f"⚠️  Cache entry exists but document IDs don't match, invalidating (key: {cache_key[:8]}...)"
@@ -547,7 +580,10 @@ def warm_kb_cache(
 
     if embedder_configs:
         for embedder_type, embedder_params in embedder_configs:
-            cached = cache.get(docs, embedder_type, embedder_params)
+            cache_config = get_effective_embedder_cache_config(
+                embedder_type, embedder_params
+            )
+            cached = cache.get(docs, embedder_type, cache_config)
             if cached is not None:
                 print(
                     f"✅ Embeddings already cached for {embedder_type}:{embedder_params.get('model', 'default')}"
@@ -588,7 +624,13 @@ def _compute_and_cache_embeddings(
     embeddings = embedder.embed(texts)
     doc_ids = [doc["id"] for doc in docs]
 
-    cache.put(docs, embedder_type, embeddings, doc_ids, embedder_params)
+    cache.put(
+        docs,
+        embedder_type,
+        embeddings,
+        doc_ids,
+        get_effective_embedder_cache_config(embedder_type, embedder_params),
+    )
 
     return embeddings
 

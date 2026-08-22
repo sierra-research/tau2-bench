@@ -7,6 +7,7 @@ from tau2.knowledge.embedders import (
 from tau2.knowledge.embeddings_cache import (
     cache_query_embedding,
     get_cached_query_embedding,
+    get_effective_embedder_cache_config,
 )
 from tau2.knowledge.input_preprocessors.base import (
     BaseInputPreprocessor,
@@ -74,7 +75,9 @@ class EmbeddingEncoder(BaseInputPreprocessor):
         """
         if self._cache_config is None:
             embedder = self._get_embedder()
-            config = dict(self.embedder_params)
+            config = get_effective_embedder_cache_config(
+                self.embedder_type, self.embedder_params
+            )
             instruction = getattr(embedder, "query_instruction", None)
             if instruction:
                 config["_query_instruction"] = instruction

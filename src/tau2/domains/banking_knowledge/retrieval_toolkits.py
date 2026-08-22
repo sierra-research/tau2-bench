@@ -90,6 +90,13 @@ class KnowledgeToolsWithShell(ShellMixin, KnowledgeTools):
         super().__init__(db)
         self._sandbox = sandbox
 
+    def close(self) -> None:
+        """Release the shell sandbox owned by this toolkit."""
+        sandbox = self._sandbox
+        self._sandbox = None
+        if sandbox is not None:
+            sandbox.cleanup()
+
 
 class KnowledgeToolsAllTools(
     KBSearchBm25AllToolsMixin,
@@ -110,3 +117,10 @@ class KnowledgeToolsAllTools(
         self._kb_bm25_pipeline = kb_bm25_pipeline
         self._kb_dense_pipeline = kb_dense_pipeline
         self._sandbox = sandbox
+
+    def close(self) -> None:
+        """Release the shell sandbox owned by this toolkit."""
+        sandbox = self._sandbox
+        self._sandbox = None
+        if sandbox is not None:
+            sandbox.cleanup()

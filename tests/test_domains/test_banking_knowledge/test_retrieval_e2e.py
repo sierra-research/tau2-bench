@@ -1098,6 +1098,25 @@ class TestDiskEmbeddingsCacheCorrectness:
         assert np.array_equal(result[0], embeddings)
         assert result[1] == ["d1", "d2"]
 
+    def test_get_reorders_rows_for_same_documents(self, cache, sample_docs):
+        import numpy as np
+
+        embeddings = np.array([[1.0, 2.0], [3.0, 4.0]])
+        cache.put(
+            sample_docs,
+            "openai",
+            embeddings,
+            ["d1", "d2"],
+            {"model": "test"},
+        )
+
+        reversed_docs = list(reversed(sample_docs))
+        result = cache.get(reversed_docs, "openai", {"model": "test"})
+
+        assert result is not None
+        assert np.array_equal(result[0], embeddings[[1, 0]])
+        assert result[1] == ["d2", "d1"]
+
     def test_cache_miss_returns_none(self, cache, sample_docs):
         assert cache.get(sample_docs, "openai", {"model": "test"}) is None
 

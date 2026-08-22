@@ -15,6 +15,7 @@ Replaces the 18 ``RetrievalConfig`` subclasses in
 from __future__ import annotations
 
 import logging
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -273,9 +274,21 @@ def _create_sandbox(
     spec: "ShellSpec",
 ) -> "SandboxManager":
     """Create and populate a sandbox with KB documents."""
-    from tau2.knowledge.sandbox_manager import SandboxManager
+    backend = os.getenv("TAU2_SANDBOX_BACKEND", "local").lower()
+    if backend == "local":
+        from tau2.knowledge.sandbox_manager import SandboxManager
 
-    sandbox = SandboxManager(allow_writes=spec.allow_writes)
+        manager_class = SandboxManager
+    elif backend == "modal":
+        from tau2.knowledge.modal_sandbox_manager import ModalSandboxManager
+
+        manager_class = ModalSandboxManager
+    else:
+        raise ValueError(
+            f"TAU2_SANDBOX_BACKEND must be either 'local' or 'modal', got {backend!r}"
+        )
+
+    sandbox = manager_class(allow_writes=spec.allow_writes)
 
     documents = [
         {"id": doc.id, "title": doc.title, "content": doc.content}

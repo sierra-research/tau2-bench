@@ -1,0 +1,359 @@
+{
+  "schema_version": 1,
+  "benchmark": {
+    "name": "tau3 banking_knowledge",
+    "upstream_repository": "https://github.com/sierra-research/tau2-bench",
+    "git_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+    "release": "v1.0.1",
+    "domain": "banking_knowledge",
+    "task_count": 97,
+    "dataset_git_objects": {
+      "banking_knowledge_source_tree": "5ffb42ffd7ca2ae657df0307c3809972dfb9c184",
+      "knowledge_source_tree": "73fb6d0f74d12e89a22f325d4d283c3e8cd657d6",
+      "tasks_tree": "ce6f59b0519898854bd68f833a8a8013bd941269",
+      "documents_tree": "3b9506137142d433153e001ce9d40c6f7c28a527",
+      "prompts_tree": "35e7e4fe3a5545a25e85a4df5200b40855aee7a7",
+      "database_blob": "91f450a39a0dd6ffeedb8ab51cf04d9de34cde96"
+    }
+  },
+  "submission": {
+    "slug": "qwen3-8-max_sierra_2026-08-04",
+    "trajectory_visualizer": "https://taubench.com/trajectory-visualizer?model=qwen3-8-max_sierra_2026-08-04&domain=banking_knowledge",
+    "leaderboard_pull_request": "https://github.com/sierra-research/tau2-bench/pull/452",
+    "evaluation_date": "2026-08-03",
+    "submission_date": "2026-08-04"
+  },
+  "artifacts": {
+    "submission": {
+      "url": "https://sierra-tau-bench-public.s3.us-west-2.amazonaws.com/submissions/qwen3-8-max_sierra_2026-08-04/submission.json",
+      "filename": "submission.json",
+      "bytes": 1340,
+      "sha256": "afd5525e447a221f6997b6af8a6a72536acda81b0e7775fd7124836a13a9ad76"
+    },
+    "trajectory": {
+      "url": "https://sierra-tau-bench-public.s3.us-west-2.amazonaws.com/submissions/qwen3-8-max_sierra_2026-08-04/trajectories/banking_knowledge_results.json",
+      "filename": "banking_knowledge_results.json",
+      "bytes": 246971719,
+      "sha256": "8c8191c43dfb2d21c1322cc154740e5e6044151837ab817c2cbbcd13ffeb626e"
+    }
+  },
+  "recorded_run": {
+    "agent": {
+      "implementation": "llm_agent",
+      "model": "openrouter/qwen/qwen3.8-max",
+      "llm_args": {
+        "extra_body": {
+          "reasoning": {
+            "effort": "xhigh"
+          }
+        }
+      },
+      "observed_provider": "Alibaba"
+    },
+    "user": {
+      "implementation": "user_simulator",
+      "model": "gpt-5.2",
+      "llm_args": {
+        "reasoning_effort": "low"
+      },
+      "observed_resolved_model": "gpt-5.2-2025-12-11",
+      "observed_transport": "direct OpenAI"
+    },
+    "retrieval_config": "alltools",
+    "retrieval_config_kwargs": null,
+    "dense_embedding_model": "text-embedding-3-large",
+    "seed": 300,
+    "derived_trial_seeds": [
+      626729,
+      373753,
+      361454,
+      1567
+    ],
+    "num_trials": 4,
+    "max_steps": 200,
+    "max_errors": 10,
+    "max_concurrency": 10,
+    "max_concurrency_provenance": "Not serialized in results; reconstructed from overlapping start timestamps and the launch batches."
+  },
+  "locked_runtime": {
+    "python": ">=3.12,<3.14",
+    "litellm": "1.81.11",
+    "openai": "2.20.0",
+    "numpy": "2.3.5",
+    "rank_bm25": "0.2.2",
+    "modal_reproduction_only": "1.5.4"
+  },
+  "reproduction_transport": {
+    "agent_model": "openrouter/qwen/qwen3.8-max",
+    "agent_route_guard": "Preserve the official xhigh-only request args and refuse paid execution unless the sole active OpenRouter endpoint is Alibaba | qwen/qwen3.8-max-20260803.",
+    "user_model": "openrouter/openai/gpt-5.2",
+    "user_llm_args": {
+      "reasoning_effort": "low",
+      "extra_body": {
+        "provider": {
+          "order": [
+            "OpenAI"
+          ],
+          "allow_fallbacks": false
+        }
+      }
+    },
+    "nl_assertions_model": "openrouter/openai/gpt-4.1-2025-04-14",
+    "nl_assertions_llm_args": {
+      "temperature": 0.0,
+      "extra_body": {
+        "provider": {
+          "order": [
+            "OpenAI"
+          ],
+          "allow_fallbacks": false
+        }
+      }
+    },
+    "dense_embeddings_base_url": "https://openrouter.ai/api/v1",
+    "dense_embeddings_model": "openai/text-embedding-3-large",
+    "credential_source": "~/.rllm/config.json:api_keys.openrouter",
+    "ambient_credential_policy": "The credential file is authoritative. A present OPENROUTER_API_KEY must match it exactly or paid execution is rejected; ambient credentials are never preferred.",
+    "sandbox_backend": "modal",
+    "sandbox_timeout_seconds": 3600,
+    "sandbox_order_manifest": "reproduction/tau3_banking/subset_shell_order_manifest.json",
+    "known_non_parity": "The official user simulator, NL judge, and dense embedder used direct OpenAI. This reproduction routes them through OpenRouter because only that credential is in scope. The official dense embedding cache is unrecoverable and live retrieval comparisons show ranking and displayed-score drift."
+  },
+  "official_metrics": {
+    "simulation_count": 388,
+    "reward_sum": 214,
+    "pass_1": 55.154639175257735,
+    "pass_2": 45.18900343642611,
+    "pass_3": 39.69072164948454,
+    "pass_4": 35.051546391752574,
+    "termination_counts": {
+      "user_stop": 388
+    },
+    "infrastructure_error_count": 0
+  },
+  "historical_cost_observations_usd": {
+    "scope": "Agent and user chat-completion costs serialized by the providers; excludes dense embeddings, NL judges, and Modal.",
+    "smoke_task_001_trial_0": 0.14192925,
+    "gate_subset_10_all_4_trials": {
+      "agent": 8.338118,
+      "user": 0.5038943,
+      "total": 8.8420123
+    },
+    "gate_subset_after_resumed_smoke": 8.70008305,
+    "full_97_all_4_trials": 246.13332615
+  },
+  "modes": {
+    "smoke": {
+      "task_ids": [
+        "task_001"
+      ],
+      "trials": [
+        0
+      ],
+      "expected_simulation_count": 1,
+      "expected_reward_sum": 1,
+      "historical_chat_cost_usd": 0.14192925
+    },
+    "subset": {
+      "task_ids": [
+        "task_001",
+        "task_003",
+        "task_004",
+        "task_007",
+        "task_014",
+        "task_032",
+        "task_034",
+        "task_035",
+        "task_046",
+        "task_102"
+      ],
+      "trials": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "expected_simulation_count": 40,
+      "expected_reward_sum": 22,
+      "expected_reward_by_trial": [
+        6,
+        6,
+        4,
+        6
+      ],
+      "expected_pass_rate": 55.0,
+      "historical_chat_cost_usd": 8.8420123
+    },
+    "full": {
+      "task_ids": "all",
+      "trials": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "expected_simulation_count": 388,
+      "expected_reward_sum": 214,
+      "historical_chat_cost_usd": 246.13332615
+    }
+  },
+  "live_parity_checks": {
+    "modal_shell": {
+      "smoke_recorded_calls": 6,
+      "smoke_unique_commands": 6,
+      "smoke_exact_commands": 6,
+      "smoke_report_sha256": "55218fe1359c61c0dc818ff3267c7aa4ca10526a2abe2a63849b71770d50e589",
+      "subset_recorded_calls": 275,
+      "subset_unique_commands": 263,
+      "subset_archive_exact_commands": 215,
+      "subset_archive_mismatch_commands": 48,
+      "subset_archive_exact_percent": 81.74904942965779,
+      "subset_report_sha256": "ff92d2b5d24937836ca7c36cbad0d693e1c24ec54433f312b1398085dce7c597",
+      "subset_mismatch_classification": "47 recursive-grep traversal-order differences and one ls -la filesystem-metadata difference.",
+      "trace_derived_tmpfs_recursive_commands_checked": 59,
+      "trace_derived_tmpfs_recursive_commands_exact": 59,
+      "trace_derived_tmpfs_recursive_report_sha256": "8b5e17bd0e3a542499f1e14fa20f30389f913a2396d7bfa2ff045640e93ea3ab",
+      "trace_derived_tmpfs_subset_unique_commands_checked": 263,
+      "trace_derived_tmpfs_subset_unique_commands_exact": 263,
+      "trace_derived_tmpfs_subset_report_sha256": "a44e9179e195c1c2ab79adcb5ef4add4ddf52097060cff3819fb1759f347ae8e",
+      "trace_derived_order_manifest_sha256": "898b4038585ab4bd10be0ed57f396c4ae5a2b46d8e339e39cc5c8d8219e1d32f",
+      "trace_derived_order_manifest_file": "reproduction/tau3_banking/subset_shell_order_manifest.json",
+      "trace_derived_order_manifest_file_sha256": "8283c957f3730e3cb883c603005e328aa8eed695b850932ef80bb10588f766cc",
+      "trace_derived_order_constrained_files": 451,
+      "trace_derived_order_lexical_tiebreak_files": 248,
+      "root_ls_la_normalization": "Only a leading bare ls -la command has its total and dot/dotdot rows normalized to the pinned official root listing; explicit-path ls output is untouched.",
+      "methodology_note": "The uniform filesystem order is derived from public subset trace outputs and corpus matches; it never inspects commands or replays outputs at runtime. It is a disclosed reproduction fixture, not an independent blind evaluation, and is insufficient by itself for the final 97-task run.",
+      "exploratory_full_corpus": {
+        "recorded_calls": 5135,
+        "unique_commands": 4614,
+        "exact_unique_commands": 4581,
+        "exact_percent": 99.28478543563,
+        "gate_unique_commands_preserved": 263,
+        "candidate_file_sha256": "2dd6900198202d40ad466031be4b86d0fb7d699352680821f66f27e594356de2",
+        "candidate_order_sha256": "f925abd0b262c3317cedffbd1dd5d4c2a5a4495eee77e65834119ebeef7f0bf6",
+        "report_sha256": "cc28f4bfe1a50815a91acb140f309677c34b848a738c26e5da58809fdeed8d90",
+        "mismatch_classification": "10 traversal-order; 14 historical sandbox-runtime exclamation-mark escaping; 4 random pwd paths; 2 EROFS-versus-EACCES diagnostics; 1 Bash argv-zero diagnostic; 1 missing-SciPy command; 1 explicit-path ls metadata.",
+        "receipt_status": "Ad-hoc exploratory measurement only. The temporary generator and candidate are not checked in and this order is not used by the scored runner."
+      }
+    },
+    "bm25_retrieval_all_official_calls": {
+      "calls_checked": 1910,
+      "unique_query_k_pairs": 1905,
+      "exact_outputs": 1910,
+      "exact_percent": 100.0,
+      "parity_fix": "KnowledgeBase document paths are loaded in deterministic lexical order; the prior host-dependent order reproduced only 1774/1910 outputs."
+    },
+    "dense_retrieval_all_official_calls": {
+      "calls_checked": 1806,
+      "unique_queries": 1802,
+      "exact_top_k_document_order": 1188,
+      "exact_top_1_document": 1787,
+      "mean_top_k_overlap_percent": 99.523809524,
+      "minimum_top_k_overlap_percent": 75.0,
+      "exact_displayed_scores": 0,
+      "fresh_cache_sha256": "2600dc04615b3a0bf01ff03dd3868bc6ba78298ca0f9aab158b93ca5f176cdc5",
+      "effective_sorted_cache_semantic_sha256": "7b1668a5b9afd48edba1ef195c10b534accafb91f1da8229c91ea0c0fabb562b",
+      "ordered_document_ids_sha256": "180f1cf4f88b7347b481d6cc3d126a03ae31a304e1bac64a6948d17e632c0d83",
+      "official_embedding_cache_recoverable": false
+    }
+  },
+  "reward_vectors": {
+    "task_001": "1101",
+    "task_002": "1111",
+    "task_003": "1011",
+    "task_004": "1111",
+    "task_005": "1111",
+    "task_006": "1111",
+    "task_007": "0100",
+    "task_008": "0111",
+    "task_010": "0000",
+    "task_012": "1111",
+    "task_014": "0011",
+    "task_015": "1111",
+    "task_016": "1110",
+    "task_017": "1111",
+    "task_018": "0111",
+    "task_019": "1111",
+    "task_020": "0100",
+    "task_021": "1111",
+    "task_022": "0110",
+    "task_023": "1111",
+    "task_024": "1111",
+    "task_025": "1011",
+    "task_026": "0000",
+    "task_027": "0000",
+    "task_028": "1111",
+    "task_029": "0000",
+    "task_031": "1111",
+    "task_032": "1101",
+    "task_033": "1101",
+    "task_034": "1100",
+    "task_035": "1111",
+    "task_036": "1111",
+    "task_037": "0111",
+    "task_038": "0000",
+    "task_039": "0000",
+    "task_040": "1000",
+    "task_041": "1000",
+    "task_043": "1110",
+    "task_044": "1111",
+    "task_045": "1101",
+    "task_046": "0000",
+    "task_047": "1111",
+    "task_048": "1101",
+    "task_049": "1111",
+    "task_050": "1111",
+    "task_051": "1101",
+    "task_052": "1110",
+    "task_053": "0000",
+    "task_054": "1110",
+    "task_055": "1111",
+    "task_056": "1111",
+    "task_057": "0010",
+    "task_058": "1111",
+    "task_059": "1111",
+    "task_060": "0000",
+    "task_061": "0000",
+    "task_062": "0001",
+    "task_063": "0010",
+    "task_064": "1111",
+    "task_065": "0000",
+    "task_066": "0000",
+    "task_067": "0000",
+    "task_068": "0000",
+    "task_069": "0000",
+    "task_070": "1111",
+    "task_071": "1000",
+    "task_072": "1111",
+    "task_073": "1111",
+    "task_074": "0001",
+    "task_075": "0100",
+    "task_076": "1111",
+    "task_077": "0000",
+    "task_078": "1011",
+    "task_079": "1111",
+    "task_080": "1100",
+    "task_081": "0011",
+    "task_082": "0000",
+    "task_083": "0000",
+    "task_084": "0000",
+    "task_085": "0000",
+    "task_086": "0000",
+    "task_087": "0000",
+    "task_088": "0000",
+    "task_089": "1111",
+    "task_090": "0100",
+    "task_091": "0000",
+    "task_092": "0000",
+    "task_093": "1011",
+    "task_094": "1111",
+    "task_095": "0001",
+    "task_096": "1111",
+    "task_097": "0100",
+    "task_098": "1111",
+    "task_099": "0111",
+    "task_100": "1111",
+    "task_101": "1000",
+    "task_102": "0000"
+  }
+}

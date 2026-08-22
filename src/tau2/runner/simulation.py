@@ -26,7 +26,8 @@ def run_simulation(
 
     Takes a fully constructed orchestrator (with agent, user, environment, and task
     already wired in), runs the simulation, evaluates it, and returns the result
-    with reward_info attached.
+    with reward_info attached. The live environment is closed after the trajectory
+    is captured and before fresh-environment evaluation begins.
 
     This is the lowest-level entry point. It has no dependency on the registry
     or RunConfig -- everything is already encapsulated in the orchestrator.
@@ -55,22 +56,29 @@ def run_simulation(
         result = run_simulation(orchestrator)
         print(result.reward_info.reward)
     """
-    # Run the orchestrator
-    simulation = orchestrator.run()
+    environment = orchestrator.environment
+    try:
+        # Run the orchestrator
+        simulation = orchestrator.run()
 
-    # Save the actual policy used for this simulation
-    simulation.policy = orchestrator.environment.get_policy()
+        # Save the actual policy used for this simulation
+        simulation.policy = environment.get_policy()
 
-    # Extract context from the orchestrator -- no external params needed
-    domain = orchestrator.environment.get_domain_name()
-    task = orchestrator.task
-    is_full_duplex = isinstance(orchestrator, FullDuplexOrchestrator)
-    mode = (
-        CommunicationMode.FULL_DUPLEX
-        if is_full_duplex
-        else CommunicationMode.HALF_DUPLEX
-    )
-    solo_mode = getattr(orchestrator, "solo_mode", False)
+        # Extract context from the orchestrator -- no external params needed
+        domain = environment.get_domain_name()
+        task = orchestrator.task
+        is_full_duplex = isinstance(orchestrator, FullDuplexOrchestrator)
+        mode = (
+            CommunicationMode.FULL_DUPLEX
+            if is_full_duplex
+            else CommunicationMode.HALF_DUPLEX
+        )
+        solo_mode = getattr(orchestrator, "solo_mode", False)
+    finally:
+        # The live environment is no longer used once its trajectory and
+        # metadata have been captured. Release remote resources before the
+        # fresh-environment evaluation begins.
+        environment.close()
 
     # Evaluate
     reward_info = evaluate_simulation(

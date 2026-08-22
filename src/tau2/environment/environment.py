@@ -58,9 +58,47 @@ class Environment:
         self.tools = tools
         self.user_tools = user_tools
         self.solo_mode = solo_mode
+        self._closed = False
         if self.solo_mode:
             self.validate_solo_mode()
         self.sync_tools()
+
+    def close(self) -> None:
+        """Release resources owned by the environment's toolkits.
+
+        Most toolkits do not own external resources. Resource-owning toolkits
+        may provide a ``close()`` method; it is called at most once for each
+        distinct toolkit instance.
+        """
+        if self._closed:
+            return
+        self._closed = True
+
+        first_error: Optional[Exception] = None
+        closed_toolkits: set[int] = set()
+        for toolkit in (self.tools, self.user_tools):
+            if toolkit is None or id(toolkit) in closed_toolkits:
+                continue
+            closed_toolkits.add(id(toolkit))
+            close = getattr(toolkit, "close", None)
+            if not callable(close):
+                continue
+            try:
+                close()
+            except Exception as exc:
+                if first_error is None:
+                    first_error = exc
+
+        if first_error is not None:
+            raise first_error
+
+    def __enter__(self) -> "Environment":
+        """Return this environment for use as a context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Release toolkit resources when leaving a context."""
+        self.close()
 
     def get_domain_name(self) -> str:
         """

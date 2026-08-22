@@ -154,6 +154,7 @@ def evaluate_simulation(
 
     # Get tool types from the environment for action evaluation
     tool_types: Optional[dict[str, ToolType]] = None
+    env = None
     try:
         env = registry.get_env_constructor(domain)(solo_mode=solo_mode, **env_kwargs)
         if env.tools is not None:
@@ -167,6 +168,9 @@ def evaluate_simulation(
     except Exception:
         # If we can't get tool types, continue without them
         pass
+    finally:
+        if env is not None:
+            env.close()
 
     if evaluation_type == EvaluationType.ENV:
         reward_info = EnvEvaluator.calculate_reward(

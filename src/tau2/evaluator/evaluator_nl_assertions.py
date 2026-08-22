@@ -1,4 +1,7 @@
 import json
+import os
+from copy import deepcopy
+from typing import Any
 
 from tau2.agent.base.streaming import (
     LinearizationStrategy,
@@ -11,6 +14,25 @@ from tau2.data_model.simulation import NLAssertionCheck, RewardInfo
 from tau2.data_model.tasks import RewardType, Task
 from tau2.evaluator.evaluator_base import EvaluatorBase
 from tau2.utils.llm_utils import generate
+
+NL_ASSERTIONS_MODEL_ENV = "TAU2_NL_ASSERTIONS_MODEL"
+NL_ASSERTIONS_ARGS_ENV = "TAU2_NL_ASSERTIONS_ARGS"
+
+
+def _get_nl_assertions_llm_config() -> tuple[str, dict]:
+    """Resolve an optional judge override without changing benchmark defaults."""
+    model = os.getenv(NL_ASSERTIONS_MODEL_ENV, DEFAULT_LLM_NL_ASSERTIONS)
+    raw_args = os.getenv(NL_ASSERTIONS_ARGS_ENV)
+    if raw_args is None:
+        return model, deepcopy(DEFAULT_LLM_NL_ASSERTIONS_ARGS)
+
+    try:
+        args = json.loads(raw_args)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{NL_ASSERTIONS_ARGS_ENV} must contain valid JSON") from exc
+    if not isinstance(args, dict):
+        raise ValueError(f"{NL_ASSERTIONS_ARGS_ENV} must contain a JSON object")
+    return model, args
 
 
 class NLAssertionsEvaluator(EvaluatorBase[Message]):
@@ -43,8 +65,8 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
                 reward_breakdown={RewardType.NL_ASSERTION: 1.0},
             )
 
-        nl_assertions_checks = cls.evaluate_nl_assertions(
-            full_trajectory, nl_assertions
+        nl_assertions_checks, judge_provenance = (
+            cls._evaluate_nl_assertions_with_provenance(full_trajectory, nl_assertions)
         )
 
         # Calculate reward: 1 if all expectations are met, 0 otherwise
@@ -55,6 +77,7 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             reward=reward,
             nl_assertions=nl_assertions_checks,
             reward_breakdown={RewardType.NL_ASSERTION: reward},
+            info={"judge": judge_provenance},
         )
 
     @classmethod
@@ -76,6 +99,18 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             - metExpectation: Boolean indicating if the assertion was met
             - reasoning: Explanation for the evaluation
         """
+        checks, _ = cls._evaluate_nl_assertions_with_provenance(
+            trajectory, nl_assertions
+        )
+        return checks
+
+    @classmethod
+    def _evaluate_nl_assertions_with_provenance(
+        cls,
+        trajectory: list[Message],
+        nl_assertions: list[str],
+    ) -> tuple[list[NLAssertionCheck], dict[str, Any]]:
+        """Evaluate assertions and retain non-secret judge route metadata."""
         trajectory_str = "\n".join(
             [f"{message.role}: {message.content}" for message in trajectory]
         )
@@ -118,14 +153,15 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             UserMessage(role="user", content=user_prompt),
         ]
 
+        judge_model, judge_args = _get_nl_assertions_llm_config()
         assistant_message = generate(
-            model=DEFAULT_LLM_NL_ASSERTIONS,
+            model=judge_model,
             messages=messages,
             call_name="nl_assertions_eval",
-            **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
+            **judge_args,
         )
         result_data = json.loads(assistant_message.content)
-        return [
+        checks = [
             NLAssertionCheck(
                 nl_assertion=result["expectedOutcome"],
                 met=result["metExpectation"],
@@ -133,6 +169,15 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             )
             for result in result_data.get("results", [])
         ]
+        raw_data = assistant_message.raw_data or {}
+        provenance = {
+            "requested_model": judge_model,
+            "resolved_model": raw_data.get("model"),
+            "provider": raw_data.get("provider"),
+            "service_tier": raw_data.get("service_tier"),
+            "response_id": raw_data.get("id"),
+        }
+        return checks, provenance
 
 
 class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
@@ -217,7 +262,11 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
         # Convert ticks to linearized message history
         messages = cls.ticks_to_message_history(full_trajectory)
 
-        nl_assertions_checks = cls.evaluate_nl_assertions(messages, nl_assertions)
+        nl_assertions_checks, judge_provenance = (
+            NLAssertionsEvaluator._evaluate_nl_assertions_with_provenance(
+                messages, nl_assertions
+            )
+        )
 
         # Calculate reward: 1 if all expectations are met, 0 otherwise
         all_expectations_met = all(result.met for result in nl_assertions_checks)
@@ -227,6 +276,7 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
             reward=reward,
             nl_assertions=nl_assertions_checks,
             reward_breakdown={RewardType.NL_ASSERTION: reward},
+            info={"judge": judge_provenance},
         )
 
     @classmethod

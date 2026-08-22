@@ -16,9 +16,12 @@ If `--retrieval-config` is omitted for `banking_knowledge`, the default is **`al
 | `KB_search_dense` | Dense embeddings; pass **`k`** (default 10); backend selected by retrieval config |
 | `shell` | Same read-only sandboxed shell as `terminal_use` |
 
-Requirements: **sandbox-runtime** for `shell`, and an embedding API for dense search:
+Requirements: a shell backend and an embedding API for dense search:
 
-- **`alltools`**: uses OpenAI embeddings — set **`OPENAI_API_KEY`**. Model: **`text-embedding-3-large`**.
+- **`alltools`**: uses OpenAI embeddings. Model: **`text-embedding-3-large`**.
+  For direct OpenAI, set **`OPENAI_API_KEY`**. To keep the same logical model
+  while routing through OpenRouter, set **`OPENAI_BASE_URL=https://openrouter.ai/api/v1`**
+  and **`OPENROUTER_API_KEY`**; the OpenAI provider is pinned and fallback is disabled.
 - **`alltools-qwen`**: uses OpenRouter/Qwen embeddings — set **`OPENROUTER_API_KEY`**. Model: **`qwen3-embedding-8b`**.
 
 ## Retrieval Configs
@@ -46,7 +49,7 @@ Note: `*_reranker` variants always require `OPENAI_API_KEY` for the pointwise LL
 
 ## Embedding Cache
 
-Embedding-based configs (`openai_embeddings*`, `qwen_embeddings*`, `alltools`, `alltools-qwen`) cache document embeddings on disk at `data/.embeddings_cache` (gitignored). This avoids re-computing embeddings on repeated runs. The cache is automatically invalidated when document content changes.
+Embedding-based configs (`openai_embeddings*`, `qwen_embeddings*`, `alltools`, `alltools-qwen`) cache document embeddings on disk at `data/.embeddings_cache` (gitignored). This avoids re-computing embeddings on repeated runs. The cache is automatically invalidated when document content or the effective transport changes, so a direct-OpenAI cache is not silently reused with OpenRouter queries.
 
 ## Additional Setup
 
@@ -54,7 +57,27 @@ Embedding-based configs (`openai_embeddings*`, `qwen_embeddings*`, `alltools`, `
 
 The `qwen_embeddings*` and `alltools-qwen` configs route through [OpenRouter](https://openrouter.ai/). Set the `OPENROUTER_API_KEY` environment variable (or add it to your `.env` file — see `.env.example`).
 
-### sandbox-runtime
+### Shell sandbox backend
+
+The default backend is Anthropic's local `sandbox-runtime`. Set
+`TAU2_SANDBOX_BACKEND=modal` to create a lazy, per-simulation
+[Modal Sandbox](https://modal.com/docs/guide/sandbox) instead. Modal mode requires
+an authenticated Modal CLI/profile and the `knowledge` dependency extra. It does
+not pass model or application credentials into the remote container, blocks
+network access, and terminates the sandbox immediately after trajectory capture.
+
+Optional Modal settings:
+
+```bash
+export TAU2_SANDBOX_BACKEND=modal
+export TAU2_MODAL_APP=tau3-banking-sandboxes
+export TAU2_MODAL_SANDBOX_TIMEOUT=3600
+```
+
+The timeout is the sandbox lifetime. Individual shell commands retain the
+30-second command timeout.
+
+### sandbox-runtime (local backend)
 
 The `terminal_use`, `terminal_use_write`, `alltools`, and `alltools-qwen` configs require [Anthropic's sandbox-runtime](https://github.com/anthropic-experimental/sandbox-runtime) for secure filesystem isolation. **All of the following are required** — installing just the npm package is not sufficient.
 
