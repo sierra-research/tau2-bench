@@ -1180,6 +1180,14 @@ def compare_aligned_tool_outputs(
     for signature in signatures:
         expected_group = expected_groups.get(signature, [])
         actual_group = actual_groups.get(signature, [])
+        missing_suffix_after_exact_observed_prefix = len(expected_group) > len(
+            actual_group
+        ) and all(
+            _same_tool_outcome(expected_call, actual_call)
+            for (_, expected_call), (_, actual_call) in zip(
+                expected_group, actual_group, strict=False
+            )
+        )
         if len(expected_group) == len(actual_group):
             # With no inserted/removed occurrence, positional order is causal.
             # Multiset matching would hide swapped stateful outputs.
@@ -1286,9 +1294,13 @@ def compare_aligned_tool_outputs(
         for expected_index, expected_call in remaining_expected:
             if not expected_call["output_present"]:
                 continue
-            ambiguous_duplicate = bool(actual_group) and not any(
-                _same_tool_outcome(expected_call, actual_call)
-                for _, actual_call in actual_group
+            ambiguous_duplicate = (
+                not missing_suffix_after_exact_observed_prefix
+                and bool(actual_group)
+                and not any(
+                    _same_tool_outcome(expected_call, actual_call)
+                    for _, actual_call in actual_group
+                )
             )
             add_mismatch(
                 mismatch_counts,

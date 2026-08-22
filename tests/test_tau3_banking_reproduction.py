@@ -729,6 +729,65 @@ def test_model_sampling_scope_fails_ambiguous_duplicate_output_drift():
     assert report["remaining_behavior_mismatch_count_after_waiver_scopes"] == 1
 
 
+def test_model_sampling_scope_accepts_missing_duplicate_suffix_after_exact_prefix():
+    expected = _tool_sequence_simulation(
+        [
+            ("request_human_agent_transfer", {}, "request #1"),
+            ("request_human_agent_transfer", {}, "request #2"),
+            ("request_human_agent_transfer", {}, "request #3"),
+        ]
+    )
+    actual = _tool_sequence_simulation(
+        [
+            ("request_human_agent_transfer", {}, "request #1"),
+            ("request_human_agent_transfer", {}, "request #2"),
+        ]
+    )
+
+    report = compare_results.compare(
+        {"simulations": [actual]},
+        {("task_001", 0): expected},
+        [("task_001", 0)],
+        compare_tools=True,
+        max_details=20,
+    )
+
+    assert report["mismatch_counts"]["tool_output_missing"] == 1
+    assert report["model_sampling_drift_mismatch_counts"]["tool_output_missing"] == 1
+    assert report["remaining_behavior_mismatch_count_after_waiver_scopes"] == 0
+
+
+def test_model_sampling_scope_rejects_missing_duplicate_middle_outcome():
+    expected = _tool_sequence_simulation(
+        [
+            ("request_human_agent_transfer", {}, "request #1"),
+            ("request_human_agent_transfer", {}, "request #2"),
+            ("request_human_agent_transfer", {}, "request #3"),
+        ]
+    )
+    actual = _tool_sequence_simulation(
+        [
+            ("request_human_agent_transfer", {}, "request #1"),
+            ("request_human_agent_transfer", {}, "request #3"),
+        ]
+    )
+
+    report = compare_results.compare(
+        {"simulations": [actual]},
+        {("task_001", 0): expected},
+        [("task_001", 0)],
+        compare_tools=True,
+        max_details=20,
+    )
+
+    assert report["mismatch_counts"]["tool_output_missing"] == 1
+    assert (
+        report["model_sampling_drift_mismatch_counts"].get("tool_output_missing", 0)
+        == 0
+    )
+    assert report["remaining_behavior_mismatch_count_after_waiver_scopes"] == 1
+
+
 @pytest.mark.parametrize(
     ("basis", "field", "expected_record", "actual_record"),
     [

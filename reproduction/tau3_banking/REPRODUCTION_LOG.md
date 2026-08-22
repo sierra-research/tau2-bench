@@ -456,3 +456,168 @@
   output directory, and launched no benchmark child. The current balance is
   intentionally not committed. A fresh clone of the published commit also
   emitted the exact guarded dry plan from a clean worktree.
+
+## 2026-08-22 — paid smoke and 10-task trial-0 gate
+
+- After the guarded credit check became sufficient, verified that branch
+  `agent/tau3-banking-modal-parity` was clean and that the fork contained exact
+  HEAD `48a92ecf69bebd2d6eae37a54c98c929e39ff85b`. Started a new run directory
+  bound to that commit with:
+
+  ```bash
+  uv run --frozen --extra knowledge python \
+    reproduction/tau3_banking/run.py smoke \
+    --output-dir reproduction/tau3_banking/runs/parity_48a92ec \
+    --execute --confirm-paid-api-calls --cost-ceiling-usd 0.25
+  ```
+
+  Smoke completed `task_001` trial 0 with `user_stop`, reward 1, exact DB and
+  action grading, zero infrastructure errors, and valid Qwen/Alibaba and
+  GPT-5.2/OpenAI route receipts. Raw chat cost was `$0.32992025` (agent
+  `$0.318456`, user `$0.01146425`), `2.32454x` the historical `$0.14192925`.
+  Strict behavior was not identical: 22 tool calls versus the official 9 and
+  37 tool-call/output mismatches, all causally classified as model-sampling
+  drift; combined scoped waivers left zero residuals. The immutable smoke
+  comparison SHA-256 is
+  `6fb7fc6d8f356413f18f2b0ed3c8b716c5fdbe6872eb1110e18282b0d774ebd9`.
+
+- Resumed the same checkpoint into the documented ten-task trial-0 gate:
+
+  ```bash
+  uv run --frozen --extra knowledge python \
+    reproduction/tau3_banking/run.py subset_trial0 \
+    --output-dir reproduction/tau3_banking/runs/parity_48a92ec \
+    --resume --execute --confirm-paid-api-calls --cost-ceiling-usd 3.5
+  ```
+
+  It completed all 10 simulations with `user_stop`, no infrastructure errors,
+  and exact aggregate `6/10 = 60%`. Raw agent/user chat cost was `$3.25845055`
+  (agent `$3.11104`, user `$0.14741055`); the task-102 dated GPT-4.1 judge cost
+  was `$0.111872`. Task-level rewards swapped on task 014 (`0 -> 1`) and task
+  034 (`1 -> 0`). Task 102 retained final reward 0 but recombined from official
+  `DB=1, NL=0` to live `DB=0, NL=1`; both trajectories and every differing
+  deterministic component reproduced exactly under the offline evaluator, and
+  the NL change used the dated OpenAI judge route.
+
+  The initial comparison found two conservative residuals after otherwise
+  validating aggregate score, configuration, runtime/manifest, structure,
+  grading, participant routes, response IDs, and judge provenance. Both were
+  the unexecuted task-034 transfer-request outputs `#7` and `#8`: the candidate
+  stopped after the exact ordered stateful prefix `#1` through `#6`, while the
+  comparator treated the missing reference suffix as ambiguous. The comparator
+  now classifies only an expected-side missing suffix after an exact observed
+  prefix as downstream model-sampling drift. Candidate-added, middle-missing,
+  reordered, content-changed, requestor-changed, and error-changed duplicate
+  outputs remain fatal. Two regression tests cover the accepted suffix and
+  rejected middle gap; the full focused harness file passes 90 tests.
+
+  After that fix, all 363 tool-call/output mismatches are attributed to the
+  disclosed sampling scope, zero behavior mismatches remain outside the waiver,
+  grading integrity and score attribution are valid, and the exact trial-0
+  aggregate remains 6/10. Checkpoint SHA-256 is
+  `5849608ebd33dacf0f3eb969bdc842717f0adb3ec23724e48738c8b7d6ae20d2`;
+  completed execution-manifest SHA-256 is
+  `5353c9b7eefc1fe7f61e4b98aba2166c82c9e226607710f4b4b8a18097a4c7ea`;
+  detailed post-fix comparison SHA-256 is
+  `a8455566b0dd37f9341a313ab6c553bfe78e3b9f765e508aee67cc2f4c14862e`.
+
+## 2026-08-22 — 40-run subset mismatch and full-run refusal
+
+- Preserved the exact trial-0 checkpoint and its original clean commit by
+  temporarily shelving only the audited comparator/log/test patch, then ran:
+
+  ```bash
+  uv run --frozen --extra knowledge python \
+    reproduction/tau3_banking/run.py subset \
+    --output-dir reproduction/tau3_banking/runs/parity_48a92ec \
+    --resume --execute --confirm-paid-api-calls --cost-ceiling-usd 12
+  ```
+
+  The credit preflight was sufficient, the runner retained the existing ten
+  keys, and all remaining 30 predeclared task/trial keys completed. The full
+  checkpoint contains exactly 40 `user_stop` trajectories, zero infrastructure
+  errors, 701 unique participant response IDs (471 Qwen assistant and 230
+  GPT-5.2 user responses), valid dated task-102 judge provenance for every
+  trial, and a passing post-run structural/grading/provider validation receipt.
+  The checkpoint SHA-256 is
+  `85a62d20e497a163bb7a2bc63ee5441eed1ef21931872619ce579ee09154f204`;
+  execution-manifest SHA-256 is
+  `7933b8553fa7d63c9dbe36efef2241044571dc3063bd04082b735eba047f8170`.
+
+- The live aggregate was **26/40 = 65%**, not the required **22/40 = 55%**.
+  Live rewards by trial were `[6, 7, 7, 6]` versus official `[6, 6, 4, 6]`.
+  Ten binary outcomes flipped:
+
+  ```text
+  task_001 trial 2: 0 -> 1
+  task_003 trial 2: 1 -> 0
+  task_007 trial 2: 0 -> 1
+  task_014 trial 0: 0 -> 1
+  task_014 trial 1: 0 -> 1
+  task_014 trial 3: 1 -> 0
+  task_032 trial 2: 0 -> 1
+  task_034 trial 0: 1 -> 0
+  task_034 trial 2: 0 -> 1
+  task_034 trial 3: 0 -> 1
+  ```
+
+  Net task-level differences were `+1` for tasks 001, 007, 014, 032, and 034;
+  `-1` for task 003; and zero for tasks 004, 035, 046, and 102. Every changed
+  deterministic DB/ACTION component reproduced from its own trajectory under
+  the pinned offline evaluator; grading-integrity and causal-attribution issue
+  counts were both zero. This rules out scalar-grader or stale-component drift.
+
+- Raw agent/user chat cost was `$11.92734985` (agent `$11.461118`, user
+  `$0.46623185`), `1.349x` the historical `$8.8420123`; four dated GPT-4.1
+  judge calls added `$0.442644`. Dense embeddings were served from the pinned
+  cache and Modal cost is not serialized. The 40 conversation durations sum to
+  8,224.31 seconds; concurrent wall time was about 19.6 minutes.
+
+- The detailed offline comparator reported exact configuration, runtime and
+  execution-manifest state, schema/protocol structure, raw Alibaba/OpenAI
+  participant routes, unique response-ID binding, dated judge routes, and
+  grading integrity. Strict trajectories nevertheless had 319 generated-text
+  divergences and 1,347 tool-behavior mismatches: 237 argument, 37 count, 40
+  sequence, 469 missing-output, 562 unexpected-output, one known dense-output,
+  and one other same-call output difference. Of these, 1,343 are attributable
+  to model-selected sampling changes and one is the separately disclosed dense
+  drift. Three deliberately unwaived stateful-output diagnostics remain:
+  candidate-added task-034 trial-2 transfer output, candidate-added task-102
+  trial-3 referral read, and a task-102 trial-2 referral read after divergent
+  referral writes. They do not explain the scalar mismatch; they keep the trace
+  gate conservative. Detailed comparison SHA-256 is
+  `894394be905fd49fcc3b7209861f5863778702354a11ec2bf7aebece987d06bc`.
+
+- Transport and sampling evidence explains why identical seeds do not recreate
+  trajectories. Every first GPT-5.2 request recorded exactly 81 fewer prompt
+  tokens through OpenRouter than the official direct-OpenAI request; only 10/40
+  first user messages were byte-identical. On those same ten trajectories, the
+  first Qwen prompt-token count was exactly equal to the official trace, but
+  all ten first Qwen tool calls still differed despite the same Alibaba route,
+  model snapshot, seed, policy, task, tools, and xhigh-only arguments. Across
+  all 40 records, zero first Qwen generations were fully identical. The excess
+  score is therefore consistent with remote seeded sampling/transport drift,
+  not a harness configuration, route, Modal, or grader mismatch.
+
+- Finally attempted the documented gate write with both narrowly disclosed
+  waivers:
+
+  ```bash
+  uv run --offline --frozen --extra knowledge python \
+    reproduction/tau3_banking/compare_results.py \
+    reproduction/tau3_banking/runs/parity_48a92ec/results.json \
+    --mode subset --max-mismatch-details 2000 \
+    --output reproduction/tau3_banking/runs/parity_48a92ec/subset_gate_attempt.json \
+    --write-gate reproduction/tau3_banking/.state/subset_score_parity.json \
+    --allow-known-dense-drift --allow-model-sampling-drift \
+    --reference-results \
+      reproduction/tau3_banking/artifacts/banking_knowledge_results.json
+  ```
+
+  It failed closed with exit 2 because aggregate sampling mode still requires
+  the exact official reward sum. No gate file was written, and no full run was
+  launched. Replaying, replacing, or cherry-picking failed keys would invalidate
+  the fixed subset experiment and is intentionally not used. The 40-run
+  checkpoint, three execution manifests, smoke/trial-0 comparisons, and detailed
+  subset comparison are force-tracked as immutable receipts even though the
+  general `runs/` directory remains ignored.

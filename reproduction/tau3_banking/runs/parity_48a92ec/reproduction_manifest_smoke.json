@@ -1,0 +1,274 @@
+{
+  "cache_prewarm_command": [
+    "uv",
+    "run",
+    "--offline",
+    "--frozen",
+    "--extra",
+    "knowledge",
+    "python",
+    "-c",
+    "from tau2.knowledge.embeddings_cache import warm_kb_cache; warm_kb_cache([('openai', {'model': 'text-embedding-3-large'})])"
+  ],
+  "cache_prewarm_required": false,
+  "checkout": {
+    "dataset_git_objects": {
+      "database_blob": "91f450a39a0dd6ffeedb8ab51cf04d9de34cde96",
+      "documents_tree": "3b9506137142d433153e001ce9d40c6f7c28a527",
+      "prompts_tree": "35e7e4fe3a5545a25e85a4df5200b40855aee7a7",
+      "tasks_tree": "ce6f59b0519898854bd68f833a8a8013bd941269"
+    },
+    "head": "48a92ecf69bebd2d6eae37a54c98c929e39ff85b",
+    "official_base_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+    "official_base_is_ancestor": true,
+    "worktree_status": ""
+  },
+  "checkpoint_sha256": "5457f5830fce6ecb3687286b1e7fbe2b4bcebeec6cb4f45a5859acc916644bb5",
+  "checkpoint_sha256_before_run": null,
+  "command": [
+    "uv",
+    "run",
+    "--frozen",
+    "--extra",
+    "knowledge",
+    "tau2",
+    "run",
+    "--domain",
+    "banking_knowledge",
+    "--agent",
+    "llm_agent",
+    "--agent-llm",
+    "openrouter/qwen/qwen3.8-max",
+    "--agent-llm-args",
+    "{\"extra_body\":{\"reasoning\":{\"effort\":\"xhigh\"}}}",
+    "--user",
+    "user_simulator",
+    "--user-llm",
+    "openrouter/openai/gpt-5.2",
+    "--user-llm-args",
+    "{\"reasoning_effort\":\"low\",\"extra_body\":{\"provider\":{\"order\":[\"OpenAI\"],\"allow_fallbacks\":false}}}",
+    "--retrieval-config",
+    "alltools",
+    "--num-trials",
+    "1",
+    "--max-steps",
+    "200",
+    "--max-errors",
+    "10",
+    "--max-concurrency",
+    "1",
+    "--seed",
+    "300",
+    "--log-level",
+    "ERROR",
+    "--save-to",
+    "/Users/tianhaowu/mono/tau3-banking/reproduction/tau3_banking/runs/parity_48a92ec",
+    "--task-ids",
+    "task_001"
+  ],
+  "completed_at": "2026-08-22T18:07:08.012050+00:00",
+  "cost_ceiling_usd": 0.25,
+  "cost_scope_caveat": "Agent and user chat-completion costs serialized by the providers; excludes dense embeddings, NL judges, and Modal.",
+  "created_at": "2026-08-22T18:03:29.030305+00:00",
+  "dry_run": false,
+  "environment": {
+    "OPENAI_API_KEY": "<same OpenRouter key for SDK compatibility>",
+    "OPENAI_BASE_URL": "https://openrouter.ai/api/v1",
+    "OPENROUTER_API_BASE": "https://openrouter.ai/api/v1",
+    "OPENROUTER_API_KEY": "<loaded without logging>",
+    "PYTHONNOUSERSITE": "1",
+    "PYTHONUNBUFFERED": "1",
+    "PYTHON_DOTENV_DISABLED": "1",
+    "TAU2_DATA_DIR": "/Users/tianhaowu/mono/tau3-banking/data",
+    "TAU2_MODAL_APP": "tau3-banking-sandboxes",
+    "TAU2_MODAL_EXPECTED_IMAGE_ID": "im-57yaJoNct9YREpBb74YQ0k",
+    "TAU2_MODAL_ORDER_MANIFEST": "reproduction/tau3_banking/full_shell_order_manifest.json",
+    "TAU2_MODAL_SANDBOX_TIMEOUT": "3600",
+    "TAU2_NL_ASSERTIONS_ARGS": "{\"temperature\":0.0,\"extra_body\":{\"provider\":{\"order\":[\"OpenAI\"],\"allow_fallbacks\":false}}}",
+    "TAU2_NL_ASSERTIONS_MODEL": "openrouter/openai/gpt-4.1-2025-04-14",
+    "TAU2_SANDBOX_BACKEND": "modal"
+  },
+  "execution_state": {
+    "digest": "ebfefc03a2c260af4de7890250c1b21fbcef32ec2652963a94f689eb8f55b74f",
+    "embedding_cache": {
+      "digest": "57d8cce1eba2cbbfe116d5709e079806da6509f2427d01af1eded689c9bae649",
+      "path": "data/.embeddings_cache",
+      "selected": {
+        "all_finite": true,
+        "cache_key": "62eca72522cacac783980da07ba707af2dfa2df0aec9def44ea0fcb260127fc2_c88535dfbd6d8cdab06bc712168ee9cb",
+        "document_count": 698,
+        "dtype": "<f8",
+        "effective_embedder_config": {
+          "_transport": "openrouter-openai-provider-v1",
+          "model": "text-embedding-3-large"
+        },
+        "ordered_doc_ids_sha256": "180f1cf4f88b7347b481d6cc3d126a03ae31a304e1bac64a6948d17e632c0d83",
+        "path": "data/.embeddings_cache/62eca72522cacac783980da07ba707af2dfa2df0aec9def44ea0fcb260127fc2_c88535dfbd6d8cdab06bc712168ee9cb.pkl",
+        "semantic_sha256": "7b1668a5b9afd48edba1ef195c10b534accafb91f1da8229c91ea0c0fabb562b",
+        "sha256": "2600dc04615b3a0bf01ff03dd3868bc6ba78298ca0f9aab158b93ca5f176cdc5",
+        "shape": [
+          698,
+          3072
+        ],
+        "size": 17187727
+      },
+      "validation_scope": "Only the selected OpenRouter document-embedding cache is bound. Stale cache entries and metadata timestamps are ignored. Live query embeddings have no recoverable oracle; subset ToolMessage output comparison detects their retrieval effects."
+    },
+    "runtime": {
+      "digest": "b9a97fa049945c913e4300b3edbf9af45841587c27b7cdc69e38cac13701aef5",
+      "git_objects": {
+        "data/tau2/domains/banking_knowledge": "0ce703cbc3e07b0b09905daf29700813b3b8f122",
+        "pyproject.toml": "16a1b9d0c68c46bba9c93f042a46d057221a75c7",
+        "reproduction/tau3_banking": "b02cd5f2241af1a3690307b9e49d3dcb9628a269",
+        "src/tau2": "d559853b393a07a73b4da0d3e4ddd43f3ab0e812",
+        "uv.lock": "b672cd02919c193b47aa98acaa1d58e7d1345655"
+      },
+      "head": "48a92ecf69bebd2d6eae37a54c98c929e39ff85b",
+      "root_tree": "f2e2b3763f519b1a867e63f9cff32441af485408",
+      "worktree_clean": true
+    },
+    "schema_version": 1
+  },
+  "exit_code": 0,
+  "full_shell_oracle_mismatch_count": null,
+  "full_shell_oracle_modal_image_object_id": null,
+  "full_shell_oracle_modal_image_recipe_sha256": null,
+  "full_shell_oracle_receipt": null,
+  "full_shell_oracle_receipt_sha256": null,
+  "historical_chat_cost_usd": 0.14192925,
+  "known_full_shell_drift_acknowledged": false,
+  "known_non_parity": "The official user simulator, NL judge, and dense embedder used direct OpenAI. This reproduction routes them through OpenRouter because only that credential is in scope. The official dense embedding cache is unrecoverable and live retrieval comparisons show ranking and displayed-score drift.",
+  "mode": "smoke",
+  "openrouter_credit_state": {
+    "checked_at": "2026-08-22T18:03:29.103257+00:00",
+    "remaining_usd": 942.4164988539997,
+    "required_usd": 0.14192925,
+    "schema_version": 1,
+    "sufficient": true,
+    "total_credits_usd": 34010.0,
+    "total_usage_usd": 33067.583501146
+  },
+  "openrouter_endpoint_inventory": {
+    "digest": "6a21788f6e4854593d8dd757616759af1027fa609e9ea294a387e5ff3e1c8125",
+    "entries": [
+      {
+        "active_endpoint_count": 1,
+        "eligible_active_endpoint_count": 1,
+        "matching_active_endpoint_count": 1,
+        "provider": "Alibaba",
+        "raw_sha256": "7f090bd3958e7a167d34ac59eb2390346fc86d79773139130cb8b1fb33c367a3",
+        "requested_model": "qwen/qwen3.8-max",
+        "resolved_model": "qwen/qwen3.8-max-20260803",
+        "response_model_id": "qwen/qwen3.8-max",
+        "status": 0
+      },
+      {
+        "active_endpoint_count": 4,
+        "eligible_active_endpoint_count": 3,
+        "matching_active_endpoint_count": 3,
+        "provider": "OpenAI",
+        "raw_sha256": "e040809b9b95345f688d4f2973e97787b9e32135eacf0ec80847454ac290b926",
+        "requested_model": "openai/gpt-5.2",
+        "resolved_model": "openai/gpt-5.2-20251211",
+        "response_model_id": "openai/gpt-5.2",
+        "status": 0
+      },
+      {
+        "active_endpoint_count": 3,
+        "eligible_active_endpoint_count": 1,
+        "matching_active_endpoint_count": 1,
+        "provider": "OpenAI",
+        "raw_sha256": "35b5fdc5748f02867fafbcad413b24a23aad7d4232669ac97ed4b568a2359bf7",
+        "requested_model": "openai/gpt-4.1-2025-04-14",
+        "resolved_model": "openai/gpt-4.1-2025-04-14",
+        "response_model_id": "openai/gpt-4.1",
+        "status": 0
+      }
+    ],
+    "fetched_at": "2026-08-22T18:03:29.030051+00:00",
+    "schema_version": 3,
+    "unauthenticated": true
+  },
+  "output_dir": "/Users/tianhaowu/mono/tau3-banking/reproduction/tau3_banking/runs/parity_48a92ec",
+  "post_run_execution_state": {
+    "digest": "ebfefc03a2c260af4de7890250c1b21fbcef32ec2652963a94f689eb8f55b74f",
+    "embedding_cache": {
+      "digest": "57d8cce1eba2cbbfe116d5709e079806da6509f2427d01af1eded689c9bae649",
+      "path": "data/.embeddings_cache",
+      "selected": {
+        "all_finite": true,
+        "cache_key": "62eca72522cacac783980da07ba707af2dfa2df0aec9def44ea0fcb260127fc2_c88535dfbd6d8cdab06bc712168ee9cb",
+        "document_count": 698,
+        "dtype": "<f8",
+        "effective_embedder_config": {
+          "_transport": "openrouter-openai-provider-v1",
+          "model": "text-embedding-3-large"
+        },
+        "ordered_doc_ids_sha256": "180f1cf4f88b7347b481d6cc3d126a03ae31a304e1bac64a6948d17e632c0d83",
+        "path": "data/.embeddings_cache/62eca72522cacac783980da07ba707af2dfa2df0aec9def44ea0fcb260127fc2_c88535dfbd6d8cdab06bc712168ee9cb.pkl",
+        "semantic_sha256": "7b1668a5b9afd48edba1ef195c10b534accafb91f1da8229c91ea0c0fabb562b",
+        "sha256": "2600dc04615b3a0bf01ff03dd3868bc6ba78298ca0f9aab158b93ca5f176cdc5",
+        "shape": [
+          698,
+          3072
+        ],
+        "size": 17187727
+      },
+      "validation_scope": "Only the selected OpenRouter document-embedding cache is bound. Stale cache entries and metadata timestamps are ignored. Live query embeddings have no recoverable oracle; subset ToolMessage output comparison detects their retrieval effects."
+    },
+    "runtime": {
+      "digest": "b9a97fa049945c913e4300b3edbf9af45841587c27b7cdc69e38cac13701aef5",
+      "git_objects": {
+        "data/tau2/domains/banking_knowledge": "0ce703cbc3e07b0b09905daf29700813b3b8f122",
+        "pyproject.toml": "16a1b9d0c68c46bba9c93f042a46d057221a75c7",
+        "reproduction/tau3_banking": "b02cd5f2241af1a3690307b9e49d3dcb9628a269",
+        "src/tau2": "d559853b393a07a73b4da0d3e4ddd43f3ab0e812",
+        "uv.lock": "b672cd02919c193b47aa98acaa1d58e7d1345655"
+      },
+      "head": "48a92ecf69bebd2d6eae37a54c98c929e39ff85b",
+      "root_tree": "f2e2b3763f519b1a867e63f9cff32441af485408",
+      "worktree_clean": true
+    },
+    "schema_version": 1
+  },
+  "post_run_validation": {
+    "actual_simulation_count": 1,
+    "checkpoint_sha256": "5457f5830fce6ecb3687286b1e7fbe2b4bcebeec6cb4f45a5859acc916644bb5",
+    "completed_simulation_validation": {
+      "completed_simulation_count": 1,
+      "grading_protocol_route_validation": true,
+      "judge_route_checked": false,
+      "participant_response_id_count": 13,
+      "raw_usage_cost_message_counts": {
+        "assistant": 9,
+        "user": 4
+      }
+    },
+    "expected_simulation_count": 1,
+    "infrastructure_error_count": 0,
+    "passed": true,
+    "retryable_infrastructure_error": false,
+    "task_trial_coverage_sha256": "42fb4b8f7f95e227b7cb5c21f4e17e54f4d9d62904f012ff70467e4e7aa511a5"
+  },
+  "preflight_committed_runtime": {
+    "digest": "b9a97fa049945c913e4300b3edbf9af45841587c27b7cdc69e38cac13701aef5",
+    "git_objects": {
+      "data/tau2/domains/banking_knowledge": "0ce703cbc3e07b0b09905daf29700813b3b8f122",
+      "pyproject.toml": "16a1b9d0c68c46bba9c93f042a46d057221a75c7",
+      "reproduction/tau3_banking": "b02cd5f2241af1a3690307b9e49d3dcb9628a269",
+      "src/tau2": "d559853b393a07a73b4da0d3e4ddd43f3ab0e812",
+      "uv.lock": "b672cd02919c193b47aa98acaa1d58e7d1345655"
+    },
+    "head": "48a92ecf69bebd2d6eae37a54c98c929e39ff85b",
+    "root_tree": "f2e2b3763f519b1a867e63f9cff32441af485408",
+    "worktree_clean": true
+  },
+  "prompt_hashes": {
+    "environment_policy_sha256": "a097943f9b9d8823290804e39f852f842e570e0104bee39a77720ac0bca15b0d",
+    "user_global_simulation_guidelines_sha256": "740a29dfa64d7bc08eea3bf7493575b914a63f744acbaf7f199ee07eddaf72d3"
+  },
+  "reference_config_sha256": "950b80b1c47e8101b63d014f21a26c424035a190b0e2340a8d6d730e34717f65",
+  "resume_preflight": null,
+  "schema_version": 1,
+  "status": "completed"
+}
