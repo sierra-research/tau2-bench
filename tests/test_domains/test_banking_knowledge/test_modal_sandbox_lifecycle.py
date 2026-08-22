@@ -75,6 +75,10 @@ def _fake_modal():
     sandbox.exec.return_value = process
 
     image = MagicMock()
+    image.object_id = "im-lifecycle-test"
+    image.pip_install.return_value = image
+    image.run_commands.return_value = image
+    image.add_local_file.return_value = image
     image.add_local_dir.return_value = image
 
     modal = SimpleNamespace(

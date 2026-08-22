@@ -1,4 +1,5 @@
 import pytest
+from litellm import ModelResponse
 
 from tau2.data_model.message import (
     AssistantMessage,
@@ -8,7 +9,8 @@ from tau2.data_model.message import (
     UserMessage,
 )
 from tau2.environment.tool import Tool, as_tool
-from tau2.utils.llm_utils import generate
+from tau2.utils import llm_utils
+from tau2.utils.llm_utils import generate, get_response_cost
 
 
 @pytest.fixture
@@ -49,6 +51,75 @@ def tool_call_messages() -> list[Message]:
         ),
     ]
     return messages
+
+
+def response_with_usage_cost(cost: object) -> ModelResponse:
+    return ModelResponse(
+        model="openrouter/qwen/qwen3.8-max",
+        choices=[],
+        usage={
+            "prompt_tokens": 1,
+            "completion_tokens": 2,
+            "total_tokens": 3,
+            "cost": cost,
+        },
+    )
+
+
+def test_get_response_cost_prefers_litellm_cost(monkeypatch: pytest.MonkeyPatch):
+    response = response_with_usage_cost(0.25)
+    monkeypatch.setattr(llm_utils, "completion_cost", lambda **_: 0.5)
+
+    assert get_response_cost(response) == 0.5
+
+
+@pytest.mark.parametrize("litellm_cost", [None, 0, 0.0])
+def test_get_response_cost_falls_back_when_litellm_cost_is_missing_or_zero(
+    monkeypatch: pytest.MonkeyPatch, litellm_cost: object
+):
+    response = response_with_usage_cost(0.25)
+    monkeypatch.setattr(llm_utils, "completion_cost", lambda **_: litellm_cost)
+
+    assert get_response_cost(response) == 0.25
+
+
+@pytest.mark.parametrize("usage_cost", [0, 0.25])
+def test_get_response_cost_falls_back_when_litellm_raises(
+    monkeypatch: pytest.MonkeyPatch, usage_cost: object
+):
+    response = response_with_usage_cost(usage_cost)
+
+    def raise_unknown_model(**_: object) -> float:
+        raise ValueError("unknown model")
+
+    monkeypatch.setattr(llm_utils, "completion_cost", raise_unknown_model)
+
+    assert get_response_cost(response) == usage_cost
+
+
+@pytest.mark.parametrize(
+    "usage_cost", [-0.25, float("nan"), "0.25", True, 1 + 2j, None]
+)
+def test_get_response_cost_rejects_invalid_provider_cost(
+    monkeypatch: pytest.MonkeyPatch, usage_cost: object
+):
+    response = response_with_usage_cost(usage_cost)
+
+    def raise_unknown_model(**_: object) -> float:
+        raise ValueError("unknown model")
+
+    monkeypatch.setattr(llm_utils, "completion_cost", raise_unknown_model)
+
+    assert get_response_cost(response) == 0.0
+
+
+def test_get_response_cost_returns_zero_when_no_cost_is_available(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    response = response_with_usage_cost(None)
+    monkeypatch.setattr(llm_utils, "completion_cost", lambda **_: None)
+
+    assert get_response_cost(response) == 0.0
 
 
 def test_generate_no_tool_call(model: str, messages: list[Message]):

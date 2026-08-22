@@ -272,10 +272,13 @@ def main() -> int:
                 and not manager_info["order_manifest_applied"]
             ):
                 raise OracleError(
-                    "The strict recursive shell oracle requires the subset order manifest"
+                    "The strict recursive shell oracle requires an order manifest"
                 )
             report["order_manifest_applied"] = manager_info["order_manifest_applied"]
             report["order_manifest_sha256"] = manager_info["order_manifest_sha256"]
+            report["modal_image_recipe_sha256"] = manager_info[
+                "modal_image_recipe_sha256"
+            ]
             for command, expected in selected_by_command.items():
                 return_code, stdout, stderr = manager.run_command(command)
                 actual = render_shell_result(return_code, stdout, stderr, command)
@@ -288,6 +291,15 @@ def main() -> int:
                             **compact_difference(expected, actual),
                         }
                     )
+            modal_image_object_id = manager.get_sandbox_info()["modal_image_object_id"]
+            if (
+                not isinstance(modal_image_object_id, str)
+                or not modal_image_object_id.strip()
+            ):
+                raise OracleError(
+                    "Live Modal replay did not expose a hydrated image object ID"
+                )
+            report["modal_image_object_id"] = modal_image_object_id
         finally:
             manager.cleanup()
 

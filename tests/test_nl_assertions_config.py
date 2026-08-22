@@ -63,17 +63,31 @@ def test_nl_assertion_judge_retains_route_provenance(monkeypatch):
             }
         ]
     }
+    response_content = json.dumps(response)
+    raw_response = {
+        "id": "generation-id",
+        "model": "openai/gpt-4.1",
+        "provider": "OpenAI",
+        "service_tier": "default",
+        "choices": [
+            {
+                "index": 0,
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": response_content,
+                    "tool_calls": None,
+                },
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 2, "cost": 0.001},
+    }
     monkeypatch.setattr(
         evaluator_nl_assertions,
         "generate",
         lambda **kwargs: SimpleNamespace(
-            content=json.dumps(response),
-            raw_data={
-                "id": "generation-id",
-                "model": "openai/gpt-4.1-2025-04-14",
-                "provider": "OpenAI",
-                "service_tier": "default",
-            },
+            content=response_content,
+            raw_data=raw_response,
         ),
     )
 
@@ -85,8 +99,10 @@ def test_nl_assertion_judge_retains_route_provenance(monkeypatch):
     assert checks[0].met is True
     assert provenance == {
         "requested_model": DEFAULT_LLM_NL_ASSERTIONS,
-        "resolved_model": "openai/gpt-4.1-2025-04-14",
+        "resolved_model": "gpt-4.1-2025-04-14",
+        "response_model": "openai/gpt-4.1",
         "provider": "OpenAI",
         "service_tier": "default",
         "response_id": "generation-id",
+        "raw_response": raw_response,
     }

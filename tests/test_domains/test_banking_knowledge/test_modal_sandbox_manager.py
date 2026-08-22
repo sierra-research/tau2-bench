@@ -55,6 +55,8 @@ def _fake_modal(
     sandbox.exec.side_effect = exec_process
 
     image = MagicMock()
+    image.object_id = "im-test-banking-image"
+    image.pip_install.return_value = image
     image.run_commands.return_value = image
     image.add_local_file.return_value = image
 
@@ -103,6 +105,7 @@ def test_export_is_local_and_remote_creation_is_lazy(manager_factory, monkeypatc
 
     modal.App.lookup.assert_called_once_with(DEFAULT_MODAL_APP, create_if_missing=True)
     modal.Image.debian_slim.assert_called_once_with()
+    image.pip_install.assert_called_once_with("scipy==1.16.3")
     image.run_commands.assert_called_once_with(f"mkdir -p {REMOTE_KB_DIR}")
     image.add_local_file.assert_called_once_with(
         local_path=str(manager.archive_path),
@@ -120,6 +123,9 @@ def test_export_is_local_and_remote_creation_is_lazy(manager_factory, monkeypatc
     assert "secrets" not in create_kwargs
     assert "env" not in create_kwargs
     assert process.wait.call_count == 1
+    assert manager.get_sandbox_info()["modal_image_object_id"] == (
+        "im-test-banking-image"
+    )
 
     # Subsequent commands reuse the same remote sandbox.
     manager.run_command("cat INDEX.md")
@@ -204,6 +210,19 @@ def test_writable_commands_run_directly(manager_factory, monkeypatch):
     )
 
 
+@pytest.mark.parametrize("allow_writes", [False, True])
+def test_commands_preserve_official_srt_bang_escaping(
+    manager_factory, monkeypatch, allow_writes
+):
+    modal, _, sandbox, _ = _fake_modal()
+    monkeypatch.setattr(modal_sandbox_manager, "_load_modal", lambda: modal)
+    manager = manager_factory(allow_writes=allow_writes)
+
+    manager.run_command("printf '%s\\n' 'if x != 2: print(x)'")
+
+    assert sandbox.exec.call_args.args[-1] == ("printf '%s\\n' 'if x \\!= 2: print(x)'")
+
+
 def test_command_output_is_sanitized(manager_factory, monkeypatch):
     raw_ls = "-rw-r--r-- 1 root root 12 Aug 22 14:30 doc.md\n"
     modal, _, _, _ = _fake_modal(stdout=raw_ls)
@@ -243,9 +262,50 @@ def test_export_after_remote_start_is_rejected(manager_factory, monkeypatch):
         manager.export_documents([])
 
 
-def test_cleanup_detaches_even_if_termination_fails(manager_factory, monkeypatch):
+def test_remote_creation_rejects_a_different_guarded_image_id(
+    manager_factory, monkeypatch
+):
     modal, _, sandbox, _ = _fake_modal()
-    sandbox.terminate.side_effect = RuntimeError("do not disclose this")
+    monkeypatch.setenv(
+        modal_sandbox_manager.MODAL_EXPECTED_IMAGE_ID_ENV,
+        "im-expected-banking-image",
+    )
+    monkeypatch.setattr(modal_sandbox_manager, "_load_modal", lambda: modal)
+    manager = manager_factory()
+
+    with pytest.raises(ModalSandboxRuntimeError, match="Failed to create"):
+        manager.run_command("ls")
+
+    sandbox.terminate.assert_called_once_with(wait=True)
+    sandbox.detach.assert_called_once_with()
+    assert manager.get_sandbox_info()["modal_image_object_id"] is None
+
+
+def test_remote_creation_rejects_missing_hydrated_image_id(
+    manager_factory, monkeypatch
+):
+    modal, image, sandbox, _ = _fake_modal()
+    image.object_id = None
+    monkeypatch.setattr(modal_sandbox_manager, "_load_modal", lambda: modal)
+    manager = manager_factory()
+
+    with pytest.raises(ModalSandboxRuntimeError, match="Failed to create"):
+        manager.run_command("ls")
+
+    sandbox.terminate.assert_called_once_with(wait=True)
+    sandbox.detach.assert_called_once_with()
+    assert manager.get_sandbox_info()["modal_image_object_id"] is None
+
+
+def test_cleanup_retries_transient_termination_before_detaching(
+    manager_factory, monkeypatch
+):
+    modal, _, sandbox, _ = _fake_modal()
+    sandbox.terminate.side_effect = [
+        RuntimeError("do not disclose this"),
+        RuntimeError("do not disclose this"),
+        None,
+    ]
     monkeypatch.setattr(modal_sandbox_manager, "_load_modal", lambda: modal)
     manager = manager_factory()
     manager.run_command("ls")
@@ -253,10 +313,34 @@ def test_cleanup_detaches_even_if_termination_fails(manager_factory, monkeypatch
 
     manager.cleanup()
 
-    sandbox.terminate.assert_called_once_with(wait=True)
+    assert sandbox.terminate.call_count == 3
     sandbox.detach.assert_called_once_with()
     assert not sandbox_dir.exists()
     manager.cleanup()  # Idempotent.
+
+
+def test_cleanup_retains_handle_and_fails_loudly_after_termination_retries(
+    manager_factory, monkeypatch
+):
+    modal, _, sandbox, _ = _fake_modal()
+    sandbox.terminate.side_effect = RuntimeError("do not disclose this")
+    monkeypatch.setattr(modal_sandbox_manager, "_load_modal", lambda: modal)
+    manager = manager_factory()
+    manager.run_command("ls")
+
+    with pytest.raises(ModalSandboxRuntimeError, match="after 3 attempts"):
+        manager.cleanup()
+
+    assert sandbox.terminate.call_count == 3
+    sandbox.detach.assert_not_called()
+    assert manager._modal_sandbox is sandbox
+    with pytest.raises(ModalSandboxRuntimeError, match="termination retry"):
+        manager.run_command("pwd")
+
+    sandbox.terminate.side_effect = None
+    manager.cleanup()
+    assert sandbox.terminate.call_count == 4
+    sandbox.detach.assert_called_once_with()
 
 
 def test_initialization_failure_terminates_and_detaches(manager_factory, monkeypatch):
@@ -280,7 +364,13 @@ def test_initialization_failure_terminates_and_detaches(manager_factory, monkeyp
     with pytest.raises(ModalSandboxRuntimeError, match="Failed to create"):
         manager.run_command("ls")
 
-    sandbox.terminate.assert_called_once_with(wait=True)
+    assert sandbox.terminate.call_count == 3
+    sandbox.detach.assert_not_called()
+    with pytest.raises(ModalSandboxRuntimeError, match="termination retry"):
+        manager.run_command("pwd")
+    sandbox.terminate.side_effect = None
+    manager.cleanup()
+    assert sandbox.terminate.call_count == 4
     sandbox.detach.assert_called_once_with()
 
 
@@ -373,6 +463,31 @@ def test_custom_order_manifest_is_applied_only_to_exact_corpus(
     assert [path.name for path in manager._archive_members] == order
     assert manager.get_sandbox_info()["order_manifest_applied"] is True
     assert manager.get_sandbox_info()["order_manifest_sha256"] == _order_digest(order)
+
+
+def test_configured_order_manifest_rejects_a_different_staged_corpus(
+    manager_factory, monkeypatch, tmp_path
+):
+    manifest = {
+        "schema_version": 1,
+        "entry_count": 2,
+        "corpus_export_sha256": "0" * 64,
+        "order_sha256": _order_digest(["other.md", "INDEX.md"]),
+        "filenames": ["other.md", "INDEX.md"],
+    }
+    manifest_path = tmp_path / "order.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setenv("TAU2_MODAL_ORDER_MANIFEST", str(manifest_path))
+    manager = manager_factory()
+
+    with pytest.raises(
+        ModalSandboxRuntimeError,
+        match="filenames do not exactly match",
+    ):
+        manager.export_documents(
+            [{"id": "doc", "title": "Doc", "content": "content"}],
+            file_format="md",
+        )
 
 
 def test_bare_root_ls_la_metadata_is_narrowly_normalized(manager_factory, monkeypatch):

@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 import re
 import time
@@ -7,6 +8,7 @@ import uuid
 import warnings
 from contextvars import ContextVar
 from datetime import datetime
+from numbers import Number
 from pathlib import Path
 from typing import Any, Optional
 
@@ -126,9 +128,41 @@ def get_response_cost(response: ModelResponse) -> float:
     try:
         cost = completion_cost(completion_response=response)
     except Exception as e:
-        logger.error(e)
+        usage_cost = _get_response_usage_cost(response)
+        if usage_cost is not None:
+            logger.debug(
+                "Using provider-reported response cost after LiteLLM cost "
+                "calculation failed ({})",
+                type(e).__name__,
+            )
+            return usage_cost
+        logger.error("LiteLLM response cost calculation failed ({})", type(e).__name__)
+        return 0.0
+    if cost is None or cost == 0:
+        usage_cost = _get_response_usage_cost(response)
+        if usage_cost is not None:
+            return usage_cost
         return 0.0
     return cost
+
+
+def _get_response_usage_cost(response: ModelResponse) -> Optional[float]:
+    """Return a valid provider-reported ``usage.cost``, if present."""
+    usage = response.get("usage")
+    if usage is None:
+        return None
+    usage_cost = (
+        usage.get("cost") if hasattr(usage, "get") else getattr(usage, "cost", None)
+    )
+    if isinstance(usage_cost, bool) or not isinstance(usage_cost, Number):
+        return None
+    try:
+        usage_cost = float(usage_cost)
+    except (OverflowError, TypeError, ValueError):
+        return None
+    if not math.isfinite(usage_cost) or usage_cost < 0:
+        return None
+    return usage_cost
 
 
 def get_response_usage(response: ModelResponse) -> Optional[dict]:

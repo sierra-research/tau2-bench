@@ -172,10 +172,12 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
         raw_data = assistant_message.raw_data or {}
         provenance = {
             "requested_model": judge_model,
-            "resolved_model": raw_data.get("model"),
+            "resolved_model": judge_model.removeprefix("openrouter/"),
+            "response_model": raw_data.get("model"),
             "provider": raw_data.get("provider"),
             "service_tier": raw_data.get("service_tier"),
             "response_id": raw_data.get("id"),
+            "raw_response": raw_data,
         }
         return checks, provenance
 

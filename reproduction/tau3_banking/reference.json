@@ -115,8 +115,30 @@
     "credential_source": "~/.rllm/config.json:api_keys.openrouter",
     "ambient_credential_policy": "The credential file is authoritative. A present OPENROUTER_API_KEY must match it exactly or paid execution is rejected; ambient credentials are never preferred.",
     "sandbox_backend": "modal",
+    "modal_image_object_id": "im-57yaJoNct9YREpBb74YQ0k",
     "sandbox_timeout_seconds": 3600,
-    "sandbox_order_manifest": "reproduction/tau3_banking/subset_shell_order_manifest.json",
+    "sandbox_order_manifest": "reproduction/tau3_banking/full_shell_order_manifest.json",
+    "sandbox_order_manifest_integrity": {
+      "file": "reproduction/tau3_banking/full_shell_order_manifest.json",
+      "file_sha256": "5f8005d162f81d9eadf6836b296d4a334090daec60c0228770e8b8de890d37f8",
+      "schema_version": 1,
+      "entry_count": 699,
+      "order_sha256": "ddb11f1a583e408079c136805c786f6e53903afb3dad46047c69a06b3b01b6f3",
+      "corpus_export_sha256": "395ccccab4cf1eeebcefc10307431c3f0525ac790bb159ff2fa7abbc01bd6199"
+    },
+    "full_shell_oracle_receipt_integrity": {
+      "file": "reproduction/tau3_banking/artifacts/shell_oracle_full_active_manifest.json",
+      "file_sha256": "17728b8c8ae721e23506a06bd7dfe9a276009222ab17f9af0ada20ace9fd06eb",
+      "modal_image_recipe_sha256": "fa738d7f079e0b3cfccf0c7e30f140064409afd04732eb3f5182f737f7126795",
+      "modal_image_object_id": "im-57yaJoNct9YREpBb74YQ0k",
+      "recorded_call_count": 5135,
+      "unique_command_count": 4614,
+      "exact_command_count": 4603,
+      "mismatch_command_count": 11,
+      "mismatch_classification": "Reviewed full-corpus residuals: three filesystem traversal-order differences, four randomized sandbox working-directory paths, two read-only-filesystem permission-code differences, one explicit-path ls metadata difference, and one srt conditional-shell difference.",
+      "mismatches_reviewed_and_explicitly_accepted": true,
+      "score_impact_assessment": "All 11 differences can affect model-visible tool output, downstream behavior, and benchmark score. Explicit acceptance authorizes a distribution-level Modal reproduction only; it does not establish exact trajectory parity."
+    },
     "known_non_parity": "The official user simulator, NL judge, and dense embedder used direct OpenAI. This reproduction routes them through OpenRouter because only that credential is in scope. The official dense embedding cache is unrecoverable and live retrieval comparisons show ranking and displayed-score drift."
   },
   "official_metrics": {
@@ -134,6 +156,7 @@
   "historical_cost_observations_usd": {
     "scope": "Agent and user chat-completion costs serialized by the providers; excludes dense embeddings, NL judges, and Modal.",
     "smoke_task_001_trial_0": 0.14192925,
+    "gate_subset_10_trial_0": 2.59890095,
     "gate_subset_10_all_4_trials": {
       "agent": 8.338118,
       "user": 0.5038943,
@@ -153,6 +176,30 @@
       "expected_simulation_count": 1,
       "expected_reward_sum": 1,
       "historical_chat_cost_usd": 0.14192925
+    },
+    "subset_trial0": {
+      "task_ids": [
+        "task_001",
+        "task_003",
+        "task_004",
+        "task_007",
+        "task_014",
+        "task_032",
+        "task_034",
+        "task_035",
+        "task_046",
+        "task_102"
+      ],
+      "trials": [
+        0
+      ],
+      "expected_simulation_count": 10,
+      "expected_reward_sum": 6,
+      "expected_reward_by_trial": [
+        6
+      ],
+      "expected_pass_rate": 60.0,
+      "historical_chat_cost_usd": 2.59890095
     },
     "subset": {
       "task_ids": [
@@ -198,6 +245,35 @@
     }
   },
   "live_parity_checks": {
+    "model_seed_replay_nondeterminism": {
+      "task_id": "task_001",
+      "trial": 0,
+      "seed": 626729,
+      "invariant_inputs": "Identical committed prompts, tools, model arguments, provider pins, and seed.",
+      "gpt52_first_user": {
+        "smoke_content_sha256": "ee51d33b867b92ab172bf8d20e9e8491b767aebf0948b04ad9cd96250a4607be",
+        "smoke_response_id": "gen-1787393465-q38LkKjXJYijmvoTfpYQ",
+        "repeat_content_sha256": "1296078c1a996c6291887cf3bfefc046de6612604b657486ead2036a73ef55df",
+        "repeat_response_id": "gen-1787393683-avNYfrT0HhPS0BpykrQ5",
+        "official_content_sha256": "c8bcae567670de2c5c2e4daf0446515c42e0f001f40654622f601c6bc84abf40",
+        "provider": "OpenAI",
+        "service_tier": "default"
+      },
+      "qwen_first_agent_tool_call": {
+        "smoke_canonical_sha256": "80458bfe976f892288e8de50e374fe2e6930cee38419cbff00a4cc0d9d5f4a58",
+        "smoke_response_id": "gen-1787393466-MJM6SNmXOPdQInO9Mvd8",
+        "repeat_canonical_sha256": "489768bcc9eeb8de59fa7582f7a15ac3cb92162f76a26bbb9eff65dac7fd8a0d",
+        "repeat_response_id": "gen-1787393717-LrzM8u8Ls8RMJKyUoNQK",
+        "provider": "Alibaba",
+        "service_tier": null
+      },
+      "smoke_raw_usage_cost_usd": {
+        "assistant": 0.154672,
+        "user": 0.0082551,
+        "total": 0.1629271
+      },
+      "conclusion": "The hosted endpoints do not provide deterministic seed replay; exact aggregate score remains the reproduction target while per-trajectory drift is retained as strict diagnostics."
+    },
     "modal_shell": {
       "smoke_recorded_calls": 6,
       "smoke_unique_commands": 6,
@@ -221,8 +297,24 @@
       "trace_derived_order_manifest_file_sha256": "8283c957f3730e3cb883c603005e328aa8eed695b850932ef80bb10588f766cc",
       "trace_derived_order_constrained_files": 451,
       "trace_derived_order_lexical_tiebreak_files": 248,
+      "active_full_order_fixture": {
+        "file": "reproduction/tau3_banking/full_shell_order_manifest.json",
+        "file_sha256": "5f8005d162f81d9eadf6836b296d4a334090daec60c0228770e8b8de890d37f8",
+        "generator": "reproduction/tau3_banking/generate_full_shell_order.py",
+        "generator_sha256": "15e94a85761bd38230153ec9c4959142d9a456eb4fdaa09baabfcd9055b06d10",
+        "order_sha256": "ddb11f1a583e408079c136805c786f6e53903afb3dad46047c69a06b3b01b6f3",
+        "precedence_edges": 7548,
+        "constrained_files": 698,
+        "subset_live_unique_commands_checked": 263,
+        "subset_live_unique_commands_exact": 263,
+        "subset_live_recorded_calls": 275,
+        "subset_live_report_sha256": "626fa9d613ec8d789a258bc81d686358b23b2a07131da98b21df841009c7a1bf",
+        "runtime_inspects_commands_for_order": false,
+        "runtime_replays_recorded_outputs": false,
+        "independent_blind_evaluation": false
+      },
       "root_ls_la_normalization": "Only a leading bare ls -la command has its total and dot/dotdot rows normalized to the pinned official root listing; explicit-path ls output is untouched.",
-      "methodology_note": "The uniform filesystem order is derived from public subset trace outputs and corpus matches; it never inspects commands or replays outputs at runtime. It is a disclosed reproduction fixture, not an independent blind evaluation, and is insufficient by itself for the final 97-task run.",
+      "methodology_note": "The original subset fixture is retained as a hard-constraint source. The active full fixture is deterministically derived from public full-trace path order and corpus matches; runtime never inspects commands or replays outputs. Both are disclosed compatibility fixtures, not independent blind evaluations.",
       "exploratory_full_corpus": {
         "recorded_calls": 5135,
         "unique_commands": 4614,
