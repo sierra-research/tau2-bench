@@ -481,15 +481,6 @@
   .logocell small { font-weight: 500; color: var(--muted); font-size: 11px; margin-left: auto; white-space: nowrap; }
 
   /* behavior compare rows (tau-knowledge qualitative) */
-  .bhv { display: grid; grid-template-columns: 240px 1fr 1.1fr; gap: 12px; align-items: stretch; margin-bottom: 12px; }
-  .bhv .bt { font-size: 15px; font-weight: 650; color: var(--heading); line-height: 1.35; padding-top: 6px; }
-  .bhv .bt small { display: block; font-weight: 400; font-size: 12.5px; color: var(--muted); margin-top: 4px; }
-  .bcard { border-radius: 10px; padding: 9px 12px; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.6; color: var(--ink); }
-  .bcard .bh { font-size: 10px; letter-spacing: .1em; font-weight: 700; margin-bottom: 4px; font-family: var(--font-mono); }
-  .bcard.bad { background: #fef2f2; border: 1px solid #fecaca; }
-  .bcard.bad .bh { color: var(--red); }
-  .bcard.good { background: var(--green-wash); border: 1px solid #bbe7d0; }
-  .bcard.good .bh { color: var(--accent-mid); }
 
   /* ---------- zoom-in slides: tick anatomy & turn-taking ---------- */
   .ticksvg text { font-family: var(--font-sans); }
@@ -670,6 +661,34 @@
   .goldline .gline { stroke-dasharray: 950; stroke-dashoffset: 950;
     transition: stroke-dashoffset 1.4s cubic-bezier(.22, .9, .3, 1); }
   .goldline.on .gline { stroke-dashoffset: 0; }
+  /* τ-knowledge · failure modes — three chats, ported from the poster's failure-mode panel.
+     Columns arrive one at a time and grey out when the next one opens. */
+  .chats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 4px; align-items: stretch; }
+  .chat { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 12px 13px 13px;
+    display: flex; flex-direction: column; gap: 7px;
+    transition: opacity .4s ease, transform .4s ease, filter .4s ease; }
+  .chat.on.off { opacity: .28; filter: grayscale(1); }
+  .cttl { font-size: 13.5px; font-weight: 650; color: var(--heading); line-height: 1.25; margin-bottom: 2px; }
+  .cb { max-width: 90%; padding: 6px 10px; border-radius: 11px; font-size: 11.5px; line-height: 1.4;
+    border: 1px solid var(--line); }
+  .cb.u { align-self: flex-start; background: #fff; color: var(--ink); border-bottom-left-radius: 3px; }
+  .cb.a { align-self: flex-end; background: var(--green-wash); border-color: #cde9db; color: var(--ink);
+    border-bottom-right-radius: 3px; }
+  .cb b { color: var(--heading); font-weight: 650; }
+  .chat .ttool { align-self: flex-end; font-size: 10px; padding: 3px 8px; max-width: 100%; }
+  .chat .ttool .op { font-size: 8.5px; margin-right: 6px; }
+  .cerr { align-self: flex-end; font-family: var(--font-mono); font-size: 10px; color: var(--red);
+    background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 3px 8px; }
+  .dcite { align-self: flex-end; width: 94%; border: 1px solid var(--line); border-radius: 9px;
+    padding: 6px 9px; background: var(--wash); }
+  .dch { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 650;
+    color: var(--heading); margin-bottom: 3px; line-height: 1.25; }
+  .dch svg { color: var(--accent-mid); flex: none; }
+  .dcb { font-size: 10px; color: var(--muted); line-height: 1.35; }
+  .cfn { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line);
+    color: var(--heading); font-size: 10.5px; line-height: 1.35; }
+  .cfn b { font-weight: 650; }
+  .xref, .fv { font-weight: 700; color: var(--accent-mid); }
 </style>
 </head>
 <body>
@@ -1455,27 +1474,46 @@
     </div>
   </section>
 
-  <!-- ================= 9c · TAU KNOWLEDGE (behaviors) ================= -->
-  <section class="slide">
+  <!-- ================= 9c · TAU KNOWLEDGE (failure modes) ================= -->
+  <section class="slide" id="failures" data-steps="14">
     <div class="inner">
-      <div class="kicker"><span class="tau">τ</span>-knowledge · what the trajectories show</div>
-      <h2>What separates the strongest agents</h2>
-      <div class="bhv frag">
-        <div class="bt">1 · Know when to search — and when to search <em>again</em></div>
-        <div class="bcard bad"><div class="bh">✗ SEARCH ONCE AND STOP</div>U: Actually, this is a <b>medical emergency</b>.<br/>A: continues without searching again</div>
-        <div class="bcard good"><div class="bh">✓ KNOW WHEN TO SEARCH AGAIN</div>U: Actually, this is a <b>medical emergency</b>.<br/>A: kb_search("medical emergency transfer escalation")</div>
+      <div class="kicker"><span class="tau">&#964;</span>-knowledge &middot; what the trajectories show</div>
+      <h2>Three ways agents fail</h2>
+      <div class="chats">
+        <div class="chat" data-at="1" data-off="6">
+          <div class="cttl">1 &middot; Agents stop search early, missing essential context</div>
+          <div class="cb u" data-at="1">Hi &mdash; I lost my <b>Gold</b> Rewards Card. Can you send a replacement with expedited shipping?</div>
+          <div class="ttool" data-at="2"><span class="op s">SEARCH</span>kb_search("replacement card expedited shipping")</div>
+          <div class="dcite" data-at="2"><div class="dch"><svg width="11" height="11" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 8h16l11 11v33a4 4 0 0 1-4 4H19a4 4 0 0 1-4-4V12a4 4 0 0 1 4-4z"/><path d="M35 8v11h11"/></g></svg><span><span class="xref">Bronze</span> Rewards Card: Replacements</span></div><div class="dcb">Expedited shipping fee: <span class="fv">$15.00</span> (2&ndash;3 business days).</div></div>
+          <div class="ttool" data-at="2"><span class="op w">WRITE</span>order_replacement_credit_card(&hellip;)</div>
+          <div class="cb a" data-at="2">Done! Your replacement arrives in 2&ndash;3 business days. Expedited shipping is a $15 fee.</div>
+          <div class="cb u" data-at="3">Are you sure? I thought premium cards shipped free.</div>
+          <div class="cb a" data-at="4">I checked our shipping policy &mdash; expedited delivery is $15.</div>
+          <div class="cfn" data-at="5">Fees are tier-dependent, and <b>Gold</b> cardholders ship free.</div>
+        </div>
+        <div class="chat" data-at="6" data-off="10">
+          <div class="cttl">2 &middot; Agents don&rsquo;t reason over what they retrieve</div>
+          <div class="cb u" data-at="6">I want to dispute a $42 charge on my credit card, and then close that account.</div>
+          <div class="ttool" data-at="7"><span class="op s">SEARCH</span>kb_search("dispute credit card transaction")</div>
+          <div class="ttool" data-at="7"><span class="op w">WRITE</span>file_credit_card_transaction_dispute(&hellip;)</div>
+          <div class="cb a" data-at="7">Your dispute is filed &mdash; you&rsquo;ll hear back within 10 business days.</div>
+          <div class="ttool" data-at="8"><span class="op s">SEARCH</span>kb_search("close credit card account")</div>
+          <div class="dcite" data-at="8"><div class="dch"><svg width="11" height="11" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 8h16l11 11v33a4 4 0 0 1-4 4H19a4 4 0 0 1-4-4V12a4 4 0 0 1 4-4z"/><path d="M35 8v11h11"/></g></svg><span>How can I close a credit card account?</span></div><div class="dcb">Closure requires: balance <span class="fv">$0.00</span>, age &ge; <span class="fv">60 days</span>, and <span class="xref">no pending disputes</span>.</div></div>
+          <div class="ttool" data-at="8"><span class="op w">WRITE</span>close_credit_card_account(&hellip;)</div>
+          <div class="cerr" data-at="8">Error: account has a pending dispute &mdash; closure not allowed</div>
+          <div class="cfn" data-at="9">It read the rule, then broke it with its own earlier action.</div>
+        </div>
+        <div class="chat" data-at="10">
+          <div class="cttl">3 &middot; Agents miss order dependencies</div>
+          <div class="cb u" data-at="10">Two things today: I need a replacement for my lost card, and I also want to close my credit card account.</div>
+          <div class="ttool" data-at="11"><span class="op w">WRITE</span>order_replacement_credit_card(&hellip;)</div>
+          <div class="cb a" data-at="11">Replacement ordered! Now closing the account&hellip;</div>
+          <div class="ttool" data-at="12"><span class="op w">WRITE</span>close_credit_card_account(&hellip;)</div>
+          <div class="cerr" data-at="12">Error: account has a pending replacement card</div>
+          <div class="cb a" data-at="13">I&rsquo;m sorry &mdash; since I already ordered the replacement, I can&rsquo;t close the account until it arrives.</div>
+          <div class="cfn" data-at="14">Its own first action now blocks the second.</div>
+        </div>
       </div>
-      <div class="bhv frag">
-        <div class="bt">2 · Search smarter, not harder</div>
-        <div class="bcard bad"><div class="bh">✗ SPRAY-AND-PRAY</div>kb_search("transfer")<br/>kb_search("human agent")<br/>kb_search("escalation policy")</div>
-        <div class="bcard good"><div class="bh">✓ SURGICAL QUERY</div>kb_search("transfer reason codes customer frustrated demands human medical emergency")</div>
-      </div>
-      <div class="bhv frag">
-        <div class="bt">3 · Know when to act — and when <em>not</em> to</div>
-        <div class="bcard bad"><div class="bh">✗ HELPFUL OVERREACH</div>U: Please order a <b>replacement card</b>.<br/>A: orders a replacement card<br/>A: files a fraud dispute <b>without being asked</b></div>
-        <div class="bcard good"><div class="bh">✓ CALIBRATED RESTRAINT</div>U: Please order a <b>replacement card</b>.<br/>A: orders a replacement card. That’s it.</div>
-      </div>
-      <p class="footnote" data-at="3">From qualitative analysis across thousands of trajectories — the gap is judgment about <b>when</b>, not capability at <b>how</b>.</p>
     </div>
   </section>
 
