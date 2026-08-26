@@ -625,6 +625,23 @@
   #satChart:not(.sweep) #satClipRect { width: 0; }
   @keyframes satpop { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
   @keyframes satwipe { from { width: 0; } to { width: 945px; } }
+
+  /* τ-knowledge · search harnesses — icons ported from the ICML poster figure
+     (poster-tau_knowledge_available_search_tools.html), recoloured to our palette */
+  .harness { display: grid; gap: 9px; margin-top: 14px; }
+  .harness .hrow { display: grid; grid-template-columns: 236px 1fr; align-items: center; gap: 18px;
+    border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 6px 18px 6px 6px; }
+  .harness .hrow.oracle { background: var(--wash); border-style: dashed; }
+  .harness .hvis { display: flex; align-items: center; justify-content: center; }
+  .harness .hvis svg { display: block; width: 100%; height: 64px; }
+  .harness .hname { font-size: 16px; font-weight: 650; color: var(--heading); line-height: 1.2; }
+  .harness .hdet { font-size: 13px; color: var(--muted); line-height: 1.45; margin-top: 3px; }
+  .harness .obadge { display: inline-block; font-family: var(--font-mono); font-size: 9.5px;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--accent-mid); background: #fff;
+    border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; margin-left: 9px; vertical-align: 2px; }
+  .hicon, .hline { fill: none; stroke: var(--accent-mid); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .hlabel { fill: var(--muted); font-family: var(--font-sans); font-size: 8.5px; text-anchor: middle; }
+  .hcmd { font-family: var(--font-mono); font-size: 7.4px; }
 </style>
 </head>
 <body>
@@ -1168,6 +1185,143 @@
         </div>
       </div>
       <p class="footnote" data-at="6">Same deterministic reward — but a typical task needs <b>18.6 documents</b> and <b>9.5 tool calls</b>. Shi, Zytek, Razavi, Narasimhan &amp; Barres — arXiv 2603.04370.</p>
+    </div>
+  </section>
+
+  <!-- ================= 9a · TAU KNOWLEDGE (search harnesses) ================= -->
+  <section class="slide" id="harness">
+    <div class="inner">
+      <div class="kicker"><span class="tau">&#964;</span>-knowledge &middot; the search harness</div>
+      <h2>Same corpus, five ways to search it</h2>
+      <div class="harness">
+        <div class="hrow frag">
+          <div class="hvis"><svg viewBox="0 0 240 82" role="img" aria-label="Dense Embeddings">
+          <defs><marker id="hm-dense" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8z" fill="#047857"/></marker></defs>
+          <g class="hicon" transform="translate(12 18) scale(1.75)">
+            <path d="M15 2h-4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8"/>
+            <path d="M16.706 2.706A2.4 2.4 0 0 0 15 2v5a1 1 0 0 0 1 1h5a2.4 2.4 0 0 0-.706-1.706z"/>
+            <path d="M5 7a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8a2 2 0 0 0 1.732-1"/>
+          </g>
+          <path d="M60 41h18" class="hline" marker-end="url(#hm-dense)"/>
+          <g class="hicon" transform="translate(98 18) scale(1.75)">
+            <rect x="16" y="16" width="6" height="6" rx="1"/>
+            <rect x="2" y="16" width="6" height="6" rx="1"/>
+            <rect x="9" y="2" width="6" height="6" rx="1"/>
+            <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/>
+            <path d="M12 12V8"/>
+          </g>
+          <path d="M162 41h17" class="hline" marker-end="url(#hm-dense)"/>
+          <g class="hicon" transform="translate(190 17) scale(1.85)">
+            <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/>
+            <path d="M14 2v5a1 1 0 0 0 1 1h5"/>
+            <path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
+          </g>
+          <text x="120" y="74" class="hlabel">Embedding model</text>
+          </svg></div>
+          <div>
+            <div class="hname">Dense Embeddings</div>
+            <div class="hdet">Semantic search using OpenAI or Qwen embeddings.</div>
+          </div>
+        </div>
+        <div class="hrow frag">
+          <div class="hvis"><svg viewBox="0 0 240 82" role="img" aria-label="Sparse Search">
+          <defs><marker id="hm-sparse" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8z" fill="#047857"/></marker></defs>
+          <g class="hicon" transform="translate(12 18) scale(1.75)">
+            <path d="M15 2h-4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8"/>
+            <path d="M16.706 2.706A2.4 2.4 0 0 0 15 2v5a1 1 0 0 0 1 1h5a2.4 2.4 0 0 0-.706-1.706z"/>
+            <path d="M5 7a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8a2 2 0 0 0 1.732-1"/>
+          </g>
+          <path d="M59 41h19" class="hline" marker-end="url(#hm-sparse)"/>
+          <g class="hicon" transform="translate(98 18) scale(1.75)">
+            <path d="M13.172 2a2 2 0 0 1 1.414.586l6.71 6.71a2.4 2.4 0 0 1 0 3.408l-4.592 4.592a2.4 2.4 0 0 1-3.408 0l-6.71-6.71A2 2 0 0 1 6 9.172V3a1 1 0 0 1 1-1z"/>
+            <path d="M2 7v6.172a2 2 0 0 0 .586 1.414l6.71 6.71a2.4 2.4 0 0 0 3.191.193"/>
+            <circle cx="10.5" cy="6.5" r=".5" fill="currentColor"/>
+          </g>
+          <path d="M156 41h19" class="hline" marker-end="url(#hm-sparse)"/>
+          <g class="hicon" transform="translate(190 17) scale(1.85)">
+            <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/>
+            <path d="M14 2v5a1 1 0 0 0 1 1h5"/>
+            <path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
+          </g>
+          <text x="120" y="74" class="hlabel">keywords</text>
+          </svg></div>
+          <div>
+            <div class="hname">Sparse Search</div>
+            <div class="hdet">Lexical search using BM25.</div>
+          </div>
+        </div>
+        <div class="hrow frag">
+          <div class="hvis"><svg viewBox="0 0 240 82" role="img" aria-label="Terminal Search">
+          <defs><marker id="hm-term" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8z" fill="#047857"/></marker></defs>
+          <g class="hicon" transform="translate(12 18) scale(1.75)">
+            <path d="M15 2h-4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8"/>
+            <path d="M16.706 2.706A2.4 2.4 0 0 0 15 2v5a1 1 0 0 0 1 1h5a2.4 2.4 0 0 0-.706-1.706z"/>
+            <path d="M5 7a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8a2 2 0 0 0 1.732-1"/>
+          </g>
+          <path d="M60 41h18" class="hline" marker-end="url(#hm-term)"/>
+          <rect x="87" y="18" width="66" height="46" rx="6.5" fill="#0f172a"/>
+          <circle cx="98" cy="28" r="2.2" fill="#f8fafc"/>
+          <circle cx="105.5" cy="28" r="2.2" fill="#a7f3d0"/>
+          <circle cx="113" cy="28" r="2.2" fill="#cbd5e1"/>
+          <text x="99" y="41" class="hcmd" fill="#ffffff">$ ls kb/</text>
+          <text x="99" y="51" class="hcmd" fill="#a7f3d0">cards.md</text>
+          <text x="99" y="61" class="hcmd" fill="#ffffff">$ grep lost</text>
+          <path d="M162 41h18" class="hline" marker-end="url(#hm-term)"/>
+          <g class="hicon" transform="translate(190 17) scale(1.85)">
+            <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/>
+            <path d="M14 2v5a1 1 0 0 0 1 1h5"/>
+            <path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
+          </g>
+          <text x="120" y="74" class="hlabel">terminal</text>
+          <text x="209" y="74" class="hlabel">Doc contents</text>
+          </svg></div>
+          <div>
+            <div class="hname">Terminal Search</div>
+            <div class="hdet">Shell access to knowledge base files with grep, cat, ls, and other Unix commands.</div>
+          </div>
+        </div>
+        <div class="hrow frag">
+          <div class="hvis"><svg viewBox="0 0 240 82" role="img" aria-label="Long Context">
+          <defs><marker id="hm-ctx" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8z" fill="#047857"/></marker></defs>
+          <g class="hicon" transform="translate(12 18) scale(1.75)">
+            <path d="M15 2h-4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8"/>
+            <path d="M16.706 2.706A2.4 2.4 0 0 0 15 2v5a1 1 0 0 0 1 1h5a2.4 2.4 0 0 0-.706-1.706z"/>
+            <path d="M5 7a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8a2 2 0 0 0 1.732-1"/>
+          </g>
+          <path d="M59 41h19" class="hline" marker-end="url(#hm-ctx)"/>
+          <g class="hicon" transform="translate(98 20) scale(1.75)">
+            <path d="M16 5H3"/><path d="M11 12H3"/><path d="M16 19H3"/>
+            <path d="M18 9v6"/><path d="M21 12h-6"/>
+          </g>
+          <path d="M156 41h19" class="hline" marker-end="url(#hm-ctx)"/>
+          <g class="hicon" transform="translate(190 17) scale(1.85)">
+            <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/>
+            <path d="M14 2v5a1 1 0 0 0 1 1h5"/>
+            <path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
+          </g>
+          <text x="120" y="74" class="hlabel">append all</text>
+          <text x="209" y="74" class="hlabel">prompt</text>
+          </svg></div>
+          <div>
+            <div class="hname">Long Context</div>
+            <div class="hdet">Full knowledge base appended directly to the system prompt.</div>
+          </div>
+        </div>
+        <div class="hrow frag oracle">
+          <div class="hvis"><svg viewBox="0 0 240 82" role="img" aria-label="Golden Retriever">
+          <g class="hicon" transform="translate(98 19) scale(1.85)">
+            <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/>
+            <path d="M14 2v5a1 1 0 0 0 1 1h5"/>
+            <path d="m9 15 2 2 4-4"/>
+          </g>
+          </svg></div>
+          <div>
+            <div class="hname">Golden Retriever<span class="obadge">oracle</span></div>
+            <div class="hdet">Minimal subset of required documents placed directly in context.</div>
+          </div>
+        </div>
+      </div>
+      <p class="footnote" data-at="5">Retrieval is <b>pluggable</b> — every agent sees the same <b>698-document</b> <span class="tau">&#964;</span>-banking corpus, and only the tool surface changes. <b>Golden Retriever</b> is an oracle ceiling, not a deployable harness.</p>
     </div>
   </section>
 
