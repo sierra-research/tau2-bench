@@ -663,6 +663,19 @@
   .fbfill { height: 100%; border-radius: 16px; background: #b91c1c; color: #fff; font-weight: 700; font-size: 13px;
     display: flex; align-items: center; justify-content: flex-end; padding-right: 11px; }
   .fb100 { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); font-size: 11.5px; color: var(--faint); }
+  /* dot plot · step 1 slides the Golden Retriever dots out to the oracle ceiling */
+  .tadd { color: var(--accent-mid); opacity: 0; transition: opacity .4s ease .15s; }
+  .tadd.on { opacity: 1; }
+  .goldleg { opacity: 0; transition: opacity .4s ease .15s; }
+  .goldleg.on { opacity: 1; }
+  .goldg { opacity: 0; transition: opacity .3s ease; }
+  .goldg.on { opacity: 1; }
+  .goldg .gdot, .goldg .gval { transform: translateX(calc(var(--dx) * -1px));
+    transition: transform .75s cubic-bezier(.22, .9, .3, 1); }
+  .goldg.on .gdot, .goldg.on .gval { transform: none; }
+  .goldg .gline { stroke-dasharray: 950; stroke-dashoffset: 950;
+    transition: stroke-dashoffset .75s cubic-bezier(.22, .9, .3, 1); }
+  .goldg.on .gline { stroke-dashoffset: 0; }
 </style>
 </head>
 <body>
@@ -1312,84 +1325,108 @@
   </section>
 
   <!-- ================= 9b · TAU KNOWLEDGE (results at publication) ================= -->
-  <section class="slide">
+  <section class="slide" id="dots" data-steps="1">
     <div class="inner">
       <div class="kicker"><span class="tau">&#964;</span>-knowledge &middot; results at publication</div>
-      <h2>No harness cleared 40</h2>
+      <h2>Agents struggle to do well on banking&hellip;<span class="tadd" data-at="1"> even when handed the exact context needed</span></h2>
       <div class="hlegend">
-        <div class="hli"><span class="hld" style="background:#ca8a04"></span>Golden Retriever</div>
         <div class="hli"><span class="hld" style="background:#0f172a"></span>Terminal</div>
         <div class="hli"><span class="hld" style="background:#047857"></span>Dense: Qwen3-8b</div>
         <div class="hli"><span class="hld" style="background:#10b981"></span>Dense: OpenAI-3-large</div>
         <div class="hli"><span class="hld" style="background:#6ee7b7"></span>Sparse: BM25</div>
+        <div class="hli goldleg" data-at="1"><span class="hld" style="background:#ca8a04"></span>Golden Retriever</div>
       </div>
       <div class="dotwrap">
         <svg width="2850" height="1110" viewBox="0 0 2850 1110">
-        <line x1="600" y1="32" x2="600" y2="956" stroke="#e2e8f0" stroke-width="3"/>
-        <text x="600" y="1012" font-size="31" fill="#64748b" text-anchor="middle">0</text>
-        <line x1="1120" y1="32" x2="1120" y2="956" stroke="#e2e8f0" stroke-width="3"/>
-        <text x="1120" y="1012" font-size="31" fill="#64748b" text-anchor="middle">10</text>
-        <line x1="1640" y1="32" x2="1640" y2="956" stroke="#e2e8f0" stroke-width="3"/>
-        <text x="1640" y="1012" font-size="31" fill="#64748b" text-anchor="middle">20</text>
-        <line x1="2160" y1="32" x2="2160" y2="956" stroke="#e2e8f0" stroke-width="3"/>
-        <text x="2160" y="1012" font-size="31" fill="#64748b" text-anchor="middle">30</text>
-        <line x1="2680" y1="32" x2="2680" y2="956" stroke="#e2e8f0" stroke-width="3"/>
-        <text x="2680" y="1012" font-size="31" fill="#64748b" text-anchor="middle">40</text>
-        <text x="1640" y="1080" font-size="33" fill="#64748b" text-anchor="middle">pass^1 (%)</text>
-        <text x="560" y="112" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">GPT-5.2 (high)</text>
-        <text x="560" y="158" font-size="30" font-weight="700" fill="#b91c1c" text-anchor="end">avg 1235 s / task</text>
-        <line x1="1819" y1="120" x2="2302" y2="120" stroke="#e2e8f0" stroke-width="8"/>
-        <circle cx="1819" cy="120" r="16" fill="#10b981"/>
-        <circle cx="1886" cy="120" r="16" fill="#047857"/>
-        <circle cx="1873" cy="120" r="16" fill="#6ee7b7"/>
-        <circle cx="1927" cy="120" r="16" fill="#0f172a"/>
-        <circle cx="2302" cy="120" r="16" fill="#ca8a04"/>
-        <text x="2338" y="132" font-size="32" fill="#64748b">32.7</text>
-        <text x="560" y="264" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">Claude-4.5-Opus (high)</text>
-        <text x="560" y="310" font-size="30" font-weight="700" fill="#047857" text-anchor="end">avg 162 s / task</text>
-        <line x1="1525" y1="272" x2="2664" y2="272" stroke="#e2e8f0" stroke-width="8"/>
-        <circle cx="1552" cy="272" r="16" fill="#10b981"/>
-        <circle cx="1619" cy="272" r="16" fill="#047857"/>
-        <circle cx="1525" cy="272" r="16" fill="#6ee7b7"/>
-        <circle cx="1886" cy="272" r="16" fill="#0f172a"/>
-        <circle cx="2664" cy="272" r="16" fill="#ca8a04"/>
-        <text x="2700" y="284" font-size="32" fill="#64748b">39.7</text>
-        <text x="560" y="416" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">Claude-4.5-Sonnet (high)</text>
-        <text x="560" y="462" font-size="30" font-weight="700" fill="#047857" text-anchor="end">avg 173 s / task</text>
-        <line x1="1471" y1="424" x2="2356" y2="424" stroke="#e2e8f0" stroke-width="8"/>
-        <circle cx="1512" cy="424" r="16" fill="#10b981"/>
-        <circle cx="1525" cy="424" r="16" fill="#047857"/>
-        <circle cx="1471" cy="424" r="16" fill="#6ee7b7"/>
-        <circle cx="1766" cy="424" r="16" fill="#0f172a"/>
-        <circle cx="2356" cy="424" r="16" fill="#ca8a04"/>
-        <text x="2392" y="436" font-size="32" fill="#64748b">33.8</text>
-        <text x="560" y="568" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">Gemini-3-Flash (high)</text>
-        <text x="560" y="614" font-size="30" font-weight="700" fill="#047857" text-anchor="end">avg 187 s / task</text>
-        <line x1="1565" y1="576" x2="2490" y2="576" stroke="#e2e8f0" stroke-width="8"/>
-        <circle cx="1565" cy="576" r="16" fill="#10b981"/>
-        <circle cx="1579" cy="576" r="16" fill="#047857"/>
-        <circle cx="1593" cy="576" r="16" fill="#6ee7b7"/>
-        <circle cx="1672" cy="576" r="16" fill="#0f172a"/>
-        <circle cx="2490" cy="576" r="16" fill="#ca8a04"/>
-        <text x="2526" y="588" font-size="32" fill="#64748b">36.3</text>
-        <text x="560" y="720" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">Gemini-3-Pro (high)</text>
-        <text x="560" y="766" font-size="30" font-weight="700" fill="#ca8a04" text-anchor="end">avg 301 s / task</text>
-        <line x1="1270" y1="728" x2="2329" y2="728" stroke="#e2e8f0" stroke-width="8"/>
-        <circle cx="1270" cy="728" r="16" fill="#10b981"/>
-        <circle cx="1284" cy="728" r="16" fill="#047857"/>
-        <circle cx="1310" cy="728" r="16" fill="#6ee7b7"/>
-        <circle cx="1417" cy="728" r="16" fill="#0f172a"/>
-        <circle cx="2329" cy="728" r="16" fill="#ca8a04"/>
-        <text x="2365" y="740" font-size="32" fill="#64748b">33.2</text>
-        <text x="560" y="872" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">GPT-5.2 (no reasoning)</text>
-        <text x="560" y="918" font-size="30" font-weight="700" fill="#ca8a04" text-anchor="end">avg 395 s / task</text>
-        <line x1="1029" y1="880" x2="1417" y2="880" stroke="#e2e8f0" stroke-width="8"/>
-        <circle cx="1029" cy="880" r="16" fill="#10b981"/>
-        <circle cx="1243" cy="880" r="16" fill="#047857"/>
-        <circle cx="1096" cy="880" r="16" fill="#6ee7b7"/>
-        <circle cx="1203" cy="880" r="16" fill="#0f172a"/>
-        <circle cx="1417" cy="880" r="16" fill="#ca8a04"/>
-        <text x="1453" y="892" font-size="32" fill="#64748b">15.7</text>
+          <line x1="600" y1="32" x2="600" y2="956" stroke="#e2e8f0" stroke-width="3"/>
+          <text x="600" y="1012" font-size="31" fill="#64748b" text-anchor="middle">0</text>
+          <line x1="1120" y1="32" x2="1120" y2="956" stroke="#e2e8f0" stroke-width="3"/>
+          <text x="1120" y="1012" font-size="31" fill="#64748b" text-anchor="middle">10</text>
+          <line x1="1640" y1="32" x2="1640" y2="956" stroke="#e2e8f0" stroke-width="3"/>
+          <text x="1640" y="1012" font-size="31" fill="#64748b" text-anchor="middle">20</text>
+          <line x1="2160" y1="32" x2="2160" y2="956" stroke="#e2e8f0" stroke-width="3"/>
+          <text x="2160" y="1012" font-size="31" fill="#64748b" text-anchor="middle">30</text>
+          <line x1="2680" y1="32" x2="2680" y2="956" stroke="#e2e8f0" stroke-width="3"/>
+          <text x="2680" y="1012" font-size="31" fill="#64748b" text-anchor="middle">40</text>
+          <text x="1640" y="1080" font-size="33" fill="#64748b" text-anchor="middle">pass^1 (%)</text>
+
+          <text x="560" y="112" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">GPT-5.2 (high)</text>
+          <text x="560" y="158" font-size="30" font-weight="700" fill="#b91c1c" text-anchor="end">avg 1235 s / task</text>
+          <line x1="1819" y1="120" x2="1927" y2="120" stroke="#e2e8f0" stroke-width="8"/>
+          <circle cx="1819" cy="120" r="16" fill="#10b981"/>
+          <circle cx="1886" cy="120" r="16" fill="#047857"/>
+          <circle cx="1873" cy="120" r="16" fill="#6ee7b7"/>
+          <circle cx="1927" cy="120" r="16" fill="#0f172a"/>
+          <g class="goldg" data-at="1" style="--dx:375">
+            <line class="gline" x1="1927" y1="120" x2="2302" y2="120" stroke="#e2e8f0" stroke-width="8"/>
+            <circle class="gdot" cx="2302" cy="120" r="16" fill="#ca8a04"/>
+            <text class="gval" x="2338" y="132" font-size="32" fill="#64748b">32.7</text>
+          </g>
+
+          <text x="560" y="264" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">Claude-4.5-Opus (high)</text>
+          <text x="560" y="310" font-size="30" font-weight="700" fill="#047857" text-anchor="end">avg 162 s / task</text>
+          <line x1="1525" y1="272" x2="1886" y2="272" stroke="#e2e8f0" stroke-width="8"/>
+          <circle cx="1552" cy="272" r="16" fill="#10b981"/>
+          <circle cx="1619" cy="272" r="16" fill="#047857"/>
+          <circle cx="1525" cy="272" r="16" fill="#6ee7b7"/>
+          <circle cx="1886" cy="272" r="16" fill="#0f172a"/>
+          <g class="goldg" data-at="1" style="--dx:778">
+            <line class="gline" x1="1886" y1="272" x2="2664" y2="272" stroke="#e2e8f0" stroke-width="8"/>
+            <circle class="gdot" cx="2664" cy="272" r="16" fill="#ca8a04"/>
+            <text class="gval" x="2700" y="284" font-size="32" fill="#64748b">39.7</text>
+          </g>
+
+          <text x="560" y="416" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">Claude-4.5-Sonnet (high)</text>
+          <text x="560" y="462" font-size="30" font-weight="700" fill="#047857" text-anchor="end">avg 173 s / task</text>
+          <line x1="1471" y1="424" x2="1766" y2="424" stroke="#e2e8f0" stroke-width="8"/>
+          <circle cx="1512" cy="424" r="16" fill="#10b981"/>
+          <circle cx="1525" cy="424" r="16" fill="#047857"/>
+          <circle cx="1471" cy="424" r="16" fill="#6ee7b7"/>
+          <circle cx="1766" cy="424" r="16" fill="#0f172a"/>
+          <g class="goldg" data-at="1" style="--dx:590">
+            <line class="gline" x1="1766" y1="424" x2="2356" y2="424" stroke="#e2e8f0" stroke-width="8"/>
+            <circle class="gdot" cx="2356" cy="424" r="16" fill="#ca8a04"/>
+            <text class="gval" x="2392" y="436" font-size="32" fill="#64748b">33.8</text>
+          </g>
+
+          <text x="560" y="568" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">Gemini-3-Flash (high)</text>
+          <text x="560" y="614" font-size="30" font-weight="700" fill="#047857" text-anchor="end">avg 187 s / task</text>
+          <line x1="1565" y1="576" x2="1672" y2="576" stroke="#e2e8f0" stroke-width="8"/>
+          <circle cx="1565" cy="576" r="16" fill="#10b981"/>
+          <circle cx="1579" cy="576" r="16" fill="#047857"/>
+          <circle cx="1593" cy="576" r="16" fill="#6ee7b7"/>
+          <circle cx="1672" cy="576" r="16" fill="#0f172a"/>
+          <g class="goldg" data-at="1" style="--dx:818">
+            <line class="gline" x1="1672" y1="576" x2="2490" y2="576" stroke="#e2e8f0" stroke-width="8"/>
+            <circle class="gdot" cx="2490" cy="576" r="16" fill="#ca8a04"/>
+            <text class="gval" x="2526" y="588" font-size="32" fill="#64748b">36.3</text>
+          </g>
+
+          <text x="560" y="720" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">Gemini-3-Pro (high)</text>
+          <text x="560" y="766" font-size="30" font-weight="700" fill="#ca8a04" text-anchor="end">avg 301 s / task</text>
+          <line x1="1270" y1="728" x2="1417" y2="728" stroke="#e2e8f0" stroke-width="8"/>
+          <circle cx="1270" cy="728" r="16" fill="#10b981"/>
+          <circle cx="1284" cy="728" r="16" fill="#047857"/>
+          <circle cx="1310" cy="728" r="16" fill="#6ee7b7"/>
+          <circle cx="1417" cy="728" r="16" fill="#0f172a"/>
+          <g class="goldg" data-at="1" style="--dx:912">
+            <line class="gline" x1="1417" y1="728" x2="2329" y2="728" stroke="#e2e8f0" stroke-width="8"/>
+            <circle class="gdot" cx="2329" cy="728" r="16" fill="#ca8a04"/>
+            <text class="gval" x="2365" y="740" font-size="32" fill="#64748b">33.2</text>
+          </g>
+
+          <text x="560" y="872" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">GPT-5.2 (no reasoning)</text>
+          <text x="560" y="918" font-size="30" font-weight="700" fill="#ca8a04" text-anchor="end">avg 395 s / task</text>
+          <line x1="1029" y1="880" x2="1243" y2="880" stroke="#e2e8f0" stroke-width="8"/>
+          <circle cx="1029" cy="880" r="16" fill="#10b981"/>
+          <circle cx="1243" cy="880" r="16" fill="#047857"/>
+          <circle cx="1096" cy="880" r="16" fill="#6ee7b7"/>
+          <circle cx="1203" cy="880" r="16" fill="#0f172a"/>
+          <g class="goldg" data-at="1" style="--dx:174">
+            <line class="gline" x1="1243" y1="880" x2="1417" y2="880" stroke="#e2e8f0" stroke-width="8"/>
+            <circle class="gdot" cx="1417" cy="880" r="16" fill="#ca8a04"/>
+            <text class="gval" x="1453" y="892" font-size="32" fill="#64748b">15.7</text>
+          </g>
         </svg>
       </div>
     </div>
