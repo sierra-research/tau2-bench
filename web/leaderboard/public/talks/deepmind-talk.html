@@ -647,6 +647,22 @@
   .hterm .hbody .hout { color: #94a3b8; }
   .hcombo { display: flex; align-items: center; }
   .hcombo .hplus { font-size: 22px; font-weight: 500; color: var(--accent-mid); margin: 0 7px; }
+
+  /* τ-knowledge · paper-time dot plot + "far from solved" bars, ported from
+     tau-knowledge-poster-36x72.html and recoloured to our palette */
+  .hlegend { display: flex; flex-wrap: wrap; gap: 6px 26px; margin-bottom: 10px; }
+  .hlegend .hli { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink); }
+  .hlegend .hld { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .dotwrap { display: flex; justify-content: center; }
+  .dotwrap svg { display: block; height: 400px; width: auto; max-width: 100%; }
+  .dotwrap svg text { font-family: var(--font-sans); }
+  .fbars { display: flex; flex-direction: column; gap: 13px; margin-top: 6px; }
+  .fbrow { display: flex; align-items: center; gap: 12px; }
+  .fblab { width: 122px; flex: none; font-size: 13.5px; font-weight: 650; color: var(--heading); text-align: right; }
+  .fbtrack { flex: 1; height: 32px; background: rgba(185, 28, 28, .07); border-radius: 16px; position: relative; }
+  .fbfill { height: 100%; border-radius: 16px; background: #b91c1c; color: #fff; font-weight: 700; font-size: 13px;
+    display: flex; align-items: center; justify-content: flex-end; padding-right: 11px; }
+  .fb100 { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); font-size: 11.5px; color: var(--faint); }
 </style>
 </head>
 <body>
@@ -1295,35 +1311,117 @@
     </div>
   </section>
 
-  <!-- ================= 9b · TAU KNOWLEDGE (frontier) ================= -->
+  <!-- ================= 9b · TAU KNOWLEDGE (results at publication) ================= -->
   <section class="slide">
     <div class="inner">
-      <div class="kicker"><span class="tau">τ</span>-knowledge · results</div>
+      <div class="kicker"><span class="tau">&#964;</span>-knowledge &middot; results at publication</div>
+      <h2>No harness cleared 40</h2>
+      <div class="hlegend">
+        <div class="hli"><span class="hld" style="background:#ca8a04"></span>Golden Retriever</div>
+        <div class="hli"><span class="hld" style="background:#0f172a"></span>Terminal</div>
+        <div class="hli"><span class="hld" style="background:#047857"></span>Dense: Qwen3-8b</div>
+        <div class="hli"><span class="hld" style="background:#10b981"></span>Dense: OpenAI-3-large</div>
+        <div class="hli"><span class="hld" style="background:#6ee7b7"></span>Sparse: BM25</div>
+      </div>
+      <div class="dotwrap">
+        <svg width="2850" height="1110" viewBox="0 0 2850 1110">
+        <line x1="600" y1="32" x2="600" y2="956" stroke="#e2e8f0" stroke-width="3"/>
+        <text x="600" y="1012" font-size="31" fill="#64748b" text-anchor="middle">0</text>
+        <line x1="1120" y1="32" x2="1120" y2="956" stroke="#e2e8f0" stroke-width="3"/>
+        <text x="1120" y="1012" font-size="31" fill="#64748b" text-anchor="middle">10</text>
+        <line x1="1640" y1="32" x2="1640" y2="956" stroke="#e2e8f0" stroke-width="3"/>
+        <text x="1640" y="1012" font-size="31" fill="#64748b" text-anchor="middle">20</text>
+        <line x1="2160" y1="32" x2="2160" y2="956" stroke="#e2e8f0" stroke-width="3"/>
+        <text x="2160" y="1012" font-size="31" fill="#64748b" text-anchor="middle">30</text>
+        <line x1="2680" y1="32" x2="2680" y2="956" stroke="#e2e8f0" stroke-width="3"/>
+        <text x="2680" y="1012" font-size="31" fill="#64748b" text-anchor="middle">40</text>
+        <text x="1640" y="1080" font-size="33" fill="#64748b" text-anchor="middle">pass^1 (%)</text>
+        <text x="560" y="112" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">GPT-5.2 (high)</text>
+        <text x="560" y="158" font-size="30" font-weight="700" fill="#b91c1c" text-anchor="end">avg 1235 s / task</text>
+        <line x1="1819" y1="120" x2="2302" y2="120" stroke="#e2e8f0" stroke-width="8"/>
+        <circle cx="1819" cy="120" r="16" fill="#10b981"/>
+        <circle cx="1886" cy="120" r="16" fill="#047857"/>
+        <circle cx="1873" cy="120" r="16" fill="#6ee7b7"/>
+        <circle cx="1927" cy="120" r="16" fill="#0f172a"/>
+        <circle cx="2302" cy="120" r="16" fill="#ca8a04"/>
+        <text x="2338" y="132" font-size="32" fill="#64748b">32.7</text>
+        <text x="560" y="264" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">Claude-4.5-Opus (high)</text>
+        <text x="560" y="310" font-size="30" font-weight="700" fill="#047857" text-anchor="end">avg 162 s / task</text>
+        <line x1="1525" y1="272" x2="2664" y2="272" stroke="#e2e8f0" stroke-width="8"/>
+        <circle cx="1552" cy="272" r="16" fill="#10b981"/>
+        <circle cx="1619" cy="272" r="16" fill="#047857"/>
+        <circle cx="1525" cy="272" r="16" fill="#6ee7b7"/>
+        <circle cx="1886" cy="272" r="16" fill="#0f172a"/>
+        <circle cx="2664" cy="272" r="16" fill="#ca8a04"/>
+        <text x="2700" y="284" font-size="32" fill="#64748b">39.7</text>
+        <text x="560" y="416" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">Claude-4.5-Sonnet (high)</text>
+        <text x="560" y="462" font-size="30" font-weight="700" fill="#047857" text-anchor="end">avg 173 s / task</text>
+        <line x1="1471" y1="424" x2="2356" y2="424" stroke="#e2e8f0" stroke-width="8"/>
+        <circle cx="1512" cy="424" r="16" fill="#10b981"/>
+        <circle cx="1525" cy="424" r="16" fill="#047857"/>
+        <circle cx="1471" cy="424" r="16" fill="#6ee7b7"/>
+        <circle cx="1766" cy="424" r="16" fill="#0f172a"/>
+        <circle cx="2356" cy="424" r="16" fill="#ca8a04"/>
+        <text x="2392" y="436" font-size="32" fill="#64748b">33.8</text>
+        <text x="560" y="568" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">Gemini-3-Flash (high)</text>
+        <text x="560" y="614" font-size="30" font-weight="700" fill="#047857" text-anchor="end">avg 187 s / task</text>
+        <line x1="1565" y1="576" x2="2490" y2="576" stroke="#e2e8f0" stroke-width="8"/>
+        <circle cx="1565" cy="576" r="16" fill="#10b981"/>
+        <circle cx="1579" cy="576" r="16" fill="#047857"/>
+        <circle cx="1593" cy="576" r="16" fill="#6ee7b7"/>
+        <circle cx="1672" cy="576" r="16" fill="#0f172a"/>
+        <circle cx="2490" cy="576" r="16" fill="#ca8a04"/>
+        <text x="2526" y="588" font-size="32" fill="#64748b">36.3</text>
+        <text x="560" y="720" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">Gemini-3-Pro (high)</text>
+        <text x="560" y="766" font-size="30" font-weight="700" fill="#ca8a04" text-anchor="end">avg 301 s / task</text>
+        <line x1="1270" y1="728" x2="2329" y2="728" stroke="#e2e8f0" stroke-width="8"/>
+        <circle cx="1270" cy="728" r="16" fill="#10b981"/>
+        <circle cx="1284" cy="728" r="16" fill="#047857"/>
+        <circle cx="1310" cy="728" r="16" fill="#6ee7b7"/>
+        <circle cx="1417" cy="728" r="16" fill="#0f172a"/>
+        <circle cx="2329" cy="728" r="16" fill="#ca8a04"/>
+        <text x="2365" y="740" font-size="32" fill="#64748b">33.2</text>
+        <text x="560" y="872" font-size="40" font-weight="700" fill="#0f172a" text-anchor="end">GPT-5.2 (no reasoning)</text>
+        <text x="560" y="918" font-size="30" font-weight="700" fill="#ca8a04" text-anchor="end">avg 395 s / task</text>
+        <line x1="1029" y1="880" x2="1417" y2="880" stroke="#e2e8f0" stroke-width="8"/>
+        <circle cx="1029" cy="880" r="16" fill="#10b981"/>
+        <circle cx="1243" cy="880" r="16" fill="#047857"/>
+        <circle cx="1096" cy="880" r="16" fill="#6ee7b7"/>
+        <circle cx="1203" cy="880" r="16" fill="#0f172a"/>
+        <circle cx="1417" cy="880" r="16" fill="#ca8a04"/>
+        <text x="1453" y="892" font-size="32" fill="#64748b">15.7</text>
+        </svg>
+      </div>
+      <p class="footnote">pass^1 &middot; each row is one model, each dot one search harness, and the trailing number that model&rsquo;s best. Even <b>Golden Retriever</b> &mdash; handed the required documents &mdash; tops out at <b>39.7</b>: retrieval helps, but grounded reasoning is the bottleneck.</p>
+    </div>
+  </section>
+
+  <!-- ================= 9b2 · TAU KNOWLEDGE (frontier) ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker"><span class="tau">&#964;</span>-knowledge &middot; results today</div>
       <h2>The frontier has shifted</h2>
       <div class="cols" style="align-items:start;">
         <div>
           <div class="card">
             <span class="tag">Best score by domain</span>
-            <div class="mrow"><span class="mlbl">τ-telecom</span><div class="mtrack"><div class="mfill lt" style="width:98%"></div></div><span class="mval">97.8</span></div>
-            <div class="mrow"><span class="mlbl">τ-airline</span><div class="mtrack"><div class="mfill lt" style="width:84%"></div></div><span class="mval">84.0</span></div>
-            <div class="mrow"><span class="mlbl">τ-retail</span><div class="mtrack"><div class="mfill lt" style="width:83%"></div></div><span class="mval">82.9</span></div>
-            <div class="mrow"><span class="mlbl">τ-banking</span><div class="mtrack"><div class="mfill" style="width:37%"></div></div><span class="mval">37.4</span></div>
+            <div class="mrow"><span class="mlbl">&#964;-telecom</span><div class="mtrack"><div class="mfill lt" style="width:98%"></div></div><span class="mval">97.8</span></div>
+            <div class="mrow"><span class="mlbl">&#964;-airline</span><div class="mtrack"><div class="mfill lt" style="width:84%"></div></div><span class="mval">84.0</span></div>
+            <div class="mrow"><span class="mlbl">&#964;-retail</span><div class="mtrack"><div class="mfill lt" style="width:83%"></div></div><span class="mval">82.9</span></div>
+            <div class="mrow"><span class="mlbl">&#964;-banking</span><div class="mtrack"><div class="mfill" style="width:37%"></div></div><span class="mval">37.4</span></div>
           </div>
-          <p class="lede" style="margin-top:16px;" data-at="1">The classic domains are saturating — banking is <strong>wide open</strong>. Even with the <em>gold documents handed over</em>, the best model reaches <strong>39.7</strong>: retrieval helps, but grounded reasoning is the bottleneck.</p>
+          <p class="lede" style="margin-top:16px;" data-at="1"><span class="tau">&#964;</span>-telecom, <span class="tau">&#964;</span>-airline and <span class="tau">&#964;</span>-retail are saturating. <strong><span class="tau">&#964;</span>-banking is wide open</strong> &mdash; the best frontier model finishes barely a third of the tasks.</p>
         </div>
         <div class="card frag">
-          <span class="tag">Performance on τ-banking</span>
-          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">GPT-5.5</span><div class="mtrack"><div class="mfill" style="width:37.4%"></div></div><span class="mval">37.4</span></div>
-          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">GPT-5.4</span><div class="mtrack"><div class="mfill" style="width:30.7%"></div></div><span class="mval">30.7</span></div>
-          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">Claude Opus 4.7</span><div class="mtrack"><div class="mfill" style="width:25.3%"></div></div><span class="mval">25.3</span></div>
-          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">GPT-5.2</span><div class="mtrack"><div class="mfill" style="width:24.7%"></div></div><span class="mval">24.7</span></div>
-          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">Claude Opus 4.6</span><div class="mtrack"><div class="mfill" style="width:24.5%"></div></div><span class="mval">24.5</span></div>
-          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">Gemini 3.1 Pro</span><div class="mtrack"><div class="mfill" style="width:22.5%"></div></div><span class="mval">22.5</span></div>
-          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">Claude Opus 4.5</span><div class="mtrack"><div class="mfill" style="width:21.4%"></div></div><span class="mval">21.4</span></div>
-          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">Grok 4.2</span><div class="mtrack"><div class="mfill" style="width:17.6%"></div></div><span class="mval">17.6</span></div>
+          <span class="tag">Far from solved &middot; pass^1 on <span class="tau">&#964;</span>-banking</span>
+          <div class="fbars">
+            <div class="fbrow"><span class="fblab">GPT-5.5</span><div class="fbtrack"><div class="fbfill" style="width:37.4%">37.4%</div><span class="fb100">100%</span></div></div>
+            <div class="fbrow"><span class="fblab">Claude Opus 4.7</span><div class="fbtrack"><div class="fbfill" style="width:25.3%">25.3%</div><span class="fb100">100%</span></div></div>
+            <div class="fbrow"><span class="fblab">Gemini 3.1 Pro</span><div class="fbtrack"><div class="fbfill" style="width:22.5%">22.5%</div><span class="fb100">100%</span></div></div>
+          </div>
         </div>
       </div>
-      <p class="footnote">pass^1, taubench.com + internal runs, June 2026 · retrieval strategy is pluggable — 12 configs from BM25 → embeddings → agentic terminal.</p>
+      <p class="footnote">pass^1, taubench.com + internal runs, June 2026 &middot; each model at its highest available reasoning effort.</p>
     </div>
   </section>
 
