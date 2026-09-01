@@ -34,8 +34,12 @@ cp .env.example .env
 ## Запуск
 
 ```bash
-uv run tau2 run --domain banking_ru --agent-llm <модель> --user-llm <модель> --num-trials 1
+uv run tau2 run --domain banking_ru --task-split-name train --agent-llm <модель> --user-llm <модель> --num-trials 1
 ```
+
+Сплит `train` — открытый набор из 10 задач для отладки вашего агента. Сплит
+`base` содержит все задачи домена; закрытые задачи итоговой оценки появятся в
+нём ближе к финалу и в `train` не попадут.
 
 Полезные флаги: `--num-tasks N` — ограничить число задач, `--task-ids
 bank_hard_01` — прогнать конкретную задачу, `--num-trials K` — повторные

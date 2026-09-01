@@ -165,4 +165,5 @@ def test_task_split_covers_all_tasks():
     assert "base" in splits, "Сплит base обязателен: он используется по умолчанию"
     all_ids = {task.id for task in get_tasks(task_split_name=None)}
     assert set(splits["base"]) == all_ids
-    assert set(splits["slice_v1"]) == all_ids
+    assert set(splits["train"]) <= all_ids, "train ссылается на несуществующие задачи"
+    assert len(splits["train"]) == 10, "train — фиксированные 10 открытых задач"

@@ -377,8 +377,17 @@ task(
 (DATA / "tasks.json").write_text(
     json.dumps(tasks, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 ids = [t["id"] for t in tasks]
+# base — обязательный сплит со всеми задачами (умолчание runner).
+# train — открытый набор для участников: реализованные и открытые задачи.
+# Задачи волн 2–5 попадут в base и в закрытый сплит test, train не меняется.
+TRAIN_IDS = [
+    "bank_easy_01", "bank_easy_02", "bank_004", "bank_003", "bank_007",
+    "bank_024", "bank_medium_01", "bank_medium_02", "bank_hard_01",
+    "bank_hard_02",
+]
+assert set(TRAIN_IDS) <= set(ids), "train ссылается на несуществующие задачи"
 (DATA / "split_tasks.json").write_text(
-    json.dumps({"base": ids, "slice_v1": ids}, ensure_ascii=False, indent=2) + "\n",
+    json.dumps({"base": ids, "train": TRAIN_IDS}, ensure_ascii=False, indent=2) + "\n",
     encoding="utf-8")
 print(f"задач: {len(tasks)}")
 for t in tasks:
