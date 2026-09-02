@@ -25,6 +25,9 @@ ID_PATTERNS = {
     "autopayments": r"^ap_\d{4}$",
     "deposits": r"^dep_\d{4}$",
     "loans": r"^ln_\d{4}$",
+    "cases": r"^case_\d{4}$",
+    "devices": r"^dev_\d{4}$",
+    "documents": r"^doc_\d{4}_\d$",
 }
 
 
@@ -149,7 +152,8 @@ def test_tasks_reference_existing_entities():
 
     raw = json.loads(BANKING_RU_TASK_SET_PATH.read_text(encoding="utf-8"))
     id_like = re.compile(
-        r"\b(?:acc|card|txn|dsp|sub|ap|dep|ln|pen)_\d[0-9a-z_]*\b|\b[a-z]+_[a-z]_\d{4}\b"
+        r"\b(?:acc|card|txn|dsp|sub|ap|dep|ln|pen|case|dev|doc)_\d[0-9a-z_]*\b"
+        r"|\b[a-z]+_[a-z]_\d{4}\b"
     )
     for task in raw:
         for match in id_like.findall(json.dumps(task, ensure_ascii=False)):
@@ -167,3 +171,80 @@ def test_task_split_covers_all_tasks():
     assert set(splits["base"]) == all_ids
     assert set(splits["train"]) <= all_ids, "train ссылается на несуществующие задачи"
     assert len(splits["train"]) == 10, "train — фиксированные 10 открытых задач"
+    assert set(splits["test"]) <= all_ids, "test ссылается на несуществующие задачи"
+    assert not set(splits["test"]) & set(splits["train"]), (
+        "train и test не пересекаются: test — закрытый набор"
+    )
+    assert set(splits["train"]) | set(splits["test"]) == all_ids, (
+        "каждая задача принадлежит ровно одному из сплитов train/test"
+    )
+
+
+def test_wave2_dispute_window(db: BankingDB):
+    """bank_011 внутри окна, bank_012 — за ним, дистракторы по разные стороны."""
+    today = date.fromisoformat(db.today)
+    window = db.dispute_window_days
+
+    def age(txn_id: str) -> int:
+        return (today - date.fromisoformat(db.transactions[txn_id].date)).days
+
+    assert age("txn_771204") <= window, "bank_011: спор должен быть возможен"
+    assert age("txn_768120") > window, "bank_011: мартовский дистрактор вне окна"
+    assert age("txn_540117") > window, "bank_012: операция должна быть просрочена"
+    assert age("txn_552140") <= window, "bank_012: майский дистрактор внутри окна"
+
+
+def test_wave2_familiar_charges_match_subscriptions(db: BankingDB):
+    """bank_008: обе «незнакомые» операции соответствуют активным подпискам."""
+    subscriptions = {
+        s.name: s for s in db.subscriptions.values()
+        if s.customer_id == "smirnova_o_1123"
+    }
+    assert all(s.status == "active" for s in subscriptions.values())
+    for txn_id, name in (("txn_055210", "Яндекс Плюс"), ("txn_055180", "Литрес Подписка")):
+        transaction = db.transactions[txn_id]
+        assert transaction.is_subscription
+        assert transaction.amount == subscriptions[name].amount
+
+
+def test_wave2_foreign_operations(db: BankingDB):
+    """bank_010: мошеннические операции отличимы от легитимных зарубежных."""
+    fraud = ("txn_088345", "txn_088320")
+    legit = ("txn_088300", "txn_087100")
+    for txn_id in fraud:
+        assert db.transactions[txn_id].country == "TH"
+        assert not db.transactions[txn_id].is_subscription
+    assert db.transactions["txn_088300"].is_subscription
+    for txn_id in fraud + legit:
+        assert db.transactions[txn_id].dispute_id is None, (
+            "споры по этим операциям открывает агент, а не снимок БД"
+        )
+
+
+def test_wave2_hold_expiry(db: BankingDB):
+    """bank_017: холд снимается автоматически не позже семи дней с даты операции."""
+    for txn_id in ("txn_799102", "txn_799050"):
+        transaction = db.transactions[txn_id]
+        assert transaction.status == "hold"
+        expiry = date.fromisoformat(transaction.hold_expires_at)
+        assert expiry > date.fromisoformat(db.today)
+        assert (expiry - date.fromisoformat(transaction.date)).days <= 7
+
+
+def test_wave2_processing_transfer(db: BankingDB):
+    """bank_020: перевод в обработке и его исполненный двойник двумя неделями раньше."""
+    assert db.transactions["txn_861530"].status == "processing"
+    assert db.transactions["txn_860210"].status == "posted"
+    assert db.transactions["txn_861530"].date == "2026-08-26"
+
+
+def test_wave2_sbp_headroom(db: BankingDB):
+    """bank_019: текущий лимит мал для перевода, максимум по тарифу — достаточен."""
+    limits = db.card_limits["card_5581"]
+    tariff = db.tariffs[db.customers["nikitin_r_5581"].tariff_id]
+    assert limits.sbp_limit < 150000.0 <= tariff.max_sbp_limit
+
+
+def test_wave2_starts_empty_cases(db: BankingDB):
+    """Обращения создаёт только агент: заранее их в БД нет."""
+    assert db.cases == {}

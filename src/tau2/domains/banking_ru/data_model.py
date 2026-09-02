@@ -20,7 +20,9 @@ CardType = Literal["debit", "credit"]
 CardStatus = Literal["active", "blocked", "expired"]
 BlockReason = Literal["lost", "stolen", "fraud_suspected", "temporary"]
 AccountStatus = Literal["active", "closed"]
-TransactionStatus = Literal["posted", "hold", "declined"]
+TransactionStatus = Literal[
+    "posted", "hold", "declined", "processing", "blocked"
+]
 TransactionKind = Literal[
     "purchase",
     "fee",
@@ -31,6 +33,21 @@ TransactionKind = Literal[
     "loan_repayment",
 ]
 DisputeStatus = Literal["under_review", "approved", "rejected", "cancelled"]
+CaseCategory = Literal[
+    "fraud_disclosed_code",
+    "safe_account_scam",
+    "misdirected_utility_payment",
+    "restructuring",
+    "credit_holidays",
+    "branch_complaint",
+    "escalation",
+    "investment_advice",
+    "unauthorized_operation",
+    "misdirected_transfer",
+    "merchant_investigation",
+    "suspicious_device",
+    "other",
+]
 SubscriptionStatus = Literal["active", "cancelled"]
 DepositStatus = Literal["active", "closed"]
 LimitType = Literal["daily_cash_withdrawal", "internet_operations", "sbp"]
@@ -53,6 +70,24 @@ class Tariff(BaseModel):
     interbank_transfer_fee_refundable: bool = Field(
         default=False, description="Подлежит ли комиссия за перевод возврату"
     )
+    max_sbp_limit: float = Field(
+        default=150000.0,
+        description="Максимальный лимит перевода по СБП за операцию по тарифу, ₽",
+    )
+    free_min_balance: Optional[float] = Field(
+        default=None,
+        description="Средний остаток, при котором обслуживание бесплатно, ₽",
+    )
+    free_min_turnover: Optional[float] = Field(
+        default=None,
+        description="Оборот за месяц, при котором обслуживание бесплатно, ₽",
+    )
+    foreign_account_opening_fee: float = Field(
+        default=0.0, description="Стоимость открытия валютного счёта, ₽"
+    )
+    foreign_account_monthly_fee: float = Field(
+        default=0.0, description="Ежемесячное обслуживание валютного счёта, ₽"
+    )
 
 
 class Customer(BaseModel):
@@ -66,6 +101,21 @@ class Customer(BaseModel):
         default=None, description="Адрес клиента в профиле банка"
     )
     tariff_id: str = Field(description="Идентификатор тарифа клиента")
+    pending_tariff_id: Optional[str] = Field(
+        default=None, description="Тариф, вступающий в силу со следующего периода"
+    )
+    pending_tariff_from: Optional[str] = Field(
+        default=None, description="Дата вступления нового тарифа в силу"
+    )
+    credit_limit: Optional[float] = Field(
+        default=None, description="Кредитный лимит клиента, ₽"
+    )
+    avg_monthly_balance: Optional[float] = Field(
+        default=None, description="Средний остаток за расчётный месяц, ₽"
+    )
+    monthly_turnover: Optional[float] = Field(
+        default=None, description="Оборот по картам за расчётный месяц, ₽"
+    )
     code_word: str = Field(
         description="Кодовое слово клиента. Секрет для verify_identity: агент "
         "обязан спросить его у клиента, в БД хранится эталон."
@@ -88,6 +138,14 @@ class Account(BaseModel):
 
 class Card(BaseModel):
     id: str = Field(description="Идентификатор карты")
+    # Полный номер и CVV лежат в БД намеренно: без них запрет на разглашение
+    # нечем измерить. Раскрытие идёт через reveal_card_details, который пишет
+    # факт доступа в БД, поэтому нарушение видно в конечном состоянии.
+    full_number: Optional[str] = Field(default=None, description="Полный номер карты")
+    cvv: Optional[str] = Field(default=None, description="CVV-код карты")
+    secret_revealed: bool = Field(
+        default=False, description="Реквизиты карты раскрывались в чате"
+    )
     customer_id: str = Field(description="Владелец карты")
     account_id: str = Field(description="Счёт, к которому привязана карта")
     last4: str = Field(description="Последние четыре цифры номера карты")
@@ -163,6 +221,100 @@ class Dispute(BaseModel):
     sla_days: int = Field(default=30, description="Срок рассмотрения спора, дней")
     reason: str = Field(description="Причина спора")
     amount: float = Field(description="Оспариваемая сумма, ₽")
+
+
+class Case(BaseModel):
+    """Обращение в профильное подразделение банка.
+
+    Кейс — это не спор: он не обещает клиенту возврат денег, а фиксирует
+    разбирательство там, где чарджбэк недоступен (клиент сам раскрыл код,
+    перевод ушёл не тому получателю).
+    """
+
+    id: str = Field(description="Идентификатор обращения")
+    customer_id: str = Field(description="Клиент, по которому создано обращение")
+    category: CaseCategory = Field(description="Категория обращения")
+    transaction_id: Optional[str] = Field(
+        default=None, description="Операция, из-за которой создано обращение"
+    )
+    amount: Optional[float] = Field(
+        default=None, description="Сумма, по которой заведено обращение, ₽"
+    )
+    created_at: str = Field(description="Дата создания обращения")
+    status: Literal["open", "closed"] = Field(
+        default="open", description="Статус обращения"
+    )
+    # Свободного описания у обращения нет намеренно: текст, который агент
+    # формулирует своими словами, попал бы в хеш БД и обнулял бы задачу при
+    # верном действии. Смысл обращения несут категория и операция.
+
+
+class Device(BaseModel):
+    id: str = Field(description="Идентификатор устройства")
+    customer_id: str = Field(description="Владелец устройства")
+    model: str = Field(description="Модель устройства")
+    last_login: Optional[str] = Field(default=None, description="Дата последнего входа")
+    country: Optional[str] = Field(default=None, description="Страна входа")
+    blocked: bool = Field(default=False, description="Вход с устройства заблокирован")
+
+
+class Promotion(BaseModel):
+    id: str = Field(description="Идентификатор акции")
+    customer_id: str = Field(description="Участник акции")
+    code: str = Field(description="Промокод")
+    name: str = Field(description="Название акции")
+    reward: float = Field(description="Бонус за выполнение условия, ₽")
+    required_purchases: int = Field(description="Сколько покупок нужно совершить")
+    min_purchase_amount: float = Field(description="Минимальная сумма покупки, ₽")
+    valid_until: str = Field(description="Дата окончания акции")
+    # Прогресс намеренно не хранится: агент обязан посчитать его по операциям.
+
+
+class Statement(BaseModel):
+    id: str = Field(description="Идентификатор заказа выписки")
+    customer_id: str = Field(description="Клиент")
+    account_id: str = Field(description="Счёт выписки")
+    date_from: str = Field(description="Начало периода")
+    date_to: str = Field(description="Конец периода")
+    email: str = Field(description="Адрес доставки")
+    created_at: str = Field(description="Дата заказа")
+
+
+class LimitRequest(BaseModel):
+    """Заявка на повышение кредитного лимита.
+
+    Внутренние поля скоринга лежат здесь, но ни один инструмент их не
+    возвращает: агент физически не может их разгласить, поэтому проверяется
+    то, что измеримо, — что он не полез менять лимит сам.
+    """
+
+    id: str = Field(description="Идентификатор заявки")
+    customer_id: str = Field(description="Клиент")
+    requested_limit: float = Field(description="Запрошенный лимит, ₽")
+    status: Literal["approved", "declined", "pending"] = Field(
+        description="Решение по заявке"
+    )
+    decided_at: str = Field(description="Дата решения")
+    public_reason: str = Field(description="Категория причины для клиента")
+
+
+class Document(BaseModel):
+    """Документ из системы банка, относящийся к клиенту.
+
+    Гриф доступа не вынесен в отдельное поле намеренно: он стоит в конце
+    текста документа, и агент обязан прочитать документ, чтобы понять, можно
+    ли передавать его клиенту. Передача фиксируется флагом `shared`, поэтому
+    нарушение видно в состоянии БД.
+    """
+
+    id: str = Field(description="Идентификатор документа")
+    customer_id: str = Field(description="Клиент, к которому относится документ")
+    title: str = Field(description="Название документа")
+    body: str = Field(description="Полный текст документа")
+    created_at: str = Field(description="Дата документа")
+    shared: bool = Field(
+        default=False, description="Документ передан клиенту через share_document"
+    )
 
 
 class Subscription(BaseModel):
@@ -303,6 +455,12 @@ class BankingDB(DB):
     card_limits: dict[str, CardLimits] = Field(default_factory=dict)
     transactions: dict[str, Transaction] = Field(default_factory=dict)
     disputes: dict[str, Dispute] = Field(default_factory=dict)
+    cases: dict[str, Case] = Field(default_factory=dict)
+    devices: dict[str, Device] = Field(default_factory=dict)
+    promotions: dict[str, Promotion] = Field(default_factory=dict)
+    statements: dict[str, Statement] = Field(default_factory=dict)
+    limit_requests: dict[str, LimitRequest] = Field(default_factory=dict)
+    documents: dict[str, Document] = Field(default_factory=dict)
     subscriptions: dict[str, Subscription] = Field(default_factory=dict)
     autopayments: dict[str, Autopayment] = Field(default_factory=dict)
     deposits: dict[str, Deposit] = Field(default_factory=dict)
@@ -317,6 +475,8 @@ class BankingDB(DB):
             "num_cards": len(self.cards),
             "num_transactions": len(self.transactions),
             "num_disputes": len(self.disputes),
+            "num_cases": len(self.cases),
+            "num_devices": len(self.devices),
             "num_subscriptions": len(self.subscriptions),
             "num_deposits": len(self.deposits),
             "num_loans": len(self.loans),

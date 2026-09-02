@@ -24,6 +24,13 @@ from tau2.domains.banking_ru.data_model import (
     BankingDB,
     BlockReason,
     Card,
+    Case,
+    CaseCategory,
+    Device,
+    Document,
+    LimitRequest,
+    Promotion,
+    Statement,
     CardLimits,
     CashbackRules,
     Customer,
@@ -55,6 +62,34 @@ ERR_INSUFFICIENT_FUNDS = "ERR_INSUFFICIENT_FUNDS"
 ERR_NO_FEE = "ERR_NO_FEE"
 ERR_INVALID_ARGUMENT = "ERR_INVALID_ARGUMENT"
 ERR_ALREADY_CANCELLED = "ERR_ALREADY_CANCELLED"
+ERR_DISPUTE_NOT_OPEN = "ERR_DISPUTE_NOT_OPEN"
+ERR_NO_HOLD = "ERR_NO_HOLD"
+ERR_ACCOUNT_NOT_EMPTY = "ERR_ACCOUNT_NOT_EMPTY"
+ERR_ACCOUNT_HAS_DEBT = "ERR_ACCOUNT_HAS_DEBT"
+ERR_ACCOUNT_CLOSED = "ERR_ACCOUNT_CLOSED"
+ERR_EMAIL_NOT_CONFIRMED = "ERR_EMAIL_NOT_CONFIRMED"
+ERR_NOT_BLOCKED = "ERR_NOT_BLOCKED"
+ERR_SAME_ACCOUNT = "ERR_SAME_ACCOUNT"
+ERR_FOREIGN_ACCOUNT = "ERR_FOREIGN_ACCOUNT"
+ERR_ALREADY_SHARED = "ERR_ALREADY_SHARED"
+
+#: Категории обращений — закрытый список по той же причине, что и причины
+#: спора: свободный текст в БД ломает сверку конечного состояния.
+CASE_CATEGORIES = (
+    "fraud_disclosed_code",
+    "unauthorized_operation",
+    "safe_account_scam",
+    "misdirected_transfer",
+    "misdirected_utility_payment",
+    "merchant_investigation",
+    "restructuring",
+    "credit_holidays",
+    "branch_complaint",
+    "escalation",
+    "investment_advice",
+    "suspicious_device",
+    "other",
+)
 
 #: Причины спора — закрытый список: свободный текст в БД ломает сверку
 #: конечного состояния (агент формулирует иначе, чем эталон).
@@ -173,6 +208,23 @@ class BankingTools(ToolKitBase):
             if key.startswith("dsp_") and key[4:].isdigit()
         ]
         return f"dsp_{(max(numbers) + 1) if numbers else 1000:04d}"
+
+    def _next_seq_id(self, collection: dict, prefix: str, start: int) -> str:
+        width = len(prefix) + 1
+        numbers = [
+            int(key[width:])
+            for key in collection
+            if key.startswith(prefix + "_") and key[width:].isdigit()
+        ]
+        return f"{prefix}_{(max(numbers) + 1) if numbers else start:04d}"
+
+    def _next_case_id(self) -> str:
+        numbers = [
+            int(key[5:])
+            for key in self.db.cases
+            if key.startswith("case_") and key[5:].isdigit()
+        ]
+        return f"case_{(max(numbers) + 1) if numbers else 1000:04d}"
 
     def _next_transaction_id(self) -> str:
         numbers = [
@@ -532,6 +584,17 @@ class BankingTools(ToolKitBase):
         return self._get_tariff(customer_id)
 
     @is_tool(ToolType.READ)
+    def list_tariffs(self) -> list[Tariff]:
+        """
+        Получить линейку тарифов банка: названия, стоимость обслуживания,
+        условия бесплатности, максимальные лимиты и комиссии.
+
+        Returns:
+            Все тарифы банка.
+        """
+        return list(self.db.tariffs.values())
+
+    @is_tool(ToolType.READ)
     def get_cashback_rules(self, customer_id: str) -> CashbackRules:
         """
         Получить правила кешбэка клиента: категории, ставки, исключения и день начисления.
@@ -552,6 +615,86 @@ class BankingTools(ToolKitBase):
                 ERR_NOT_FOUND, f"Правила кешбэка для клиента {customer_id} не найдены."
             )
         return rules
+
+
+    @is_tool(ToolType.READ)
+    def get_devices(self, customer_id: str) -> list[Device]:
+        """
+        Получить устройства клиента: модель, последний вход, страна, блокировка.
+
+        Args:
+            customer_id: Идентификатор клиента.
+
+        Returns:
+            Список устройств клиента.
+
+        Raises:
+            ValueError: Если клиент не найден.
+        """
+        self._get_customer(customer_id)
+        return [d for d in self.db.devices.values() if d.customer_id == customer_id]
+
+    @is_tool(ToolType.READ)
+    def get_promotions(
+        self, customer_id: str, promo_code: Optional[str] = None
+    ) -> list[Promotion]:
+        """
+        Получить акции клиента: промокод, условие, бонус и срок действия.
+
+        Args:
+            customer_id: Идентификатор клиента.
+            promo_code: Отбор по промокоду.
+
+        Returns:
+            Список акций клиента. Прогресс по условию не хранится: его считают
+            по операциям клиента.
+
+        Raises:
+            ValueError: Если клиент не найден.
+        """
+        self._get_customer(customer_id)
+        result = [p for p in self.db.promotions.values() if p.customer_id == customer_id]
+        if promo_code is not None:
+            result = [p for p in result if p.code.upper() == promo_code.upper()]
+        return result
+
+    @is_tool(ToolType.READ)
+    def get_limit_request(self, customer_id: str) -> list[LimitRequest]:
+        """
+        Получить заявки клиента на изменение кредитного лимита и решения по ним.
+
+        Args:
+            customer_id: Идентификатор клиента.
+
+        Returns:
+            Заявки клиента: запрошенный лимит, решение, дата и категория причины.
+
+        Raises:
+            ValueError: Если клиент не найден.
+        """
+        self._get_customer(customer_id)
+        return [
+            r for r in self.db.limit_requests.values() if r.customer_id == customer_id
+        ]
+
+    @is_tool(ToolType.READ)
+    def get_documents(self, customer_id: str) -> list[Document]:
+        """
+        Получить документы из системы банка, относящиеся к клиенту: название,
+        дату и полный текст.
+
+        Args:
+            customer_id: Идентификатор клиента.
+
+        Returns:
+            Список документов клиента с полным текстом каждого.
+
+        Raises:
+            ValueError: Если клиент не найден.
+        """
+        self._get_customer(customer_id)
+        return [d for d in self.db.documents.values() if d.customer_id == customer_id]
+
 
     @is_tool(ToolType.READ)
     def get_deposit(
@@ -743,6 +886,13 @@ class BankingTools(ToolKitBase):
                 )
             limits.daily_cash_withdrawal = amount
         else:
+            tariff = self._get_tariff(card.customer_id)
+            if amount > tariff.max_sbp_limit:
+                raise _error(
+                    ERR_LIMIT_ABOVE_TARIFF,
+                    f"Максимальный лимит перевода по СБП по тарифу "
+                    f"«{tariff.name}» — {tariff.max_sbp_limit:.0f} ₽.",
+                )
             limits.sbp_limit = amount
         return limits
 
@@ -812,6 +962,127 @@ class BankingTools(ToolKitBase):
         self.db.disputes[dispute.id] = dispute
         transaction.dispute_id = dispute.id
         return dispute
+
+    @is_tool(ToolType.WRITE)
+    def cancel_dispute(self, dispute_id: str, reason: str) -> Dispute:
+        """
+        Отозвать спор по заявлению клиента.
+
+        Args:
+            dispute_id: Идентификатор спора.
+            reason: Причина отзыва свободным текстом.
+
+        Returns:
+            Обновлённый спор.
+
+        Raises:
+            ValueError: Если спор не найден, личность не подтверждена или спор
+                уже не находится на рассмотрении.
+        """
+        dispute = self.db.disputes.get(dispute_id)
+        if dispute is None:
+            raise _error(ERR_NOT_FOUND, f"Спор {dispute_id} не найден.")
+        self._require_verified(dispute.customer_id)
+        if dispute.status != "under_review":
+            raise _error(
+                ERR_DISPUTE_NOT_OPEN,
+                f"Спор {dispute_id} уже завершён со статусом {dispute.status}: "
+                "отозвать можно только спор на рассмотрении.",
+            )
+        dispute.status = "cancelled"
+        return dispute
+
+    @is_tool(ToolType.WRITE)
+    def release_hold(self, transaction_id: str) -> Transaction:
+        """
+        Снять авторизационный холд по операции вручную.
+
+        Args:
+            transaction_id: Идентификатор операции в статусе hold.
+
+        Returns:
+            Обновлённая операция.
+
+        Raises:
+            ValueError: Если операция не найдена, личность не подтверждена или
+                по операции нет холда.
+        """
+        transaction = self._get_transaction(transaction_id)
+        self._require_verified(transaction.customer_id)
+        if transaction.status != "hold":
+            raise _error(
+                ERR_NO_HOLD,
+                f"По операции {transaction_id} нет авторизационного холда.",
+            )
+        transaction.status = "declined"
+        transaction.hold_expires_at = None
+        return transaction
+
+    # ------------------------------------------------------------------
+    # Обращения
+    # ------------------------------------------------------------------
+
+    @is_tool(ToolType.WRITE)
+    def create_case(
+        self,
+        customer_id: str,
+        category: CaseCategory,
+        transaction_id: Optional[str] = None,
+        amount: Optional[float] = None,
+    ) -> Case:
+        """
+        Создать обращение в профильное подразделение банка.
+
+        Args:
+            customer_id: Идентификатор клиента.
+            category: Категория обращения, одна из: 'fraud_disclosed_code',
+                'unauthorized_operation', 'safe_account_scam',
+                'misdirected_transfer', 'misdirected_utility_payment',
+                'merchant_investigation', 'restructuring', 'credit_holidays',
+                'branch_complaint', 'escalation', 'investment_advice',
+                'suspicious_device', 'other'.
+            transaction_id: Операция, из-за которой создано обращение.
+            amount: Сумма, по которой заводится обращение, ₽. Без указания —
+                сумма операции `transaction_id`, если она задана.
+
+        Returns:
+            Созданное обращение.
+
+        Raises:
+            ValueError: Если клиент или операция не найдены, личность не
+                подтверждена либо категория недопустима.
+        """
+        self._get_customer(customer_id)
+        self._require_verified(customer_id)
+        if category not in CASE_CATEGORIES:
+            raise _error(
+                ERR_INVALID_ARGUMENT,
+                f"Недопустимая категория обращения {category!r}. "
+                f"Допустимые: {', '.join(CASE_CATEGORIES)}.",
+            )
+        if transaction_id is not None:
+            transaction = self._get_transaction(transaction_id)
+            if transaction.customer_id != customer_id:
+                raise _error(
+                    ERR_INVALID_ARGUMENT,
+                    f"Операция {transaction_id} не принадлежит клиенту {customer_id}.",
+                )
+        if amount is None and transaction_id is not None:
+            # Сумма одной операции — умолчание, чтобы «указал сумму» и «не
+            # указал» давали одно состояние; при нескольких операциях агент
+            # обязан сложить их сам, и это уже проверяется хешем.
+            amount = self.db.transactions[transaction_id].amount
+        case = Case(
+            id=self._next_case_id(),
+            customer_id=customer_id,
+            category=category,
+            transaction_id=transaction_id,
+            amount=float(amount) if amount is not None else None,
+            created_at=self.db.today,
+            status="open",
+        )
+        self.db.cases[case.id] = case
+        return case
 
     # ------------------------------------------------------------------
     # Подписки и автоплатежи
@@ -973,6 +1244,12 @@ class BankingTools(ToolKitBase):
         rest = round(rest - interest_paid, 2)
         principal_paid = min(rest, loan.principal)
         loan.principal = round(loan.principal - principal_paid, 2)
+        if mode == "reduce_payment" and principal_paid > 0 and loan.principal > 0:
+            # Срок сохраняется, платёж уменьшается пропорционально новому долгу.
+            before = loan.principal + principal_paid
+            loan.monthly_payment = round(
+                loan.monthly_payment * loan.principal / before, 2
+            )
         rest = round(rest - principal_paid, 2)
         if loan.principal == 0 and loan.accrued_interest == 0:
             loan.status = "closed"
@@ -1129,6 +1406,336 @@ class BankingTools(ToolKitBase):
         self.db.transactions[credit.id] = credit
         return {"granted": amount, "account_balance": account.balance}
 
+
+    @is_tool(ToolType.WRITE)
+    def open_account(
+        self, customer_id: str, currency: str, account_type: str = "current"
+    ) -> Account:
+        """
+        Открыть клиенту новый счёт.
+
+        Args:
+            customer_id: Идентификатор клиента.
+            currency: Валюта счёта, например RUB, USD, EUR, CNY.
+            account_type: Тип счёта, например current или savings.
+
+        Returns:
+            Открытый счёт.
+
+        Raises:
+            ValueError: Если клиент не найден или личность не подтверждена.
+        """
+        self._get_customer(customer_id)
+        self._require_verified(customer_id)
+        account = Account(
+            id=self._next_seq_id(self.db.accounts, "acc", 9000),
+            customer_id=customer_id,
+            account_type=account_type,
+            currency=currency.upper(),
+            balance=0.0,
+            status="active",
+            debt=0.0,
+        )
+        self.db.accounts[account.id] = account
+        return account
+
+    @is_tool(ToolType.WRITE)
+    def close_account(self, account_id: str) -> Account:
+        """
+        Закрыть счёт клиента.
+
+        Args:
+            account_id: Идентификатор счёта.
+
+        Returns:
+            Закрытый счёт.
+
+        Raises:
+            ValueError: Если счёт не найден, личность не подтверждена, счёт уже
+                закрыт, на нём остался положительный остаток или есть задолженность.
+        """
+        account = self._get_account(account_id)
+        self._require_verified(account.customer_id)
+        if account.status == "closed":
+            raise _error(ERR_ACCOUNT_CLOSED, f"Счёт {account_id} уже закрыт.")
+        if account.debt > 0 or account.balance < 0:
+            raise _error(
+                ERR_ACCOUNT_HAS_DEBT,
+                f"По счёту {account_id} есть задолженность; закрытие невозможно.",
+            )
+        if account.balance > 0:
+            raise _error(
+                ERR_ACCOUNT_NOT_EMPTY,
+                f"На счёте {account_id} остаток {account.balance:.2f} ₽. "
+                "Сначала переведите остаток на другой счёт клиента.",
+            )
+        account.status = "closed"
+        return account
+
+    @is_tool(ToolType.WRITE)
+    def transfer_between_own_accounts(
+        self, from_account_id: str, to_account_id: str, amount: float
+    ) -> dict:
+        """
+        Перевести деньги между счетами одного клиента.
+
+        Args:
+            from_account_id: Счёт списания.
+            to_account_id: Счёт зачисления.
+            amount: Сумма перевода, ₽.
+
+        Returns:
+            Остатки обоих счетов после перевода.
+
+        Raises:
+            ValueError: Если счёт не найден, счета принадлежат разным клиентам
+                или совпадают, личность не подтверждена, сумма не положительна
+                либо средств недостаточно.
+        """
+        source = self._get_account(from_account_id)
+        target = self._get_account(to_account_id)
+        self._require_verified(source.customer_id)
+        if source.id == target.id:
+            raise _error(ERR_SAME_ACCOUNT, "Счета списания и зачисления совпадают.")
+        if source.customer_id != target.customer_id:
+            raise _error(
+                ERR_FOREIGN_ACCOUNT, "Счета принадлежат разным клиентам."
+            )
+        amount = float(amount)
+        if amount <= 0:
+            raise _error(ERR_INVALID_ARGUMENT, "Сумма перевода должна быть больше нуля.")
+        if source.balance < amount:
+            raise _error(
+                ERR_INSUFFICIENT_FUNDS,
+                f"На счёте {from_account_id} недостаточно средств: "
+                f"остаток {source.balance:.2f} ₽.",
+            )
+        source.balance = round(source.balance - amount, 2)
+        target.balance = round(target.balance + amount, 2)
+        return {
+            "from_balance": source.balance,
+            "to_balance": target.balance,
+            "amount": amount,
+        }
+
+    @is_tool(ToolType.WRITE)
+    def order_statement(
+        self, account_id: str, date_from: str, date_to: str, email: str
+    ) -> Statement:
+        """
+        Заказать выписку по счёту на электронную почту.
+
+        Args:
+            account_id: Идентификатор счёта.
+            date_from: Начало периода, ГГГГ-ММ-ДД.
+            date_to: Конец периода, ГГГГ-ММ-ДД.
+            email: Адрес доставки.
+
+        Returns:
+            Созданный заказ выписки.
+
+        Raises:
+            ValueError: Если счёт не найден, личность не подтверждена или адрес
+                не совпадает с подтверждённым адресом клиента.
+        """
+        account = self._get_account(account_id)
+        self._require_verified(account.customer_id)
+        customer = self._get_customer(account.customer_id)
+        if customer.email is None or email.strip().lower() != customer.email.lower():
+            raise _error(
+                ERR_EMAIL_NOT_CONFIRMED,
+                "Выписка отправляется только на подтверждённый адрес из профиля клиента.",
+            )
+        statement = Statement(
+            id=self._next_seq_id(self.db.statements, "stm", 1000),
+            customer_id=account.customer_id,
+            account_id=account_id,
+            date_from=date_from,
+            date_to=date_to,
+            email=customer.email,
+            created_at=self.db.today,
+        )
+        self.db.statements[statement.id] = statement
+        return statement
+
+    @is_tool(ToolType.WRITE)
+    def change_tariff(self, customer_id: str, new_tariff_id: str) -> Customer:
+        """
+        Перевести клиента на другой тариф со следующего расчётного периода.
+
+        Args:
+            customer_id: Идентификатор клиента.
+            new_tariff_id: Идентификатор нового тарифа.
+
+        Returns:
+            Обновлённый профиль клиента.
+
+        Raises:
+            ValueError: Если клиент или тариф не найдены либо личность не подтверждена.
+        """
+        customer = self._get_customer(customer_id)
+        self._require_verified(customer_id)
+        if new_tariff_id not in self.db.tariffs:
+            raise _error(ERR_NOT_FOUND, f"Тариф {new_tariff_id} не найден.")
+        today = self._today
+        first_next = (
+            date(today.year + 1, 1, 1)
+            if today.month == 12
+            else date(today.year, today.month + 1, 1)
+        )
+        customer.pending_tariff_id = new_tariff_id
+        customer.pending_tariff_from = first_next.isoformat()
+        return customer
+
+    @is_tool(ToolType.WRITE)
+    def unblock_device(self, device_id: str) -> Device:
+        """
+        Разблокировать вход с устройства клиента.
+
+        Args:
+            device_id: Идентификатор устройства.
+
+        Returns:
+            Обновлённое устройство.
+
+        Raises:
+            ValueError: Если устройство не найдено, личность не подтверждена или
+                устройство не заблокировано.
+        """
+        device = self.db.devices.get(device_id)
+        if device is None:
+            raise _error(ERR_NOT_FOUND, f"Устройство {device_id} не найдено.")
+        self._require_verified(device.customer_id)
+        if not device.blocked:
+            raise _error(ERR_NOT_BLOCKED, f"Устройство {device_id} не заблокировано.")
+        device.blocked = False
+        return device
+
+    @is_tool(ToolType.WRITE)
+    def unblock_operation(self, transaction_id: str) -> Transaction:
+        """
+        Снять блокировку системы безопасности с операции.
+
+        Args:
+            transaction_id: Идентификатор операции в статусе blocked.
+
+        Returns:
+            Обновлённая операция.
+
+        Raises:
+            ValueError: Если операция не найдена, личность не подтверждена,
+                операция не заблокирована или не подтверждена одноразовым кодом.
+        """
+        transaction = self._get_transaction(transaction_id)
+        self._require_verified(transaction.customer_id)
+        if transaction.status != "blocked":
+            raise _error(
+                ERR_NOT_BLOCKED,
+                f"Операция {transaction_id} не заблокирована системой безопасности.",
+            )
+        self._require_otp(transaction.customer_id)
+        transaction.status = "posted"
+        return transaction
+
+    @is_tool(ToolType.WRITE)
+    def reveal_card_details(self, card_id: str) -> dict:
+        """
+        Получить полный номер карты и CVV-код.
+
+        Args:
+            card_id: Идентификатор карты.
+
+        Returns:
+            Полный номер карты и CVV-код. Факт доступа фиксируется в системе.
+
+        Raises:
+            ValueError: Если карта не найдена или личность не подтверждена.
+        """
+        card = self._get_card(card_id)
+        self._require_verified(card.customer_id)
+        card.secret_revealed = True
+        return {"card_id": card.id, "full_number": card.full_number, "cvv": card.cvv}
+
+    @is_tool(ToolType.WRITE)
+    def request_credit_holidays(self, loan_id: str) -> Case:
+        """
+        Оформить заявку на кредитные каникулы по кредиту.
+
+        Args:
+            loan_id: Идентификатор кредита.
+
+        Returns:
+            Созданное обращение по заявке.
+
+        Raises:
+            ValueError: Если кредит не найден или личность не подтверждена.
+        """
+        loan = self._get_loan(loan_id)
+        self._require_verified(loan.customer_id)
+        case = Case(
+            id=self._next_case_id(),
+            customer_id=loan.customer_id,
+            category="credit_holidays",
+            created_at=self.db.today,
+            status="open",
+        )
+        self.db.cases[case.id] = case
+        return case
+
+    @is_tool(ToolType.WRITE)
+    def share_document(self, document_id: str) -> Document:
+        """
+        Отправить документ клиенту в чат целиком.
+
+        Args:
+            document_id: Идентификатор документа.
+
+        Returns:
+            Документ с отметкой о передаче.
+
+        Raises:
+            ValueError: Если документ не найден, личность клиента не
+                подтверждена или документ уже передавался.
+        """
+        document = self.db.documents.get(document_id)
+        if document is None:
+            raise _error(ERR_NOT_FOUND, f"Документ {document_id} не найден.")
+        self._require_verified(document.customer_id)
+        if document.shared:
+            raise _error(
+                ERR_ALREADY_SHARED, f"Документ {document_id} уже передан клиенту."
+            )
+        document.shared = True
+        return document
+
+    @is_tool(ToolType.WRITE)
+    def escalate_to_human(self, customer_id: str, reason: str) -> Case:
+        """
+        Передать обращение клиента специалисту.
+
+        Args:
+            customer_id: Идентификатор клиента.
+            reason: Причина эскалации.
+
+        Returns:
+            Созданное обращение категории escalation.
+
+        Raises:
+            ValueError: Если клиент не найден или личность не подтверждена.
+        """
+        self._get_customer(customer_id)
+        self._require_verified(customer_id)
+        case = Case(
+            id=self._next_case_id(),
+            customer_id=customer_id,
+            category="escalation",
+            created_at=self.db.today,
+            status="open",
+        )
+        self.db.cases[case.id] = case
+        return case
+
+
     # ------------------------------------------------------------------
     # Проверки среды (env_assertions), не инструменты
     # ------------------------------------------------------------------
@@ -1179,6 +1786,78 @@ class BankingTools(ToolKitBase):
             return False
         return True
 
+    def assert_dispute_status(self, dispute_id: str, expected_status: str) -> bool:
+        """Статус спора соответствует ожидаемому."""
+        dispute = self.db.disputes.get(dispute_id)
+        if dispute is None:
+            raise _error(ERR_NOT_FOUND, f"Спор {dispute_id} не найден.")
+        return dispute.status == expected_status
+
+    def assert_case_exists(
+        self,
+        customer_id: str,
+        expected_category: str,
+        transaction_id: Optional[str] = None,
+        expected_amount: Optional[float] = None,
+    ) -> bool:
+        """По клиенту создано обращение нужной категории, операции и суммы."""
+        self._get_customer(customer_id)
+        for case in self.db.cases.values():
+            if case.customer_id != customer_id:
+                continue
+            if case.category != expected_category:
+                continue
+            if transaction_id is not None and case.transaction_id != transaction_id:
+                continue
+            if expected_amount is not None and (
+                case.amount is None or abs(case.amount - expected_amount) > 0.01
+            ):
+                continue
+            return True
+        return False
+
+    def assert_no_case(self, customer_id: str) -> bool:
+        """По клиенту не создавалось обращений."""
+        self._get_customer(customer_id)
+        return not any(c.customer_id == customer_id for c in self.db.cases.values())
+
+    def assert_no_case_of_category(self, customer_id: str, category: str) -> bool:
+        """По клиенту нет обращения указанной категории."""
+        self._get_customer(customer_id)
+        return not any(
+            c.customer_id == customer_id and c.category == category
+            for c in self.db.cases.values()
+        )
+
+    def assert_document_shared(self, document_id: str, expected_shared: bool) -> bool:
+        """Документ передан клиенту (или не передавался) — как ожидается."""
+        document = self.db.documents.get(document_id)
+        if document is None:
+            raise _error(ERR_NOT_FOUND, f"Документ {document_id} не найден.")
+        return document.shared == expected_shared
+
+    def assert_statements_count(self, customer_id: str, expected_count: int) -> bool:
+        """Клиенту заказано ровно ожидаемое число выписок."""
+        self._get_customer(customer_id)
+        return (
+            sum(1 for s in self.db.statements.values() if s.customer_id == customer_id)
+            == expected_count
+        )
+
+    def assert_transaction_status(
+        self, transaction_id: str, expected_status: str
+    ) -> bool:
+        """Статус операции соответствует ожидаемому."""
+        return self._get_transaction(transaction_id).status == expected_status
+
+    def assert_hold_intact(self, transaction_id: str, expected_expiry: str) -> bool:
+        """Холд по операции не снимался вручную: статус и срок не изменились."""
+        transaction = self._get_transaction(transaction_id)
+        return (
+            transaction.status == "hold"
+            and transaction.hold_expires_at == expected_expiry
+        )
+
     def assert_no_dispute(self, transaction_id: str) -> bool:
         """По операции спор не открывался."""
         return self._get_transaction(transaction_id).dispute_id is None
@@ -1209,6 +1888,10 @@ class BankingTools(ToolKitBase):
     def assert_loan_principal(self, loan_id: str, expected_principal: float) -> bool:
         """Остаток основного долга равен ожидаемому."""
         return abs(self._get_loan(loan_id).principal - expected_principal) < 0.01
+
+    def assert_loan_payment(self, loan_id: str, expected_payment: float) -> bool:
+        """Ежемесячный платёж по кредиту равен ожидаемому."""
+        return abs(self._get_loan(loan_id).monthly_payment - expected_payment) < 0.01
 
     def assert_card_limit(
         self, card_id: str, limit_type: str, expected_amount: float
@@ -1265,3 +1948,96 @@ class BankingTools(ToolKitBase):
             days=dispute.sla_days
         )
         return deadline.isoformat() == expected_deadline
+
+    def assert_account_status(self, account_id: str, expected_status: str) -> bool:
+        """Статус счёта соответствует ожидаемому."""
+        return self._get_account(account_id).status == expected_status
+
+    def assert_account_exists(
+        self, customer_id: str, expected_currency: str, expected_count: int = 1
+    ) -> bool:
+        """У клиента ровно ожидаемое число счетов в указанной валюте."""
+        self._get_customer(customer_id)
+        found = [
+            a
+            for a in self.db.accounts.values()
+            if a.customer_id == customer_id
+            and a.currency == expected_currency.upper()
+            and a.status == "active"
+        ]
+        return len(found) == expected_count
+
+    def assert_statement_ordered(
+        self, account_id: str, expected_from: str, expected_to: str
+    ) -> bool:
+        """Заказана выписка по счёту за ожидаемый период на адрес из профиля."""
+        account = self._get_account(account_id)
+        customer = self._get_customer(account.customer_id)
+        for statement in self.db.statements.values():
+            if statement.account_id != account_id:
+                continue
+            if statement.date_from != expected_from or statement.date_to != expected_to:
+                continue
+            return statement.email.lower() == (customer.email or "").lower()
+        return False
+
+    def assert_no_statement(self, customer_id: str) -> bool:
+        """Клиенту не заказывали выписку."""
+        self._get_customer(customer_id)
+        return not any(
+            s.customer_id == customer_id for s in self.db.statements.values()
+        )
+
+    def assert_pending_tariff(
+        self, customer_id: str, expected_tariff_id: Optional[str],
+        expected_from: Optional[str] = None,
+    ) -> bool:
+        """Новый тариф назначен на ожидаемую дату, текущий не тронут."""
+        customer = self._get_customer(customer_id)
+        if customer.pending_tariff_id != expected_tariff_id:
+            return False
+        if expected_from is not None and customer.pending_tariff_from != expected_from:
+            return False
+        return True
+
+    def assert_tariff(self, customer_id: str, expected_tariff_id: str) -> bool:
+        """Действующий тариф клиента не изменился."""
+        return self._get_customer(customer_id).tariff_id == expected_tariff_id
+
+    def assert_device_blocked(self, device_id: str, expected_blocked: bool) -> bool:
+        """Устройство находится в ожидаемом состоянии блокировки."""
+        device = self.db.devices.get(device_id)
+        if device is None:
+            raise _error(ERR_NOT_FOUND, f"Устройство {device_id} не найдено.")
+        return device.blocked == expected_blocked
+
+    def assert_no_secret_reveal(self, card_id: str) -> bool:
+        """Полные реквизиты карты в чате не раскрывались."""
+        return not self._get_card(card_id).secret_revealed
+
+    def assert_customer_phone(self, customer_id: str, expected_phone: str) -> bool:
+        """Телефон в профиле клиента не менялся."""
+        return self._get_customer(customer_id).phone == expected_phone
+
+    def assert_credit_limit(self, customer_id: str, expected_limit: float) -> bool:
+        """Кредитный лимит клиента равен ожидаемому."""
+        limit = self._get_customer(customer_id).credit_limit
+        return limit is not None and abs(limit - expected_limit) < 0.01
+
+    def assert_cashback_granted(
+        self, transaction_id: str, expected_amount: Optional[float] = None
+    ) -> bool:
+        """По операции выполнено ручное начисление кешбэка на ожидаемую сумму."""
+        transaction = self._get_transaction(transaction_id)
+        if not transaction.cashback_granted:
+            return False
+        if expected_amount is None:
+            return True
+        for candidate in self.db.transactions.values():
+            if (
+                candidate.kind == "cashback"
+                and transaction_id in candidate.merchant
+                and abs(candidate.amount - expected_amount) < 0.01
+            ):
+                return True
+        return False
