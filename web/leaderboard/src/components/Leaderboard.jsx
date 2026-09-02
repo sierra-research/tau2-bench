@@ -2,16 +2,26 @@ import React, { useState, useEffect } from 'react'
 import './Leaderboard.css'
 import ProgressView from './ProgressView'
 
-const BENCHMARK_VALUES = new Set(['text', 'voice'])
+// The leaderboard is split into three buckets, one per benchmark track:
+// τ³-Banking (published as τ-knowledge), τ³-Voice (published as τ-voice:
+// retail/airline/telecom in real-time voice), and τ²-bench (core:
+// retail/airline/telecom in text, near saturation).
+const BENCHMARK_VALUES = new Set(['core', 'knowledge', 'voice'])
 
-const getBenchmarkFromHash = () => {
-  const hash = window.location.hash.slice(1)
-  const [route, queryString = ''] = hash.split('?')
-  // Both #leaderboard?benchmark=… and #progress?benchmark=… select the
-  // benchmark on the same view, so accept either route.
-  if (route !== 'leaderboard' && route !== 'progress') return null
+// Pre-bucket URLs and localStorage used benchmark=text for what is now 'core'.
+const normalizeBenchmark = (value) => (value === 'text' ? 'core' : value)
 
-  const value = new URLSearchParams(queryString).get('benchmark')
+// Both /leaderboard?benchmark=… and /progress?benchmark=… select the
+// benchmark on the same view, so accept either route.
+const isLeaderboardPath = (pathname) => {
+  const path = pathname.replace(/\/$/, '') || '/'
+  return path === '/leaderboard' || path === '/progress'
+}
+
+const getBenchmarkFromUrl = () => {
+  if (!isLeaderboardPath(window.location.pathname)) return null
+
+  const value = normalizeBenchmark(new URLSearchParams(window.location.search).get('benchmark'))
   return BENCHMARK_VALUES.has(value) ? value : null
 }
 
@@ -19,19 +29,73 @@ const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
   || `${import.meta.env.BASE_URL}submissions`
 
 const NO_CACHE = { cache: 'no-cache' }
-const TEXT_DEFAULT_DOMAIN = 'banking_knowledge'
-const TEXT_DOMAINS = [
-  { key: 'banking_knowledge', label: '🏦 Banking' },
+const CORE_DOMAINS = [
+  { key: 'overall', label: '📊 Overall' },
   { key: 'retail', label: '🛍️ Retail' },
   { key: 'airline', label: '✈️ Airline' },
   { key: 'telecom', label: '📱 Telecom' },
+]
+// TODO(voice-banking): when banking is supported in voice mode, add a
+// Text | Voice modality toggle inside the Knowledge bucket rather than a
+// banking domain tab under Voice. That keeps the Voice bucket's Overall
+// (core 3 domains) stable and keeps all knowledge scores in one place.
+const KNOWLEDGE_DOMAINS = [
+  { key: 'banking_knowledge', label: '🏦 Banking' },
 ]
 const VOICE_DOMAINS = [
   { key: 'overall', label: '📊 Overall' },
   { key: 'retail', label: '🛍️ Retail' },
   { key: 'airline', label: '✈️ Airline' },
   { key: 'telecom', label: '📱 Telecom' },
+  { key: 'banking_knowledge', label: '🏦 Banking' },
 ]
+
+// Key order determines toggle order: newest tracks first.
+const BENCHMARK_CONFIG = {
+  knowledge: {
+    label: 'τ³-Banking',
+    icon: '🏦',
+    title: 'τ³-Banking Leaderboard',
+    description: 'Text agents resolving banking customer-service tasks over a ~700-document knowledge base. Published as τ-knowledge.',
+    // Shown on hover wherever the track name appears without room for the
+    // full description; maps the display name back to the paper name.
+    hoverNote: 'τ³-Banking was published as τ-knowledge',
+    modality: 'text',
+    domains: KNOWLEDGE_DOMAINS,
+    defaultDomain: 'banking_knowledge',
+    breakdownDomains: ['banking_knowledge'],
+  },
+  voice: {
+    label: 'τ³-Voice',
+    icon: '🎙️',
+    title: 'τ³-Voice Leaderboard',
+    description: 'Real-time, full-duplex voice agents on retail, airline, and telecom customer-service tasks. Published as τ-voice.',
+    hoverNote: 'τ³-Voice was published as τ-voice',
+    modality: 'voice',
+    domains: VOICE_DOMAINS,
+    defaultDomain: 'overall',
+    // Banking is excluded from the Overall average but still gets a breakdown
+    // card, so a banking-only submission has somewhere to show its score.
+    breakdownDomains: ['retail', 'airline', 'telecom', 'banking_knowledge'],
+  },
+  core: {
+    label: 'τ²-bench',
+    icon: '📝',
+    title: 'τ²-bench Leaderboard',
+    description: 'Text agents on retail, airline, and telecom customer-service tasks, where the agent and the user both act on the world.',
+    modality: 'text',
+    domains: CORE_DOMAINS,
+    defaultDomain: 'overall',
+    breakdownDomains: ['retail', 'airline', 'telecom'],
+  },
+}
+
+const DOMAIN_CARDS = {
+  retail: { key: 'retail', label: 'Retail', icon: '🛍️', desc: 'Order cancellations, returns, exchanges, address changes, and product inquiries.' },
+  airline: { key: 'airline', label: 'Airline', icon: '✈️', desc: 'Flight bookings, modifications, cancellations, refunds, baggage, and compensation.' },
+  telecom: { key: 'telecom', label: 'Telecom', icon: '📱', desc: 'Technical support for connectivity issues, bill payments, and plan management.' },
+  banking_knowledge: { key: 'banking_knowledge', label: 'Banking', icon: '🏦', desc: 'Banking customer service with knowledge retrieval over policy documents.' },
+}
 
 const formatVoicePipeline = (pipeline) => {
   if (!pipeline) return ''
@@ -42,23 +106,160 @@ const formatVoicePipeline = (pipeline) => {
   ].filter(Boolean).join('\n')
 }
 
-const Leaderboard = () => {
-  // Benchmark selector: 'text' (τ-bench) or 'voice' (τ-voice)
-  const [benchmark, setBenchmark] = useState(() => {
-    const fromHash = getBenchmarkFromHash()
-    if (fromHash) return fromHash
+// Voice interaction quality (τ-voice panel, condensed to four headline metrics).
+// Rates backed by fewer than MIN_INTERACTION_N events are hidden as noise.
+const MIN_INTERACTION_N = 10
 
-    const fromStorage = localStorage.getItem('benchmark')
-    return BENCHMARK_VALUES.has(fromStorage) ? fromStorage : 'text'
+const INTERACTION_METRICS = [
+  {
+    key: 'response_rate',
+    label: 'Responsiveness',
+    unit: '%',
+    better: 'higher',
+    desc: 'Fraction of user turns that received an agent response before the user had to speak again. Higher is better.',
+  },
+  {
+    key: 'response_latency_mean',
+    label: 'Latency',
+    unit: 's',
+    better: 'lower',
+    desc: 'Mean seconds from the end of a user turn to the start of the agent response. Lower is better.',
+  },
+  {
+    key: 'agent_interruption_rate',
+    label: 'Interrupts',
+    unit: '%',
+    better: 'lower',
+    desc: 'Agent interruption events per eligible user turn. An agent can interrupt the same turn more than once, so this can exceed 100%. Lower is better.',
+  },
+  {
+    key: 'selectivity',
+    label: 'Selectivity',
+    unit: '%',
+    better: 'higher',
+    desc: 'How well the agent ignores audio not directed at it (backchannels, vocal tics, background speech). Higher is better.',
+  },
+]
+
+const SELECTIVITY_PARTS = [
+  { key: 'selectivity_backchannel', countKey: 'backchannel_total' },
+  { key: 'selectivity_vocal_tic', countKey: 'vocal_tic_total' },
+  { key: 'selectivity_non_directed', countKey: 'non_directed_total' },
+]
+
+const getInteractionPanel = (interactionMetrics, domainKey) => {
+  if (!interactionMetrics) return null
+  return domainKey === 'overall'
+    ? interactionMetrics.overall || null
+    : interactionMetrics.domains?.[domainKey] || null
+}
+
+// Support gate for a single rate: 'ok' when backed by >= MIN_INTERACTION_N
+// events, 'low_n' when under-supported (including when counts are missing and
+// support can't be verified), 'undefined' when there were no qualifying
+// events so the rate isn't measurable at all.
+const rateStatus = (value, n) => {
+  if (value === null || value === undefined) return 'undefined'
+  return n >= MIN_INTERACTION_N ? 'ok' : 'low_n'
+}
+
+// Latency is averaged over responded turns only, so its support count is
+// response_rate * response_total rather than response_total itself.
+const metricEventCount = (panel, metricKey) => {
+  const total = panel.counts?.response_total ?? 0
+  return metricKey === 'response_latency_mean'
+    ? Math.round((panel.response_rate ?? 0) * total)
+    : total
+}
+
+const selectivityPartStatus = (panel, part) =>
+  rateStatus(panel[part.key], panel.counts?.[part.countKey] ?? 0)
+
+// Composite selectivity is the mean of all three component rates. If any
+// component is missing or under-supported the composite is hidden entirely:
+// silently dropping a component would rank rows on differently-defined
+// quantities (a 2-component mean vs everyone else's 3-component mean).
+const panelSelectivity = (panel) => {
+  const statuses = SELECTIVITY_PARTS.map((part) => selectivityPartStatus(panel, part))
+  if (statuses.every((s) => s === 'undefined')) return { reason: 'undefined' }
+  if (statuses.some((s) => s !== 'ok')) return { reason: 'low_n' }
+  const sum = SELECTIVITY_PARTS.reduce((s, part) => s + panel[part.key], 0)
+  return { reason: 'ok', value: sum / SELECTIVITY_PARTS.length }
+}
+
+const panelMetric = (panel, metricKey) => {
+  if (metricKey === 'selectivity') return panelSelectivity(panel)
+  const status = rateStatus(panel[metricKey], metricEventCount(panel, metricKey))
+  return status === 'ok' ? { reason: 'ok', value: panel[metricKey] } : { reason: status }
+}
+
+// The overall panel is an unweighted mean of domain rates, so it is only as
+// reliable as its weakest contributor: a domain rate that exists but is
+// under-supported enters that mean with full weight. Hide the overall value
+// whenever any contributing domain rate fails the support gate. (A domain
+// with no qualifying events contributes nothing and doesn't count against it.)
+const overallContaminated = (interactionMetrics, metricKey) => {
+  const domains = Object.values(interactionMetrics.domains || {})
+  if (metricKey === 'selectivity') {
+    return domains.some((panel) =>
+      SELECTIVITY_PARTS.some((part) => selectivityPartStatus(panel, part) === 'low_n'))
+  }
+  return domains.some((panel) =>
+    rateStatus(panel[metricKey], metricEventCount(panel, metricKey)) === 'low_n')
+}
+
+// Returns { value, reason }: reason is 'ok', 'low_n', 'undefined', or
+// 'unavailable' (submission has no interaction_metrics block).
+const getInteractionCellInfo = (interactionMetrics, domainKey, metricKey) => {
+  const panel = getInteractionPanel(interactionMetrics, domainKey)
+  if (!panel) return { value: null, reason: 'unavailable' }
+  const metric = panelMetric(panel, metricKey)
+  if (metric.reason !== 'ok') return { value: null, reason: metric.reason }
+  if (domainKey === 'overall' && overallContaminated(interactionMetrics, metricKey)) {
+    return { value: null, reason: 'low_n' }
+  }
+  return { value: metric.value, reason: 'ok' }
+}
+
+const getInteractionValue = (interactionMetrics, domainKey, metricKey) =>
+  getInteractionCellInfo(interactionMetrics, domainKey, metricKey).value
+
+const INTERACTION_NO_DATA_TOOLTIP = {
+  unavailable: 'Interaction metrics not available for this submission',
+  low_n: `Not shown: backed by fewer than ${MIN_INTERACTION_N} events`,
+  undefined: 'Not shown: no qualifying events in this run',
+}
+
+const formatInteractionValue = (value, unit) => {
+  if (value === null || value === undefined) return '—'
+  return unit === 's' ? `${value.toFixed(2)}s` : `${(value * 100).toFixed(1)}%`
+}
+
+const Leaderboard = () => {
+  // Benchmark selector: 'core' (τ²-bench), 'knowledge' (τ-knowledge), or
+  // 'voice' (τ-voice)
+  const [benchmark, setBenchmark] = useState(() => {
+    const fromUrl = getBenchmarkFromUrl()
+    if (fromUrl) return fromUrl
+
+    const fromStorage = normalizeBenchmark(localStorage.getItem('benchmark'))
+    // Default to the first toggle position (newest track)
+    return BENCHMARK_VALUES.has(fromStorage) ? fromStorage : 'knowledge'
   })
   // Add unified domain selection state with localStorage persistence
   const [domain, setDomain] = useState(() => {
-    const storedBenchmark = localStorage.getItem('benchmark')
-    const storedDomain = localStorage.getItem('domain')
-    const validDomains = storedBenchmark === 'voice' ? VOICE_DOMAINS : TEXT_DOMAINS
-    return validDomains.some(({ key }) => key === storedDomain)
+    // Resolve the benchmark the same way its own initializer does (URL wins),
+    // so a direct load of ?benchmark=voice gets voice's default domain rather
+    // than one stored under another track.
+    const storedBenchmark = normalizeBenchmark(localStorage.getItem('benchmark'))
+    const urlBenchmark = getBenchmarkFromUrl()
+    const config = BENCHMARK_CONFIG[urlBenchmark || storedBenchmark] || BENCHMARK_CONFIG.knowledge
+    const storedDomain = (!urlBenchmark || urlBenchmark === storedBenchmark)
+      ? localStorage.getItem('domain')
+      : null
+    return config.domains.some(({ key }) => key === storedDomain)
       ? storedDomain
-      : (storedBenchmark === 'voice' ? 'overall' : TEXT_DEFAULT_DOMAIN)
+      : config.defaultDomain
   })
   // Selected pass^k metric (1-4) with localStorage persistence
   const [selectedPassK, setSelectedPassK] = useState(() => {
@@ -75,6 +276,8 @@ const Leaderboard = () => {
   })
   const [showCustom, setShowCustom] = useState(() => {
     const stored = localStorage.getItem('showCustom')
+    // Every track defaults to standard-only: custom rows aren't comparable to
+    // the rest of the board, so they're opt-in rather than mixed in by default.
     return stored === null ? false : stored === 'true'
   })
   // Legacy submissions toggle
@@ -83,6 +286,10 @@ const Leaderboard = () => {
   })
   // Info tooltip state
   const [showFilterInfo, setShowFilterInfo] = useState(false)
+  // Voice ranking mode: 'passk' (default) or 'interaction' (τ-voice panel)
+  const [rankBy, setRankBy] = useState('passk')
+  // null = keep the pass^1 ordering; set by clicking a metric column header
+  const [interactionMetric, setInteractionMetric] = useState(null)
   // Expanded rows state (set of model names)
   const [expandedRows, setExpandedRows] = useState(new Set())
   const [openPipelineKey, setOpenPipelineKey] = useState(null)
@@ -182,18 +389,19 @@ const Leaderboard = () => {
             submission.results.banking_knowledge?.pass_4 || null
           ]
           
-          // Calculate overall averages (only if all 4 domains have data)
+          // Overall = average of the three core domains (retail, airline,
+          // telecom), only when all three have data. Banking is scored
+          // separately in the Knowledge bucket.
           const hasRetailData = submission.results.retail?.pass_1 !== null && submission.results.retail?.pass_1 !== undefined
           const hasAirlineData = submission.results.airline?.pass_1 !== null && submission.results.airline?.pass_1 !== undefined
           const hasTelecomData = submission.results.telecom?.pass_1 !== null && submission.results.telecom?.pass_1 !== undefined
-          const hasBankingData = submission.results.banking_knowledge?.pass_1 !== null && submission.results.banking_knowledge?.pass_1 !== undefined
           
-          const overallData = (hasRetailData && hasAirlineData && hasTelecomData && hasBankingData) 
+          const overallData = (hasRetailData && hasAirlineData && hasTelecomData) 
             ? [0, 1, 2, 3].map(passIndex => {
-                const values = [retailData[passIndex], airlineData[passIndex], telecomData[passIndex], bankingData[passIndex]].filter(val => val !== null)
+                const values = [retailData[passIndex], airlineData[passIndex], telecomData[passIndex]].filter(val => val !== null)
                 return values.length > 0 ? values.reduce((sum, val) => sum + val, 0) / values.length : null
               })
-            : [null, null, null, null] // No overall score if missing any domain
+            : [null, null, null, null] // No overall score if missing any core domain
           
           const modelData = {
             modelName: submission.model_name,
@@ -219,6 +427,7 @@ const Leaderboard = () => {
             bankingRetrievalConfig: submission.results.banking_knowledge?.retrieval_config || null,
             // Voice-specific fields
             voiceConfig: submission.voice_config || null,
+            interactionMetrics: submission.interaction_metrics || null,
             // Add verification status
             // For 'custom' submissions, we relax the modified_prompts constraint
             // Custom submissions are allowed to modify prompts as long as they have trajectories and don't omit questions
@@ -276,39 +485,32 @@ const Leaderboard = () => {
   }, [benchmark])
 
   // Keep benchmark in URL for shareable deep links, e.g.
-  // #leaderboard?benchmark=voice or #progress?benchmark=voice
+  // /leaderboard?benchmark=voice or /progress?benchmark=voice
   useEffect(() => {
-    const currentHash = window.location.hash
-    if (!currentHash.startsWith('#leaderboard') && !currentHash.startsWith('#progress')) {
-      return
-    }
+    if (!isLeaderboardPath(window.location.pathname)) return
 
-    const hash = currentHash.slice(1)
-    const [route, queryString = ''] = hash.split('?')
-    const params = new URLSearchParams(queryString)
+    const params = new URLSearchParams(window.location.search)
     params.set('benchmark', benchmark)
     params.delete('view')
 
-    const nextHash = `${route}?${params.toString()}`
-    if (hash !== nextHash) {
-      window.history.replaceState(null, '', `#${nextHash}`)
+    const next = `${window.location.pathname}?${params.toString()}`
+    if (`${window.location.pathname}${window.location.search}` !== next) {
+      window.history.replaceState(null, '', next)
     }
   }, [benchmark])
 
-  // React to manual hash edits or browser navigation events.
+  // React to browser navigation events (back/forward).
   useEffect(() => {
-    const syncFromHash = () => {
-      const benchmarkFromHash = getBenchmarkFromHash()
-      if (benchmarkFromHash) {
-        setBenchmark(prev => (prev === benchmarkFromHash ? prev : benchmarkFromHash))
+    const syncFromUrl = () => {
+      const benchmarkFromUrl = getBenchmarkFromUrl()
+      if (benchmarkFromUrl) {
+        setBenchmark(prev => (prev === benchmarkFromUrl ? prev : benchmarkFromUrl))
       }
     }
 
-    window.addEventListener('hashchange', syncFromHash)
-    window.addEventListener('popstate', syncFromHash)
+    window.addEventListener('popstate', syncFromUrl)
     return () => {
-      window.removeEventListener('hashchange', syncFromHash)
-      window.removeEventListener('popstate', syncFromHash)
+      window.removeEventListener('popstate', syncFromUrl)
     }
   }, [])
 
@@ -317,9 +519,9 @@ const Leaderboard = () => {
   }, [domain])
 
   useEffect(() => {
-    const domainsForBenchmark = benchmark === 'voice' ? VOICE_DOMAINS : TEXT_DOMAINS
-    if (!domainsForBenchmark.some(({ key }) => key === domain)) {
-      setDomain(benchmark === 'voice' ? 'overall' : TEXT_DEFAULT_DOMAIN)
+    const config = BENCHMARK_CONFIG[benchmark]
+    if (!config.domains.some(({ key }) => key === domain)) {
+      setDomain(config.defaultDomain)
     }
   }, [benchmark, domain])
 
@@ -358,16 +560,16 @@ const Leaderboard = () => {
   const handleBenchmarkChange = (newBenchmark) => {
     setBenchmark(newBenchmark)
     setExpandedRows(new Set())
+    const config = BENCHMARK_CONFIG[newBenchmark]
+    if (!config.domains.some(({ key }) => key === domain)) {
+      setDomain(config.defaultDomain)
+    }
     if (newBenchmark === 'voice') {
-      // Voice doesn't have banking_knowledge or a meaningful overall (no banking)
-      // Reset to 'overall' which will show avg of available domains
-      if (domain === 'banking_knowledge') {
-        setDomain('overall')
-      }
-      // Voice only has pass^1
+      // Voice only has pass^1; default view is Overall with all submission types
       setSelectedPassK(1)
-    } else if (domain === 'overall') {
-      setDomain(TEXT_DEFAULT_DOMAIN)
+      setDomain('overall')
+      setShowStandard(true)
+      setShowCustom(true)
     }
   }
 
@@ -433,9 +635,11 @@ const Leaderboard = () => {
     )
   }
 
+  const benchConfig = BENCHMARK_CONFIG[benchmark]
+
   const hasUnverifiedSubmission = Object.values(passKData).some(data => {
     // Filter by benchmark modality
-    if (data.modality !== benchmark) return false
+    if (data.modality !== benchConfig.modality) return false
     if (data.isLegacy && !showLegacy) return false
     const isStandard = data.submissionType === 'standard' || !data.submissionType
     const isCustom = data.submissionType === 'custom'
@@ -450,9 +654,11 @@ const Leaderboard = () => {
 
   // Determine domains available for current benchmark
   const isVoice = benchmark === 'voice'
-  const availableDomains = isVoice ? VOICE_DOMAINS : TEXT_DOMAINS
+  const availableDomains = benchConfig.domains
+  const benchmarkKeys = Object.keys(BENCHMARK_CONFIG)
 
-  // For voice overall, only average the 3 non-banking domains
+  // Voice overall averages the 3 original domains only; banking_knowledge is
+  // shown as its own column but excluded so older submissions stay comparable
   const voiceDomains = ['retail', 'airline', 'telecom']
 
   return (
@@ -460,35 +666,36 @@ const Leaderboard = () => {
     <div className="leaderboard-container">
       {/* Benchmark Selector */}
       <div className="benchmark-selector">
-        <div className="benchmark-toggle-container">
-          <button
-            className={`benchmark-toggle-option ${benchmark === 'text' ? 'active' : ''}`}
-            onClick={() => handleBenchmarkChange('text')}
-          >
-            <span className="benchmark-icon">📝</span> τ-bench
-          </button>
-          <button
-            className={`benchmark-toggle-option ${benchmark === 'voice' ? 'active' : ''}`}
-            onClick={() => handleBenchmarkChange('voice')}
-          >
-            <span className="benchmark-icon">🎙️</span> τ-voice
-          </button>
+        <div className="benchmark-toggle-container" style={{ '--benchmark-count': benchmarkKeys.length }}>
+          {benchmarkKeys.map((key) => (
+            <button
+              key={key}
+              className={`benchmark-toggle-option ${benchmark === key ? 'active' : ''}`}
+              onClick={() => handleBenchmarkChange(key)}
+              title={BENCHMARK_CONFIG[key].hoverNote}
+            >
+              <span className="benchmark-icon">{BENCHMARK_CONFIG[key].icon}</span> {BENCHMARK_CONFIG[key].label}
+            </button>
+          ))}
           <div
             className="benchmark-toggle-slider"
             style={{
-              transform: benchmark === 'text' ? 'translateX(0%)' : 'translateX(100%)'
+              width: `calc((100% - 8px) / ${benchmarkKeys.length})`,
+              transform: `translateX(${benchmarkKeys.indexOf(benchmark) * 100}%)`
             }}
           />
         </div>
       </div>
 
       <div className="leaderboard-title-row">
-        <h2 className="leaderboard-title">{isVoice ? 'τ-voice Leaderboard' : 'τ-bench Leaderboard'}</h2>
+        <h2 className="leaderboard-title">{benchConfig.title}</h2>
       </div>
+      <p className="leaderboard-subtitle">{benchConfig.description}</p>
 
       {/* Combined Controls Row — applies to both ranking and progress views */}
       <div className="leaderboard-controls">
-        {/* Domain Toggle Switch */}
+        {/* Domain Toggle Switch (hidden when the bucket has a single domain) */}
+        {availableDomains.length > 1 && (
         <div className="domain-toggle-switch">
           <div className="toggle-container domain-toggle-container" style={{ '--domain-count': availableDomains.length }}>
             {availableDomains.map(d => (
@@ -509,6 +716,7 @@ const Leaderboard = () => {
             />
           </div>
         </div>
+        )}
 
         {/* Submission Type Filter */}
         <div className="submission-type-filter">
@@ -530,7 +738,7 @@ const Leaderboard = () => {
             <span className="checkbox-checkmark"></span>
             <span className="checkbox-label">Custom</span>
           </label>
-          {!isVoice && (
+          {benchmark === 'core' && (
             <label className="checkbox-container">
               <input 
                 type="checkbox" 
@@ -556,11 +764,11 @@ const Leaderboard = () => {
                   <h4>Submission Types</h4>
                   <div className="filter-info-item">
                     <strong>Standard</strong>
-                    <p>Results using the default τ-bench scaffold: a base LLM with the standard tool set and prompts.</p>
+                    <p>Results using the default benchmark-side τ-bench or τ-voice setup. A submitted system may use any internal architecture behind one compatible agent interface.</p>
                   </div>
                   <div className="filter-info-item">
                     <strong>Custom</strong>
-                    <p>Results using modified scaffolds, such as multi-model routers, additional tools, custom prompting strategies, or other orchestration approaches.</p>
+                    <p>Results that modify benchmark-side prompts, tools, orchestration, user simulation, tasks, or evaluation, or use benchmark-specific training or data.</p>
                   </div>
                   <div className="filter-info-item">
                     <strong>Legacy (v1)</strong>
@@ -573,8 +781,23 @@ const Leaderboard = () => {
         </div>
       </div>
 
+      {/* Voice Overall scope note */}
+      {isVoice && domain === 'overall' && (
+        <div className="domain-scope-note">
+          <span className="domain-scope-icon">ⓘ</span>
+          <span>
+            See the new{' '}
+            <button className="domain-scope-link" onClick={() => setDomain('banking_knowledge')}>
+              🏦 Banking
+            </button>
+            {' '}domain for voice agent performance on long policy tasks.
+            Overall does not include Banking.
+          </span>
+        </div>
+      )}
+
       {/* Table View */}
-      {(!showStandard && !showCustom && (isVoice || !showLegacy)) ? (
+      {(!showStandard && !showCustom && (benchmark !== 'core' || !showLegacy)) ? (
           <div className="filter-empty-state">
             <div className="empty-icon">🔍</div>
             <h3>No Results</h3>
@@ -583,41 +806,113 @@ const Leaderboard = () => {
         ) : (
         <div className="reliability-metrics">
         <div className="metrics-table-container">
-          <table className="reliability-table">
+          <table className={`reliability-table ${isVoice ? 'voice-table' : ''} ${isVoice && rankBy === 'interaction' ? 'interaction-mode' : ''}`}>
             <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Model</th>
-                <th>Released</th>
-                <th>{domain === 'banking_knowledge' ? 'Retrieval' : isVoice ? 'Provider' : 'Submitting Org'}</th>
-                <th>Reasoning</th>
-                <th>User Sim</th>
-                <th className="passk-header-cell">
-                  <div className="passk-header-toggle">
-                    {isVoice ? (
-                      <button className="passk-header-btn active">Pass^1</button>
-                    ) : (
-                      [1, 2, 3, 4].map(k => (
-                        <button
-                          key={k}
-                          className={`passk-header-btn ${selectedPassK === k ? 'active' : ''}`}
-                          onClick={() => setSelectedPassK(k)}
-                        >
-                          Pass^{k}
-                        </button>
-                      ))
+              {(() => {
+                // Voice keeps every column mounted in both ranking modes and
+                // collapses the inactive ones with CSS transitions, so
+                // switching modes animates instead of re-laying-out the table.
+                const interactionMode = isVoice && rankBy === 'interaction'
+                const headerSpan = isVoice ? 2 : 1
+                return (
+                  <>
+                    <tr>
+                      <th rowSpan={headerSpan}>Rank</th>
+                      <th rowSpan={headerSpan}>Model</th>
+                      <th className="release-header" rowSpan={headerSpan}>
+                        <span className="col-anim">Released</span>
+                      </th>
+                      <th rowSpan={headerSpan}>{domain === 'banking_knowledge' ? 'Retrieval' : isVoice ? 'Provider' : 'Submitting Org'}</th>
+                      <th rowSpan={headerSpan}>Reasoning</th>
+                      <th rowSpan={headerSpan}>User Sim</th>
+                      <th className="passk-header-cell" rowSpan={headerSpan}>
+                        <div className="passk-header-toggle">
+                          {isVoice ? (
+                            <>
+                              <button
+                                className={`passk-header-btn ${rankBy === 'passk' ? 'active' : ''}`}
+                                onClick={() => setRankBy('passk')}
+                                title="Rank by task success"
+                              >
+                                Pass^1
+                              </button>
+                              <span className="col-anim interaction-toggle-wrap">
+                                <button
+                                  className="passk-header-btn"
+                                  onClick={() => {
+                                    setRankBy('interaction')
+                                    setInteractionMetric(null)
+                                  }}
+                                  title="Show interaction quality, measured from the same full-duplex trajectories"
+                                >
+                                  Interaction Metrics
+                                </button>
+                              </span>
+                            </>
+                          ) : (
+                            [1, 2, 3, 4].map(k => (
+                              <button
+                                key={k}
+                                className={`passk-header-btn ${selectedPassK === k ? 'active' : ''}`}
+                                onClick={() => setSelectedPassK(k)}
+                              >
+                                Pass^{k}
+                              </button>
+                            ))
+                          )}
+                          {(!isVoice || rankBy === 'passk') && (
+                            <button
+                              className="passk-sort-btn"
+                              onClick={handleSort}
+                              title={sortDirection === 'desc' ? 'Sorted descending' : 'Sorted ascending'}
+                            >
+                              {sortDirection === 'desc' ? '↓' : '↑'}
+                            </button>
+                          )}
+                        </div>
+                      </th>
+                      {isVoice && (
+                        <th className="interaction-group-header" colSpan={4}>
+                          <div className="passk-header-toggle col-anim">
+                            <button
+                              className="passk-header-btn active"
+                              title="Showing interaction quality (still ordered by pass^1) — click a metric column to sort by it. Click Pass^1 to collapse."
+                            >
+                              Interaction Metrics
+                            </button>
+                          </div>
+                        </th>
+                      )}
+                      <th className="expand-header" rowSpan={headerSpan}></th>
+                    </tr>
+                    {isVoice && (
+                      <tr className="interaction-subheader-row">
+                        {INTERACTION_METRICS.map((m) => (
+                          <th
+                            key={m.key}
+                            className={`interaction-col-header ${interactionMode && interactionMetric === m.key ? 'active' : ''}`}
+                            onClick={() => interactionMode && setInteractionMetric(interactionMetric === m.key ? null : m.key)}
+                            title={interactionMode && interactionMetric === m.key
+                              ? 'Back to pass^1 order'
+                              : `Sort by ${m.label.toLowerCase()}`}
+                          >
+                            <div className="col-anim">
+                              {m.label} {m.better === 'lower' ? '↓' : '↑'}
+                              <span
+                                className="interaction-info-icon"
+                                data-tooltip={m.desc}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                ⓘ
+                              </span>
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
                     )}
-                    <button 
-                      className="passk-sort-btn"
-                      onClick={handleSort}
-                      title={sortDirection === 'desc' ? 'Sorted descending' : 'Sorted ascending'}
-                    >
-                      {sortDirection === 'desc' ? '↓' : '↑'}
-                    </button>
-                  </div>
-                </th>
-                <th className="expand-header"></th>
-              </tr>
+                  </>
+                )
+              })()}
             </thead>
             <tbody>
               {(() => {
@@ -625,7 +920,7 @@ const Leaderboard = () => {
                 const modelStats = Object.entries(passKData)
                   .filter(([, data]) => {
                     // Filter by benchmark modality
-                    if (data.modality !== benchmark) {
+                    if (data.modality !== benchConfig.modality) {
                       return false
                     }
                     // Filter out legacy submissions unless toggled on
@@ -645,7 +940,7 @@ const Leaderboard = () => {
                       return voiceDomains.some(d => data[d]?.some(val => val !== null))
                     }
                     
-                    // For overall domain, only include models that have data for all 4 domains
+                    // For overall domain, only include models that have data for all core domains
                     if (domain === 'overall') {
                       return data.overall.some(val => val !== null)
                     }
@@ -678,10 +973,29 @@ const Leaderboard = () => {
                     hasCompleteData,
                     hasAnyData,
                     consistencyScore,
-                    organization: data.organization
+                    organization: data.organization,
+                    interactionValue: isVoice && interactionMetric
+                      ? getInteractionValue(data.interactionMetrics, domain, interactionMetric)
+                      : null,
                   }
                 })
-                
+
+                // Entering interaction mode keeps the pass^1 ordering until the
+                // user explicitly picks a metric column to sort by.
+                const rankByInteraction = isVoice && rankBy === 'interaction' && interactionMetric !== null
+                if (rankByInteraction) {
+                  // Rank by the selected interaction metric in its natural
+                  // direction; models without metrics sort last.
+                  const better = INTERACTION_METRICS.find(m => m.key === interactionMetric)?.better
+                  modelStats.sort((a, b) => {
+                    if (a.interactionValue === null && b.interactionValue === null) return 0
+                    if (a.interactionValue === null) return 1
+                    if (b.interactionValue === null) return -1
+                    return better === 'lower'
+                      ? a.interactionValue - b.interactionValue
+                      : b.interactionValue - a.interactionValue
+                  })
+                } else {
                 // Sort by selected pass^k metric and direction
                 const passIndex = selectedPassK - 1
                 modelStats.sort((a, b) => {
@@ -689,18 +1003,19 @@ const Leaderboard = () => {
                   if (a.hasAnyData && !b.hasAnyData) return -1
                   if (!a.hasAnyData && b.hasAnyData) return 1
                   if (!a.hasAnyData && !b.hasAnyData) return 0
-                  
+
                   const aValue = a.domainData[passIndex]
                   const bValue = b.domainData[passIndex]
-                  
+
                   // Handle null values (missing data)
                   if (aValue === null && bValue === null) return 0
                   if (aValue === null) return 1
                   if (bValue === null) return -1
-                  
+
                   const multiplier = sortDirection === 'desc' ? 1 : -1
                   return (bValue - aValue) * multiplier
                 })
+                }
                 
                 // Show empty state if no results after filtering
                 if (modelStats.length === 0) {
@@ -746,8 +1061,10 @@ const Leaderboard = () => {
                        </div>
                      </td>
 
-                     {/* Release Date (from model_release.release_date) */}
+                     {/* Release Date (from model_release.release_date); collapses
+                         in interaction mode to make room for the metric columns */}
                      <td className="release-date-cell">
+                       <span className="col-anim">
                        {(() => {
                          const releaseInfo = fullSubmissionData[model.key]?.model_release
                          const releaseDate = releaseInfo?.release_date
@@ -773,6 +1090,7 @@ const Leaderboard = () => {
                            </a>
                          ) : inner
                        })()}
+                       </span>
                      </td>
 
                      {/* Organization / Retrieval Config (banking) */}
@@ -872,27 +1190,48 @@ const Leaderboard = () => {
                          <span className="no-data">—</span>
                        )}
                      </td>
-                     {/* Score (selected Pass^k) */}
+                     {/* Score (selected Pass^k); in interaction mode the bar
+                         collapses away, leaving the plain number */}
                      <td className="metric-cell score-cell">
                        {(() => {
                          const value = model.domainData[selectedPassK - 1]
-                         if (value !== null) {
-                           return (
-                             <div className="score-bar-container">
-                               <div className="score-bar-track">
-                                 <div 
-                                   className="score-bar-fill"
-                                   style={{ width: `${Math.min(value, 100)}%` }}
-                                 />
-                               </div>
-                               <span className="score-bar-value">{value.toFixed(1)}%</span>
-                             </div>
-                           )
-                         } else {
+                         if (value === null) {
                            return <span className="no-data">—</span>
                          }
+                         return (
+                           <div className="score-bar-container">
+                             <div className="score-bar-track">
+                               <div
+                                 className="score-bar-fill"
+                                 style={{ width: `${Math.min(value, 100)}%` }}
+                               />
+                             </div>
+                             <span className="score-bar-value">{value.toFixed(1)}%</span>
+                           </div>
+                         )
                        })()}
                      </td>
+                     {/* Interaction metrics fan-out (voice); collapsed outside
+                         interaction mode */}
+                     {isVoice && INTERACTION_METRICS.map((m) => {
+                       const { value, reason } = getInteractionCellInfo(model.data.interactionMetrics, domain, m.key)
+                       return (
+                         <td
+                           key={m.key}
+                           className={`metric-cell interaction-cell ${rankBy === 'interaction' && interactionMetric === m.key ? 'interaction-cell-sorted' : ''}`}
+                         >
+                           <span className="col-anim">
+                             {value !== null ? (
+                               formatInteractionValue(value, m.unit)
+                             ) : (
+                               <span className="no-data" title={INTERACTION_NO_DATA_TOOLTIP[reason]}>
+                                 —
+                               </span>
+                             )}
+                           </span>
+                         </td>
+                       )
+                     })}
                      {/* Expand Toggle */}
                      <td className="expand-cell" onClick={() => toggleExpand(model.key)}>
                        <span className={`expand-caret ${isExpanded ? 'open' : ''}`}>▶</span>
@@ -901,21 +1240,9 @@ const Leaderboard = () => {
                   {/* Expandable Domain Breakdown Row */}
                   {isExpanded && (
                     <tr className="domain-detail-row">
-                      <td colSpan="8" className="domain-detail-cell">
+                      <td colSpan={isVoice ? 12 : 8} className="domain-detail-cell">
                         <div className="domain-breakdown">
-                          {(isVoice
-                            ? [
-                                { key: 'retail', label: 'Retail', icon: '🛍️', desc: 'Order cancellations, returns, exchanges, address changes, and product inquiries.' },
-                                { key: 'airline', label: 'Airline', icon: '✈️', desc: 'Flight bookings, modifications, cancellations, refunds, baggage, and compensation.' },
-                                { key: 'telecom', label: 'Telecom', icon: '📱', desc: 'Technical support for connectivity issues, bill payments, and plan management.' },
-                              ]
-                            : [
-                                { key: 'retail', label: 'Retail', icon: '🛍️', desc: 'Order cancellations, returns, exchanges, address changes, and product inquiries.' },
-                                { key: 'airline', label: 'Airline', icon: '✈️', desc: 'Flight bookings, modifications, cancellations, refunds, baggage, and compensation.' },
-                                { key: 'telecom', label: 'Telecom', icon: '📱', desc: 'Technical support for connectivity issues, bill payments, and plan management.' },
-                                { key: 'banking_knowledge', label: 'Banking', icon: '🏦', desc: 'Banking customer service with knowledge retrieval over policy documents.' },
-                              ]
-                          ).map(({ key, label, icon, desc }) => {
+                          {benchConfig.breakdownDomains.map((k) => DOMAIN_CARDS[k]).map(({ key, label, icon, desc }) => {
                             const value = model.data[key]?.[selectedPassK - 1]
                             const submissionInfo = fullSubmissionData[model.key]
                             const hasTraj = submissionInfo?.trajectories_available && submissionInfo?.trajectory_files?.[key]
@@ -954,10 +1281,29 @@ const Leaderboard = () => {
                                     <span className="no-data domain-no-data">—</span>
                                   )}
                                 </div>
+                                {isVoice && model.data.interactionMetrics && (
+                                  <div className="domain-interaction-metrics">
+                                    {INTERACTION_METRICS.map((metric) => {
+                                      const cell = getInteractionCellInfo(model.data.interactionMetrics, key, metric.key)
+                                      return (
+                                        <div key={metric.key} className="domain-interaction-row" title={metric.desc}>
+                                          <span className="domain-interaction-label">
+                                            {metric.label} {metric.better === 'lower' ? '↓' : '↑'}
+                                          </span>
+                                          <span className="domain-interaction-value">
+                                            {cell.value !== null
+                                              ? formatInteractionValue(cell.value, metric.unit)
+                                              : <span className="no-data" title={INTERACTION_NO_DATA_TOOLTIP[cell.reason]}>—</span>}
+                                          </span>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                )}
                                 {hasTraj && (
                                   <a
                                     className="view-trajectories-link"
-                                    href={`#trajectory-visualizer?model=${encodeURIComponent(submissionInfo.submissionDir)}&domain=${key}`}
+                                    href={`/trajectory-visualizer?model=${encodeURIComponent(submissionInfo.submissionDir)}&domain=${key}`}
                                   >
                                     View trajectories →
                                   </a>
@@ -973,6 +1319,18 @@ const Leaderboard = () => {
                             <span className="submission-details-btn-label">Details</span>
                           </button>
                         </div>
+                        {isVoice && model.data.interactionMetrics && (
+                          <div className="interaction-definitions">
+                            <a
+                              className="interaction-breakdown-link"
+                              href="https://github.com/sierra-research/tau2-bench/blob/main/docs/interaction-metrics.md"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Metric definitions →
+                            </a>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   )}
@@ -993,6 +1351,7 @@ const Leaderboard = () => {
         )}
         </div>
         )}
+
 
       {/* Progress Over Time (always below the ranking table) */}
       <div id="progress" style={{ scrollMarginTop: '80px' }}>

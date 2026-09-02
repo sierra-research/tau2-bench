@@ -1,0 +1,162 @@
+{
+  "model_name": "grok-voice-think-fast-1.0 + tool-mentor",
+  "model_organization": "Pickle",
+  "submitting_organization": "Pickle",
+  "submission_date": "2026-07-07",
+  "submission_type": "custom",
+  "modality": "voice",
+  "contact_info": {
+    "email": "hojin@pickle.com",
+    "name": "Hojin Yu",
+    "github": "pickle-com"
+  },
+  "results": {
+    "retail": {
+      "pass_1": 76.31578947368422
+    },
+    "airline": {
+      "pass_1": 70.0
+    },
+    "telecom": {
+      "pass_1": 78.0701754385965
+    }
+  },
+  "reasoning_effort": "enabled",
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "grok-voice-tool-mentor-airline",
+    "retail": "grok-voice-tool-mentor-retail",
+    "telecom": "grok-voice-tool-mentor-telecom"
+  },
+  "references": [
+    {
+      "title": "Tool-mentor fork (tag tool-mentor-v1.0): methodology, reproduction command, mentor prompt",
+      "url": "https://github.com/pickle-com/tau2-bench/tree/tool-mentor-v1.0",
+      "type": "github"
+    },
+    {
+      "title": "Methodology and reproduction contract",
+      "url": "https://github.com/pickle-com/tau2-bench/blob/tool-mentor-v1.0/docs/tool-mentor-methodology.md",
+      "type": "documentation"
+    },
+    {
+      "title": "Trajectories (submit-prepare bundles, all three domains)",
+      "url": "https://huggingface.co/datasets/samtiz/tau2-voice-grok-tool-mentor-trajectories",
+      "type": "huggingface"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-07-06",
+    "tau2_bench_version": "1.0.0",
+    "user_simulator": "gpt-5.5-2026-04-23 (xhigh)",
+    "notes": "Custom submission: base model is xAI grok-voice-think-fast-1.0 (audio-native, regular speech complexity, single trial on the full base splits) with an added tool-boundary mentor \u2014 a separate LLM (gemini-3.5-flash, reasoning_effort=high, read/write deadlines 10s/15s, fail-open) that reviews the voice agent's tool calls at runtime: pre-execution gates on state-mutating and escalation calls (transfer_to_human_agents), guidance notes appended to read results, and stop-interception so a blocked hand-off proposal continues the conversation. The mentor receives only agent-visible inputs (agent-heard STT transcript, official tool results, the same domain policy the agent receives, agent tool names and descriptions); its prompt contains no benchmark-derived facts and is published verbatim in the referenced fork together with its content policy. Standard tau2 agent and user-simulator prompts are byte-unmodified; the mentor is an additional component with its own prompt. Explicit xAI server-VAD settings (threshold 0.1, silence 1200ms, prefix padding 600ms) and 2.0x input gain restore a working audio pipeline on the July 2026 xAI serving stack (in our environment, server-default VAD frequently failed to detect user speech, and we were unable to reproduce the April 2026 official score with default settings). All non-mentor behavioral differences from upstream are enumerated in the referenced methodology document; submitted runs used the upstream-compatible voice-seed behavior (TAU2_OFFICIAL_PYTHON_HASH_VOICE_SEED=1). The voice user-simulator pipeline is the standard v1.0 lineage with only its LLM swapped: gpt-5.5-2026-04-23 at reasoning_effort=xhigh \u2014 not comparable to standard-user-simulator leaderboard entries. Voices are local ElevenLabs personas, not Sierra-managed submission voices.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "Standard agent and user-simulator prompts are byte-identical to upstream. The added mentor component has its own prompt (published in the referenced fork; no benchmark proper nouns or task-derived facts, per the fork's mentor-prompt-constitution). Full base splits evaluated: retail 114, airline 50, telecom 114; no task omitted. Sierra verification (2026-07-14, fork tag tool-mentor-v1.0 = 8ba2f72, Sierra-internal held-out voices): 10-task parity check agreed on 9/10 tasks with the single flip scoring higher than submitted; a full 278-task re-run reached ~230 tasks before the submitter's xAI API key expired, with per-domain scores tracking at or above the submitted results throughout (airline complete: 0.780 vs submitted 0.700). Submitted scores recomputed from trajectories and confirmed."
+    }
+  },
+  "voice_config": {
+    "provider": "xAI",
+    "model": "grok-voice-think-fast-1.0",
+    "tick_duration_seconds": 0.2,
+    "max_steps_seconds": 1200.0,
+    "user_tts_provider": "elevenlabs/eleven_v3"
+  },
+  "model_release": {
+    "release_date": "2026-04-23",
+    "announcement_url": "https://x.ai/news/grok-voice-think-fast-1",
+    "announcement_title": "Grok Voice Think Fast 1.0"
+  },
+  "interaction_metrics": {
+    "version": "1.0",
+    "config": {
+      "tick_duration_sec": 0.2,
+      "no_yield_window_sec": 2.0,
+      "backchannel_yield_window_sec": 1.0,
+      "vocal_tic_yield_window_sec": 1.0,
+      "non_directed_yield_window_sec": 1.0,
+      "vocal_tic_response_window_sec": 2.0,
+      "non_directed_response_window_sec": 2.0
+    },
+    "domains": {
+      "airline": {
+        "response_latency_mean": 1.7975903614457809,
+        "yield_latency_mean": 1.0197628458498025,
+        "response_rate": 0.9948630136986302,
+        "yield_rate": 0.9035714285714286,
+        "agent_interruption_rate": 0.3424657534246575,
+        "selectivity_backchannel": 0.65,
+        "selectivity_vocal_tic": 0.45833333333333337,
+        "selectivity_non_directed": 0.33333333333333337,
+        "counts": {
+          "n_simulations": 50,
+          "response_total": 584,
+          "yield_total": 560,
+          "backchannel_total": 40,
+          "vocal_tic_total": 72,
+          "non_directed_total": 45,
+          "agent_interrupts_count": 200
+        }
+      },
+      "retail": {
+        "response_latency_mean": 1.7278940027894,
+        "yield_latency_mean": 0.9354252683732452,
+        "response_rate": 0.9937629937629938,
+        "yield_rate": 0.9322555812163202,
+        "agent_interruption_rate": 0.3354123354123354,
+        "selectivity_backchannel": 0.7254901960784313,
+        "selectivity_vocal_tic": 0.34042553191489366,
+        "selectivity_non_directed": 0.1885245901639344,
+        "counts": {
+          "n_simulations": 114,
+          "response_total": 1443,
+          "yield_total": 1299,
+          "backchannel_total": 102,
+          "vocal_tic_total": 188,
+          "non_directed_total": 122,
+          "agent_interrupts_count": 484
+        }
+      },
+      "telecom": {
+        "response_latency_mean": 1.66759847522236,
+        "yield_latency_mean": 0.9802980734278445,
+        "response_rate": 0.9984142086901364,
+        "yield_rate": 0.9528922757187391,
+        "agent_interruption_rate": 0.1807802093244529,
+        "selectivity_backchannel": 0.6170212765957447,
+        "selectivity_vocal_tic": 0.4545454545454546,
+        "selectivity_non_directed": 0.2896174863387978,
+        "counts": {
+          "n_simulations": 114,
+          "response_total": 3153,
+          "yield_total": 2887,
+          "backchannel_total": 47,
+          "vocal_tic_total": 286,
+          "non_directed_total": 183,
+          "agent_interrupts_count": 570
+        }
+      }
+    },
+    "overall": {
+      "response_latency_mean": 1.7310276131525137,
+      "yield_latency_mean": 0.9784953958836308,
+      "response_rate": 0.9956800720505868,
+      "yield_rate": 0.9295730951688294,
+      "agent_interruption_rate": 0.28621943272048195,
+      "selectivity_backchannel": 0.664170490891392,
+      "selectivity_vocal_tic": 0.41776810659789393,
+      "selectivity_non_directed": 0.27049180327868855,
+      "counts": {
+        "agent_interrupts_count": 1254,
+        "backchannel_total": 189,
+        "n_simulations": 278,
+        "non_directed_total": 350,
+        "response_total": 5180,
+        "vocal_tic_total": 546,
+        "yield_total": 4746
+      }
+    }
+  }
+}

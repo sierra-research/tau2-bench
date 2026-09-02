@@ -741,12 +741,18 @@ def build_tools(
     variant: RetrievalVariant,
     db: TransactionalDB,
     knowledge_base: KnowledgeBase,
+    read_log_allowlist: Optional[set] = None,
 ) -> KnowledgeTools:
     """Build the composed toolkit for a retrieval variant.
 
     Selects the right concrete toolkit class based on which retrieval
     capabilities the variant requires, creates the backing pipelines /
     sandboxes, and returns a fully initialized toolkit.
+
+    Args:
+        read_log_allowlist: Names of read-only discoverable tools whose
+            calls should still be logged to ``agent_discoverable_tools``
+            for eval (typically the set required by the golden trajectory).
     """
     has_all_tools = (
         variant.kb_search_bm25 is not None
@@ -757,31 +763,31 @@ def build_tools(
         bm25_pipeline = _create_kb_pipeline(variant.kb_search_bm25, knowledge_base)
         dense_pipeline = _create_kb_pipeline(variant.kb_search_dense, knowledge_base)
         sandbox = _create_sandbox(knowledge_base, variant.shell)
-        return KnowledgeToolsAllTools(db, bm25_pipeline, dense_pipeline, sandbox)
+        tools = KnowledgeToolsAllTools(db, bm25_pipeline, dense_pipeline, sandbox)
+    else:
+        has_kb = variant.kb_search is not None
+        has_grep = variant.grep is not None
+        has_shell = variant.shell is not None
 
-    has_kb = variant.kb_search is not None
-    has_grep = variant.grep is not None
-    has_shell = variant.shell is not None
+        if has_shell:
+            sandbox = _create_sandbox(knowledge_base, variant.shell)
+            tools = KnowledgeToolsWithShell(db, sandbox)
+        elif has_kb and has_grep:
+            kb_pipeline = _create_kb_pipeline(variant.kb_search, knowledge_base)
+            grep_pipeline = _create_grep_pipeline(variant.grep, knowledge_base)
+            tools = KnowledgeToolsWithKBSearchAndGrep(db, kb_pipeline, grep_pipeline)
+        elif has_kb:
+            kb_pipeline = _create_kb_pipeline(variant.kb_search, knowledge_base)
+            tools = KnowledgeToolsWithKBSearch(db, kb_pipeline)
+        elif has_grep:
+            grep_pipeline = _create_grep_pipeline(variant.grep, knowledge_base)
+            tools = KnowledgeToolsWithGrep(db, grep_pipeline)
+        else:
+            # No retrieval tools (no_knowledge, full_kb, golden_retrieval)
+            tools = KnowledgeToolsPlain(db)
 
-    if has_shell:
-        sandbox = _create_sandbox(knowledge_base, variant.shell)
-        return KnowledgeToolsWithShell(db, sandbox)
-
-    if has_kb and has_grep:
-        kb_pipeline = _create_kb_pipeline(variant.kb_search, knowledge_base)
-        grep_pipeline = _create_grep_pipeline(variant.grep, knowledge_base)
-        return KnowledgeToolsWithKBSearchAndGrep(db, kb_pipeline, grep_pipeline)
-
-    if has_kb:
-        kb_pipeline = _create_kb_pipeline(variant.kb_search, knowledge_base)
-        return KnowledgeToolsWithKBSearch(db, kb_pipeline)
-
-    if has_grep:
-        grep_pipeline = _create_grep_pipeline(variant.grep, knowledge_base)
-        return KnowledgeToolsWithGrep(db, grep_pipeline)
-
-    # No retrieval tools (no_knowledge, full_kb, golden_retrieval)
-    return KnowledgeToolsPlain(db)
+    tools.set_read_log_allowlist(read_log_allowlist)
+    return tools
 
 
 # ---------------------------------------------------------------------------

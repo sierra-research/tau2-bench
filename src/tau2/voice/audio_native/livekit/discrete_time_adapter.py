@@ -45,6 +45,7 @@ from tau2.config import (
 )
 from tau2.data_model.audio import AudioFormat
 from tau2.data_model.message import ToolCall
+from tau2.data_model.usage import UsageRecord
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter
 from tau2.voice.audio_native.audio_converter import StreamingTelephonyConverter
@@ -135,6 +136,10 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
         self._utterance_transcripts: dict[str, UtteranceTranscript] = {}
         self._current_utterance_id: Optional[str] = None
 
+        # STT usage sessions: each connect creates a fresh provider (and a
+        # fresh cumulative audio counter), so scope STT records per session.
+        self._stt_session_counter: int = 0
+
         # Audio format conversion (telephony ↔ internal formats)
         # TTS sample rate depends on config (Deepgram=24kHz, ElevenLabs varies)
         tts_sample_rate = 24000  # default
@@ -194,6 +199,7 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
             )
             future.result(timeout=DEFAULT_AUDIO_NATIVE_CONNECT_TIMEOUT)
             self._connected = True
+            self._stt_session_counter += 1
             # Reset state for fresh connection
             self._audio_converter.reset()
             self._buffered_audio_chunks = []
@@ -209,10 +215,43 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
             self._stop_background_loop()
             raise RuntimeError(f"Failed to connect cascaded adapter: {e}") from e
 
+    def _make_stt_usage_record(self) -> Optional[UsageRecord]:
+        """Build the cumulative STT usage record for the current provider.
+
+        Deepgram streaming STT bills per audio-second sent, tracked as a
+        running total on the provider. The record is cumulative and scoped to
+        the current connect-session, so re-reads (and the final flush at
+        disconnect) aggregate last-value-wins instead of double counting.
+        """
+        if self._provider is None or self._provider.stt_audio_seconds_sent <= 0:
+            return None
+        return UsageRecord(
+            provider=self.cascaded_config.stt.provider,
+            model=self.cascaded_config.stt.model,
+            component="stt",
+            semantics="cumulative",
+            scope_id=f"stt-session-{self._stt_session_counter}",
+            audio_input_seconds=self._provider.stt_audio_seconds_sent,
+        )
+
+    def get_usage_records(self) -> List[UsageRecord]:
+        """Ledger records plus the live cumulative STT meter (if connected)."""
+        records = super().get_usage_records()
+        live_stt = self._make_stt_usage_record()
+        if live_stt is not None:
+            records.append(live_stt)
+        return records
+
     def disconnect(self) -> None:
         """Disconnect and clean up resources."""
         if not self._connected:
             return
+
+        # Flush the STT meter into the ledger before the provider (and its
+        # cumulative counter) is dropped.
+        stt_record = self._make_stt_usage_record()
+        if stt_record is not None:
+            self._usage_records.append(stt_record)
 
         if self._loop is not None and self._provider is not None:
             future = asyncio.run_coroutine_threadsafe(
@@ -360,6 +399,7 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
         """
         tick_start = asyncio.get_running_loop().time()
         deadline = tick_start + (self.tick_duration_ms / 1000)
+        self._current_tick_number = tick_number
 
         events: List[CascadedEvent] = []
         tool_calls: List[ToolCall] = []
@@ -410,6 +450,10 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
         # Store buffered audio for next tick
         self._buffered_audio_chunks = buffered_chunks
 
+        # Drain usage records reported during this tick
+        tick_usage_records = list(self._tick_usage_buffer)
+        self._tick_usage_buffer.clear()
+
         # Build TickResult with capped audio
         result = TickResult(
             tick_number=tick_number,
@@ -419,6 +463,7 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
             events=events,
             vad_events=vad_events,
             tool_calls=tool_calls,
+            usage_records=tick_usage_records,
             agent_audio_chunks=capped_chunks,
             proportional_transcript=self._get_proportional_transcript(capped_chunks),
             bytes_per_tick=self.bytes_per_tick,
@@ -543,6 +588,32 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
 
         elif event.type == CascadedEventType.TTS_COMPLETED:
             self._utterance_counter += 1
+
+        elif event.type == CascadedEventType.USAGE:
+            data = event.data
+            component = data.get("component")
+            if component == "llm":
+                self.record_usage(
+                    UsageRecord(
+                        provider=data.get("provider", "unknown"),
+                        model=data.get("model", "unknown"),
+                        component="llm",
+                        input_tokens=data.get("prompt_tokens"),
+                        output_tokens=data.get("completion_tokens"),
+                        input_cached_tokens=data.get("prompt_cached_tokens"),
+                    )
+                )
+            elif component == "tts":
+                self.record_usage(
+                    UsageRecord(
+                        provider=data.get("provider", "unknown"),
+                        model=data.get("model", "unknown"),
+                        component="tts",
+                        characters=data.get("characters"),
+                    )
+                )
+            else:
+                logger.warning(f"Unknown usage component: {component}")
 
     # =========================================================================
     # Barge-in Detection

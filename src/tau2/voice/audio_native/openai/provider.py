@@ -35,6 +35,10 @@ from tau2.voice.utils.openai_utils import audio_format_to_openai
 
 load_dotenv()
 
+PINE_MODEL_PREFIX = "pine-"
+PINE_API_KEY_ENV = "PINE_API_KEY"
+PINE_REALTIME_BASE_URL_ENV = "PINE_REALTIME_BASE_URL"
+
 
 class OpenAIVADMode(str, Enum):
     """Voice Activity Detection modes supported by OpenAI's Realtime API.
@@ -88,7 +92,7 @@ class OpenAIRealtimeProvider:
     and both audio and text modalities.
 
     Attributes:
-        BASE_URL: The WebSocket endpoint for OpenAI's Realtime API.
+        base_url: The WebSocket endpoint selected for the requested model.
         DEFAULT_MODEL: The default model to use for realtime sessions.
         api_key: The OpenAI API key for authentication.
         model: The model identifier to use for the session.
@@ -122,8 +126,8 @@ class OpenAIRealtimeProvider:
         """Initialize the OpenAI Realtime provider.
 
         Args:
-            api_key: OpenAI API key. If not provided, reads from OPENAI_API_KEY
-                environment variable.
+            api_key: Explicit API key. If not provided, Pine models read from
+                PINE_API_KEY and OpenAI models read from OPENAI_API_KEY.
             model: Model identifier to use. Defaults to DEFAULT_MODEL.
             reasoning_effort: Reasoning effort for thinking models ("minimal",
                 "low", "medium", "high"). If None, not sent to the API.
@@ -131,11 +135,25 @@ class OpenAIRealtimeProvider:
         Raises:
             ValueError: If no API key is provided or found in environment.
         """
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
-        if not self.api_key:
-            raise ValueError("OpenAI API key not provided. Set OPENAI_API_KEY env var.")
-
         self.model = model or self.DEFAULT_MODEL
+        if self.model.startswith(PINE_MODEL_PREFIX):
+            self.base_url = os.environ.get(PINE_REALTIME_BASE_URL_ENV)
+            self.api_key = api_key or os.environ.get(PINE_API_KEY_ENV)
+            if not self.base_url:
+                raise ValueError(
+                    "Pine Realtime base URL not provided. Set "
+                    f"{PINE_REALTIME_BASE_URL_ENV}."
+                )
+            if not self.api_key:
+                raise ValueError(f"Pine API key not provided. Set {PINE_API_KEY_ENV}.")
+        else:
+            self.base_url = self.BASE_URL
+            self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
+            if not self.api_key:
+                raise ValueError(
+                    "OpenAI API key not provided. Set OPENAI_API_KEY env var."
+                )
+
         self.reasoning_effort = reasoning_effort
         self.ws: Optional[websockets.WebSocketClientProtocol] = None
         self._current_vad_config: Optional[OpenAIVADConfig] = None
@@ -177,7 +195,7 @@ class OpenAIRealtimeProvider:
         if self.is_connected:
             return
 
-        url = f"{self.BASE_URL}?model={self.model}"
+        url = f"{self.base_url}?model={self.model}"
         headers = {"Authorization": f"Bearer {self.api_key}"}
 
         self.ws = await websockets.connect(url, additional_headers=headers)

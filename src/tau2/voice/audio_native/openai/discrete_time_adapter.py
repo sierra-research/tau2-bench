@@ -35,6 +35,7 @@ from tau2.config import (
 )
 from tau2.data_model.audio import AudioFormat
 from tau2.data_model.message import ToolCall
+from tau2.data_model.usage import UsageRecord
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter
 from tau2.voice.audio_native.async_loop import BackgroundAsyncLoop
@@ -329,6 +330,15 @@ class DiscreteTimeOpenAIAdapter(DiscreteTimeAdapter):
 
         elif isinstance(event, ResponseDoneEvent):
             logger.debug("Response done")
+            if event.usage:
+                self.record_usage(
+                    UsageRecord.from_openai_realtime_usage(
+                        event.usage,
+                        provider="openai",
+                        model=self.model or self.provider.model,
+                        scope_id=event.response_id,
+                    )
+                )
 
         else:
             logger.debug(f"Event {event.type} received")

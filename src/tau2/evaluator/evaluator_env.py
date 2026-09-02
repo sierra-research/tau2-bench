@@ -29,6 +29,7 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
         ],  # FIXME: It would be better to be able to get only the messages that are after the initial state
         solo_mode: bool = False,
         env_kwargs: dict = None,
+        strict_replay: bool = True,
     ) -> RewardInfo:
         """
         Calculate the reward for the simulation.
@@ -37,6 +38,9 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
             task: Task
             full_trajectory: list[Message] (Must include the message history from task initial state)
             solo_mode: bool
+            strict_replay: forwarded to Environment.set_state(strict=...). Set
+                False when re-grading historical trajectories whose recorded
+                tool outputs may cosmetically differ from current tool code.
         Returns:
             RewardInfo
         """
@@ -86,6 +90,7 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
             initialization_data=initialization_data,
             initialization_actions=initialization_actions,
             message_history=list(full_trajectory),
+            strict=strict_replay,
         )
 
         # Setting up gold environment
@@ -94,6 +99,7 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
             initialization_data=initialization_data,
             initialization_actions=initialization_actions,
             message_history=message_history,
+            strict=strict_replay,
         )
         golden_actions = task.evaluation_criteria.actions or []
         for action in golden_actions:
@@ -227,6 +233,7 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
         full_trajectory: list[Tick],
         solo_mode: bool = False,
         env_kwargs: dict = None,
+        strict_replay: bool = True,
     ) -> RewardInfo:
         """
         Calculate the reward for the simulation.
@@ -236,6 +243,9 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
             full_trajectory: list[Tick]
             solo_mode: bool
             env_kwargs: dict
+            strict_replay: forwarded to Environment.set_state(strict=...). Set
+                False when re-grading historical trajectories whose recorded
+                tool outputs may cosmetically differ from current tool code.
         Returns:
             RewardInfo
         """
@@ -287,6 +297,7 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
             initialization_data=initialization_data,
             initialization_actions=initialization_actions,
             message_history=predicted_message_history,
+            strict=strict_replay,
         )
 
         # Setting up gold environment
@@ -295,6 +306,7 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
             initialization_data=initialization_data,
             initialization_actions=initialization_actions,
             message_history=message_history,
+            strict=strict_replay,
         )
         golden_actions = task.evaluation_criteria.actions or []
         for action in golden_actions:

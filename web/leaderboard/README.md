@@ -44,6 +44,33 @@ See the **[Leaderboard Submission Guide](../../docs/leaderboard-submission.md)**
 
 ## 🔧 Development
 
+### Routing, Prerendering & SEO
+
+The site uses **path-based routing** (`/leaderboard`, `/blog`, …) driven by
+`src/routes.js` — the single source of truth for routes and per-page meta tags.
+Legacy hash URLs (`/#leaderboard?benchmark=voice`) are rewritten to paths by a
+shim in `index.html`, so old shared links keep working.
+
+At deploy time, `scripts/prerender.mjs` snapshots each route into its own
+static HTML file (real content + per-page `<title>`/OG tags for crawlers and
+link unfurls). Content guards fail the deploy if any page renders empty.
+**Adding a new page?** Register it in `src/routes.js` (route, view, meta) and
+add a guard in `scripts/prerender.mjs`.
+
+Nothing here requires manual steps: pushes to `main` touching `web/leaderboard/`
+trigger `.github/workflows/deploy-leaderboard.yml` (build → prerender → deploy),
+and PRs run the Playwright routing tests in `e2e/` via
+`.github/workflows/test-leaderboard.yml`.
+
+To reproduce locally:
+
+```bash
+npm run build          # build dist/
+npm run prerender      # prerender routes into dist/ (needs Chrome)
+npm run serve:dist     # serve dist/ with GitHub Pages semantics on :4173
+npm run test:e2e       # run the Playwright suite against it
+```
+
 ### Project Structure
 ```
 src/

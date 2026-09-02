@@ -3012,6 +3012,55 @@ class TestReadOnlyDiscoverableAgentTools:
         assert not resp.error
         assert "transactions" in resp.content.lower()
 
+    def test_get_bank_account_transactions_reverse_chronological(
+        self, environment: Environment
+    ):
+        def txn(txn_id: str, date: str) -> dict:
+            return {
+                "transaction_id": txn_id,
+                "account_id": "chk_001",
+                "date": date,
+                "description": "TEST TRANSACTION",
+                "amount": -10.0,
+                "type": "debit_card_purchase",
+                "status": "posted",
+            }
+
+        # Insert deliberately out of chronological order, with a same-date
+        # duplicate pair and a timestamped date.
+        environment.tools.db.bank_account_transaction_history.data.update(
+            {
+                "btxn_dup_first": txn("btxn_dup_first", "11/11/2025"),
+                "btxn_dup_second": txn("btxn_dup_second", "11/11/2025"),
+                "btxn_oldest": txn("btxn_oldest", "11/01/2025"),
+                "btxn_newest": txn("btxn_newest", "11/13/2025"),
+                "btxn_timestamped": txn("btxn_timestamped", "11/12/2025 14:30:00"),
+            }
+        )
+
+        resp = call_discoverable_agent(
+            environment,
+            "get_bank_account_transactions_9173",
+            {
+                "account_id": "chk_001",
+            },
+        )
+        assert not resp.error
+
+        listed_ids = [
+            line.split("Record ID:")[1].strip()
+            for line in resp.content.splitlines()
+            if "Record ID:" in line
+        ]
+        # Most recent first; same-date records keep their stored order.
+        assert listed_ids == [
+            "btxn_newest",
+            "btxn_timestamped",
+            "btxn_dup_first",
+            "btxn_dup_second",
+            "btxn_oldest",
+        ]
+
     def test_get_debit_cards_by_account(self, environment: Environment):
         resp = call_discoverable_agent(
             environment,
@@ -3368,6 +3417,208 @@ class TestApplyCreditCardAccountFlagParity:
         )
         assert "Error" in resp.content
         assert "not found" in resp.content.lower()
+
+
+class TestNumericArgumentNormalization:
+    """DB state must not depend on how a caller spells a JSON number.
+
+    JSON does not distinguish ints from floats (33, 33.0, and 33.00 are the
+    same number), so two calls differing only in numeric spelling must produce
+    identical deterministic IDs and identical DB hashes. Gold trajectories are
+    replayed through the same code paths at evaluation time, so any spelling
+    sensitivity here directly mis-scores DB-basis tasks.
+    """
+
+    @staticmethod
+    def _fresh_env(base_db: TransactionalDB) -> Environment:
+        return _create_test_environment(base_db.model_copy(deep=True))
+
+    def _env_after_agent_call(
+        self, base_db: TransactionalDB, tool_name: str, arguments_json: str
+    ) -> Environment:
+        env = self._fresh_env(base_db)
+        resp = call(
+            env, "unlock_discoverable_agent_tool", {"agent_tool_name": tool_name}
+        )
+        assert not resp.error, resp.content
+        resp = call(
+            env,
+            "call_discoverable_agent_tool",
+            {"agent_tool_name": tool_name, "arguments": arguments_json},
+        )
+        assert not resp.error and "Error" not in resp.content, resp.content
+        return env
+
+    def _env_after_user_call(
+        self, base_db: TransactionalDB, tool_name: str, arguments_json: str
+    ) -> Environment:
+        env = self._fresh_env(base_db)
+        resp = call(
+            env, "give_discoverable_user_tool", {"discoverable_tool_name": tool_name}
+        )
+        assert not resp.error, resp.content
+        resp = call(
+            env,
+            "call_discoverable_user_tool",
+            {"discoverable_tool_name": tool_name, "arguments": arguments_json},
+            requestor="user",
+        )
+        assert not resp.error and "Error" not in resp.content, resp.content
+        return env
+
+    def test_savings_credit_amount_spelling(self, base_knowledge_db: TransactionalDB):
+        env_float = self._env_after_agent_call(
+            base_knowledge_db,
+            "apply_savings_account_credit_6831",
+            '{"account_id": "sav_001", "amount": 33.00, "credit_type": "interest_correction"}',
+        )
+        env_int = self._env_after_agent_call(
+            base_knowledge_db,
+            "apply_savings_account_credit_6831",
+            '{"account_id": "sav_001", "amount": 33, "credit_type": "interest_correction"}',
+        )
+        assert env_float.get_db_hash() == env_int.get_db_hash()
+
+    def test_checking_credit_amount_spelling(self, base_knowledge_db: TransactionalDB):
+        env_float = self._env_after_agent_call(
+            base_knowledge_db,
+            "apply_checking_account_credit_5829",
+            '{"account_id": "chk_001", "amount": 14.00, "credit_type": "fee_refund"}',
+        )
+        env_int = self._env_after_agent_call(
+            base_knowledge_db,
+            "apply_checking_account_credit_5829",
+            '{"account_id": "chk_001", "amount": 14, "credit_type": "fee_refund"}',
+        )
+        assert env_float.get_db_hash() == env_int.get_db_hash()
+
+    def test_user_check_deposit_amount_spelling(
+        self, base_knowledge_db: TransactionalDB
+    ):
+        env_int = self._env_after_user_call(
+            base_knowledge_db,
+            "deposit_check_3847",
+            '{"account_id": "chk_001", "check_amount": 1500}',
+        )
+        env_float = self._env_after_user_call(
+            base_knowledge_db,
+            "deposit_check_3847",
+            '{"account_id": "chk_001", "check_amount": 1500.0}',
+        )
+        assert env_int.get_db_hash() == env_float.get_db_hash()
+
+    def test_cli_request_amount_spelling(self, base_knowledge_db: TransactionalDB):
+        responses = []
+        hashes = []
+        for spelling in ("2500", "2500.0"):
+            env = self._fresh_env(base_knowledge_db)
+            resp = call(
+                env,
+                "unlock_discoverable_agent_tool",
+                {"agent_tool_name": "submit_credit_limit_increase_request_7392"},
+            )
+            assert not resp.error, resp.content
+            resp = call(
+                env,
+                "call_discoverable_agent_tool",
+                {
+                    "agent_tool_name": "submit_credit_limit_increase_request_7392",
+                    "arguments": f'{{"credit_card_account_id": "cc_001", "user_id": "user_001", "requested_increase_amount": {spelling}}}',
+                },
+            )
+            assert not resp.error and "Error" not in resp.content, resp.content
+            responses.append(resp.content)
+            hashes.append(env.get_db_hash())
+        assert hashes[0] == hashes[1]
+        # The tool normalizes to int (its documented type), so the rendered
+        # response must not leak the caller's spelling either.
+        assert responses[0] == responses[1]
+        assert "$2,500" in responses[0] and "$2,500.0" not in responses[0]
+
+    def test_cli_request_fractional_amount_rejected(
+        self, base_knowledge_db: TransactionalDB
+    ):
+        # A fractional amount is a wrong value, not an alternate spelling:
+        # truncating it to the documented int would silently match a gold
+        # whole-dollar request. It must error and leave the DB untouched.
+        env = self._fresh_env(base_knowledge_db)
+        resp = call(
+            env,
+            "unlock_discoverable_agent_tool",
+            {"agent_tool_name": "submit_credit_limit_increase_request_7392"},
+        )
+        assert not resp.error, resp.content
+        records_before = dict(env.tools.db.credit_limit_increase_requests.data)
+        resp = call(
+            env,
+            "call_discoverable_agent_tool",
+            {
+                "agent_tool_name": "submit_credit_limit_increase_request_7392",
+                "arguments": '{"credit_card_account_id": "cc_001", "user_id": "user_001", "requested_increase_amount": 2500.5}',
+            },
+        )
+        assert "Error" in resp.content and "whole number" in resp.content
+        assert env.tools.db.credit_limit_increase_requests.data == records_before
+
+    def test_debit_limit_fractional_amount_rejected(
+        self, base_knowledge_db: TransactionalDB
+    ):
+        env = self._fresh_env(base_knowledge_db)
+        env.tools.db.debit_cards.data["dbc_002"]["daily_atm_limit"] = 500
+        resp = call(
+            env,
+            "unlock_discoverable_agent_tool",
+            {"agent_tool_name": "request_temporary_debit_card_limit_increase_8374"},
+        )
+        assert not resp.error, resp.content
+        resp = call(
+            env,
+            "call_discoverable_agent_tool",
+            {
+                "agent_tool_name": "request_temporary_debit_card_limit_increase_8374",
+                "arguments": '{"card_id": "dbc_002", "limit_type": "atm", "new_limit": 700.5}',
+            },
+        )
+        assert "Error" in resp.content and "must be an integer" in resp.content
+        card = env.tools.db.debit_cards.data["dbc_002"]
+        assert card["daily_atm_limit"] == 500
+        assert "temporary_atm_limit_increase" not in card
+
+        # A whole-valued float is just an alternate spelling and must still
+        # succeed, storing the documented int.
+        resp = call(
+            env,
+            "call_discoverable_agent_tool",
+            {
+                "agent_tool_name": "request_temporary_debit_card_limit_increase_8374",
+                "arguments": '{"card_id": "dbc_002", "limit_type": "atm", "new_limit": 700.0}',
+            },
+        )
+        assert not resp.error and "Error" not in resp.content, resp.content
+        assert env.tools.db.debit_cards.data["dbc_002"]["daily_atm_limit"] == 700
+
+    def test_credit_card_application_income_spelling(
+        self, base_knowledge_db: TransactionalDB
+    ):
+        # apply_for_credit_card is a regular (non-discoverable) user tool, so
+        # its arguments arrive as parsed values rather than a JSON string.
+        hashes = []
+        for income in (100000, 100000.0):
+            env = self._fresh_env(base_knowledge_db)
+            resp = call(
+                env,
+                "apply_for_credit_card",
+                {
+                    "card_type": "Gold Rewards Card",
+                    "customer_name": "Amara Okonkwo",
+                    "annual_income": income,
+                    "rho_bank_subscription": False,
+                },
+                requestor="user",
+            )
+            assert not resp.error and "Error" not in resp.content, resp.content
+            hashes.append(env.get_db_hash())
+        assert hashes[0] == hashes[1]
 
 
 if __name__ == "__main__":

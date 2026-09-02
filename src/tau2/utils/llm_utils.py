@@ -469,24 +469,32 @@ def generate(
     return message
 
 
-def get_cost(messages: list[Message]) -> tuple[float, float] | None:
+def get_cost(messages: list[Message]) -> tuple[float | None, float | None]:
     """
-    Get the cost of the interaction between the agent and the user.
-    Returns None if any message has no cost.
+    Get the (agent_cost, user_cost) of the interaction.
+
+    Each side is computed independently: a side is None if any of its
+    messages has no cost. This way an uncosted agent message (e.g. an
+    audio-native provider without usage reporting) doesn't discard the
+    user side's cost, and vice versa.
     """
-    agent_cost = 0
-    user_cost = 0
+    agent_cost: float | None = 0.0
+    user_cost: float | None = 0.0
     for message in messages:
         if isinstance(message, ToolMessage):
             continue
-        if message.cost is not None:
-            if isinstance(message, AssistantMessage):
+        if isinstance(message, AssistantMessage):
+            if message.cost is None:
+                logger.warning(f"Agent message has no cost: {message.content}")
+                agent_cost = None
+            elif agent_cost is not None:
                 agent_cost += message.cost
-            elif isinstance(message, UserMessage):
+        elif isinstance(message, UserMessage):
+            if message.cost is None:
+                logger.warning(f"User message has no cost: {message.content}")
+                user_cost = None
+            elif user_cost is not None:
                 user_cost += message.cost
-        else:
-            logger.warning(f"Message {message.role}: {message.content} has no cost")
-            return None
     return agent_cost, user_cost
 
 

@@ -295,9 +295,21 @@ class Environment:
         initialization_data: Optional[InitializationData],
         initialization_actions: Optional[list[EnvFunctionCall]],
         message_history: list[Message],
+        strict: bool = True,
     ):
         """
         Set the state of the environment given initialization data and a list of messages.
+
+        Args:
+            strict: When True (default), raise if a replayed mutating tool call
+                returns different content than the recorded ToolMessage. When
+                False, log a warning instead and continue the replay. Lenient
+                mode is intended for re-grading historical trajectories whose
+                recorded tool outputs contain cosmetic drift against current
+                tool code (e.g. numeric argument echoes rendered as `25` by the
+                code that produced them but `25.0` after numeric-argument
+                normalization); the state mutation is applied identically
+                either way.
         """
         if self.solo_mode:
             assert all(
@@ -385,8 +397,15 @@ class Environment:
             except json.JSONDecodeError:
                 expected_content = expected_response.content
             if content != expected_content:
-                raise ValueError(
-                    f"Tool call:\n{tool_call}\n\nReturned:\n{response}\n\nExpected:\n{expected_response}"
+                if strict:
+                    raise ValueError(
+                        f"Tool call:\n{tool_call}\n\nReturned:\n{response}\n\nExpected:\n{expected_response}"
+                    )
+                logger.warning(
+                    f"Replayed tool call '{tool_call.name}' returned different "
+                    f"content than the recorded ToolMessage; continuing because "
+                    f"strict=False. Recorded output may predate current tool "
+                    f"code.\nTool call:\n{tool_call}"
                 )
         self.sync_tools()
 

@@ -36,17 +36,30 @@ const ORG_EMOJI = {
 const formatMonth = (d) => d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 const formatDate = (d) => d.toISOString().slice(0, 10)
 
+// benchmark is one of 'core' (τ²-bench), 'knowledge' (τ³-Banking), or
+// 'voice' (τ³-Voice). Core and voice share the same three domains but differ
+// in modality; knowledge is banking-only in text.
+const BENCHMARK_MODALITY = {
+  core: 'text',
+  knowledge: 'text',
+  voice: 'voice',
+}
+
+const BENCHMARK_LABEL = {
+  core: 'τ²-bench',
+  knowledge: 'τ³-Banking',
+  voice: 'τ³-Voice',
+}
+
 /**
  * Compute the score the chart should plot for a given model+domain pair.
  * For 'overall', match the leaderboard table semantics: average pass_1 across
- * all available core domains for the benchmark, but only when every core
- * domain has data. For a specific domain, just use that domain's pass_1.
+ * the three core domains, but only when every one has data. For a specific
+ * domain, just use that domain's pass_1.
  */
-const computeScore = (model, domain, benchmark) => {
+const computeScore = (model, domain) => {
   if (domain === 'overall') {
-    const overallDomains = benchmark === 'voice'
-      ? ['retail', 'airline', 'telecom']
-      : ['retail', 'airline', 'telecom', 'banking_knowledge']
+    const overallDomains = ['retail', 'airline', 'telecom']
     const vals = overallDomains
       .map((d) => model[d]?.[0])
       .filter((v) => v !== null && v !== undefined)
@@ -75,7 +88,7 @@ const extractEntries = (
   { showStandard, showCustom, showLegacy }
 ) => {
   const passesFilters = (model) => {
-    if (model.modality !== benchmark) return false
+    if (model.modality !== BENCHMARK_MODALITY[benchmark]) return false
     if (model.isLegacy && !showLegacy) return false
     const isStandard = model.submissionType === 'standard' || !model.submissionType
     const isCustom = model.submissionType === 'custom'
@@ -87,7 +100,7 @@ const extractEntries = (
   const bestByModel = new Map()
   for (const [key, model] of Object.entries(passKData)) {
     if (!passesFilters(model)) continue
-    const score = computeScore(model, domain, benchmark)
+    const score = computeScore(model, domain)
     if (score === null) continue
     const sub = fullSubmissionData[key] || {}
     const modelName = sub.model_name || model.modelName
@@ -100,7 +113,7 @@ const extractEntries = (
   const entries = []
   for (const [key, model] of Object.entries(passKData)) {
     if (!passesFilters(model)) continue
-    const score = computeScore(model, domain, benchmark)
+    const score = computeScore(model, domain)
     if (score === null) continue
     const sub = fullSubmissionData[key] || {}
     const modelName = sub.model_name || model.modelName
@@ -169,7 +182,7 @@ const ProgressView = ({
   )
   const frontierKeys = useMemo(() => computeFrontier(entries), [entries])
 
-  const benchmarkLabel = benchmark === 'voice' ? 'τ-voice' : 'τ-bench'
+  const benchmarkLabel = BENCHMARK_LABEL[benchmark] || 'τ-bench'
   const domainLabel = DOMAIN_LABEL[domain] || domain
 
   if (entries.length === 0) {

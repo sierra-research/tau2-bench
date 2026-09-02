@@ -45,6 +45,13 @@ jobs:
           VITE_SUBMISSIONS_BASE_URL: https://sierra-tau-bench-public.s3.us-west-2.amazonaws.com/submissions
         run: npm run build
 
+      # Snapshot each route to its own static HTML file (content + per-page
+      # meta baked in). Fails the deploy if any page renders empty/broken,
+      # so a data-fetch flake can't silently ship blank pages.
+      - name: Prerender routes
+        working-directory: web/leaderboard
+        run: npm run prerender
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

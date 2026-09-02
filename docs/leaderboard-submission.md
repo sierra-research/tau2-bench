@@ -30,23 +30,61 @@ The leaderboard distinguishes between two types of submissions:
 
 ### Standard Submissions (Default)
 
-Standard submissions evaluate a **general-purpose LLM** using the **default τ-bench scaffold**:
-- A general-purpose LLM as the agent (not specifically trained for this benchmark)
-- The standard tool set provided by τ-bench
-- Default prompts and evaluation protocol
-- No modifications to the evaluation setup
+Standard submissions use the documented default **benchmark-side evaluation
+setup** for their modality. The model or system being evaluated is treated as
+the product behind its agent interface; its internal implementation does not
+determine the submission type.
 
-If you're evaluating an off-the-shelf LLM using τ-bench as documented without modifications, your submission is **standard**. You don't need to specify `submission_type` in your JSON (it defaults to `"standard"`).
+All standard submissions use:
+
+- The standard task set, domain policies, tools, and evaluator
+- The default user simulator and evaluation protocol for the track
+- No benchmark-side prompt, tool, orchestration, task-selection, or grading
+  modifications
+- No access to hidden task goals, reference actions, evaluator state, or other
+  benchmark data outside the standard agent interface
+- A model or system that was not trained specifically on τ-bench tasks,
+  rewards, or evaluation data
+
+#### Text τ-bench
+
+A standard text submission evaluates a general-purpose LLM through the default
+τ-bench agent scaffold, with the standard tool set and prompts. Replacing or
+augmenting that benchmark-side scaffold with a planner, router, additional
+agent, custom tool, or modified control flow makes the submission custom.
+
+#### τ-voice
+
+A standard voice submission presents one τ-voice-compatible agent interface to
+the benchmark and uses the default τ-voice harness, prompts, domain policies,
+tool schemas and results, user simulator, task set, and evaluator.
+
+The voice system may use any internal product architecture behind that
+interface, including proprietary ASR and TTS, multiple models or agents,
+internal prompts and tools, routing, and orchestration. Those implementation
+details do **not** make the submission custom as long as they are contained
+inside the submitted system and require no benchmark-side evaluation changes.
+A transport or protocol adapter that only connects the system to the standard
+τ-voice agent interface is also allowed.
+
+If you're evaluating an off-the-shelf model or voice system through the
+appropriate standard interface without benchmark-side modifications, your
+submission is **standard**. You don't need to specify `submission_type` in your
+JSON (it defaults to `"standard"`).
 
 ### Custom Submissions
 
-Custom submissions include **any approach that differs from the standard evaluation**, such as:
+Custom submissions include **any approach that changes the benchmark-side
+evaluation setup**, such as:
 
 **Modified Scaffolds:**
-- Multi-model routers or model ensembles
+- Multi-model routers, model ensembles, or additional agents implemented by
+  the benchmark-side submission code
 - Additional tools beyond the standard τ-bench tool set
-- Modified agent orchestration or control flow
-- Modified prompts or system instructions
+- Modified τ-bench or τ-voice orchestration or control flow
+- Modified benchmark-supplied prompts or system instructions
+- A non-default user simulator, task selection, speech configuration, or
+  evaluation protocol
 
 **Domain-Specific Training:**
 - Models trained or fine-tuned specifically on τ-bench domains (airline, retail, telecom customer service)
@@ -58,7 +96,8 @@ Custom submissions **must** include detailed methodology documentation:
 1. **Set `submission_type` to `"custom"`** in your `submission.json`
 2. **Provide comprehensive `methodology.notes`** explaining what modifications were made, why, and how the custom system works at a high level
 3. **Link to your implementation** in the `references` array (GitHub repo, paper, blog post)
-4. **Set `methodology.verification.modified_prompts` to `true`** if you modified any prompts
+4. **Set `methodology.verification.modified_prompts` to `true`** if you
+   modified any benchmark-supplied prompts
 
 ---
 
@@ -244,7 +283,8 @@ For voice submissions, `prepare` does the following:
 2. **Converts to directory-based format** — if source results are in monolithic JSON format, they are automatically converted to the directory layout (`results.json` metadata + `simulations/` with individual sim files).
 3. **Copies only canonical audio** — for each task, only the canonical simulation's `audio/` subdirectory from `artifacts/` is kept. Non-canonical simulation directories, `hallucination_discarded/`, `llm_debug/`, `sim_status.json`, and `task.log` are all skipped.
 4. **Extracts `voice_config`** — provider, model, tick duration, and user TTS settings are extracted from the trajectory data and embedded in `submission.json`.
-5. **Sets `modality: "voice"`** and prompts for the voice user simulator version (defaulting to `VOICE_USER_SIMULATOR_VERSION`).
+5. **Computes `interaction_metrics`** — the interaction-quality panel (latency, responsiveness, interrupts, selectivity) is computed from the tick-level trajectory data and embedded in `submission.json`. See [Interaction Metrics](interaction-metrics.md).
+6. **Sets `modality: "voice"`** and prompts for the voice user simulator version (defaulting to `VOICE_USER_SIMULATOR_VERSION`).
 
 Output structure:
 
@@ -402,6 +442,7 @@ Your `submission.json` must follow the schema defined in [`web/leaderboard/publi
 | `references` | array | — | Links to papers, documentation, repos |
 | `methodology` | object | — | Evaluation methodology details |
 | `voice_config` | object | — | Voice-specific configuration (required for voice) |
+| `interaction_metrics` | object | — | Voice interaction metrics computed from trajectories; see [Interaction Metrics](#interaction-metrics) |
 | `model_release` | object | — | Model release metadata (release date + announcement link); see [Model Release](#model-release) |
 
 ### Domain Results
@@ -450,6 +491,26 @@ Required when `modality` is `"voice"`:
 | `tick_duration_seconds` | No | Duration of each simulation tick in seconds |
 | `max_steps_seconds` | No | Maximum simulation duration in seconds |
 | `user_tts_provider` | No | User simulator TTS provider/model (e.g. `"elevenlabs/eleven_v3"`) |
+
+### Interaction Metrics
+
+Voice submissions carry an `interaction_metrics` block with the τ-voice
+interaction-quality panel (response/yield latency, response/yield rate, agent
+interruption rate, and selectivity for backchannels, vocal tics, and
+non-directed speech), computed offline from the tick-level trajectories. It is
+generated automatically by `tau2 submit prepare` for voice submissions and
+**recomputed by maintainers from the submitted trajectories during review** —
+submitter-provided values are always replaced.
+
+The block contains a `version` stamp, the detection-window `config`,
+per-domain panels under `domains`, and the cross-domain average under
+`overall`; every rate is accompanied by its event counts. See
+[Interaction Metrics documentation](interaction-metrics.md) for full metric
+definitions, and compute it yourself with:
+
+```bash
+tau2 submit interaction-metrics <experiment-dirs> --output interaction_metrics.json
+```
 
 ## Verification System
 
@@ -594,6 +655,24 @@ Voice submissions set `modality` to `"voice"` and include a `voice_config` objec
     "max_steps_seconds": 600,
     "user_tts_provider": "elevenlabs/eleven_v3"
   },
+  "interaction_metrics": {
+    "version": "1.0",
+    "config": { "tick_duration_sec": 0.2, "no_yield_window_sec": 2.0, "...": 0.0 },
+    "domains": {
+      "retail": {
+        "response_latency_mean": 1.44,
+        "yield_latency_mean": 0.62,
+        "response_rate": 0.998,
+        "yield_rate": 1.0,
+        "agent_interruption_rate": 0.2,
+        "selectivity_backchannel": 0.04,
+        "selectivity_vocal_tic": 0.06,
+        "selectivity_non_directed": 0.15,
+        "counts": { "n_simulations": 114, "response_total": 891, "yield_total": 566, "backchannel_total": 77, "vocal_tic_total": 83, "non_directed_total": 134, "agent_interrupts_count": 179 }
+      }
+    },
+    "overall": { "...": "per-metric mean across domains, counts summed" }
+  },
   "methodology": {
     "evaluation_date": "2026-03-01",
     "tau2_bench_version": "v2.0",
@@ -641,6 +720,7 @@ See `web/leaderboard/public/submissions/A_EXAMPLE_voice-model_example-org_2026-0
 - [ ] PR description includes link to externally hosted trajectory data
 - [ ] **New provider:** PR includes audio-native adapter implementation and documentation
 - [ ] Results use "regular" speech complexity only
+- [ ] `interaction_metrics` recomputed from the submitted trajectories (done automatically by `review_submission.py`; submitter-provided values must not be trusted)
 - [ ] No duplicate submissions
 
 ## Questions?
