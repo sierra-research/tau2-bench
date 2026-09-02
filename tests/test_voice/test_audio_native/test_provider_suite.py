@@ -607,6 +607,93 @@ class TestToolCall:
 
 
 # =============================================================================
+# Tests: Usage / cost reporting
+# =============================================================================
+
+# Ticks to drain after the agent starts speaking so the provider's usage
+# event (typically emitted at end-of-response) has time to arrive.
+USAGE_DRAIN_TICKS = 50  # 10 seconds at 200ms ticks
+
+
+class TestUsageReporting:
+    """Verify the adapter reports usage records that price to a dollar cost.
+
+    The eval framework builds SimulationRun.agent_usage / agent_cost from
+    adapter.get_usage_records(), so every provider must (a) emit at least one
+    UsageRecord with a positive billable quantity and (b) resolve to a
+    non-None cost via the pricing table.
+    """
+
+    def test_usage_reported_after_turn(
+        self, connected_adapter: DiscreteTimeAdapter, timer: TickTimer
+    ):
+        """One spoken turn must yield usage records that price to a cost > 0."""
+        from tau2.voice.pricing import build_session_usage
+
+        audio = load_telephony_audio("hi_how_are_you.ulaw")
+        chunks = chunk_audio(audio, connected_adapter.bytes_per_tick)
+
+        results = run_ticks_until(
+            connected_adapter, chunks, timer, stop_when="agent_audio"
+        )
+        assert any(r.agent_audio_bytes > 0 for r in results), (
+            "Agent never produced audio; cannot check usage reporting"
+        )
+
+        # Drain until usage records show up (or the drain budget is spent).
+        silence = make_silence()
+        for tick in range(USAGE_DRAIN_TICKS):
+            if connected_adapter.get_usage_records():
+                break
+            result = timer.run_tick(connected_adapter, silence, len(results) + tick + 1)
+            results.append(result)
+            assert_audio_capping(result, connected_adapter)
+
+        records = connected_adapter.get_usage_records()
+        assert records, (
+            f"No usage records reported within {len(results)} ticks "
+            f"({len(results) * TICK_DURATION_MS}ms) after a full spoken turn"
+        )
+
+        # Every record must identify where it came from.
+        for record in records:
+            assert record.provider, f"UsageRecord missing provider: {record}"
+            assert record.model, f"UsageRecord missing model: {record}"
+
+        # At least one billable record must carry a positive quantity.
+        def _billable_quantity(r) -> float:
+            return (
+                (r.input_tokens or 0)
+                + (r.output_tokens or 0)
+                + (r.audio_input_seconds or 0)
+                + (r.characters or 0)
+            )
+
+        billable = [r for r in records if r.billable]
+        assert billable, f"All {len(records)} usage records are non-billable"
+        assert any(_billable_quantity(r) > 0 for r in billable), (
+            "No billable usage record has a positive quantity: "
+            f"{[r.model_dump(exclude_none=True) for r in billable]}"
+        )
+
+        # The pricing table must resolve the session to a real dollar cost.
+        usage = build_session_usage(records)
+        assert usage.cost is not None, (
+            "Session cost is None -- provider/model not covered by the pricing "
+            f"table. Breakdown: {usage.cost_breakdown}, "
+            f"records: {[(r.provider, r.model, r.component) for r in records]}"
+        )
+        assert usage.cost > 0, f"Session cost is {usage.cost}, expected > 0"
+
+        num_tick_records = sum(len(r.usage_records) for r in results)
+        print(
+            f"\n  Usage: {len(records)} ledger records "
+            f"({num_tick_records} attached to ticks), "
+            f"cost=${usage.cost:.6f}, breakdown={usage.cost_breakdown}"
+        )
+
+
+# =============================================================================
 # Tests: Barge-in / interruption
 # =============================================================================
 

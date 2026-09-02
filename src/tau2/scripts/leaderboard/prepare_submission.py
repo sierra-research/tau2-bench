@@ -10,11 +10,16 @@ from rich.prompt import Confirm, Prompt
 from tau2.config import VOICE_USER_SIMULATOR_VERSION
 from tau2.data_model.simulation import Results as TrajectoryResults
 from tau2.metrics.agent_metrics import AgentMetrics, compute_metrics
+from tau2.scripts.leaderboard.compute_interaction_metrics import (
+    build_interaction_metrics_block,
+    compute_metrics_for_loaded_results,
+)
 from tau2.scripts.leaderboard.submission import (
     SUBMISSION_FILE_NAME,
     TRAJECTORY_FILES_DIR_NAME,
     ContactInfo,
     DomainResults,
+    InteractionMetrics,
     Methodology,
     ModelRelease,
     Reference,
@@ -542,6 +547,7 @@ def prepare_submission(
     console.print("\n📊 Computing metrics...", style="bold blue")
     domain_metrics: dict[str, AgentMetrics] = {}
     domain_results: dict[str, DomainResults] = {}
+    interaction_domain_metrics: dict[str, dict] = {}
     default_model = None
     default_user_simulator = None
     voice_config: Optional[VoiceConfig] = None
@@ -571,6 +577,12 @@ def prepare_submission(
             # Compute metrics for this trajectory file
             metrics = compute_metrics(results)
             domain_metrics[domain] = metrics
+
+            # Compute voice interaction metrics from the tick-level data
+            if is_voice:
+                interaction_domain_metrics[domain] = compute_metrics_for_loaded_results(
+                    results
+                )
 
             # Create DomainResults object
             def _pct(val: float | None) -> float | None:
@@ -852,6 +864,12 @@ def prepare_submission(
             trajectory_files_map[domain] = dest_name
 
     # Step 7: Write submission.json (after copy so trajectory_files_map is final)
+    interaction_metrics = None
+    if interaction_domain_metrics:
+        interaction_metrics = InteractionMetrics.model_validate(
+            build_interaction_metrics_block(interaction_domain_metrics)
+        )
+
     submission = Submission(
         model_name=model_name,
         model_organization=model_organization,
@@ -867,6 +885,7 @@ def prepare_submission(
         references=references if references else None,
         methodology=methodology,
         voice_config=voice_config,
+        interaction_metrics=interaction_metrics,
         reasoning_effort=reasoning_effort,
         model_release=model_release,
     )

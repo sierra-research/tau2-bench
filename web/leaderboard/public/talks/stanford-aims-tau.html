@@ -1,0 +1,2607 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>τ-bench — Stanford AIMS · Soham Ray</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --ink: #1e293b;
+    --heading: #0f172a;
+    --muted: #64748b;
+    --faint: #94a3b8;
+    --line: #e2e8f0;
+    --wash: #f8fafc;
+    --green-wash: #f0fdf4;
+    --accent: #065f46;
+    --accent-mid: #047857;
+    --accent-bright: #059669;
+    --red: #dc2626;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+      Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+    --font-tau: Georgia, "Times New Roman", serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overscroll-behavior: none; }
+  body {
+    background: #eef1f5;
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  /* ---------- deck scaffolding: fixed 1280x720 canvas, scaled to fit ---------- */
+  #stage {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  #deck {
+    position: relative;
+    flex: none;
+    width: 1280px; height: 720px;
+    background: var(--bg);
+    transform: scale(var(--s, 1));
+    transform-origin: center center;
+    box-shadow: 0 24px 80px rgba(15, 23, 42, .16);
+  }
+  .slide {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 34px 58px 44px;
+    overflow: hidden;
+  }
+  .slide.active { display: flex; }
+  .inner { width: 100%; }
+
+  /* fragments: reveal step-by-step on → / click */
+  .frag { opacity: 0; transform: translateY(8px); transition: opacity .3s ease, transform .3s ease; }
+  .frag.on { opacity: 1; transform: none; }
+  [data-at] { opacity: 0; transform: translateY(8px); transition: opacity .3s ease, transform .3s ease; }
+  [data-at].on { opacity: 1; transform: none; }
+  [data-off] { transition: opacity .3s ease; }
+  [data-off].off { opacity: 0; pointer-events: none; }
+
+  /* chrome */
+  #progress {
+    position: fixed; top: 0; left: 0; height: 2px;
+    background: var(--accent-mid); width: 0%;
+    z-index: 10; transition: width .3s ease;
+  }
+  #counter {
+    position: fixed; bottom: 22px; left: 26px;
+    font-family: var(--font-mono); font-size: 12px; color: var(--faint);
+    z-index: 10; letter-spacing: .06em;
+    user-select: none;
+  }
+  #navhint {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+    font-family: var(--font-mono); font-size: 11px; color: var(--faint);
+    z-index: 10; user-select: none; opacity: .8;
+  }
+  .navbtns { position: fixed; bottom: 16px; right: 22px; z-index: 10; display: flex; gap: 8px; }
+  .navbtns button {
+    width: 40px; height: 40px; border-radius: 999px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    font-size: 17px; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s ease;
+  }
+  .navbtns button:hover { border-color: var(--accent-mid); color: var(--accent-mid); }
+  .navbtns button:active { transform: scale(.94); }
+
+  /* ---------- typographic system ---------- */
+  .kicker {
+    font-family: var(--font-mono); font-size: 13.5px; font-weight: 500;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--accent-mid);
+    margin-bottom: 14px;
+  }
+  h1 { color: var(--heading); font-size: 74px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.08; }
+  h2 { color: var(--heading); font-size: 40px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.12; margin-bottom: 20px; }
+  .lede { font-size: 19.5px; line-height: 1.55; color: var(--ink); max-width: 62ch; }
+  .muted { color: var(--muted); }
+  .tau { font-family: var(--font-tau); font-style: italic; }
+  .mono { font-family: var(--font-mono); }
+  a { color: var(--accent-mid); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  strong { font-weight: 650; color: var(--heading); }
+
+  .footnote {
+    margin-top: 22px; font-size: 13px; color: var(--faint); line-height: 1.5;
+    font-family: var(--font-mono);
+  }
+
+  /* stat chips */
+  .stats { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 24px; }
+  .stat {
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 18px; background: #fff; min-width: 150px;
+  }
+  .stat .num { font-family: var(--font-mono); font-size: 30px; font-weight: 600; color: var(--accent); letter-spacing: -0.02em; }
+  .stat .lbl { font-size: 13.5px; color: var(--muted); margin-top: 4px; line-height: 1.35; }
+
+  /* two-column helper */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+
+  /* card list */
+  .cardlist { display: grid; gap: 12px; }
+  .card {
+    border: 1px solid var(--line); border-radius: 10px; background: #fff;
+    padding: 15px 19px; font-size: 16px; line-height: 1.5;
+  }
+  .card b { color: var(--heading); font-weight: 650; }
+  .card .tag {
+    font-family: var(--font-mono); font-size: 12px; color: var(--accent-mid);
+    letter-spacing: .1em; text-transform: uppercase; display: block; margin-bottom: 5px;
+  }
+  /* heading-only cards: render the lone tag as a proper statement chip */
+  .card.chip { padding: 13px 19px; text-align: center; background: var(--wash); }
+  .card.chip .tag {
+    font-family: var(--font-sans); text-transform: none; letter-spacing: 0;
+    font-size: 16.5px; font-weight: 650; color: var(--heading); margin-bottom: 0;
+  }
+
+  /* ---------- slide 1: title ---------- */
+  .titleslide .inner { display: flex; flex-direction: column; gap: 0; }
+  .who { display: flex; align-items: center; gap: 22px; margin-top: 52px; }
+  .who img.face { width: 92px; height: 92px; border-radius: 50%; object-fit: cover; }
+  .who .name { font-size: 19px; font-weight: 650; color: var(--heading); }
+  .who .role { font-size: 15px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 9px; }
+  .who .role .org { font-weight: 650; color: var(--heading); }
+  .who .obo { display: flex; align-items: center; gap: 13px; margin-left: 30px; padding-left: 34px; border-left: 1px solid var(--line); }
+  .who .obo img { width: 42px; height: 42px; border-radius: 10px; }
+  .who .obo-t { font-size: 15px; color: var(--muted); }
+  .who .obo-t b { font-weight: 650; color: var(--heading); }
+  .bigtau {
+    position: absolute; right: 60px; bottom: -28px;
+    font-family: var(--font-tau); font-style: italic;
+    font-size: 330px; line-height: 1; color: var(--green-wash);
+    user-select: none; pointer-events: none; z-index: 0;
+  }
+  .titleslide .inner { position: relative; z-index: 1; }
+
+  /* section divider slides */
+  .divider { text-align: left; }
+  .divider .giant {
+    font-family: var(--font-tau); font-style: italic;
+    font-size: 150px; color: var(--accent);
+    line-height: 1; letter-spacing: -0.02em;
+  }
+  .divider h2 { margin-top: 18px; }
+
+  /* ---------- diagrams ---------- */
+  .diagram { width: 100%; height: auto; display: block; margin-top: 8px; }
+  .diagram text { font-family: var(--font-sans); }
+  .diagram .dt { font-family: var(--font-tau); font-style: italic; }
+  .diagram .dm { font-family: var(--font-mono); }
+
+  /* press wall */
+  .presswall { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 10px; }
+  .presswall figure { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; }
+  .presswall img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; filter: saturate(.92); }
+  .presswall figcaption { padding: 9px 12px; font-size: 13px; color: var(--muted); line-height: 1.4; }
+  .presswall figcaption b { color: var(--heading); font-weight: 600; }
+
+  /* charts */
+  .chartwrap { border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px 10px; background: #fff; margin-top: 6px; }
+
+  /* call comparison */
+  .calls { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 6px; }
+  .call { border-radius: 12px; padding: 22px 24px; border: 1px solid var(--line); }
+  .call.ideal { background: var(--wash); }
+  .call.real { background: #fff; border-color: #d1e7dd; box-shadow: 0 1px 0 var(--line); }
+  .call h3 { font-size: 16px; font-weight: 650; color: var(--heading); margin-bottom: 4px; }
+  .call .sub { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 14px; }
+  .call.ideal .sub { color: var(--faint); }
+  .call.real .sub { color: var(--accent-mid); }
+  .call ul { list-style: none; display: grid; gap: 9px; }
+  .call li { font-size: 14.5px; line-height: 1.45; padding-left: 20px; position: relative; }
+  .call li::before { content: "·"; position: absolute; left: 6px; color: var(--faint); font-weight: 700; }
+  .call.real li::before { content: "•"; color: var(--accent-bright); }
+
+  /* metrics table */
+  table.metrics { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 16.5px; }
+  table.metrics th, table.metrics td { text-align: left; padding: 12px 15px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.metrics th { font-family: var(--font-mono); font-size: 12.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  table.metrics td.dim { font-weight: 650; color: var(--heading); white-space: nowrap; }
+  table.metrics td .sym { font-family: var(--font-mono); color: var(--accent-mid); font-size: 13px; }
+  table.metrics tr:last-child td { border-bottom: none; }
+
+  /* horizontal bars (failure modes) */
+  .hbars { display: grid; gap: 10px; margin-top: 10px; }
+  .hbar { display: grid; grid-template-columns: 190px 1fr 66px; align-items: center; gap: 12px; font-size: 14px; }
+  .hbar .lbl { color: var(--ink); text-align: right; }
+  .hbar .track { background: var(--wash); border-radius: 5px; height: 20px; display: flex; overflow: hidden; border: 1px solid var(--line); }
+  .hbar .seg1 { background: var(--accent-mid); height: 100%; }
+  .hbar .seg2 { background: #86efac; height: 100%; }
+  .hbar .val { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+  .legend { display: flex; gap: 18px; margin-top: 14px; font-size: 12.5px; color: var(--muted); align-items: center; flex-wrap: wrap; }
+  .legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+  /* pipeline stages */
+  .pipe { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 10px; align-items: stretch; position: relative; }
+  .stage { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 16px 16px 14px; margin-right: 26px; position: relative; }
+  .stage:last-child { margin-right: 0; }
+  .stage::after {
+    content: "→"; position: absolute; right: -22px; top: 50%; transform: translateY(-50%);
+    color: var(--faint); font-size: 17px;
+  }
+  .stage:last-child::after { content: none; }
+  .stage .n { font-family: var(--font-mono); font-size: 11px; color: var(--accent-mid); letter-spacing: .12em; margin-bottom: 6px; }
+  .stage h3 { font-size: 15px; font-weight: 650; color: var(--heading); margin-bottom: 8px; }
+  .stage ul { list-style: none; display: grid; gap: 5px; }
+  .stage li { font-size: 12.8px; color: var(--muted); line-height: 1.4; }
+  .stage li b { color: var(--ink); font-weight: 600; }
+
+  /* persona face cards — faces blurred until the reveal step */
+  .pgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; margin-top: 18px; }
+  .pcard { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 14px 10px 12px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .pcard.ctrl { background: var(--wash); }
+  .pcard b { font-size: 13.5px; font-weight: 650; color: var(--heading); }
+  .pcard .pacc { font-size: 11.5px; color: var(--muted); line-height: 1.35; min-height: 31px; }
+  .pface { width: 62px; height: 62px; border-radius: 50%; overflow: hidden; border: 2px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 30px; background: var(--wash); flex: none; }
+  .pface img { width: 100%; height: 100%; object-fit: cover; filter: blur(9px) grayscale(1); transition: filter .6s ease; }
+  .pgrid.on .pface img { filter: none; }
+  .pcard .pwho { font-family: var(--font-mono); font-size: 11px; color: var(--accent-mid); font-weight: 700; opacity: 0; transition: opacity .5s ease .15s; }
+  .pgrid.on .pwho { opacity: 1; }
+
+  /* audio demo play buttons */
+  .play { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); background: #fff; color: var(--accent-mid); font-size: 9px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0 0 0 2px; flex: none; transition: background .15s, border-color .15s, color .15s; }
+  .play:hover { border-color: var(--accent-mid); background: var(--green-wash); }
+  .play.playing { background: var(--accent-mid); border-color: var(--accent-mid); color: #fff; }
+  .audiorow { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 13.5px; color: var(--muted); }
+  .audiorow .mono { font-family: var(--font-mono); font-size: 11.5px; color: var(--faint); }
+
+  .diagram.timeline { max-width: 860px; margin: 0 auto; display: block; }
+  .cardlist.compact .card { padding: 10px 14px; font-size: 13px; line-height: 1.45; }
+
+  /* example call transcript */
+  .convo { display: flex; flex-direction: column; gap: 9px; }
+  .bubble { border-radius: 14px; padding: 9px 16px; font-size: 14.5px; line-height: 1.45; max-width: 88%; }
+  .bubble.u { background: var(--wash); border: 1px solid var(--line); align-self: flex-start; }
+  .bubble.a { background: var(--green-wash); border: 1px solid #bbe7d0; align-self: flex-end; }
+  .tchip { font-family: var(--font-mono); font-size: 10.5px; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--accent-mid); white-space: nowrap; }
+  .tchip.ut { color: var(--muted); }
+  .worldcard { border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; background: #fff; }
+  .worldcard .wtitle { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin-bottom: 6px; }
+  .wrow { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 2.5px 0; color: var(--ink); }
+  .wrow .st { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .wrow .st b { color: var(--accent-mid); }
+  .couple { text-align: center; font-family: var(--font-mono); font-size: 11px; color: var(--faint); margin: 5px 0; }
+
+  /* mini result bars */
+  .mrow { display: grid; grid-template-columns: 88px 1fr 34px; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .mrow .mlbl { color: var(--muted); white-space: nowrap; font-size: 11.5px; }
+  .mtrack { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; height: 11px; overflow: hidden; }
+  .mfill { height: 100%; background: var(--accent-mid); }
+  .mfill.lt { background: #cbd5e1; }
+  .mfill.rd { background: #f59e0b; }
+  .mval { font-family: var(--font-mono); font-size: 11px; color: var(--ink); text-align: right; }
+
+  /* comparison table */
+  .cmp { border-collapse: collapse; width: 100%; font-size: 15.5px; }
+  .cmp th { font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 0 12px 10px; text-align: center; line-height: 1.5; }
+  .cmp th:first-child { text-align: left; }
+  .cmp td { padding: 7px 12px; border-top: 1px solid var(--line); text-align: center; }
+  .cmp td:first-child { text-align: left; white-space: nowrap; }
+  .cmp tr.group td { border-top: none; padding: 11px 12px 4px; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--faint); text-align: left; }
+  .cmp .y { color: var(--accent-mid); font-weight: 700; }
+  .cmp .p { color: #d97706; font-weight: 600; }
+  .cmp .n { color: #cbd5e1; }
+  .cmp tr.hero td { background: var(--green-wash); border-top: 1.5px solid #bbe7d0; border-bottom: 1.5px solid #bbe7d0; font-weight: 650; color: var(--accent); }
+  .cmp tr.hero td:first-child { border-radius: 8px 0 0 8px; }
+  .cmp tr.hero td:last-child { border-radius: 0 8px 8px 0; }
+
+  /* interactivity results table */
+  .itbl { font-size: 14px; }
+  .itbl td { font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
+  .itbl td:first-child { font-family: var(--font-sans); font-size: 14px; white-space: nowrap; }
+  .itbl .best { color: var(--accent-mid); font-weight: 700; }
+  .itbl .worst { color: var(--red); }
+  .itbl th sub, .itbl td sub { font-size: 9px; }
+  .itbl .abd { font-size: 10.5px; color: var(--faint); font-weight: 400; }
+  .itbl .worst .abd, .itbl .best .abd { color: inherit; }
+
+  /* paper figure */
+  .paperfig { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 20px 26px; margin-top: 6px; }
+  .paperfig img { display: block; width: 100%; max-height: 360px; object-fit: contain; margin: 0 auto; }
+
+  /* live embed */
+  .embedwrap { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; height: 445px; margin-top: 4px; }
+  /* crop taubench.com's fixed-height nav + announcement banner so the visualizer fills the frame */
+  .embedwrap iframe { width: 100%; height: calc(100% + 150px); margin-top: -150px; border: 0; display: block; }
+
+  .smallgrid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-top: 10px; }
+  .tightcards .card { font-size: 15px; padding: 13px 17px; }
+
+  kbd.klabel {
+    font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--line);
+    border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--muted); background: var(--wash);
+  }
+
+  /* ---------- live phone (state-machine driven from render()) ---------- */
+  .phonecol { display: flex; flex-direction: column; gap: 8px; }
+  .livephone {
+    position: relative; width: 208px; margin: 0 auto;
+    border-radius: 28px; background: #1e293b; padding: 10px 11px 11px;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, .22);
+    transition: box-shadow .35s ease;
+  }
+  .livephone.acting { box-shadow: 0 10px 26px rgba(15, 23, 42, .22), 0 0 0 4px #bbe7d0; }
+  .livephone .notch { width: 60px; height: 6px; border-radius: 4px; background: #0f172a; margin: 0 auto 8px; }
+  .livephone .screen {
+    background: #fef3c7; border-radius: 14px; padding: 10px 13px 12px;
+    display: flex; flex-direction: column; gap: 7px; transition: background .45s ease;
+  }
+  .livephone .phome { width: 52px; height: 4px; border-radius: 3px; background: #475569; margin: 8px auto 0; }
+  .livephone .ptop { display: flex; align-items: center; justify-content: space-between; height: 18px; }
+  .sigbars { display: flex; align-items: flex-end; gap: 3px; height: 17px; }
+  .sigbars i { width: 5px; border-radius: 2px; background: #d6dee8; transition: background .45s ease; }
+  .sigbars i:nth-child(1) { height: 6px; } .sigbars i:nth-child(2) { height: 10px; }
+  .sigbars i:nth-child(3) { height: 13px; } .sigbars i:nth-child(4) { height: 17px; }
+  .pplane { font-size: 15px; color: #d97706; transition: opacity .4s ease; }
+  .livephone.air-off .pplane { opacity: 0; }
+  .pbig { font-size: 17px; font-weight: 700; color: #b45309; text-align: center; letter-spacing: -0.01em; }
+  .pbig .st-broken { display: inline; } .pbig .st-nosig, .pbig .st-ok { display: none; }
+  .livephone.air-off .pbig .st-broken { display: none; }
+  .livephone.air-off .pbig .st-nosig { display: inline; }
+  .livephone.fixed .screen { background: var(--green-wash); }
+  .livephone.fixed .sigbars i { background: var(--accent-bright); }
+  .livephone.fixed .pbig { color: var(--accent); }
+  .livephone.fixed .pbig .st-broken, .livephone.fixed .pbig .st-nosig { display: none; }
+  .livephone.fixed .pbig .st-ok { display: inline; }
+  .ploc-line { font-size: 11px; color: #64748b; text-align: center; font-family: var(--font-mono); }
+  .livephone .prows { display: flex; flex-direction: column; gap: 7px; }
+  .livephone .prow {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(255, 255, 255, .65); border-radius: 8px; padding: 5px 9px;
+    font-size: 11.5px; color: #334155; font-weight: 500;
+  }
+  .ptoggle, .ptog2 {
+    width: 34px; height: 19px; border-radius: 19px; position: relative; flex: none;
+    transition: background .35s ease;
+  }
+  .ptoggle::after, .ptog2::after {
+    content: ""; position: absolute; top: 2px; width: 15px; height: 15px;
+    border-radius: 50%; background: #fff; transition: left .35s ease;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .25);
+  }
+  .ptoggle { background: #d97706; } .ptoggle::after { left: 17px; }
+  .livephone.air-off .ptoggle { background: #cbd5e1; }
+  .livephone.air-off .ptoggle::after { left: 2px; }
+  .ptog2 { background: #cbd5e1; } .ptog2::after { left: 2px; }
+  .livephone.roam-on .ptog2 { background: var(--accent-bright); }
+  .livephone.roam-on .ptog2::after { left: 17px; }
+  /* authoring mode: phone starts healthy, root causes break it */
+  .livephone.build .screen { background: var(--green-wash); }
+  .livephone.build .sigbars i { background: var(--accent-bright); }
+  .livephone.build .pplane { opacity: 0; }
+  .livephone.build .ptoggle { background: #cbd5e1; } .livephone.build .ptoggle::after { left: 2px; }
+  .livephone.build .pbig { color: var(--accent); }
+  .livephone.build .pbig .st-broken { display: none; } .livephone.build .pbig .st-ok { display: inline; }
+  .livephone.build.rc-air .screen { background: #fef3c7; }
+  .livephone.build.rc-air .sigbars i { background: #d6dee8; }
+  .livephone.build.rc-air .pplane { opacity: 1; }
+  .livephone.build.rc-air .ptoggle { background: #d97706; } .livephone.build.rc-air .ptoggle::after { left: 17px; }
+  .livephone.build.rc-air .pbig { color: #b45309; }
+  .livephone.build.rc-air .pbig .st-ok { display: none; } .livephone.build.rc-air .pbig .st-broken { display: inline; }
+  .ploc-line .p-abroad { display: none; }
+  .livephone.abroad .ploc-line .p-home { display: none; }
+  .livephone.abroad .ploc-line .p-abroad { display: inline; color: #d97706; }
+
+  /* ---------- animated audio pipeline ---------- */
+  #pipesvg .box { fill: #fff; stroke: var(--line); stroke-width: 1.5; }
+  #pipesvg .box.dash { stroke-dasharray: 5 4; }
+  #pipesvg .box.main { stroke: var(--accent); }
+  #pipesvg .grp { fill: var(--wash); stroke: var(--line); stroke-width: 1.5; }
+  #pipesvg text { font-family: var(--font-sans); }
+  #pipesvg .tl { font-size: 13px; fill: var(--ink); font-weight: 600; }
+  #pipesvg .ts { font-size: 11px; fill: var(--muted); }
+  #pipesvg .tm { font-family: var(--font-mono); font-size: 10.5px; fill: var(--faint); }
+  #pipesvg .tg { font-family: var(--font-mono); font-size: 11px; fill: var(--accent-mid); letter-spacing: .08em; }
+  /* flows: dashes crawl along the path while active */
+  #pipesvg .flow { fill: none; stroke-dasharray: 7 7; opacity: .18; animation: pldash 1s linear infinite paused; }
+  #pipesvg .flow.acc { stroke: var(--accent-mid); stroke-width: 3; }
+  #pipesvg .flow.grey { stroke: #94a3b8; stroke-width: 3; }
+  #pipesvg .flow.amber { stroke: #d97706; stroke-width: 1.7; stroke-dasharray: 2 6.5; stroke-linecap: round; }
+  #pipesvg .ctrl { fill: none; stroke: #cbd5e1; stroke-width: 1.4; stroke-dasharray: 3 4; opacity: .5; }
+  #pipesvg .ctrl.const { stroke: #94a3b8; stroke-width: 2.4; stroke-dasharray: none; opacity: .45; }
+  #pipesvg .lgconst { stroke: #94a3b8; stroke-width: 3; stroke-dasharray: 7 7; }
+  #pipesvg .lgint { stroke: #d97706; stroke-width: 1.7; stroke-dasharray: 2 6.5; stroke-linecap: round; }
+  @keyframes pldash { to { stroke-dashoffset: -14; } }
+  @keyframes plblink { 0%, 78%, 100% { opacity: .18; } 82%, 94% { opacity: 1; } }
+  @keyframes plctrl { 0%, 78%, 100% { opacity: .35; stroke: #cbd5e1; } 82%, 94% { opacity: 1; stroke: #d97706; } }
+  @keyframes plboxflash { 0%, 78%, 100% { fill: #fff; } 82%, 94% { fill: #fef3c7; } }
+  @keyframes plwob { from { transform: scaleY(.35); } to { transform: scaleY(1); } }
+  @keyframes plfd { 0%, 70%, 100% { opacity: 0; } 74%, 88% { opacity: 1; } }
+  /* stage 1: the speech line comes alive */
+  #pipesvg.s1 .f-speech { opacity: 1; animation-play-state: running; }
+  #pipesvg.s1 .mixer { stroke: var(--accent-mid); }
+  #pipesvg .wavebar { fill: var(--accent-mid); opacity: .15; transform-box: fill-box; transform-origin: 50% 50%; }
+  #pipesvg.s1 .wavebar { opacity: 1; animation: plwob .55s ease-in-out infinite alternate; }
+  #pipesvg.s1 .wavebar:nth-of-type(2n) { animation-duration: .42s; }
+  #pipesvg.s1 .wavebar:nth-of-type(3n) { animation-duration: .7s; }
+  /* stage 2: environment generators + Poisson control links */
+  #pipesvg.s2 .f-noise { opacity: .85; animation-play-state: running; }
+  #pipesvg.s2 .f-burst { animation: pldash 1s linear infinite, plblink 3.6s infinite; }
+  #pipesvg.s2 .f-oot { animation: pldash 1s linear infinite, plblink 5.2s infinite 1.3s; }
+  #pipesvg.s2 .ctrl-burst { animation: plctrl 3.6s infinite; }
+  #pipesvg.s2 .ctrl-oot { animation: plctrl 5.2s infinite 1.3s; }
+  #pipesvg.s2 .ctrl-muff { animation: plctrl 6.4s infinite 2.2s; }
+  #pipesvg.s2 .gburst { animation: plboxflash 3.6s infinite; }
+  #pipesvg.s2 .goot { animation: plboxflash 5.2s infinite 1.3s; }
+  #pipesvg.s2 .gmuff { animation: plboxflash 6.4s infinite 2.2s; }
+  /* stage 3: telephony + frame drops */
+  #pipesvg.s3 .f-out { opacity: 1; animation-play-state: running; }
+  #pipesvg.s3 .fdmark { animation: plfd 2.6s infinite; }
+  #pipesvg.s3 .fdmark.b { animation-delay: 1.2s; }
+  #pipesvg.s3 .gfd { animation: plboxflash 2.6s infinite; }
+  #pipesvg .fdmark { opacity: 0; stroke: var(--red); stroke-width: 2.2; }
+  .pipesteps { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 14px; }
+
+  /* pull-quotes (benchmarking slide) */
+  .bq { border-left: 3px solid var(--accent-mid); background: var(--wash); padding: 12px 16px 11px; border-radius: 0 10px 10px 0; margin-top: 12px; }
+  .bq .qt { font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 16.5px; color: var(--heading); line-height: 1.4; }
+  .bq .attr { font-size: 12px; color: var(--muted); margin-top: 5px; font-style: normal; }
+
+  /* spec / trace / verify — show-don't-tell task slides */
+  .spec { border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 10px 14px; margin-bottom: 10px; }
+  .spec .slbl { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-mid); display: block; margin-bottom: 4px; }
+  .spec p { font-size: 13.5px; line-height: 1.45; color: var(--ink); margin: 2px 0; }
+  .spec p.mono { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .ttrace { border: 1px solid var(--line); border-radius: 14px; background: var(--wash); padding: 14px 16px; display: flex; flex-direction: column; gap: 7px; }
+  .trow { display: grid; grid-template-columns: 48px 1fr; gap: 10px; align-items: start; }
+  .trow .twho { font-family: var(--font-mono); font-size: 10.5px; color: var(--faint); padding-top: 7px; text-transform: uppercase; letter-spacing: .06em; }
+  .trow .twho.u { color: var(--muted); }
+  .tbub { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font-size: 13.5px; line-height: 1.45; color: var(--ink); justify-self: start; }
+  .trow.agent .tbub { background: var(--green-wash); border-color: #cde9db; }
+  .ttool { font-family: var(--font-mono); font-size: 12px; color: var(--ink); background: #fff; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 5px 10px; justify-self: start; }
+  .ttool .op { font-weight: 700; font-size: 10px; letter-spacing: .1em; margin-right: 8px; }
+  .ttool .op.r { color: var(--muted); }
+  .ttool .op.w { color: var(--red); }
+  .ttool .op.s { color: var(--accent-mid); }
+  .tret { font-family: var(--font-mono); font-size: 11.5px; color: var(--faint); padding-left: 12px; justify-self: start; }
+  .verify { border-top: 1px dashed #cbd5e1; margin-top: 8px; padding-top: 9px; }
+  .verify .vtitle { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+  .verify .vitem { font-family: var(--font-mono); font-size: 12px; line-height: 1.7; color: var(--ink); }
+  .vitem .ok { color: var(--accent-bright); font-weight: 700; }
+  .vitem .bad { color: var(--red); font-weight: 700; }
+
+  /* company logo wall */
+  .logowall { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .logocell { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font-size: 13.5px; font-weight: 600; color: var(--heading); background: #fff; }
+  .logocell img { width: 20px; height: 20px; border-radius: 4px; flex: none; }
+  .logocell small { font-weight: 500; color: var(--muted); font-size: 11px; margin-left: auto; white-space: nowrap; }
+
+  /* behavior compare rows (tau-knowledge qualitative) */
+  .bhv { display: grid; grid-template-columns: 240px 1fr 1.1fr; gap: 12px; align-items: stretch; margin-bottom: 12px; }
+  .bhv .bt { font-size: 15px; font-weight: 650; color: var(--heading); line-height: 1.35; padding-top: 6px; }
+  .bhv .bt small { display: block; font-weight: 400; font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  .bcard { border-radius: 10px; padding: 9px 12px; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.6; color: var(--ink); }
+  .bcard .bh { font-size: 10px; letter-spacing: .1em; font-weight: 700; margin-bottom: 4px; font-family: var(--font-mono); }
+  .bcard.bad { background: #fef2f2; border: 1px solid #fecaca; }
+  .bcard.bad .bh { color: var(--red); }
+  .bcard.good { background: var(--green-wash); border: 1px solid #bbe7d0; }
+  .bcard.good .bh { color: var(--accent-mid); }
+
+  /* ---------- zoom-in slides: tick anatomy & turn-taking ---------- */
+  .ticksvg text { font-family: var(--font-sans); }
+  .ticksvg .box { fill: #fff; stroke: var(--line); stroke-width: 1.5; }
+  .ticksvg .tl { font-size: 13px; fill: var(--ink); font-weight: 600; }
+  .ticksvg .ts { font-size: 11.5px; fill: var(--muted); }
+  .ticksvg .tm { font-family: var(--font-mono); font-size: 10.5px; fill: var(--faint); }
+  .ticksvg .slice { font-family: var(--font-mono); font-size: 12px; fill: var(--ink); }
+  .ticksvg .flow { fill: none; stroke: var(--accent-mid); stroke-width: 2.4; stroke-dasharray: 7 7; opacity: .18; animation: pldash 1s linear infinite paused; }
+  #ticksvg.k1 .flow { opacity: 1; animation-play-state: running; }
+  #ticksvg .twav rect { fill: var(--accent-mid); opacity: .15; transform-box: fill-box; transform-origin: 50% 50%; }
+  #ticksvg.k1 .twav rect { opacity: 1; animation: plwob .55s ease-in-out infinite alternate; }
+  #ticksvg.k1 .twav rect:nth-of-type(2n) { animation-duration: .42s; }
+  #ticksvg.k1 .twav rect:nth-of-type(3n) { animation-duration: .68s; }
+  #ticksvg .krow { opacity: 0; transition: opacity .45s ease; }
+  #ticksvg.k2 .krow.r2, #ticksvg.k3 .krow.r3 { opacity: 1; }
+  #ticksvg .tkcard { opacity: 0; transform: translateY(7px); transition: opacity .35s ease, transform .35s ease; }
+  #ticksvg.k2 .tkcard { opacity: 1; transform: none; }
+  #ticksvg.k2 .tkcard:nth-of-type(2) { transition-delay: .07s; }
+  #ticksvg.k2 .tkcard:nth-of-type(3) { transition-delay: .14s; }
+  #ticksvg.k2 .tkcard:nth-of-type(4) { transition-delay: .21s; }
+  #ticksvg.k2 .tkcard:nth-of-type(5) { transition-delay: .28s; }
+  #ticksvg.k2 .tkcard:nth-of-type(6) { transition-delay: .35s; }
+  #ticksvg.k2 .tkcard:nth-of-type(7) { transition-delay: .42s; }
+  #ticksvg.k2 .tkcard:nth-of-type(8) { transition-delay: .49s; }
+  #turnsvg .kk { opacity: 0; transition: opacity .45s ease; }
+  #turnsvg.k1 .kk.c1, #turnsvg.k2 .kk.c2, #turnsvg.k3 .kk.c3, #turnsvg.k4 .kk.c4 { opacity: 1; }
+  #turnsvg .chip { font-size: 12px; font-weight: 600; }
+
+  /* CRM mini-card (the agent's world) */
+  .crmcard { border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 10px 14px; }
+  .crmcard .ch { font-family: var(--font-mono); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin-bottom: 6px; }
+  .crmcard .crow { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; color: var(--ink); }
+  .crmcard .cv i { font-style: normal; font-family: var(--font-mono); font-size: 12.5px; }
+  .crmcard .cv .s-b { color: var(--muted); }
+  .crmcard .cv .s-g { display: none; color: var(--accent-mid); font-weight: 700; }
+  .crmcard.fixed .cv .s-b { display: none; }
+  .crmcard.fixed .cv .s-g { display: inline; }
+  .crmcard.bad .cv .s-b { color: #d97706; font-weight: 700; }
+
+  /* τ² "give the user a world" — figure ported from the ICML oral deck, our palette */
+  #world .figwrap2 { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+  #world .era { position: relative; height: 32px; }
+  /* pill centered over the lanes column, not the full row (shared panel is 224px + 12px gap) */
+  #world .era .wtag {
+    position: absolute; left: calc(50% - 118px); top: 0; transform: translateX(-50%); white-space: nowrap;
+    font-size: 14.5px; font-weight: 650; letter-spacing: .01em; border-radius: 100px; padding: 5px 16px;
+  }
+  #world .era .wtag.old { color: var(--muted); background: #f1f5f9; }
+  #world .era .wtag.new { color: #fff; background: var(--accent-mid); }
+  #world .figrow { display: grid; grid-template-columns: 1fr 224px; gap: 12px; align-items: center; }
+  #world .lanes { display: flex; flex-direction: column; gap: 3px; }
+  /* both lanes share one explicit grid template so stations align column-for-column */
+  #world .lane {
+    display: grid; grid-template-columns: 1fr 15px 0.88fr 15px 1.3fr 13px; column-gap: 5px;
+    align-items: center; padding: 9px 10px; border-radius: 14px; border: 2px solid;
+  }
+  #world .lane.ag { background: var(--green-wash); border-color: #bbe7d0; }
+  #world .lane.us { background: var(--wash); border-color: #cbd5e1; }
+  #world .fbox {
+    background: #fff; border: 2px solid #cbd5e1; border-radius: 10px; padding: 7px 8px;
+    text-align: center; font-size: 12px; font-weight: 650; color: #334155; line-height: 1.25;
+    width: 100%; min-width: 0;
+  }
+  #world .fbox span { display: block; font-size: 10.5px; font-weight: 500; color: var(--muted); margin-top: 2px; }
+  #world .fbox .mono { font-family: var(--font-mono); font-size: 9.5px; font-weight: 600; }
+  #world .fbox.dashed { border-style: dashed; background: transparent; }
+  #world .fbox.actor { border-width: 2.5px; letter-spacing: .02em; }
+  #world .lane.ag .fbox.actor { border-color: var(--accent-mid); color: var(--accent); }
+  #world .lane.us .fbox.actor { border-color: #64748b; color: var(--ink); }
+  #world .fbox.actor .avatar { margin: 0 auto 3px; }
+  #world .fbox.toolsb b { font-size: 11px; }
+  #world .lane.ag .fbox.toolsb { border-color: #bbe7d0; }
+  #world .lane.ag .fbox.toolsb b, #world .lane.ag .fbox.toolsb .mono { color: var(--accent-mid); }
+  #world .lane.us .fbox.toolsb { border-color: #94a3b8; }
+  #world .lane.us .fbox.toolsb b, #world .lane.us .fbox.toolsb .mono { color: #475569; }
+  #world .fbox.ghostb { border-style: dashed; border-color: #cbd5e1; background: transparent; color: var(--faint); }
+  #world .fbox.ghostb span { color: var(--faint); }
+  #world .farr { color: var(--faint); font-weight: 650; font-size: 15px; text-align: center; }
+  #world .msgs { display: flex; align-items: center; gap: 6px; justify-content: center; height: 20px; }
+  #world .msgs .ar { font-size: 14px; color: var(--faint); font-weight: 650; }
+  #world .msgs .cl { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+  #world .shared {
+    background: var(--wash); border: 2px solid var(--line); border-radius: 16px; padding: 9px 11px 11px;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  #world .shared .sh2 { font-size: 11.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: #334155; }
+  #world .shared .sh3 { font-size: 10px; font-weight: 500; color: var(--faint); margin-top: -4px; }
+  #world .cglyph {
+    display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 10px;
+    font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); height: 16px;
+  }
+  #world .cglyph .pr { font-size: 15px; font-weight: 700; color: var(--faint); letter-spacing: -1px; }
+  #world .ghostdev {
+    border: 2px dashed #cbd5e1; border-radius: 14px; width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;
+    color: var(--faint); text-align: center; line-height: 1.6; padding: 10px;
+  }
+  #world .swap, #world .fbox .swap { display: grid; }
+  #world .swap > * { grid-area: 1 / 1; align-self: center; }
+  #world .avatar { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  #world .avatar svg { width: 13px; height: 13px; }
+  #world .avatar.ag { background: var(--accent-mid); color: #fff; }
+  #world .avatar.us { background: #64748b; color: #fff; }
+  #world .panelcol { display: flex; flex-direction: column; gap: 16px; }
+  #world .amcard {
+    background: var(--wash); border-left: 4px solid #d97706; border-radius: 10px;
+    padding: 13px 16px; font-size: 15px; line-height: 1.5; color: var(--ink);
+  }
+  #world .amcard strong { color: var(--heading); font-weight: 650; }
+  #world .amcard .tool { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+  #world .take { font-size: 15.5px; line-height: 1.5; color: var(--ink); border-left: 4px solid var(--accent-mid); padding-left: 16px; margin: 0; }
+  #world .take strong { color: var(--accent); font-weight: 650; }
+  #world .wcap { font-size: 13.5px; line-height: 1.5; color: var(--muted); margin: 0; }
+  #world .wcap b { color: var(--ink); font-weight: 650; }
+  /* compact phone + CRM variants for the shared-world column */
+  #world .livephone.sm { width: 186px; border-radius: 24px; padding: 8px 9px 9px; margin: 0 auto; }
+  #world .livephone.sm .notch { width: 54px; height: 5px; margin-bottom: 7px; }
+  #world .livephone.sm .screen { padding: 8px 11px 9px; gap: 6px; border-radius: 12px; }
+  #world .livephone.sm .pbig { font-size: 16px; }
+  #world .livephone.sm .prow { font-size: 11px; padding: 4px 8px; }
+  #world .livephone.sm .phome { margin-top: 7px; }
+  #world .crmcard.slim { width: 100%; padding: 8px 11px; }
+  #world .crmcard.slim .ch { font-size: 10px; margin-bottom: 4px; }
+  #world .crmcard.slim .crow { font-size: 12px; background: var(--wash); border-radius: 8px; padding: 5px 9px; }
+  #world .crmcard.slim .cv i { font-size: 11px; }
+
+  /* saturation chart: chronological sweep, replays on each slide entry */
+  #satChart .satdot, #satChart .satlbl { opacity: 0; }
+  #satChart.sweep .satdot { animation: satpop .4s ease-out both; animation-delay: var(--d); }
+  #satChart.sweep .satlbl { animation: satpop .45s ease-out both; animation-delay: calc(var(--d) + .18s); }
+  #satChart.sweep #satClipRect { animation: satwipe 2.2s linear both .15s; }
+  #satChart:not(.sweep) #satClipRect { width: 0; }
+  @keyframes satpop { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+  @keyframes satwipe { from { width: 0; } to { width: 945px; } }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+<div id="counter">1 / 23</div>
+<div id="navhint">← → or buttons to navigate</div>
+<div class="navbtns">
+  <button id="prev" aria-label="Previous slide">←</button>
+  <button id="next" aria-label="Next slide">→</button>
+</div>
+
+<div id="stage">
+<main id="deck">
+
+  <!-- ================= 1 · TITLE ================= -->
+  <section class="slide titleslide">
+    <div class="bigtau">τ</div>
+    <div class="inner">
+      <div class="kicker">Stanford AIMS Seminar · July 2026</div>
+      <h1><span class="tau">τ</span>-bench<br/><span style="font-weight:500; color:var(--muted); font-size:.62em;">evaluating conversational agents, from text to voice</span></h1>
+      <div class="who">
+        <img class="face" src="/authors/soham-ray.jpg" alt="Soham Ray" />
+        <div>
+          <div class="name">Soham Ray</div>
+          <div class="role">AI Research</div>
+        </div>
+        <div class="obo">
+          <div class="obo-t">on behalf of <b>Sierra Research</b></div>
+          <img src="assets/logos/sierra.png" alt="Sierra Research" />
+        </div>
+      </div>
+      <p class="footnote">taubench.com · arXiv 2406.12045 · 2506.07982 · 2603.13686 · 2603.04370</p>
+    </div>
+  </section>
+
+  <!-- ================= 1b · OVERVIEW & CONTENTS ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">This talk, in one slide</div>
+      <h2>Overview &amp; contents</h2>
+      <p class="lede" style="max-width:74ch; margin-bottom:18px;">One benchmark family for customer-service agents, built on one idea: <strong>grounded tasks whose reward is a verifiable database diff</strong>. The talk traces how realism was added one axis at a time — <strong>dual control</strong>, <strong>knowledge</strong>, then <strong>full-duplex voice</strong> — and what each axis revealed that the previous one couldn&rsquo;t see.</p>
+      <div class="cols" style="grid-template-columns:1fr 1fr; gap:12px 22px;">
+        <div class="cardlist" style="gap:10px;">
+          <div class="card" style="font-size:14px; padding:10px 16px;"><span class="tag">01 &middot; Context</span>Sierra, and why customer service is where agents meet reality.</div>
+          <div class="card" style="font-size:14px; padding:10px 16px;"><span class="tag">02 &middot; <span class="tau">τ</span>-bench &middot; 2024</span>Tool &middot; agent &middot; user — grounded tasks, verifiable rewards, pass^k.</div>
+          <div class="card" style="font-size:14px; padding:10px 16px;"><span class="tag">03 &middot; <span class="tau">τ²</span>-bench &middot; 2025</span>Dual control: give the user a world — adoption, then saturation.</div>
+          <div class="card" style="font-size:14px; padding:10px 16px;"><span class="tag">04 &middot; <span class="tau">τ</span>-knowledge &middot; 2026</span>Find the policy before acting on it.</div>
+        </div>
+        <div class="cardlist" style="gap:10px;">
+          <div class="card" style="font-size:14px; padding:10px 16px;"><span class="tag">05 &middot; <span class="tau">τ</span>-voice &middot; 2026</span>Pause time: ticks, personas, the audio pipeline — then the voice&ndash;text gap, interactivity metrics, failure attribution.</div>
+          <div class="card" style="font-size:14px; padding:10px 16px;"><span class="tag">06 &middot; What&rsquo;s next</span>Multilingual <span class="tau">τ</span>-voice, and thoughts on benchmarking.</div>
+          <div class="card" style="font-size:14px; padding:10px 16px;"><span class="tag">07 &middot; Appendix</span>User-realism study, significance tests, error analysis, limitations.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 2 · SIERRA ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Context</div>
+      <h2>Sierra, in one slide</h2>
+      <div class="cols">
+        <div>
+          <p class="lede" style="margin-bottom:16px;"><strong>“Better customer experiences. Built on Sierra.”</strong></p>
+          <p class="lede" style="margin-bottom:16px;">Sierra is an AI agent platform: enterprises build, deploy, and continuously improve customer-facing agents across <strong>chat, email, SMS, WhatsApp — and, increasingly, voice</strong>.</p>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; height:100%; padding-top:30px;">
+          <img src="assets/sierra-logo.svg" alt="Sierra" style="width:320px;"/>
+          <div class="kicker" style="font-size:12px;">sierra.ai · founded 2023 · San Francisco</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 2b · CUSTOMER SERVICE AI ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">The arena</div>
+      <h2>Customer service AI is big right now</h2>
+      <p class="lede" style="margin-bottom:16px;">Gartner counts <strong>17 million</strong> human contact-center agents worldwide — and predicts agentic AI will autonomously resolve <strong>80% of common issues by 2029</strong>.</p>
+      <div class="logowall">
+        <div class="logocell"><img src="/sierra-logo.png" alt=""/>Sierra</div>
+        <div class="logocell"><img src="assets/logos/decagon.png" alt=""/>Decagon</div>
+        <div class="logocell"><img src="assets/logos/parloa.png" alt=""/>Parloa</div>
+        <div class="logocell"><img src="assets/logos/intercom.png" alt=""/>Intercom Fin</div>
+        <div class="logocell"><img src="assets/logos/salesforce.png" alt=""/>Agentforce</div>
+        <div class="logocell"><img src="assets/logos/zendesk.png" alt=""/>Zendesk</div>
+        <div class="logocell"><img src="assets/logos/cresta.png" alt=""/>Cresta</div>
+        <div class="logocell"><img src="assets/logos/ada.png" alt=""/>Ada</div>
+        <div class="logocell"><img src="assets/logos/poly.png" alt=""/>PolyAI</div>
+        <div class="logocell"><img src="assets/logos/forethought.png" alt=""/>Forethought</div>
+      </div>
+      <p class="lede" style="margin:20px 0 12px;" data-at="1"><strong>Why customer service, though?</strong> Because it’s primed for AI disruption — like coding agents, once you get all the information in one place, the rest is tractable:</p>
+      <div class="smallgrid" style="grid-template-columns:repeat(3,1fr); gap:12px;">
+        <div class="card chip frag"><span class="tag">Narrow &amp; constrained</span></div>
+        <div class="card chip frag"><span class="tag">Clear goals</span></div>
+        <div class="card chip frag"><span class="tag">Data-rich</span></div>
+      </div>
+      <p class="footnote">Gartner, March 2025 prediction &amp; contact-center workforce estimate.</p>
+    </div>
+  </section>
+
+  <!-- ================= 2c · FAMILY ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">This talk</div>
+      <h2>The <span class="tau">τ</span>-bench family</h2>
+      <p class="lede" style="margin-bottom:20px;">One grounded-task substrate, realism added one axis at a time:</p>
+      <div class="smallgrid" style="grid-template-columns:repeat(4,1fr); gap:14px;">
+        <div class="card frag"><span class="tag">2024 · τ-bench</span><b>Tools + policies + conversation.</b><br/><span style="color:var(--muted); font-size:12.5px;">Yao, Shinn, Razavi &amp; Narasimhan <span style="display:inline-flex; gap:4px; vertical-align:-5px; margin-left:3px;"><img src="assets/logos/sierra.png" alt="Sierra" style="height:18px;"/></span></span></div>
+        <div class="card frag"><span class="tag">2025 · τ²-bench</span><b>User and agent both act.</b><br/><span style="color:var(--muted); font-size:12.5px;">Barres, Dong, Ray, Si &amp; Narasimhan <span style="display:inline-flex; gap:4px; vertical-align:-3px; margin-left:3px;"><img src="assets/logos/sierra.png" alt="Sierra" style="height:18px;"/><img src="assets/logos/princeton.svg" alt="Princeton University" style="height:18px;"/><img src="assets/logos/toronto.svg" alt="University of Toronto" style="height:18px;"/></span></span></div>
+        <div class="card frag"><span class="tag">2026 · τ-knowledge</span><b>Unstructured KB + hidden procedures.</b><br/><span style="color:var(--muted); font-size:12.5px;">Shi, Zytek, Razavi, Narasimhan &amp; Barres <span style="display:inline-flex; gap:4px; vertical-align:-5px; margin-left:3px;"><img src="assets/logos/sierra.png" alt="Sierra" style="height:18px;"/><img src="assets/logos/princeton.svg" alt="Princeton University" style="height:18px;"/></span></span></div>
+        <div class="card frag"><span class="tag">2026 · τ-voice</span><b>Grounded tasks over real-time speech.</b><br/><span style="color:var(--muted); font-size:12.5px;">Ray, Dhandhania, Barres &amp; Narasimhan <span style="display:inline-flex; gap:4px; vertical-align:-5px; margin-left:3px;"><img src="assets/logos/sierra.png" alt="Sierra" style="height:18px;"/><img src="assets/logos/princeton.svg" alt="Princeton University" style="height:18px;"/></span></span></div>
+      </div>
+      <p class="footnote" data-at="4">Each axis was a failure mode we kept meeting in production — and each found a capability cliff the previous one couldn’t see.</p>
+    </div>
+  </section>
+
+  <!-- ================= 3 · TAU 1 ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker"><span class="tau">τ</span>-bench · 2024</div>
+      <h2>Tool · Agent · User</h2>
+      <p class="lede" style="margin-bottom:10px;">The <strong>first benchmark of tool-using agents on task completion in conversation</strong>: not “did it call the right API?” but “did it finish a person’s task — under policy, over many turns?”</p>
+      <svg class="diagram" viewBox="0 0 1040 330" role="img" aria-label="tau-bench architecture diagram" style="max-width:880px; margin:0 auto; display:block;">
+        <!-- user box -->
+        <rect x="30" y="105" width="220" height="120" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+        <text x="140" y="150" text-anchor="middle" font-size="19" font-weight="650" fill="#0f172a">User</text>
+        <text x="140" y="176" text-anchor="middle" font-size="13" fill="#64748b">simulated by an LM</text>
+        <text x="140" y="196" text-anchor="middle" font-size="13" fill="#64748b">persona + hidden goal</text>
+        <!-- agent box -->
+        <rect x="410" y="105" width="220" height="120" rx="12" fill="#f0fdf4" stroke="#065f46" stroke-width="1.5"/>
+        <text x="520" y="150" text-anchor="middle" font-size="19" font-weight="650" fill="#065f46">Agent</text>
+        <text x="520" y="176" text-anchor="middle" font-size="13" fill="#047857">LLM + API tools</text>
+        <text x="520" y="196" text-anchor="middle" font-size="13" fill="#047857">bound by domain policy</text>
+        <!-- db box -->
+        <rect x="790" y="105" width="220" height="120" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+        <text x="900" y="150" text-anchor="middle" font-size="19" font-weight="650" fill="#0f172a">Database</text>
+        <text x="900" y="176" text-anchor="middle" font-size="13" fill="#64748b">orders · flights · plans</text>
+        <text x="900" y="196" text-anchor="middle" font-size="13" fill="#64748b">fully simulated, resettable</text>
+        <!-- policy doc -->
+        <rect x="445" y="18" width="150" height="46" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
+        <text x="520" y="46" text-anchor="middle" font-size="13.5" fill="#64748b">domain policy.md</text>
+        <line x1="520" y1="64" x2="520" y2="103" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <!-- arrows: dialogue -->
+        <line x1="252" y1="145" x2="406" y2="145" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#arr)"/>
+        <line x1="406" y1="185" x2="252" y2="185" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#arr)"/>
+        <text x="329" y="132" text-anchor="middle" font-size="12.5" fill="#94a3b8" font-style="italic">dialogue</text>
+        <!-- arrows: tools -->
+        <line x1="632" y1="145" x2="786" y2="145" stroke="#047857" stroke-width="1.8" marker-end="url(#arrg)"/>
+        <line x1="786" y1="185" x2="632" y2="185" stroke="#047857" stroke-width="1.8" marker-end="url(#arrg)"/>
+        <text x="709" y="132" text-anchor="middle" font-size="12.5" fill="#047857" font-style="italic">tool calls</text>
+        <!-- eval strip -->
+        <rect x="30" y="268" width="980" height="46" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
+        <text x="520" y="297" text-anchor="middle" font-size="14.5" fill="#1e293b">Evaluation: compare <tspan font-weight="650">final database state</tspan> against the goal state — no judge, no rubric, deterministic <tspan font-family="Menlo,monospace" fill="#065f46">r ∈ {0,1}</tspan></text>
+        <defs>
+          <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9 z" fill="#94a3b8"/></marker>
+          <marker id="arrg" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9 z" fill="#047857"/></marker>
+        </defs>
+      </svg>
+      <p class="footnote">The agent answers for the <b>organization</b>, not the user. Retail ~115 tasks · airline ~50. Yao, Shinn, Razavi &amp; Narasimhan, 2024 — arXiv 2406.12045.</p>
+    </div>
+  </section>
+
+  <!-- ================= 4 · TASK ANATOMY ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker"><span class="tau">τ</span>-bench · anatomy of a task</div>
+      <h2>A task is a world plus a goal</h2>
+      <div class="cols" style="grid-template-columns:.85fr 1.15fr; gap:34px; align-items:start;">
+        <div>
+          <div class="spec frag"><span class="slbl">Policy · policy.md</span><p>Basic economy cannot be modified.</p><p>Within 24 h of booking, the agent may cancel and rebook.</p></div>
+          <div class="spec frag"><span class="slbl">Initial database · db.json</span><p class="mono">reservation JK9O19</p><p class="mono">basic_economy · booked &lt; 24 h ago · confirmed</p></div>
+          <div class="spec frag"><span class="slbl">User instruction · the agent never sees this</span><p>“You were going to fly to Mexico next week, but now want the 22nd. You want the cheapest option that flies that day.”</p></div>
+        </div>
+        <div class="ttrace frag">
+          <div class="trow"><span class="twho u">User</span><div class="tbub">I’d like to change my flight to a later one.</div></div>
+          <div class="trow agent"><span class="twho">Agent</span><div class="ttool"><span class="op r">READ</span>get_reservation("JK9O19")</div></div>
+          <div class="trow"><span class="twho"></span><div class="tret">→ cabin: basic_economy · booked &lt; 24 h ago</div></div>
+          <div class="trow agent"><span class="twho">Agent</span><div class="tbub">Basic economy can’t be changed — but you booked under 24 h ago, so I can cancel and rebook. Want me to?</div></div>
+          <div class="trow"><span class="twho u">User</span><div class="tbub">Yes, please go ahead.</div></div>
+          <div class="trow agent"><span class="twho">Agent</span><div class="ttool"><span class="op w">WRITE</span>cancel_reservation("JK9O19")</div></div>
+          <div class="verify frag">
+            <div class="vtitle">Eval · final database state vs gold</div>
+            <div class="vitem"><span class="ok">✓</span> JK9O19 no longer in reservations</div>
+            <div class="vitem"><span class="ok">✓</span> refund transaction present</div>
+            <div class="vitem"><span class="bad">✗</span> new rebooking missing → r = 0</div>
+          </div>
+        </div>
+      </div>
+      <p class="footnote" data-at="5">The conversation can take any route — the reward only reads the world it leaves behind. Deterministic <span class="mono" style="font-size:11.5px;">r ∈ {0,1}</span>, no judge, environment resets per trial.</p>
+    </div>
+  </section>
+
+  <!-- ================= 4c · WHAT TAU 1 WAS MISSING ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker"><span class="tau">τ</span>-bench · what it couldn’t see</div>
+      <h2>But the user can only <em>talk</em></h2>
+      <div class="cols" style="grid-template-columns:1.05fr .95fr; gap:38px; align-items:start;">
+        <div class="ttrace frag">
+          <div class="trow"><span class="twho u">User</span><div class="tbub">My phone says <b>No Service</b> — can you fix it?</div></div>
+          <div class="trow agent"><span class="twho">Agent</span><div class="ttool"><span class="op r">READ</span>get_line_details(...)</div></div>
+          <div class="trow"><span class="twho"></span><div class="tret">→ line active · no outage · roaming: off</div></div>
+          <div class="trow agent"><span class="twho">Agent</span><div class="tbub">Everything looks fine on my end. Could you check your phone’s settings?</div></div>
+          <div class="trow"><span class="twho u">User</span><div class="tbub">…sure, it’s, um — done? I think I checked them.</div></div>
+          <div class="verify">
+            <div class="vtitle">Dead end</div>
+            <div class="vitem"><span class="bad">✗</span> the fix is on the user’s phone — and this user has no phone</div>
+            <div class="vitem"><span class="bad">✗</span> “I checked them” is a claim — nothing behind it to verify</div>
+          </div>
+        </div>
+        <div class="cardlist">
+          <div class="card chip frag"><span class="tag">1 · No hands</span></div>
+          <div class="card chip frag"><span class="tag">2 · Prompt-only simulator</span></div>
+          <div class="card chip frag"><span class="tag">3 · Hand-written difficulty</span></div>
+        </div>
+      </div>
+      <p class="footnote" data-at="4"><span class="tau">τ²</span> answers all three at once: <b>give the user a world.</b></p>
+    </div>
+  </section>
+
+  <!-- ================= 5b · TAU 2 — GIVE THE USER A WORLD (ported from ICML oral deck) ================= -->
+  <section class="slide" id="world">
+    <div class="inner">
+      <div class="kicker"><span class="tau">τ²</span>-bench · June 2025</div>
+      <h2>Give the user a world</h2>
+      <div style="display:grid; grid-template-columns:1.55fr 1fr; gap:32px; align-items:center;">
+        <div class="figwrap2">
+          <div class="era swap">
+            <span class="wtag old" data-off="2"><span class="tau">τ</span>-bench (2024) · the user only talks</span>
+            <span class="wtag new" data-at="2"><span class="tau">τ²</span>-bench (2025) · the user acts too</span>
+          </div>
+          <div class="figrow">
+            <div class="lanes">
+              <div class="lane ag">
+                <div class="fbox dashed">Agent policy<span>verify, then act</span></div>
+                <span class="farr">→</span>
+                <div class="fbox actor"><span class="avatar ag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4M9 4h6"/><circle cx="9" cy="14" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="14" r="1.4" fill="currentColor" stroke="none"/></svg></span>AGENT<span>guides the user</span></div>
+                <span class="farr">→</span>
+                <div class="fbox toolsb"><b>Agent tools</b><span class="mono">enable_roaming</span><span>13 tools · act on the CRM</span></div>
+                <span class="farr">→</span>
+              </div>
+              <div class="msgs"><span class="ar">⇅</span><span class="cl">messages</span></div>
+              <div class="lane us">
+                <div class="fbox dashed">User scenario<span>“just landed · No Service”</span></div>
+                <span class="farr">→</span>
+                <div class="fbox actor"><span class="avatar us"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg></span>USER<span class="swap"><span data-off="2">talks — that’s all</span><span data-at="2">acts on the phone</span></span></div>
+                <span class="farr">→</span>
+                <div class="swap">
+                  <div class="fbox ghostb" data-off="2">✗ no tools<span>words only</span></div>
+                  <div class="fbox toolsb" data-at="2"><b>User tools</b><span class="mono">toggle_data_roaming</span><span>30 tools · act on the phone</span></div>
+                </div>
+                <span class="farr" data-at="2">→</span>
+              </div>
+            </div>
+            <div class="shared">
+              <div class="sh2">Shared World</div>
+              <div class="sh3">one state · two views</div>
+              <div class="crmcard slim">
+                <div class="ch">Agent DB · line L1001</div>
+                <div class="crow">Intl. roaming <span class="cv"><i class="s-b">off</i><i class="s-g">on ✓</i></span></div>
+              </div>
+              <div class="cglyph" data-at="2"><span class="pr">( )</span> coupled</div>
+              <div class="swap" style="width:100%; flex:1;">
+                <div class="ghostdev" data-off="2">✗ no device<br>nothing to act on</div>
+                <div class="livephone sm" data-at="2">
+                  <div class="notch"></div>
+                  <div class="screen">
+                    <div class="ptop">
+                      <div class="sigbars"><i></i><i></i><i></i><i></i></div>
+                      <span class="pplane">✈</span>
+                    </div>
+                    <div class="pbig"><span class="st-broken">No Service</span><span class="st-nosig">No Signal</span><span class="st-ok">5G ✓</span></div>
+                    <div class="ploc-line">📍 Seoul, Korea</div>
+                    <div class="prows">
+                      <div class="prow">Airplane Mode <span class="ptoggle"></span></div>
+                      <div class="prow">Data Roaming <span class="ptog2"></span></div>
+                    </div>
+                  </div>
+                  <div class="phome"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panelcol">
+          <div class="amcard frag"><strong><span class="tau">τ</span>-bench can’t simulate the call you’re about to watch.</strong> Its user can only <em>talk</em>: no device, no state, nothing to toggle. <span class="tool">toggle_airplane_mode()</span> ✗</div>
+          <p class="take frag">So <span class="tau">τ²</span> gives the user a <strong>world</strong>: its own tools and device, <strong>coupled</strong> to the agent’s — dual control over shared state (formally, a Dec-POMDP).</p>
+          <p class="wcap" data-at="2">More realistic — and, in the paper, <b>more reliable at once</b>. Retail &amp; airline stay as single-control baselines, backward-compatible with <span class="tau">τ</span>-bench.</p>
+        </div>
+      </div>
+      <p class="footnote" style="margin-top:16px;">Barres, Dong, Ray, Si &amp; Narasimhan — arXiv 2506.07982 · ICML 2026 Oral</p>
+    </div>
+  </section>
+
+  <!-- ================= 5a · TAU 2 EXAMPLE CALL ================= -->
+  <section class="slide" id="call">
+    <div class="inner">
+      <div class="kicker"><span class="tau">τ²</span>-bench · dual control, live</div>
+      <h2 style="margin-bottom:14px;">An example call: “No Service”, abroad</h2>
+      <div class="cols" style="grid-template-columns: 1.45fr 1fr; gap: 44px; align-items: start;">
+        <div class="convo">
+          <div class="bubble u frag">“Hi, this is Sara Kim on 555 0164 — I just landed in Seoul and my phone says <b>No Service</b>.”</div>
+          <div class="bubble a frag">“Sorry about that, Sara — you’re verified. <span class="tchip">get_customer_by_phone()</span> What does the status bar on the phone show?”</div>
+          <div class="bubble u frag">“Umm… <span class="tchip ut">get_network_status()</span> there’s a little airplane icon up top?”</div>
+          <div class="bubble a frag">“That’s Airplane Mode, from your flight. <b>Toggle it off</b>, please.”</div>
+          <div class="bubble u frag">“Done. <span class="tchip ut">toggle_airplane_mode()</span> …still No Signal though.”</div>
+          <div class="bubble a frag">“Let me check your line. <span class="tchip">get_line_details()</span> You’re abroad and roaming isn’t active — I’ve enabled it; standard charges apply, per policy. <span class="tchip">enable_roaming()</span> Now: Settings → turn <b>Data Roaming</b> on.”</div>
+          <div class="bubble u frag">“OK, found it… <span class="tchip ut">toggle_data_roaming()</span> it’s back! Full bars, 5G!”</div>
+        </div>
+        <div class="phonecol">
+          <div class="couple" style="margin:0;">user’s world · the phone</div>
+          <div class="livephone">
+            <div class="notch"></div>
+            <div class="screen">
+              <div class="ptop">
+                <div class="sigbars"><i></i><i></i><i></i><i></i></div>
+                <span class="pplane">✈</span>
+              </div>
+              <div class="pbig"><span class="st-broken">No Service</span><span class="st-nosig">No Signal</span><span class="st-ok">5G ✓</span></div>
+              <div class="ploc-line">📍 Seoul, Korea</div>
+              <div class="prows">
+                <div class="prow">Airplane Mode <span class="ptoggle"></span></div>
+                <div class="prow">Data Roaming <span class="ptog2"></span></div>
+              </div>
+            </div>
+            <div class="phome"></div>
+          </div>
+          <div class="couple">⟨ coupled ⟩</div>
+          <div class="crmcard">
+            <div class="ch">agent’s world · CRM · line L1001</div>
+            <div class="crow">Intl. roaming <span class="cv"><i class="s-b">off</i><i class="s-g">on ✓</i></span></div>
+          </div>
+          <div class="worldcard frag" style="background: var(--wash);">
+            <div class="wtitle">Scored on the final world state</div>
+            <div style="font-family:var(--font-mono); font-size:13px; color:var(--ink); line-height:1.8;">user.phone.signal == true<br/>crm.line.roaming == true</div>
+            <div style="font-size:13.5px; color:var(--muted); margin-top:6px;">pass^1 = 1 · deterministic, no judge</div>
+          </div>
+        </div>
+      </div>
+      <p class="footnote" style="margin-top:14px;" data-at="8">The fix took <b>both hands</b> — the agent writes in the CRM, the user toggles the phone. Neither side can finish alone.</p>
+    </div>
+  </section>
+
+  <!-- ================= 5c · COMPOSITIONAL TASK GENERATOR ================= -->
+  <section class="slide" id="compose">
+    <div class="inner">
+      <div class="kicker"><span class="tau">τ²</span>-bench · task construction</div>
+      <h2>The compositional task generator</h2>
+      <div class="cols" style="grid-template-columns: 1.15fr .95fr .62fr; gap: 34px; align-items:start;">
+        <div>
+          <p class="lede" style="margin-bottom:12px;"><strong>Tasks aren’t written — they’re initialized.</strong> Start from a healthy world and break it, composing independent root causes on either side:</p>
+          <div class="spec"><span class="slbl">The recipe</span>
+            <p class="mono">1&nbsp; world = healthy_telecom()</p>
+            <p class="mono">2&nbsp; world.apply(RC₁, RC₂)&nbsp; ← same tools the user has</p>
+            <p class="mono">3&nbsp; symptom emerges: “No Service”</p>
+            <p class="mono">4&nbsp; gold_fix = the undo plan — recorded at build time</p>
+          </div>
+          <p class="lede" style="margin-bottom:12px;" data-at="2">RC₂ is <strong>cross-world</strong>: “abroad” lives on the phone, “roaming off” in the CRM — only <em>together</em> do they break service. We injected the causes, so the fix <strong>provably exists</strong>.</p>
+          <p class="lede" data-at="3">Every added cause adds steps: <strong>difficulty is a dial</strong>.</p>
+          <div class="stats" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;" data-at="3">
+            <div class="stat"><div class="num">15</div><div class="lbl">atomic subtask groups</div></div>
+            <div class="stat"><div class="num">2,285</div><div class="lbl">provably-correct tasks</div></div>
+            <div class="stat"><div class="num">114</div><div class="lbl">balanced &amp; released</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="worldcard frag">
+            <div class="wtitle" style="color:#d97706;">Root cause 1 · user’s world</div>
+            <div class="wrow"><span>airplane mode left ON</span><span class="st">init: turn_airplane_mode_on()</span></div>
+          </div>
+          <div class="worldcard frag" style="margin-top:10px;">
+            <div class="wtitle" style="color:#d97706;">Root cause 2 · cross-world</div>
+            <div class="wrow"><span>abroad (user’s world)</span><span class="st">init: set_location("Seoul")</span></div>
+            <div class="wrow"><span>roaming off (agent’s world)</span><span class="st">init: set_roaming(off)</span></div>
+          </div>
+          <div class="worldcard frag" style="margin-top:10px; background: var(--green-wash); border-color:#bbe7d0;">
+            <div class="wtitle" style="color:var(--accent-mid);">The fix · needs both hands</div>
+            <div class="wrow"><span>1 · user</span><span class="st">toggle_airplane_mode()</span></div>
+            <div class="wrow"><span>2 · agent</span><span class="st">enable_roaming(line)</span></div>
+            <div class="wrow"><span>3 · user</span><span class="st">toggle_data_roaming()</span></div>
+          </div>
+        </div>
+        <div class="phonecol">
+          <div class="livephone build">
+            <div class="notch"></div>
+            <div class="screen">
+              <div class="ptop">
+                <div class="sigbars"><i></i><i></i><i></i><i></i></div>
+                <span class="pplane">✈</span>
+              </div>
+              <div class="pbig"><span class="st-broken">No Service</span><span class="st-nosig">No Signal</span><span class="st-ok">5G ✓</span></div>
+              <div class="ploc-line"><span class="p-home">📍 Palo Alto, CA</span><span class="p-abroad">📍 Seoul, Korea</span></div>
+              <div class="prows">
+                <div class="prow">Airplane Mode <span class="ptoggle"></span></div>
+              </div>
+            </div>
+            <div class="phome"></div>
+          </div>
+          <div class="couple">⟨ coupled ⟩</div>
+          <div class="crmcard">
+            <div class="ch">CRM · line L1001</div>
+            <div class="crow">Intl. roaming <span class="cv"><i class="s-b">off</i><i class="s-g">on ✓</i></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 5d · COORDINATION RESULTS ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker"><span class="tau">τ²</span>-bench · results</div>
+      <h2>The bottleneck is coordination, not reasoning</h2>
+      <div class="smallgrid" style="margin-top:20px;">
+        <div class="card frag">
+          <span class="tag">Telecom is hardest for every model</span>
+          <div class="mrow"><span class="mlbl">Claude 3.7</span><div class="mtrack"><div class="mfill lt" style="width:79%"></div></div><span class="mval">79</span></div>
+          <div class="mrow"><span class="mlbl"></span><div class="mtrack"><div class="mfill" style="width:49%"></div></div><span class="mval">49</span></div>
+          <div class="mrow"><span class="mlbl">GPT-4.1</span><div class="mtrack"><div class="mfill lt" style="width:74%"></div></div><span class="mval">74</span></div>
+          <div class="mrow"><span class="mlbl"></span><div class="mtrack"><div class="mfill" style="width:34%"></div></div><span class="mval">34</span></div>
+          <div class="mrow"><span class="mlbl">o4-mini</span><div class="mtrack"><div class="mfill lt" style="width:71%"></div></div><span class="mval">71</span></div>
+          <div class="mrow"><span class="mlbl"></span><div class="mtrack"><div class="mfill" style="width:42%"></div></div><span class="mval">42</span></div>
+          <div style="font-size:12px; color:var(--muted); margin-top:8px;">pass^1: <span style="color:#94a3b8;">■</span> retail vs <span style="color:var(--accent-mid);">■</span> telecom — drops of 22–40 pts, every model.</div>
+        </div>
+        <div class="card frag">
+          <span class="tag">Guiding a person costs ~20 pts</span>
+          <div class="mrow"><span class="mlbl">GPT-4.1 solo</span><div class="mtrack"><div class="mfill lt" style="width:52%"></div></div><span class="mval">52</span></div>
+          <div class="mrow"><span class="mlbl">dual-control</span><div class="mtrack"><div class="mfill" style="width:34%"></div></div><span class="mval">34</span></div>
+          <div class="mrow" style="margin-top:8px;"><span class="mlbl">o4-mini solo</span><div class="mtrack"><div class="mfill lt" style="width:67%"></div></div><span class="mval">67</span></div>
+          <div class="mrow"><span class="mlbl">dual-control</span><div class="mtrack"><div class="mfill" style="width:42%"></div></div><span class="mval">42</span></div>
+          <div style="font-size:12px; color:var(--muted); margin-top:8px;">Same model, tasks &amp; tools — the only change is <b>who executes</b>. Solo: user hands the phone over. Dual: the agent must guide.</div>
+        </div>
+        <div class="card frag">
+          <span class="tag">Difficulty is a dial</span>
+          <div class="mrow"><span class="mlbl">≈2 actions</span><div class="mtrack"><div class="mfill" style="width:77%"></div></div><span class="mval">77</span></div>
+          <div class="mrow"><span class="mlbl">≈4 actions</span><div class="mtrack"><div class="mfill" style="width:50%"></div></div><span class="mval">50</span></div>
+          <div class="mrow"><span class="mlbl">≈6 actions</span><div class="mtrack"><div class="mfill" style="width:16%"></div></div><span class="mval">16</span></div>
+          <div style="font-size:12px; color:var(--muted); margin-top:8px;">pass^1 by user actions required (service → mobile data → MMS). Issues form a hierarchy — difficulty compounds; success collapses past ~7 user actions.</div>
+        </div>
+      </div>
+      <p class="footnote">Long-horizon coordination was the wall — keep that in mind for what happens next.</p>
+    </div>
+  </section>
+
+  <!-- ================= 6 · PRESS WALL ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Adoption</div>
+      <h2>Then the labs started reporting on it</h2>
+      <div class="presswall">
+        <figure><img src="assets/highlights/gpt-5_thumb.jpg" alt="GPT-5 launch"/><figcaption><b>OpenAI · GPT-5</b> — τ² featured in launch; 96.7% telecom</figcaption></figure>
+        <figure><img src="assets/highlights/claude-sonnet-4-5_thumb.jpg" alt="Claude Sonnet 4.5"/><figcaption><b>Anthropic · Sonnet 4.5</b> — τ² in evaluations</figcaption></figure>
+        <figure><img src="assets/highlights/gemini-3_thumb.jpg" alt="Gemini 3"/><figcaption><b>Google · Gemini 3</b> — 85.4% on τ² at launch</figcaption></figure>
+        <figure><img src="assets/highlights/kimi-k2_thumb.jpg" alt="Kimi K2"/><figcaption><b>Moonshot · Kimi K2</b> — 66.1 on τ²</figcaption></figure>
+        <figure><img src="assets/highlights/elon-grok41_thumb.jpg" alt="Grok 4.1"/><figcaption><b>xAI · Grok 4.1 Fast</b> — tops τ²-telecom chart, 11M+ views</figcaption></figure>
+        <figure><img src="assets/highlights/claude-opus-4-5_thumb.jpg" alt="Claude Opus 4.5"/><figcaption><b>Anthropic · Opus 4.5</b> — τ² in agentic evals</figcaption></figure>
+        <figure><img src="assets/highlights/gemini-3-flash_thumb.jpg" alt="Gemini 3 Flash"/><figcaption><b>Google · Gemini 3 Flash</b> — τ² at launch</figcaption></figure>
+        <figure><img src="assets/highlights/aa-tau2_thumb.jpg" alt="Artificial Analysis"/><figcaption><b>Artificial Analysis</b> — independent τ² leaderboard</figcaption></figure>
+      </div>
+      <p class="footnote">OpenAI · Anthropic · Google · xAI · Moonshot · DeepSeek · Qwen · NVIDIA — 1.5k★ on GitHub. <b>Artificial Analysis</b> runs τ² independently across its model index — third-party numbers, not self-reported.</p>
+    </div>
+  </section>
+
+  <!-- ================= 7 · SATURATION ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">One year later</div>
+      <h2>…and then they saturated it</h2>
+      <div class="chartwrap" style="max-width:1000px; margin:6px auto 0;">
+        <svg id="satChart" class="diagram" viewBox="0 0 1040 400" role="img" aria-label="tau2 telecom saturation chart"></svg>
+      </div>
+      <p class="lede frag" style="margin-top:10px;">The outcome: <strong>agents that are genuinely good at long-horizon tasks</strong>.</p>
+      <p class="footnote"><span class="tau">τ²</span>-telecom pass@1 by model release date, from the taubench.com leaderboard. Dashed line tracks the running frontier: 49% → 99.3% in ~16 months.</p>
+    </div>
+  </section>
+
+  <!-- ================= 7b · WHAT TAU 2 WAS MISSING ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker"><span class="tau">τ²</span> · what it still couldn’t see</div>
+      <h2>Saturated is not solved</h2>
+      <p class="lede" style="margin-bottom:18px;">At 99.3%, telecom can no longer tell models apart — yet nobody running production agents thinks the problem is done. <span class="tau">τ²</span> still hands the agent two things for free:</p>
+      <div class="cols" style="gap:32px;">
+        <div class="card frag" style="height:100%;">
+          <span class="tag">The policy is handed over</span>
+          <p style="font-size:14.5px; line-height:1.55; margin:6px 0 10px;">One curated <span class="mono" style="font-size:12.5px;">policy.md</span> in the prompt — real orgs bury procedures across <b>hundreds of documents</b>.</p>
+          <p class="mono" style="font-family:var(--font-mono); font-size:12px; color:var(--accent-mid);">→ <span class="tau">τ</span>-knowledge</p>
+        </div>
+        <div class="card frag" style="height:100%;">
+          <span class="tag">The conversation is clean text</span>
+          <p style="font-size:14.5px; line-height:1.55; margin:6px 0 10px;">Turns arrive whole, one at a time — production support is a <b>phone call</b>.</p>
+          <p class="mono" style="font-family:var(--font-mono); font-size:12px; color:var(--accent-mid);">→ <span class="tau">τ</span>-voice</p>
+        </div>
+      </div>
+      <p class="footnote" data-at="2">Same substrate, same deterministic reward — two new axes of realism.</p>
+    </div>
+  </section>
+
+  <!-- ================= 8 · TAU 3 DIVIDER ================= -->
+  <section class="slide divider">
+    <div class="inner">
+      <div class="kicker">March 2026</div>
+      <div class="giant">τ³</div>
+      <h2>Two new axes of realism: <span style="color:var(--accent-mid);">knowledge</span> &amp; <span style="color:var(--accent-mid);">voice</span></h2>
+      <p class="lede" style="margin-top:6px;">Same grounded-task substrate — verifiable DB footprints, pass^k — extended to where production agents actually struggle: <strong>finding the policy</strong> before acting on it, and <strong>doing all of this over a phone line</strong>.</p>
+    </div>
+  </section>
+
+  <!-- ================= 9 · TAU KNOWLEDGE (task) ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker"><span class="tau">τ</span>-knowledge · the <span class="tau">τ</span>-banking domain</div>
+      <h2>Find the policy, then act on it</h2>
+      <div class="cols" style="grid-template-columns:.85fr 1.15fr; gap:34px; align-items:start;">
+        <div>
+          <div class="spec frag"><span class="slbl">Policy</span><p><b>Not provided up front.</b> The procedure is buried in the knowledge base — finding it <em>is</em> the task.</p></div>
+          <div class="spec frag"><span class="slbl">Knowledge base</span><p class="mono">698 documents · 21 product categories · ~195K tokens</p><p class="mono">51 tools are defined <b>inside</b> the documents</p></div>
+          <div class="spec frag"><span class="slbl">Initial database</span><p class="mono">accounts · cards · transactions</p></div>
+          <div class="spec frag"><span class="slbl">User instruction</span><p>“My wallet was stolen — can you freeze my cards?”</p></div>
+        </div>
+        <div class="ttrace frag">
+          <div class="trow"><span class="twho u">User</span><div class="tbub">My wallet was stolen — can you freeze my credit cards?</div></div>
+          <div class="trow agent"><span class="twho">Agent</span><div class="ttool"><span class="op s">SEARCH</span>kb_search("lost or stolen card")</div></div>
+          <div class="trow"><span class="twho"></span><div class="tret">→ protocol: review recent transactions before acting</div></div>
+          <div class="trow agent"><span class="twho">Agent</span><div class="ttool"><span class="op r">READ</span>get_card_transactions(card_id)</div></div>
+          <div class="trow"><span class="twho"></span><div class="tret">→ $1,890 at CryptoMiner · flagged suspicious</div></div>
+          <div class="trow agent"><span class="twho">Agent</span><div class="ttool"><span class="op w">WRITE</span>close_account(…) · open_fraud_case(…)</div></div>
+          <div class="verify frag">
+            <div class="vtitle">Eval · final database state vs gold</div>
+            <div class="vitem"><span class="ok">✓</span> compromised card closed</div>
+            <div class="vitem"><span class="ok">✓</span> fraud case opened on the account</div>
+            <div class="vitem"><span class="bad">✗</span> replacement card not issued → r = 0</div>
+          </div>
+        </div>
+      </div>
+      <p class="footnote" data-at="6">Same deterministic reward — but a typical task needs <b>18.6 documents</b> and <b>9.5 tool calls</b>. Shi, Zytek, Razavi, Narasimhan &amp; Barres — arXiv 2603.04370.</p>
+    </div>
+  </section>
+
+  <!-- ================= 9b · TAU KNOWLEDGE (frontier) ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker"><span class="tau">τ</span>-knowledge · results</div>
+      <h2>The frontier has shifted</h2>
+      <div class="cols" style="align-items:start;">
+        <div>
+          <div class="card">
+            <span class="tag">Best score by domain</span>
+            <div class="mrow"><span class="mlbl">τ-telecom</span><div class="mtrack"><div class="mfill lt" style="width:98%"></div></div><span class="mval">97.8</span></div>
+            <div class="mrow"><span class="mlbl">τ-airline</span><div class="mtrack"><div class="mfill lt" style="width:84%"></div></div><span class="mval">84.0</span></div>
+            <div class="mrow"><span class="mlbl">τ-retail</span><div class="mtrack"><div class="mfill lt" style="width:83%"></div></div><span class="mval">82.9</span></div>
+            <div class="mrow"><span class="mlbl">τ-banking</span><div class="mtrack"><div class="mfill" style="width:37%"></div></div><span class="mval">37.4</span></div>
+          </div>
+          <p class="lede" style="margin-top:16px;" data-at="1">The classic domains are saturating — banking is <strong>wide open</strong>. Even with the <em>gold documents handed over</em>, the best model reaches <strong>39.7</strong>: retrieval helps, but grounded reasoning is the bottleneck.</p>
+        </div>
+        <div class="card frag">
+          <span class="tag">Performance on τ-banking</span>
+          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">GPT-5.5</span><div class="mtrack"><div class="mfill" style="width:37.4%"></div></div><span class="mval">37.4</span></div>
+          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">GPT-5.4</span><div class="mtrack"><div class="mfill" style="width:30.7%"></div></div><span class="mval">30.7</span></div>
+          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">Claude Opus 4.7</span><div class="mtrack"><div class="mfill" style="width:25.3%"></div></div><span class="mval">25.3</span></div>
+          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">GPT-5.2</span><div class="mtrack"><div class="mfill" style="width:24.7%"></div></div><span class="mval">24.7</span></div>
+          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">Claude Opus 4.6</span><div class="mtrack"><div class="mfill" style="width:24.5%"></div></div><span class="mval">24.5</span></div>
+          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">Gemini 3.1 Pro</span><div class="mtrack"><div class="mfill" style="width:22.5%"></div></div><span class="mval">22.5</span></div>
+          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">Claude Opus 4.5</span><div class="mtrack"><div class="mfill" style="width:21.4%"></div></div><span class="mval">21.4</span></div>
+          <div class="mrow" style="grid-template-columns:126px 1fr 40px;"><span class="mlbl">Grok 4.2</span><div class="mtrack"><div class="mfill" style="width:17.6%"></div></div><span class="mval">17.6</span></div>
+        </div>
+      </div>
+      <p class="footnote">pass^1, taubench.com + internal runs, June 2026 · retrieval strategy is pluggable — 12 configs from BM25 → embeddings → agentic terminal.</p>
+    </div>
+  </section>
+
+  <!-- ================= 9c · TAU KNOWLEDGE (behaviors) ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker"><span class="tau">τ</span>-knowledge · what the trajectories show</div>
+      <h2>What separates the strongest agents</h2>
+      <div class="bhv frag">
+        <div class="bt">1 · Know when to search — and when to search <em>again</em></div>
+        <div class="bcard bad"><div class="bh">✗ SEARCH ONCE AND STOP</div>U: Actually, this is a <b>medical emergency</b>.<br/>A: continues without searching again</div>
+        <div class="bcard good"><div class="bh">✓ KNOW WHEN TO SEARCH AGAIN</div>U: Actually, this is a <b>medical emergency</b>.<br/>A: kb_search("medical emergency transfer escalation")</div>
+      </div>
+      <div class="bhv frag">
+        <div class="bt">2 · Search smarter, not harder</div>
+        <div class="bcard bad"><div class="bh">✗ SPRAY-AND-PRAY</div>kb_search("transfer")<br/>kb_search("human agent")<br/>kb_search("escalation policy")</div>
+        <div class="bcard good"><div class="bh">✓ SURGICAL QUERY</div>kb_search("transfer reason codes customer frustrated demands human medical emergency")</div>
+      </div>
+      <div class="bhv frag">
+        <div class="bt">3 · Know when to act — and when <em>not</em> to</div>
+        <div class="bcard bad"><div class="bh">✗ HELPFUL OVERREACH</div>U: Please order a <b>replacement card</b>.<br/>A: orders a replacement card<br/>A: files a fraud dispute <b>without being asked</b></div>
+        <div class="bcard good"><div class="bh">✓ CALIBRATED RESTRAINT</div>U: Please order a <b>replacement card</b>.<br/>A: orders a replacement card. That’s it.</div>
+      </div>
+      <p class="footnote" data-at="3">From qualitative analysis across thousands of trajectories — the gap is judgment about <b>when</b>, not capability at <b>how</b>.</p>
+    </div>
+  </section>
+
+  <!-- ================= 9z · SO FAR ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Checkpoint</div>
+      <h2>So far</h2>
+      <div class="cols" style="grid-template-columns:1fr 1fr 1fr; gap:14px; margin-top:6px;">
+        <div class="card" style="font-size:14.5px;"><span class="tag"><span class="tau">τ</span>-bench &middot; 2024</span>The first <b>tool-use task-completion</b> benchmark — sets up the <b>user &middot; agent &middot; database</b> substrate.</div>
+        <div class="card" style="font-size:14.5px;"><span class="tag"><span class="tau">τ²</span>-bench &middot; 2025</span>Extends it to a world where <b>both user and agent</b> can interact — dual control.</div>
+        <div class="card" style="font-size:14.5px;"><span class="tag"><span class="tau">τ</span>-knowledge &middot; 2026</span>Adds a <b>banking domain</b> that needs <b>retrieval</b> and has a <b>harder policy</b>.</div>
+      </div>
+      <div class="card" style="margin-top:14px; background:var(--wash); font-size:15px;"><span class="tag">Going forward</span>We&rsquo;re <b>deprecating the other domains</b> — they&rsquo;re saturated and overfit. <b><span class="tau">τ</span>-banking</b> is the focus for the <b>text version of <span class="tau">τ</span>-bench</b>.</div>
+    </div>
+  </section>
+
+  <!-- ================= 10 · TAU VOICE DIVIDER ================= -->
+  <section class="slide divider">
+    <div class="inner">
+      <div class="kicker">The rest of this talk</div>
+      <div class="giant">τ-voice</div>
+      <h2>Grounded tasks, full-duplex, over a realistic phone line</h2>
+      <p class="lede">Voice is becoming a primary interface for agentic systems.</p>
+      <p class="footnote">Ray, Dhandhania, Barres &amp; Narasimhan — arXiv 2603.13686 · ICML 2026</p>
+    </div>
+  </section>
+
+  <!-- ================= 11 · PROD REALITY ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">What we see in production</div>
+      <h2>The call you design for vs. the call you get</h2>
+      <div style="max-width:860px; margin:0 auto; border:1.5px solid var(--line); border-radius:14px; background:var(--wash); padding:14px 20px 6px;">
+      <svg class="diagram timeline" viewBox="0 0 1040 190" role="img" aria-label="ideal call timeline" style="max-width:800px; margin:0 auto; display:block;">
+        <text x="60" y="18" font-size="15" font-weight="700" fill="#0f172a">The call you design for</text>
+        <text x="255" y="18" font-size="11.5" fill="#64748b">half duplex · clean audio · neutral accent · perfect turn-taking</text>
+        <line x1="60" y1="34" x2="1000" y2="34" stroke="#e2e8f0" stroke-width="1.5"/>
+        <text x="52" y="72" text-anchor="end" font-size="13" font-weight="600" fill="#475569">user</text>
+        <rect x="60" y="48" width="235" height="40" rx="6" fill="#64748b"/>
+        <text x="177" y="66" text-anchor="middle" font-size="11.5" fill="#fff">“I got the wrong puzzle —</text>
+        <text x="177" y="80" text-anchor="middle" font-size="11.5" fill="#fff">need an exchange”</text>
+        <rect x="677" y="48" width="117" height="40" rx="6" fill="#64748b"/>
+        <text x="735" y="72" text-anchor="middle" font-size="11.5" fill="#fff">“exchange, please”</text>
+        <text x="52" y="132" text-anchor="end" font-size="13" font-weight="600" fill="#065f46">agent</text>
+        <rect x="317" y="101" width="14" height="14" transform="rotate(45 324 108)" fill="#fff" stroke="#047857" stroke-width="1.5"/>
+        <text x="324" y="94" text-anchor="middle" font-size="10.5" fill="#047857" font-family="Menlo,monospace">get_order()</text>
+        <rect x="383" y="108" width="264" height="40" rx="6" fill="#059669" opacity=".88"/>
+        <text x="515" y="132" text-anchor="middle" font-size="11.5" fill="#fff">“I can help — exchange or refund?”</text>
+        <rect x="824" y="108" width="176" height="40" rx="6" fill="#059669" opacity=".88"/>
+        <text x="912" y="132" text-anchor="middle" font-size="11.5" fill="#fff">“Done — on its way.”</text>
+        <g font-family="Menlo,monospace" font-size="11" fill="#94a3b8" text-anchor="middle">
+          <text x="60" y="174">0 s</text><text x="530" y="174">1.5</text><text x="1000" y="174">3.0</text>
+        </g>
+      </svg>
+      </div>
+      <div style="max-width:860px; margin:20px auto 0; border:1.5px solid var(--line); border-radius:14px; background:#fff; padding:14px 20px 4px;">
+      <svg class="diagram timeline" viewBox="0 0 1040 434" role="img" aria-label="realistic call timeline" style="max-width:800px; margin:0 auto; display:block;">
+        <text x="60" y="18" font-size="15" font-weight="700" fill="#0f172a">The call you get</text>
+        <text x="205" y="18" font-size="11.5" fill="#64748b">overlap · interruptions · backchannels · asides · noise · frame drops</text>
+        <defs>
+          <pattern id="noisehatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="7" height="7" fill="#f1f5f9"/><line x1="0" y1="0" x2="0" y2="7" stroke="#e2e8f0" stroke-width="2.5"/>
+          </pattern>
+        </defs>
+        <!-- tick grid: 0..3200ms, 200ms ticks, x = 60 + ms*0.29375 -->
+        <g stroke="#f1f5f9" stroke-width="1">
+          <line x1="118.8" y1="56" x2="118.8" y2="308"/><line x1="177.5" y1="56" x2="177.5" y2="308"/><line x1="236.3" y1="56" x2="236.3" y2="308"/><line x1="295" y1="56" x2="295" y2="308"/><line x1="353.8" y1="56" x2="353.8" y2="308"/><line x1="412.5" y1="56" x2="412.5" y2="308"/><line x1="471.3" y1="56" x2="471.3" y2="308"/><line x1="530" y1="56" x2="530" y2="308"/><line x1="588.8" y1="56" x2="588.8" y2="308"/><line x1="647.5" y1="56" x2="647.5" y2="308"/><line x1="706.3" y1="56" x2="706.3" y2="308"/><line x1="765" y1="56" x2="765" y2="308"/><line x1="823.8" y1="56" x2="823.8" y2="308"/><line x1="882.5" y1="56" x2="882.5" y2="308"/><line x1="941.3" y1="56" x2="941.3" y2="308"/>
+        </g>
+        <line x1="60" y1="56" x2="1000" y2="56" stroke="#e2e8f0" stroke-width="1.5"/>
+        <g font-family="Menlo,monospace" font-size="11" fill="#94a3b8" text-anchor="middle">
+          <text x="60" y="44">0 s</text><text x="236.3" y="44">0.6</text><text x="412.5" y="44">1.2</text><text x="588.8" y="44">1.8</text><text x="765" y="44">2.4</text><text x="941.3" y="44">3.0</text>
+          
+        </g>
+
+        <!-- ===== user track (y 70..110) ===== -->
+        <text x="52" y="94" text-anchor="end" font-size="13" font-weight="600" fill="#475569">user</text>
+        <!-- utterance 1: 0-700ms -->
+        <rect x="60" y="70" width="205.6" height="40" rx="6" fill="#64748b"/>
+        <text x="163" y="88" text-anchor="middle" font-size="11.5" fill="#fff">“I got the wrong puzzle —</text>
+        <text x="163" y="102" text-anchor="middle" font-size="11.5" fill="#fff">need an exchange”</text>
+        <!-- backchannel: 1250-1450 -->
+        <rect x="427.2" y="76" width="58.8" height="28" rx="6" fill="#cbd5e1"/>
+        <text x="456.6" y="94" text-anchor="middle" font-size="10" fill="#475569">mm-hmm</text>
+        <!-- vocal tic: 1600-1750 -->
+        <rect x="530" y="76" width="44.1" height="28" rx="6" fill="#fff" stroke="#94a3b8" stroke-dasharray="3 3"/>
+        <text x="552" y="94" text-anchor="middle" font-size="10.5" fill="#64748b">cough</text>
+        <!-- barge-in: 1950-2600 -->
+        <rect x="632.8" y="70" width="190.9" height="40" rx="6" fill="#64748b"/>
+        <text x="728" y="88" text-anchor="middle" font-size="11.5" fill="#fff">“wait, no — I moved,</text>
+        <text x="728" y="102" text-anchor="middle" font-size="11.5" fill="#fff">fix the address first”</text>
+        <!-- non-directed aside: 2700-3080, muffled -->
+        <rect x="853.1" y="70" width="111.6" height="40" rx="6" fill="#94a3b8" opacity=".45" stroke="#94a3b8" stroke-dasharray="4 3"/>
+        <text x="909" y="88" text-anchor="middle" font-size="10.5" fill="#475569" font-style="italic">(to kid) “hold on,</text>
+        <text x="909" y="101" text-anchor="middle" font-size="10.5" fill="#475569" font-style="italic">I’m on the phone”</text>
+
+        <!-- ===== agent track (y 150..190) ===== -->
+        <text x="52" y="174" text-anchor="end" font-size="13" font-weight="600" fill="#065f46">agent</text>
+        <!-- tool call at ~750ms -->
+        <rect x="272" y="153" width="14" height="14" transform="rotate(45 279 160)" fill="#fff" stroke="#047857" stroke-width="1.5"/>
+        <text x="279" y="142" text-anchor="middle" font-size="10.5" fill="#047857" font-family="Menlo,monospace">get_order()</text>
+        <!-- agent speech: 1000-2130 (truncated) -->
+        <rect x="353.8" y="150" width="308" height="40" rx="6" fill="#059669" opacity=".88"/>
+        <rect x="661.8" y="150" width="30" height="40" rx="6" fill="#059669" opacity=".28"/>
+        <text x="505" y="168" text-anchor="middle" font-size="11.5" fill="#fff">“I can help — I see the jigsaw order,</text>
+        <text x="505" y="182" text-anchor="middle" font-size="11.5" fill="#fff">shipping to 12 Elm Street, and—”</text>
+        <!-- correct non-yields -->
+        <text x="449" y="205" text-anchor="middle" font-size="10" fill="#047857">keeps floor ✓</text>
+        <text x="552" y="205" text-anchor="middle" font-size="10" fill="#047857">ignores ✓ (S<tspan font-size="7.5" baseline-shift="sub">VT</tspan>)</text>
+        <text x="909" y="150" text-anchor="middle" font-size="10" fill="#047857">no response ✓ (S<tspan font-size="7.5" baseline-shift="sub">ND</tspan>)</text>
+
+        <!-- ===== latency annotations ===== -->
+        <!-- LR: user end 700 (x=265.6) -> agent start 1000 (x=353.8) -->
+        <line x1="265.6" y1="128" x2="353.8" y2="128" stroke="#475569" stroke-width="1.3" marker-start="url(#arrL)" marker-end="url(#arrR)"/>
+        <text x="309" y="121" text-anchor="middle" font-size="10.5" fill="#475569" font-family="Menlo,monospace">L_R = 300 ms</text>
+        <!-- barge-in line at 1950 (x=632.8) -->
+        <line x1="632.8" y1="62" x2="632.8" y2="240" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="632.8" y="254" text-anchor="middle" font-size="11" fill="#dc2626">barge-in</text>
+        <!-- overlap wash 1950-2130 -->
+        <rect x="632.8" y="62" width="59" height="178" fill="#dc2626" opacity=".07"/>
+        <!-- LY: 1950 -> agent stop 2150 (x=691.8) -->
+        <line x1="632.8" y1="222" x2="691.8" y2="222" stroke="#dc2626" stroke-width="1.3" marker-start="url(#arrLr)" marker-end="url(#arrRr)"/>
+        <text x="712" y="226" text-anchor="start" font-size="10.5" fill="#dc2626" font-family="Menlo,monospace">L_Y = 200 ms · buffers cleared, response truncated</text>
+
+        <!-- ===== environment band (y 268..300) ===== -->
+        <text x="52" y="288" text-anchor="end" font-size="13" font-weight="600" fill="#94a3b8">env</text>
+        <rect x="60" y="268" width="940" height="32" rx="6" fill="url(#noisehatch)" stroke="#e2e8f0"/>
+        <text x="76" y="288" font-size="10.5" fill="#94a3b8">background noise · 15 dB SNR, drifting</text>
+        <!-- burst 1450-1650 -->
+        <rect x="486" y="268" width="58.8" height="32" rx="5" fill="#fbbf24" opacity=".45"/>
+        <text x="515" y="288" text-anchor="middle" font-size="10" fill="#92400e">horn</text>
+        <!-- frame drops at 600, 2450 — the channel drops, so every lane loses those frames -->
+        <rect x="232" y="62" width="19" height="238" fill="#dc2626" opacity=".05"/>
+        <rect x="775" y="62" width="19" height="238" fill="#dc2626" opacity=".05"/>
+        <g stroke="#dc2626" stroke-width="2">
+          <line x1="234" y1="72" x2="240" y2="108"/><line x1="243" y1="72" x2="249" y2="108"/>
+          <line x1="234" y1="152" x2="240" y2="188"/><line x1="243" y1="152" x2="249" y2="188"/>
+          <line x1="234" y1="268" x2="240" y2="300"/><line x1="243" y1="268" x2="249" y2="300"/>
+          <line x1="777" y1="72" x2="783" y2="108"/><line x1="786" y1="72" x2="792" y2="108"/>
+          <line x1="777" y1="152" x2="783" y2="188"/><line x1="786" y1="152" x2="792" y2="188"/>
+          <line x1="777" y1="268" x2="783" y2="300"/><line x1="786" y1="268" x2="792" y2="300"/>
+        </g>
+        <text x="241" y="315" text-anchor="middle" font-size="9.5" fill="#dc2626">frame drop</text>
+        <text x="784" y="315" text-anchor="middle" font-size="9.5" fill="#dc2626">frame drop</text>
+        <!-- ===== legend ===== -->
+        <g font-size="11" fill="#64748b">
+          <rect x="60" y="348" width="13" height="13" rx="3" fill="#64748b"/><text x="79" y="359">user speech</text>
+          <rect x="165" y="348" width="13" height="13" rx="3" fill="#059669"/><text x="184" y="359">agent speech</text>
+          <rect x="278" y="348" width="13" height="13" rx="3" fill="#cbd5e1"/><text x="297" y="359">backchannel</text>
+          <rect x="386" y="348" width="13" height="13" rx="3" fill="#fff" stroke="#94a3b8" stroke-dasharray="3 3"/><text x="405" y="359">vocal tic</text>
+          <rect x="472" y="348" width="13" height="13" rx="3" fill="#94a3b8" opacity=".45"/><text x="491" y="359">non-directed</text>
+          <rect x="590" y="348" width="13" height="13" rx="3" fill="#fbbf24" opacity=".45"/><text x="609" y="359">noise burst</text>
+          <line x1="686" y1="348" x2="694" y2="361" stroke="#dc2626" stroke-width="2"/><text x="702" y="359">frame drop</text>
+          <rect x="786" y="346" width="12" height="12" transform="rotate(45 792 352)" fill="#fff" stroke="#047857" stroke-width="1.5"/><text x="808" y="359">tool call</text>
+          <text x="60" y="388" font-size="12" fill="#64748b">L_R response latency · L_Y yield latency — the interactivity metrics we score later are measured on exactly this timeline.</text>
+        </g>
+        <defs>
+          <marker id="arrR" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#475569"/></marker>
+          <marker id="arrL" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto"><path d="M7,0 L0,4 L7,8 z" fill="#475569"/></marker>
+          <marker id="arrRr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#dc2626"/></marker>
+          <marker id="arrLr" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto"><path d="M7,0 L0,4 L7,8 z" fill="#dc2626"/></marker>
+        </defs>
+      </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 12b · REALISTIC USER TRANSITION ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">How we model it</div>
+      <h2>How do you build a representative user simulator?</h2>
+      <p class="lede" style="margin-bottom:6px;">You&rsquo;d want the user to:</p>
+      <div class="cardlist" style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px;">
+        <div class="card"><span class="tag">&hellip;act like a real caller</span>The turn-taking policy — <b>barge-ins, backchannels, yields, hang-ups</b>.</div>
+        <div class="card"><span class="tag">&hellip;sound like a real caller</span>The audio pipeline — <b>persona TTS, accents, noise, telephony</b>.</div>
+      </div>
+      <p class="lede frag" style="margin-top:24px;">But no voice model today is strong enough to play this caller at <strong>human-level latency</strong> — you have to choose: a <strong>high-quality, controllable</strong> user sim, or a <strong>low-latency</strong> one.</p>
+    </div>
+  </section>
+
+  <!-- ================= 12c · PAUSE TIME ================= -->
+  <section class="slide divider">
+    <div class="inner">
+      <div class="kicker">How we model it</div>
+      <h2 style="font-size:52px;">Wait &mdash; what if you could <span style="color:var(--accent-mid);">pause time</span>?</h2>
+    </div>
+  </section>
+
+  <!-- ================= 15b · TICK ANATOMY ================= -->
+  <section class="slide" id="ticks" data-steps="3">
+    <div class="inner">
+      <div class="kicker">How we model it · 1 of 3</div>
+      <h2 style="margin-bottom:12px;">Introducing &lsquo;ticks&rsquo;</h2>
+      <svg id="ticksvg" class="diagram ticksvg" viewBox="0 0 1160 400" role="img" aria-label="anatomy of a simulation tick" style="max-width:1000px; margin:0 auto; display:block;">
+        <defs>
+          <marker id="tkarr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#94a3b8"/></marker>
+          <pattern id="tkhatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="#f8fafc"/><line x1="0" y1="0" x2="0" y2="7" stroke="#e2e8f0" stroke-width="2.5"/></pattern>
+        </defs>
+        <!-- row 1: one LLM call → one TTS call → one waveform -->
+        <rect class="box" x="30" y="40" width="150" height="48" rx="10"/>
+        <text class="tl" x="105" y="60" text-anchor="middle">user-sim LLM</text>
+        <text class="tm" x="105" y="76" text-anchor="middle">one call / utterance</text>
+        <path class="flow" d="M 180 64 C 198 64, 206 64, 226 64"/>
+        <rect class="box" x="228" y="40" width="336" height="48" rx="10"/>
+        <text x="396" y="60" text-anchor="middle" font-size="12.5" fill="#1e293b" font-style="italic">“Wait — no, I moved last month.</text>
+        <text x="396" y="77" text-anchor="middle" font-size="12.5" fill="#1e293b" font-style="italic">Fix the address first.”</text>
+        <path class="flow" d="M 564 64 C 582 64, 590 64, 608 64"/>
+        <rect class="box" x="604" y="40" width="140" height="48" rx="10"/>
+        <text class="tl" x="674" y="60" text-anchor="middle">persona TTS</text>
+        <text class="tm" x="674" y="76" text-anchor="middle">voice · accent · pace</text>
+        <path class="flow" d="M 744 64 C 760 64, 766 64, 782 64"/>
+        <rect class="box" x="784" y="40" width="346" height="48" rx="10"/>
+        <g class="twav" id="tk-wave"></g>
+        <!-- row 2: slice into ticks -->
+        <g class="krow r2">
+          <path d="M 957 92 C 957 106, 938 118, 896 128" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#tkarr)"/>
+          <text class="ts" x="580" y="134" text-anchor="middle">sliced into 200 ms ticks — 3,200 samples each — the transcript rides along, split character-proportionally</text>
+          <text class="tm" x="580" y="276" text-anchor="middle">tick₃ = { audio: 3,200 samples · transcript: "st mont" · tools: [] } — nothing exists off the tick grid</text>
+        </g>
+        <g id="tk-strip"></g>
+        <!-- row 3: the exchange + tool timing -->
+        <g class="krow r3">
+          <text class="ts" x="60" y="310">the exchange — each side hears the other’s <tspan font-weight="600" fill="#1e293b">previous</tspan> tick</text>
+          <text x="142" y="339" text-anchor="end" font-size="11" font-weight="600" fill="#047857">agent</text>
+          <text x="142" y="381" text-anchor="end" font-size="11" font-weight="600" fill="#475569">user</text>
+          <rect x="150" y="322" width="76" height="26" rx="7" fill="#ecfdf5" stroke="#a7f3d0"/>
+          <rect x="236" y="322" width="76" height="26" rx="7" fill="#ecfdf5" stroke="#a7f3d0"/>
+          <rect x="322" y="322" width="76" height="26" rx="7" fill="#ecfdf5" stroke="#a7f3d0"/>
+          <g font-family="Menlo,monospace" font-size="11.5" fill="#047857" text-anchor="middle">
+            <text x="188" y="339">aᵢ₋₁</text><text x="274" y="339">aᵢ</text><text x="360" y="339">aᵢ₊₁</text>
+          </g>
+          <rect x="150" y="364" width="76" height="26" rx="7" fill="#f8fafc" stroke="#e2e8f0"/>
+          <rect x="236" y="364" width="76" height="26" rx="7" fill="#f8fafc" stroke="#e2e8f0"/>
+          <rect x="322" y="364" width="76" height="26" rx="7" fill="#f8fafc" stroke="#e2e8f0"/>
+          <g font-family="Menlo,monospace" font-size="11.5" fill="#475569" text-anchor="middle">
+            <text x="188" y="381">uᵢ₋₁</text><text x="274" y="381">uᵢ</text><text x="360" y="381">uᵢ₊₁</text>
+          </g>
+          <line x1="198" y1="350" x2="262" y2="362" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#tkarr)"/>
+          <line x1="198" y1="362" x2="262" y2="350" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#tkarr)"/>
+          <text class="ts" x="620" y="310">tool calls — run in-tick, results land next tick</text>
+          <text class="tm" x="652" y="330" text-anchor="middle">get_order()</text>
+          <rect x="645" y="345" width="14" height="14" transform="rotate(45 652 352)" fill="#fff" stroke="#047857" stroke-width="1.5"/>
+          <line x1="666" y1="352" x2="700" y2="352" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#tkarr)"/>
+          <rect class="box" x="704" y="336" width="168" height="32" rx="8"/>
+          <text x="788" y="356" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">result → tick i+1</text>
+          <rect x="894" y="336" width="236" height="32" rx="8" fill="url(#tkhatch)" stroke="#e2e8f0"/>
+          <text class="ts" x="1012" y="356" text-anchor="middle">noise fills the wait — no dead air</text>
+        </g>
+      </svg>
+      <div class="cardlist" style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:12px;">
+        <div class="card"><span class="tag">The full-duplex orchestrator</span>Runs the whole call on this tick grid — <b>generating, slicing, exchanging</b>, and timing <b>tool calls</b>.</div>
+        <div class="card"><span class="tag">Ticks are how you pause time</span>A tick is <b>simulated</b> time, not wall-clock time — so the user simulator has <b>virtually no latency budget</b>. That headroom can go anywhere: stronger models, richer behavior, more control.</div>
+      </div>
+      <p class="footnote" style="margin-top:8px;">The tick log — audio, transcript slice, tool calls, per tick — is the single source of truth every downstream metric is computed from.</p>
+    </div>
+  </section>
+
+  <!-- ================= 15c · TURN-TAKING TICK SIM ================= -->
+  <section class="slide" id="turns" data-steps="4">
+    <div class="inner">
+      <div class="kicker">Zoom in · turn-taking</div>
+      <h2 style="margin-bottom:12px;">Interrupts &amp; backchannels, tick by tick</h2>
+      <svg id="turnsvg" class="diagram ticksvg" viewBox="0 0 1160 352" role="img" aria-label="turn-taking decisions across simulation ticks" style="max-width:1080px; margin:0 auto; display:block;">
+        <defs>
+          <marker id="tnarr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#94a3b8"/></marker>
+          <marker id="tnarrR" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#dc2626"/></marker>
+          <marker id="tnarrL" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto"><path d="M7,0 L0,4 L7,8 z" fill="#dc2626"/></marker>
+        </defs>
+        <!-- ruler -->
+        <g stroke="#f1f5f9" stroke-width="1">
+          <line x1="263.3" y1="46" x2="263.3" y2="232"/><line x1="436.7" y1="46" x2="436.7" y2="232"/><line x1="610" y1="46" x2="610" y2="232"/><line x1="783.3" y1="46" x2="783.3" y2="232"/><line x1="956.7" y1="46" x2="956.7" y2="232"/>
+        </g>
+        <line x1="90" y1="46" x2="1130" y2="46" stroke="#e2e8f0" stroke-width="1.5"/>
+        <g font-family="Menlo,monospace" font-size="11" fill="#94a3b8" text-anchor="middle">
+          <text x="90" y="34">0 s</text><text x="263.3" y="34">1</text><text x="436.7" y="34">2</text><text x="610" y="34">3</text><text x="783.3" y="34">4</text><text x="956.7" y="34">5</text><text x="1130" y="34">6 s</text>
+        </g>
+        <text x="1130" y="16" text-anchor="end" font-family="Menlo,monospace" font-size="11" fill="#047857">tick = 200 ms · reaction checks every 2 s</text>
+        <!-- lanes (blocks built in JS) -->
+        <text x="82" y="81" text-anchor="end" font-size="13" font-weight="600" fill="#065f46">agent</text>
+        <text x="82" y="175" text-anchor="end" font-size="13" font-weight="600" fill="#475569">user sim</text>
+        <g id="tn-agent"></g>
+        <g id="tn-noise"></g>
+        <text x="127" y="116" font-size="11.5" fill="#475569" textLength="792" lengthAdjust="spacing">“I can help — I see the jigsaw order here, shipping to twelve Elm Street — I’ll confirm the replacement goes to the s—”</text>
+        <!-- check A: keep listening / backchannel -->
+        <g class="kk c1">
+          <line x1="436.7" y1="50" x2="436.7" y2="248" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="4 4"/>
+          <rect x="361.7" y="254" width="150" height="26" rx="13" fill="#fff" stroke="#cbd5e1"/>
+          <text class="chip" x="436.7" y="271" text-anchor="middle" fill="#64748b">interrupt? → NO</text>
+          <rect x="361.7" y="286" width="150" height="26" rx="13" fill="#ecfdf5" stroke="#047857"/>
+          <text class="chip" x="436.7" y="303" text-anchor="middle" fill="#047857">backchannel? → YES</text>
+          <text class="tm" x="436.7" y="334" text-anchor="middle">2 LLM calls · in parallel · small decision model</text>
+        </g>
+        <!-- backchannel result -->
+        <g class="kk c2">
+          <g id="tn-mm"></g>
+          <text x="506" y="207" text-anchor="middle" font-size="10" fill="#64748b">“mm-hmm”</text>
+          <path d="M 500 282 C 516 240, 498 214, 490 192" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#tnarr)"/>
+          <text x="506" y="136" font-size="11" fill="#047857">agent keeps the floor ✓ — backchannel ≠ interruption</text>
+        </g>
+        <!-- check B: interrupt + barge-in -->
+        <g class="kk c3">
+          <line x1="783.3" y1="50" x2="783.3" y2="248" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="4 4"/>
+          <rect x="708.3" y="254" width="150" height="26" rx="13" fill="#fef2f2" stroke="#dc2626"/>
+          <text class="chip" x="783.3" y="271" text-anchor="middle" fill="#dc2626">interrupt? → YES</text>
+          <rect x="708.3" y="286" width="150" height="26" rx="13" fill="#fff" stroke="#cbd5e1"/>
+          <text class="chip" x="783.3" y="303" text-anchor="middle" fill="#94a3b8">backchannel? → NO</text>
+          <text class="tm" x="783.3" y="334" text-anchor="middle">main LLM writes the reply → TTS → queued as 200 ms chunks</text>
+          <rect x="818" y="50" width="104" height="182" fill="#dc2626" opacity=".055"/>
+          <line x1="818" y1="50" x2="818" y2="232" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="5 4"/>
+          <text x="812" y="245" text-anchor="end" font-size="11" fill="#dc2626">barge-in</text>
+          <g id="tn-user"></g>
+          <text x="820" y="212" font-size="11.5" fill="#475569" textLength="240" lengthAdjust="spacing">“Wait — no, I moved last month —”</text>
+        </g>
+        <!-- yield & flush -->
+        <g class="kk c4">
+          <g id="tn-ghost"></g>
+          <line x1="920" y1="90" x2="1058" y2="62" stroke="#dc2626" stroke-width="2"/>
+          <text x="1128" y="130" text-anchor="end" font-size="10.5" fill="#dc2626">buffer flushed —</text>
+          <text x="1128" y="143" text-anchor="end" font-size="10.5" fill="#dc2626">the unsaid words never happen</text>
+          <line x1="818" y1="240" x2="922" y2="240" stroke="#dc2626" stroke-width="1.3" marker-start="url(#tnarrL)" marker-end="url(#tnarrR)"/>
+          <text x="930" y="244" font-size="10.5" fill="#dc2626" font-family="Menlo,monospace">L_Y = 600 ms</text>
+          <text x="930" y="258" font-size="10.5" fill="#dc2626">measured, not scripted</text>
+          <text x="820" y="227" font-size="10.5" fill="#64748b">holds the floor 5 s when interrupting (configurable)</text>
+        </g>
+      </svg>
+      <p class="footnote" style="margin-top:12px;">User-simulator defaults: respond after 1 s of agent silence · yield after 1 s when interrupted · hold 5 s when interrupting. All knobs — and deterministic given a seed.</p>
+    </div>
+  </section>
+
+  <!-- ================= 13 · PERSONAS / ACCENTS ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">How we model it · 2 of 3</div>
+      <h2>Every caller has an accent</h2>
+      <p class="lede" style="margin-bottom:4px;">Two <strong>control</strong> personas set the clean American-accented baseline; five <strong>regular</strong> personas carry the accents we actually hear on real support lines:</p>
+      <div class="pgrid">
+        <div class="pcard ctrl">
+          <span class="pface"><img src="/authors/ben-shi.jpg" alt=""/></span>
+          <b>Matt Delaney</b><span class="pacc">calm Midwest — the &ldquo;ideal&rdquo; caller</span>
+          <button class="play" data-audio="assets/audio/persona_matt_delaney.mp3" aria-label="play Matt Delaney sample">&#9654;</button>
+        </div>
+        <div class="pcard ctrl">
+          <span class="pface"><img src="/authors/ola-zytek.jpg" alt=""/></span>
+          <b>Lisa Brenner</b><span class="pacc">standard American, brisk</span>
+          <button class="play" data-audio="assets/audio/persona_lisa_brenner.mp3" aria-label="play Lisa Brenner sample">&#9654;</button>
+        </div>
+        <div class="pcard">
+          <span class="pface"><img src="/authors/keshav-dhandhania.jpg" alt=""/></span>
+          <b>Arjun Roy</b><span class="pacc">Bengali (Dhaka)</span>
+          <button class="play" data-audio="assets/audio/persona_arjun_roy.mp3" aria-label="play Arjun Roy sample">&#9654;</button>
+        </div>
+        <div class="pcard">
+          <span class="pface"><img src="/authors/siyu-yao.jpg" alt=""/></span>
+          <b>Wei Lin</b><span class="pacc">Sichuan Mandarin</span>
+          <button class="play" data-audio="assets/audio/persona_wei_lin.mp3" aria-label="play Wei Lin sample">&#9654;</button>
+        </div>
+        <div class="pcard">
+          <span class="pface"><img src="/authors/victor-barres.jpg" alt=""/></span>
+          <b>Mamadou Diallo</b><span class="pacc">Senegalese French</span>
+          <button class="play" data-audio="assets/audio/persona_mamadou_diallo.mp3" aria-label="play Mamadou Diallo sample">&#9654;</button>
+        </div>
+        <div class="pcard">
+          <span class="pface"><img src="/authors/soham-ray.jpg" alt=""/></span>
+          <b>Priya Patil</b><span class="pacc">Marathi-influenced Indian English</span>
+          <button class="play" data-audio="assets/audio/persona_priya_patil.mp3" aria-label="play Priya Patil sample">&#9654;</button>
+        </div>
+        <div class="pcard">
+          <span class="pface">&#128117;</span>
+          <b>Mildred Kaplan</b><span class="pacc">elderly, needs tech help</span>
+          <button class="play" data-audio="assets/audio/persona_mildred_kaplan.mp3" aria-label="play Mildred Kaplan sample">&#9654;</button>
+        </div>
+      </div>
+      <p class="footnote">Personas are generated reproducibly (fixed seed) via voice design — accents are TTS-induced, a stated scope limitation.</p>
+    </div>
+  </section>
+
+  <!-- ================= 13b · PERSONAS REVEALED ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">How we model it · 2 of 3</div>
+      <h2>&hellip;loosely inspired by friends on the Sierra research team!</h2>
+      <div class="pgrid on" style="grid-template-columns:repeat(6,1fr); max-width:1010px; margin-left:auto; margin-right:auto;">
+        <div class="pcard ctrl">
+          <span class="pface"><img src="/authors/ben-shi.jpg" alt=""/></span>
+          <b>Ben Shi</b><span class="pacc">as Matt Delaney</span>
+          <button class="play" data-audio="assets/audio/persona_matt_delaney.mp3" aria-label="play Matt Delaney sample">&#9654;</button>
+        </div>
+        <div class="pcard ctrl">
+          <span class="pface"><img src="/authors/ola-zytek.jpg" alt=""/></span>
+          <b>Ola Zytek</b><span class="pacc">as Lisa Brenner</span>
+          <button class="play" data-audio="assets/audio/persona_lisa_brenner.mp3" aria-label="play Lisa Brenner sample">&#9654;</button>
+        </div>
+        <div class="pcard">
+          <span class="pface"><img src="/authors/keshav-dhandhania.jpg" alt=""/></span>
+          <b>Keshav Dhandhania</b><span class="pacc">as Arjun Roy</span>
+          <button class="play" data-audio="assets/audio/persona_arjun_roy.mp3" aria-label="play Arjun Roy sample">&#9654;</button>
+        </div>
+        <div class="pcard">
+          <span class="pface"><img src="/authors/siyu-yao.jpg" alt=""/></span>
+          <b>Siyu Yao</b><span class="pacc">as Wei Lin</span>
+          <button class="play" data-audio="assets/audio/persona_wei_lin.mp3" aria-label="play Wei Lin sample">&#9654;</button>
+        </div>
+        <div class="pcard">
+          <span class="pface"><img src="/authors/victor-barres.jpg" alt=""/></span>
+          <b>Victor Barres</b><span class="pacc">as Mamadou Diallo</span>
+          <button class="play" data-audio="assets/audio/persona_mamadou_diallo.mp3" aria-label="play Mamadou Diallo sample">&#9654;</button>
+        </div>
+        <div class="pcard">
+          <span class="pface"><img src="/authors/soham-ray.jpg" alt=""/></span>
+          <b>Soham Ray</b><span class="pacc">as Priya Patil</span>
+          <button class="play" data-audio="assets/audio/persona_priya_patil.mp3" aria-label="play Priya Patil sample">&#9654;</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 15 · AUDIO PIPELINE (animated) ================= -->
+  <section class="slide" id="pipeline" data-steps="3">
+    <div class="inner">
+      <div class="kicker">How we model it · 3 of 3</div>
+      <h2 style="margin-bottom:12px;">The audio pipeline</h2>
+      <svg id="pipesvg" class="diagram" viewBox="0 0 1160 400" role="img" aria-label="animated audio generation pipeline" style="max-width:1080px; margin:0 auto; display:block;">
+        <defs>
+          <marker id="plarr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#94a3b8"/></marker>
+        </defs>
+        <!-- ===== sources ===== -->
+        <rect class="box" x="30" y="278" width="180" height="46" rx="10"/>
+        <text class="tl" x="120" y="297" text-anchor="middle" font-size="12.5">simulated user message</text>
+        <text class="tm" x="120" y="313" text-anchor="middle">“I got the wrong puzzle…”</text>
+        <rect class="box" x="70" y="62" width="140" height="40" rx="10"/>
+        <text class="tl" x="140" y="80" text-anchor="middle" font-size="12">audio library</text>
+        <text class="ts" x="140" y="94" text-anchor="middle">street · café · TV</text>
+        <rect class="box" x="70" y="130" width="140" height="40" rx="10"/>
+        <text class="tl" x="140" y="148" text-anchor="middle" font-size="12">scheduler</text>
+        <text class="tm" x="140" y="162" text-anchor="middle">Poisson</text>
+        <rect class="box" x="70" y="200" width="140" height="40" rx="10"/>
+        <text class="tl" x="140" y="218" text-anchor="middle" font-size="12">voice personas</text>
+        <text class="ts" x="140" y="232" text-anchor="middle">7 voices · accents</text>
+        <!-- ===== generators group ===== -->
+        <rect class="grp" x="290" y="40" width="280" height="330" rx="14"/>
+        <text class="tg" x="430" y="28" text-anchor="middle">GENERATORS</text>
+        <rect class="box" x="315" y="62" width="230" height="46" rx="10"/>
+        <text class="tl" x="430" y="82" text-anchor="middle" font-size="12.5">background noise</text>
+        <text class="tm" x="430" y="97" text-anchor="middle">continuous · 15 dB SNR</text>
+        <rect class="box dash gburst" x="315" y="128" width="230" height="46" rx="10"/>
+        <text class="tl" x="430" y="148" text-anchor="middle" font-size="12.5">bursts</text>
+        <text class="tm" x="430" y="163" text-anchor="middle">car horn · dog · siren</text>
+        <rect class="box dash goot" x="315" y="194" width="230" height="46" rx="10"/>
+        <text class="tl" x="430" y="214" text-anchor="middle" font-size="12.5">out-of-turn speech</text>
+        <text class="tm" x="430" y="229" text-anchor="middle">“hold on, kids”</text>
+        <rect class="box main" x="315" y="278" width="230" height="52" rx="10"/>
+        <text class="tl" x="430" y="299" text-anchor="middle" font-size="13" fill="#065f46">speech</text>
+        <text class="tm" x="430" y="315" text-anchor="middle">persona TTS · accent · pace</text>
+        <!-- source links: solid = constant feed · dotted pulse = intermittent trigger -->
+        <path class="ctrl const" d="M 210 82 C 250 82, 260 85, 315 85"/>
+        <path class="ctrl ctrl-burst" d="M 210 150 C 250 150, 265 151, 315 151"/>
+        <path class="ctrl ctrl-oot" d="M 210 155 C 255 165, 270 210, 315 216"/>
+        <path class="ctrl ctrl-muff" d="M 210 162 C 258 178, 258 250, 258 305 C 258 380, 420 386, 540 386 C 580 386, 598 362, 612 344"/>
+        <path class="ctrl const" d="M 210 222 C 250 224, 270 250, 315 290"/>
+        <path class="flow acc f-speech" d="M 210 301 C 255 302, 270 304, 315 304"/>
+        <!-- legend -->
+        <g>
+          <line class="lgconst" x1="962" y1="20" x2="1004" y2="20"/>
+          <text class="ts" x="1012" y="24">constant</text>
+          <line class="lgint" x1="962" y1="38" x2="1004" y2="38"/>
+          <text class="ts" x="1012" y="42">intermittent (scheduler)</text>
+        </g>
+        <!-- ===== mixer ===== -->
+        <circle class="mixer" cx="655" cy="205" r="24" fill="#fff" stroke="#cbd5e1" stroke-width="2"/>
+        <line x1="655" y1="191" x2="655" y2="219" stroke="#64748b" stroke-width="2"/>
+        <line x1="641" y1="205" x2="669" y2="205" stroke="#64748b" stroke-width="2"/>
+        <path class="flow grey f-noise" d="M 545 85 C 615 85, 640 140, 651 181"/>
+        <path class="flow amber f-burst" d="M 545 151 C 605 151, 630 168, 643 188"/>
+        <path class="flow amber f-oot" d="M 545 217 C 600 217, 620 213, 631 210"/>
+        <path class="flow acc f-speech" d="M 545 304 C 615 304, 640 265, 652 229"/>
+        <!-- dynamic muffling -->
+        <rect class="box dash gmuff" x="600" y="300" width="150" height="40" rx="10"/>
+        <text class="tl" x="675" y="318" text-anchor="middle" font-size="12">dynamic muffling</text>
+        <text class="tm" x="675" y="332" text-anchor="middle">20% of utterances</text>
+        <path class="ctrl" d="M 660 300 C 658 280, 657 260, 656 232"/>
+        <!-- ===== channel degradation ===== -->
+        <rect class="grp" x="790" y="70" width="250" height="240" rx="14"/>
+        <text class="tg" x="915" y="58" text-anchor="middle">CHANNEL DEGRADATION</text>
+        <rect class="box" x="815" y="98" width="200" height="52" rx="10"/>
+        <text class="tl" x="915" y="119" text-anchor="middle" font-size="12.5">telephony conversion</text>
+        <text class="tm" x="915" y="135" text-anchor="middle">G.711 µ-law @ 8 kHz</text>
+        <rect class="box dash gfd" x="815" y="210" width="200" height="52" rx="10"/>
+        <text class="tl" x="915" y="231" text-anchor="middle" font-size="12.5">frame drops</text>
+        <text class="tm" x="915" y="247" text-anchor="middle">Gilbert–Elliott · ~2% · 100 ms</text>
+        <line x1="915" y1="150" x2="915" y2="206" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#plarr)"/>
+        <path class="flow acc f-out" d="M 679 205 C 730 205, 740 124, 811 124"/>
+        <!-- ===== output waveform ===== -->
+        <path class="flow acc f-out" d="M 1015 236 C 1050 236, 1055 231, 1075 231"/>
+        <g class="wave">
+          <rect class="wavebar" x="1082" y="216" width="7" height="30" rx="3.5"/>
+          <rect class="wavebar" x="1093" y="206" width="7" height="50" rx="3.5"/>
+          <rect class="wavebar" x="1104" y="196" width="7" height="70" rx="3.5"/>
+          <rect class="wavebar" x="1115" y="209" width="7" height="44" rx="3.5"/>
+          <rect class="wavebar" x="1126" y="219" width="7" height="24" rx="3.5"/>
+        </g>
+        <g class="fdmark"><line x1="1100" y1="192" x2="1090" y2="268"/><line x1="1110" y1="192" x2="1100" y2="268"/></g>
+        <text class="ts" x="1105" y="288" text-anchor="middle">what the agent hears</text>
+      </svg>
+      <p class="footnote" style="margin-top:12px;">Figure 3, τ-voice (arXiv 2603.13686) — redrawn live. A factorial ablation grid (audio × accents × behavior) isolates each factor’s cost.</p>
+    </div>
+  </section>
+
+  <!-- ================= 16 · LIVE VISUALIZER ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Let’s listen to one</div>
+      <h2 style="margin-bottom:14px;">Every run is auditable — audio included</h2>
+      <div class="embedwrap">
+        <iframe
+          src="https://taubench.com/#trajectory-visualizer?model=grok-voice-think-fast-1-0_xai_2026-04-21&domain=retail"
+          title="taubench.com voice trajectory visualizer"
+          loading="lazy"
+          allow="autoplay"
+          referrerpolicy="no-referrer"></iframe>
+      </div>
+      <p class="footnote">Live embed of the <a href="https://taubench.com/#trajectory-visualizer?model=grok-voice-think-fast-1-0_xai_2026-04-21&domain=retail" target="_blank" rel="noopener">taubench.com visualizer</a> — pick any task, scrub the timeline, and play the stereo call audio with effects and tool calls overlaid. (Needs internet; opens in a new tab if the embed is blocked.)</p>
+    </div>
+  </section>
+
+  <!-- ================= 17 · RESULTS ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Results · taubench.com leaderboard, July 2026</div>
+      <h2>Going voice once cost half your text performance — the frontier is catching up</h2>
+      <div class="chartwrap">
+        <svg id="resChart" class="diagram" viewBox="0 0 1040 360" role="img" aria-label="voice leaderboard results vs text references" style="max-width:900px; margin:0 auto; display:block;"></svg>
+      </div>
+      <div class="stats" style="margin-top:10px;">
+        <div class="stat"><div class="num">67.3%</div><div class="lbl">best voice overall today — 30.4% at launch</div></div>
+        <div class="stat"><div class="num">−13 pts</div><div class="lbl">clean → realistic audio (paper ablation)</div></div>
+        <div class="stat"><div class="num">278</div><div class="lbl">tasks inherited from τ — same evaluator as text</div></div>
+      </div>
+      <p class="footnote">Overall pass@1 (retail/airline/telecom average), realistic audio — taubench.com voice leaderboard, July 2026.</p>
+    </div>
+  </section>
+
+  <!-- ================= 17 · INTERACTIVITY METRICS ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Beyond task success</div>
+      <h2>Interactivity metrics</h2>
+      <p class="lede" style="margin-bottom:8px;">Task reward says nothing about <em>how it felt to talk to the agent</em>. From the tick logs we score four dimensions of conversational competence:</p>
+      <table class="metrics">
+        <tr><th>Dimension</th><th>What it captures</th></tr>
+        <tr>
+          <td class="dim">Responsiveness</td>
+          <td>Does the agent answer each user turn — and stop within 2 s when barged-in?</td>
+        </tr>
+        <tr>
+          <td class="dim">Latency</td>
+          <td>Time from end-of-user-speech to agent speech; time to go quiet after an interruption.</td>
+        </tr>
+        <tr>
+          <td class="dim">Interruption</td>
+          <td>How often the agent speaks before the user finishes — can exceed 100% per turn.</td>
+        </tr>
+        <tr>
+          <td class="dim">Selectivity</td>
+          <td>Correctly <em>ignoring</em> “mm-hmm”, coughs, and speech aimed at someone else in the room.</td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= 17b · INTERACTIVITY RESULTS ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Beyond task success · results</div>
+      <h2>No model wins every dimension</h2>
+      <table class="cmp itbl" aria-label="interactivity dimensions by model, from the taubench.com leaderboard">
+        <thead>
+          <tr><th></th><th>pass@1</th><th>Latency ↓</th><th>Responsiveness ↑</th><th>Interrupt ↓</th><th>Selectivity ↑</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>grok-voice-think-fast-1.0</td><td class="best">67.3</td><td>1.29 s</td><td>96.9</td><td>19.7</td><td>51.5</td></tr>
+          <tr><td>gpt-realtime-2</td><td>51.2</td><td>1.28 s</td><td class="best">98.4</td><td>21.0</td><td class="worst">10.9</td></tr>
+          <tr><td>gemini-3.1-flash-live (think-high)</td><td>43.8</td><td>2.01 s</td><td class="worst">67.3</td><td class="best">18.9</td><td class="best">66.3</td></tr>
+          <tr><td>grok-voice-fast-1.0</td><td>38.3</td><td class="best">1.15 s</td><td>83.3</td><td class="worst">84.3</td><td>57.5</td></tr>
+          <tr><td>cascaded pipeline (baseline)</td><td>31.2</td><td class="worst">2.56 s</td><td>89.0</td><td>64.4</td><td>57.8</td></tr>
+          <tr><td>gemini-live-2.5-flash</td><td>25.8</td><td class="best">1.15 s</td><td>68.5</td><td>20.6</td><td>54.5</td></tr>
+        </tbody>
+      </table>
+      <div class="cardlist compact" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:14px;">
+        <div class="card frag"><span class="tag">GPT: answers everything</span>Most responsive of the field (98%) — but selectivity 11%: every “mm-hmm” stops it cold. Politeness as a failure mode.</div>
+        <div class="card frag"><span class="tag">Gemini: holds the floor</span>Most selective (66%) and least interrupting — but least responsive: it sits out a third of turns that deserved an answer.</div>
+        <div class="card frag"><span class="tag">The trade-off is real</span>No current system achieves both reliable responsiveness and appropriate restraint — and best-per-dimension is scattered across four different models.</div>
+      </div>
+      <p class="footnote">taubench.com leaderboard, averaged over retail / airline / telecom (realistic audio). Aggregated as in the paper: responsiveness = mean(RR, RY) · latency = mean(L<sub>R</sub>, L<sub>Y</sub>) · selectivity = mean(S<sub>BC</sub>, S<sub>VT</sub>, S<sub>ND</sub>). <span class="mono" style="font-size:11px;">green = best in column · red = worst</span></p>
+    </div>
+  </section>
+
+  <!-- ================= 18 · FAILURE ANALYSIS ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Analysis</div>
+      <h2>Where the failures come from</h2>
+      <div class="cols" style="grid-template-columns: 1.2fr 1fr;">
+        <div>
+          <div class="hbars">
+            <div class="hbar"><div class="lbl">Logical errors</div><div class="track"><div class="seg1" style="width:40.6%"></div><div class="seg2" style="width:50%"></div></div><div class="val">13 · 16</div></div>
+            <div class="hbar"><div class="lbl">Transcription errors</div><div class="track"><div class="seg1" style="width:31.3%"></div><div class="seg2" style="width:50%"></div></div><div class="val">10 · 16</div></div>
+            <div class="hbar"><div class="lbl">Hallucination</div><div class="track"><div class="seg1" style="width:18.8%"></div><div class="seg2" style="width:18.8%"></div></div><div class="val">6 · 6</div></div>
+            <div class="hbar"><div class="lbl">Timeout</div><div class="track"><div class="seg1" style="width:12.5%"></div><div class="seg2" style="width:3.1%"></div></div><div class="val">4 · 1</div></div>
+            <div class="hbar"><div class="lbl">VAD / unresponsive</div><div class="track"><div class="seg1" style="width:3.1%"></div><div class="seg2" style="width:12.5%"></div></div><div class="val">1 · 4</div></div>
+            <div class="hbar"><div class="lbl">User-simulator errors</div><div class="track"><div class="seg1" style="width:28.1%"></div><div class="seg2" style="width:15.6%"></div></div><div class="val">9 · 5</div></div>
+          </div>
+          <div class="legend">
+            <span><span class="sw" style="background:var(--accent-mid);"></span>voice-fragile cohort</span>
+            <span><span class="sw" style="background:#86efac;"></span>noise-fragile cohort</span>
+            <span class="mono" style="font-size:11.5px;">91 failed simulations, manually annotated</span>
+          </div>
+        </div>
+        <div>
+          <div class="stats" style="margin-top:0;">
+            <div class="stat"><div class="num">79–90%</div><div class="lbl">of failures attributed to the <strong>agent</strong>, not the simulator</div></div>
+          </div>
+          <p class="lede" style="margin-top:20px; font-size:17px;"><strong>Authentication is the dominant bottleneck.</strong> Agents fail to transcribe names and emails even when the caller spells them letter-by-letter — and that blocks every downstream action.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 18b · ABLATIONS ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Analysis · paper ablations</div>
+      <h2>Which ingredient of “realistic” hurts?</h2>
+      <p class="lede" style="margin-bottom:10px;">On retail, we add each factor to an otherwise <strong>clean</strong> condition, one at a time:</p>
+      <table class="cmp itbl" aria-label="ablation of realistic-audio factors on retail pass@1">
+        <thead>
+          <tr><th>Retail pass@1</th><th>Google</th><th>OpenAI</th><th>xAI</th><th>Average</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Clean</td><td>45</td><td>71</td><td>48</td><td>55</td></tr>
+          <tr><td>+ Noise</td><td>40 <span class="abd">−4</span></td><td>67 <span class="abd">−4</span></td><td>46 <span class="abd">−2</span></td><td>51 <span class="abd">−4</span></td></tr>
+          <tr><td>+ Accents</td><td>44 <span class="abd">−1</span></td><td>60 <span class="abd">−11</span></td><td class="worst">30 <span class="abd">−18</span></td><td>44 <span class="abd">−10</span></td></tr>
+          <tr><td>+ Turn-taking</td><td class="worst">33 <span class="abd">−11</span></td><td>57 <span class="abd">−14</span></td><td class="best">52 <span class="abd">+4</span></td><td>47 <span class="abd">−7</span></td></tr>
+          <tr><td>Realistic (all)</td><td>30 <span class="abd">−15</span></td><td>45 <span class="abd">−26</span></td><td>39 <span class="abd">−10</span></td><td>38 <span class="abd">−17</span></td></tr>
+        </tbody>
+      </table>
+      <div class="cardlist compact" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:14px;">
+        <div class="card frag"><span class="tag">Accents hit hardest</span>−10 pp on average, with wild provider variance: xAI loses 18 pp to accents alone, Google is untouched (−1). Accent robustness is a real accessibility gap.</div>
+        <div class="card frag"><span class="tag">Turn-taking splits the field</span>−11 for Google, −14 for OpenAI — but <b>+4 for xAI</b>. Barge-ins push weaker stacks into goes-silent mode; a fast stack actually benefits from a chattier caller.</div>
+        <div class="card frag"><span class="tag">Factors compound</span>All together: −17 pp on average, −26 for OpenAI. The realism gap isn’t one bug — it’s several independent taxes stacking.</div>
+      </div>
+      <p class="footnote">τ-voice paper, Table 4 (Feb 2026) — retail pass@1, each factor added alone over clean. Accents are TTS-induced, so treat absolute numbers as indicative; the per-provider variance is the signal.</p>
+    </div>
+  </section>
+
+  <!-- ================= 20 · VOICE PRESS ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Adoption, again</div>
+      <h2>The voice labs are optimizing against it</h2>
+      <div class="presswall">
+        <figure><img src="assets/highlights/xai-grok-voice_thumb.jpg" alt="xAI Grok Voice"/><figcaption><b>xAI</b> — Grok Voice Think Fast 1.0 announced with the τ-voice top spot (418M views)</figcaption></figure>
+        <figure><img src="assets/highlights/tulsee-tau-voice_thumb.jpg" alt="Google on tau-voice"/><figcaption><b>Google</b> — Gemini 3.1 Flash Live tops τ-voice, announced by DeepMind leadership</figcaption></figure>
+        <figure><img src="assets/highlights/openai-build-hour_thumb.jpg" alt="OpenAI Build Hour"/><figcaption><b>OpenAI</b> — τ-voice findings presented in the GPT-Realtime-2 Build Hour</figcaption></figure>
+        <figure><img src="assets/highlights/aa-speech_thumb.jpg" alt="Artificial Analysis speech"/><figcaption><b>Artificial Analysis</b> — τ-voice on the Speech-to-Speech leaderboard</figcaption></figure>
+      </div>
+      <p class="lede" style="margin-top:14px;">Hopefully voice experiences are gonna get better soon!</p>
+      <p class="footnote">Also cited in OpenAI’s “Introducing GPT-Live” (July 2026) — the first full-duplex model generation trained with benchmarks like this in the loop.</p>
+    </div>
+  </section>
+
+  <!-- ================= 21 · MULTILINGUAL ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Next · work in progress</div>
+      <h2>Multilingual: <span class="tau">τ</span>-voice for the other 80%</h2>
+      <div class="cardlist" style="max-width:880px; gap:14px;">
+        <div class="card" style="font-size:20px; padding:20px 26px;"><span class="tag">Q1</span>Can we build a <b>representative multilingual user simulator</b>?</div>
+        <div class="card" style="font-size:20px; padding:20px 26px;"><span class="tag">Q2</span>Can we measure how agents fail — <b>reliably, and beyond accuracy</b>?</div>
+      </div>
+      <p class="lede frag" style="margin-top:18px; max-width:75ch;">In multilingual, <strong>user experience matters</strong>: other languages carry nuances — grammatical gender, honorifics, register — that aren’t accounted for today.</p>
+    </div>
+  </section>
+
+  <!-- ================= 22 · MULTILINGUAL NUANCES ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">What we’re seeing</div>
+      <h2>Language is not translation</h2>
+      <div class="smallgrid tightcards" style="gap:12px;">
+        <div class="card">
+          <span class="tag">Pragmatics, not words</span>
+          Meet <b>Adriana</b> (Cluj, Romania): formal register, <span class="mono" style="font-size:12.5px;">dumneavoastră</span> throughout, refuses indirectly — and when the agent drifts into English she gently pushes back: <em>“putem continua în română?”</em> An agent that translates but doesn’t <b>operate</b> in the language fails her call.
+        </div>
+        <div class="card">
+          <span class="tag">Code-switching is a spectrum</span>
+          Hinglish callers mix 0–30% English mid-sentence. We built a <b>density ladder</b> to find where each model breaks — comprehension degrades long before generation does.
+        </div>
+        <div class="card">
+          <span class="tag">Honorifics are load-bearing</span>
+          Korean speech levels, Japanese keigo, T–V distinctions: get them wrong and the call <em>feels</em> broken even when the task succeeds. Task reward alone can’t see this — nativeness scoring can.
+        </div>
+        <div class="card">
+          <span class="tag">Cross-lingual knowledge</span>
+          The knowledge base stays English; the caller doesn’t. Reading English policy and answering natively is its own capability — we ablate it directly (KB-on/KB-off).
+        </div>
+        <div class="card">
+          <span class="tag">Within-family probes</span>
+          Egyptian ↔ Levantine Arabic, Hindi ↔ Bengali, Mandarin ↔ Cantonese: is a provider’s gap family-wide or language-specific? Early answer: it varies by provider — coverage maps are uneven.
+        </div>
+        <div class="card">
+          <span class="tag">Diglossia is the default</span>
+          Arabic callers don’t speak the written language: the KB is Modern Standard Arabic, the caller is Egyptian or Levantine. Reading <em>fuṣḥā</em> and speaking dialect — bridged mid-call — is the job.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 22b · THOUGHTS ON BENCHMARKING ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Stepping back</div>
+      <h2>Thoughts on benchmarking</h2>
+      <div class="cols" style="grid-template-columns:1fr 1fr; gap:28px; align-items:start;">
+        <div>
+          <div class="kicker" style="font-size:12px; margin-bottom:8px;">What to benchmark</div>
+          <p class="lede" style="margin-bottom:12px;"><strong>Distill production problems.</strong> LLMs will draft the tasks, worlds, even judges — the scarce input is <strong>taste</strong>: what’s worth measuring. Every <span class="tau">τ</span> axis is a production failure mode, distilled. And a benchmark is a steering wheel: we aim the labs at problems we know are <strong>tractable</strong>.</p>
+          <div class="bq frag">
+            <div class="qt">“In this new era, evaluation becomes more important than training.”</div>
+            <div class="attr">Shunyu Yao — <span class="tau">τ</span>-bench’s first author — <em>The Second Half</em>, 2025: the second half of AI shifts from solving problems to defining them.</div>
+          </div>
+          <div class="bq frag">
+            <div class="qt">“Effort shifts from building systems to evaluating systems.”</div>
+            <div class="attr">Arvind Narayanan — <em>What will be left for us to work on?</em>, ICML 2026 keynote — days ago.</div>
+          </div>
+        </div>
+        <div>
+          <div class="kicker" style="font-size:12px; margin-bottom:8px;">How to benchmark</div>
+          <p class="lede" style="margin-bottom:12px;"><strong>Reliability is half of quality.</strong> <span class="tau">τ²</span>’s accidental lesson: don’t prompt for a reliable simulator, <strong>provide a world</strong>. Grounding the user in real state cut critical simulator errors ~13% → 6% — realism made the measurement <em>cleaner</em>.</p>
+          <p class="lede"><strong>Verifiability is the other half.</strong> The core reward is a database diff — no judge can argue with it. <strong>Rubric rewards</strong> (delivery, intonation, nativeness) now see what state diffs can’t — but every rubric point is a point you can’t verify. How do you walk this tradeoff?</p>
+        </div>
+      </div>
+      <p class="footnote">Yao, “The Second Half” (ysymyth.github.io, Apr 2025) · Narayanan, ICML 2026 keynote (Jul 13, 2026 — AI Snake Oil / normaltech.ai).</p>
+    </div>
+  </section>
+
+  <!-- ================= 22c · TAKEAWAYS ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Takeaways</div>
+      <h2>If you remember four things</h2>
+      <div class="cols" style="grid-template-columns:1fr 1fr; gap:14px; margin-top:6px;">
+        <div class="card" style="font-size:15.5px;"><span class="tag">Ground the reward</span>The reward should be as grounded as possible — <b>deterministic is best</b>; it carried <span class="tau">τ</span> across four benchmarks. But <b>LLM judges are maturing</b>, and that opens the door to many new possibilities.</div>
+        <div class="card" style="font-size:15.5px;"><span class="tag">Choosing the problem is as important as choosing the solution</span>We&rsquo;ve found <b>production issues</b> to be a good source to draw from.</div>
+        <div class="card" style="font-size:15.5px;"><span class="tag">Quality &amp; verifiability are paramount</span>That&rsquo;s what drove <span class="tau">τ²</span>&rsquo;s adoption. You only trust the metrics <b>as much as you trust the system</b>.</div>
+        <div class="card" style="font-size:15.5px;"><span class="tag">Voice is not text + TTS</span>Full-duplex timing, accents, and noise cost frontier agents a <b>large share of their text performance</b>.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 23 · CLOSE ================= -->
+  <section class="slide divider">
+    <div class="inner">
+      <div class="kicker">Takeaways</div>
+      <div class="giant" style="font-size:96px;">τ → τ² → τ³ → …</div>
+      <p class="lede" style="margin-top:22px; max-width:70ch;">One grounded, deterministic task substrate — with realism added one axis at a time: <strong>dual control</strong>, then <strong>knowledge</strong>, then <strong>full-duplex voice</strong>, next <strong>language</strong>. Each axis found a capability cliff the previous one couldn’t see.</p>
+      <div class="stats">
+        <div class="stat"><div class="num" style="font-size:18px; padding-top:4px;">taubench.com</div><div class="lbl">leaderboards, trajectories, audio</div></div>
+        <div class="stat"><div class="num" style="font-size:18px; padding-top:4px;">github.com/sierra-research/tau2-bench</div><div class="lbl">open source</div></div>
+        <div class="stat"><div class="num" style="font-size:18px; padding-top:4px;"><a href="https://taubench.com/talks/stanford-aims-tau.html" style="color:inherit; text-decoration:none;">taubench.com/talks/stanford-aims-tau.html</a></div><div class="lbl">these slides</div></div>
+        <div class="stat"><div class="num" style="font-size:18px; padding-top:4px;"><a href="https://sierra.ai/careers" style="color:inherit; text-decoration:none;">sierra.ai/careers</a></div><div class="lbl">we&rsquo;re hiring!</div></div>
+        <div class="stat"><div class="num" style="font-size:18px; padding-top:4px;">sohamray19 @ gmail</div><div class="lbl">thank you — questions?</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= APPENDIX ================= -->
+  <section class="slide divider">
+    <div class="inner">
+      <div class="kicker">Backup</div>
+      <h2 style="font-size:56px;">Appendix</h2>
+    </div>
+  </section>
+
+  <!-- ================= 4b · PASS^K ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Appendix · the <span class="tau">τ</span>-bench metric</div>
+      <h2>pass@k asks <em>“can it?”</em> — pass^k asks <em>“will it always?”</em></h2>
+      <div class="cols" style="grid-template-columns:.72fr 1.28fr; gap:38px; align-items:center;">
+        <div>
+          <div class="spec"><span class="slbl">pass@k · capability</span><p><b>At least one</b> of k trials succeeds. The number everyone reports — it only goes <b>up</b> with k.</p></div>
+          <p class="lede" style="font-size:15.5px;" data-at="1">A customer gets <strong>one</strong> call — and the org gets a million of them. Production runs on pass^k.</p>
+        </div>
+        <svg class="diagram" viewBox="0 0 640 360" role="img" aria-label="pass@k rises with k while pass^k falls" style="max-width:600px;">
+          <line x1="70" y1="320" x2="610" y2="320" stroke="#e2e8f0" stroke-width="1.5"/>
+          <line x1="70" y1="252.5" x2="610" y2="252.5" stroke="#f1f5f9" stroke-width="1"/>
+          <line x1="70" y1="185" x2="610" y2="185" stroke="#f1f5f9" stroke-width="1"/>
+          <line x1="70" y1="117.5" x2="610" y2="117.5" stroke="#f1f5f9" stroke-width="1"/>
+          <line x1="70" y1="50" x2="610" y2="50" stroke="#f1f5f9" stroke-width="1"/>
+          <text x="58" y="324" text-anchor="end" font-size="11" fill="#94a3b8">0</text>
+          <text x="58" y="256" text-anchor="end" font-size="11" fill="#94a3b8">25</text>
+          <text x="58" y="189" text-anchor="end" font-size="11" fill="#94a3b8">50</text>
+          <text x="58" y="121" text-anchor="end" font-size="11" fill="#94a3b8">75</text>
+          <text x="58" y="54" text-anchor="end" font-size="11" fill="#94a3b8">100</text>
+          <text x="70" y="345" text-anchor="middle" font-size="11" fill="#94a3b8">k=1</text>
+          <text x="224" y="345" text-anchor="middle" font-size="11" fill="#94a3b8">3</text>
+          <text x="378" y="345" text-anchor="middle" font-size="11" fill="#94a3b8">5</text>
+          <text x="532" y="345" text-anchor="middle" font-size="11" fill="#94a3b8">7</text>
+          <text x="610" y="345" text-anchor="middle" font-size="11" fill="#94a3b8">8</text>
+          <polyline points="70,153.7 147,128.3 224,114.8 301,105.4 378,100 455,95.9 532,93.2 610,90.5" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-dasharray="6 5"/>
+          <text x="600" y="78" text-anchor="end" font-size="13" font-weight="650" fill="#64748b">pass@k · 85%</text>
+          <circle cx="70" cy="153.7" r="4.5" fill="#0f172a"/>
+          <text x="86" y="150" font-size="12.5" fill="#0f172a" font-weight="650">62% at k=1</text>
+          <g class="frag">
+            <polyline points="70,153.7 147,190.4 224,209.3 301,222.8 378,233.6 455,241.7 532,247.1 610,252.5" fill="none" stroke="#059669" stroke-width="3"/>
+            <circle cx="610" cy="252.5" r="4.5" fill="#059669"/>
+            <text x="600" y="278" text-anchor="end" font-size="13" font-weight="650" fill="#065f46">pass^k · 25%</text>
+            <text x="340" y="245" text-anchor="middle" font-size="12" fill="#dc2626" font-style="italic">same agent, harsher question</text>
+          </g>
+        </svg>
+      </div>
+      <p class="footnote">GPT-4o on <span class="tau">τ</span>-retail, from the <span class="tau">τ</span>-bench paper: it “solves” 62% of tasks — but repeats only a quarter of them reliably 8 for 8. c = successful trials, n = total trials.</p>
+    </div>
+  </section>
+
+  <!-- ================= A1 · RELATED WORK ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Appendix · related work</div>
+      <h2>How the field evaluates conversational agents</h2>
+      <p class="lede" style="margin-bottom:18px;">Two parallel threads: <strong>task-grounded</strong> evaluation and <strong>conversational-dynamics</strong> evaluation. The Full-Duplex-Bench line traces the second:</p>
+      <div class="smallgrid" style="grid-template-columns:repeat(4,1fr); gap:12px;">
+        <div class="card frag"><span class="tag">Full-Duplex-Bench · v1–1.5</span><b>Turn-taking probes.</b> Pause handling, backchanneling, smooth handoffs, user interruptions — pre-recorded audio, one round, offline scoring. v1.5 adds overlapping speech.</div>
+        <div class="card frag"><span class="tag">Full-Duplex-Bench · v2</span><b>Goes real-time.</b> A WebRTC orchestrator and an automated AI examiner drive live multi-turn exchanges — dynamics measured in the wild, but still no task to complete.</div>
+        <div class="card frag"><span class="tag">Full-Duplex-Bench · v3</span><b>Adds tool use.</b> Full-duplex agents calling tools under real-world disfluency — converging on our thesis from the dynamics side.</div>
+        <div class="card frag"><span class="tag">Talking Turns &amp; co.</span><b>Judged dynamics.</b> Turn-taking judged against human conversational norms; VoiceBench / VocalBench probe speech understanding — no state, no tools.</div>
+      </div>
+      <p class="lede" style="margin-top:18px;" data-at="4">The two threads <strong>don’t meet</strong>: dynamics benchmarks have no verifiable task, task benchmarks have no live audio. <span class="tau">τ</span>-voice is built to sit at that intersection.</p>
+    </div>
+  </section>
+
+  <!-- ================= 12 · GAP ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Appendix · the evaluation landscape</div>
+      <h2>No benchmark measures all three</h2>
+      <div class="cols" style="grid-template-columns: 1.3fr 1fr; align-items:center; gap:56px;">
+        <table class="cmp" aria-label="benchmark comparison: task completion, full-duplex, realistic audio">
+          <thead>
+            <tr><th></th><th>task<br>completion</th><th>full-<br>duplex</th><th>realistic<br>audio env.</th></tr>
+          </thead>
+          <tbody>
+            <tr class="group"><td colspan="4">task-oriented dialogue · text</td></tr>
+            <tr><td><span class="tau">τ</span>-bench</td><td class="y">✓</td><td class="n">—</td><td class="n">—</td></tr>
+            <tr><td><span class="tau">τ²</span>-bench</td><td class="y">✓</td><td class="n">—</td><td class="n">—</td></tr>
+            <tr class="group"><td colspan="4">conversational dynamics</td></tr>
+            <tr><td>Full-Duplex-Bench</td><td class="n">—</td><td class="y">✓</td><td class="n">—</td></tr>
+            <tr><td>Full-Duplex-Bench-V2</td><td class="p">∼</td><td class="y">✓</td><td class="n">—</td></tr>
+            <tr><td>Talking Turns</td><td class="n">—</td><td class="y">✓</td><td class="n">—</td></tr>
+            <tr class="group"><td colspan="4">speech understanding</td></tr>
+            <tr><td>VoiceBench</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td></tr>
+            <tr><td>VocalBench</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td></tr>
+            <tr><td>Audio MultiChallenge</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td></tr>
+            <tr><td>VoiceAgentBench</td><td class="p">∼</td><td class="n">—</td><td class="n">—</td></tr>
+            <tr class="hero"><td><span class="tau">τ</span>-voice</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+          </tbody>
+        </table>
+        <div>
+          <p class="lede" style="margin-bottom:16px;"><strong>Task completion</strong> — correct API calls with verifiable database state changes.</p>
+          <p class="lede" style="margin-bottom:16px;"><strong>Full-duplex</strong> — simultaneous bidirectional speech, turn-taking, interruptions.</p>
+          <p class="lede" style="margin-bottom:16px;"><strong>Realistic audio environment</strong> — accents, background noise, channel degradation, disfluencies.</p>
+          <p class="lede">Prior work advances individual dimensions; <span class="tau">τ</span>-voice requires <strong>all three at once</strong> — with native tool calling inside the speech pipeline as the gating capability.</p>
+        </div>
+      </div>
+      <p class="footnote">Table 1, τ-voice (arXiv 2603.13686) · ∼ = partial coverage.</p>
+    </div>
+  </section>
+
+  <!-- ================= A2 · TURN-TAKING ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Appendix · the user simulator</div>
+      <h2>Turn-taking is a controlled policy</h2>
+      <p class="lede" style="margin-bottom:6px;">A separate LLM policy runs on the user side during agent speech, deciding what a real caller would do with their voice right now:</p>
+      <div class="cardlist" style="margin-top:16px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;">
+        <div class="card frag"><span class="tag">Barge-in</span>The caller cuts in <b>mid-sentence</b> when the agent rambles or gets it wrong — the agent&rsquo;s audio is truncated at the interruption point.</div>
+        <div class="card frag"><span class="tag">Yielding</span>When both sides speak at once, configurable overlap thresholds decide <b>who backs off</b> — on either side of the line.</div>
+        <div class="card frag"><span class="tag">Backchannels</span>&ldquo;mm-hmm&rdquo; · &ldquo;okay&rdquo; · &ldquo;right&rdquo; — overlap <b>without taking the turn</b>. Density is a per-persona knob.</div>
+        <div class="card frag"><span class="tag">Follow-ups</span>If the agent pauses too long, the caller speaks up: <b>&ldquo;hello? you still there?&rdquo;</b> — dead air gets probed, not tolerated.</div>
+        <div class="card frag"><span class="tag">Hang-ups</span>Kept on hold past the persona&rsquo;s patience, the caller <b>drops the call</b> — and the task scores as a failure.</div>
+      </div>
+      <p class="footnote">The turn-taking policy is evaluated every 2 s during agent speech; interrupt tendency, patience, and backchannel density are per-persona parameters.</p>
+    </div>
+  </section>
+
+  <!-- ================= 19 · EVOLUTION ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Appendix · progress</div>
+      <h2>The frontier is moving — fast</h2>
+      <div class="chartwrap">
+        <svg id="voiceChart" class="diagram" viewBox="0 0 1040 380" role="img" aria-label="tau-voice progress over time"></svg>
+      </div>
+      <p class="footnote">Realistic-audio pass@1 (avg. of retail/airline/telecom), taubench.com leaderboard. Frontier: 30% (gpt-realtime-1.0, Aug ’25) → 67% (grok-voice-think-fast, Apr ’26) — a +29 pt jump in ~2 months; voice now retains ~79% of text capability, up from ~45%.</p>
+    </div>
+  </section>
+
+  <!-- ================= A6 · SIMULATOR REALISM STUDY ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Appendix · simulator realism</div>
+      <h2>Human raters find the simulated caller realistic</h2>
+      <p class="lede" style="margin-bottom:6px;">Two annotators independently rated <strong>60 simulations</strong> — stratified across domains and speech-complexity conditions — on a 1&ndash;4 scale, where 4&nbsp;=&nbsp;indistinguishable from a real caller.</p>
+      <div style="display:grid; grid-template-columns:1fr 1.15fr; gap:26px; margin-top:14px; align-items:start;">
+        <div class="cardlist" style="display:grid; gap:12px;">
+          <div class="card" style="font-size:15px;"><span class="tag">Overall: 3.1 / 4</span><b>83%</b> of all individual ratings at 3 or above, across six dimensions.</div>
+          <div class="card" style="font-size:15px;"><span class="tag">Raters agree: 94%</span>Within-1 inter-rater agreement across (simulation, dimension) pairs.</div>
+          <div class="card" style="font-size:15px;"><span class="tag">Known weak spot</span>Voice prosody scores lowest (2.6/4) — consistent with our choice <b>not to evaluate speech generation quality</b>.</div>
+        </div>
+        <table class="metrics" style="font-size:15px; margin-top:0;">
+          <tr><th>Dimension</th><th style="text-align:right;">Mean rating</th></tr>
+          <tr><td class="dim">Backchannel naturalness</td><td style="text-align:right;">3.5 / 4</td></tr>
+          <tr><td class="dim">Audio environment realism</td><td style="text-align:right;">3.3 / 4</td></tr>
+          <tr><td class="dim">Turn-taking naturalness</td><td style="text-align:right;">3.1 / 4</td></tr>
+          <tr><td class="dim">Behavioral plausibility (holistic)</td><td style="text-align:right;">3.1 / 4</td></tr>
+          <tr><td class="dim">Interruption behavior</td><td style="text-align:right;">3.0 / 4</td></tr>
+          <tr><td class="dim">Voice prosody</td><td style="text-align:right;">2.6 / 4</td></tr>
+        </table>
+      </div>
+      <p class="footnote">Not a substitute for a study with real human callers (future work) — it checks that the dimensions that most affect task completion (turn-taking, interruptions, backchannels, plausibility) are acceptably realistic.</p>
+    </div>
+  </section>
+
+  <!-- ================= A7 · STATISTICAL RELIABILITY ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Appendix · statistical reliability</div>
+      <h2>The voice&ndash;text gap survives significance testing</h2>
+      <p class="lede" style="margin-bottom:6px;">2 independent runs per condition (airline <em>n</em>=50, retail &amp; telecom <em>n</em>=114 each); paired permutation tests on per-task success — <strong>paired by task ID, 100k permutations, Holm-Bonferroni corrected</strong>.</p>
+      <div style="max-width:880px; margin:14px auto 0;">
+        <table class="cmp" aria-label="pooled pairwise statistical significance from the paper">
+          <thead>
+            <tr><th>Comparison · pooled across domains</th><th>&Delta; pass@1 range*</th><th>p (adj)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>GPT-5 text &rarr; Clean voice</td><td>&minus;33 to &minus;55 pp</td><td class="y">all &lt; 0.001</td></tr>
+            <tr><td>GPT-5 text &rarr; Realistic voice</td><td>&minus;49 to &minus;61 pp</td><td class="y">all &lt; 0.001</td></tr>
+            <tr><td>GPT-4.1 text &rarr; Realistic voice</td><td>&minus;20 to &minus;32 pp</td><td class="y">all &lt; 0.001</td></tr>
+            <tr><td>Clean &rarr; Realistic</td><td>&minus;6 to &minus;16 pp</td><td class="y">all &le; 0.002</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card" style="max-width:880px; margin:18px auto 0; font-size:15px;"><span class="tag">The honest caveat</span>Per-domain, Clean&nbsp;&rarr;&nbsp;Realistic holds for all models in <b>retail</b> but reaches significance only for grok-voice in airline &amp; telecom — and grok-voice&rsquo;s telecom Clean rate (57.5%) actually <b>beats the GPT-4.1 text baseline</b> (+20.6&nbsp;pp, p&nbsp;&lt;&nbsp;0.001).</div>
+      <p class="footnote">*Range across the three voice models (gemini-live-2.5, gpt-realtime-1.5, grok-voice); rates pooled over both runs.</p>
+    </div>
+  </section>
+
+  <!-- ================= A8 · ERROR ATTRIBUTION ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Appendix · error analysis</div>
+      <h2>Failures are agent errors, not simulator artifacts</h2>
+      <div class="cardlist" style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px;">
+        <div class="card"><span class="tag">The study</span>Two raters independently annotated all <b>91 failed simulations</b> in the Voice-Fragile and Noise-Fragile cohorts — 84% initial agreement, disagreements resolved to 100%.</div>
+        <div class="card"><span class="tag">Agent, not simulator</span><b>79%</b> of Voice-Fragile and <b>90%</b> of Noise-Fragile failures are attributed to the agent — the benchmark measures agent limits, not artifacts.</div>
+        <div class="card"><span class="tag">Commonsense, not policy</span><b>94.8%</b> (73/77) of agent failures need only domain-agnostic skills — <b>spelling (35%)</b> and <b>grounding (31%)</b> dominate; just 5% require domain policy knowledge.</div>
+        <div class="card"><span class="tag">What that implies</span>The voice&ndash;text gap is a <b>general capability shortfall</b> — closing it takes better conversational primitives, not bigger policy prompts.</div>
+      </div>
+      <p class="footnote">First critical error per simulation, typed as: logical, transcription, hallucination, VAD/unresponsive, timeout, or early termination.</p>
+    </div>
+  </section>
+
+  <!-- ================= A9 · LIMITATIONS & FUTURE WORK ================= -->
+  <section class="slide">
+    <div class="inner">
+      <div class="kicker">Appendix · limitations</div>
+      <h2>Limitations &amp; future work</h2>
+      <div style="display:grid; grid-template-columns:1.15fr 1fr; gap:22px; margin-top:14px;">
+        <div>
+          <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:9px;">Limitations</div>
+          <div class="cardlist" style="display:grid; gap:11px;">
+            <div class="card" style="font-size:14.5px;"><span class="tag">Transcript injection</span>The user sim reads the agent&rsquo;s <b>native transcript</b>, bypassing ASR. Agent speech was intelligible in 100% of 91 annotated failures, and an ASR-enabled mode (Deepgram Nova-3) shows both gaps persist — but default scores are an <b>upper bound</b>.</div>
+            <div class="card" style="font-size:14.5px;"><span class="tag">Generation isn&rsquo;t evaluated</span>We score task completion &amp; conversational dynamics — <b>not</b> the agent&rsquo;s speech quality (tone, naturalness), user satisfaction, or partial success.</div>
+            <div class="card" style="font-size:14.5px;"><span class="tag">Needs pausable time</span>Ticks require the model to <b>step with simulated time</b> — a voice model that only runs in wall-clock real time can&rsquo;t be evaluated on <span class="tau">&tau;</span>-voice as-is.</div>
+            <div class="card" style="font-size:14.5px;"><span class="tag">English-only, TTS voices</span>Accent findings via TTS personas are <b>indicative, not definitive</b>; the simulator is more patient than real callers.</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:9px;">Future work</div>
+          <div class="cardlist" style="display:grid; gap:11px;">
+            <div class="card" style="font-size:14.5px;"><span class="tag">Richer baselines</span>Cascaded ASR&rarr;LLM&rarr;TTS pipelines to isolate modality from architecture; open-source full-duplex models as they gain tool calling.</div>
+            <div class="card" style="font-size:14.5px;"><span class="tag">What we&rsquo;d score next</span>Agent speech generation quality, tool-call latency, and non-English evaluation.</div>
+            <div class="card" style="font-size:14.5px;"><span class="tag">Humans in the loop</span>Human user studies to validate simulator dynamics; accessibility-focused accent evaluation.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<script>
+/* ---------------- navigation: slides + fragment steps ---------------- */
+const deck = document.getElementById('deck');
+const slides = [...document.querySelectorAll('.slide')];
+const counter = document.getElementById('counter');
+const progress = document.getElementById('progress');
+const hint = document.getElementById('navhint');
+let idx = 0, step = 0;
+const slideHooks = {}; // per-slide step-driven animations, registered further down
+
+function frags(s) { return [...s.querySelectorAll('.frag')]; }
+function fit() {
+  const s = Math.min(window.innerWidth / 1280, window.innerHeight / 720) * 0.985;
+  deck.style.setProperty('--s', s.toFixed(4));
+}
+function render() {
+  slides.forEach((s, k) => s.classList.toggle('active', k === idx));
+  const cur = slides[idx];
+  frags(cur).forEach((f, k) => f.classList.toggle('on', k < step));
+  cur.querySelectorAll('[data-at]').forEach((el) =>
+    el.classList.toggle('on', step >= parseInt(el.dataset.at, 10)));
+  cur.querySelectorAll('[data-off]').forEach((el) =>
+    el.classList.toggle('off', step >= parseInt(el.dataset.off, 10)));
+
+  /* per-slide state machines */
+  const ph = cur.querySelector('.livephone');
+  if (ph && cur.id === 'call') {
+    /* live call: bubbles are frags 1..7 — airplane off after 5,
+       CRM write after 6, data roaming + signal back after 7 */
+    ph.classList.toggle('acting', step >= 1 && step < 7);
+    ph.classList.toggle('air-off', step >= 5);
+    ph.classList.toggle('roam-on', step >= 7);
+    ph.classList.toggle('fixed', step >= 7);
+    const crm = cur.querySelector('.crmcard');
+    if (crm) crm.classList.toggle('fixed', step >= 6);
+  } else if (ph && cur.id === 'compose') {
+    /* task authoring: RC1 breaks the phone, RC2 is cross-world */
+    ph.classList.toggle('rc-air', step >= 1);
+    ph.classList.toggle('abroad', step >= 2);
+    const crm = cur.querySelector('.crmcard');
+    if (crm) crm.classList.toggle('bad', step >= 2);
+  }
+  if (slideHooks[cur.id]) slideHooks[cur.id](step, cur);
+
+  counter.textContent = (idx + 1) + ' / ' + slides.length;
+  progress.style.width = ((idx + 1) / slides.length * 100) + '%';
+  if (idx > 0) hint.style.display = 'none';
+  if (('#' + idx) !== location.hash) history.replaceState(null, '', '#' + idx);
+}
+/* a slide's step count = its fragments, or an explicit data-steps override
+   (for diagram-only slides whose animations are step-driven with no frags) */
+function maxStep(s) { return Math.max(frags(s).length, parseInt(s.dataset.steps || '0', 10)); }
+function next() {
+  if (step < maxStep(slides[idx])) { step++; render(); }
+  else if (idx < slides.length - 1) { idx++; step = 0; render(); }
+}
+function prev() {
+  if (step > 0) { step--; render(); }
+  else if (idx > 0) { idx--; step = maxStep(slides[idx]); render(); }
+}
+function go(i) {
+  idx = Math.max(0, Math.min(slides.length - 1, i));
+  step = maxStep(slides[idx]);
+  render();
+}
+document.getElementById('next').addEventListener('click', next);
+document.getElementById('prev').addEventListener('click', prev);
+document.addEventListener('keydown', (e) => {
+  if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); next(); }
+  else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); prev(); }
+  else if (e.key === 'Home') { e.preventDefault(); go(0); }
+  else if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
+  else if (e.key === 'f') { document.documentElement.requestFullscreen?.(); }
+});
+/* click to advance (left 15% = back) — but never on interactive elements */
+document.getElementById('stage').addEventListener('click', (e) => {
+  if (e.target.closest('a, button, iframe, audio, .play, .navbtns')) return;
+  if (e.clientX < window.innerWidth * 0.15) prev(); else next();
+});
+window.addEventListener('resize', fit);
+window.addEventListener('hashchange', () => {
+  const n = parseInt(location.hash.slice(1), 10);
+  if (!isNaN(n) && n !== idx) go(n);
+});
+fit();
+
+/* ---------------- per-slide animation hooks ---------------- */
+slideHooks.pipeline = (s, cur) => {
+  const svg = cur.querySelector('#pipesvg');
+  if (!svg) return;
+  svg.classList.toggle('s1', s >= 1);
+  svg.classList.toggle('s2', s >= 2);
+  svg.classList.toggle('s3', s >= 3);
+};
+
+slideHooks.ticks = (s, cur) => {
+  const svg = cur.querySelector('#ticksvg');
+  if (!svg) return;
+  for (let k = 1; k <= 3; k++) svg.classList.toggle('k' + k, s >= k);
+};
+
+slideHooks.turns = (s, cur) => {
+  const svg = cur.querySelector('#turnsvg');
+  if (!svg) return;
+  for (let k = 1; k <= 4; k++) svg.classList.toggle('k' + k, s >= k);
+};
+
+// initial render — after hooks are registered so deep links animate correctly
+const h0 = parseInt(location.hash.slice(1), 10);
+if (!isNaN(h0)) go(h0); else render();
+
+/* ---------------- audio demo players ---------------- */
+let curAudio = null;
+document.querySelectorAll('.play').forEach((btn) => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const wasPlaying = btn.classList.contains('playing');
+    if (curAudio) { curAudio.pause(); curAudio = null; }
+    document.querySelectorAll('.play.playing').forEach((b) => b.classList.remove('playing'));
+    if (wasPlaying) return; // second click = stop
+    curAudio = new Audio(btn.dataset.audio);
+    btn.classList.add('playing');
+    curAudio.addEventListener('ended', () => btn.classList.remove('playing'));
+    curAudio.play();
+  });
+  // don't let Space (deck navigation) re-trigger a focused play button
+  btn.addEventListener('keydown', (e) => { if (e.key === ' ') e.preventDefault(); });
+});
+
+/* ---------------- chart helpers ---------------- */
+const NS = 'http://www.w3.org/2000/svg';
+function el(name, attrs, parent, text) {
+  const n = document.createElementNS(NS, name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text != null) n.textContent = text;
+  parent.appendChild(n);
+  return n;
+}
+function dateX(dstr, d0, d1, x0, x1) {
+  const t = new Date(dstr).getTime();
+  return x0 + (t - d0) / (d1 - d0) * (x1 - x0);
+}
+
+/* ---------------- tick-anatomy + turn-taking block builders ---------------- */
+(function () {
+  // anatomy slide: continuous waveform bars (row 1)
+  const wav = document.getElementById('tk-wave');
+  if (wav) {
+    const hs = [12, 22, 34, 18, 28, 40, 24, 14, 32, 20, 36, 26, 16, 30, 38, 22, 12, 28, 34, 18, 24, 36, 20, 30, 14];
+    hs.forEach((h, i) => el('rect', { x: 794 + i * 13, y: 64 - h / 2, width: 6, height: h, rx: 3 }, wav));
+  }
+  // anatomy slide: the eight tick cards with char-proportional transcript slices
+  const strip = document.getElementById('tk-strip');
+  if (strip) {
+    const slices = ['“Wait — ', 'no, I m', 'oved la', 'st mont', 'h. Fix ', 'the ad', 'dress f', 'irst.”'];
+    const bars = [
+      [14, 26, 40, 30, 20, 34, 18], [20, 32, 24, 38, 16, 28, 22], [16, 28, 36, 22, 32, 18, 26], [24, 18, 34, 28, 40, 22, 30],
+      [18, 30, 22, 36, 26, 16, 28], [22, 34, 18, 28, 38, 24, 16], [26, 20, 32, 16, 30, 36, 22], [14, 24, 18, 30, 20, 26, 12],
+    ];
+    const SUB = ['t₀', 't₁', 't₂', 't₃', 't₄', 't₅', 't₆', 't₇'];
+    slices.forEach((slice, i) => {
+      const x = 60 + i * 134;
+      const g = el('g', { class: 'tkcard' }, strip);
+      el('text', { x: x + 6, y: 150, class: 'tm' }, g, SUB[i]);
+      el('rect', { x, y: 156, width: 126, height: 66, rx: 10, class: 'box' }, g);
+      bars[i].forEach((h, k) => el('rect', { x: x + 16 + k * 14, y: 189 - h / 2, width: 6, height: h, rx: 3, fill: '#059669', opacity: .6 }, g));
+      el('text', { x: x + 63, y: 246, 'text-anchor': 'middle', class: 'slice' }, g, slice);
+    });
+  }
+  // turn-taking slide: per-tick lane blocks
+  const X = (t) => 90 + t * 34.667;
+  const lane = (gid, ts, hs, yMid, attrs) => {
+    const g = document.getElementById(gid);
+    if (!g) return;
+    ts.forEach((t, i) => {
+      const h = hs[i % hs.length];
+      el('rect', Object.assign({ x: X(t) + 2, y: yMid - h / 2, width: 30, height: h, rx: 3 }, attrs), g);
+    });
+  };
+  lane('tn-agent', Array.from({ length: 23 }, (_, i) => i + 1),
+    [24, 32, 40, 28, 36, 26, 34, 42, 30, 22, 38, 28, 34, 24, 40, 32, 26, 36, 30, 42, 28, 34, 26], 76, { fill: '#059669', opacity: .85 });
+  lane('tn-ghost', [24, 25, 26, 27], [30, 36, 24, 18], 76, { fill: '#059669', 'fill-opacity': .15, stroke: '#a7f3d0', 'stroke-dasharray': '3 3' });
+  lane('tn-user', Array.from({ length: 9 }, (_, i) => i + 21), [26, 36, 42, 30, 38, 28, 34, 24, 30], 170, { fill: '#64748b' });
+  lane('tn-mm', [11, 12], [24, 20], 170, { fill: '#cbd5e1' });
+  const noise = document.getElementById('tn-noise');
+  if (noise) [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 15, 16, 17, 18, 19, 20].forEach((t) =>
+    el('rect', { x: X(t) + 2, y: 167.5, width: 30, height: 5, rx: 2.5, fill: '#cbd5e1', opacity: .55 }, noise));
+})();
+
+/* ---------------- saturation chart (τ² telecom, leaderboard progress style) ---------------- */
+(function () {
+  const svg = document.getElementById('satChart');
+  const ORG = {
+    Anthropic: { logo: '/claude.png', tint: '#D97757' },
+    OpenAI:    { logo: '/openai.svg',    tint: '#10A37F' },
+    Moonshot:  { logo: 'assets/logos/org-kimi.png',      tint: '#111827' },
+    Alibaba:   { logo: '/qwen-color.png',      tint: '#615CED' },
+    Google:    { logo: '/Google__G__logo.svg.png',    tint: '#4285F4' },
+    DeepSeek:  { logo: '/DeepSeek_logo_icon.png',  tint: '#4D6BFE' },
+    Zhipu:     { logo: 'assets/logos/org-z.png',         tint: '#3B82F6' },
+  };
+  // lbl: label placement; nudge: px shift so big dots in dense clusters don't overlap
+  const pts = [
+    { m: 'Claude 3.7 Sonnet', d: '2025-02-24', v: 49.0, org: 'Anthropic', lbl: 'above' },
+    { m: 'GPT-4.1',           d: '2025-04-14', v: 34.0, org: 'OpenAI',    lbl: 'below' },
+    { m: 'o4-mini',           d: '2025-04-16', v: 50.2, org: 'OpenAI' },
+    { m: 'Kimi K2',           d: '2025-07-11', v: 65.8, org: 'Moonshot',  lbl: 'above' },
+    { m: 'GPT-5',             d: '2025-08-07', v: 95.8, org: 'OpenAI',    lbl: 'below' },
+    { m: 'Qwen3-Max',         d: '2025-09-23', v: 84.2, org: 'Alibaba' },
+    { m: 'Claude Sonnet 4.5', d: '2025-09-29', v: 98.0, org: 'Anthropic' },
+    { m: 'Gemini 3 Pro',      d: '2025-11-18', v: 98.0, org: 'Google',    lbl: 'below', anchor: 'end' },
+    { m: 'DeepSeek-V3.2',     d: '2025-12-01', v: 96.2, org: 'DeepSeek',  nudge: 14 },
+    { m: 'Gemini 3 Flash',    d: '2025-12-17', v: 91.2, org: 'Google',    nudge: 12 },
+    { m: 'Qwen3-Max-Think',   d: '2026-01-23', v: 98.2, org: 'Alibaba' },
+    { m: 'GLM-5.2',           d: '2026-06-16', v: 99.3, org: 'Zhipu',     lbl: 'below', anchor: 'end' },
+  ];
+  const x0 = 70, x1 = 1005, y0 = 336, y1 = 36, R = 11;
+  const d0 = new Date('2025-01-15').getTime(), d1 = new Date('2026-07-15').getTime();
+  const Y = v => y0 - v / 100 * (y0 - y1);
+  const sweep = x => (0.15 + (x - x0) / (x1 - x0) * 2.2).toFixed(2) + 's';
+  // defs: area gradient, dot shadow, sweep clip
+  const defs = el('defs', {}, svg);
+  const grad = el('linearGradient', { id: 'satFill', x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+  el('stop', { offset: '0%', 'stop-color': '#047857', 'stop-opacity': .2 }, grad);
+  el('stop', { offset: '100%', 'stop-color': '#047857', 'stop-opacity': .02 }, grad);
+  const filt = el('filter', { id: 'satShadow', x: '-50%', y: '-50%', width: '200%', height: '200%' }, defs);
+  el('feDropShadow', { dx: 0, dy: 1, stdDeviation: 1.5, 'flood-color': '#0f172a', 'flood-opacity': .22 }, filt);
+  const clip = el('clipPath', { id: 'satClip' }, defs);
+  el('rect', { id: 'satClipRect', x: x0 - 5, y: 12, width: x1 - x0 + 10, height: y0 - 8 }, clip);
+  // gridlines + y labels
+  [0, 25, 50, 75, 100].forEach(v => {
+    el('line', { x1: x0, y1: Y(v), x2: x1, y2: Y(v), stroke: '#f1f5f9', 'stroke-width': 1 }, svg);
+    el('text', { x: x0 - 10, y: Y(v) + 4, 'text-anchor': 'end', 'font-size': 11, fill: '#94a3b8', 'font-family': 'Menlo,monospace' }, svg, v + '%');
+  });
+  const ycy = (y0 + y1) / 2;
+  el('text', { x: x0 - 46, y: ycy, transform: `rotate(-90 ${x0 - 46} ${ycy})`, 'text-anchor': 'middle', 'font-size': 10.5, fill: '#64748b', 'font-weight': 600, 'letter-spacing': '.08em' }, svg, 'TELECOM PASS@1');
+  // x labels
+  [['2025-03-01','Mar ’25'],['2025-06-10','τ² release'],['2025-09-01','Sep ’25'],['2025-12-01','Dec ’25'],['2026-03-01','Mar ’26'],['2026-06-01','Jun ’26']].forEach(([d, l]) => {
+    const x = dateX(d, d0, d1, x0, x1);
+    el('line', { x1: x, y1: y0, x2: x, y2: y0 + 5, stroke: '#cbd5e1' }, svg);
+    el('text', { x, y: y0 + 22, 'text-anchor': 'middle', 'font-size': 11, fill: l === 'τ² release' ? '#047857' : '#94a3b8', 'font-family': 'Menlo,monospace', 'font-weight': l === 'τ² release' ? 600 : 400 }, svg, l);
+  });
+  // release marker
+  const rlx = dateX('2025-06-10', d0, d1, x0, x1);
+  el('line', { x1: rlx, y1: y0, x2: rlx, y2: y1 - 8, stroke: '#047857', 'stroke-width': 1, 'stroke-dasharray': '3 5', opacity: .5 }, svg);
+  // positions
+  pts.forEach(p => { p.x = dateX(p.d, d0, d1, x0, x1) + (p.nudge || 0); p.y = Y(p.v); });
+  // running-best frontier: step path + filled area, revealed by the sweep clip
+  let best = -1; const front = [];
+  pts.forEach(p => { if (p.v > best) { best = p.v; front.push(p); } });
+  let path = `M ${front[0].x.toFixed(1)} ${front[0].y.toFixed(1)}`;
+  let area = `M ${front[0].x.toFixed(1)} ${y0} L ${front[0].x.toFixed(1)} ${front[0].y.toFixed(1)}`;
+  for (let i = 1; i < front.length; i++) {
+    const seg = ` L ${front[i].x.toFixed(1)} ${front[i - 1].y.toFixed(1)} L ${front[i].x.toFixed(1)} ${front[i].y.toFixed(1)}`;
+    path += seg; area += seg;
+  }
+  const yEnd = front[front.length - 1].y.toFixed(1);
+  path += ` L ${x1} ${yEnd}`;
+  area += ` L ${x1} ${yEnd} L ${x1} ${y0} Z`;
+  const fg = el('g', { 'clip-path': 'url(#satClip)' }, svg);
+  el('path', { d: area, fill: 'url(#satFill)' }, fg);
+  el('path', { d: path, fill: 'none', stroke: '#047857', 'stroke-width': 2.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', 'stroke-dasharray': '6 4' }, fg);
+  // dots: white coin + org tint ring + logo, popping in chronologically
+  const frontier = new Set(front.map(p => p.m));
+  pts.forEach(p => {
+    const g = el('g', { class: 'satdot', style: `--d:${sweep(p.x)}` }, svg);
+    el('circle', { cx: p.x, cy: p.y, r: R, fill: '#fff', stroke: '#e2e8f0', 'stroke-width': 1.5, filter: 'url(#satShadow)' }, g);
+    el('circle', { cx: p.x, cy: p.y, r: R - 1.5, fill: 'none', stroke: ORG[p.org].tint, 'stroke-width': 1.5, opacity: frontier.has(p.m) ? .9 : .45 }, g);
+    el('image', { href: ORG[p.org].logo, x: p.x - 7, y: p.y - 7, width: 14, height: 14, preserveAspectRatio: 'xMidYMid meet' }, g);
+    el('title', {}, g, `${p.m} · ${p.d} · ${p.v}%`);
+  });
+  // labels with white halo, frontier-story models only
+  pts.filter(p => p.lbl).forEach(p => {
+    const up = p.lbl === 'above';
+    const yn = up ? p.y - 30 : p.y + 27, yv = up ? p.y - 16 : p.y + 41;
+    const anchor = p.anchor || 'middle';
+    const lx = anchor === 'end' ? p.x - 2 : p.x;
+    const g = el('g', { class: 'satlbl', style: `--d:${sweep(p.x)}` }, svg);
+    const halo = { 'text-anchor': anchor, stroke: '#fff', 'stroke-width': 3.5, 'stroke-linejoin': 'round', 'paint-order': 'stroke' };
+    el('text', Object.assign({ x: lx, y: yn, 'font-size': 12.5, 'font-weight': 700, fill: '#0f172a' }, halo), g, p.m);
+    el('text', Object.assign({ x: lx, y: yv, 'font-size': 11.5, fill: '#047857', 'font-family': 'Menlo,monospace', 'font-weight': 600 }, halo), g, p.v + '%');
+  });
+  el('line', { x1: x0, y1: y0, x2: x1, y2: y0, stroke: '#cbd5e1', 'stroke-width': 1.5 }, svg);
+  // replay the sweep on every slide entry (display:none skips style recalc,
+  // so animations keyed to .slide.active alone never restart)
+  const slideEl = svg.closest('.slide');
+  const arm = () => {
+    // deferred add so the display change commits first; setTimeout (not rAF) so it
+    // also fires in hidden/background documents where rAF is suspended
+    if (slideEl.classList.contains('active')) setTimeout(() => svg.classList.add('sweep'), 30);
+    else svg.classList.remove('sweep');
+  };
+  new MutationObserver(arm).observe(slideEl, { attributes: true, attributeFilter: ['class'] });
+  arm();
+})();
+
+/* ---------------- results chart (voice leaderboard vs text references) ---------------- */
+(function () {
+  const svg = document.getElementById('resChart');
+  // overall pass@1 (retail/airline/telecom average), taubench.com voice leaderboard
+  const groups = [
+    { m: 'Gemini Live 2.5 Flash',  d: 'Dec ’25', v: 25.8, fill: '#94d9bd' },
+    { m: 'Cascaded baseline',      d: 'May ’26', v: 31.2, fill: '#94d9bd' },
+    { m: 'Gemini 3.1 Flash Live',  d: 'Mar ’26', v: 43.8, fill: '#059669' },
+    { m: 'GPT Realtime 2',         d: 'May ’26', v: 51.2, fill: '#059669' },
+    { m: 'Grok Voice Think Fast',  d: 'Apr ’26', v: 67.3, fill: '#065f46' },
+  ];
+  const x0 = 70, y0 = 280, y1 = 40, x1 = 1000;
+  const Y = v => y0 - v / 100 * (y0 - y1);
+  [0, 25, 50, 75, 100].forEach(v => {
+    el('line', { x1: x0, y1: Y(v), x2: x1, y2: Y(v), stroke: '#f1f5f9' }, svg);
+    el('text', { x: x0 - 10, y: Y(v) + 4, 'text-anchor': 'end', 'font-size': 11, fill: '#94a3b8', 'font-family': 'Menlo,monospace' }, svg, v + '%');
+  });
+  // text references (same 278 tasks, text leaderboard)
+  el('line', { x1: x0, y1: Y(85), x2: x1, y2: Y(85), stroke: '#1e293b', 'stroke-width': 1.2, 'stroke-dasharray': '7 5' }, svg);
+  el('text', { x: x1 - 4, y: Y(85) - 8, 'text-anchor': 'end', 'font-size': 12, fill: '#1e293b', 'font-weight': 600 }, svg, 'text agent, reasoning (GPT-5) — 85%');
+  el('line', { x1: x0, y1: Y(54), x2: x1, y2: Y(54), stroke: '#94a3b8', 'stroke-width': 1.2, 'stroke-dasharray': '7 5' }, svg);
+  el('text', { x: x0 + 10, y: Y(54) - 8, 'text-anchor': 'start', 'font-size': 12, fill: '#64748b' }, svg, 'text agent, non-reasoning (GPT-4.1) — 54%');
+  const gw = (x1 - x0) / groups.length, bw = 96;
+  groups.forEach((g, i) => {
+    const cx = x0 + gw * i + gw / 2;
+    el('rect', { x: cx - bw / 2, y: Y(g.v), width: bw, height: y0 - Y(g.v), rx: 7, fill: g.fill }, svg);
+    el('text', { x: cx, y: Y(g.v) - 9, 'text-anchor': 'middle', 'font-size': 13, fill: '#065f46', 'font-family': 'Menlo,monospace', 'font-weight': 600 }, svg, g.v + '%');
+    el('text', { x: cx, y: y0 + 24, 'text-anchor': 'middle', 'font-size': 13.5, fill: '#1e293b', 'font-weight': 600 }, svg, g.m);
+    el('text', { x: cx, y: y0 + 42, 'text-anchor': 'middle', 'font-size': 11, fill: '#94a3b8', 'font-family': 'Menlo,monospace' }, svg, g.d);
+  });
+  el('line', { x1: x0, y1: y0, x2: x1, y2: y0, stroke: '#cbd5e1', 'stroke-width': 1.5 }, svg);
+  el('text', { x: x0, y: 344, 'font-size': 12.5, fill: '#64748b' }, svg, 'The best full-duplex model now clears the non-reasoning text baseline — unthinkable at paper time.');
+})();
+
+/* ---------------- voice progress chart ---------------- */
+(function () {
+  const svg = document.getElementById('voiceChart');
+  const pts = [
+    { m: 'gpt-realtime-1.0',        d: '2025-08-28', v: 30.4, org: 'OpenAI' },
+    { m: 'gemini-live-2.5-flash',   d: '2025-12-12', v: 25.8, org: 'Google' },
+    { m: 'grok-voice-fast-1.0',     d: '2025-12-17', v: 38.3, org: 'xAI' },
+    { m: 'gpt-realtime-1.5',        d: '2026-02-23', v: 35.3, org: 'OpenAI' },
+    { m: 'gemini-3.1-flash-live',   d: '2026-03-26', v: 43.8, org: 'Google' },
+    { m: 'grok-voice-think-fast',   d: '2026-04-23', v: 67.3, org: 'xAI' },
+    { m: 'gpt-realtime-2',          d: '2026-05-07', v: 51.2, org: 'OpenAI' },
+    { m: 'cascaded baseline',       d: '2026-05-19', v: 31.2, org: 'LiveKit' },
+  ];
+  const x0 = 70, x1 = 1000, y0 = 320, y1 = 30;
+  const d0 = new Date('2025-08-01').getTime(), d1 = new Date('2026-07-15').getTime();
+  const Y = v => y0 - v / 100 * (y0 - y1);
+  [0, 25, 50, 75, 100].forEach(v => {
+    el('line', { x1: x0, y1: Y(v), x2: x1, y2: Y(v), stroke: '#f1f5f9' }, svg);
+    el('text', { x: x0 - 10, y: Y(v) + 4, 'text-anchor': 'end', 'font-size': 11, fill: '#94a3b8', 'font-family': 'Menlo,monospace' }, svg, v + '%');
+  });
+  [['2025-09-01','Sep ’25'],['2025-12-01','Dec ’25'],['2026-03-01','Mar ’26'],['2026-05-01','τ-voice release'],['2026-07-01','Jul ’26']].forEach(([d, l]) => {
+    const x = dateX(d, d0, d1, x0, x1);
+    el('line', { x1: x, y1: y0, x2: x, y2: y0 + 5, stroke: '#cbd5e1' }, svg);
+    el('text', { x, y: y0 + 22, 'text-anchor': 'middle', 'font-size': 11, fill: l.includes('release') ? '#047857' : '#94a3b8', 'font-family': 'Menlo,monospace', 'font-weight': l.includes('release') ? 600 : 400 }, svg, l);
+  });
+  const rx = dateX('2026-05-01', d0, d1, x0, x1);
+  el('line', { x1: rx, y1: y0, x2: rx, y2: y1, stroke: '#047857', 'stroke-width': 1, 'stroke-dasharray': '3 5', opacity: .5 }, svg);
+  // text ceiling
+  el('line', { x1: x0, y1: Y(85), x2: x1, y2: Y(85), stroke: '#1e293b', 'stroke-width': 1.2, 'stroke-dasharray': '7 5', opacity: .7 }, svg);
+  el('text', { x: x1 - 4, y: Y(85) - 8, 'text-anchor': 'end', 'font-size': 12, fill: '#475569' }, svg, 'text-agent ceiling ~85%');
+  // frontier
+  let best = -1; const front = [];
+  pts.slice().sort((a, b) => new Date(a.d) - new Date(b.d)).forEach(p => { if (p.v > best) { best = p.v; front.push(p); } });
+  let path = '';
+  front.forEach((p, i) => { const x = dateX(p.d, d0, d1, x0, x1), y = Y(p.v); path += (i ? ` L ${x} ${y}` : `M ${x} ${y}`); });
+  path += ` L ${x1} ${Y(best)}`;
+  el('path', { d: path, fill: 'none', stroke: '#065f46', 'stroke-width': 2, 'stroke-dasharray': '6 5', opacity: .75 }, svg);
+  const colors = { OpenAI: '#10A37F', Google: '#4285F4', xAI: '#111111', LiveKit: '#94a3b8' };
+  pts.forEach(p => {
+    const x = dateX(p.d, d0, d1, x0, x1), y = Y(p.v);
+    el('circle', { cx: x, cy: y, r: 6.5, fill: colors[p.org] || '#94a3b8' }, svg);
+    const above = !['gemini-live-2.5-flash', 'cascaded baseline', 'gpt-realtime-1.5'].includes(p.m);
+    el('text', { x, y: above ? y - 14 : y + 24, 'text-anchor': 'middle', 'font-size': 12, fill: '#1e293b', 'font-weight': 600 }, svg, p.m);
+    el('text', { x, y: above ? y - 29 : y + 39, 'text-anchor': 'middle', 'font-size': 11, fill: '#047857', 'font-family': 'Menlo,monospace' }, svg, p.v.toFixed(0) + '%');
+  });
+  el('line', { x1: x0, y1: y0, x2: x1, y2: y0, stroke: '#cbd5e1', 'stroke-width': 1.5 }, svg);
+})();
+</script>
+</body>
+</html>

@@ -1352,19 +1352,24 @@ class VoiceStreamingUserSimulator(
         flipped = []
         for msg in messages:
             if isinstance(msg, UserMessage):
-                # User's message -> becomes assistant response
-                flipped.append(
-                    AssistantMessage(
-                        role="assistant",
-                        tool_calls=msg.tool_calls,
-                        content=msg.content,
+                # User's message -> becomes assistant response.
+                # Skip silent/whitespace-only turns (empty STT, or a proportional
+                # transcript slice landing on an inter-word space): they carry no
+                # info and would fail validate_message_history, which strips
+                # whitespace. Mirrors the agent-turn guard below.
+                if (msg.content and msg.content.strip()) or msg.is_tool_call():
+                    flipped.append(
+                        AssistantMessage(
+                            role="assistant",
+                            tool_calls=msg.tool_calls,
+                            content=msg.content,
+                        )
                     )
-                )
             elif isinstance(msg, AssistantMessage):
                 # Agent's message -> becomes user input
                 # Skip tool calls and messages without text content
                 # (audio-only messages can't be converted to text UserMessage)
-                if not msg.is_tool_call() and msg.content:
+                if not msg.is_tool_call() and msg.content and msg.content.strip():
                     flipped.append(
                         UserMessage(
                             role="user",

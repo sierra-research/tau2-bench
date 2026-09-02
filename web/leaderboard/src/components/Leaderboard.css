@@ -29,7 +29,7 @@
   justify-content: center;
   gap: 24px;
   flex-wrap: wrap;
-  margin-bottom: 32px;
+  margin-bottom: 12px;
 }
 
 .leaderboard-title-row .leaderboard-title {
@@ -105,7 +105,8 @@
   font-size: 1.125rem;
   color: #718096;
   text-align: center;
-  margin-bottom: 32px;
+  margin: 0 auto 32px;
+  max-width: 640px;
   font-weight: 400;
 }
 
@@ -136,6 +137,11 @@
 .benchmark-toggle-option {
   position: relative;
   z-index: 2;
+  /* Equal widths: the sliding pill is positioned at fixed 1/N offsets, so
+     unequal (content-sized) buttons would misalign text inside the pill.
+     nowrap makes the widest label set the shared width. */
+  flex: 1 1 0;
+  white-space: nowrap;
   padding: 10px 28px;
   border: none;
   background: transparent;
@@ -210,16 +216,80 @@
     flex-direction: column;
     gap: 24px;
   }
-  
+
   .submission-type-filter {
     width: 100%;
     justify-content: center;
   }
 
+  /* Three bucket options need to fit side by side on narrow screens */
   .benchmark-toggle-option {
-    padding: 8px 20px;
-    font-size: 14px;
-    min-width: 110px;
+    padding: 8px 12px;
+    font-size: 13px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .benchmark-toggle-container {
+    width: 100%;
+    max-width: 360px;
+  }
+}
+
+/* Voice Overall scope note */
+.domain-scope-note {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+  max-width: 840px;
+  margin: -40px auto 48px;
+  padding: 12px 20px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 14px;
+  font-size: 13.5px;
+  color: #065f46;
+  line-height: 1.55;
+}
+
+.domain-scope-note .domain-scope-icon {
+  flex-shrink: 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.domain-scope-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: #047857;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.domain-scope-link:hover {
+  color: #065f46;
+}
+
+@media (max-width: 768px) {
+  .domain-scope-note {
+    margin: -24px 16px 40px;
+    font-size: 13px;
+  }
+}
+
+/* The note reads as one sentence, so keep it on one line once there's room for
+   it (~792px incl. padding). Below this it wraps instead of overflowing. */
+@media (min-width: 900px) {
+  .domain-scope-note {
+    width: fit-content;
+    white-space: nowrap;
+    align-items: center;
   }
 }
 
@@ -241,6 +311,9 @@
 .domain-toggle-option {
   position: relative;
   z-index: 2;
+  /* Equal widths so the 1/N-wide sliding pill lines up with the buttons */
+  flex: 1 1 0;
+  white-space: nowrap;
   padding: 10px 16px;
   border: none;
   background: transparent;
@@ -1800,3 +1873,327 @@ a.user-sim-version-link:hover {
     padding: 0.3rem 1rem;
   }
 } 
+
+
+/* ==========================================================================
+   Interaction quality column (voice benchmark)
+   ========================================================================== */
+
+.reliability-table.voice-table th:nth-child(2) {
+  min-width: 190px;
+}
+
+.reliability-table th.expand-header {
+  width: 36px;
+  padding: 20px 4px;
+}
+
+/* Interaction mode: every column is mounted in both ranking modes and the
+   inactive group is collapsed with width/padding transitions, so toggling
+   animates smoothly — the pass^1 bar shrinks away while the four metric
+   columns expand into the freed space. The metadata columns never move. */
+.voice-table .col-anim {
+  display: inline-block;
+  vertical-align: middle;
+  overflow: hidden;
+  white-space: nowrap;
+  /* expanded max-widths sit just above each element's real content width so
+     the whole transition maps to visible motion (a large cap spends most of
+     the duration in an invisible dead zone before anything moves) */
+  max-width: 160px;
+  opacity: 1;
+  transition: max-width 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.45s ease;
+}
+
+.voice-table th.release-header .col-anim,
+.voice-table td.release-date-cell .col-anim {
+  max-width: 100px;
+}
+
+.voice-table td.interaction-cell .col-anim {
+  max-width: 90px;
+}
+
+/* The group-header chip is wider than the generic cap; without this its
+   right edge gets clipped by the wrapper's overflow: hidden */
+.voice-table th.interaction-group-header .col-anim {
+  max-width: 190px;
+}
+
+/* Released column: open in pass^1 mode, collapsed in interaction mode */
+.voice-table th.release-header,
+.voice-table td.release-date-cell {
+  transition: padding 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reliability-table.voice-table.interaction-mode th.release-header,
+.reliability-table.voice-table.interaction-mode td.release-date-cell {
+  /* !important needed to beat the shorthand on .release-date-cell above */
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.reliability-table.voice-table.interaction-mode th.release-header {
+  width: 0;
+}
+
+.voice-table.interaction-mode th.release-header .col-anim,
+.voice-table.interaction-mode td.release-date-cell .col-anim {
+  max-width: 0;
+  opacity: 0;
+}
+
+/* Pass^1 column: the bar collapses in interaction mode, leaving the number */
+.voice-table th.passk-header-cell,
+.voice-table td.score-cell {
+  transition: min-width 0.6s cubic-bezier(0.4, 0, 0.2, 1), padding 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reliability-table.voice-table.interaction-mode th.passk-header-cell {
+  min-width: 84px;
+}
+
+.reliability-table.voice-table.interaction-mode td.score-cell {
+  min-width: 84px;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+.reliability-table.voice-table.interaction-mode th.passk-header-cell {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.voice-table .score-bar-track {
+  max-width: 320px;
+  transition: max-width 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.45s ease;
+}
+
+.voice-table.interaction-mode .score-bar-track {
+  max-width: 0;
+  opacity: 0;
+}
+
+.voice-table .score-bar-container {
+  transition: gap 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.voice-table.interaction-mode .score-bar-container {
+  gap: 0;
+}
+
+/* The "Interaction Metrics" toggle button collapses once the mode is active
+   (the group header pill takes over as the label) */
+.voice-table.interaction-mode .interaction-toggle-wrap {
+  max-width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Group heading spanning the four metric subheadings */
+.reliability-table th.interaction-group-header {
+  padding: 12px 8px 8px;
+  border-bottom: none;
+}
+
+.reliability-table .interaction-subheader-row th.interaction-col-header {
+  width: 105px;
+  min-width: 0;
+  position: relative; /* containing block for the metric-definition tooltip */
+  padding: 4px 4px 12px;
+  font-size: 11.5px;
+  text-transform: none;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  user-select: none;
+  color: #94a3b8;
+  text-align: center;
+  transition: padding 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reliability-table .interaction-subheader-row th.interaction-col-header:first-child {
+  width: 105px;
+  padding: 4px 6px 12px;
+}
+
+.reliability-table .interaction-subheader-row th.interaction-col-header .col-anim {
+  display: block;
+  /* wrapping keeps the column's min width at ~one word so the table never
+     overflows its container; the collapse animates via max-height instead */
+  white-space: normal;
+  max-width: 110px;
+  max-height: 40px;
+  transition: max-width 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.45s ease, max-height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reliability-table.interaction-mode th.interaction-col-header:hover {
+  background: #eef2f7;
+}
+
+.reliability-table th.interaction-col-header.active {
+  color: #16a34a;
+}
+
+/* Pass^1 mode: the interaction columns collapse to zero width and the
+   subheader row to zero height */
+.voice-table td.interaction-cell,
+.voice-table th.interaction-group-header {
+  transition: padding 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reliability-table.voice-table:not(.interaction-mode) td.interaction-cell,
+.reliability-table.voice-table:not(.interaction-mode) th.interaction-group-header {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.reliability-table.voice-table:not(.interaction-mode) .interaction-subheader-row th.interaction-col-header {
+  width: 0;
+  padding: 0;
+  pointer-events: none;
+}
+
+.voice-table:not(.interaction-mode) td.interaction-cell .col-anim,
+.voice-table:not(.interaction-mode) th.interaction-group-header .col-anim {
+  max-width: 0;
+  opacity: 0;
+}
+
+.reliability-table.voice-table:not(.interaction-mode) .interaction-subheader-row th.interaction-col-header .col-anim {
+  max-width: 0;
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Metric definition tooltips on the interaction column headers */
+.interaction-info-icon {
+  font-size: 11px;
+  color: #b6c2d2;
+  margin-left: 4px;
+  cursor: help;
+  /* the tooltip pseudo-elements position against the th (the icon sits
+     inside the .col-anim overflow:hidden box, which would clip them) */
+  position: static;
+  transition: color 0.2s ease;
+}
+
+.interaction-info-icon:hover {
+  color: #065f46;
+}
+
+.interaction-info-icon::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  white-space: normal;
+  width: max-content;
+  max-width: 230px;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 20;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.interaction-info-icon::before {
+  content: '';
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-bottom-color: #1e293b;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 20;
+}
+
+.interaction-info-icon:hover::after,
+.interaction-info-icon:hover::before {
+  opacity: 1;
+}
+
+/* Right-align the last column's tooltip so it doesn't overflow the table */
+.interaction-subheader-row th:last-child .interaction-info-icon::after {
+  left: auto;
+  right: -8px;
+  transform: none;
+}
+
+.interaction-cell {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: #64748b;
+}
+
+.interaction-cell-sorted {
+  color: #1a202c;
+  font-weight: 600;
+}
+
+/* Expanded-row interaction metrics: four headline metrics inside each
+   domain card, below the pass^1 bar. */
+.domain-interaction-metrics {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.domain-interaction-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.domain-interaction-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.domain-interaction-value {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #2d3748;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.domain-interaction-value .no-data {
+  font-size: 12.5px;
+  color: #94a3b8;
+}
+
+.interaction-definitions {
+  margin-top: 10px;
+}
+
+.interaction-breakdown-link {
+  font-size: 12px;
+  font-weight: 500;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.interaction-breakdown-link:hover {
+  text-decoration: underline;
+}

@@ -7882,7 +7882,7 @@
     "description": {
       "purpose": "Task: task_074",
       "relevant_policies": null,
-      "notes": "ATM FEE DISPUTE RESOLUTION: User Ahmad Razali bin Mohd Yusof has four checking accounts (Purple Account, Light Blue Account, Dark Green Account, and Evergreen Account) with 20 total fee errors (5 per account). The agent must verify the user, retrieve transaction history for all four accounts, cross-reference with documented fee structures, identify all incorrect fees, and apply NET credits accounting for both overcharges AND undercharges/missing fees. PURPLE ACCOUNT ERRORS (chk_ar72c5d8e3_1) - 5 errors: (1) $2.50 fee charged on Rho-Bank ATM withdrawal which should be free, (2) $8.00 foreign ATM fee charged on London withdrawal when Purple has $0 foreign fee, (3) $10.50 foreign ATM fee charged on Malaysia withdrawal when Purple has $0 foreign fee, (4) $3.50 fee charged instead of $2.50 AND missing $2.50 rebate, (5) Duplicate $2.50 fee on 11/15 withdrawal. LIGHT BLUE ACCOUNT ERRORS (chk_ar72c5d8e3_2) - 5 errors: (1) $2.50 fee charged on Rho-Bank ATM which should be free, (2) $2.50 fee charged on 1st free domestic withdrawal, (3) $4.00 fee charged on 1st free foreign withdrawal, (4) MISSING $2.50 fee on 11/10 after free allowance, (5) $5.50 foreign fee charged instead of $4.00. DARK GREEN ACCOUNT ERRORS (chk_ar72c5d8e3_3) - 5 errors: (1) $1.50 fee charged on Rho-Bank ATM which should be free, (2) $0.50 fee charged when $1.50 minimum should apply, (3) $4.00 fee charged using 2% when should be 1% ($2.00), (4) $10.00 fee charged without $6.00 max on foreign, (5) MISSING $1.75 fee on 11/13 withdrawal. EVERGREEN ACCOUNT ERRORS (chk_ar72c5d8e3_4) - 5 errors: (1) $1.50 fee charged on Rho-Bank ATM which should be free, (2) $4.00 fee charged without $2.50 max, (3) $2.00 fee charged when $3.00 minimum should apply, (4) $10.50 fee charged using 3% when should be 2% ($7.00), (5) MISSING $1.80 fee on 11/12 withdrawal. NET CREDITS: Purple = $27.00, Light Blue = $8.00 ($10.50 overcharges minus $2.50 missing fee), Dark Green = $4.75 ($7.50 overcharges minus $2.75 undercharges/missing), Evergreen = $3.70 ($6.50 overcharges minus $2.80 undercharges/missing)."
+      "notes": "ATM FEE DISPUTE RESOLUTION: User Ahmad Razali bin Mohd Yusof has four checking accounts (Purple Account, Light Blue Account, Dark Green Account, and Evergreen Account) with 22 total fee errors (5 each for Purple, Dark Green, and Evergreen; 7 for Light Blue). The agent must verify the user, retrieve transaction history for all four accounts, cross-reference with documented fee structures, identify all incorrect fees, and apply NET credits accounting for both overcharges AND undercharges/missing fees. PURPLE ACCOUNT ERRORS (chk_ar72c5d8e3_1) - 5 errors: (1) $2.50 fee charged on Rho-Bank ATM withdrawal which should be free, (2) $8.00 foreign ATM fee charged on London withdrawal when Purple has $0 foreign fee, (3) $10.50 foreign ATM fee charged on Malaysia withdrawal when Purple has $0 foreign fee, (4) $3.50 fee charged instead of $2.50 AND missing $2.50 rebate, (5) Duplicate $2.50 fee on 11/15 withdrawal. LIGHT BLUE ACCOUNT ERRORS (chk_ar72c5d8e3_2) - 7 errors: (1) $2.50 fee charged on Rho-Bank ATM which should be free, (2) $2.50 fee charged on 1st free domestic withdrawal (11/05), (3) $2.50 fee charged on 2nd free domestic withdrawal (11/06), (4) $4.00 fee charged on 1st free foreign withdrawal (11/08), (5) $4.00 fee charged on 2nd free foreign withdrawal (11/09), (6) MISSING $2.50 fee on 11/10 after free allowance, (7) $5.50 foreign fee charged instead of $4.00 (11/13). DARK GREEN ACCOUNT ERRORS (chk_ar72c5d8e3_3) - 5 errors: (1) $1.50 fee charged on Rho-Bank ATM which should be free, (2) $0.50 fee charged when $1.50 minimum should apply, (3) $4.00 fee charged using 2% when should be 1% ($2.00), (4) $10.00 fee charged without $6.00 max on foreign, (5) MISSING $1.75 fee on 11/13 withdrawal. EVERGREEN ACCOUNT ERRORS (chk_ar72c5d8e3_4) - 5 errors: (1) $1.50 fee charged on Rho-Bank ATM which should be free, (2) $4.00 fee charged without $2.50 max, (3) $2.00 fee charged when $3.00 minimum should apply, (4) $10.50 fee charged using 3% when should be 2% ($7.00), (5) MISSING $1.80 fee on 11/12 withdrawal. NET CREDITS: Purple = $27.00, Light Blue = $14.50 ($17.00 overcharges minus $2.50 missing fee), Dark Green = $4.75 ($7.50 overcharges minus $2.75 undercharges/missing), Evergreen = $3.70 ($6.50 overcharges minus $2.80 undercharges/missing)."
     },
     "user_scenario": {
       "persona": null,
@@ -7991,7 +7991,7 @@
           "name": "call_discoverable_agent_tool",
           "arguments": {
             "agent_tool_name": "apply_checking_account_credit_5829",
-            "arguments": "{\"account_id\": \"chk_ar72c5d8e3_2\", \"amount\": 8.00, \"credit_type\": \"fee_refund\"}"
+            "arguments": "{\"account_id\": \"chk_ar72c5d8e3_2\", \"amount\": 14.50, \"credit_type\": \"fee_refund\"}"
           },
           "requestor": "assistant",
           "action_id": "074_10"
@@ -8245,12 +8245,39 @@
           "action_id": "077_1"
         },
         {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+            "arguments": "{\"user_id\": \"lj82d4f1a9\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "077_1a"
+        },
+        {
           "name": "unlock_discoverable_agent_tool",
           "arguments": {
             "agent_tool_name": "get_debit_cards_by_account_id_7823"
           },
           "requestor": "assistant",
           "action_id": "077_1b"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_lj82d4f1a9\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "077_1c"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_538bfb9cba\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "077_1d"
         },
         {
           "name": "unlock_discoverable_agent_tool",
@@ -8279,21 +8306,12 @@
           "action_id": "077_4"
         },
         {
-          "name": "unlock_discoverable_agent_tool",
+          "name": "get_credit_card_accounts_by_user",
           "arguments": {
-            "agent_tool_name": "get_credit_card_accounts_by_user"
+            "user_id": "lj82d4f1a9"
           },
           "requestor": "assistant",
           "action_id": "077_4b"
-        },
-        {
-          "name": "call_discoverable_agent_tool",
-          "arguments": {
-            "agent_tool_name": "get_credit_card_accounts_by_user",
-            "arguments": "{\"user_id\": \"lj82d4f1a9\"}"
-          },
-          "requestor": "assistant",
-          "action_id": "077_4c"
         },
         {
           "name": "unlock_discoverable_agent_tool",
@@ -8732,6 +8750,15 @@
           },
           "requestor": "assistant",
           "action_id": "078_1"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+            "arguments": "{\"user_id\": \"mc78a5b9d2\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "078_1a"
         },
         {
           "name": "unlock_discoverable_agent_tool",
@@ -9285,6 +9312,15 @@
           },
           "requestor": "assistant",
           "action_id": "079_1"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+            "arguments": "{\"user_id\": \"cr89a2b3c4\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "079_1a"
         },
         {
           "name": "unlock_discoverable_agent_tool",
@@ -9950,12 +9986,48 @@
           "action_id": "080_1"
         },
         {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+            "arguments": "{\"user_id\": \"tm92c4d7e8\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "080_1a"
+        },
+        {
           "name": "unlock_discoverable_agent_tool",
           "arguments": {
             "agent_tool_name": "get_debit_cards_by_account_id_7823"
           },
           "requestor": "assistant",
           "action_id": "080_2"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_tm92c4d7e8_blue\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "080_2a"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_tm92c4d7e8_gff\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "080_2b"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_tm92c4d7e8_green\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "080_2c"
         },
         {
           "name": "unlock_discoverable_agent_tool",
@@ -10689,12 +10761,48 @@
           "action_id": "081_1"
         },
         {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+            "arguments": "{\"user_id\": \"tm92c4d7e8\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "081_1a"
+        },
+        {
           "name": "unlock_discoverable_agent_tool",
           "arguments": {
             "agent_tool_name": "get_debit_cards_by_account_id_7823"
           },
           "requestor": "assistant",
           "action_id": "081_2"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_tm92c4d7e8_blue\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "081_2a"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_tm92c4d7e8_gff\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "081_2b"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_tm92c4d7e8_green\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "081_2c"
         },
         {
           "name": "unlock_discoverable_agent_tool",
@@ -11256,6 +11364,15 @@
           "action_id": "082_1"
         },
         {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+            "arguments": "{\"user_id\": \"mc47a2b9e1\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "082_1a"
+        },
+        {
           "name": "unlock_discoverable_agent_tool",
           "arguments": {
             "agent_tool_name": "get_debit_cards_by_account_id_7823"
@@ -11264,12 +11381,48 @@
           "action_id": "082_2"
         },
         {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_mc47a2b9e1_blue\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "082_2a"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_mc47a2b9e1_gff\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "082_2b"
+        },
+        {
           "name": "unlock_discoverable_agent_tool",
           "arguments": {
             "agent_tool_name": "get_bank_account_transactions_9173"
           },
           "requestor": "assistant",
           "action_id": "082_3"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_bank_account_transactions_9173",
+            "arguments": "{\"account_id\": \"chk_mc47a2b9e1_blue\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "082_3a"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_bank_account_transactions_9173",
+            "arguments": "{\"account_id\": \"chk_mc47a2b9e1_gff\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "082_3b"
         },
         {
           "name": "unlock_discoverable_agent_tool",
@@ -11972,6 +12125,15 @@
           "action_id": "084_1"
         },
         {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+            "arguments": "{\"user_id\": \"a7c2f85d91\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "084_1a"
+        },
+        {
           "name": "unlock_discoverable_agent_tool",
           "arguments": {
             "agent_tool_name": "get_debit_cards_by_account_id_7823"
@@ -11980,12 +12142,48 @@
           "action_id": "084_2"
         },
         {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_b8d92f4c17\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "084_2a"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_e5a31c7d82\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "084_2b"
+        },
+        {
           "name": "unlock_discoverable_agent_tool",
           "arguments": {
             "agent_tool_name": "get_bank_account_transactions_9173"
           },
           "requestor": "assistant",
           "action_id": "084_3"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_bank_account_transactions_9173",
+            "arguments": "{\"account_id\": \"chk_b8d92f4c17\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "084_3a"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_bank_account_transactions_9173",
+            "arguments": "{\"account_id\": \"chk_e5a31c7d82\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "084_3b"
         },
         {
           "name": "unlock_discoverable_agent_tool",
@@ -12193,8 +12391,8 @@
                 "type": "atm_withdrawal",
                 "status": "posted"
               },
-              "btxn_b2c3d4e5f602": {
-                "transaction_id": "btxn_b2c3d4e5f602",
+              "btxn_c3d4e5f6g703": {
+                "transaction_id": "btxn_c3d4e5f6g703",
                 "account_id": "chk_b4d92f7c28",
                 "date": "11/06/2025",
                 "description": "CITYFIT GYM MONTHLY DENVER",
@@ -12202,8 +12400,8 @@
                 "type": "debit_card_purchase",
                 "status": "posted"
               },
-              "btxn_c3d4e5f6g703": {
-                "transaction_id": "btxn_c3d4e5f6g703",
+              "btxn_b2c3d4e5f602": {
+                "transaction_id": "btxn_b2c3d4e5f602",
                 "account_id": "chk_b4d92f7c28",
                 "date": "11/06/2025",
                 "description": "CITYFIT GYM MONTHLY DENVER",
@@ -12265,12 +12463,39 @@
           "action_id": "085_1"
         },
         {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+            "arguments": "{\"user_id\": \"f7d3a82c91\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "085_1a"
+        },
+        {
           "name": "unlock_discoverable_agent_tool",
           "arguments": {
             "agent_tool_name": "get_debit_cards_by_account_id_7823"
           },
           "requestor": "assistant",
           "action_id": "085_2"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_b4d92f7c28\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "085_2a"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_e8a31c9d47\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "085_2b"
         },
         {
           "name": "unlock_discoverable_agent_tool",
@@ -12752,12 +12977,39 @@
           "action_id": "086_1"
         },
         {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_all_user_accounts_by_user_id_3847",
+            "arguments": "{\"user_id\": \"cr47f8d2a1\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "086_1a"
+        },
+        {
           "name": "unlock_discoverable_agent_tool",
           "arguments": {
             "agent_tool_name": "get_debit_cards_by_account_id_7823"
           },
           "requestor": "assistant",
           "action_id": "086_2"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_cr47f8d2a1_gff\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "086_2a"
+        },
+        {
+          "name": "call_discoverable_agent_tool",
+          "arguments": {
+            "agent_tool_name": "get_debit_cards_by_account_id_7823",
+            "arguments": "{\"account_id\": \"chk_cr47f8d2a1_evergreen\"}"
+          },
+          "requestor": "assistant",
+          "action_id": "086_2b"
         },
         {
           "name": "unlock_discoverable_agent_tool",

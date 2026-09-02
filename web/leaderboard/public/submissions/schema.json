@@ -142,6 +142,294 @@
       "title": "DomainResults",
       "type": "object"
     },
+    "InteractionMetrics": {
+      "additionalProperties": false,
+      "description": "Voice interaction metrics computed offline from full-duplex trajectories.\n\nComputed by `tau2 submit interaction-metrics` (and automatically during\nvoice submission preparation); recomputed by maintainers from the\nsubmitted trajectories during review.",
+      "properties": {
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Version stamp of the metric computation code",
+          "title": "Version"
+        },
+        "config": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Detection windows and tick duration used for extraction (seconds)",
+          "title": "Config"
+        },
+        "domains": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/InteractionMetricsPanel"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Per-domain interaction metric panels",
+          "title": "Domains"
+        },
+        "overall": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InteractionMetricsPanel"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cross-domain average (per-metric mean over available domains)"
+        }
+      },
+      "title": "InteractionMetrics",
+      "type": "object"
+    },
+    "InteractionMetricsCounts": {
+      "additionalProperties": false,
+      "description": "Event counts backing the interaction-metric rates (denominators).",
+      "properties": {
+        "n_simulations": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of tick-bearing simulations analyzed",
+          "title": "N Simulations"
+        },
+        "response_total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "User turns eligible for an agent response",
+          "title": "Response Total"
+        },
+        "yield_total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "User interruptions of agent speech",
+          "title": "Yield Total"
+        },
+        "backchannel_total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "User backchannels during agent speech",
+          "title": "Backchannel Total"
+        },
+        "vocal_tic_total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Vocal tic events (e.g. 'um', coughs)",
+          "title": "Vocal Tic Total"
+        },
+        "non_directed_total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Non-agent-directed speech events (e.g. 'hold on')",
+          "title": "Non Directed Total"
+        },
+        "agent_interrupts_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Times the agent started speaking over the user",
+          "title": "Agent Interrupts Count"
+        }
+      },
+      "title": "InteractionMetricsCounts",
+      "type": "object"
+    },
+    "InteractionMetricsPanel": {
+      "additionalProperties": false,
+      "description": "The \u03c4-voice interaction-metric panel for one domain (or the overall average).\n\nLatencies are in seconds (lower is better). Rates and selectivity are\nfractions in [0, 1] (higher is better), except agent_interruption_rate,\nwhich counts agent-interrupts-user events per response-eligible user turn\n(lower is better, and it can exceed 1 when the agent interrupts the same\nturn more than once). Selectivity values are correct-rates\n(1 - error rate).",
+      "properties": {
+        "response_latency_mean": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "L_R: mean seconds from user turn end to agent response",
+          "title": "Response Latency Mean"
+        },
+        "yield_latency_mean": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "L_Y: mean seconds for agent to stop when interrupted",
+          "title": "Yield Latency Mean"
+        },
+        "response_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "R_R: fraction of user turns that got an agent response",
+          "title": "Response Rate"
+        },
+        "yield_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "R_Y: fraction of user interruptions where the agent yielded",
+          "title": "Yield Rate"
+        },
+        "agent_interruption_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "I_A: agent-interrupts-user events per user turn (lower is better)",
+          "title": "Agent Interruption Rate"
+        },
+        "selectivity_backchannel": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "S_BC: fraction of user backchannels the agent correctly talked through",
+          "title": "Selectivity Backchannel"
+        },
+        "selectivity_vocal_tic": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "S_VT: fraction of vocal tics the agent correctly ignored",
+          "title": "Selectivity Vocal Tic"
+        },
+        "selectivity_non_directed": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "S_ND: fraction of non-directed speech the agent correctly ignored",
+          "title": "Selectivity Non Directed"
+        },
+        "counts": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InteractionMetricsCounts"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Event counts backing each rate"
+        }
+      },
+      "title": "InteractionMetricsPanel",
+      "type": "object"
+    },
     "Methodology": {
       "additionalProperties": false,
       "description": "Information about how the evaluation was conducted.",
@@ -601,7 +889,7 @@
     },
     "submission_type": {
       "default": "standard",
-      "description": "Type of submission: 'standard' uses the default tau2-bench scaffold, 'custom' uses modified scaffolds (multi-model routers, additional tools, custom prompting, etc.)",
+      "description": "Type of submission: 'standard' uses the default benchmark-side tau2-bench or tau-voice evaluation setup; 'custom' modifies benchmark-side prompts, tools, orchestration, user simulation, tasks, or evaluation. Internal implementation behind one compatible agent interface does not alone make a submission custom.",
       "enum": [
         "standard",
         "custom"
@@ -694,6 +982,18 @@
       ],
       "default": null,
       "description": "Voice-specific configuration for audio-native evaluations (only for voice submissions)"
+    },
+    "interaction_metrics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/InteractionMetrics"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Voice interaction metrics (latency, responsiveness, interrupts, selectivity) computed from full-duplex trajectories (only for voice submissions)"
     },
     "model_release": {
       "anyOf": [

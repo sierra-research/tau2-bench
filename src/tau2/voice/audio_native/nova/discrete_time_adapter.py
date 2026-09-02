@@ -42,6 +42,7 @@ from tau2.config import (
     DEFAULT_AUDIO_NATIVE_TICK_TIMEOUT_BUFFER,
 )
 from tau2.data_model.message import ToolCall
+from tau2.data_model.usage import UsageRecord
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter
 from tau2.voice.audio_native.async_loop import BackgroundAsyncLoop
@@ -56,6 +57,7 @@ from tau2.voice.audio_native.nova.events import (
     NovaTextOutputEvent,
     NovaTimeoutEvent,
     NovaToolUseEvent,
+    NovaUsageEvent,
 )
 from tau2.voice.audio_native.nova.provider import (
     NOVA_BYTES_PER_SECOND,
@@ -542,6 +544,18 @@ class DiscreteTimeNovaAdapter(DiscreteTimeAdapter):
             )
             result.tool_calls.append(tool_call)
             logger.debug(f"Tool call detected: {event.tool_name}({event.tool_use_id})")
+
+        elif isinstance(event, NovaUsageEvent):
+            self.record_usage(
+                UsageRecord.from_nova_usage_event(
+                    model=self.model,
+                    completion_id=event.completion_id,
+                    total_input_tokens=event.total_input_tokens,
+                    total_output_tokens=event.total_output_tokens,
+                    details=event.details,
+                    raw=event.model_dump(exclude={"event_type"}, exclude_none=True),
+                )
+            )
 
         elif isinstance(event, NovaCompletionEndEvent):
             logger.debug(f"Completion done (stop_reason={event.stop_reason})")

@@ -23,6 +23,8 @@ Voice full-duplex · Knowledge retrieval · 75+ task fixes<br>
 
 ## What's New in $\tau^3$-bench
 
+> **📢 July 2026 — v1.0.1 grading update:** This release fixes a couple of `banking_knowledge` task errors. Scores on that domain change as a result — **results produced with tau2-bench < 1.0.1 are not comparable with >= 1.0.1**, and affected leaderboard submissions have been re-graded. Old results files can be re-scored with `tau2 evaluate-trajs --fresh-tasks`; to reproduce pre-fix behavior, pin the [`pre-v1.0.1`](https://github.com/sierra-research/tau2-bench/releases/tag/pre-v1.0.1) tag. Details in the [changelog](CHANGELOG.md) and [release notes](RELEASE_NOTES.md). Other domains are unaffected.
+
 - **Knowledge Domain (`banking_knowledge`)** — A knowledge-retrieval-based customer service domain with configurable RAG pipelines, document search, embeddings, and agentic shell-based search. [Learn more →](src/tau2/knowledge/README.md)
 - **Voice Full-Duplex (Audio Native)** — End-to-end voice evaluation with realtime providers (OpenAI, Gemini, xAI). [Learn more →](src/tau2/voice/README.md)
 - **Task Quality (75+ fixes)** — Removed incorrect expected actions, clarified ambiguous instructions, fixed impossible constraints, and added missing fallback behaviors across airline, retail, and banking domains. Based on analysis from [SABER](https://arxiv.org/abs/2512.07850) (Cuadron et al., 2025). [Learn more →](https://taubench.com/blog/tau3-task-fixes.html)

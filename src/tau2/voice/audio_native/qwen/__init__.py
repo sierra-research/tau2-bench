@@ -1,4 +1,4 @@
-"""Qwen Omni Flash Realtime provider for audio native agent.
+"""Qwen Omni Realtime provider for audio native agent.
 
 This module provides integration with Alibaba Cloud's Qwen Omni realtime API
 via DashScope for speech-to-speech processing.
