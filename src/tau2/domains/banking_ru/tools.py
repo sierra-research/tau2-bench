@@ -26,6 +26,7 @@ from tau2.domains.banking_ru.data_model import (
     BlockReason,
     Card,
     Case,
+    ClientAnswer,
     CaseCategory,
     Device,
     Document,
@@ -73,6 +74,9 @@ ERR_NOT_BLOCKED = "ERR_NOT_BLOCKED"
 ERR_SAME_ACCOUNT = "ERR_SAME_ACCOUNT"
 ERR_FOREIGN_ACCOUNT = "ERR_FOREIGN_ACCOUNT"
 ERR_ALREADY_SHARED = "ERR_ALREADY_SHARED"
+ERR_ALREADY_REPLIED = "ERR_ALREADY_REPLIED"
+ERR_ALREADY_FROZEN = "ERR_ALREADY_FROZEN"
+ERR_DISPUTE_NOT_UNDER_REVIEW = "ERR_DISPUTE_NOT_UNDER_REVIEW"
 
 #: Категории обращений — закрытый список по той же причине, что и причины
 #: спора: свободный текст в БД ломает сверку конечного состояния.
@@ -506,6 +510,37 @@ class BankingTools(ToolKitBase):
         }
 
     @is_tool(ToolType.READ)
+    def get_operations(self, customer_id: str) -> list[dict]:
+        """
+        Получить последние операции клиента (устаревший интерфейс личного
+        кабинета).
+
+        Args:
+            customer_id: Идентификатор клиента.
+
+        Returns:
+            До десяти последних проведённых операций.
+
+        Raises:
+            ValueError: Если клиент не найден.
+        """
+        # Двойник get_transactions: работает без ошибки, но отдаёт только
+        # десять последних проведённых операций — без холдов, отклонённых,
+        # переводов в обработке и без страниц. Агент, взявший его вместо
+        # get_transactions, молча получает неполную картину. Именно так
+        # выглядит опасный инструмент: он не падает.
+        self._get_customer(customer_id)
+        rows = [
+            t for t in self.db.transactions.values()
+            if t.customer_id == customer_id and t.status == "posted"
+        ]
+        rows.sort(key=lambda t: (t.date, t.id), reverse=True)
+        return [
+            {"id": t.id, "date": t.date, "amount": t.amount, "merchant": t.merchant}
+            for t in rows[:10]
+        ]
+
+    @is_tool(ToolType.READ)
     def get_transaction_details(self, transaction_id: str) -> Transaction:
         """
         Получить детали операции: статус, срок снятия холда, признак подписки, спор.
@@ -598,6 +633,39 @@ class BankingTools(ToolKitBase):
             ValueError: Если клиент или тариф не найдены.
         """
         return self._get_tariff(customer_id)
+
+    @is_tool(ToolType.READ)
+    def ask_client(self, customer_id: str, question: str) -> str:
+        """
+        Задать клиенту уточняющий вопрос по обращению и получить ответ.
+
+        Клиент отвечает только на то, что знает и что относится к его
+        обращению. Внутренних идентификаторов банка он не знает.
+
+        Args:
+            customer_id: Идентификатор клиента.
+            question: Вопрос своими словами.
+
+        Returns:
+            Ответ клиента либо сообщение о том, что ответить он не может.
+
+        Raises:
+            ValueError: Если клиент не найден или вопрос пуст.
+        """
+        self._get_customer(customer_id)
+        if not question or not question.strip():
+            raise _error(ERR_INVALID_ARGUMENT, "Вопрос не может быть пустым.")
+        asked = _tokens(question)
+        best, best_score = None, 0
+        for item in self.db.client_answers.get(customer_id, []):
+            score = sum(1 for k in item.keywords if _tokens(k) & asked)
+            if score > best_score:
+                best, best_score = item, score
+        if best is None:
+            return (
+                "Клиент: «Не могу ответить на этот вопрос — я такого не знаю»."
+            )
+        return f"Клиент: «{best.answer}»"
 
     @is_tool(ToolType.READ)
     def search_knowledge(self, query: str, limit: int = 5) -> list[dict]:
@@ -887,6 +955,30 @@ class BankingTools(ToolKitBase):
         return card
 
     @is_tool(ToolType.WRITE)
+    def freeze_card(self, card_id: str) -> Card:
+        """
+        Временно приостановить операции по карте.
+
+        Args:
+            card_id: Идентификатор карты.
+
+        Returns:
+            Обновлённая карта.
+
+        Raises:
+            ValueError: Если карта не найдена, личность не подтверждена или
+                карта уже заблокирована.
+        """
+        card = self._get_card(card_id)
+        self._require_verified(card.customer_id)
+        if card.status == "blocked":
+            raise _error(ERR_ALREADY_FROZEN, f"Карта {card_id} уже заблокирована.")
+        card.status = "blocked"
+        card.block_reason = "temporary"
+        card.blocked_at = self.db.today
+        return card
+
+    @is_tool(ToolType.WRITE)
     def reissue_card(self, card_id: str, delivery_address: Optional[str] = None) -> Card:
         """
         Перевыпустить карту. Если указан новый адрес доставки, требуется
@@ -1072,6 +1164,39 @@ class BankingTools(ToolKitBase):
                 "отозвать можно только спор на рассмотрении.",
             )
         dispute.status = "cancelled"
+        return dispute
+
+    @is_tool(ToolType.WRITE)
+    def close_dispute(self, dispute_id: str, resolution: str) -> Dispute:
+        """
+        Закрыть спор решением банка.
+
+        Args:
+            dispute_id: Идентификатор спора.
+            resolution: 'approved' — в пользу клиента, 'rejected' — отказ.
+
+        Returns:
+            Обновлённый спор.
+
+        Raises:
+            ValueError: Если спор не найден, личность не подтверждена, спор не
+                на рассмотрении либо решение недопустимо.
+        """
+        dispute = self.db.disputes.get(dispute_id)
+        if dispute is None:
+            raise _error(ERR_NOT_FOUND, f"Спор {dispute_id} не найден.")
+        self._require_verified(dispute.customer_id)
+        if resolution not in ("approved", "rejected"):
+            raise _error(
+                ERR_INVALID_ARGUMENT,
+                "Решение должно быть 'approved' или 'rejected'.",
+            )
+        if dispute.status != "under_review":
+            raise _error(
+                ERR_DISPUTE_NOT_UNDER_REVIEW,
+                f"Спор {dispute_id} уже завершён со статусом {dispute.status}.",
+            )
+        dispute.status = resolution
         return dispute
 
     @is_tool(ToolType.WRITE)
@@ -1449,6 +1574,48 @@ class BankingTools(ToolKitBase):
         }
 
     @is_tool(ToolType.WRITE)
+    def refund_transaction(self, transaction_id: str, reason: str) -> dict:
+        """
+        Вернуть клиенту всю сумму операции.
+
+        Args:
+            transaction_id: Операция, которую возвращаем.
+            reason: Основание возврата.
+
+        Returns:
+            Возвращённая сумма и остаток счёта.
+
+        Raises:
+            ValueError: Если операция не найдена, личность не подтверждена или
+                операция ещё не проведена.
+        """
+        transaction = self._get_transaction(transaction_id)
+        self._require_verified(transaction.customer_id)
+        if transaction.status != "posted":
+            raise _error(
+                ERR_INVALID_ARGUMENT,
+                f"Операция {transaction_id} не проведена: возврат невозможен.",
+            )
+        account = self._get_account(transaction.account_id)
+        account.balance = round(account.balance + transaction.amount, 2)
+        refund = Transaction(
+            id=self._next_transaction_id(),
+            customer_id=transaction.customer_id,
+            account_id=account.id,
+            date=self.db.today,
+            amount=transaction.amount,
+            merchant=f"Возврат по операции {transaction_id}",
+            kind="fee_refund",
+            channel="online",
+        )
+        self.db.transactions[refund.id] = refund
+        return {
+            "refunded": transaction.amount,
+            "reason": reason,
+            "account_balance": account.balance,
+        }
+
+    @is_tool(ToolType.WRITE)
     def grant_cashback(self, transaction_id: str, amount: float) -> dict:
         """
         Начислить кешбэк по операции вручную.
@@ -1791,6 +1958,44 @@ class BankingTools(ToolKitBase):
         return document
 
     @is_tool(ToolType.WRITE)
+    def reply_to_ticket(self, customer_id: str, text: str) -> str:
+        """
+        Отправить клиенту ответ по обращению. Это то, что клиент прочитает:
+        итог разбирательства, все названные суммы, даты и причины отказа.
+
+        Отправляется один раз в конце работы над обращением, когда все
+        операции уже выполнены.
+
+        Args:
+            customer_id: Идентификатор клиента.
+            text: Текст ответа клиенту.
+
+        Returns:
+            Подтверждение отправки.
+
+        Raises:
+            ValueError: Если клиент не найден, личность не подтверждена,
+                текст пуст или ответ уже отправлен.
+        """
+        # Тип WRITE обязателен: при оценке среда пересобирается проигрыванием
+        # траектории, и немутирующие вызовы пропускаются — как GENERIC этот
+        # инструмент не восстанавливался, и проверка ответа проваливалась
+        # всегда. Подтверждения личности он при этом не требует: Требование обернулось обрывом:
+        # получив ERR_NOT_VERIFIED, агент не исправлялся, а прекращал работу —
+        # одна ошибка уносила всю задачу вместо того, чтобы её усложнить.
+        # Идентификация по-прежнему обязательна для всех операций записи.
+        self._get_customer(customer_id)
+        if not text or not text.strip():
+            raise _error(ERR_INVALID_ARGUMENT, "Текст ответа не может быть пустым.")
+        if customer_id in self.db.ticket_replies:
+            raise _error(
+                ERR_ALREADY_REPLIED,
+                f"Ответ клиенту {customer_id} уже отправлен.",
+            )
+        self.db.ticket_replies[customer_id] = text
+        return "Ответ отправлен клиенту."
+
+    @is_tool(ToolType.WRITE)
     def escalate_to_human(self, customer_id: str, reason: str) -> Case:
         """
         Передать обращение клиента специалисту.
@@ -1910,6 +2115,40 @@ class BankingTools(ToolKitBase):
             c.customer_id == customer_id and c.category == category
             for c in self.db.cases.values()
         )
+
+    def assert_answer_contains(self, customer_id: str, expected: list[str]) -> bool:
+        """Ответ клиенту отправлен и содержит все требуемые подстроки.
+
+        Замена communicate_info в тикетном формате. Сверка идёт по тексту
+        одного инструмента, а не по всем репликам агента, и здесь нет
+        вычищения запятых, на котором штатный оценщик речи ронял верные
+        ответы: «1 240,50 ₽» сравнивается как есть.
+        """
+        reply = self.db.ticket_replies.get(customer_id)
+        if reply is None:
+            return False
+        def norm(value: str) -> str:
+            # Неразрывный и тонкий пробелы модель ставит наравне с обычным:
+            # «15 490 ₽» не должно зависеть от того, какой из них выбран.
+            for space in ("\u00a0", "\u202f", "\u2009"):
+                value = value.replace(space, " ")
+            return value.lower().replace("ё", "е")
+
+        text = norm(reply)
+        return all(norm(sub) in text for sub in expected)
+
+    def assert_no_refund_transaction(self, transaction_id: str) -> bool:
+        """По операции не выполнялся полный возврат суммы."""
+        self._get_transaction(transaction_id)
+        return not any(
+            t.kind == "fee_refund" and transaction_id in t.merchant
+            and t.merchant.startswith("Возврат по операции")
+            for t in self.db.transactions.values()
+        )
+
+    def assert_no_reply(self, customer_id: str) -> bool:
+        """Ответ клиенту не отправлялся."""
+        return customer_id not in self.db.ticket_replies
 
     def assert_article_is_reachable(self, article_id: str, query: str) -> bool:
         """Статья находится поиском по запросу — задача не опирается на статью,

@@ -7,6 +7,8 @@
 стабильный хеш и удовлетворить собственным env_assertions задачи.
 """
 
+import re
+
 import pytest
 
 from tau2.data_model.tasks import EnvAssertion, RewardType, Task
@@ -76,8 +78,21 @@ def test_write_tasks_change_the_database(task: Task):
 def test_reward_basis_matches_criteria(task: Task):
     criteria = task.evaluation_criteria
     assert RewardType.DB in criteria.reward_basis
-    assert RewardType.COMMUNICATE in criteria.reward_basis
-    assert criteria.communicate_info, f"{task.id}: пустой communicate_info"
+    if task.ticket is None:
+        assert RewardType.COMMUNICATE in criteria.reward_basis
+        assert criteria.communicate_info, f"{task.id}: пустой communicate_info"
+    else:
+        # В одиночном режиме агент не пишет текста — только вызывает
+        # инструменты, поэтому оценщик речи молчал бы всегда. Речь проверяется
+        # содержимым ответа по обращению.
+        assert RewardType.COMMUNICATE not in criteria.reward_basis, (
+            f"{task.id}: тикетная задача не может оцениваться по речи"
+        )
+        assert not criteria.communicate_info
+        assert any(a.func_name == "assert_answer_contains"
+                   for a in criteria.env_assertions or []), (
+            f"{task.id}: тикетная задача без проверки ответа клиенту"
+        )
     has_assertions = bool(criteria.env_assertions)
     in_basis = RewardType.ENV_ASSERTION in criteria.reward_basis
     assert has_assertions == in_basis, (
@@ -224,3 +239,84 @@ def test_articles_used_by_tasks_are_reachable_by_their_own_query():
                     f"{task.id}: статья {action.arguments['article_id']} "
                     f"не находится запросом {query!r}"
                 )
+
+
+TICKET_TASKS = [t for t in TASKS if t.ticket is not None]
+TICKET_IDS = [t.id for t in TICKET_TASKS]
+
+
+@pytest.mark.parametrize("task", TICKET_TASKS, ids=TICKET_IDS)
+def test_ticket_task_is_valid_for_the_solo_agent(task: Task):
+    """Одиночный агент отказывается брать задачу без тикета, критериев или
+    эталонных действий — проверяем его собственным условием."""
+    from tau2.agent.llm_agent import LLMSoloAgent
+
+    assert LLMSoloAgent.check_valid_task(task)
+
+
+@pytest.mark.parametrize("task", TICKET_TASKS, ids=TICKET_IDS)
+def test_ticket_ends_with_a_reply_to_the_client(task: Task):
+    """Ответ клиенту — последнее действие эталона: сначала операции, потом
+    итог. Иначе агент отчитывается о том, чего ещё не сделал."""
+    names = [a.name for a in task.evaluation_criteria.actions or []]
+    assert names.count("reply_to_ticket") == 1, f"{task.id}: {names}"
+    assert names[-1] == "reply_to_ticket", f"{task.id}: ответ не в конце"
+
+
+@pytest.mark.parametrize("task", TICKET_TASKS, ids=TICKET_IDS)
+def test_ticket_does_not_leak_the_secret(task: Task):
+    """Кодового слова в тикете нет: агент обязан спросить его у клиента.
+    Живого собеседника в этом режиме нет, но идентификация остаётся."""
+    env = get_environment()
+    customer = env.tools.db.customers[
+        next(a.arguments["customer_id"] for a in task.evaluation_criteria.actions
+             if a.name == "reply_to_ticket")
+    ]
+    assert customer.code_word.lower() not in task.ticket.lower(), (
+        f"{task.id}: кодовое слово лежит прямо в тикете"
+    )
+    assert customer.otp_code not in task.ticket, f"{task.id}: код из СМС в тикете"
+    answers = env.tools.db.client_answers.get(customer.id, [])
+    assert answers, f"{task.id}: клиенту нечего ответить — личность не подтвердить"
+
+
+def test_ticket_withholds_what_the_agent_must_ask_for():
+    """Задачи типа A держатся на том, что данных нет ни в системе, ни в тикете:
+    агент обязан догадаться спросить. Живой симулятор эти данные однажды
+    выболтал сам — оракул этого сделать не может, но и тикет молчать обязан."""
+    withheld = {
+        "bank_011": ["3 500", "3500", "возврат"],
+        "bank_022": ["40817810900001187", "40817810900005521"],
+    }
+    by_id = {t.id: t for t in TASKS}
+    for tid, secrets in withheld.items():
+        task = by_id[tid]
+        if task.ticket is None:
+            continue
+        for secret in secrets:
+            assert secret.lower() not in task.ticket.lower(), (
+                f"{tid}: тикет выдаёт то, что агент должен спросить: {secret}"
+            )
+
+
+@pytest.mark.parametrize("task", TICKET_TASKS, ids=TICKET_IDS)
+def test_expected_answer_substrings_are_facts_not_phrases(task: Task):
+    """Проверять формулировку письменного ответа нельзя: агент напишет
+    «120 календарных дней» вместо «120 дней» и «банк не разглашает» вместо
+    «не могу». Допустимы только факты — число, число с разделителем разрядов,
+    дата или одно слово-корень."""
+    fact = re.compile(
+        r"^\d[\d \u00a0]*\s?[%₽]?$"          # 15 490, 1 000 ₽, 5%
+        r"|^\d{1,2} [а-я]+$"                  # 27 сентября
+        r"|^\S+$"                             # приложени, 9902, e-mail
+        r"|^[А-ЯA-Z]\S* \S+$"                 # Яндекс Плюс
+        r"|^\S+ \d+$",                        # iPhone 15
+        re.IGNORECASE,
+    )
+    for a in task.evaluation_criteria.env_assertions or []:
+        if a.func_name != "assert_answer_contains":
+            continue
+        for sub in a.arguments["expected"]:
+            assert fact.match(sub), (
+                f"{task.id}: подстрока {sub!r} проверяет формулировку, а не факт"
+            )

@@ -269,7 +269,18 @@ class UserSimulator(
 class DummyUser(UserSimulator):
     """A dummy user to run a agent solo simulation."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        tools: Optional[list] = None,
+        instructions: Optional[str] = None,
+        llm: Optional[str] = None,
+        llm_args: Optional[dict] = None,
+        persona_config: Optional["PersonaConfig"] = None,
+    ):
+        # build_user() passes the same keyword arguments to every user
+        # implementation. The dummy user ignores all of them: in solo mode
+        # there is no user turn, no instructions to follow and no model to
+        # call. Without accepting them, solo mode cannot start at all.
         super().__init__(llm="dummy")
 
     def get_init_state(

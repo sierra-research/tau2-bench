@@ -7,6 +7,7 @@ from tau2.domains.banking_ru.tools import BankingTools
 from tau2.domains.banking_ru.utils import (
     BANKING_RU_DB_PATH,
     BANKING_RU_POLICY_PATH,
+    BANKING_RU_POLICY_SOLO_PATH,
     BANKING_RU_TASK_SET_PATH,
 )
 from tau2.environment.environment import Environment
@@ -17,17 +18,19 @@ def get_environment(
     db: Optional[BankingDB] = None,
     solo_mode: bool = False,
 ) -> Environment:
-    if solo_mode:
-        raise ValueError("Solo mode not supported for banking_ru")
     if db is None:
         db = BankingDB.load(BANKING_RU_DB_PATH)
     tools = BankingTools(db)
-    with open(BANKING_RU_POLICY_PATH, "r", encoding="utf-8") as fp:
+    # Без собеседника часть диалоговых правил теряет смысл, поэтому у
+    # одиночного режима своя редакция политики — как в эталонном telecom.
+    policy_path = BANKING_RU_POLICY_SOLO_PATH if solo_mode else BANKING_RU_POLICY_PATH
+    with open(policy_path, "r", encoding="utf-8") as fp:
         policy = fp.read()
     return Environment(
         domain_name="banking_ru",
         policy=policy,
         tools=tools,
+        solo_mode=solo_mode,
     )
 
 

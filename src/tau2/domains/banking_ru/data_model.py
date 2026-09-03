@@ -298,6 +298,21 @@ class LimitRequest(BaseModel):
     public_reason: str = Field(description="Категория причины для клиента")
 
 
+class ClientAnswer(BaseModel):
+    """Ответ клиента на вопрос агента — заранее записанный, без модели.
+
+    В тикетном формате живого собеседника нет, но механизм «агент обязан
+    догадаться спросить» сохраняется: то, чего нет в системе, лежит здесь и
+    выдаётся только по подходящему вопросу. В отличие от симулятора клиента,
+    оракул не проговаривается: он молчит, пока его не спросят по делу.
+    """
+
+    keywords: list[str] = Field(
+        description="Слова, по которым вопрос агента считается заданным по делу"
+    )
+    answer: str = Field(description="Что отвечает клиент")
+
+
 class Article(BaseModel):
     """Статья базы знаний банка.
 
@@ -493,6 +508,14 @@ class BankingDB(DB):
     limit_requests: dict[str, LimitRequest] = Field(default_factory=dict)
     documents: dict[str, Document] = Field(default_factory=dict)
     articles: dict[str, Article] = Field(default_factory=dict)
+    client_answers: dict[str, list[ClientAnswer]] = Field(
+        default_factory=dict,
+        description="Что клиент может рассказать, если агент спросит",
+    )
+    #: Ответ агента по обращению. Исключён из дампа, а значит и из хеша БД:
+    #: свободный текст в хеше обнулял бы задачу при верном по смыслу ответе.
+    #: Проверяется отдельно — assert_answer_contains.
+    ticket_replies: dict[str, str] = Field(default_factory=dict, exclude=True)
     subscriptions: dict[str, Subscription] = Field(default_factory=dict)
     autopayments: dict[str, Autopayment] = Field(default_factory=dict)
     deposits: dict[str, Deposit] = Field(default_factory=dict)

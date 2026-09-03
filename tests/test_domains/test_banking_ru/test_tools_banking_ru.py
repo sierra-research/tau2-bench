@@ -7,6 +7,8 @@
 
 import pytest
 
+from pathlib import Path
+
 from tau2.data_model.message import ToolCall
 from tau2.domains.banking_ru.environment import get_environment
 from tau2.environment.environment import Environment
@@ -316,9 +318,12 @@ def test_unknown_entities_are_reported(env: Environment):
     assert "ERR_NOT_FOUND" in response.content
 
 
-def test_solo_mode_is_not_supported():
-    with pytest.raises(ValueError, match="Solo mode not supported for banking_ru"):
-        get_environment(solo_mode=True)
+def test_solo_mode_is_supported():
+    """Тикетный формат: агент работает без собеседника, поэтому среда обязана
+    собираться в одиночном режиме."""
+    env = get_environment(solo_mode=True)
+    assert env.solo_mode
+    assert {"ask_client", "reply_to_ticket"} <= {t.name for t in env.get_tools()}
 
 
 # --------------------------------------------------------------------------
@@ -789,3 +794,166 @@ def test_articles_are_found_by_natural_phrasing(env: Environment, query, expecte
     становилась не трудной, а сломанной."""
     found = [c["id"] for c in env.tools.search_knowledge(query=query, limit=4)]
     assert expected in found, f"{query!r} не находит {expected}: {found}"
+
+
+# --------------------------------------------------------------------------
+# Слой запутывания: двойники инструментов и расходящиеся статьи
+# --------------------------------------------------------------------------
+
+
+def test_four_articles_about_the_dispute_deadline_are_findable_at_once(env: Environment):
+    """Об одном и том же сроке говорят четыре статьи, и применима одна:
+    kb_110 (общая, в силе), kb_114 (зарплатные карты — другая область),
+    kb_101 (редакция утратила силу), kb_102 (ещё не вступила в силу)."""
+    found = {c["id"] for c in env.tools.search_knowledge(
+        query="срок оспаривания операции", limit=6)}
+    assert {"kb_110", "kb_114", "kb_101", "kb_102"} <= found
+    today = env.tools.db.today
+    assert env.tools.get_article("kb_102").effective_from > today, (
+        "будущая редакция уже действует — ловушка мертва"
+    )
+    assert env.tools.get_article("kb_101").effective_to < today
+    assert env.tools.get_article("kb_114").effective_to is None, (
+        "статья про зарплатные карты должна быть в силе: она расходится с "
+        "общей не сроком действия, а областью"
+    )
+
+
+def test_premium_fee_article_outranks_the_general_one(env: Environment):
+    """По запросу «вернуть комиссию» первой идёт статья про «Премиум», хотя
+    к клиенту на другом тарифе она не относится."""
+    cards = env.tools.search_knowledge(query="вернуть комиссию", limit=3)
+    assert cards[0]["id"] == "kb_123"
+    body = env.tools.get_article("kb_123").body
+    assert "только к тарифу «Премиум»" in body
+
+
+def test_legacy_operations_tool_silently_returns_less(env: Environment):
+    """Опасен не падающий инструмент, а тихо неполный: get_operations не
+    возвращает ни холдов, ни отклонённых, ни переводов в обработке, ни
+    страниц — и не сообщает об этом."""
+    full = env.tools.get_transactions(customer_id="solomina_o_5214", limit=50)
+    legacy = env.tools.get_operations(customer_id="solomina_o_5214")
+    assert len(legacy) == 10
+    assert full["total"] > len(legacy), "устаревшая выдача обязана быть короче"
+    ids = {row["id"] for row in legacy}
+    assert "txn_100203" not in ids, "холд не должен попадать в устаревшую выдачу"
+    assert "txn_100208" not in ids, "отклонённая операция тоже"
+
+
+def test_twin_write_tools_work_technically(env: Environment):
+    """Двойники не падают — в этом и ловушка: неверный выбор виден только по
+    состоянию БД."""
+    verified(env, "petrova_i_4821")
+    assert not call(env, "freeze_card", card_id="card_4418").error
+    assert env.tools.db.cards["card_4418"].block_reason == "temporary", (
+        "freeze_card обязан ставить причину, отличную от lost"
+    )
+    verified(env, "volkov_m_9043")
+    assert not call(env, "close_dispute", dispute_id="dsp_3400",
+                    resolution="rejected").error
+    assert env.tools.db.disputes["dsp_3400"].status == "rejected"
+
+
+def test_refund_transaction_returns_the_whole_purchase(env: Environment):
+    """refund_transaction возвращает всю сумму операции, а не комиссию:
+    вызванный вместо refund_fee, он ломает остаток счёта."""
+    verified(env, "guseva_m_2274")
+    before = env.tools.db.accounts["acc_2274"].balance
+    assert not call(env, "refund_transaction", transaction_id="txn_901120",
+                    reason="просьба клиента").error
+    after = env.tools.db.accounts["acc_2274"].balance
+    assert after - before == 50000.0
+    assert not env.tools.assert_no_refund_transaction("txn_901120")
+
+
+def test_policy_states_how_to_resolve_conflicting_articles():
+    """Расхождение статей должно разрешаться правилом, а не догадкой."""
+    from tau2.domains.banking_ru.environment import get_environment as ge
+
+    policy = ge().get_policy()
+    assert "чья область уже" in policy
+    assert "не применяется вовсе" in policy
+
+
+def test_dummy_user_accepts_the_arguments_the_runner_passes():
+    """Регрессия на баг харнесса: build_user передаёт всем реализациям клиента
+    один набор аргументов, а DummyUser их не принимал — из-за этого одиночный
+    режим не стартовал вовсе, во всех доменах."""
+    from tau2.user.user_simulator import DummyUser
+
+    user = DummyUser(tools=None, instructions="ignored", llm=None,
+                     llm_args=None, persona_config=None)
+    assert user is not None
+
+
+def test_ticket_reply_is_not_part_of_the_db_hash(env: Environment):
+    """Ответ клиенту — свободный текст. В хеше БД он обнулял бы задачу при
+    верном по смыслу ответе, поэтому исключён из дампа; проверяется отдельной
+    проверкой, а при оценке восстанавливается проигрыванием траектории."""
+    verified(env, "belov_i_2266")
+    before = env.get_db_hash()
+    assert not call(env, "reply_to_ticket", customer_id="belov_i_2266",
+                    text="Проценты приходят на счёт 8843.").error
+    assert env.get_db_hash() == before
+    assert env.tools.assert_answer_contains("belov_i_2266", ["8843"])
+    assert not env.tools.assert_answer_contains("belov_i_2266", ["9999"])
+
+
+def test_solo_policy_is_in_sync_with_the_dialogue_one():
+    """Две редакции политики собираются из одного источника: расходятся руками
+    они мгновенно, а разница между режимами должна оставаться только той,
+    которая записана в генераторе."""
+    import importlib.util
+    from tau2.domains.banking_ru.utils import BANKING_RU_POLICY_SOLO_PATH
+
+    spec = importlib.util.spec_from_file_location(
+        "build_policy",
+        Path(__file__).resolve().parents[3] / "scripts/banking_ru/build_policy.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.build() == BANKING_RU_POLICY_SOLO_PATH.read_text(encoding="utf-8"), (
+        "policy_solo.md устарела: пересоберите scripts/banking_ru/build_policy.py"
+    )
+
+
+def test_dialogue_policy_says_nothing_about_ticket_tools():
+    """Диалоговая редакция не должна требовать инструментов, которых в диалоге
+    нет: ответ по обращению и вопросы оракулу — только для одиночного режима."""
+    from tau2.domains.banking_ru.environment import get_environment as ge
+
+    dialogue = ge().get_policy()
+    assert "reply_to_ticket" not in dialogue
+    assert "ask_client" not in dialogue
+
+
+def test_policy_requires_a_reply_to_the_ticket():
+    """В тикетном формате у агента нет привычного «ответить пользователю»:
+    ответ — это вызов инструмента. Половина симуляций пилота закончилась без
+    ответа, потому что политика об этом не говорила."""
+    from tau2.domains.banking_ru.environment import get_environment as ge
+
+    policy = ge(solo_mode=True).get_policy()
+    assert "reply_to_ticket" in policy
+    assert "считается необработанным" in policy
+    assert "ask_client" in policy
+
+
+def test_reply_to_ticket_does_not_require_verification(env: Environment):
+    """Ответ клиенту не должен упираться в подтверждение личности: в пилоте
+    агент, получив ERR_NOT_VERIFIED на попытке ответить, прекращал работу —
+    предусловие уносило задачу целиком вместо того, чтобы её усложнить."""
+    response = call(env, "reply_to_ticket", customer_id="egorov_m_1145",
+                    text="Реквизиты в чате не разглашаются, смотрите в приложении.")
+    assert not response.error
+    assert env.tools.assert_answer_contains("egorov_m_1145", ["приложении"])
+
+
+def test_reply_to_ticket_survives_the_grading_replay(env: Environment):
+    """Оценка идёт на среде, пересобранной проигрыванием траектории, а
+    немутирующие вызовы при этом пропускаются. Инструмент ответа обязан быть
+    мутирующим, иначе проверка ответа не выполняется никогда — на этом
+    пилотный прогон дал ноль по всем задачам."""
+    assert env._is_mutating_tool("reply_to_ticket")
+    assert not env._is_mutating_tool("ask_client")
