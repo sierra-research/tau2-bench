@@ -1360,6 +1360,28 @@ class SimulationIndexEntry(BaseModel):
     duration: float | None = None
 
 
+
+_SECRET_KEY_MARKERS = ("api_key", "authorization", "token", "secret")
+
+
+def _redact_secrets(obj):
+    """Recursively mask secret-looking values before anything is written to disk.
+
+    Results.info carries the raw llm_args used for the run, which includes
+    provider API keys; plaintext keys were found in saved results.json files
+    (T19 audit, 2026-09-03).
+    """
+    if isinstance(obj, dict):
+        return {
+            k: ("REDACTED" if isinstance(v, str) and any(m in k.lower() for m in _SECRET_KEY_MARKERS)
+                else _redact_secrets(v))
+            for k, v in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_redact_secrets(v) for v in obj]
+    return obj
+
+
 class Results(BaseModel):
     """
     Run results.
@@ -1506,7 +1528,7 @@ class Results(BaseModel):
         if format == "json":
             path.parent.mkdir(parents=True, exist_ok=True)
             with open(path, "w") as f:
-                f.write(self.model_dump_json(indent=2))
+                json.dump(_redact_secrets(self.model_dump(mode="json")), f, indent=2)
             return
 
         meta_path, sims_dir = self._resolve_paths(path)
@@ -1514,7 +1536,7 @@ class Results(BaseModel):
         sims_dir.mkdir(parents=True, exist_ok=True)
 
         self.simulation_index = self._build_simulation_index()
-        meta = self.model_dump(mode="json", exclude={"simulations"})
+        meta = _redact_secrets(self.model_dump(mode="json", exclude={"simulations"}))
         with open(meta_path, "w") as f:
             json.dump(meta, f, indent=2)
 
@@ -1547,7 +1569,7 @@ class Results(BaseModel):
                     SimulationIndexEntry.model_validate(e) for e in existing_index
                 ]
 
-        meta = self.model_dump(mode="json", exclude={"simulations"})
+        meta = _redact_secrets(self.model_dump(mode="json", exclude={"simulations"}))
         with open(meta_path, "w") as f:
             json.dump(meta, f, indent=2)
 
