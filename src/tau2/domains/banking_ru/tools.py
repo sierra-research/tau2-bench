@@ -153,6 +153,21 @@ class BankingTools(ToolKitBase):
     def __init__(self, db: BankingDB) -> None:
         super().__init__(db)
 
+    def use_tool(self, tool_name: str, **kwargs) -> str:
+        """Выполнить инструмент, записав вызов в журнал.
+
+        Журнал нужен, чтобы оценивать сами действия агента, а не только их
+        отпечаток в состоянии. Хеш БД не видит трёх вещей: вызова, который
+        завершился ошибкой; лишней записи, отменённой следующей; и повторного
+        вызова с тем же результатом. Всё это — неверные действия.
+
+        При оценке среда пересобирается проигрыванием траектории, и туда
+        попадают только изменяющие вызовы: наказать можно за неверную запись,
+        но не за неверное чтение.
+        """
+        self.db.tool_calls_log.append(tool_name)
+        return super().use_tool(tool_name=tool_name, **kwargs)
+
     # ------------------------------------------------------------------
     # Внутренние помощники
     # ------------------------------------------------------------------
@@ -2145,6 +2160,18 @@ class BankingTools(ToolKitBase):
             and t.merchant.startswith("Возврат по операции")
             for t in self.db.transactions.values()
         )
+
+    def assert_tool_not_called(self, tool_name: str) -> bool:
+        """Инструмент не вызывался ни разу.
+
+        Так наказывается запрещённое действие само по себе, даже если агент
+        успел его отменить и состояние сошлось.
+        """
+        return tool_name not in self.db.tool_calls_log
+
+    def assert_tool_call_count(self, tool_name: str, expected: int) -> bool:
+        """Инструмент вызван ровно ожидаемое число раз."""
+        return self.db.tool_calls_log.count(tool_name) == expected
 
     def assert_no_reply(self, customer_id: str) -> bool:
         """Ответ клиенту не отправлялся."""

@@ -516,6 +516,10 @@ class BankingDB(DB):
     #: свободный текст в хеше обнулял бы задачу при верном по смыслу ответе.
     #: Проверяется отдельно — assert_answer_contains.
     ticket_replies: dict[str, str] = Field(default_factory=dict, exclude=True)
+    #: Журнал вызовов инструментов. Тоже вне дампа и хеша: он нужен проверкам,
+    #: а не сверке состояния. Позволяет наказывать за само действие, а не
+    #: только за его след — лишнюю запись, отменённую следующей, хеш не видит.
+    tool_calls_log: list[str] = Field(default_factory=list, exclude=True)
     subscriptions: dict[str, Subscription] = Field(default_factory=dict)
     autopayments: dict[str, Autopayment] = Field(default_factory=dict)
     deposits: dict[str, Deposit] = Field(default_factory=dict)
