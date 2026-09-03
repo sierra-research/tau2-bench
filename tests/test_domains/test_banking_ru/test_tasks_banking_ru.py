@@ -9,7 +9,7 @@
 
 import pytest
 
-from tau2.data_model.tasks import RewardType, Task
+from tau2.data_model.tasks import EnvAssertion, RewardType, Task
 from tau2.domains.banking_ru.environment import get_environment, get_tasks
 
 TASKS = get_tasks()
@@ -193,3 +193,34 @@ def test_document_tasks_pair_public_and_internal():
             assert set(shared.values()) == {True, False}, (
                 f"{task.id}: нужны и переданный, и непереданный документ"
             )
+
+
+def test_articles_used_by_tasks_are_reachable_by_their_own_query():
+    """Если эталон читает статью, она обязана находиться тем запросом, который
+    в этом же эталоне идёт в search_knowledge: иначе задача опирается на
+    статью, которую агент не найдёт словами клиента."""
+    env = get_environment()
+    for task in TASKS:
+        query = None
+        for action in task.evaluation_criteria.actions or []:
+            if action.name == "search_knowledge":
+                query = action.arguments["query"]
+            elif action.name == "get_article":
+                assert query is not None, (
+                    f"{task.id}: get_article без предшествующего поиска"
+                )
+                assert env.run_env_assertion(
+                    EnvAssertion(
+                        env_type="assistant",
+                        func_name="assert_article_is_reachable",
+                        arguments={
+                            "article_id": action.arguments["article_id"],
+                            "query": query,
+                        },
+                        assert_value=True,
+                    ),
+                    raise_assertion_error=False,
+                ), (
+                    f"{task.id}: статья {action.arguments['article_id']} "
+                    f"не находится запросом {query!r}"
+                )

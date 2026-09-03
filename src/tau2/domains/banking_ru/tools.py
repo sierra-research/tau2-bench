@@ -21,6 +21,7 @@ from loguru import logger
 
 from tau2.domains.banking_ru.data_model import (
     Account,
+    Article,
     BankingDB,
     BlockReason,
     Card,
@@ -119,6 +120,21 @@ def _canon_address(value: str) -> str:
     cleaned = "".join(ch if ch.isalnum() else " " for ch in cleaned)
     tokens = [t for t in cleaned.split() if t not in _ADDRESS_STOPWORDS]
     return " ".join(tokens)
+
+
+#: Длина основы, по которой сравниваются слова при поиске по базе знаний.
+#: Русские падежи и виды меняют окончание, а не начало: «операцию» и
+#: «операций», «спор» и «спора» — одно и то же слово для поиска. Без огрубления
+#: до основы агент, спросивший «оспорить операцию», не находит ничего, и
+#: задача становится не трудной, а сломанной.
+_STEM = 5
+
+
+def _tokens(value: str) -> set[str]:
+    """Основы слов для поиска: без ё, без пунктуации, от трёх букв."""
+    cleaned = value.lower().replace("ё", "е")
+    cleaned = "".join(ch if ch.isalnum() else " " for ch in cleaned)
+    return {t[:_STEM] for t in cleaned.split() if len(t) >= 3}
 
 
 def _error(code: str, message: str) -> ValueError:
@@ -582,6 +598,72 @@ class BankingTools(ToolKitBase):
             ValueError: Если клиент или тариф не найдены.
         """
         return self._get_tariff(customer_id)
+
+    @is_tool(ToolType.READ)
+    def search_knowledge(self, query: str, limit: int = 5) -> list[dict]:
+        """
+        Найти статьи базы знаний банка по запросу. Возвращает краткие карточки:
+        чтобы прочитать правило целиком, откройте статью через `get_article`.
+
+        Args:
+            query: Слова запроса, например «оспаривание частичный возврат».
+            limit: Сколько статей вернуть, не более 10. По умолчанию 5.
+
+        Returns:
+            Список карточек: идентификатор, раздел, название, срок действия
+            редакции и первые строки текста.
+
+        Raises:
+            ValueError: Если запрос пуст или limit вне диапазона 1..10.
+        """
+        if not query or not query.strip():
+            raise _error(ERR_INVALID_ARGUMENT, "Запрос не может быть пустым.")
+        if not 1 <= limit <= 10:
+            raise _error(ERR_INVALID_ARGUMENT, "limit должен быть в диапазоне 1..10.")
+        terms = _tokens(query)
+        scored = []
+        for article in self.db.articles.values():
+            haystack = _tokens(
+                " ".join(
+                    [article.title, article.section, " ".join(article.keywords)]
+                )
+            )
+            body = _tokens(article.body)
+            score = sum(3 for t in terms if t in haystack)
+            score += sum(1 for t in terms if t in body)
+            if score:
+                scored.append((-score, article.id, article))
+        scored.sort()
+        return [
+            {
+                "id": a.id,
+                "section": a.section,
+                "title": a.title,
+                "effective_from": a.effective_from,
+                "effective_to": a.effective_to,
+                "snippet": a.body[:180].replace("\n", " ") + "…",
+            }
+            for _, _, a in scored[:limit]
+        ]
+
+    @is_tool(ToolType.READ)
+    def get_article(self, article_id: str) -> Article:
+        """
+        Прочитать статью базы знаний целиком.
+
+        Args:
+            article_id: Идентификатор статьи, например 'kb_110'.
+
+        Returns:
+            Статья с полным текстом, сроком действия редакции и ссылками.
+
+        Raises:
+            ValueError: Если статья не найдена.
+        """
+        article = self.db.articles.get(article_id)
+        if article is None:
+            raise _error(ERR_NOT_FOUND, f"Статья {article_id} не найдена.")
+        return article
 
     @is_tool(ToolType.READ)
     def list_tariffs(self) -> list[Tariff]:
@@ -1828,6 +1910,12 @@ class BankingTools(ToolKitBase):
             c.customer_id == customer_id and c.category == category
             for c in self.db.cases.values()
         )
+
+    def assert_article_is_reachable(self, article_id: str, query: str) -> bool:
+        """Статья находится поиском по запросу — задача не опирается на статью,
+        которую нельзя найти словами клиента."""
+        found = self.search_knowledge(query=query, limit=10)
+        return any(card["id"] == article_id for card in found)
 
     def assert_document_shared(self, document_id: str, expected_shared: bool) -> bool:
         """Документ передан клиенту (или не передавался) — как ожидается."""

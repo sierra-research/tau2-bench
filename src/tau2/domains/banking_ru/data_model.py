@@ -298,6 +298,37 @@ class LimitRequest(BaseModel):
     public_reason: str = Field(description="Категория причины для клиента")
 
 
+class Article(BaseModel):
+    """Статья базы знаний банка.
+
+    База знаний — не копия политики, а её продолжение: политика говорит, где
+    искать правило, а сама формулировка правила, формула расчёта и исключения
+    лежат здесь. Три свойства делают работу с ней недешёвой и повторяют
+    устройство знаниевых доменов τ³:
+
+    - статьи ссылаются друг на друга, и исключение из правила лежит в
+      отдельной статье, а не в той, которую агент нашёл первой;
+    - у статьи есть срок действия: недействующая редакция остаётся в базе,
+      находится поиском и выглядит применимой;
+    - рядом лежат почти одинаковые статьи для разных продуктов и тарифов.
+    """
+
+    id: str = Field(description="Идентификатор статьи")
+    section: str = Field(description="Раздел базы знаний")
+    title: str = Field(description="Название статьи")
+    body: str = Field(description="Полный текст статьи")
+    keywords: list[str] = Field(
+        default_factory=list, description="Ключевые слова для поиска"
+    )
+    effective_from: str = Field(description="Дата вступления редакции в силу")
+    effective_to: Optional[str] = Field(
+        default=None, description="Дата, до которой редакция действует"
+    )
+    superseded_by: Optional[str] = Field(
+        default=None, description="Статья, заменившая эту редакцию"
+    )
+
+
 class Document(BaseModel):
     """Документ из системы банка, относящийся к клиенту.
 
@@ -461,6 +492,7 @@ class BankingDB(DB):
     statements: dict[str, Statement] = Field(default_factory=dict)
     limit_requests: dict[str, LimitRequest] = Field(default_factory=dict)
     documents: dict[str, Document] = Field(default_factory=dict)
+    articles: dict[str, Article] = Field(default_factory=dict)
     subscriptions: dict[str, Subscription] = Field(default_factory=dict)
     autopayments: dict[str, Autopayment] = Field(default_factory=dict)
     deposits: dict[str, Deposit] = Field(default_factory=dict)

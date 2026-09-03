@@ -28,6 +28,7 @@ ID_PATTERNS = {
     "cases": r"^case_\d{4}$",
     "devices": r"^dev_\d{4}$",
     "documents": r"^doc_\d{4}_\d$",
+    "articles": r"^kb_\d{3}$",
 }
 
 

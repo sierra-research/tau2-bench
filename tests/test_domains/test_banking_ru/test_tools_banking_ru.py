@@ -693,3 +693,99 @@ def test_list_tariffs_exposes_both_premium_tariffs(env: Environment):
     «Premium+» — в первом прогоне он эскалировал вместо смены тарифа."""
     names = {t.name for t in env.tools.list_tariffs()}
     assert {"Премиум", "Premium+"} <= names
+
+
+# --------------------------------------------------------------------------
+# База знаний: три свойства, ради которых она заведена
+# --------------------------------------------------------------------------
+
+
+def test_search_returns_cards_without_full_text(env: Environment):
+    """Поиск отдаёт карточки, а не правило целиком: чтобы применить статью,
+    её нужно открыть. Иначе многошаговости нет."""
+    cards = env.tools.search_knowledge(query="спор сумма возврат продавца")
+    assert cards, "поиск ничего не нашёл по формулировке из задачи"
+    for card in cards:
+        assert set(card) == {
+            "id", "section", "title", "effective_from", "effective_to", "snippet"
+        }
+        article = env.tools.get_article(card["id"])
+        assert len(card["snippet"]) < len(article.body)
+
+
+def test_superseded_edition_is_findable_alongside_its_replacement(env: Environment):
+    """Недействующая редакция остаётся в выдаче и выглядит применимой — это и
+    есть ловушка: kb_101 велит открыть спор на полную сумму операции."""
+    found = {c["id"] for c in env.tools.search_knowledge(
+        query="спор сумма возврат продавца частичный", limit=10)}
+    assert {"kb_101", "kb_111"} <= found
+    old = env.tools.get_article("kb_101")
+    new = env.tools.get_article("kb_111")
+    assert old.effective_to == "2026-05-31" and old.superseded_by == "kb_111"
+    assert new.effective_to is None
+    assert env.tools.db.today > old.effective_to, (
+        "ловушка мертва: недействующая редакция всё ещё в силе на дату домена"
+    )
+
+
+def test_exception_lives_in_a_linked_article(env: Environment):
+    """Статья, которую агент находит первой, не содержит правила целиком:
+    сумма спора и исключения вынесены в отдельные статьи."""
+    entry = env.tools.get_article("kb_110")
+    assert "kb_111" in entry.body and "kb_112" in entry.body
+    assert "непокрытую часть" not in entry.body
+    assert "непокрытую часть" in env.tools.get_article("kb_111").body
+
+
+def test_near_duplicate_tariff_articles_disagree(env: Environment):
+    """Статьи по тарифам почти одинаковы и отличаются порогами: взять не ту —
+    значит назвать клиенту чужие числа."""
+    classic = env.tools.get_article("kb_120").body
+    standard = env.tools.get_article("kb_121").body
+    assert "100 000" in classic and "100 000" not in standard
+    assert "10 000" in standard and "10 000" not in classic
+    found = {c["id"] for c in env.tools.search_knowledge(
+        query="бесплатное обслуживание плата тариф", limit=10)}
+    assert {"kb_120", "kb_121", "kb_122"} <= found
+
+
+def test_waiver_trap_article_looks_applicable(env: Environment):
+    """kb_141 (два послабления) находится тем же запросом, что и kb_140, и
+    отличается только датой договора — данных о которой в кредите нет."""
+    found = {c["id"] for c in env.tools.search_knowledge(
+        query="штраф послабление списание просрочка", limit=10)}
+    assert {"kb_140", "kb_141"} <= found
+
+
+def test_policy_delegates_moved_rules_to_the_knowledge_base():
+    """Правила, переехавшие в базу знаний, не продублированы в политике —
+    иначе искать их незачем и механизм ничего не измеряет."""
+    from tau2.domains.banking_ru.environment import get_environment
+
+    policy = get_environment().get_policy()
+    for moved in (
+        "120 дней",
+        "не более одного раза за весь срок кредита",
+        "непокрытую часть",
+        "средний остаток и оборот",
+    ):
+        assert moved not in policy, f"политика дублирует статью базы знаний: {moved}"
+    assert "search_knowledge" in policy and "get_article" in policy
+
+
+@pytest.mark.parametrize("query,expected", [
+    ("можно ли оспорить операцию", "kb_110"),
+    ("сумма спора если продавец вернул часть", "kb_111"),
+    ("клиент назвал код мошенникам", "kb_113"),
+    ("вернуть комиссию за обслуживание", "kb_121"),
+    ("штраф за просрочку отменить", "kb_140"),
+    ("кредитные каникулы", "kb_130"),
+    ("акция промокод", "kb_150"),
+])
+def test_articles_are_found_by_natural_phrasing(env: Environment, query, expected):
+    """Статья обязана находиться теми словами, какими о проблеме говорит
+    клиент, а не только термином из её названия. Русские падежи сравниваются
+    по основе: без этого «оспорить операцию» не находило ничего, и задача
+    становилась не трудной, а сломанной."""
+    found = [c["id"] for c in env.tools.search_knowledge(query=query, limit=4)]
+    assert expected in found, f"{query!r} не находит {expected}: {found}"
