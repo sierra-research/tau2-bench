@@ -7,6 +7,20 @@
 
 export const SITE_ORIGIN = 'https://taubench.com'
 
+// τ^τ-bench (hyper-tau-bench) is a sibling benchmark with its own site and
+// leaderboard: coding harnesses building customer-service agents. Linked from
+// the nav's Leaderboards menu and the announcement banner.
+export const HYPER_TAU_URL = 'https://sierra-research.github.io/hyper-tau-bench/'
+
+// Entries of the nav's Leaderboards menu, in display order. In-site entries
+// carry an app path; the external entry carries an absolute href.
+export const LEADERBOARD_MENU = [
+  { key: 'knowledge', label: 'τ³-Banking', note: 'Text · knowledge retrieval', path: '/leaderboard?benchmark=knowledge' },
+  { key: 'voice', label: 'τ³-Voice', note: 'Real-time voice', path: '/leaderboard?benchmark=voice' },
+  { key: 'core', label: 'τ²-bench', note: 'Text · retail, airline, telecom', path: '/leaderboard?benchmark=core' },
+  { key: 'hyper', label: 'τ^τ-bench', note: 'Agent-building agents', href: HYPER_TAU_URL, badge: 'New' },
+]
+
 // path → view name. Multiple paths may map to the same view ('/progress' is
 // the leaderboard scrolled to the progress-over-time section).
 export const ROUTES = {

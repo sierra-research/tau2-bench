@@ -1,6 +1,7 @@
 // Routing + prerendering behavior tests. Run against the prerendered dist/
 // served with GitHub Pages semantics (see playwright.config.js).
 import { expect, test } from '@playwright/test'
+import { HYPER_TAU_URL, LEADERBOARD_MENU } from '../src/routes.js'
 
 // ---------------------------------------------------------------------------
 // Direct loads: every route serves a real page with its own title and content.
@@ -109,7 +110,8 @@ test('nav from /progress back to /leaderboard scrolls to top and keeps params', 
   // Wait for the auto-scroll down to the progress section to happen.
   await page.waitForFunction(() => window.scrollY > 0)
 
-  await page.getByRole('button', { name: 'Leaderboard' }).click()
+  await page.getByRole('button', { name: 'Leaderboards' }).click()
+  await page.getByRole('menuitem', { name: /τ³-Voice/ }).click()
   await expect(page).toHaveURL(/\/leaderboard\?benchmark=voice/)
   await page.waitForFunction(() => window.scrollY === 0)
   await expect(page.getByRole('heading', { name: 'τ³-Voice Leaderboard' })).toBeVisible()
@@ -117,13 +119,65 @@ test('nav from /progress back to /leaderboard scrolls to top and keeps params', 
 
 test('nav links update path and title', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Leaderboard' }).click()
-  await expect(page).toHaveURL(/\/leaderboard/)
+  await page.getByRole('button', { name: 'Leaderboards' }).click()
+  await page.getByRole('menuitem', { name: /τ³-Banking/ }).click()
+  await expect(page).toHaveURL(/\/leaderboard\?benchmark=knowledge/)
   await expect(page).toHaveTitle(/Leaderboard — τ-bench/)
 
   await page.getByRole('button', { name: 'Overview' }).click()
   await expect(page).toHaveURL(/\/(\?.*)?$/)
   await expect(page).toHaveTitle(/τ-bench — Benchmarking AI Agents/)
+})
+
+// ---------------------------------------------------------------------------
+// Leaderboards menu and the τ^τ-bench pointers.
+// ---------------------------------------------------------------------------
+
+test('Leaderboards menu lists every track and opens/closes', async ({ page }) => {
+  await page.goto('/')
+  const menu = page.getByRole('menu', { name: 'Leaderboards' })
+  await expect(menu).toBeHidden()
+
+  const trigger = page.getByRole('button', { name: 'Leaderboards' })
+  await trigger.click()
+  await expect(menu).toBeVisible()
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  await expect(menu.getByRole('menuitem')).toHaveCount(LEADERBOARD_MENU.length)
+  for (const item of LEADERBOARD_MENU) {
+    await expect(menu.getByRole('menuitem', { name: new RegExp(item.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) })).toBeVisible()
+  }
+
+  await page.keyboard.press('Escape')
+  await expect(menu).toBeHidden()
+
+  await trigger.click()
+  await page.locator('.hero-description').click()
+  await expect(menu).toBeHidden()
+})
+
+test('Leaderboards menu switches benchmark while already on the leaderboard', async ({ page }) => {
+  await page.goto('/leaderboard?benchmark=core')
+  await expect(page.getByRole('heading', { name: 'τ²-bench Leaderboard' })).toBeVisible()
+  await page.getByRole('button', { name: 'Leaderboards' }).click()
+  await page.getByRole('menuitem', { name: /τ³-Voice/ }).click()
+  await expect(page).toHaveURL(/\/leaderboard\?benchmark=voice/)
+  await expect(page.getByRole('heading', { name: 'τ³-Voice Leaderboard' })).toBeVisible()
+})
+
+test('τ^τ-bench entry opens the hyper-tau-bench site in a new tab', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Leaderboards' }).click()
+  const hyper = page.getByRole('menuitem', { name: /τ\^τ-bench/ })
+  await expect(hyper).toHaveAttribute('href', HYPER_TAU_URL)
+  await expect(hyper).toHaveAttribute('target', '_blank')
+  await expect(hyper).toContainText('New')
+})
+
+test('announcement banner points at τ^τ-bench', async ({ page }) => {
+  await page.goto('/')
+  const banner = page.locator('.update-notification')
+  await expect(banner).toContainText('-bench is here')
+  await expect(banner.locator('.notification-link')).toHaveAttribute('href', HYPER_TAU_URL)
 })
 
 // ---------------------------------------------------------------------------

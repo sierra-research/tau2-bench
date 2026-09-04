@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import { getViewFromPath, PAGE_META, SITE_ORIGIN, VIEW_PATHS } from './routes'
+import { getViewFromPath, HYPER_TAU_URL, LEADERBOARD_MENU, PAGE_META, SITE_ORIGIN, VIEW_PATHS } from './routes'
 import TrajectoryVisualizer from './components/TrajectoryVisualizer'
 import Leaderboard from './components/Leaderboard'
 import LeaderboardPreview from './components/LeaderboardPreview'
@@ -29,10 +29,28 @@ const applyPageMeta = (view) => {
   setHeadContent('meta[name="twitter:description"]', 'content', meta.description)
 }
 
+// Benchmark names use a caret for a superscript in plain text ("τ^τ-bench");
+// render it as one. Menu data stays JSX-free so the prerender script can
+// import it.
+const renderBenchName = (label) => {
+  const caret = label.indexOf('^')
+  if (caret === -1) return label
+  const rest = label.slice(caret + 1)
+  const supEnd = rest.search(/[^a-zA-Zα-ωΑ-Ω0-9]/)
+  const sup = supEnd === -1 ? rest : rest.slice(0, supEnd)
+  const tail = supEnd === -1 ? '' : rest.slice(supEnd)
+  return (
+    <>
+      {label.slice(0, caret)}<sup>{sup}</sup>{tail}
+    </>
+  )
+}
+
 function App() {
 
   const [currentView, setCurrentView] = useState(() => getViewFromPath(window.location.pathname))
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [leaderboardsOpen, setLeaderboardsOpen] = useState(false)
 
   // Handle navigation with URL updates
   const navigateTo = (view) => {
@@ -60,7 +78,12 @@ function App() {
   const navigateToUrl = (url) => {
     window.history.pushState(null, '', url)
     setCurrentView(getViewFromPath(new URL(url, window.location.origin).pathname))
+    // Views that keep state in the query string (the leaderboard's
+    // ?benchmark=…) re-read it on popstate; fire one so switching benchmarks
+    // from the nav menu works while that view is already mounted.
+    window.dispatchEvent(new PopStateEvent('popstate'))
     setMobileMenuOpen(false)
+    setLeaderboardsOpen(false)
     window.scrollTo(0, 0)
   }
 
@@ -102,16 +125,23 @@ function App() {
       scrollToSectionForPath(window.location.pathname)
     }
 
-    // Close mobile menu when clicking outside
+    // Close mobile menu when clicking outside; same for the Leaderboards menu.
     const handleClickOutside = (event) => {
       if (mobileMenuOpen && !event.target.closest('.nav-container')) {
         setMobileMenuOpen(false)
       }
+      if (leaderboardsOpen && !event.target.closest('.nav-dropdown')) {
+        setLeaderboardsOpen(false)
+      }
+    }
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setLeaderboardsOpen(false)
     }
 
     // Listen to events
     window.addEventListener('popstate', handlePopState)
     document.addEventListener('click', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
 
     // Honor an initial deep-link like /progress on first paint.
     scrollToSectionForPath(window.location.pathname)
@@ -119,8 +149,9 @@ function App() {
     return () => {
       window.removeEventListener('popstate', handlePopState)
       document.removeEventListener('click', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [mobileMenuOpen])
+  }, [mobileMenuOpen, leaderboardsOpen])
 
   return (
     <div className="App">
@@ -144,7 +175,54 @@ function App() {
           </button>
           <div className={`nav-links ${mobileMenuOpen ? '' : 'mobile-hidden'}`}>
             <button onClick={() => navigateTo('home')} className={`nav-link ${currentView === 'home' ? 'active' : ''}`}>Overview</button>
-            <button onClick={() => navigateTo('leaderboard')} className={`nav-link ${currentView === 'leaderboard' ? 'active' : ''}`}>Leaderboard</button>
+            <div className={`nav-dropdown ${leaderboardsOpen ? 'open' : ''}`}>
+              <button
+                type="button"
+                onClick={() => setLeaderboardsOpen((open) => !open)}
+                className={`nav-link nav-dropdown-trigger ${currentView === 'leaderboard' ? 'active' : ''}`}
+                aria-haspopup="menu"
+                aria-expanded={leaderboardsOpen}
+              >
+                Leaderboards
+                <span className="nav-dropdown-chevron" aria-hidden="true" />
+              </button>
+              <div className="nav-dropdown-menu" role="menu" aria-label="Leaderboards">
+                {LEADERBOARD_MENU.map((item) =>
+                  item.href ? (
+                    <a
+                      key={item.key}
+                      role="menuitem"
+                      className="nav-dropdown-item external"
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={item.label}
+                      onClick={() => { setLeaderboardsOpen(false); setMobileMenuOpen(false) }}
+                    >
+                      <span className="nav-dropdown-item-label">
+                        <span className="nav-dropdown-item-name">{renderBenchName(item.label)}</span>
+                        {item.badge && <span className="nav-dropdown-badge">{item.badge}</span>}
+                        <span className="nav-dropdown-external" aria-hidden="true">↗</span>
+                      </span>
+                      <span className="nav-dropdown-item-note">{item.note}</span>
+                    </a>
+                  ) : (
+                    <button
+                      key={item.key}
+                      type="button"
+                      role="menuitem"
+                      className="nav-dropdown-item"
+                      onClick={() => navigateToUrl(item.path)}
+                    >
+                      <span className="nav-dropdown-item-label">
+                        <span className="nav-dropdown-item-name">{renderBenchName(item.label)}</span>
+                      </span>
+                      <span className="nav-dropdown-item-note">{item.note}</span>
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
             <button onClick={() => navigateTo('trajectory-visualizer')} className={`nav-link ${currentView === 'trajectory-visualizer' ? 'active' : ''}`}>Visualizer</button>
             <button onClick={() => navigateTo('blog')} className={`nav-link ${currentView === 'blog' ? 'active' : ''}`}>Blog</button>
             <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)}>GitHub</a>
@@ -158,10 +236,8 @@ function App() {
         <div className="notification-container">
           <span className="notification-badge">NEW</span>
           <span className="notification-text">
-            τ³-bench is here: <a href={`${import.meta.env.BASE_URL}blog/tau-knowledge.html`} className="notification-link"><strong>τ-knowledge</strong></a> evaluates
-            agents on knowledge-intensive tasks, and{' '}
-            <a href="https://sierra.ai/blog/tau-voice-benchmarking-real-time-voice-agents-on-real-world-tasks" className="notification-link"><strong>τ-voice</strong></a> benchmarks
-            real-time voice agents.
+            τ<sup>τ</sup>-bench is here: can coding agents <em>build</em> the customer-service agents τ-bench evaluates?{' '}
+            <a href={HYPER_TAU_URL} className="notification-link" target="_blank" rel="noopener noreferrer"><strong>Explore the τ<sup>τ</sup>-bench leaderboard →</strong></a>
           </span>
         </div>
       </div>
