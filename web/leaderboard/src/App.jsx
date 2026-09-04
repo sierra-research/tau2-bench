@@ -122,6 +122,7 @@ function App() {
   useEffect(() => {
     const handlePopState = () => {
       setCurrentView(getViewFromPath(window.location.pathname))
+      setLeaderboardsOpen(false)
       scrollToSectionForPath(window.location.pathname)
     }
 

@@ -155,6 +155,21 @@ test('Leaderboards menu lists every track and opens/closes', async ({ page }) =>
   await expect(menu).toBeHidden()
 })
 
+test('Leaderboards menu closes on browser back/forward', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Leaderboards' }).click()
+  await page.getByRole('menuitem', { name: /τ³-Voice/ }).click()
+  await expect(page).toHaveURL(/\/leaderboard\?benchmark=voice/)
+
+  const trigger = page.getByRole('button', { name: 'Leaderboards' })
+  await trigger.click()
+  await expect(page.getByRole('menu', { name: 'Leaderboards' })).toBeVisible()
+  await page.goBack()
+  await expect(page).toHaveURL(/\/(\?.*)?$/)
+  await expect(page.getByRole('menu', { name: 'Leaderboards' })).toBeHidden()
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+})
+
 test('Leaderboards menu switches benchmark while already on the leaderboard', async ({ page }) => {
   await page.goto('/leaderboard?benchmark=core')
   await expect(page.getByRole('heading', { name: 'τ²-bench Leaderboard' })).toBeVisible()
