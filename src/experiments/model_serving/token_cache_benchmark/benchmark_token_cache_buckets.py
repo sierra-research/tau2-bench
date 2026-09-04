@@ -24,7 +24,7 @@ from urllib.parse import urlsplit, urlunsplit
 import aiohttp
 from transformers import AutoTokenizer
 
-DEFAULT_BUCKETS = "4096,6144,8192,10240,12288,16384"
+DEFAULT_BUCKETS = "4096,6144,8192,10240,12288,16384,20480,24576,28672"
 DEFAULT_SYSTEM_TOKENS = "2048,4096"
 DEFAULT_CONCURRENCY = "8,16,32,48,64"
 DEFAULT_OUTPUT = "token_cache_benchmark_results.json"
@@ -1875,7 +1875,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-turns-per-user",
         type=int,
-        default=80,
+        default=320,
         help="Maximum request attempts per virtual user.",
     )
     parser.add_argument(

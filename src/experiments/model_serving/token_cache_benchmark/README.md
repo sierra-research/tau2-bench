@@ -33,6 +33,11 @@ The benchmark uses closed-loop concurrency: it sends one wave of concurrent
 requests, waits for the whole wave to finish, and then sends the next wave. It is
 not a fixed-QPS load generator.
 
+The default prompt thresholds extend through 28K tokens, including 20K, 24K, and
+28K tiers. `MAX_PROMPT_TOKENS=32256` leaves room to finish sampling the final tier,
+and the 320-turn safety cap lets closed-loop histories grow far enough to reach it.
+Collection still stops as soon as every reachable bucket has enough samples.
+
 ## Setup
 
 ```bash

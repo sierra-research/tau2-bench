@@ -287,6 +287,42 @@ def source_and_helper_checks(module: Any) -> None:
     assert "--first-token-timeout" not in source
     assert "first_token_timeout_s" not in source
 
+    default_buckets = module.parse_int_list(module.DEFAULT_BUCKETS)
+    assert default_buckets[-3:] == [20480, 24576, 28672]
+    parser = module.build_parser()
+    assert default_buckets[-1] < parser.get_default("max_prompt_tokens")
+
+    max_turns = parser.get_default("max_turns_per_user")
+    assert max_turns == 320
+    tokenizer = FakeTokenizer()
+    messages = [
+        {
+            "role": "system",
+            "content": module.build_system_prompt(
+                tokenizer,
+                4500,
+                "shared_system",
+            ),
+        }
+    ]
+    rng = module.random.Random(19)
+    assistant_content = " ".join(["acknowledged"] * 64)
+    for turn_index in range(1, max_turns + 1):
+        messages.extend(
+            [
+                {
+                    "role": "user",
+                    "content": module.build_natural_user_message(
+                        "reachability-check",
+                        turn_index,
+                        rng,
+                    ),
+                },
+                {"role": "assistant", "content": assistant_content},
+            ]
+        )
+    assert module.count_prompt_tokens(tokenizer, messages) > default_buckets[-1]
+
     normalize = getattr(module, "build_chat_completions_url", None)
     assert callable(normalize), "missing build_chat_completions_url(base_or_endpoint)"
     cases = {
@@ -681,6 +717,7 @@ async def main() -> None:
     print("PASS circuit breaker: one all-failed HTTP 503 wave stops the cell")
     print("PASS early EOF: partial streams are failures, not completed responses")
     print("PASS bucket validation: thresholds are unique, increasing, and above 2k")
+    print("PASS default buckets: 20K, 24K, and 28K tiers are enabled")
     print("PASS slow TTFT: responses beyond three seconds are measured")
     print("PASS total timeout: complete request deadline remains enforced")
     print("PASS fatal HTTP: authorization failure aborts after one request")
