@@ -802,6 +802,26 @@ def run_tasks(
                     except Exception:
                         pass
 
+            trajectory_id = os.environ.get("TRAJECTORY_ID")
+            if trajectory_id:
+                from trajectory import Client
+
+                trajectories = Client().trajectories
+                trajectories.log_event(
+                    trajectory_id,
+                    event_id=result.id,
+                    name="tau2.simulation.completed",
+                    payload=result.model_dump(mode="json"),
+                )
+                if result.reward_info is not None:
+                    trajectories.log_reward(
+                        trajectory_id,
+                        reward_id=result.id,
+                        name="tau2.reward",
+                        value=result.reward_info.reward,
+                    )
+                trajectories.complete(trajectory_id)
+
             return result
         finally:
             monitor.task_finished(task_key)
