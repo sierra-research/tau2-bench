@@ -36,10 +36,11 @@ not a fixed-QPS load generator.
 ## Setup
 
 ```bash
+cd /path/to/tau2-bench
+cp src/experiments/model_serving/token_cache_benchmark/.env.example .env
+# Edit TOKENIZER_PATH, BASE_URL, and MODEL_NAME in the repository-level .env.
+# For a hosted endpoint, also set its API key and usually DISABLE_METRICS=1.
 cd src/experiments/model_serving/token_cache_benchmark
-cp .env.example .env
-# Edit TOKENIZER_PATH, BASE_URL, and MODEL_NAME in .env. For a hosted endpoint,
-# also set BENCHMARK_API_KEY and usually DISABLE_METRICS=1.
 uv sync
 ```
 
@@ -64,7 +65,9 @@ The client appends `/v1/chat/completions` to a server root, appends
 For authentication, `API_KEY_ENV` names the environment variable that contains the
 Bearer token. Its default is `BENCHMARK_API_KEY`. The secret value is used only to
 construct the request header; it is never written to the report. Keep real secrets
-in the ignored `.env` file or in the process environment, never in `.env.example`.
+in the ignored repository-level `.env` file or in the process environment, never
+in `.env.example`. Set `ENV_FILE=/path/to/another.env` only when an explicit
+override is required.
 
 `REQUEST_EXTRA_JSON` can add provider-specific request fields. It must be a JSON
 object. For example, OpenRouter users can pass `provider` preferences or disable
@@ -100,9 +103,9 @@ network label, seed, output limit, metrics state, and source commit. Cell warnin
 and up to 20 request errors are included inline; full detail remains in JSON.
 
 That directory is ignored by the repository. The settings listed in `.env.example`
-can be overridden through `.env` or environment variables. Other parser options,
-such as `--seed` and `--conversation-pool-size`, can be appended to
-`run_benchmark.sh`; appended command-line arguments take precedence.
+can be overridden through the repository-level `.env` or environment variables.
+Other parser options, such as `--seed` and `--conversation-pool-size`, can be
+appended to `run_benchmark.sh`; appended command-line arguments take precedence.
 
 Custom tokenizer code is disabled by default. Enable `TRUST_REMOTE_CODE=1` only for
 a tokenizer repository you trust and only when the standard Transformers tokenizer

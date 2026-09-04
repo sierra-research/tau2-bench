@@ -3,7 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="${ENV_FILE:-$SCRIPT_DIR/.env}"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+ENV_FILE="${ENV_FILE:-$REPO_ROOT/.env}"
 
 if [[ -f "$ENV_FILE" ]]; then
   set -a
@@ -46,7 +47,6 @@ MAX_OUTPUT_TOKENS="${MAX_OUTPUT_TOKENS:-64}"
 MAX_CONSECUTIVE_FAILED_WAVES="${MAX_CONSECUTIVE_FAILED_WAVES:-3}"
 
 RUN_ID="$(date +%Y%m%d_%H%M%S)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 OUTPUT_DIR="${OUTPUT_DIR:-$REPO_ROOT/data/exp/token_cache_benchmark/$RUN_ID}"
 OUTPUT_FILE="${OUTPUT_FILE:-results.json}"
 mkdir -p "$OUTPUT_DIR"
