@@ -10,6 +10,8 @@ from tau2.config import (
     DEFAULT_LLM_AGENT,
     DEFAULT_LLM_EVAL_USER_SIMULATOR,
     DEFAULT_LLM_LOG_MODE,
+    DEFAULT_LLM_NL_ASSERTIONS,
+    DEFAULT_LLM_NL_ASSERTIONS_ARGS,
     DEFAULT_LLM_TEMPERATURE_AGENT,
     DEFAULT_LLM_TEMPERATURE_USER,
     DEFAULT_LLM_USER,
@@ -101,6 +103,18 @@ def add_run_args(parser):
         type=json.loads,
         default={"temperature": DEFAULT_LLM_TEMPERATURE_USER},
         help=f"The arguments to pass to the LLM for the user. Default is '{{\"temperature\": {DEFAULT_LLM_TEMPERATURE_USER}}}'.",
+    )
+    parser.add_argument(
+        "--judge-llm",
+        type=str,
+        default=DEFAULT_LLM_NL_ASSERTIONS,
+        help=f"The LLM to use as the judge for natural-language assertions. Default is {DEFAULT_LLM_NL_ASSERTIONS}.",
+    )
+    parser.add_argument(
+        "--judge-llm-args",
+        type=json.loads,
+        default=dict(DEFAULT_LLM_NL_ASSERTIONS_ARGS),
+        help=f"The arguments to pass to the judge LLM for natural-language assertions. Default is '{json.dumps(DEFAULT_LLM_NL_ASSERTIONS_ARGS)}'.",
     )
     parser.add_argument(
         "--task-set-name",
@@ -660,6 +674,8 @@ def main():
             num_tasks=args.num_tasks,
             llm_user=args.user_llm,
             llm_args_user=args.user_llm_args,
+            judge_llm=args.judge_llm,
+            judge_llm_args=args.judge_llm_args,
             num_trials=args.num_trials,
             max_errors=args.max_errors,
             timeout=args.timeout,
@@ -827,6 +843,12 @@ def main():
         "--fresh-tasks",
         action="store_true",
         help="Re-grade against the current task definitions from the data directory instead of the ones embedded in each results file.",
+    )
+    evaluate_parser.add_argument(
+        "--judge-llm",
+        type=str,
+        default=None,
+        help=f"The LLM to use as the judge for natural-language assertions. Default is {DEFAULT_LLM_NL_ASSERTIONS}.",
     )
     evaluate_parser.set_defaults(func=lambda args: run_evaluate_trajectories(args))
 
@@ -1095,7 +1117,10 @@ def run_evaluate_trajectories(args):
     logger.configure(handlers=[{"sink": sys.stderr, "level": "ERROR"}])
 
     evaluate_trajectories(
-        args.paths, args.output_dir, fresh_tasks=getattr(args, "fresh_tasks", False)
+        args.paths,
+        args.output_dir,
+        fresh_tasks=getattr(args, "fresh_tasks", False),
+        judge_llm=getattr(args, "judge_llm", None),
     )
 
 
