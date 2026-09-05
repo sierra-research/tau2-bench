@@ -8,6 +8,7 @@ import traceback
 import uuid
 from typing import Callable, Optional
 
+import litellm
 from loguru import logger
 
 from tau2.data_model.simulation import Results, SimulationRun, TerminationReason
@@ -32,7 +33,9 @@ def run_with_retry(
     """Run a simulation function with retry logic.
 
     Retries on any exception. If all retries are exhausted, returns a failed
-    SimulationRun with INFRASTRUCTURE_ERROR instead of raising.
+    SimulationRun with INFRASTRUCTURE_ERROR instead of raising. A
+    ContextWindowExceededError is deterministic, so it is not retried and is
+    surfaced with the CONTEXT_WINDOW_EXCEEDED reason.
 
     Args:
         run_fn: A callable that produces a SimulationRun.
@@ -93,6 +96,12 @@ def run_with_retry(
             last_exception = e
             last_error_reason = str(e)
             last_traceback = traceback.format_exc()
+            # A context-window-exceeded error is deterministic: retrying the
+            # same task hits the same limit, so stop now instead of burning
+            # retries, and surface it with its own termination reason.
+            if isinstance(e, litellm.ContextWindowExceededError):
+                logger.error(f"Task {task.id} exceeded the context window: {e}")
+                break
             if attempt < max_attempts - 1:
                 logger.warning(
                     f"Task {task.id} failed (attempt {attempt + 1}/{max_attempts}): {e}"
@@ -102,11 +111,21 @@ def run_with_retry(
                     f"Task {task.id} failed after {max_attempts} attempts: {e}"
                 )
 
-    # All retries exhausted
-    error_text = Text(
-        text=f"  Task {task.id} failed permanently after {max_attempts} attempts: {last_error_reason}",
-        style="bold red",
-    )
+    # Retries exhausted (or stopped early for a deterministic failure)
+    if isinstance(last_exception, litellm.ContextWindowExceededError):
+        termination_reason = TerminationReason.CONTEXT_WINDOW_EXCEEDED
+        attempts_made = attempt + 1
+        error_text = Text(
+            text=f"  Task {task.id} terminated after {attempts_made} attempt(s): context window exceeded (not retried)",
+            style="bold red",
+        )
+    else:
+        termination_reason = TerminationReason.INFRASTRUCTURE_ERROR
+        attempts_made = max_attempts
+        error_text = Text(
+            text=f"  Task {task.id} failed permanently after {max_attempts} attempts: {last_error_reason}",
+            style="bold red",
+        )
     ConsoleDisplay.console.print(error_text)
 
     now = get_now()
@@ -117,7 +136,7 @@ def run_with_retry(
         start_time=now,
         end_time=now,
         duration=0.0,
-        termination_reason=TerminationReason.INFRASTRUCTURE_ERROR,
+        termination_reason=termination_reason,
         messages=[],
         trial=trial,
         seed=seed,
@@ -125,7 +144,7 @@ def run_with_retry(
             "error": str(last_exception),
             "error_type": type(last_exception).__name__,
             "error_traceback": last_traceback,
-            "failed_after_attempts": max_attempts,
+            "failed_after_attempts": attempts_made,
         },
     )
     if save_fn:
