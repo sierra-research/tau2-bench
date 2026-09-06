@@ -46,7 +46,7 @@ Note: `*_reranker` variants always require `OPENAI_API_KEY` for the pointwise LL
 
 ## Embedding Cache
 
-Embedding-based configs (`openai_embeddings*`, `qwen_embeddings*`, `alltools`, `alltools-qwen`) cache document embeddings on disk at `data/.embeddings_cache` (gitignored). This avoids re-computing embeddings on repeated runs. The cache is automatically invalidated when document content changes.
+Embedding-based configs (`openai_embeddings*`, `qwen_embeddings*`, `orcarouter_embeddings*`, `alltools`, `alltools-qwen`, `alltools-orcarouter`) cache document embeddings on disk at `data/.embeddings_cache` (gitignored). This avoids re-computing embeddings on repeated runs. The cache is automatically invalidated when document content changes.
 
 ## Additional Setup
 
@@ -54,9 +54,13 @@ Embedding-based configs (`openai_embeddings*`, `qwen_embeddings*`, `alltools`, `
 
 The `qwen_embeddings*` and `alltools-qwen` configs route through [OpenRouter](https://openrouter.ai/). Set the `OPENROUTER_API_KEY` environment variable (or add it to your `.env` file — see `.env.example`).
 
+### OrcaRouter API Key
+
+The `orcarouter_embeddings*` and `alltools-orcarouter` configs route through [OrcaRouter](https://www.orcarouter.ai/), an OpenAI-compatible gateway that exposes embedding models (e.g. `openai/text-embedding-3-small`) behind a single key. Set the `ORCAROUTER_API_KEY` environment variable (or add it to your `.env` file — see `.env.example`).
+
 ### sandbox-runtime
 
-The `terminal_use`, `terminal_use_write`, `alltools`, and `alltools-qwen` configs require [Anthropic's sandbox-runtime](https://github.com/anthropic-experimental/sandbox-runtime) for secure filesystem isolation. **All of the following are required** — installing just the npm package is not sufficient.
+The `terminal_use`, `terminal_use_write`, `alltools`, `alltools-qwen`, and `alltools-orcarouter` configs require [Anthropic's sandbox-runtime](https://github.com/anthropic-experimental/sandbox-runtime) for secure filesystem isolation. **All of the following are required** — installing just the npm package is not sufficient.
 
 ```bash
 npm install -g @anthropic-ai/sandbox-runtime@0.0.23
