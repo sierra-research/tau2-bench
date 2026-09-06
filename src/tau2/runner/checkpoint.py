@@ -14,8 +14,9 @@ import json
 import multiprocessing
 import os
 import tempfile
+import threading
 from pathlib import Path
-from typing import Callable, Literal, Optional
+from typing import Callable, Literal, Optional, Union
 
 from loguru import logger
 
@@ -226,7 +227,7 @@ def try_resume(
 
 def create_checkpoint_fns(
     save_path: Optional[Path],
-    lock: multiprocessing.Lock,
+    lock: threading.Lock,
 ) -> tuple[Callable, Callable]:
     """Create thread-safe checkpoint save and replace functions.
 
@@ -236,7 +237,7 @@ def create_checkpoint_fns(
 
     Args:
         save_path: Path to the results JSON file. If None, returns no-ops.
-        lock: Multiprocessing lock for thread safety.
+        lock: Threading lock for thread safety.
 
     Returns:
         Tuple of (save_fn, replace_fn).
@@ -412,7 +413,7 @@ def create_checkpoint_fns(
 # Backward-compatible wrappers (used by external code or older call sites)
 def create_checkpoint_saver(
     save_path: Optional[Path],
-    lock: multiprocessing.Lock,
+    lock: Union[threading.Lock, multiprocessing.Lock],
 ) -> Callable:
     """Create a thread-safe checkpoint save function.
 
@@ -424,7 +425,7 @@ def create_checkpoint_saver(
 
 def create_checkpoint_replacer(
     save_path: Optional[Path],
-    lock: multiprocessing.Lock,
+    lock: Union[threading.Lock, multiprocessing.Lock],
 ) -> Callable:
     """Create a thread-safe checkpoint replace function.
 
