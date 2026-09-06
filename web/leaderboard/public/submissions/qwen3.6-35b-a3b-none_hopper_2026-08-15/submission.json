@@ -1,0 +1,59 @@
+{
+  "model_name": "Qwen3.6-35B-A3B",
+  "model_organization": "Alibaba",
+  "submitting_organization": "Hopper",
+  "submission_date": "2026-08-15",
+  "submission_type": "standard",
+  "modality": "text",
+  "reasoning_effort": "none",
+  "contact_info": {
+    "email": "pavan@withhopper.com",
+    "name": "Pavan Katta",
+    "github": "pavanyellow"
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "telecom": "qwen3.6-35b-a3b_none_telecom_gpt-5.2_4trials.json",
+    "airline": "qwen3.6-35b-a3b_none_airline_gpt-5.2_4trials.json"
+  },
+  "references": [
+    {
+      "title": "Hopper — fast inference for voice agents",
+      "url": "https://withhopper.com",
+      "type": "other"
+    }
+  ],
+  "results": {
+    "telecom": {
+      "pass_1": 97.36842105263158,
+      "pass_2": 94.73684210526315,
+      "pass_3": 92.10526315789473,
+      "pass_4": 89.47368421052632,
+      "cost": null
+    },
+    "airline": {
+      "pass_1": 76.0,
+      "pass_2": 67.0,
+      "pass_3": 60.0,
+      "pass_4": 54.0,
+      "cost": null
+    }
+  },
+  "model_release": {
+    "release_date": "2026-04-16",
+    "announcement_url": "https://qwen.ai/blog?id=qwen3.6-35b-a3b",
+    "announcement_title": "Qwen3.6-35B-A3B: Agentic Coding Power, Now Open to All"
+  },
+  "methodology": {
+    "evaluation_date": "2026-08-15",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "gpt-5.2",
+    "notes": "Agent: openai/qwen/qwen3.6-35b-a3b served via OpenRouter, pinned to six fp8 providers (DeepInfra, Parasail, AtlasCloud, Venice, AkashML, Io Net) with allow_fallbacks: false and require_parameters: true. Reasoning DISABLED for the agent (reasoning: {enabled: false}); verified at request level that no reasoning tokens were produced (empty usage.reasoning_tokens, no reasoning content). Agent temperature 0. User simulator: gpt-5.2 with reasoning_effort: low. 4 trials, seed 300 (tau2 default), max-steps 200, max-errors 10 (defaults). Telecom: all 456 simulations terminated naturally (user_stop); zero infrastructure errors, zero too_many_errors. Airline: 199/200 user_stop, 1 max_steps; zero infrastructure errors. We evaluate the non-thinking condition because our focus is voice agents, where reasoning latency is not viable in production.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "Standard tau2-bench scaffold, default prompts, all tasks on the base split. One infrastructure-only local change: raised the hardcoded httpx connection-pool limit in llm_utils.py to support high --max-concurrency (no effect on prompts, tasks, or scoring)."
+    }
+  }
+}
