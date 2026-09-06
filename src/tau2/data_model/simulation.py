@@ -50,7 +50,7 @@ from tau2.config import (
     DEFAULT_YIELD_THRESHOLD_WHEN_INTERRUPTING_SECONDS,
 )
 from tau2.data_model.audio_effects import EffectTimeline
-from tau2.data_model.message import Message, Tick
+from tau2.data_model.message import Message, Tick, ToolCall
 from tau2.data_model.persona import PersonaConfig
 from tau2.data_model.tasks import Action, EnvAssertion, RewardType, Task
 from tau2.data_model.usage import SessionUsage
@@ -749,6 +749,20 @@ class EnvAssertionCheck(BaseModel):
     reward: float
 
 
+class ReplayedAction(BaseModel):
+    """A tool call that was executed while reconstructing evaluator state.
+
+    ``source`` distinguishes calls recovered from the candidate trajectory from
+    the reference actions used to build the target state.  This is diagnostic
+    provenance only; it does not change how rewards are computed.
+    """
+
+    source: Literal["trajectory", "reference"] = Field(
+        description="Where the replayed tool call came from."
+    )
+    tool_call: ToolCall = Field(description="The tool call executed during replay.")
+
+
 # =============================================================================
 # Review Data Models (for LLM-based conversation review)
 # =============================================================================
@@ -1115,6 +1129,34 @@ class RewardInfo(BaseModel):
     info: Annotated[
         Optional[dict],
         Field(description="Additional information about the reward.", default=None),
+    ]
+    evaluation_mode: Annotated[
+        Optional[Literal["live", "replay"]],
+        Field(
+            description="Whether the evaluated candidate state was live or replayed.",
+            default=None,
+        ),
+    ]
+    state_source: Annotated[
+        Optional[Literal["live", "replayed"]],
+        Field(
+            description="Source of the candidate state used for evaluation.",
+            default=None,
+        ),
+    ]
+    replayed_actions: Annotated[
+        list[ReplayedAction],
+        Field(
+            description="Tool calls executed while reconstructing evaluator state.",
+            default_factory=list,
+        ),
+    ]
+    warnings: Annotated[
+        list[str],
+        Field(
+            description="Warnings about evaluation provenance or replay fidelity.",
+            default_factory=list,
+        ),
     ]
 
     @property
