@@ -200,3 +200,28 @@ def test_protocol_archive_contains_only_observed_workflows() -> None:
     assert (validated["task_passes"], validated["observations"]) == (222, 270)
     assert (validated["field_passes"], validated["fields"]) == (544, 630)
     assert artifact["source_gaps"] == []
+
+
+def test_same_vs_crossed_pass3_ledger_reproduces_paper_claim() -> None:
+    root = Path(__file__).resolve().parents[2]
+    artifact = json.loads(
+        (
+            root / "papers/tau-intake/v1/reproduction/analysis_inputs/"
+            "pass3_same_vs_crossed.json"
+        ).read_text()
+    )
+    assert artifact["schema_version"] == "tau-elicit-same-vs-crossed-pass3-v1"
+    assert artifact["same_environment"] == {
+        "passes": 103,
+        "total": 200,
+        "rate": 0.515,
+    }
+    assert artifact["crossed_environment"] == {
+        "passes": 77,
+        "total": 200,
+        "rate": 0.385,
+    }
+    assert artifact["difference_points"] == -13.0
+    assert len(artifact["rows"]) == 200
+    assert sum(row["same_environment_pass3"] for row in artifact["rows"]) == 103
+    assert sum(row["crossed_environment_pass3"] for row in artifact["rows"]) == 77

@@ -25,6 +25,7 @@ RELEASE_VERSION = "tau-elicit-review-release-v1"
 TRANSCRIPT_VERSION = "tau-elicit-compact-transcript-v1"
 EXAMPLE_SELECTION_VERSION = "tau-elicit-examples-v1"
 ONE_FIELD_REFERENCE_VERSION = "tau-elicit-matched-one-field-v1"
+PASS3_COMPARISON_VERSION = "tau-elicit-same-vs-crossed-pass3-v1"
 DETACHED_EVIDENCE_URL = (
     "https://drive.google.com/drive/folders/"
     "1GAuTs3Naog5irE4J4MwILMTpFyJz-2dm?usp=sharing"
@@ -212,6 +213,67 @@ class OneFieldMatchedSlot(BaseModel):
     tier: str
     field_name: str
     source_outcomes: list[OneFieldSourceOutcome]
+
+
+class Pass3Source(BaseModel):
+    """One selected realization in the same-versus-crossed comparison."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    condition: str
+    source_cell: str
+    trial: int
+    transcript_file: str
+    transcript_sha256: str
+
+
+class Pass3Observation(BaseModel):
+    """One task outcome linked to a selected realization."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_key: str
+    simulation_id: str
+    source_simulation_sha256: str
+    reward: float
+
+
+class Pass3TaskRow(BaseModel):
+    """Task-level outcomes for both Pass3 realization designs."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    task_id: str
+    same_environment: list[Pass3Observation]
+    same_environment_pass3: bool
+    crossed_environment: list[Pass3Observation]
+    crossed_environment_pass3: bool
+
+
+class Pass3Summary(BaseModel):
+    """Aggregate Pass3 result for one realization design."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    passes: int
+    total: int
+    rate: float
+
+
+class Pass3Comparison(BaseModel):
+    """Machine-readable same-environment versus crossed Pass3 evidence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str = PASS3_COMPARISON_VERSION
+    metric_definition: str
+    system: str
+    sources: list[Pass3Source]
+    same_environment: Pass3Summary
+    crossed_environment: Pass3Summary
+    difference_points: float
+    rows: list[Pass3TaskRow]
 
 
 class ReleaseManifest(BaseModel):
@@ -1242,6 +1304,133 @@ def _transcript_outcomes(
     return result
 
 
+def _export_same_vs_crossed_pass3(
+    out: Path, cells: list[ResultCell]
+) -> Pass3Comparison:
+    """Build the task-level ledger behind the paper's Pass3 comparison."""
+    by_path = {cell.results_path: cell for cell in cells}
+    source_specs = (
+        (
+            "regular_main",
+            "regular",
+            "main_runs/intake_m_openai_xhigh_regular/results.json",
+            0,
+        ),
+        (
+            "regular_repeat_2",
+            "regular",
+            "main_runs/intake_passk_xhigh_regular/results.json",
+            0,
+        ),
+        (
+            "regular_repeat_3",
+            "regular",
+            "main_runs/intake_passk_xhigh_regular/results.json",
+            1,
+        ),
+        (
+            "noise_heavy",
+            "noise_heavy",
+            "ablations/scaffolded/modea_openai_xhigh_chanheavy_2026-09-02/results.json",
+            0,
+        ),
+        (
+            "speech_heavy",
+            "speech_heavy",
+            "main_runs/intake_m_openai_xhigh_chanlight_speechheavy/results.json",
+            0,
+        ),
+    )
+    sources: list[Pass3Source] = []
+    outcomes: dict[str, dict[tuple[str, int], OneFieldSourceOutcome]] = {}
+    for key, condition, path, trial in source_specs:
+        cell = by_path[path]
+        if path not in outcomes:
+            outcomes[path] = _transcript_outcomes(out, cell)
+        sources.append(
+            Pass3Source(
+                key=key,
+                condition=condition,
+                source_cell=path,
+                trial=trial,
+                transcript_file=cell.transcript_file,
+                transcript_sha256=cell.transcript_sha256,
+            )
+        )
+
+    task_sets = [
+        {
+            task_id
+            for task_id, current_trial in outcomes[source.source_cell]
+            if current_trial == source.trial
+        }
+        for source in sources
+    ]
+    if len({frozenset(task_ids) for task_ids in task_sets}) != 1:
+        raise ValueError("Same-versus-crossed Pass3 task sets are not aligned")
+    task_ids = sorted(task_sets[0])
+    if len(task_ids) != 200:
+        raise ValueError(f"Expected 200 Pass3 tasks, found {len(task_ids)}")
+
+    def observation(source: Pass3Source, task_id: str) -> Pass3Observation:
+        outcome = outcomes[source.source_cell][(task_id, source.trial)]
+        return Pass3Observation(
+            source_key=source.key,
+            simulation_id=outcome.simulation_id,
+            source_simulation_sha256=outcome.source_simulation_sha256,
+            reward=outcome.reward,
+        )
+
+    source_by_key = {source.key: source for source in sources}
+    same_keys = ("regular_main", "regular_repeat_2", "regular_repeat_3")
+    crossed_keys = ("regular_main", "noise_heavy", "speech_heavy")
+    rows: list[Pass3TaskRow] = []
+    for task_id in task_ids:
+        same = [observation(source_by_key[key], task_id) for key in same_keys]
+        crossed = [observation(source_by_key[key], task_id) for key in crossed_keys]
+        rows.append(
+            Pass3TaskRow(
+                task_id=task_id,
+                same_environment=same,
+                same_environment_pass3=all(row.reward == 1.0 for row in same),
+                crossed_environment=crossed,
+                crossed_environment_pass3=all(row.reward == 1.0 for row in crossed),
+            )
+        )
+
+    same_passes = sum(row.same_environment_pass3 for row in rows)
+    crossed_passes = sum(row.crossed_environment_pass3 for row in rows)
+    same = Pass3Summary(
+        passes=same_passes,
+        total=len(rows),
+        rate=same_passes / len(rows),
+    )
+    crossed = Pass3Summary(
+        passes=crossed_passes,
+        total=len(rows),
+        rate=crossed_passes / len(rows),
+    )
+    document = Pass3Comparison(
+        metric_definition=(
+            "A task passes only when all three selected realizations receive reward "
+            "1. Same-environment uses three regular-condition GPT-xhigh scaffolded "
+            "runs; crossed-environment uses regular, noise-heavy, and speech-heavy "
+            "GPT-xhigh scaffolded runs for the same 200 tasks."
+        ),
+        system="gpt_xhigh",
+        sources=sources,
+        same_environment=same,
+        crossed_environment=crossed,
+        difference_points=round(100 * (crossed.rate - same.rate), 10),
+        rows=rows,
+    )
+    _write_json(
+        out / "analysis_inputs" / "pass3_same_vs_crossed.json",
+        document.model_dump(mode="json"),
+    )
+    return document
+
+
 def _matched_one_field_reference(
     *,
     out: Path,
@@ -1509,6 +1698,29 @@ def _audit_document(
         "all four crossed-realization scores match Figure 2"
         if not scaffolded_mismatches
         else json.dumps(scaffolded_mismatches, sort_keys=True),
+    )
+    pass3_comparison = Pass3Comparison.model_validate_json(
+        (out / "analysis_inputs" / "pass3_same_vs_crossed.json").read_text()
+    )
+    pass3_comparison_ok = (
+        pass3_comparison.same_environment.passes == 103
+        and pass3_comparison.same_environment.total == 200
+        and pass3_comparison.same_environment.rate == 0.515
+        and pass3_comparison.crossed_environment.passes == 77
+        and pass3_comparison.crossed_environment.total == 200
+        and pass3_comparison.crossed_environment.rate == 0.385
+        and pass3_comparison.difference_points == -13.0
+        and len(pass3_comparison.rows) == 200
+    )
+    check(
+        "same_vs_crossed_pass3",
+        pass3_comparison_ok,
+        (
+            "same regular realizations=103/200 (0.515); crossed regular, "
+            "noise-heavy, and speech-heavy realizations=77/200 (0.385)"
+        )
+        if pass3_comparison_ok
+        else pass3_comparison.model_dump_json(),
     )
     text = [row for row in cells if row.cohort == "text_control"]
     check(
@@ -1797,8 +2009,9 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "and final human labels.\n"
         "- `analysis_inputs/`: crossed outcomes, rollups, deterministic complication "
         "draws, caller-effort ledger, deterministic behavioral recomputation, "
-        "the 210-row matched one-field composition ledger, caller-voice and main "
-        "significance results, and speech rollup.\n"
+        "the 210-row matched one-field composition ledger, the 200-task same-versus-"
+        "crossed Pass3 ledger, caller-voice and main significance results, and "
+        "speech rollup.\n"
         "- `audit.json`: executable claim checks.\n\n"
         "`SOURCE_GAPS.md` records any remaining source or statistical-analysis "
         "re-execution gaps; both workflows in the release comparison have frozen "
@@ -2136,6 +2349,7 @@ def build_release(
         if not source.exists():
             raise FileNotFoundError(f"Required paper analysis missing: {source}")
         shutil.copy2(source, analysis_out / name)
+    _export_same_vs_crossed_pass3(out, cells)
     subprocess.run(
         [
             sys.executable,

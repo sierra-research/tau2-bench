@@ -59,6 +59,9 @@ verified against the manifest with `tau2 paper elicitation-verify`.
 - Same-environment trials: `intake_final/intake_passk_xhigh_regular`
   (scaffolded openai xhigh, 3 same-config trials) → Pass^3 same = .515.
 - Crossed = scaffolded openai xhigh Pass^3 above = .385.
+- The machine-readable 200-task ledger, including selected trials, simulation
+  hashes, per-task outcomes, and both aggregate calculations, is
+  `reproduction/analysis_inputs/pass3_same_vs_crossed.json`.
 
 ## Behavioral measures (agent-directed regular cells, seed 9401)
 

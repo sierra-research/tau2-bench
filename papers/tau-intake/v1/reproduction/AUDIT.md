@@ -5,6 +5,7 @@
 - **PASS — paper_regular_pass_at_1**: all eight regular-realization rates match Figure 2
 - **PASS — paper_agent_directed_pass3**: all four crossed-realization scores match Figure 2
 - **PASS — paper_scaffolded_pass3**: all four crossed-realization scores match Figure 2
+- **PASS — same_vs_crossed_pass3**: same regular realizations=103/200 (0.515); crossed regular, noise-heavy, and speech-heavy realizations=77/200 (0.385)
 - **PASS — text_control**: cells=1; rows=200; passes=200
 - **PASS — paper_speech_judgments**: all four utterance-level speech-fidelity rows reproduce from exported judgments
 - **PASS — deterministic_complication_assignments**: checked=3200; mismatches=0
