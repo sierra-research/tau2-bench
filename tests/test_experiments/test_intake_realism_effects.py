@@ -8,6 +8,8 @@ from src.experiments.intake.realism_effects import (
     _effect_for_indices,
     _groups,
     _holm,
+    _load_event_ledger,
+    _repair_cost_diagnostic,
     _spelling_opportunity,
     load_matrix,
 )
@@ -24,11 +26,23 @@ def test_holm_adjustment_is_monotone_in_rank() -> None:
     assert _holm([0.04, 0.01, 0.20]) == pytest.approx([0.08, 0.03, 0.20])
 
 
-def test_frozen_spelling_request_counts() -> None:
-    rows = _spelling_opportunity(REPO_ROOT)
+def test_frozen_spelling_event_counts() -> None:
+    event_rows, _ = _load_event_ledger(REPO_ROOT)
+    rows = _spelling_opportunity(event_rows)
 
     assert [row.assigned_calls for row in rows] == [524, 488]
-    assert [row.calls_with_spelling_request for row in rows] == [146, 108]
+    assert [row.calls_with_spelling_event for row in rows] == [301, 221]
+    assert [row.calls_with_realism_event for row in rows] == [None, 101]
+
+
+def test_mispronunciation_repair_cost_matches_paper(realism_matrix) -> None:
+    event_rows, _ = _load_event_ledger(REPO_ROOT)
+    diagnostic = _repair_cost_diagnostic(realism_matrix, event_rows)
+
+    assert diagnostic.spelling_request_effect_points == pytest.approx(
+        24.0495084, abs=1e-6
+    )
+    assert diagnostic.duration_effect_seconds == pytest.approx(26.3236502, abs=1e-6)
 
 
 @pytest.mark.parametrize(

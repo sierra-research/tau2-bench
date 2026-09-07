@@ -16,5 +16,8 @@
 - **PASS — strategy_difficulty_and_duration**: easy/hard success and 21-28 second scaffold costs reproduce exactly
 - **PASS — entity_robust_results**: all ten entity-bank robust-success rows reproduce exactly
 - **PASS — realism_assignment_ledger**: clean=253/498; assigned=674/1302
+- **PASS — realism_observed_event_counts**: event ledger=2400 calls; spelling variation=301/524; falter/restart spelling=221/488 with 101 observed restarts
+- **PASS — mispronunciation_repair_cost**: mispronunciation raises spelling-request probability by 24.05 points and weighted duration by 26.32 seconds
+- **PASS — provider_stratified_caller_voice**: Mildred exceeds Priya, Mamadou, and Arjun after Holm correction, but not Wei
 - **PASS — strict_speech_validation**: P/R/F1=0.7317/1.0000/0.8451
 - **PASS — lenient_speech_validation**: P/R/F1=0.8537/0.7297/0.7868

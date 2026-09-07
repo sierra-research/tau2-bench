@@ -8,8 +8,9 @@ matches the historical analysis call, including row ordering, 100,000
 resamples, NumPy seed 42, and SciPy's +1 Monte Carlo correction.
 
 The same module also reproduces the ten two-sided pairwise Fisher exact tests
-within Gemini and their Holm correction.  Inputs are the compact reviewer
-transcripts, so no detached audio corpus is required.
+within Gemini and the ten provider-stratified Cochran--Mantel--Haenszel voice
+comparisons, with a separate Holm correction for each family. Inputs are the
+compact reviewer transcripts, so no detached audio corpus is required.
 """
 
 from __future__ import annotations
@@ -26,9 +27,9 @@ from typing import Annotated
 
 import numpy as np
 from pydantic import BaseModel, Field
-from scipy.stats import MonteCarloMethod, fisher_exact
+from scipy.stats import MonteCarloMethod, chi2, fisher_exact
 
-ANALYSIS_VERSION = "1.0.0"
+ANALYSIS_VERSION = "1.1.0"
 DEFAULT_MONTE_CARLO_RESAMPLES = 100_000
 DEFAULT_SEED = 42
 DEFAULT_RELEASE_ROOT = Path("papers/tau-intake/v1/reproduction")
@@ -124,6 +125,36 @@ class PairwiseResult(BaseModel):
     ]
 
 
+class StratifiedPairwiseResult(BaseModel):
+    """One voice comparison stratified by the three agent systems."""
+
+    voice_a: Annotated[str, Field(description="First caller voice.")]
+    voice_b: Annotated[str, Field(description="Second caller voice.")]
+    common_odds_ratio: Annotated[
+        float,
+        Field(
+            gt=0,
+            description="Mantel--Haenszel common success odds ratio, a versus b.",
+        ),
+    ]
+    cmh_statistic: Annotated[
+        float,
+        Field(ge=0, description="Cochran--Mantel--Haenszel chi-square statistic."),
+    ]
+    cmh_p: Annotated[
+        float,
+        Field(ge=0, le=1, description="Raw two-sided asymptotic CMH p-value."),
+    ]
+    holm_p: Annotated[
+        float,
+        Field(
+            ge=0,
+            le=1,
+            description="Holm-adjusted p-value across all ten voice pairs.",
+        ),
+    ]
+
+
 class CallerVoiceArtifact(BaseModel):
     """Versioned, provenance-bearing caller-voice analysis artifact."""
 
@@ -140,6 +171,9 @@ class CallerVoiceArtifact(BaseModel):
     analysis_unit: Annotated[str, Field(description="Unit entering each test.")]
     omnibus_method: Annotated[str, Field(description="Omnibus test specification.")]
     pairwise_method: Annotated[str, Field(description="Pairwise test specification.")]
+    stratified_pairwise_method: Annotated[
+        str, Field(description="Provider-stratified pairwise test specification.")
+    ]
     inputs: Annotated[
         list[SourceRun], Field(description="Hashed compact-transcript inputs.")
     ]
@@ -149,6 +183,10 @@ class CallerVoiceArtifact(BaseModel):
     gemini_pairwise: Annotated[
         list[PairwiseResult],
         Field(description="Ten post-hoc comparisons within Gemini."),
+    ]
+    provider_stratified_pairwise: Annotated[
+        list[StratifiedPairwiseResult],
+        Field(description="Ten voice comparisons stratified by agent system."),
     ]
 
 
@@ -279,6 +317,54 @@ def _gemini_pairwise(counts: dict[str, tuple[int, int]]) -> list[PairwiseResult]
     return rows
 
 
+def _provider_stratified_pairwise(
+    counts: dict[System, dict[str, tuple[int, int]]],
+) -> list[StratifiedPairwiseResult]:
+    """Compare each voice pair while treating agent system as a stratum."""
+    rows = []
+    for voice_a, voice_b in combinations(sorted(EXPECTED_VOICES), 2):
+        numerator = 0.0
+        variance = 0.0
+        odds_numerator = 0.0
+        odds_denominator = 0.0
+        for system in System:
+            a_success, a_failure = counts[system][voice_a]
+            b_success, b_failure = counts[system][voice_b]
+            total = a_success + a_failure + b_success + b_failure
+            a_total = a_success + a_failure
+            b_total = b_success + b_failure
+            success_total = a_success + b_success
+            failure_total = a_failure + b_failure
+            numerator += a_success - (a_total * success_total / total)
+            variance += (
+                a_total
+                * b_total
+                * success_total
+                * failure_total
+                / (total * total * (total - 1))
+            )
+            odds_numerator += a_success * b_failure / total
+            odds_denominator += a_failure * b_success / total
+        statistic = numerator * numerator / variance
+        rows.append(
+            StratifiedPairwiseResult(
+                voice_a=voice_a,
+                voice_b=voice_b,
+                common_odds_ratio=odds_numerator / odds_denominator,
+                cmh_statistic=statistic,
+                cmh_p=float(chi2.sf(statistic, 1)),
+                holm_p=0.0,
+            )
+        )
+    for row, adjusted in zip(
+        rows,
+        _holm([row.cmh_p for row in rows]),
+        strict=True,
+    ):
+        row.holm_p = adjusted
+    return rows
+
+
 def analyze(
     repo_root: Path,
     *,
@@ -319,9 +405,16 @@ def analyze(
             "Two-sided Fisher exact tests for all ten Gemini voice pairs; Holm "
             "correction spans those ten comparisons."
         ),
+        stratified_pairwise_method=(
+            "Two-sided Cochran--Mantel--Haenszel chi-square tests without a "
+            "continuity correction for all ten voice pairs, with agent system "
+            "as the three-level stratum; Holm correction spans those ten "
+            "comparisons."
+        ),
         inputs=sources,
         omnibus=omnibus,
         gemini_pairwise=_gemini_pairwise(counts[System.GEMINI_HIGH]),
+        provider_stratified_pairwise=_provider_stratified_pairwise(counts),
     )
 
 

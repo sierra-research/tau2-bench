@@ -14,9 +14,9 @@ for the two spelling-dependent realisms without changing the primary
 randomized estimand.
 
 The checked-in reviewer archive is the source of truth: compact transcripts
-provide outcomes, assignments, and observed spelling requests; frozen
-expected-draw maps validate each environment's assignment. Run from the
-repository root::
+provide outcomes and assignments, the compact realism-event ledger provides
+observed application and repair-cost inputs, and frozen expected-draw maps
+validate each environment's assignment. Run from the repository root::
 
     .venv/bin/python src/experiments/intake/realism_effects.py \
         --output papers/tau-intake/v1/reproduction/analysis_inputs/realism_effects.json
@@ -49,7 +49,7 @@ from tau2.domains.intake.complications import (
 from tau2.domains.intake.utils import spoken_form
 from tau2.utils.utils import get_now
 
-ANALYSIS_VERSION = "1.0.0"
+ANALYSIS_VERSION = "1.1.0"
 DEFAULT_BOOTSTRAP_RESAMPLES = 10_000
 DEFAULT_RANDOMIZATION_DRAWS = 100_000
 DEFAULT_SEED = 42
@@ -128,6 +128,9 @@ EXPECTED_DRAW_PATHS: dict[Environment, tuple[int, str]] = {
 TASK_SNAPSHOT_PATH = (
     "papers/tau-intake/v1/reproduction/prompts/task_snapshots/"
     "a0c6cd32dea7f871fd4f017c64a6769df1ea43c5b994183e25ef5a263fc45210.json"
+)
+REALISM_EVENT_LEDGER_PATH = (
+    "papers/tau-intake/v1/reproduction/analysis_inputs/realism_event_ledger.jsonl"
 )
 
 REPORTED_KINDS: tuple[ComplicationKind, ...] = (
@@ -211,15 +214,72 @@ class EffectEstimate(BaseModel):
 
 
 class SpellingOpportunityRow(BaseModel):
-    """Observed explicit spelling request for a spelling-dependent assignment."""
+    """Observed spelling opportunity for one spelling-dependent assignment."""
 
     kind: Annotated[ComplicationKind, Field(description="Assigned realism kind.")]
     assigned_calls: Annotated[int, Field(ge=0, description="Assigned system calls.")]
-    calls_with_spelling_request: Annotated[
-        int, Field(ge=0, description="Assigned calls with note_spell_request.")
+    calls_with_spelling_event: Annotated[
+        int, Field(ge=0, description="Assigned calls containing a spell-out event.")
     ]
-    spelling_request_rate: Annotated[
-        float, Field(ge=0, le=1, description="Share with an explicit spelling request.")
+    spelling_event_rate: Annotated[
+        float, Field(ge=0, le=1, description="Share containing a spell-out event.")
+    ]
+    calls_with_realism_event: Annotated[
+        Optional[int],
+        Field(
+            ge=0,
+            description="Calls with the assigned falter/restart event, when defined.",
+        ),
+    ] = None
+
+
+class RealismEventRow(BaseModel):
+    """One compact call-level realism-event ledger row."""
+
+    schema_version: Annotated[str, Field(description="Ledger schema version.")]
+    cell: Annotated[str, Field(description="Frozen result cell.")]
+    system: Annotated[System, Field(description="Paper system key.")]
+    environment: Annotated[Environment, Field(description="Acoustic realization.")]
+    simulation_id: Annotated[str, Field(description="Frozen simulation id.")]
+    source_simulation_sha256: Annotated[
+        str, Field(description="Hash of the complete source simulation.")
+    ]
+    task_id: Annotated[str, Field(description="Frozen task id.")]
+    complication_kind: Annotated[
+        Optional[ComplicationKind], Field(description="Assigned caller realism.")
+    ] = None
+    spell_requests: Annotated[int, Field(ge=0, description="Agent spelling requests.")]
+    spell_events: Annotated[int, Field(ge=0, description="Caller spell-out events.")]
+    spell_restarts: Annotated[int, Field(ge=0, description="Caller spelling restarts.")]
+    duration_seconds: Annotated[float, Field(ge=0, description="Call duration.")]
+
+
+class EventLedgerSource(BaseModel):
+    """Provenance for the compact realism-event ledger."""
+
+    path: Annotated[str, Field(description="Repository-relative ledger path.")]
+    sha256: Annotated[str, Field(description="SHA-256 of the ledger.")]
+    calls: Annotated[int, Field(gt=0, description="Validated ledger rows.")]
+
+
+class RepairCostDiagnostic(BaseModel):
+    """Weighted descriptive repair-cost contrast for mispronunciation."""
+
+    kind: Annotated[ComplicationKind, Field(description="Assigned realism kind.")]
+    spelling_request_effect: Annotated[
+        float, Field(description="Weighted change in probability of any request.")
+    ]
+    spelling_request_effect_points: Annotated[
+        float, Field(description="Request-probability change in percentage points.")
+    ]
+    duration_effect_seconds: Annotated[
+        float, Field(description="Weighted change in call duration, seconds.")
+    ]
+    spelling_request_environment_effects: Annotated[
+        dict[Environment, float], Field(description="Request effect by environment.")
+    ]
+    duration_environment_effects_seconds: Annotated[
+        dict[Environment, float], Field(description="Duration effect by environment.")
     ]
 
 
@@ -239,8 +299,10 @@ class RealismEffectsArtifact(BaseModel):
     interval_method: Annotated[str, Field(description="Confidence-interval method.")]
     significance_method: Annotated[str, Field(description="Hypothesis-test method.")]
     inputs: list[SourceRun]
+    event_ledger: EventLedgerSource
     effects: list[EffectEstimate]
     spelling_opportunity: list[SpellingOpportunityRow]
+    repair_cost_diagnostic: RepairCostDiagnostic
 
 
 class AnalysisMatrix(BaseModel):
@@ -622,43 +684,91 @@ def _estimate(
     )
 
 
-def _spelling_opportunity(repo_root: Path) -> list[SpellingOpportunityRow]:
+def _load_event_ledger(repo_root: Path) -> tuple[list[RealismEventRow], Path]:
+    path = repo_root / REALISM_EVENT_LEDGER_PATH
+    rows = [
+        RealismEventRow.model_validate_json(line)
+        for line in path.read_text().splitlines()
+        if line
+    ]
+    identities = {(row.task_id, row.environment, row.system) for row in rows}
+    if len(rows) != 2_400 or len(identities) != len(rows):
+        raise ValueError(
+            "Expected 2,400 unique task/environment/system realism-event rows; "
+            f"found {len(rows)} rows and {len(identities)} identities"
+        )
+    return rows, path
+
+
+def _spelling_opportunity(rows: list[RealismEventRow]) -> list[SpellingOpportunityRow]:
     counters = {
-        kind: {"assigned": 0, "spelling": 0}
+        kind: {"assigned": 0, "spelling": 0, "realism": 0}
         for kind in (
             ComplicationKind.SPELLING_STYLE,
             ComplicationKind.SPELL_CORRECTION,
         )
     }
-    for system in System:
-        for environment in Environment:
-            path = repo_root / TRANSCRIPT_PATHS[system][environment]
-            for row in _load_jsonl(path):
-                complication = row["complication"]
-                if complication is None:
-                    continue
-                kind = ComplicationKind(complication["kind"])
-                if kind not in counters:
-                    continue
-                counters[kind]["assigned"] += 1
-                if any(
-                    turn["tool_name"] == "note_spell_request" for turn in row["turns"]
-                ):
-                    counters[kind]["spelling"] += 1
-    rows = []
+    for row in rows:
+        kind = row.complication_kind
+        if kind not in counters:
+            continue
+        counters[kind]["assigned"] += 1
+        counters[kind]["spelling"] += int(row.spell_events > 0)
+        counters[kind]["realism"] += int(row.spell_restarts > 0)
+    output = []
     for kind, counts in counters.items():
         assigned = counts["assigned"]
-        rows.append(
+        output.append(
             SpellingOpportunityRow(
                 kind=kind,
                 assigned_calls=assigned,
-                calls_with_spelling_request=counts["spelling"],
-                spelling_request_rate=counts["spelling"] / assigned
-                if assigned
-                else 0.0,
+                calls_with_spelling_event=counts["spelling"],
+                spelling_event_rate=counts["spelling"] / assigned if assigned else 0.0,
+                calls_with_realism_event=(
+                    counts["realism"]
+                    if kind == ComplicationKind.SPELL_CORRECTION
+                    else None
+                ),
             )
         )
-    return rows
+    return output
+
+
+def _repair_cost_diagnostic(
+    matrix: AnalysisMatrix, rows: list[RealismEventRow]
+) -> RepairCostDiagnostic:
+    task_indices = {task_id: index for index, task_id in enumerate(matrix.task_ids)}
+    request_outcomes = np.zeros_like(matrix.outcomes)
+    duration_outcomes = np.zeros_like(matrix.outcomes)
+    for row in rows:
+        task_index = task_indices[row.task_id]
+        environment_index = list(Environment).index(row.environment)
+        system_index = list(System).index(row.system)
+        request_outcomes[task_index, environment_index, system_index] = int(
+            row.spell_requests > 0
+        )
+        duration_outcomes[task_index, environment_index, system_index] = (
+            row.duration_seconds
+        )
+    indices = np.arange(len(matrix.task_ids))
+    request_effect, request_by_environment = _effect_for_indices(
+        matrix.model_copy(update={"outcomes": request_outcomes}),
+        indices,
+        ComplicationKind.MISPRONOUNCED_TERM,
+    )
+    duration_effect, duration_by_environment = _effect_for_indices(
+        matrix.model_copy(update={"outcomes": duration_outcomes}),
+        indices,
+        ComplicationKind.MISPRONOUNCED_TERM,
+    )
+    return RepairCostDiagnostic(
+        kind=ComplicationKind.MISPRONOUNCED_TERM,
+        spelling_request_effect=request_effect,
+        spelling_request_effect_points=100 * request_effect,
+        duration_effect_seconds=duration_effect,
+        spelling_request_environment_effects=request_by_environment,
+        duration_environment_effects_seconds=duration_by_environment,
+    )
 
 
 def analyze(
@@ -667,9 +777,8 @@ def analyze(
     bootstrap_resamples: int = DEFAULT_BOOTSTRAP_RESAMPLES,
     randomization_draws: int = DEFAULT_RANDOMIZATION_DRAWS,
     seed: int = DEFAULT_SEED,
-    include_spelling_opportunity: bool = True,
 ) -> RealismEffectsArtifact:
-    """Run the assignment analysis and optional spelling-event diagnostic."""
+    """Run the assignment analysis and observed-event diagnostics."""
     matrix = load_matrix(repo_root)
     reported = (None, *REPORTED_KINDS)
     effects = [
@@ -685,6 +794,7 @@ def analyze(
     adjusted = _holm([effect.randomization_p for effect in effects])
     for effect, p_value in zip(effects, adjusted, strict=True):
         effect.randomization_p_holm = p_value
+    event_rows, event_path = _load_event_ledger(repo_root)
     return RealismEffectsArtifact(
         created_at=get_now(),
         complication_catalog_version=COMPLICATION_CATALOG_VERSION,
@@ -710,10 +820,14 @@ def analyze(
             "seeds are the analysis seed plus the displayed row index."
         ),
         inputs=matrix.sources,
-        effects=effects,
-        spelling_opportunity=(
-            _spelling_opportunity(repo_root) if include_spelling_opportunity else []
+        event_ledger=EventLedgerSource(
+            path=REALISM_EVENT_LEDGER_PATH,
+            sha256=_sha256(event_path),
+            calls=len(event_rows),
         ),
+        effects=effects,
+        spelling_opportunity=_spelling_opportunity(event_rows),
+        repair_cost_diagnostic=_repair_cost_diagnostic(matrix, event_rows),
     )
 
 
@@ -730,18 +844,12 @@ def main() -> None:
         "--randomization-draws", type=int, default=DEFAULT_RANDOMIZATION_DRAWS
     )
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
-    parser.add_argument(
-        "--skip-spelling-opportunity",
-        action="store_true",
-        help="Skip the spelling-request diagnostic from compact transcripts.",
-    )
     args = parser.parse_args()
     artifact = analyze(
         args.repo_root.resolve(),
         bootstrap_resamples=args.bootstrap_resamples,
         randomization_draws=args.randomization_draws,
         seed=args.seed,
-        include_spelling_opportunity=not args.skip_spelling_opportunity,
     )
     rendered = artifact.model_dump_json(indent=2) + "\n"
     if args.output is None:

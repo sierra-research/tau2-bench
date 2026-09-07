@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("scipy")
+
 from src.experiments.intake.caller_voice_significance import (
     System,
     _holm,
@@ -75,3 +77,20 @@ def test_gemini_pairwise_values_match_paper(artifact) -> None:
         0.21202736015196272, abs=1e-15
     )
     assert all(row.holm_p > 0.05 for row in artifact.gemini_pairwise)
+
+
+def test_provider_stratified_pairwise_values_match_paper(artifact) -> None:
+    assert len(artifact.provider_stratified_pairwise) == 10
+    by_pair = {
+        frozenset((row.voice_a, row.voice_b)): row
+        for row in artifact.provider_stratified_pairwise
+    }
+    expected = {
+        "priya_patil": 0.02723989034446967,
+        "mamadou_diallo": 0.014416196464089436,
+        "arjun_roy": 0.018746161695259975,
+        "wei_lin": 0.9381870863384129,
+    }
+    for voice, holm_p in expected.items():
+        row = by_pair[frozenset(("mildred_kaplan", voice))]
+        assert row.holm_p == pytest.approx(holm_p, abs=1e-15)

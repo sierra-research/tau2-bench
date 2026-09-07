@@ -156,11 +156,18 @@ simulator's silent `note_spell_request` / `note_readback` tools:
 - In the provider-stratified agent-directed comparison, Mildred exceeds Priya,
   Mamadou, and Arjun after Holm correction across ten voice pairs (adjusted
   $p=.027$, $.014$, and $.019$), but not Wei ($p=.938$).
+- Reproducer: `src/experiments/intake/caller_voice_significance.py`; versioned
+  output: `analysis/intake_caller_voice_significance_2026-09-07.json`, copied
+  into `reproduction/analysis_inputs/`. The provider-stratified comparisons are
+  two-sided Cochran--Mantel--Haenszel tests over the three agent systems,
+  without a continuity correction, with Holm correction across all ten voice
+  pairs.
 
-## Realisms (agent-directed benchmark, pooled 9 cells)
+## Realisms (agent-directed benchmark, pooled 12 cells)
 
 - Reproducer: `src/experiments/intake/realism_effects.py`; versioned output:
-  `analysis/intake_realism_effects_2026-09-07.json`. The artifact records all
+  `analysis/intake_realism_effects_2026-09-07.json`, copied into the reviewer
+  archive under `reproduction/analysis_inputs/`. The artifact records all
   12 input paths and SHA-256 hashes and verifies every stored assignment against
   the deterministic catalog draw.
 - The analysis unit is a task x environment assignment, with exact success
@@ -180,7 +187,13 @@ simulator's silent `note_spell_request` / `note_readback` tools:
   conditional realism is expressed. Across the four systems, spelling
   variation was assigned in 524 calls and 301 (57.4%) contained a spelling
   event. Falter/restart was assigned in 488 calls; 221 (45.3%) contained a
-  spelling event and 101 contained an observed restart.
+  spelling event and 101 contained an observed restart. These counts reproduce
+  from the 2,400-call `reproduction/analysis_inputs/realism_event_ledger.jsonl`.
+- On the same weighted task-by-environment estimand used for the assignment
+  effects, mispronunciation raises the probability of at least one agent
+  spelling request by 24.05 percentage points and call duration by 26.32
+  seconds. Both values are emitted as `repair_cost_diagnostic` in the versioned
+  realism artifact and reproduce from the event ledger.
 
 ## Speech fidelity (`tab:fidelity-provider`)
 
@@ -214,11 +227,15 @@ simulator's silent `note_spell_request` / `note_readback` tools:
   `ablations/entity_composition/intake_ecomp_n2` and
   `ablations/entity_composition/intake_ecomp_n3`; the single-field reference is
   `main_runs/intake_m_openai_xhigh_regular`.
-- The single-field row is contextual rather than a paired count-effect
-  estimate: it is 154/200 fields from the canonical scaffolded regular run.
-  Its caller reasoning setting and duration cap differ from the later
-  composition roots, so the paper's composition claim rests on the within-arm
-  gap between field and whole-task accuracy, not a causal n=1-to-n=3 contrast.
+- The light-gray 77% single-field reference in Figure 5 is the matched
+  486/630 estimate. It subselects the canonical scaffolded OpenAI-xhigh runs to
+  the entities and folds represented in the two- and three-field composition
+  tasks; the exact 210-row mapping lives in
+  `reproduction/analysis_inputs/composition_one_field_matched.json`. The full
+  canonical scaffolded regular run is 154/200 and is retained only as a
+  contextual cross-check. The paper's composition claim rests on the
+  within-arm gap between field and whole-task accuracy, not a causal
+  n=1-to-n=3 contrast.
 - The paper pools trials 0--2 in both multi-field arms. This gives 125/180
   two-field task passes and 290/360 correct fields, and 48/90 three-field task
   passes and 202/270 correct fields. Thus task/field Pass@1 is .694/.806 for
@@ -262,10 +279,11 @@ simulator's silent `note_spell_request` / `note_readback` tools:
   kept locally; Drive: `Multilingual Tau/intake_paper_runs_2026-08-29/`)
 - Sample: 100 OpenAI `gpt-realtime-2` provider-default,
   channel-light/speech-heavy calls: 70 reward-1 and 30 reward-0 calls.
-- Raters: Niko and Ian Belcher. Each reviewed every call first from audio alone
-  (`pre_reveal`) and then with transcript and reward (`post_reveal`). Calls
-  1--40 were used for rater calibration; blind error-type summaries use calls
-  41--100. Both raters also adjudicated all 41 fidelity-judge findings.
+- Raters: Niko and Ian Belcher. Each reviewed every call from audio and later
+  supplied source attribution with the transcript and reward available. The
+  reported error-type summary uses calls 41--100. Both raters independently
+  reviewed all 41 fidelity-judge findings; strict metrics count only findings
+  confirmed by both.
 - Raw returns:
   `niko_review.csv`, `ian_belcher_review.csv`, `niko_decisions.csv`, and
   `ian_belcher_decisions.csv` in the frozen annotation directory.
@@ -280,7 +298,7 @@ Post-reveal source attribution on the 30 failing calls is:
 | User simulator, both raters | 0 | 0.0% |
 | Raters split (agent vs. user) | 1 | 3.3% |
 
-In the blind held-out segment, when both raters identify an error on a failing
+In the held-out audio-review segment, when both raters identify an error on a failing
 call, they agree on its type 88% of the time. The 14 consensus errors are 12
 transcription errors and two logical errors; neither rater pair agrees on a
 hallucination. Post-reveal, both raters agree on 20 transcription and five
@@ -289,10 +307,10 @@ in emails (6), coined names (4), and properties (3).
 
 Fidelity-judge validation over all 100 calls and 41 findings is:
 
-| Criterion | Precision | Clip-level recall | F1 |
+| Criterion | Precision | Call-level recall | F1 |
 | --- | ---: | ---: | ---: |
 | Strict (both raters) | 0.73 | 1.00 | 0.85 |
-| Lenient (either rater) | 0.85 | 0.80 | 0.82 |
+| Lenient (either rater) | 0.85 | 0.73 | 0.79 |
 
 All 21 calls with a consensus human fidelity defect receive at least one
 confirmed judge finding. Finding-decision agreement is 0.88 with Cohen's

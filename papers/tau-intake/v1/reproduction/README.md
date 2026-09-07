@@ -11,7 +11,7 @@ This directory is the compact, reviewer-facing evidence archive for the tau-Elic
 - `examples/`: deterministic calls spanning both strategies and three systems.
 - `speech_judgments/`: all 6,422 exported utterance judgments: 4,948 from the paper's main speech cohort and 1,474 supplemental judgments, including retained/excluded findings and errors.
 - `judge_validation/`: direct utterance/call mapping between judge output and final human labels.
-- `analysis_inputs/`: crossed outcomes, rollups, deterministic complication draws, caller-effort ledger, deterministic behavioral recomputation, the 210-row matched one-field composition ledger, the 200-task same-versus-crossed Pass3 ledger, caller-voice and main significance results, and speech rollup.
+- `analysis_inputs/`: crossed outcomes, rollups, deterministic complication draws, caller-effort ledger, the 2,400-call realism-event ledger, deterministic behavioral recomputation, the 210-row matched one-field composition ledger, the 200-task same-versus-crossed Pass3 ledger, caller-voice and main significance results, and speech rollup.
 - `audit.json`: executable claim checks.
 
 `SOURCE_GAPS.md` records any remaining source or statistical-analysis re-execution gaps; both workflows in the release comparison have frozen sources.

@@ -1,11 +1,12 @@
 {
   "instrument": "tau-intake-caller-voice-significance",
-  "instrument_version": "1.0.0",
+  "instrument_version": "1.1.0",
   "seed": 42,
   "monte_carlo_resamples": 100000,
   "analysis_unit": "One regular-condition, agent-directed call with binary exact task success and one randomly assigned caller voice.",
   "omnibus_method": "Two-sided 5 x 2 Fisher--Freeman--Halton test via scipy.stats.fisher_exact and MonteCarloMethod; each system resets NumPy's default_rng to the recorded seed; voice rows are ordered by descending assigned-call count; SciPy applies the +1 Monte Carlo correction; Holm correction spans the three systems.",
   "pairwise_method": "Two-sided Fisher exact tests for all ten Gemini voice pairs; Holm correction spans those ten comparisons.",
+  "stratified_pairwise_method": "Two-sided Cochran--Mantel--Haenszel chi-square tests without a continuity correction for all ten voice pairs, with agent system as the three-level stratum; Holm correction spans those ten comparisons.",
   "inputs": [
     {
       "system": "GPT xhigh",
@@ -214,6 +215,88 @@
       "voice_b": "wei_lin",
       "fisher_p": 0.022756042151230962,
       "holm_p": 0.21202736015196272
+    }
+  ],
+  "provider_stratified_pairwise": [
+    {
+      "voice_a": "arjun_roy",
+      "voice_b": "mamadou_diallo",
+      "common_odds_ratio": 1.0682001897866658,
+      "cmh_statistic": 0.051701507622261965,
+      "cmh_p": 0.8201285387595376,
+      "holm_p": 1.0
+    },
+    {
+      "voice_a": "arjun_roy",
+      "voice_b": "mildred_kaplan",
+      "common_odds_ratio": 0.4427780295225861,
+      "cmh_statistic": 9.475001763721481,
+      "cmh_p": 0.002082906855028886,
+      "holm_p": 0.018746161695259975
+    },
+    {
+      "voice_a": "arjun_roy",
+      "voice_b": "priya_patil",
+      "common_odds_ratio": 0.9259210512994441,
+      "cmh_statistic": 0.082671000326281,
+      "cmh_p": 0.7737098636192945,
+      "holm_p": 1.0
+    },
+    {
+      "voice_a": "arjun_roy",
+      "voice_b": "wei_lin",
+      "common_odds_ratio": 0.6066721035115895,
+      "cmh_statistic": 3.32025846773146,
+      "cmh_p": 0.06843106979324402,
+      "holm_p": 0.4105864187594641
+    },
+    {
+      "voice_a": "mamadou_diallo",
+      "voice_b": "mildred_kaplan",
+      "common_odds_ratio": 0.4207841327813772,
+      "cmh_statistic": 10.151780171988,
+      "cmh_p": 0.0014416196464089436,
+      "holm_p": 0.014416196464089436
+    },
+    {
+      "voice_a": "mamadou_diallo",
+      "voice_b": "priya_patil",
+      "common_odds_ratio": 0.8685482269347047,
+      "cmh_statistic": 0.26577172433717194,
+      "cmh_p": 0.6061823432243341,
+      "holm_p": 1.0
+    },
+    {
+      "voice_a": "mamadou_diallo",
+      "voice_b": "wei_lin",
+      "common_odds_ratio": 0.5788112543744836,
+      "cmh_statistic": 3.7427199574380645,
+      "cmh_p": 0.05303804166414186,
+      "holm_p": 0.37126629164899305
+    },
+    {
+      "voice_a": "mildred_kaplan",
+      "voice_b": "priya_patil",
+      "common_odds_ratio": 2.066307123326881,
+      "cmh_statistic": 8.576664041661475,
+      "cmh_p": 0.003404986293058709,
+      "holm_p": 0.02723989034446967
+    },
+    {
+      "voice_a": "mildred_kaplan",
+      "voice_b": "wei_lin",
+      "common_odds_ratio": 1.3677117774484095,
+      "cmh_statistic": 1.4130739381651238,
+      "cmh_p": 0.23454677158460321,
+      "holm_p": 0.9381870863384129
+    },
+    {
+      "voice_a": "priya_patil",
+      "voice_b": "wei_lin",
+      "common_odds_ratio": 0.6719495715891205,
+      "cmh_statistic": 2.380414923615454,
+      "cmh_p": 0.12286490954551062,
+      "holm_p": 0.6143245477275531
     }
   ]
 }

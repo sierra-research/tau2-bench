@@ -6,7 +6,7 @@ None. Both workflows in the release comparison have frozen sources.
 
 ## Missing re-execution tools
 
-None. The paper's statistical analyses are re-executable from the compact reviewer archive.
+None. The paper's statistical analyses, observed realism-event counts, mispronunciation repair-cost diagnostic, and caller-voice comparisons are re-executable from the compact reviewer archive.
 
 ## Detached source corpus
 

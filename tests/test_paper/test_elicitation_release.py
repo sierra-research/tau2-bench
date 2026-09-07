@@ -8,10 +8,14 @@ from tau2.paper.elicitation import (
     PAPER_AGENT_DIRECTED,
     PAPER_ANALYSIS_INPUTS,
     PAPER_SCAFFOLDED,
+    REALISM_EVENT_VERSION,
+    TranscriptRecord,
+    TranscriptTurn,
     _cell_metadata,
     _full_duplex_turns,
     _kappa,
     _parse_user_snapshot,
+    _realism_event_record,
     _runtime_caller_guidelines,
     _task_source_paths,
 )
@@ -20,6 +24,50 @@ from tau2.paper.elicitation import (
 def test_release_includes_detached_evidence_and_realism_analysis() -> None:
     assert DETACHED_EVIDENCE_URL.startswith("https://drive.google.com/drive/folders/")
     assert "intake_realism_effects_2026-09-07.json" in PAPER_ANALYSIS_INPUTS
+
+
+def test_realism_event_record_preserves_events_needed_by_paper() -> None:
+    transcript = TranscriptRecord(
+        cell="main_runs/test/results.json",
+        cohort="paper_agent_directed",
+        simulation_id="sim-1",
+        source_simulation_sha256="a" * 64,
+        task_id="task-1",
+        trial=0,
+        seed=9401,
+        reward=1.0,
+        evaluation_fields={},
+        termination_reason="completed",
+        duration_seconds=42.5,
+        tick_count=10,
+        complication={"kind": "spell_correction"},
+        speech_environment={},
+        turns=[
+            TranscriptTurn(
+                order=0,
+                role="tool",
+                source="user_tool_event",
+                tool_name="note_spell_request",
+            )
+        ],
+    )
+    row = _realism_event_record(
+        transcript,
+        {
+            "effect_timeline": {
+                "events": [
+                    {"effect_type": "spell_out", "params": {"restarts": 1}},
+                    {"effect_type": "spell_out", "params": {"restarts": 2}},
+                ]
+            }
+        },
+        system="gpt_xhigh",
+        condition="regular",
+    )
+
+    assert row.schema_version == REALISM_EVENT_VERSION
+    assert (row.spell_requests, row.spell_events, row.spell_restarts) == (1, 2, 3)
+    assert row.duration_seconds == 42.5
 
 
 def test_paper_cell_roster_is_exact() -> None:

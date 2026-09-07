@@ -17,15 +17,16 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Iterable, Literal, Optional
+from typing import Annotated, Any, Iterable, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 RELEASE_VERSION = "tau-elicit-review-release-v1"
 TRANSCRIPT_VERSION = "tau-elicit-compact-transcript-v1"
 EXAMPLE_SELECTION_VERSION = "tau-elicit-examples-v1"
 ONE_FIELD_REFERENCE_VERSION = "tau-elicit-matched-one-field-v1"
 PASS3_COMPARISON_VERSION = "tau-elicit-same-vs-crossed-pass3-v1"
+REALISM_EVENT_VERSION = "tau-elicit-realism-events-v1"
 DETACHED_EVIDENCE_URL = (
     "https://drive.google.com/drive/folders/"
     "1GAuTs3Naog5irE4J4MwILMTpFyJz-2dm?usp=sharing"
@@ -134,6 +135,34 @@ class TranscriptRecord(BaseModel):
     complication: Optional[dict[str, Any]]
     speech_environment: Optional[dict[str, Any]]
     turns: list[TranscriptTurn]
+
+
+class RealismEventRecord(BaseModel):
+    """Compact per-call inputs for realism application and repair-cost claims."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Annotated[str, Field(description="Ledger schema version.")] = (
+        REALISM_EVENT_VERSION
+    )
+    cell: Annotated[str, Field(description="Frozen result cell.")]
+    system: Annotated[str, Field(description="Paper system key.")]
+    environment: Annotated[
+        Literal["regular", "chanheavy", "speechheavy"],
+        Field(description="Acoustic realization."),
+    ]
+    simulation_id: Annotated[str, Field(description="Frozen simulation id.")]
+    source_simulation_sha256: Annotated[
+        str, Field(description="SHA-256 of the complete source simulation.")
+    ]
+    task_id: Annotated[str, Field(description="Frozen task id.")]
+    complication_kind: Annotated[
+        Optional[str], Field(description="Assigned caller realism.")
+    ]
+    spell_requests: Annotated[int, Field(ge=0, description="Agent spelling requests.")]
+    spell_events: Annotated[int, Field(ge=0, description="Caller spell-out events.")]
+    spell_restarts: Annotated[int, Field(ge=0, description="Caller spelling restarts.")]
+    duration_seconds: Annotated[float, Field(ge=0, description="Call duration.")]
 
 
 class ResultCell(BaseModel):
@@ -615,6 +644,46 @@ def _transcript_record(
         complication=simulation.get("complication"),
         speech_environment=simulation.get("speech_environment"),
         turns=turns,
+    )
+
+
+def _realism_event_record(
+    record: TranscriptRecord,
+    simulation: dict[str, Any],
+    *,
+    system: str,
+    condition: str,
+) -> RealismEventRecord:
+    """Retain the exact event counts needed by the paper's realism diagnostics."""
+    if record.duration_seconds is None:
+        raise ValueError(f"Simulation {record.simulation_id} has no duration")
+    environment = {
+        "regular": "regular",
+        "noise_heavy": "chanheavy",
+        "speech_heavy": "speechheavy",
+    }[condition]
+    spell_events = [
+        event
+        for event in ((simulation.get("effect_timeline") or {}).get("events") or [])
+        if event.get("effect_type") == "spell_out"
+    ]
+    return RealismEventRecord(
+        cell=record.cell,
+        system=system,
+        environment=environment,
+        simulation_id=record.simulation_id,
+        source_simulation_sha256=record.source_simulation_sha256,
+        task_id=record.task_id,
+        complication_kind=(record.complication or {}).get("kind"),
+        spell_requests=sum(
+            turn.tool_name == "note_spell_request" for turn in record.turns
+        ),
+        spell_events=len(spell_events),
+        spell_restarts=sum(
+            int((event.get("params") or {}).get("restarts") or 0)
+            for event in spell_events
+        ),
+        duration_seconds=float(record.duration_seconds),
     )
 
 
@@ -1953,6 +2022,79 @@ def _audit_document(
         if realism_observed == (253, 498, 674, 1302)
         else str(realism_observed),
     )
+    realism_analysis = json.loads(
+        (out / "analysis_inputs" / "intake_realism_effects_2026-09-07.json").read_text()
+    )
+    spelling_rows = {
+        row["kind"]: row for row in realism_analysis["spelling_opportunity"]
+    }
+    spelling_style = spelling_rows.get("spelling_style", {})
+    spell_correction = spelling_rows.get("spell_correction", {})
+    spelling_event_counts_ok = (
+        realism_analysis["instrument_version"] == "1.1.0"
+        and realism_analysis["event_ledger"]["calls"] == 2_400
+        and realism_analysis["event_ledger"]["sha256"]
+        == _sha256_file(out / "analysis_inputs" / "realism_event_ledger.jsonl")
+        and spelling_style.get("assigned_calls") == 524
+        and spelling_style.get("calls_with_spelling_event") == 301
+        and spell_correction.get("assigned_calls") == 488
+        and spell_correction.get("calls_with_spelling_event") == 221
+        and spell_correction.get("calls_with_realism_event") == 101
+    )
+    check(
+        "realism_observed_event_counts",
+        spelling_event_counts_ok,
+        "event ledger=2400 calls; spelling variation=301/524; "
+        "falter/restart spelling=221/488 with 101 observed restarts"
+        if spelling_event_counts_ok
+        else json.dumps(realism_analysis["spelling_opportunity"], sort_keys=True),
+    )
+    repair = realism_analysis["repair_cost_diagnostic"]
+    repair_ok = (
+        abs(repair["spelling_request_effect_points"] - 24.049508391652456) <= 1e-12
+        and abs(repair["duration_effect_seconds"] - 26.32365024590897) <= 1e-12
+    )
+    check(
+        "mispronunciation_repair_cost",
+        repair_ok,
+        "mispronunciation raises spelling-request probability by 24.05 points "
+        "and weighted duration by 26.32 seconds"
+        if repair_ok
+        else json.dumps(repair, sort_keys=True),
+    )
+    caller_voice = json.loads(
+        (
+            out / "analysis_inputs" / "intake_caller_voice_significance_2026-09-07.json"
+        ).read_text()
+    )
+    mildred_adjusted = {
+        row["voice_b"] if row["voice_a"] == "mildred_kaplan" else row["voice_a"]: row[
+            "holm_p"
+        ]
+        for row in caller_voice["provider_stratified_pairwise"]
+        if "mildred_kaplan" in {row["voice_a"], row["voice_b"]}
+    }
+    expected_mildred = {
+        "priya_patil": 0.02723989034446967,
+        "mamadou_diallo": 0.014416196464089436,
+        "arjun_roy": 0.018746161695259975,
+        "wei_lin": 0.9381870863384129,
+    }
+    caller_voice_ok = (
+        caller_voice["instrument_version"] == "1.1.0"
+        and mildred_adjusted.keys() == expected_mildred.keys()
+        and all(
+            abs(mildred_adjusted[voice] - expected) <= 1e-15
+            for voice, expected in expected_mildred.items()
+        )
+    )
+    check(
+        "provider_stratified_caller_voice",
+        caller_voice_ok,
+        "Mildred exceeds Priya, Mamadou, and Arjun after Holm correction, but not Wei"
+        if caller_voice_ok
+        else json.dumps(mildred_adjusted, sort_keys=True),
+    )
     strict = validation["strict"]
     check(
         "strict_speech_validation",
@@ -2008,7 +2150,8 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "- `judge_validation/`: direct utterance/call mapping between judge output "
         "and final human labels.\n"
         "- `analysis_inputs/`: crossed outcomes, rollups, deterministic complication "
-        "draws, caller-effort ledger, deterministic behavioral recomputation, "
+        "draws, caller-effort ledger, the 2,400-call realism-event ledger, "
+        "deterministic behavioral recomputation, "
         "the 210-row matched one-field composition ledger, the 200-task same-versus-"
         "crossed Pass3 ledger, caller-voice and main significance results, and "
         "speech rollup.\n"
@@ -2097,8 +2240,9 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
             "",
             "## Missing re-execution tools",
             "",
-            "None. The paper's statistical analyses are re-executable from the "
-            "compact reviewer archive.",
+            "None. The paper's statistical analyses, observed realism-event counts, "
+            "mispronunciation repair-cost diagnostic, and caller-voice comparisons "
+            "are re-executable from the compact reviewer archive.",
             "",
             "## Detached source corpus",
             "",
@@ -2141,6 +2285,7 @@ def build_release(
     cells: list[ResultCell] = []
     prompt_cells: list[dict[str, Any]] = []
     candidates: dict[tuple[str, str], tuple[str, TranscriptRecord, Path]] = {}
+    realism_events: list[RealismEventRecord] = []
 
     with speech_path.open("w", encoding="utf-8") as speech_handle:
         for results_path in result_paths:
@@ -2208,6 +2353,16 @@ def build_release(
                     passes += int(record.reward == 1.0)
                     trials.add(record.trial)
                     tasks.add(record.task_id)
+
+                    if cohort == "paper_agent_directed":
+                        realism_events.append(
+                            _realism_event_record(
+                                record,
+                                simulation,
+                                system=system,
+                                condition=condition,
+                            )
+                        )
 
                     for speech_row in _speech_rows(
                         simulation, cell=relative, cohort=cohort
@@ -2338,6 +2493,18 @@ def build_release(
 
     analysis_out = out / "analysis_inputs"
     analysis_out.mkdir(parents=True, exist_ok=True)
+    realism_event_path = analysis_out / "realism_event_ledger.jsonl"
+    with realism_event_path.open("w", encoding="utf-8") as handle:
+        for row in realism_events:
+            handle.write(
+                json.dumps(
+                    row.model_dump(mode="json"),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n"
+            )
     for name in ANALYSIS_INPUTS:
         source = analysis_root / name
         if not source.exists():
