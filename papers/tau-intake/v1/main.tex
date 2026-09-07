@@ -11,14 +11,29 @@
 
 \setlength{\textfloatsep}{6pt plus 2pt minus 2pt}
 \setlength{\dbltextfloatsep}{6pt plus 2pt minus 2pt}
-\setlength{\floatsep}{6pt plus 2pt minus 2pt}
-\setlength{\dblfloatsep}{6pt plus 2pt minus 2pt}
+\setlength{\floatsep}{5pt plus 2pt minus 1pt}
+\setlength{\dblfloatsep}{5pt plus 2pt minus 1pt}
 \setlength{\intextsep}{6pt plus 2pt minus 2pt}
+\setlength{\abovecaptionskip}{2pt}
+\setlength{\belowcaptionskip}{2pt}
+\setlength{\smallskipamount}{1pt plus .5pt minus .5pt}
 
-% spconf appends a line break inside \name even though \@maketitle adds one
-% itself, leaving an empty row between the names and affiliations.
 \makeatletter
+% Keep the paper-kit title spacing while avoiding spconf's redundant blank row
+% between \name and \address.
 \renewcommand{\name}[1]{\gdef\@name{{\em #1}}}
+\def\@maketitle{\newpage
+ \null
+ \vskip 2em \begin{center}
+ {\large \bf \@title \par} \vskip 1.5em {\large \lineskip .5em
+\begin{tabular}[t]{c}\@name \\ \@address
+ \end{tabular}\par} \end{center}
+ \par
+ \vskip 1.5em}
+\renewcommand\section{\@startsection{section}{1}{\z@}%
+  {-1.7ex plus -.5ex minus -.2ex}{.7ex plus .2ex}{\normalfont\large\bfseries}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
+  {-1.3ex plus -.4ex minus -.2ex}{.5ex plus .2ex}{\normalfont\normalsize\bfseries}}
 \let\standardthebibliography\thebibliography
 \renewcommand{\thebibliography}[1]{%
   \standardthebibliography{#1}%
@@ -35,10 +50,8 @@
 
 \title{TAU-ELICITATION: BENCHMARKING MULTI-TURN ENTITY EXTRACTION IN VOICE AGENTS}
 
-\name{{\large Soham Ray$^{1,\dagger}$\hspace{1.5em}Victor Barres$^{2}$}}
-\address{{\small\shortstack{$^{1}$Sierra \quad $^{2}$Mercor \quad
-$^{\dagger}$Corresponding author \\[-1pt]
-soham@sierra.ai \quad victorbarres@mercor.com}}}
+\name{Soham Ray$^{1}$ \qquad Victor Barres$^{2}$}
+\address{$^{1}$Sierra \qquad $^{2}$Mercor}
 
 \begin{document}
 
@@ -80,24 +93,29 @@ misunderstood named entities impede spoken dialogue, while confirming every
 attribute can itself frustrate callers \cite{filisko-seneff-2004-error}.
 
 \telicit{} tests this capability on short callbacks about missing database
-fields. Its default prompt states that the record must be exactly correct and
-suggests letter-by-letter verification when unsure, but leaves the strategy to
-the agent. A matched scaffolded prompt instead prescribes asking, spelling or
-reading back, confirming, correcting, and then submitting. Deterministic
-database comparison scores both settings without an LLM judge.
+fields. Each core task elicits one missing value, isolating the atomic unit of
+spoken entity collection and establishing a minimum-complexity floor for
+broader calls; linked multi-entity tasks then test how errors compound. Its default
+prompt defines the \emph{agent-directed} condition: the record must be exactly
+correct and letter-by-letter verification is suggested when unsure, but the
+agent decides when and how to verify. A matched \emph{scaffolded} condition
+instead prescribes asking, spelling or reading back, confirming, correcting,
+and then submitting. Both share consent, never-guess, logging, and
+one-submission rules, isolating strategy selection from protocol execution.
+Deterministic database comparison scores both conditions without an LLM judge.
 
-We contribute a reproducible generator and 200-task benchmark spanning 10
-entity types; controlled difficulty, caller realisms, and multi-entity
-extensions; and measures of initial capture, verification, repair, effort, and
-robust success across three environments. Together these distinguish risk
-recognition, strategy selection, protocol execution, and successful recovery.
+We contribute a reproducible 200-task benchmark spanning 10 entity types,
+controlled difficulty and caller realisms, and multi-entity calls. It measures
+capture, verification, repair, effort, and robust success across three
+environments; \href{https://github.com/sierra-research/tau2-bench/tree/tau-elicitation}{code and artifacts are available on GitHub}.
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{figures/task_generator_pipeline.pdf}
 \caption{\telicit{} selects values from entity banks, builds a controlled task,
 and runs it through the \tauvoice{} interaction loop. \passk{} requires success
-in all three environment realizations.}
+in all three environment realizations. The balance-scale icon marks agent
+speech evaluated by the fidelity judge.}
 \label{fig:pipeline}
 \end{figure*}
 
@@ -105,12 +123,13 @@ in all three environment realizations.}
 \label{sec:related-work}
 
 \begin{table}[t]
-\caption{Closest settings. Task: executed tool task; Exact: exact entity score;
+\caption{Coverage of related benchmarks. Task: executed tool task; Exact: exact entity score;
 $N$: controlled entity count; D: diagnostic or partial coverage.}
 \label{tab:related}
 \centering
 \small
 \setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{.9}
 \begin{tabular}{@{}lccccc@{}}
 \toprule
 Work & Multi & Task & Exact & $N$ & Repair \\
@@ -128,17 +147,20 @@ end-to-end spoken agents and tool use
 \cite{ray2026tauvoice,bogavelli2026evabench,bhosale2026duplexworld,lin2026fdbv3}.
 They reveal task and interaction failures, but treat exact entity capture as one
 part of a broader workflow rather than as the controlled target.
+Both \tauvoice{} and EVA-Bench emphasize authentication: \tauvoice{} identifies
+it as the dominant bottleneck, while EVA-Bench makes it a prerequisite for
+nearly every task and reports it as a dedicated diagnostic
+\cite{ray2026tauvoice,bogavelli2026evabench}.
 
 SpokenWOZ and \emph{A Slot Is Not Built in One Utterance} track values across
-dialogue turns \cite{si2023spokenwoz,zhang2022slot}. SLUE, \emph{I've Heard of
-You!}, and AssemblyAI's Missed Entity Rate instead test whether names and other
-entities survive fixed speech or transcription
-\cite{shon2022slue,yu2024heard,assemblyai2026mer}. \emph{Error Detection and
-Recovery in Spoken Dialogue Systems} studies repair strategies
+dialogue turns \cite{si2023spokenwoz,zhang2022slot}. SLUE benchmarks spoken NER
+on natural speech; \emph{I've Heard of You!} targets unseen entities in
+synthesized audio; and AssemblyAI's Missed Entity Rate measures STT errors on
+high-value entities \cite{shon2022slue,yu2024heard,assemblyai2026mer}.
+\emph{Error Detection and Recovery in Spoken Dialogue Systems} studies repair strategies
 \cite{filisko-seneff-2004-error}. None combines live tool execution, exact
 database writes, controlled entity type, difficulty and count, an agent's
-choice to verify, and caller effort. Table~\ref{tab:related} summarizes this
-gap; \telicit{} also attributes failures to capture, verification, or repair.
+choice to verify. Table~\ref{tab:related} summarizes this gap.
 
 \section{Methods}
 \label{sec:methods}
@@ -148,67 +170,61 @@ gap; \telicit{} also attributes failures to capture, verification, or repair.
 
 Each task is a callback about a record with missing fields. The agent sees the
 field names, asks the caller for their values, logs its captures, and submits
-once; the caller reveals a value only after it is requested. The environment
-contains no unrelated intent or policy lookup, so every scored value must pass
-through speech. The agent-directed prompt states that the record must be exact
-and suggests letter-by-letter verification when uncertain, but leaves the
-strategy to the agent. The scaffold instead prescribes asking, spelling or
-reading back, obtaining confirmation, correcting if needed, and only then
-submitting. Both prompts share consent, never-guess, logging, and one-submission
-rules; their difference isolates strategy selection from protocol execution.
+once; the caller reveals a value only after it is requested. The simulated
+caller is cooperative: it supplies requested values, spells accurately when
+asked, and confirms or corrects read-backs, but never volunteers information.
 
 \subsection{Values, difficulty, and realisms}
 
 Ten banks each contain 40 easy and 40 hard values; the benchmark samples 10 of
 each difficulty per bank. Difficulty is type-relative: for example, hard names
 are rarer, hard codes are longer or confusable, and hard emails contain more
-symbols. Medications remain separate because pronunciation affects
-comprehension \cite{palanica2019medications}. Table~\ref{tab:entity-results}
-reports bank construction and performance.
+symbols. Table~\ref{tab:entity-results} reports bank construction and
+performance.
 
-A seeded catalog adds six caller realisms. Self-correction supplies a wrong
-value and immediately repairs it; spelling variation changes how letters or
-digits are grouped; falter-and-restart spelling introduces a mid-string
-correction; partial and wrong-field answers require a follow-up; and reviewed
-mispronunciations alter only the audio. Conditional behaviors occur only when
-the conversation creates an opportunity, so a spelling correction, for
-example, cannot fire until spelling begins. Each task stores its generator and
-catalog versions, seed, selected realism, and expected database state. The
-generator also emits linked two- and three-field tasks, both as flat calls and
-as a staged workflow that validates one field before revealing the next.
+A seeded catalog adds six caller realisms by appending a scripted instruction
+to the caller prompt. For example, one spelling-style instruction tells the
+caller to say ``zed'' for the letter Z whenever spelling a value.
+Self-correction supplies a wrong value and immediately repairs it; spelling
+variation changes how letters or digits are grouped; falter-and-restart
+spelling introduces a mid-string correction; partial and wrong-field answers
+require a follow-up; and reviewed mispronunciations alter only the audio.
+Conditional behaviors occur only when the conversation creates an opportunity,
+so a spelling correction, for example, cannot fire until spelling begins. Each
+task stores its generator and catalog versions, seed, selected realism, and
+expected database state. The generator also emits linked two- and three-field
+tasks, both as flat calls and as a staged workflow that validates one field
+before revealing the next.
 
 \subsection{Scoring and behavioral measures}
 
-We compare each final database value with the exact gold string. For each task,
-\passk{} counts success only when all three prespecified environment
-realizations succeed. The three realizations are \emph{regular};
+We compare each final database value with the exact gold string and report
+regular-realization success as \passone{}. We define robust \passk{} as exact
+success on the same task across three prespecified environment realizations:
+\emph{regular};
 \emph{noise-heavy}, with 10\,dB background noise, bursts, frame drops, and
 muffling; and \emph{speech-heavy}, with interruptions, backchannels, and
-restarts. We report the regular realization as \passone{} and require success
-in all three for \passk{}. Unlike a repeated-trial score, \passk{} crosses these prespecified
+restarts. Unlike a repeated-trial score, \passk{} crosses these prespecified
 conditions; voices and realism assignments are also redrawn. It therefore asks
 whether the same task succeeds robustly, rather than averaging away a failure
 in one condition. A 700-call audit placed the 90th-percentile duration at 1.89
 minutes, so we use a conservative four-minute limit. Timed-out calls remain in
 the denominator and score zero.
 
-Agents log captured values before submission. We compare the first capture
-and final database value with gold, while silent caller tools record spelling
-requests and read-backs. \emph{Verification discrimination} is the difference
-between verification rates for initially wrong and correct captures;
-\emph{repair} is the share of verified wrong captures that end correct.
-Verification effort combines spelling requests and read-backs. We compare it
-across noise, difficulty, entity familiarity, and each system's highest- versus
-lowest-\passone{} caller voice; duration is reported separately. This avoids
-treating long names as more effortful merely because they contain more letters.
+We score both the first captured value and the final database value against the
+gold string. Silent caller tools log every spelling request and read-back; their
+sum is our measure of verification effort. We compare this effort across noise,
+entity difficulty and familiarity, and each system's best- and worst-performing
+caller voices.
 
 \section{Experiments}
 \label{sec:experiments}
 
 \noindent\textbf{Systems.}
-We evaluate four configurations: GPT Realtime with minimal and xhigh reasoning,
-Gemini 3.1 Flash Live with high reasoning, and Grok Voice. The simulated caller
-is \texttt{gpt-5.5} at temperature zero in every run.
+We evaluate four configurations: gpt-realtime-2 with minimal and xhigh
+reasoning, gemini-3.1-flash-live-preview with high reasoning, and
+grok-voice-think-fast-1.0 with its provider default. The simulated caller uses
+gpt-5.5 with xhigh reasoning and temperature zero.
 
 \smallskip
 \noindent\textbf{Matched runs.}
@@ -228,10 +244,10 @@ separately to the six system comparisons for \passone{} and \passk{}.
 
 \smallskip
 \noindent\textbf{Judge validation.}
-Two raters independently evaluate 100 calls from an earlier GPT run: 70
-passing and 30 failing. Their final labels cover each call and each of the
-speech-fidelity judge's 41 findings. We report a strict result when both raters
-confirm a defect and a lenient result when either rater confirms it.
+Two raters evaluate 70 passing and 30 failing calls from a separate GPT
+Realtime run with provider-default agent reasoning. Both runs use the same
+gpt-5.5 xhigh, temperature-zero caller. Blind raters adjudicate 41 findings;
+only joint confirmations count.
 
 \section{Results}
 \label{sec:results}
@@ -247,21 +263,39 @@ and dark inset bars show robust \passk{}.}
 
 \subsection{Strategy selection and robustness}
 
-Scaffolding raises \passone{} by 15--37 points and robust \passk{} by 14--31
-points (Figure~\ref{fig:main-results}), while costing 21--28 seconds per call.
-It helps hard entities slightly more (27 versus 23 points) and narrows provider
-gaps. Grok remains best and significantly exceeds every other agent-directed
-system on both measures (Holm-adjusted $p\leq.0032$); no other pair differs.
-Systems therefore execute a supplied protocol more reliably than they select
-one unaided.
-
-Robustness remains poor: \passk{} is only 0.14--0.41 agent-directed and
-0.37--0.54 scaffolded. Gemini beats GPT xhigh in the regular realization
-(51.5\% versus 44.5\%) but trails it in \passk{}. For scaffolded GPT xhigh,
-crossing three environments yields 38.5\%, versus 51.5\% when regular is
-repeated three times. One-shot success therefore overstates reliability.
-Increasing GPT reasoning changes verification style, not this conclusion:
-minimal/xhigh \passk{} is 0.15/0.20 agent-directed and 0.46/0.39 scaffolded.
+\begin{list}{\textbullet}{
+\setlength{\leftmargin}{1.15em}
+\setlength{\labelwidth}{0.45em}
+\setlength{\labelsep}{0.35em}
+\setlength{\itemsep}{0pt}
+\setlength{\parsep}{0pt}
+\setlength{\parskip}{0pt}
+\setlength{\topsep}{0pt}
+}
+\item \textit{Scaffolding trades time for reliability.} It raises \passone{}
+by 15--37 points and \passk{} by 14--31 points
+(Figure~\ref{fig:main-results}), while adding 21--28 seconds per call. Gains are
+slightly larger for hard entities (27 versus 23 points).
+\item \textit{A supplied protocol narrows provider gaps.} Grok remains best
+and significantly exceeds every other agent-directed system on both measures
+(Holm-adjusted $p\leq.0032$); no other pair differs. Systems execute a supplied
+protocol more reliably than they select one unaided.
+\item \textit{Robustness exposes instability.} Across systems, \passk{} spans
+14--41\% agent-directed and 37--54\% scaffolded. Rankings can reverse: Gemini
+beats GPT xhigh on regular \passone{} (51.5\% versus 44.5\%), yet trails on
+\passk{} (13.5\% versus 20.0\%).
+\item \textit{Diverse environments expose more than run-to-run variation.}
+For scaffolded GPT xhigh, three regular runs have similar \passone{} rates
+(74.5\%, 75.5\%, and 77.0\%), yet only 103 of 200 tasks pass
+every repeat (\passk{} = 51.5\%): 86 tasks change outcome at least once.
+Replacing two repeats with noise-heavy and speech-heavy conditions lowers the
+all-three count to 77 (38.5\%).
+Environment diversity therefore reveals instability beyond stochastic reruns,
+and one-shot success overstates reliability.
+\item \parbox[t]{\linewidth}{\textit{More reasoning does not consistently
+improve robustness.} From minimal to xhigh, \passk{} rises from 15.0\% to 20.0\%
+agent-directed but falls from 45.5\% to 38.5\% scaffolded.}
+\end{list}
 
 \subsection{Risk recognition and recovery}
 
@@ -285,16 +319,30 @@ Only 27\%, 37\%, and 24\% of verified GPT xhigh, Gemini, and Grok errors end
 correct. Among 347 initially wrong captures, recovery is 10\% without a repair
 step, 26\% with read-back only, 24\% with spelling only, and 35\% with both.
 Because agents choose when to verify, these are associations, but the pattern
-locates the bottleneck after risk is noticed. In one medication call, a
-rejected ``Alternofane'' becomes ``Ternofane'' and is still submitted. Agents
-often double down without completing the repair.
+locates the bottleneck after risk is noticed. Agents often double down on an
+error or hallucinate a replacement rather than complete the repair.
 
-Caller voice is another blind spot. Mildred leads overall, but rankings vary
-by system; only Gemini has a significant omnibus effect ($p=.040$), with no
-significant within-system pair. No system increases verification for its own
-lowest-performing voice.
+Caller voice is another blind spot. In agent-directed regular calls, the gap
+between each system's best- and worst-performing voices is 27 points for GPT
+xhigh, 28 for Gemini, and 15 for Grok. The ordering is not stable: Mildred leads
+GPT xhigh and Grok, whereas Wei leads Gemini. Only Gemini shows evidence that
+success differs across all five voices after correction ($p=.040$); no
+individual Gemini voice pair remains significant, so the result establishes
+heterogeneity without isolating one contrast. Across systems, Mildred
+significantly exceeds Priya, Mamadou, and Arjun, but not Wei. Yet no system
+increases verification for its own lowest-performing voice, suggesting that
+agents do not adapt their effort to voice-specific difficulty.
 
 \subsection{Stress tests and diagnostics}
+
+\noindent\textbf{Caller realisms mainly add repair cost.} No assigned realism
+detectably changes exact success after bank-specific weighting
+(Figure~\ref{fig:realism-effects}); the overall estimate is $-3.6$ points
+(95\% CI $[-10.4,3.0]$). These are intention-to-treat estimates: assignment
+does not guarantee that a conditional realism is expressed before the call
+ends. Mispronunciation is $-0.5$ points, but raises spelling requests about 24
+points and duration 26 seconds. Realisms therefore stress the repair process
+without explaining the benchmark's large baseline failure rate.
 
 \begin{figure}[t]
 \centering
@@ -306,15 +354,6 @@ Holm correction ($p_{\rm adj}\geq .67$).}
 \label{fig:realism-effects}
 \end{figure}
 
-\noindent\textbf{Caller realisms mainly add repair cost.} No assigned realism
-detectably changes exact success after bank-specific weighting
-(Figure~\ref{fig:realism-effects}); the overall estimate is $-3.6$ points
-(95\% CI $[-10.4,3.0]$). These are intention-to-treat estimates: assignment
-does not guarantee that a conditional realism is expressed before the call
-ends. Mispronunciation is $-0.5$ points, but raises spelling requests about 24
-points and duration 26 seconds. Realisms therefore stress the repair process
-without explaining the benchmark's large baseline failure rate.
-
 \begin{table}[t]
 \caption{Value-bank construction and robust agent-directed results. Every bank
 has 80 values and contributes 20 tasks (10 easy, 10 hard). \passk{} pools 60
@@ -323,7 +362,7 @@ system--task triples per bank.}
 \centering
 \small
 \setlength{\tabcolsep}{2pt}
-\renewcommand{\arraystretch}{1.02}
+\renewcommand{\arraystretch}{.9}
 \begin{tabular}{@{}>{\raggedright\arraybackslash}p{.25\columnwidth}
                     >{\raggedright\arraybackslash}p{.58\columnwidth}c@{}}
 \toprule
@@ -343,13 +382,16 @@ Medications  & RxNorm-checked \cite{nelson2011rxnorm} & .02 \\
 \end{tabular}
 \end{table}
 
+\smallskip
 \noindent\textbf{Entity structure determines difficulty.} Across the regular
 agent-directed cells, \passone{} is 64.0\% on easy entities and 44.3\% on hard
 ones; scaffolding raises these rates to 87.3\% and 71.3\%. Pooled \passk{}
 ranges from 1.7\% for medications and 3.3\% for coined names to 46.7\% for
-phone numbers and 60.0\% for dates (Table~\ref{tab:entity-results}). The
-ordering follows available structure more than length: dates and phones
-constrain plausible values; medications and coined names offer fewer anchors.
+phone numbers and 60.0\% for dates (Table~\ref{tab:entity-results}). The pattern
+is consistent with format-constrained versus lexical capture. Dates and phone
+numbers follow tightly scoped numeric schemas. Medications come from a closed
+RxNorm vocabulary and coined names from a synthetic registry, but the agent is
+shown neither list.
 
 \begin{table}[t]
 \caption{Effect of field validation and retry under the scaffolded prompt. Task
@@ -359,6 +401,7 @@ individual values.}
 \centering
 \small
 \setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{.9}
 \begin{tabular}{@{}>{\raggedright\arraybackslash}p{.51\columnwidth}cc@{}}
 \toprule
 Workflow & Task \passone{} & Field \passone{} \\
@@ -369,38 +412,41 @@ Validate each field; retry errors & $.82\pm.05$ & $.86\pm.03$ \\
 \end{tabular}
 \end{table}
 
-\begin{table}[t]
-\caption{Compositional results over three realizations. The one-field row
-matches each composition slot to its atomic task. Task \passone{} requires
-every field in the call to be correct; field \passone{} scores individual values.}
-\label{tab:composition-results}
+\begin{figure}[t]
 \centering
-\small
-\setlength{\tabcolsep}{1.8pt}
-\begin{tabular}{@{}lrrrrr@{}}
-\toprule
-Fields/call & Units$\times$runs & Calls & Fields & Task \passone{} & Field \passone{} \\
-\midrule
-1 & $210\times3$ & 630 & 630 & $.77\pm.03$ & $.77\pm.03$ \\
-2 & $60\times3$  & 180 & 360 & $.69\pm.07$ & $.81\pm.04$ \\
-3 & $30\times3$  & 90  & 270 & $.53\pm.10$ & $.75\pm.05$ \\
-\bottomrule
-\end{tabular}
-\end{table}
+\includegraphics[width=\columnwidth]{figures/composition_results.pdf}
+\vspace{-16pt}
+\caption{Task success declines as fields accumulate,
+roughly following the light-gray reference expected if every field independently
+succeeds 77\% of the time (77\%, 59\%, and 46\%). Error bars show 95\%
+confidence intervals.}
+\label{fig:composition-results}
+\end{figure}
 
-\noindent\textbf{Errors compound; actionable retry helps.} Three-field task
-accuracy falls to 0.53 while field accuracy remains 0.75
-(Table~\ref{tab:composition-results}). Validating each field and retrying
-errors raises task accuracy from 0.64 to 0.82
-(Table~\ref{tab:protocol-ablation}).
+\smallskip
+\noindent\textbf{Errors compound across fields.} At three fields, only 0.53 of
+calls pass even though individual fields remain 0.75 accurate
+(Figure~\ref{fig:composition-results}): one wrong field fails the entire call.
+Intermediate validation and retry counter this accumulation, raising task
+accuracy from 0.64 to 0.82 across the matched multi-field tasks
+(Table~\ref{tab:protocol-ablation}). Because the intervention combines both
+mechanisms, we do not attribute the gain to either one alone.
 
-\begin{table}[t]
-\caption{Speech fidelity by system over scored agent utterances (lower is
-better). Mean is the average maximum retained severity per utterance.}
+\smallskip
+\noindent\textbf{Speech fidelity captures synthesis defects.} The judge
+compares agent audio with its reference transcript, including
+mispronunciations, omitted or added words, and clipping. Severity $\geq 2$
+denotes a clear, potentially confusing mismatch.
+
+\begin{table}[!ht]
+\caption{Speech fidelity by system over scored agent utterances. Mean is the
+average maximum retained severity; $\geq 2$ is the share with a clear defect
+(lower is better).}
 \label{tab:fidelity-provider}
 \centering
 \small
 \setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{.9}
 \begin{tabular}{@{}lrrr@{}}
 \toprule
 System & Utterances & Mean & Severity $\geq 2$ \\
@@ -413,34 +459,44 @@ Grok        & 1,813 & .10 & 4.1\% \\
 \end{tabular}
 \end{table}
 
+\smallskip
 \noindent\textbf{Controls locate the deficit in voice interaction.} Both raters
 attribute 29 of 30 reviewed failures to the agent; neither attributes one
 solely to the simulator. The fidelity judge reaches .73 precision, 1.00 clip
 recall, and .85 F1 against consensus. Table~\ref{tab:fidelity-provider} reports
 utterance-level defects that task success can miss. A matched text run passes
-all 200 tasks, locating the larger deficit in spoken capture and repair rather
-than task understanding.
+all 200 tasks, implicating spoken capture and repair rather than task
+understanding.
 
 \section{Conclusion}
 
-\telicit{} exposes two linked failures: exact success transfers poorly across
-conditions, and recognized risk rarely becomes successful recovery. Robust
-success is only 14--41\%; agents adapt poorly to caller voice and repair at most
-37\% of verified errors. A supplied protocol raises \passk{} by 14--31 points,
-showing that robust strategy selection and follow-through, rather than task
-understanding, are the central bottlenecks.
+Voice agents still struggle to collect exact entities reliably. A strict
+elicitation protocol helps substantially, and our caller is deliberately highly
+cooperative: it spells accurately and corrects faulty read-backs. Even under
+these favorable conditions, scaffolded systems succeed across all three
+environments on only 37--54\% of tasks.
 
+\vspace{3pt}
+\noindent Failures occur at both stages of recovery: agents do not consistently
+recognize risky captures, and when they do verify an error, only 24--37\% are
+repaired.
+
+\vspace{3pt}
 \noindent\textbf{Limitations.} We study English, three providers, one simulator,
-and one run per main environment. The multi-field study is formative; broader
-provider, human-caller, and multilingual validation remain future work.
+and one run per main environment. We intentionally omit caller-side ASR to
+avoid confounding agent performance with a second recognizer. As a result,
+agent speech synthesis is not evaluated end to end: the speech-fidelity judge
+reports synthesis defects, but they do not yet affect task reward. The
+multi-field study is formative; broader provider, human-caller, and
+multilingual validation remain future work.
 
 \smallskip
 \noindent\textbf{Acknowledgment.} We thank Ben Shi, Ola Zytek, Vijay Iyengar,
 Ajeet Grewal, and Clay Bavor for feedback and support.
 
 \clearpage
-\raggedcolsend
-\section{Ethical Considerations}
+
+\section{Compliance with Ethical Standards}
 
 The benchmark uses no real customer records or recordings. Values are
 synthetic or public and non-sensitive; calls use simulated callers and provider
@@ -454,6 +510,11 @@ collection, explain its purpose, protect stored values, and support human
 escalation. Our simulated English results are not evidence of safety, privacy,
 deployment readiness, or differences among people or demographic groups.
 
+This work was supported by Sierra and Mercor. The authors are employees of
+Sierra and Mercor, respectively, and have no other relevant interests to
+disclose.
+
+\raggedcolsend
 \bibliographystyle{IEEEbib}
 \bibliography{references}
 

@@ -1,14 +1,13 @@
 # Intake paper result sources
 
-This file records the artifacts behind every quantitative statement in
-`main.tex` (agent-directed benchmark rewrite, 2026-09-02). The reviewer-facing
-copies live in `reproduction/`: `results/manifest.csv` identifies each frozen
-result root and its SHA-256, `transcripts/` contains compact scored records,
-`run_configs/` and `prompts/` preserve the run contract, and
-`analysis_inputs/` contains the checked rollups. The detached source corpus has
-the same `main_runs/`, `text_channel/`, and
-`ablations/{scaffolded,entity_composition,gated_stages}/` layout and can be
-verified against the manifest with `tau2 paper elicitation-verify`.
+This file records the local artifacts behind every quantitative statement in
+`main.tex` (agent-directed benchmark rewrite, 2026-09-02). Canonical run data:
+`data/simulations/paper_runs/tau-elicit/` in the main checkout: `main_runs/`
+holds the canonical benchmark dirs plus `INTAKE_FINAL_MANIFEST.md` (the role of
+every dir), with `text_channel/` and `ablations/{scaffolded,entity_composition,gated_stages}/` alongside. Drive mirror:
+`My Drive/Multilingual Tau/intake_final_2026-09-02/`. Analysis narrative:
+`data/analysis/modeb_r_grid_2026-09-02.md`; rollup artifacts and drivers:
+`data/analysis/modeb_campaign_2026-09-02/`.
 
 ## Agent-directed benchmark — Figure 2, abstract, conclusion
 
@@ -56,12 +55,13 @@ verified against the manifest with `tau2 paper elicitation-verify`.
 
 ## Same vs crossed Pass^3 — Table 4
 
-- Same-environment trials: `intake_final/intake_passk_xhigh_regular`
-  (scaffolded openai xhigh, 3 same-config trials) → Pass^3 same = .515.
-- Crossed = scaffolded openai xhigh Pass^3 above = .385.
-- The machine-readable 200-task ledger, including selected trials, simulation
-  hashes, per-task outcomes, and both aggregate calculations, is
-  `reproduction/analysis_inputs/pass3_same_vs_crossed.json`.
+- Same-environment trials combine the canonical scaffolded OpenAI xhigh regular
+  cell (`intake_final/intake_m_openai_xhigh_regular`, .770) with two additional
+  regular trials in `intake_final/intake_passk_xhigh_regular` (.745 and .755).
+  The three-run Pass^3 is .515 (103/200); 59 tasks pass twice, 27 pass once, and
+  11 never pass, so 86/200 tasks change outcome at least once.
+- Crossed = scaffolded OpenAI xhigh Pass^3 above = .385 (77/200), 13 points and
+  26 all-three task successes below the repeated-regular baseline.
 
 ## Behavioral measures (agent-directed regular cells, seed 9401)
 
@@ -148,9 +148,7 @@ simulator's silent `note_spell_request` / `note_readback` tools:
     mamadou_diallo (34, .412), arjun_roy (39, .410), priya_patil (44, .409).
   - xAI: mildred_kaplan (51, .745), arjun_roy (34, .676), priya_patil
     (47, .660), mamadou_diallo (33, .606), wei_lin (35, .600).
-- Reproducer: `src/experiments/intake/caller_voice_significance.py`; versioned
-  output: `reproduction/analysis_inputs/intake_caller_voice_significance_2026-09-07.json`.
-  Omnibus 5-voice x binary-outcome Fisher--Freeman--Halton Monte Carlo tests use
+- Omnibus 5-voice x binary-outcome Fisher--Freeman--Halton Monte Carlo tests use
   100,000 samples with seed 42 and Holm correction across the three systems.
   Raw/adjusted p-values are .1046/.2091 (OpenAI xhigh), .01337/.04011 (Gemini
   high), and .6044/.6044 (xAI). Ten pairwise two-sided Fisher exact tests within
@@ -162,10 +160,9 @@ simulator's silent `note_spell_request` / `note_readback` tools:
 ## Realisms (agent-directed benchmark, pooled 9 cells)
 
 - Reproducer: `src/experiments/intake/realism_effects.py`; versioned output:
-  `reproduction/analysis_inputs/intake_realism_effects_2026-09-07.json`. The
-  artifact records all 12 compact-transcript paths and SHA-256 hashes and
-  validates their stored assignments against the three frozen expected-draw
-  maps.
+  `analysis/intake_realism_effects_2026-09-07.json`. The artifact records all
+  12 input paths and SHA-256 hashes and verifies every stored assignment against
+  the deterministic catalog draw.
 - The analysis unit is a task x environment assignment, with exact success
   averaged across the four agent-directed systems. Each contrast retains units
   with positive probability of either the target realism or a clean draw, uses
@@ -180,10 +177,10 @@ simulator's silent `note_spell_request` / `note_readback` tools:
   100,000 times. Holm correction across the overall contrast and five estimable
   subtypes gives a minimum adjusted p-value of .6664 (reported as .67).
 - Assignment is the intention-to-treat exposure and does not guarantee that a
-  conditional realism is expressed. The compact transcripts preserve explicit
-  spelling requests, not caller audio: 146/524 spelling-variation assignments
-  and 108/488 falter/restart assignments record such a request. The script does
-  not treat those request counts as application rates.
+  conditional realism is expressed. Across the four systems, spelling
+  variation was assigned in 524 calls and 301 (57.4%) contained a spelling
+  event. Falter/restart was assigned in 488 calls; 221 (45.3%) contained a
+  spelling event and 101 contained an observed restart.
 
 ## Speech fidelity (`tab:fidelity-provider`)
 
@@ -213,49 +210,69 @@ simulator's silent `note_spell_request` / `note_readback` tools:
 
 ## Composition and submission workflow (Tables 3--4)
 
-- Exact task snapshots, transcripts, and recomputed counts for the two- and
-  three-field rows, joint submission, and verify/retry are in
-  `reproduction/analysis_inputs/composition_protocol_recomputed.json`.
-- The single-field reference is reconstructed in
-  `reproduction/analysis_inputs/composition_one_field_matched.json`. For each
-  of the 210 slot occurrences in the frozen two- and three-field compose
-  manifest, it selects the exact atomic parent task from three regular,
-  scaffolded GPT-xhigh realizations: trial 0 of
-  `intake_m_openai_xhigh_regular` and trials 0--1 of
-  `intake_passk_xhigh_regular`. Repeated parents retain their slot-frequency
-  weight. The resulting 486/630=.771 exactly matches the paper.
-- The two-field result uses all three trials in `intake_ecomp_n2`: task
-  125/180=.694 and field 290/360=.806. The three-field result uses the frozen
-  three-trial design (trials 0--2) from `intake_ecomp_n3`: task 48/90=.533 and
-  field 202/270=.748; its retained fourth exploratory trial is not pooled.
-- Combining those rows gives joint submission task 173/270=.641 and field
-  492/630=.781. `intake_ehier` gives verify/retry task 222/270=.822 and field
-  544/630=.863.
-- The release comparison contains only these two observed workflows: joint
-  submission without validation, and field-by-field validation with retry. It
-  reports the final outcomes from each workflow.
+- Composition roots:
+  `ablations/entity_composition/intake_ecomp_n2` and
+  `ablations/entity_composition/intake_ecomp_n3`; the single-field reference is
+  `main_runs/intake_m_openai_xhigh_regular`.
+- The single-field row is contextual rather than a paired count-effect
+  estimate: it is 154/200 fields from the canonical scaffolded regular run.
+  Its caller reasoning setting and duration cap differ from the later
+  composition roots, so the paper's composition claim rests on the within-arm
+  gap between field and whole-task accuracy, not a causal n=1-to-n=3 contrast.
+- The paper pools trials 0--2 in both multi-field arms. This gives 125/180
+  two-field task passes and 290/360 correct fields, and 48/90 three-field task
+  passes and 202/270 correct fields. Thus task/field Pass@1 is .694/.806 for
+  two fields and .533/.748 for three fields; the table reports two decimals
+  with Wald 95% margins (.07/.04 and .10/.05).
+- The three-field root contains a fourth trial (21/30 task passes, 78/90 correct
+  fields), which is excluded solely to balance the trial count. Pooling all
+  four would give task Pass@1 = 69/120 = .575 and field Pass@1 = 280/360 =
+  .778; neither changes the qualitative conclusion.
+- Run audit: every included trial contains its complete task set, with no null
+  rewards or infrastructure-error terminations. The low three-field trial 2
+  (11/30) is a broad hard-task decline, not a failed worker. The roots share
+  commit `ce74dff8f099fb8560b814592d76e3847ca37ee6`, seed 42, regular speech,
+  complications off, GPT Realtime xhigh, and a `gpt-5.5` low-reasoning caller.
+  Four discarded caller-hallucination attempts in the two-field root were
+  replaced before scoring. The included gated run likewise has three trials.
+- The compose manifest at recorded commit `ce74dff8` is authoritative. A later
+  catalog-2.4 redraw changed one current-manifest n=2 slot from `vin` to
+  `license_plate`; it does not describe these frozen runs. Full audit and
+  per-trial counts: `analysis/intake_composition_first3_audit.md`.
+- Protocol ablation: scaffolded-era protocol study cells (flat / first-strike
+  / oracle), unchanged numbers. Table 3 presents the decision-relevant flat
+  and oracle conditions; the first-strike arm remains in the source analysis
+  but is omitted from the compact paper table.
 
 ## Text control
 
 - `intake_final/intake_text200_xhigh_textpolicy_2026-08-27`: 200/200 = 1.00.
 
-## Analyses outside the current manuscript
+## Pending analyses not shown in the compact manuscript
 
 - Failure attribution on the current agent-directed cells. The completed validation
   below is a separate, earlier provider-default cohort.
 
 ## Human validation (separate earlier cohort)
 
-- Reviewer archive:
-  `reproduction/judge_validation/validation.csv` and `metrics.json`.
+- Frozen annotation directory:
+  `data/simulations/paper_runs/tau-elicit/judge_validation/intake_review_100_2026-08-27/`
 - Source run:
-  `data/simulations/archive_intake_explorations/intake_bm200_2026-08-26_chanlight_speechheavy/`.
+  `data/simulations/intake_bm200_2026-08-26_chanlight_speechheavy/` (no longer
+  kept locally; Drive: `Multilingual Tau/intake_paper_runs_2026-08-29/`)
 - Sample: 100 OpenAI `gpt-realtime-2` provider-default,
   channel-light/speech-heavy calls: 70 reward-1 and 30 reward-0 calls.
-- The reviewer archive maps every final call label and finding decision directly
-  to its simulation, task, utterance text, and judge output.
+- Raters: Niko and Ian Belcher. Each reviewed every call first from audio alone
+  (`pre_reveal`) and then with transcript and reward (`post_reveal`). Calls
+  1--40 were used for rater calibration; blind error-type summaries use calls
+  41--100. Both raters also adjudicated all 41 fidelity-judge findings.
+- Raw returns:
+  `niko_review.csv`, `ian_belcher_review.csv`, `niko_decisions.csv`, and
+  `ian_belcher_decisions.csv` in the frozen annotation directory.
+- Frozen summary:
+  `data/simulations/paper_runs/tau-elicit/judge_validation/intake_review_100_2026-08-27/results.md`.
 
-Final source attribution on the 30 failing calls is:
+Post-reveal source attribution on the 30 failing calls is:
 
 | Attribution | n | Share |
 | --- | ---: | ---: |
@@ -263,10 +280,10 @@ Final source attribution on the 30 failing calls is:
 | User simulator, both raters | 0 | 0.0% |
 | Raters split (agent vs. user) | 1 | 3.3% |
 
-When both raters identify an error on a failing call, they agree on its type
-88% of the time. The 14 consensus errors are 12
+In the blind held-out segment, when both raters identify an error on a failing
+call, they agree on its type 88% of the time. The 14 consensus errors are 12
 transcription errors and two logical errors; neither rater pair agrees on a
-hallucination. Across the full set, both raters agree on 20 transcription and five
+hallucination. Post-reveal, both raters agree on 20 transcription and five
 logical errors across the 30 failing calls. Transcription failures concentrate
 in emails (6), coined names (4), and properties (3).
 
@@ -275,7 +292,7 @@ Fidelity-judge validation over all 100 calls and 41 findings is:
 | Criterion | Precision | Clip-level recall | F1 |
 | --- | ---: | ---: | ---: |
 | Strict (both raters) | 0.73 | 1.00 | 0.85 |
-| Lenient (either rater) | 0.85 | 0.73 | 0.79 |
+| Lenient (either rater) | 0.85 | 0.80 | 0.82 |
 
 All 21 calls with a consensus human fidelity defect receive at least one
 confirmed judge finding. Finding-decision agreement is 0.88 with Cohen's
