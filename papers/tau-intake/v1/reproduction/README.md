@@ -11,10 +11,10 @@ This directory is the compact, reviewer-facing evidence archive for the tau-Elic
 - `examples/`: deterministic calls spanning both strategies and three systems.
 - `speech_judgments/`: all 6,422 exported utterance judgments: 4,948 from the paper's main speech cohort and 1,474 supplemental judgments, including retained/excluded findings and errors.
 - `judge_validation/`: direct utterance/call mapping between judge output and final human labels.
-- `analysis_inputs/`: crossed outcomes, rollups, deterministic complication draws, caller-effort ledger, deterministic behavioral recomputation, significance results, and speech rollup.
+- `analysis_inputs/`: crossed outcomes, rollups, deterministic complication draws, caller-effort ledger, deterministic behavioral recomputation, the 210-row matched one-field composition ledger, significance results, and speech rollup.
 - `audit.json`: executable claim checks.
 
-`SOURCE_GAPS.md` records 2 older ablation source artifacts plus the analysis/judge re-execution tools that were not present in the frozen local evidence.
+`SOURCE_GAPS.md` records the remaining older ablation source gap plus the statistical-analysis re-execution tools that were not present in the frozen local evidence.
 
 The prompt manifest distinguishes the caller guideline actually selected by the frozen simulation builders from a stale inbound guideline stored in the historical top-level run metadata. The content-addressed runtime prompt is the one used for reproduction.
 
@@ -30,6 +30,13 @@ Verification is offline and makes no model calls. To exercise the runnable bench
 
 ```bash
 tau2 run --domain intake_free --audio-native --audio-native-provider openai --audio-native-model gpt-realtime-2 --reasoning-effort xhigh --user-llm gpt-5.5 --user-llm-args '{"reasoning_effort":"xhigh","temperature":0.0}' --complication-rate 1.0 --channel-effects-mode regular --speech-effects-mode regular --seed 9401 --task-ids intake_medications_hard_04 --num-trials 1 --max-concurrency 1 --timeout 1200 --save-to tau_elicitation_smoke
+```
+
+To regenerate the v6 speech judgments from the detached audio corpus, write into a new directory (frozen paper roots are protected):
+
+```bash
+tau2 judges rejudge /path/to/tau-elicit/main_runs/ONE_CELL --delivery --delivery-only --rejudge --delivery-sample-rate 1.0 --delivery-model gemini/gemini-3.1-pro-preview --max-concurrency 8 --output /path/to/rejudged/ONE_CELL
+# Add --limit-sims 1 --max-segments 1 for a one-API-call smoke test.
 ```
 
 The paired significance analysis is also self-contained in the compact archive:

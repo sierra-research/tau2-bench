@@ -165,6 +165,18 @@ def to_tau2_messages(
     return tau2_messages
 
 
+def _input_audio_format(message: UserMessage) -> str:
+    """Return the container format expected by LiteLLM for inline audio."""
+    audio = message.audio_content or ""
+    if audio.startswith("UklG"):  # base64 of RIFF
+        return "wav"
+    if audio.startswith("SUQz"):  # base64 of ID3
+        return "mp3"
+    if message.audio_format is not None:
+        return message.audio_format.encoding.value
+    return "wav"
+
+
 def to_litellm_messages(messages: list[Message]) -> list[dict]:
     """
     Convert a list of Tau2 messages to a list of litellm messages.
@@ -172,7 +184,22 @@ def to_litellm_messages(messages: list[Message]) -> list[dict]:
     litellm_messages = []
     for message in messages:
         if isinstance(message, UserMessage):
-            litellm_messages.append({"role": "user", "content": message.content})
+            if message.audio_content:
+                content: list[dict] = []
+                if message.content:
+                    content.append({"type": "text", "text": message.content})
+                content.append(
+                    {
+                        "type": "input_audio",
+                        "input_audio": {
+                            "data": message.audio_content,
+                            "format": _input_audio_format(message),
+                        },
+                    }
+                )
+                litellm_messages.append({"role": "user", "content": content})
+            else:
+                litellm_messages.append({"role": "user", "content": message.content})
         elif isinstance(message, AssistantMessage):
             tool_calls = None
             if message.is_tool_call():
@@ -280,11 +307,31 @@ def _format_messages_for_logging(messages: list[dict]) -> list[dict]:
     formatted = []
     for msg in messages:
         msg_copy = msg.copy()
-        if "content" in msg_copy and isinstance(msg_copy["content"], str):
+        content = msg_copy.get("content")
+        if isinstance(content, str):
             # Split content on newlines for better readability
-            content_lines = msg_copy["content"].split("\n")
+            content_lines = content.split("\n")
             if len(content_lines) > 1:
                 msg_copy["content"] = content_lines
+        elif isinstance(content, list):
+            # Never persist large base64 audio payloads in debug logs.
+            parts = []
+            for part in content:
+                if isinstance(part, dict) and part.get("type") == "input_audio":
+                    audio = part.get("input_audio") or {}
+                    data = audio.get("data") or ""
+                    parts.append(
+                        {
+                            **part,
+                            "input_audio": {
+                                **audio,
+                                "data": f"<audio: {len(data)} b64 chars>",
+                            },
+                        }
+                    )
+                else:
+                    parts.append(part)
+            msg_copy["content"] = parts
         formatted.append(msg_copy)
     return formatted
 

@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict
 RELEASE_VERSION = "tau-elicit-review-release-v1"
 TRANSCRIPT_VERSION = "tau-elicit-compact-transcript-v1"
 EXAMPLE_SELECTION_VERSION = "tau-elicit-examples-v1"
+ONE_FIELD_REFERENCE_VERSION = "tau-elicit-matched-one-field-v1"
 
 PAPER_AGENT_DIRECTED = {
     *{
@@ -180,6 +181,33 @@ class ExampleCall(BaseModel):
     transcript_file: str
     source_cell: str
     source_simulation_sha256: str
+
+
+class OneFieldSourceOutcome(BaseModel):
+    """One frozen GPT-xhigh realization of an atomic parent task."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_cell: str
+    trial: int
+    simulation_id: str
+    source_simulation_sha256: str
+    reward: float
+
+
+class OneFieldMatchedSlot(BaseModel):
+    """One composition slot matched to its atomic single-field outcomes."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    composition_task_id: str
+    n_fields_in_composition: int
+    slot_index: int
+    parent_task_id: str
+    bank: str
+    tier: str
+    field_name: str
+    source_outcomes: list[OneFieldSourceOutcome]
 
 
 class ReleaseManifest(BaseModel):
@@ -1221,6 +1249,123 @@ def _score_ablation_cell(
     }
 
 
+def _transcript_outcomes(
+    out: Path, cell: ResultCell
+) -> dict[tuple[str, int], OneFieldSourceOutcome]:
+    """Index one compact transcript by canonical task and trial."""
+    result: dict[tuple[str, int], OneFieldSourceOutcome] = {}
+    with (out / cell.transcript_file).open(encoding="utf-8") as handle:
+        for line in handle:
+            row = json.loads(line)
+            key = (str(row["task_id"]), int(row["trial"]))
+            if key in result:
+                raise ValueError(
+                    f"Duplicate atomic outcome for {key} in {cell.results_path}"
+                )
+            result[key] = OneFieldSourceOutcome(
+                source_cell=cell.results_path,
+                trial=key[1],
+                simulation_id=str(row["simulation_id"]),
+                source_simulation_sha256=str(row["source_simulation_sha256"]),
+                reward=float(row["reward"]),
+            )
+    return result
+
+
+def _matched_one_field_reference(
+    *,
+    out: Path,
+    repo_root: Path,
+    by_path: dict[str, ResultCell],
+    composition_commit: str,
+) -> dict[str, Any]:
+    """Build the paper's slot-distribution-matched single-field reference.
+
+    Each of the 210 slots in the frozen n=2/n=3 composition design contributes
+    its exact canonical atomic parent. The parent is evaluated in three regular,
+    scaffolded GPT-xhigh realizations: the main run's trial 0 and trials 0/1 of
+    the same-environment pass-k run. Repeated parents remain repeated because
+    this row matches the composition design's slot distribution.
+    """
+    manifest_path = f"{_TASKS_ROOT}/bands/compose.manifest.json"
+    manifest_bytes = _git_blob(repo_root, composition_commit, manifest_path)
+    manifest = json.loads(manifest_bytes)
+    main_path = "main_runs/intake_m_openai_xhigh_regular/results.json"
+    repeat_path = "main_runs/intake_passk_xhigh_regular/results.json"
+    main = _transcript_outcomes(out, by_path[main_path])
+    repeats = _transcript_outcomes(out, by_path[repeat_path])
+    source_keys = ((main, 0), (repeats, 0), (repeats, 1))
+
+    rows: list[OneFieldMatchedSlot] = []
+    for draw in manifest["tasks"]:
+        task_id = str(draw["task_id"])
+        if not task_id.startswith(("intake_c2_", "intake_c3_")):
+            continue
+        for slot in draw["slots"]:
+            parent = str(slot["parent_task_id"])
+            outcomes: list[OneFieldSourceOutcome] = []
+            for source, trial in source_keys:
+                key = (parent, trial)
+                if key not in source:
+                    raise ValueError(
+                        f"Missing matched atomic outcome {parent}, trial {trial}"
+                    )
+                outcomes.append(source[key])
+            rows.append(
+                OneFieldMatchedSlot(
+                    composition_task_id=task_id,
+                    n_fields_in_composition=int(draw["n_entities"]),
+                    slot_index=int(slot["slot_index"]),
+                    parent_task_id=parent,
+                    bank=str(slot["bank"]),
+                    tier=str(slot["tier"]),
+                    field_name=str(slot["field_name"]),
+                    source_outcomes=outcomes,
+                )
+            )
+
+    observations = sum(len(row.source_outcomes) for row in rows)
+    passes = sum(
+        outcome.reward == 1.0 for row in rows for outcome in row.source_outcomes
+    )
+    rate = passes / observations
+    margin = 1.96 * (rate * (1.0 - rate) / observations) ** 0.5
+    document = {
+        "schema_version": ONE_FIELD_REFERENCE_VERSION,
+        "selection_rule": (
+            "For every slot occurrence in the frozen flat n=2 and n=3 compose "
+            "manifest, select its exact atomic parent task in each of the three "
+            "regular scaffolded GPT-xhigh realizations. Preserve repeated parent "
+            "occurrences so the atomic reference matches the composition slot mix."
+        ),
+        "composition_manifest": {
+            "source_commit": composition_commit,
+            "source_path": manifest_path,
+            "sha256": _sha256_bytes(manifest_bytes),
+            "compose_version": manifest["compose_version"],
+        },
+        "source_realizations": [
+            {"results_path": main_path, "trial": 0},
+            {"results_path": repeat_path, "trial": 0},
+            {"results_path": repeat_path, "trial": 1},
+        ],
+        "counts": {
+            "matched_parent_instances": len(rows),
+            "unique_parent_tasks": len({row.parent_task_id for row in rows}),
+            "observations": observations,
+            "passes": passes,
+        },
+        "task_pass_at_1": rate,
+        "field_pass_at_1": rate,
+        "wald_95_margin": margin,
+        "rows": [row.model_dump(mode="json") for row in rows],
+    }
+    _write_json(
+        out / "analysis_inputs" / "composition_one_field_matched.json", document
+    )
+    return document
+
+
 def _export_ablation_analysis(
     out: Path,
     cells: list[ResultCell],
@@ -1231,6 +1376,12 @@ def _export_ablation_analysis(
     n2_path = "ablations/entity_composition/intake_ecomp_n2/results.json"
     n3_path = "ablations/entity_composition/intake_ecomp_n3/results.json"
     staged_path = "ablations/gated_stages/intake_ehier/results.json"
+    one_field = _matched_one_field_reference(
+        out=out,
+        repo_root=Path(__file__).resolve().parents[3],
+        by_path=by_path,
+        composition_commit=by_path[n2_path].git_commit,
+    )
     n2 = _score_ablation_cell(
         out,
         by_path[n2_path],
@@ -1269,6 +1420,17 @@ def _export_ablation_analysis(
     document = {
         "schema_version": "tau-elicit-composition-protocol-v1",
         "composition": {
+            "one_field_matched_reference": {
+                "unique_tasks": one_field["counts"]["unique_parent_tasks"],
+                "parent_instances": one_field["counts"]["matched_parent_instances"],
+                "observations": one_field["counts"]["observations"],
+                "task_passes": one_field["counts"]["passes"],
+                "task_pass_at_1": one_field["task_pass_at_1"],
+                "field_passes": one_field["counts"]["passes"],
+                "field_pass_at_1": one_field["field_pass_at_1"],
+                "wald_95_margin": one_field["wald_95_margin"],
+                "ledger": "analysis_inputs/composition_one_field_matched.json",
+            },
             "two_fields": n2,
             "three_fields": n3,
             "three_fields_included_trials": [0, 1, 2],
@@ -1286,13 +1448,6 @@ def _export_ablation_analysis(
             },
         },
         "source_gaps": [
-            {
-                "paper_result": "one-field composition row",
-                "detail": (
-                    "The exact 210-task x three-trial source root is not present in "
-                    "the frozen local evidence."
-                ),
-            },
             {
                 "paper_result": "one-field-at-a-time, no-retry task score",
                 "detail": (
@@ -1451,6 +1606,8 @@ def _audit_document(
     composition = ablations["composition"]
     protocol = ablations["protocol"]
     ablation_values = {
+        "one_task": composition["one_field_matched_reference"]["task_pass_at_1"],
+        "one_field": composition["one_field_matched_reference"]["field_pass_at_1"],
         "two_task": composition["two_fields"]["task_pass_at_1"],
         "two_field": composition["two_fields"]["field_pass_at_1"],
         "three_task": composition["three_fields"]["task_pass_at_1"],
@@ -1461,6 +1618,8 @@ def _audit_document(
         "retry_field": protocol["verify_and_retry"]["field_pass_at_1"],
     }
     expected_ablation_values = {
+        "one_task": 486 / 630,
+        "one_field": 486 / 630,
         "two_task": 125 / 180,
         "two_field": 290 / 360,
         "three_task": 48 / 90,
@@ -1478,7 +1637,7 @@ def _audit_document(
     check(
         "recoverable_composition_and_protocol_results",
         not ablation_mismatches,
-        "two/three-field, joint-submit, and verify/retry rows reproduce exactly"
+        "matched one-field, two/three-field, joint-submit, and verify/retry rows reproduce exactly"
         if not ablation_mismatches
         else json.dumps(ablation_mismatches, sort_keys=True),
     )
@@ -1681,10 +1840,11 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "and final human labels.\n"
         "- `analysis_inputs/`: crossed outcomes, rollups, deterministic complication "
         "draws, caller-effort ledger, deterministic behavioral recomputation, "
-        "significance results, and speech rollup.\n"
+        "the 210-row matched one-field composition ledger, significance results, "
+        "and speech rollup.\n"
         "- `audit.json`: executable claim checks.\n\n"
-        f"`SOURCE_GAPS.md` records {len(source_gaps)} older ablation source "
-        "artifacts plus the analysis/judge re-execution tools that were not "
+        "`SOURCE_GAPS.md` records the remaining older ablation source gap plus "
+        "the statistical-analysis re-execution tools that were not "
         "present in the frozen local evidence.\n\n"
         "The prompt manifest distinguishes the caller guideline actually selected "
         "by the frozen simulation builders from a stale inbound guideline stored in "
@@ -1709,6 +1869,15 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "--task-ids intake_medications_hard_04 --num-trials 1 "
         "--max-concurrency 1 --timeout 1200 "
         "--save-to tau_elicitation_smoke\n"
+        "```\n\n"
+        "To regenerate the v6 speech judgments from the detached audio corpus, "
+        "write into a new directory (frozen paper roots are protected):\n\n"
+        "```bash\n"
+        "tau2 judges rejudge /path/to/tau-elicit/main_runs/ONE_CELL "
+        "--delivery --delivery-only --rejudge --delivery-sample-rate 1.0 "
+        "--delivery-model gemini/gemini-3.1-pro-preview "
+        "--max-concurrency 8 --output /path/to/rejudged/ONE_CELL\n"
+        "# Add --limit-sims 1 --max-segments 1 for a one-API-call smoke test.\n"
         "```\n\n"
         "The paired significance analysis is also self-contained in the compact "
         "archive:\n\n"
@@ -1739,7 +1908,7 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
             "## Missing re-execution tools",
             "",
             "The compact rows and reported outputs remain available, but the exact "
-            "programs used for the following API/statistical passes were not present "
+            "programs used for the following statistical passes were not present "
             "in the frozen local evidence:",
             "",
             "- **Caller-realism causal contrasts**: the exact known-propensity "
@@ -1750,11 +1919,6 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
             "Fisher--Freeman--Halton driver behind the reported voice p-values. "
             "The compact call rows and the fully specified test settings remain "
             "available.",
-            "- **Speech-judge API runner**: all 6,422 utterance judgments, the exact "
-            "v6 prompt/configuration, audio hashes, and final human-validation map "
-            "are retained. This main-based release does not include the later "
-            "API-backed convenience runner for regenerating those judgments from "
-            "the detached audio corpus.",
         ]
     )
     gap_lines.append("")

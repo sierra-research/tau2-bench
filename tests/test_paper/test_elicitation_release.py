@@ -1,5 +1,8 @@
 """Focused contracts for the tau-Elicitation reviewer archive."""
 
+import json
+from pathlib import Path
+
 from tau2.paper.elicitation import (
     PAPER_AGENT_DIRECTED,
     PAPER_SCAFFOLDED,
@@ -148,3 +151,23 @@ def test_xai_paper_arm_sends_no_reasoning_setting() -> None:
         reasoning_effort="provider_default",
     )
     assert adapter.reasoning_effort is None
+
+
+def test_matched_one_field_ledger_reproduces_paper_row() -> None:
+    root = Path(__file__).resolve().parents[2]
+    artifact = json.loads(
+        (
+            root / "papers/tau-intake/v1/reproduction/analysis_inputs/"
+            "composition_one_field_matched.json"
+        ).read_text()
+    )
+    assert artifact["counts"] == {
+        "matched_parent_instances": 210,
+        "observations": 630,
+        "passes": 486,
+        "unique_parent_tasks": 127,
+    }
+    assert artifact["task_pass_at_1"] == 486 / 630
+    assert artifact["field_pass_at_1"] == 486 / 630
+    assert len(artifact["rows"]) == 210
+    assert all(len(row["source_outcomes"]) == 3 for row in artifact["rows"])

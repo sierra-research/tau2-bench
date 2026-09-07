@@ -62,6 +62,29 @@ def extract_all_chunk_ids(script_gold: str) -> set[int]:
     return {int(m.group(1)) for m in re.finditer(r"<chunk id=(\d+)>", script_gold)}
 
 
+def extract_delivered_text(script_gold: str) -> tuple[str, bool]:
+    """Return text for emitted chunks and whether any template chunk was cut."""
+    if "<chunk id=" not in script_gold:
+        return script_gold, False
+    blocks = re.findall(r"<message .*?</message>", script_gold, flags=re.DOTALL) or [
+        script_gold
+    ]
+    delivered_parts: list[str] = []
+    interrupted = False
+    for block in blocks:
+        active = extract_active_chunk_ids(block)
+        all_ids = extract_all_chunk_ids(block)
+        delivered_parts.append(
+            "".join(
+                text
+                for chunk_id, text in extract_chunks_with_text(block)
+                if chunk_id in active
+            )
+        )
+        interrupted = interrupted or bool(all_ids - active)
+    return " ".join(part for part in delivered_parts if part), interrupted
+
+
 def merge_audio_script_gold(script_golds: list[str | None]) -> str | None:
     """Merge multiple audio_script_gold strings, handling multiple messages.
 

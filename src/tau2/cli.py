@@ -638,6 +638,14 @@ def main():
 
     add_paper_args(paper_parser)
 
+    # Post-hoc speech judging for the reviewer release.
+    judges_parser = subparsers.add_parser(
+        "judges", help="Run post-hoc judges over stored results"
+    )
+    from tau2.judges.cli import add_judges_args
+
+    add_judges_args(judges_parser)
+
     # Run command
     run_parser = subparsers.add_parser("run", help="Run a benchmark")
     add_run_args(run_parser)

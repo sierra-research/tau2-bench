@@ -191,6 +191,14 @@ simulator's silent `note_spell_request` / `note_readback` tools:
 - Exact task snapshots, transcripts, and recomputed counts for the two- and
   three-field rows, joint submission, and verify/retry are in
   `reproduction/analysis_inputs/composition_protocol_recomputed.json`.
+- The single-field reference is reconstructed in
+  `reproduction/analysis_inputs/composition_one_field_matched.json`. For each
+  of the 210 slot occurrences in the frozen two- and three-field compose
+  manifest, it selects the exact atomic parent task from three regular,
+  scaffolded GPT-xhigh realizations: trial 0 of
+  `intake_m_openai_xhigh_regular` and trials 0--1 of
+  `intake_passk_xhigh_regular`. Repeated parents retain their slot-frequency
+  weight. The resulting 486/630=.771 exactly matches the paper.
 - The two-field result uses all three trials in `intake_ecomp_n2`: task
   125/180=.694 and field 290/360=.806. The three-field result uses the frozen
   three-trial design (trials 0--2) from `intake_ecomp_n3`: task 48/90=.533 and
@@ -198,9 +206,8 @@ simulator's silent `note_spell_request` / `note_readback` tools:
 - Combining those rows gives joint submission task 173/270=.641 and field
   492/630=.781. `intake_ehier` gives verify/retry task 222/270=.822 and field
   544/630=.863.
-- Two older source artifacts were not present in the frozen local evidence:
-  the 210-task x three-trial single-field cohort and the separate no-retry run.
-  They are listed in `reproduction/SOURCE_GAPS.md`. A first-attempt
+- The separate no-retry source run is not present in the frozen local evidence
+  and is listed in `reproduction/SOURCE_GAPS.md`. A first-attempt
   counterfactual over `intake_ehier` reproduces the reported no-retry field
   numerator (440/630=.698), but not its task numerator.
 
