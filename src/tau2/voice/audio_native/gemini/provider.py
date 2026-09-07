@@ -143,6 +143,7 @@ class GeminiLiveProvider:
         reasoning_effort: Optional[str] = None,
         project_id: Optional[str] = None,
         location: Optional[str] = None,
+        input_sample_rate: Optional[int] = None,
         use_raw_json_schema: bool = True,
         max_resumptions: int = 3,
         resume_only_on_timeout: bool = True,
@@ -160,6 +161,8 @@ class GeminiLiveProvider:
             project_id: Google Cloud project ID for Vertex AI. Reads from
                 GOOGLE_CLOUD_PROJECT env var if not provided.
             location: Google Cloud region for Vertex AI. Defaults to us-central1.
+            input_sample_rate: Input audio sample rate in Hz. If None, defaults
+                to GEMINI_INPUT_SAMPLE_RATE (8000).
             use_raw_json_schema: If True (default), pass tool schemas directly
                 using parametersJsonSchema (lets SDK handle $ref/$defs).
                 If False, manually resolve $ref/$defs before passing.
@@ -278,6 +281,7 @@ class GeminiLiveProvider:
             )
 
         self.reasoning_effort = reasoning_effort
+        self.input_sample_rate = input_sample_rate or GEMINI_INPUT_SAMPLE_RATE
 
         self._client = None
         self._session = None
@@ -1032,7 +1036,7 @@ class GeminiLiveProvider:
 
         audio_blob = types.Blob(
             data=audio_data,
-            mime_type=f"audio/pcm;rate={GEMINI_INPUT_SAMPLE_RATE}",
+            mime_type=f"audio/pcm;rate={self.input_sample_rate}",
         )
         await self._session.send_realtime_input(audio=audio_blob)
         logger.debug(f"Sent {len(audio_data)} bytes of audio")

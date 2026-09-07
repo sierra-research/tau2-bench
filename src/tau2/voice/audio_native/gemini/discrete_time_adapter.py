@@ -99,6 +99,7 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
         send_audio_instant: bool = True,
         model: Optional[str] = None,
         reasoning_effort: Optional[str] = None,
+        input_sample_rate: Optional[int] = None,
         provider: Optional[GeminiLiveProvider] = None,
         max_resumptions: int = 3,
         resume_only_on_timeout: bool = True,
@@ -109,6 +110,9 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
             tick_duration_ms: Duration of each tick in milliseconds. Must be > 0.
             send_audio_instant: If True, send audio in one call (discrete-time mode).
             model: Optional model to use. Defaults to None. If provider is also provided, this is ignored.
+            reasoning_effort: Optional reasoning effort.
+            input_sample_rate: Optional input sample rate in Hz. Defaults to
+                DEFAULT_GEMINI_INPUT_SAMPLE_RATE (8000).
             provider: Optional provider instance. Created lazily if not provided.
                 If not provided, auto-detects auth from env vars (GEMINI_API_KEY
                 or GOOGLE_APPLICATION_CREDENTIALS).
@@ -122,8 +126,12 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
         """
         super().__init__(tick_duration_ms, send_audio_instant=send_audio_instant)
 
+        self.input_sample_rate = (
+            input_sample_rate or DEFAULT_GEMINI_INPUT_SAMPLE_RATE
+        )
+
         self._chunk_size = int(
-            DEFAULT_GEMINI_INPUT_SAMPLE_RATE * 2 * self._voip_interval_ms / 1000
+            self.input_sample_rate * 2 * self._voip_interval_ms / 1000
         )
 
         # Gemini output format (24kHz PCM16) - for internal processing
@@ -145,7 +153,7 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
 
         # Audio format converter (preserves state for streaming)
         self._audio_converter = StreamingTelephonyConverter(
-            input_sample_rate=DEFAULT_GEMINI_INPUT_SAMPLE_RATE,
+            input_sample_rate=self.input_sample_rate,
             output_sample_rate=DEFAULT_GEMINI_OUTPUT_SAMPLE_RATE,
         )
 
@@ -163,6 +171,7 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
             self._provider = GeminiLiveProvider(
                 model=self.model,
                 reasoning_effort=self.reasoning_effort,
+                input_sample_rate=self.input_sample_rate,
                 max_resumptions=self._max_resumptions,
                 resume_only_on_timeout=self._resume_only_on_timeout,
             )
