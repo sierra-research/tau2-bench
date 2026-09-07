@@ -145,7 +145,9 @@ simulator's silent `note_spell_request` / `note_readback` tools:
     mamadou_diallo (34, .412), arjun_roy (39, .410), priya_patil (44, .409).
   - xAI: mildred_kaplan (51, .745), arjun_roy (34, .676), priya_patil
     (47, .660), mamadou_diallo (33, .606), wei_lin (35, .600).
-- Omnibus 5-voice x binary-outcome Fisher--Freeman--Halton Monte Carlo tests use
+- Reproducer: `src/experiments/intake/caller_voice_significance.py`; versioned
+  output: `reproduction/analysis_inputs/intake_caller_voice_significance_2026-09-07.json`.
+  Omnibus 5-voice x binary-outcome Fisher--Freeman--Halton Monte Carlo tests use
   100,000 samples with seed 42 and Holm correction across the three systems.
   Raw/adjusted p-values are .1046/.2091 (OpenAI xhigh), .01337/.04011 (Gemini
   high), and .6044/.6044 (xAI). Ten pairwise two-sided Fisher exact tests within
@@ -156,9 +158,29 @@ simulator's silent `note_spell_request` / `note_readback` tools:
 
 ## Realisms (agent-directed benchmark, pooled 9 cells)
 
-- Clean 253/498 = .508 vs realism-triggered 674/1302 = .518.
-- Per-kind (regular cells): spell_correction .56/.75/.75 vs clean .51/.49/.63;
-  mispronounced_term .18/.41/.41.
+- Reproducer: `src/experiments/intake/realism_effects.py`; versioned output:
+  `reproduction/analysis_inputs/intake_realism_effects_2026-09-07.json`. The
+  artifact records all 12 compact-transcript paths and SHA-256 hashes and
+  validates their stored assignments against the three frozen expected-draw
+  maps.
+- The analysis unit is a task x environment assignment, with exact success
+  averaged across the four agent-directed systems. Each contrast retains units
+  with positive probability of either the target realism or a clean draw, uses
+  normalized inverse-probability (Hajek) means within each environment, and
+  averages the three environment-specific effects.
+- Point estimates / assigned n and ESS / clean n and ESS: any realism -3.59 /
+  326, 291.4 / 166, 135.5; wrong-field answer -11.09 / 29, 26.0 / 166, 135.5;
+  spelling variation -8.71 / 94, 89.2 / 65, 61.9; self-correction -4.32 / 50,
+  45.6 / 166, 135.5; mispronunciation -0.50 / 49, 43.0 / 18, 15.2; and falter
+  and restart +2.04 / 99, 93.4 / 166, 135.5.
+- Two-sided randomization tests redraw the catalog's categorical assignment
+  100,000 times. Holm correction across the overall contrast and five estimable
+  subtypes gives a minimum adjusted p-value of .6664 (reported as .67).
+- Assignment is the intention-to-treat exposure and does not guarantee that a
+  conditional realism is expressed. The compact transcripts preserve explicit
+  spelling requests, not caller audio: 146/524 spelling-variation assignments
+  and 108/488 falter/restart assignments record such a request. The script does
+  not treat those request counts as application rates.
 
 ## Speech fidelity (`tab:fidelity-provider`)
 

@@ -86,6 +86,13 @@ band, which draws fresh values and only supports rate-level comparison.
 
 Voice total: **90 calls.**
 
+**Execution note (2026-09-07).** The frozen voice roots repeat the 60 n=2 and
+30 n=3 tasks. The reported analysis pools trials 0--2 in each arm (180 and 90
+executed calls, respectively). The n=3 root also contains a concurrently
+launched fourth trial; it is excluded only to keep the arms balanced. Analysis
+uses the compose manifest at the runs' recorded commit (`ce74dff8`), before a
+later complication-catalog redraw changed one slot.
+
 ### 2.3 Analysis (one verb, facts first)
 
 `tau2 metrics composition` reads the run + compose manifest and emits a

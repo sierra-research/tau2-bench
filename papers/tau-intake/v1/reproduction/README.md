@@ -11,10 +11,10 @@ This directory is the compact, reviewer-facing evidence archive for the tau-Elic
 - `examples/`: deterministic calls spanning both strategies and three systems.
 - `speech_judgments/`: all 6,422 exported utterance judgments: 4,948 from the paper's main speech cohort and 1,474 supplemental judgments, including retained/excluded findings and errors.
 - `judge_validation/`: direct utterance/call mapping between judge output and final human labels.
-- `analysis_inputs/`: crossed outcomes, rollups, deterministic complication draws, caller-effort ledger, deterministic behavioral recomputation, the 210-row matched one-field composition ledger, significance results, and speech rollup.
+- `analysis_inputs/`: crossed outcomes, rollups, deterministic complication draws, caller-effort ledger, deterministic behavioral recomputation, the 210-row matched one-field composition ledger, caller-voice and main significance results, and speech rollup.
 - `audit.json`: executable claim checks.
 
-`SOURCE_GAPS.md` records the statistical-analysis re-execution tools that were not present in the frozen local evidence; both workflows in the release comparison have frozen sources.
+`SOURCE_GAPS.md` records any remaining source or statistical-analysis re-execution gaps; both workflows in the release comparison have frozen sources.
 
 The prompt manifest distinguishes the caller guideline actually selected by the frozen simulation builders from a stale inbound guideline stored in the historical top-level run metadata. The content-addressed runtime prompt is the one used for reproduction.
 
@@ -43,6 +43,8 @@ The paired significance analysis is also self-contained in the compact archive:
 
 ```bash
 uv run --extra experiments python src/experiments/intake/main_significance.py --repo-root .
+uv run --extra experiments python src/experiments/intake/realism_effects.py --repo-root .
+uv run --extra experiments python src/experiments/intake/caller_voice_significance.py --repo-root .
 python src/experiments/intake/release_claims.py --check
 ```
 

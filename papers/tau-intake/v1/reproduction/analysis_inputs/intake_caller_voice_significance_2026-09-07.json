@@ -1,0 +1,219 @@
+{
+  "instrument": "tau-intake-caller-voice-significance",
+  "instrument_version": "1.0.0",
+  "seed": 42,
+  "monte_carlo_resamples": 100000,
+  "analysis_unit": "One regular-condition, agent-directed call with binary exact task success and one randomly assigned caller voice.",
+  "omnibus_method": "Two-sided 5 x 2 Fisher--Freeman--Halton test via scipy.stats.fisher_exact and MonteCarloMethod; each system resets NumPy's default_rng to the recorded seed; voice rows are ordered by descending assigned-call count; SciPy applies the +1 Monte Carlo correction; Holm correction spans the three systems.",
+  "pairwise_method": "Two-sided Fisher exact tests for all ten Gemini voice pairs; Holm correction spans those ten comparisons.",
+  "inputs": [
+    {
+      "system": "GPT xhigh",
+      "transcript_path": "transcripts/main_runs__modeb_openai_xhigh_regular_2026-09-02.jsonl",
+      "sha256": "a1ebcff5c9ed25337145e25bd685225d3c1d5680aa472348bc52f94aed6dab8c",
+      "calls": 200
+    },
+    {
+      "system": "Gemini high",
+      "transcript_path": "transcripts/main_runs__modeb_gemini_high_regular_2026-09-02.jsonl",
+      "sha256": "0e0b999abe9ef2c1bad2329a64aa34113cb2c14dc7befc4245b53a3cdf2fd00e",
+      "calls": 200
+    },
+    {
+      "system": "Grok",
+      "transcript_path": "transcripts/main_runs__modeb_xai_10_regular_2026-09-02.jsonl",
+      "sha256": "2cb8736ef466db2205cf464499f0720b4768f3d0aacccf54fa3d76e1f3a3fc69",
+      "calls": 200
+    }
+  ],
+  "omnibus": [
+    {
+      "system": "GPT xhigh",
+      "table": [
+        {
+          "voice": "mildred_kaplan",
+          "successes": 28,
+          "failures": 19,
+          "calls": 47,
+          "pass_at_1": 0.5957446808510638
+        },
+        {
+          "voice": "priya_patil",
+          "successes": 19,
+          "failures": 28,
+          "calls": 47,
+          "pass_at_1": 0.40425531914893614
+        },
+        {
+          "voice": "wei_lin",
+          "successes": 19,
+          "failures": 20,
+          "calls": 39,
+          "pass_at_1": 0.48717948717948717
+        },
+        {
+          "voice": "arjun_roy",
+          "successes": 12,
+          "failures": 24,
+          "calls": 36,
+          "pass_at_1": 0.3333333333333333
+        },
+        {
+          "voice": "mamadou_diallo",
+          "successes": 11,
+          "failures": 20,
+          "calls": 31,
+          "pass_at_1": 0.3548387096774194
+        }
+      ],
+      "monte_carlo_p": 0.1045589544104559,
+      "holm_p": 0.2091179088209118
+    },
+    {
+      "system": "Gemini high",
+      "table": [
+        {
+          "voice": "mildred_kaplan",
+          "successes": 31,
+          "failures": 17,
+          "calls": 48,
+          "pass_at_1": 0.6458333333333334
+        },
+        {
+          "voice": "priya_patil",
+          "successes": 18,
+          "failures": 26,
+          "calls": 44,
+          "pass_at_1": 0.4090909090909091
+        },
+        {
+          "voice": "arjun_roy",
+          "successes": 16,
+          "failures": 23,
+          "calls": 39,
+          "pass_at_1": 0.41025641025641024
+        },
+        {
+          "voice": "wei_lin",
+          "successes": 24,
+          "failures": 11,
+          "calls": 35,
+          "pass_at_1": 0.6857142857142857
+        },
+        {
+          "voice": "mamadou_diallo",
+          "successes": 14,
+          "failures": 20,
+          "calls": 34,
+          "pass_at_1": 0.4117647058823529
+        }
+      ],
+      "monte_carlo_p": 0.013369866301336986,
+      "holm_p": 0.04010959890401096
+    },
+    {
+      "system": "Grok",
+      "table": [
+        {
+          "voice": "mildred_kaplan",
+          "successes": 38,
+          "failures": 13,
+          "calls": 51,
+          "pass_at_1": 0.7450980392156863
+        },
+        {
+          "voice": "priya_patil",
+          "successes": 31,
+          "failures": 16,
+          "calls": 47,
+          "pass_at_1": 0.6595744680851063
+        },
+        {
+          "voice": "wei_lin",
+          "successes": 21,
+          "failures": 14,
+          "calls": 35,
+          "pass_at_1": 0.6
+        },
+        {
+          "voice": "arjun_roy",
+          "successes": 23,
+          "failures": 11,
+          "calls": 34,
+          "pass_at_1": 0.6764705882352942
+        },
+        {
+          "voice": "mamadou_diallo",
+          "successes": 20,
+          "failures": 13,
+          "calls": 33,
+          "pass_at_1": 0.6060606060606061
+        }
+      ],
+      "monte_carlo_p": 0.6043639563604364,
+      "holm_p": 0.6043639563604364
+    }
+  ],
+  "gemini_pairwise": [
+    {
+      "voice_a": "arjun_roy",
+      "voice_b": "mamadou_diallo",
+      "fisher_p": 1.0,
+      "holm_p": 1.0
+    },
+    {
+      "voice_a": "arjun_roy",
+      "voice_b": "mildred_kaplan",
+      "fisher_p": 0.03289182606956035,
+      "holm_p": 0.24064080828565027
+    },
+    {
+      "voice_a": "arjun_roy",
+      "voice_b": "priya_patil",
+      "fisher_p": 1.0,
+      "holm_p": 1.0
+    },
+    {
+      "voice_a": "arjun_roy",
+      "voice_b": "wei_lin",
+      "fisher_p": 0.02120273601519627,
+      "holm_p": 0.21202736015196272
+    },
+    {
+      "voice_a": "mamadou_diallo",
+      "voice_b": "mildred_kaplan",
+      "fisher_p": 0.04442557427646297,
+      "holm_p": 0.24064080828565027
+    },
+    {
+      "voice_a": "mamadou_diallo",
+      "voice_b": "priya_patil",
+      "fisher_p": 1.0,
+      "holm_p": 1.0
+    },
+    {
+      "voice_a": "mamadou_diallo",
+      "voice_b": "wei_lin",
+      "fisher_p": 0.030080101035706283,
+      "holm_p": 0.24064080828565027
+    },
+    {
+      "voice_a": "mildred_kaplan",
+      "voice_b": "priya_patil",
+      "fisher_p": 0.03596861068225682,
+      "holm_p": 0.24064080828565027
+    },
+    {
+      "voice_a": "mildred_kaplan",
+      "voice_b": "wei_lin",
+      "fisher_p": 0.815398361964023,
+      "holm_p": 1.0
+    },
+    {
+      "voice_a": "priya_patil",
+      "voice_b": "wei_lin",
+      "fisher_p": 0.022756042151230962,
+      "holm_p": 0.21202736015196272
+    }
+  ]
+}

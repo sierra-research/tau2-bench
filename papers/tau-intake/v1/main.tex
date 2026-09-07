@@ -33,7 +33,7 @@
 \newcommand{\passk}{\texorpdfstring{$\mathrm{Pass}^{3}$}{Pass3}}
 \newcommand{\telicit}{\texorpdfstring{$\uptau$}{tau}-Elicitation}
 
-\title{TAU-ELICITATION: EVALUATING MULTI-TURN ENTITY EXTRACTION IN VOICE AGENTS}
+\title{TAU-ELICITATION: BENCHMARKING MULTI-TURN ENTITY EXTRACTION IN VOICE AGENTS}
 
 \name{{\large Soham Ray$^{1,\dagger}$\hspace{1.5em}Victor Barres$^{2}$}}
 \address{{\small\shortstack{$^{1}$Sierra \quad $^{2}$Mercor \quad
@@ -54,9 +54,9 @@ success on only 0.14--0.41. Agents increase verification for hard and
 unfamiliar entities and sometimes for incorrect captures, but not for their
 weakest caller voice; only 24--37\% of verified errors are repaired. A scaffold
 that prescribes spelling, read-back, correction, and confirmation raises
-\passone{} by 15--37 points and robust \passk{} by 14--31 points, at a cost of
-21--28 seconds per call. Assigned caller realisms do not detectably change exact
-success, although mispronunciation increases repair effort. These results
+robust \passk{} by 14--31 points, at a cost of 21--28 seconds per call.
+Realisms such as spelling variations and restarts do not detectably affect
+exact success; mispronunciation increases repair effort. These results
 identify strategy selection and successful recovery as the central bottlenecks
 in exact spoken entity collection.
 \end{abstract}
@@ -309,9 +309,11 @@ Holm correction ($p_{\rm adj}\geq .67$).}
 \noindent\textbf{Caller realisms mainly add repair cost.} No assigned realism
 detectably changes exact success after bank-specific weighting
 (Figure~\ref{fig:realism-effects}); the overall estimate is $-3.6$ points
-(95\% CI $[-10.3,3.0]$). Mispronunciation is $-0.5$ points, but raises spelling
-requests about 24 points and duration 26 seconds. Realisms therefore stress the
-repair process without explaining the benchmark's large baseline failure rate.
+(95\% CI $[-10.4,3.0]$). These are intention-to-treat estimates: assignment
+does not guarantee that a conditional realism is expressed before the call
+ends. Mispronunciation is $-0.5$ points, but raises spelling requests about 24
+points and duration 26 seconds. Realisms therefore stress the repair process
+without explaining the benchmark's large baseline failure rate.
 
 \begin{table}[t]
 \caption{Value-bank construction and robust agent-directed results. Every bank
@@ -350,7 +352,7 @@ ordering follows available structure more than length: dates and phones
 constrain plausible values; medications and coined names offer fewer anchors.
 
 \begin{table}[t]
-\caption{Effect of the submission workflow under the scaffolded prompt. Task
+\caption{Effect of field validation and retry under the scaffolded prompt. Task
 \passone{} requires every field to be correct; field \passone{} scores
 individual values.}
 \label{tab:protocol-ablation}
@@ -359,38 +361,38 @@ individual values.}
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{@{}>{\raggedright\arraybackslash}p{.51\columnwidth}cc@{}}
 \toprule
-Submission workflow & Task \passone{} & Field \passone{} \\
+Workflow & Task \passone{} & Field \passone{} \\
 \midrule
-Submit all fields together & $.64\pm.06$ & $.78\pm.03$ \\
-One field at a time, no retry & $.53\pm.06$ & $.70\pm.04$ \\
-One field at a time, verify and retry & $.82\pm.05$ & $.86\pm.03$ \\
+Batch submit; no field validation & $.64\pm.06$ & $.78\pm.03$ \\
+Validate each field; retry errors & $.82\pm.05$ & $.86\pm.03$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{table}[t]
-\caption{Compositional results. Task \passone{} requires every field in the
-call to be correct; field \passone{} scores individual values.}
+\caption{Compositional results over three realizations. The one-field row
+matches each composition slot to its atomic task. Task \passone{} requires
+every field in the call to be correct; field \passone{} scores individual values.}
 \label{tab:composition-results}
 \centering
 \small
-\setlength{\tabcolsep}{2.7pt}
-\begin{tabular}{@{}lrrrr@{}}
+\setlength{\tabcolsep}{1.8pt}
+\begin{tabular}{@{}lrrrrr@{}}
 \toprule
-Fields per call & Calls & Fields & Task \passone{} & Field \passone{} \\
+Fields/call & Units$\times$runs & Calls & Fields & Task \passone{} & Field \passone{} \\
 \midrule
-1 & 210 & 210 & $.77\pm.03$ & $.77\pm.03$ \\
-2 & 60  & 120 & $.69\pm.07$ & $.81\pm.04$ \\
-3 & 30  & 90  & $.53\pm.10$ & $.75\pm.05$ \\
+1 & $210\times3$ & 630 & 630 & $.77\pm.03$ & $.77\pm.03$ \\
+2 & $60\times3$  & 180 & 360 & $.69\pm.07$ & $.81\pm.04$ \\
+3 & $30\times3$  & 90  & 270 & $.53\pm.10$ & $.75\pm.05$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \noindent\textbf{Errors compound; actionable retry helps.} Three-field task
 accuracy falls to 0.53 while field accuracy remains 0.75
-(Table~\ref{tab:composition-results}). Submitting fields separately without
-retry hurts, whereas checking each field and permitting retry raises task
-accuracy to 0.82 (Table~\ref{tab:protocol-ablation}).
+(Table~\ref{tab:composition-results}). Validating each field and retrying
+errors raises task accuracy from 0.64 to 0.82
+(Table~\ref{tab:protocol-ablation}).
 
 \begin{table}[t]
 \caption{Speech fidelity by system over scored agent utterances (lower is
@@ -429,8 +431,8 @@ showing that robust strategy selection and follow-through, rather than task
 understanding, are the central bottlenecks.
 
 \noindent\textbf{Limitations.} We study English, three providers, one simulator,
-and one run per environment. Larger multi-field studies and human-caller and
-multilingual validation remain future work.
+and one run per main environment. The multi-field study is formative; broader
+provider, human-caller, and multilingual validation remain future work.
 
 \smallskip
 \noindent\textbf{Acknowledgment.} We thank Ben Shi, Ola Zytek, Vijay Iyengar,

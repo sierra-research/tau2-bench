@@ -860,6 +860,7 @@ ANALYSIS_INPUTS = (
     "caller_effort_agent_directed_vs_scaffolded.json",
 )
 PAPER_ANALYSIS_INPUTS = (
+    "intake_caller_voice_significance_2026-09-07.json",
     "intake_main_significance_2026-09-05.json",
     "intake_speech_fidelity_2026-09-04.json",
 )
@@ -1789,12 +1790,12 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "and final human labels.\n"
         "- `analysis_inputs/`: crossed outcomes, rollups, deterministic complication "
         "draws, caller-effort ledger, deterministic behavioral recomputation, "
-        "the 210-row matched one-field composition ledger, significance results, "
-        "and speech rollup.\n"
+        "the 210-row matched one-field composition ledger, caller-voice and main "
+        "significance results, and speech rollup.\n"
         "- `audit.json`: executable claim checks.\n\n"
-        "`SOURCE_GAPS.md` records the statistical-analysis re-execution tools "
-        "that were not present in the frozen local evidence; both workflows in "
-        "the release comparison have frozen sources.\n\n"
+        "`SOURCE_GAPS.md` records any remaining source or statistical-analysis "
+        "re-execution gaps; both workflows in the release comparison have frozen "
+        "sources.\n\n"
         "The prompt manifest distinguishes the caller guideline actually selected "
         "by the frozen simulation builders from a stale inbound guideline stored in "
         "the historical top-level run metadata. The content-addressed runtime prompt "
@@ -1833,6 +1834,10 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "```bash\n"
         "uv run --extra experiments python "
         "src/experiments/intake/main_significance.py --repo-root .\n"
+        "uv run --extra experiments python "
+        "src/experiments/intake/realism_effects.py --repo-root .\n"
+        "uv run --extra experiments python "
+        "src/experiments/intake/caller_voice_significance.py --repo-root .\n"
         "python src/experiments/intake/release_claims.py --check\n"
         "```\n\n"
         f"Current claim-audit status: **{status}**. See `AUDIT.md`.\n"
@@ -1861,18 +1866,8 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
             "",
             "## Missing re-execution tools",
             "",
-            "The compact rows and reported outputs remain available, but the exact "
-            "programs used for the following statistical passes were not present "
-            "in the frozen local evidence:",
-            "",
-            "- **Caller-realism causal contrasts**: the exact known-propensity "
-            "Hajek estimator and task-clustered interval driver behind Figure 4. "
-            "The assigned-realism ledger and plotted estimates are retained; the "
-            "executable audit checks the ledger, not the causal estimates.",
-            "- **Caller-voice omnibus tests**: the exact Monte Carlo "
-            "Fisher--Freeman--Halton driver behind the reported voice p-values. "
-            "The compact call rows and the fully specified test settings remain "
-            "available.",
+            "None. The paper's statistical analyses are re-executable from the "
+            "compact reviewer archive.",
         ]
     )
     gap_lines.append("")
