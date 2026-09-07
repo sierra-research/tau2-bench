@@ -1,6 +1,6 @@
 # tau-Elicitation reviewer evidence
 
-This directory is the compact, reviewer-facing evidence archive for the tau-Elicitation paper. It contains all 5,970 scored transcript records, all 6,422 available utterance-level speech-judge outputs, final human labels, exact run configurations and prompt objects, deterministic example calls, and the checked analysis inputs. The large audio/tick corpus remains a detached evidence root and is linked by SHA-256.
+This directory is the compact, reviewer-facing evidence archive for the tau-Elicitation paper. It contains all 5,970 scored transcript records, all 6,422 available utterance-level speech-judge outputs, final human labels, exact run configurations and prompt objects, deterministic example calls, and the checked analysis inputs. The large audio/tick corpus remains a detached evidence root, is available from [Google Drive](https://drive.google.com/drive/folders/1GAuTs3Naog5irE4J4MwILMTpFyJz-2dm?usp=sharing), and is linked to the compact records by SHA-256.
 
 ## Contents
 
@@ -17,6 +17,10 @@ This directory is the compact, reviewer-facing evidence archive for the tau-Elic
 `SOURCE_GAPS.md` records any remaining source or statistical-analysis re-execution gaps; both workflows in the release comparison have frozen sources.
 
 The prompt manifest distinguishes the caller guideline actually selected by the frozen simulation builders from a stale inbound guideline stored in the historical top-level run metadata. The content-addressed runtime prompt is the one used for reproduction.
+
+## Detached source corpus
+
+The approximately 41 GB frozen source corpus is available in the [tau-elicit Google Drive folder](https://drive.google.com/drive/folders/1GAuTs3Naog5irE4J4MwILMTpFyJz-2dm?usp=sharing). It contains `main_runs/`, `ablations/`, and `text_channel/`; the human judge-validation data is already included in this compact archive. After downloading the corpus, pass its `tau-elicit` root as `--evidence-root`. The verifier checks the detached results and simulations against the recorded SHA-256 values.
 
 ## Verify
 
@@ -38,6 +42,8 @@ To regenerate the v6 speech judgments from the detached audio corpus, write into
 tau2 judges rejudge /path/to/tau-elicit/main_runs/ONE_CELL --delivery --delivery-only --rejudge --delivery-sample-rate 1.0 --delivery-model gemini/gemini-3.1-pro-preview --max-concurrency 8 --output /path/to/rejudged/ONE_CELL
 # Add --limit-sims 1 --max-segments 1 for a one-API-call smoke test.
 ```
+
+This command path was live-smoked on 2026-09-07 against one frozen agent utterance from `main_runs/modeb_gemini_high_regular_2026-09-02`. The v6 Gemini judge returned one valid judgment and zero errors. The smoke wrote only to a temporary mirrored output and did not modify frozen evidence.
 
 The paired significance analysis is also self-contained in the compact archive:
 

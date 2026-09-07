@@ -25,6 +25,10 @@ RELEASE_VERSION = "tau-elicit-review-release-v1"
 TRANSCRIPT_VERSION = "tau-elicit-compact-transcript-v1"
 EXAMPLE_SELECTION_VERSION = "tau-elicit-examples-v1"
 ONE_FIELD_REFERENCE_VERSION = "tau-elicit-matched-one-field-v1"
+DETACHED_EVIDENCE_URL = (
+    "https://drive.google.com/drive/folders/"
+    "1GAuTs3Naog5irE4J4MwILMTpFyJz-2dm?usp=sharing"
+)
 
 PAPER_AGENT_DIRECTED = {
     *{
@@ -862,6 +866,7 @@ ANALYSIS_INPUTS = (
 PAPER_ANALYSIS_INPUTS = (
     "intake_caller_voice_significance_2026-09-07.json",
     "intake_main_significance_2026-09-05.json",
+    "intake_realism_effects_2026-09-07.json",
     "intake_speech_fidelity_2026-09-04.json",
 )
 
@@ -1774,7 +1779,9 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "labels, "
         "exact run configurations and prompt objects, deterministic example calls, "
         "and the checked analysis inputs. The large audio/tick corpus remains a "
-        "detached evidence root and is linked by SHA-256.\n\n"
+        "detached evidence root, is available from "
+        f"[Google Drive]({DETACHED_EVIDENCE_URL}), and is linked to the compact "
+        "records by SHA-256.\n\n"
         "## Contents\n\n"
         "- `results/manifest.csv`: one row per frozen results root.\n"
         "- `run_configs/`: exact recorded configuration for every cell.\n"
@@ -1800,6 +1807,13 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "by the frozen simulation builders from a stale inbound guideline stored in "
         "the historical top-level run metadata. The content-addressed runtime prompt "
         "is the one used for reproduction.\n\n"
+        "## Detached source corpus\n\n"
+        "The approximately 41 GB frozen source corpus is available in the "
+        f"[tau-elicit Google Drive folder]({DETACHED_EVIDENCE_URL}). It contains "
+        "`main_runs/`, `ablations/`, and `text_channel/`; the human judge-validation "
+        "data is already included in this compact archive. After downloading the "
+        "corpus, pass its `tau-elicit` root as `--evidence-root`. The verifier checks "
+        "the detached results and simulations against the recorded SHA-256 values.\n\n"
         "## Verify\n\n"
         "```bash\n"
         "tau2 paper elicitation-verify --root papers/tau-intake/v1/reproduction\n"
@@ -1829,6 +1843,10 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "--max-concurrency 8 --output /path/to/rejudged/ONE_CELL\n"
         "# Add --limit-sims 1 --max-segments 1 for a one-API-call smoke test.\n"
         "```\n\n"
+        "This command path was live-smoked on 2026-09-07 against one frozen agent "
+        "utterance from `main_runs/modeb_gemini_high_regular_2026-09-02`. The v6 "
+        "Gemini judge returned one valid judgment and zero errors. The smoke wrote "
+        "only to a temporary mirrored output and did not modify frozen evidence.\n\n"
         "The paired significance analysis is also self-contained in the compact "
         "archive:\n\n"
         "```bash\n"
@@ -1868,6 +1886,14 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
             "",
             "None. The paper's statistical analyses are re-executable from the "
             "compact reviewer archive.",
+            "",
+            "## Detached source corpus",
+            "",
+            "The approximately 41 GB audio/tick source corpus is available from "
+            f"[Google Drive]({DETACHED_EVIDENCE_URL}). Its `main_runs/`, "
+            "`ablations/`, and `text_channel/` roots can be checked against the "
+            "compact archive's recorded SHA-256 values with `tau2 paper "
+            "elicitation-verify --evidence-root`.",
         ]
     )
     gap_lines.append("")

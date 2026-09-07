@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 
 from tau2.paper.elicitation import (
+    DETACHED_EVIDENCE_URL,
     PAPER_AGENT_DIRECTED,
+    PAPER_ANALYSIS_INPUTS,
     PAPER_SCAFFOLDED,
     _cell_metadata,
     _full_duplex_turns,
@@ -13,6 +15,11 @@ from tau2.paper.elicitation import (
     _runtime_caller_guidelines,
     _task_source_paths,
 )
+
+
+def test_release_includes_detached_evidence_and_realism_analysis() -> None:
+    assert DETACHED_EVIDENCE_URL.startswith("https://drive.google.com/drive/folders/")
+    assert "intake_realism_effects_2026-09-07.json" in PAPER_ANALYSIS_INPUTS
 
 
 def test_paper_cell_roster_is_exact() -> None:
