@@ -1169,15 +1169,12 @@ def _score_ablation_cell(
     specs: dict[str, list[tuple[str, str, str]]],
     *,
     trials: Optional[set[int]] = None,
-    staged: bool = False,
 ) -> dict[str, Any]:
-    """Recompute task, field, and staged first-attempt outcomes."""
+    """Recompute final task and field outcomes for one workflow."""
     from tau2.domains.intake.folds import FoldKind, fold_value
 
     task_passes = 0
     field_passes = 0
-    first_task_passes = 0
-    first_field_passes = 0
     calls = 0
     fields = 0
     task_ids: set[str] = set()
@@ -1200,40 +1197,11 @@ def _score_ablation_cell(
                         )
             final = [any(per_field[name]) for name, _, _ in ordered]
 
-            # The no-retry diagnostic treats the first submission made while a
-            # stage is current as final, including malformed/wrong-field calls.
-            first: list[Optional[bool]] = [None] * len(ordered)
-            if staged:
-                current = 0
-                for attempt in attempts:
-                    if current >= len(ordered):
-                        break
-                    name, kind, gold = ordered[current]
-                    submitted = attempt.get("fields") or {}
-                    value = submitted.get(name)
-                    correct = (
-                        len(submitted) == 1
-                        and isinstance(value, str)
-                        and fold_value(FoldKind(kind), value)
-                        == fold_value(FoldKind(kind), gold)
-                    )
-                    if first[current] is None:
-                        first[current] = correct
-                    if correct:
-                        current += 1
-            else:
-                first = [
-                    values[0] if values else False for values in per_field.values()
-                ]
-
-            first_binary = [bool(value) for value in first]
             calls += 1
             fields += len(ordered)
             task_ids.add(str(row["task_id"]))
             task_passes += float(row["reward"]) == 1.0
             field_passes += sum(final)
-            first_task_passes += all(first_binary)
-            first_field_passes += sum(first_binary)
     return {
         "unique_tasks": len(task_ids),
         "observations": calls,
@@ -1242,10 +1210,6 @@ def _score_ablation_cell(
         "task_pass_at_1": task_passes / calls,
         "field_passes": field_passes,
         "field_pass_at_1": field_passes / fields,
-        "first_attempt_task_passes": first_task_passes,
-        "first_attempt_task_pass_at_1": first_task_passes / calls,
-        "first_attempt_field_passes": first_field_passes,
-        "first_attempt_field_pass_at_1": first_field_passes / fields,
     }
 
 
@@ -1399,7 +1363,6 @@ def _export_ablation_analysis(
         out,
         by_path[staged_path],
         _task_specs(_cell_task_snapshots(out, prompt_cells, staged_path)),
-        staged=True,
     )
 
     def combine(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
@@ -1418,7 +1381,7 @@ def _export_ablation_analysis(
         }
 
     document = {
-        "schema_version": "tau-elicit-composition-protocol-v1",
+        "schema_version": "tau-elicit-composition-protocol-v2",
         "composition": {
             "one_field_matched_reference": {
                 "unique_tasks": one_field["counts"]["unique_parent_tasks"],
@@ -1436,28 +1399,10 @@ def _export_ablation_analysis(
             "three_fields_included_trials": [0, 1, 2],
         },
         "protocol": {
-            "submit_all_fields_together": combine(n2, n3),
-            "verify_and_retry": staged,
-            "first_attempt_counterfactual_from_verify_and_retry": {
-                "observations": staged["observations"],
-                "fields": staged["fields"],
-                "task_passes": staged["first_attempt_task_passes"],
-                "task_pass_at_1": staged["first_attempt_task_pass_at_1"],
-                "field_passes": staged["first_attempt_field_passes"],
-                "field_pass_at_1": staged["first_attempt_field_pass_at_1"],
-            },
+            "joint_submission_without_validation": combine(n2, n3),
+            "field_by_field_validation_and_retry": staged,
         },
-        "source_gaps": [
-            {
-                "paper_result": "one-field-at-a-time, no-retry task score",
-                "detail": (
-                    "The separate no-retry run reported as 0.526 is not present. "
-                    "The retained verify/retry calls reproduce the reported 0.698 "
-                    "field score under a first-attempt counterfactual, but give "
-                    f"{staged['first_attempt_task_pass_at_1']:.3f} task success."
-                ),
-            },
-        ],
+        "source_gaps": [],
     }
     _write_json(
         out / "analysis_inputs" / "composition_protocol_recomputed.json", document
@@ -1612,10 +1557,14 @@ def _audit_document(
         "two_field": composition["two_fields"]["field_pass_at_1"],
         "three_task": composition["three_fields"]["task_pass_at_1"],
         "three_field": composition["three_fields"]["field_pass_at_1"],
-        "joint_task": protocol["submit_all_fields_together"]["task_pass_at_1"],
-        "joint_field": protocol["submit_all_fields_together"]["field_pass_at_1"],
-        "retry_task": protocol["verify_and_retry"]["task_pass_at_1"],
-        "retry_field": protocol["verify_and_retry"]["field_pass_at_1"],
+        "joint_task": protocol["joint_submission_without_validation"]["task_pass_at_1"],
+        "joint_field": protocol["joint_submission_without_validation"][
+            "field_pass_at_1"
+        ],
+        "retry_task": protocol["field_by_field_validation_and_retry"]["task_pass_at_1"],
+        "retry_field": protocol["field_by_field_validation_and_retry"][
+            "field_pass_at_1"
+        ],
     }
     expected_ablation_values = {
         "one_task": 486 / 630,
@@ -1637,7 +1586,7 @@ def _audit_document(
     check(
         "recoverable_composition_and_protocol_results",
         not ablation_mismatches,
-        "matched one-field, two/three-field, joint-submit, and verify/retry rows reproduce exactly"
+        "matched one-field, two/three-field, joint-submission, and validation/retry rows reproduce exactly"
         if not ablation_mismatches
         else json.dumps(ablation_mismatches, sort_keys=True),
     )
@@ -1843,9 +1792,9 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "the 210-row matched one-field composition ledger, significance results, "
         "and speech rollup.\n"
         "- `audit.json`: executable claim checks.\n\n"
-        "`SOURCE_GAPS.md` records the remaining older ablation source gap plus "
-        "the statistical-analysis re-execution tools that were not "
-        "present in the frozen local evidence.\n\n"
+        "`SOURCE_GAPS.md` records the statistical-analysis re-execution tools "
+        "that were not present in the frozen local evidence; both workflows in "
+        "the release comparison have frozen sources.\n\n"
         "The prompt manifest distinguishes the caller guideline actually selected "
         "by the frozen simulation builders from a stale inbound guideline stored in "
         "the historical top-level run metadata. The content-addressed runtime prompt "
@@ -1895,13 +1844,18 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
     lines.append("")
     (out / "AUDIT.md").write_text("\n".join(lines))
     gap_lines = ["# Source gaps", "", "## Missing frozen source artifacts", ""]
-    gap_lines.append(
-        "All locally recoverable results pass the executable audit. The following "
-        "older ablation sources are still required for complete paper-claim coverage:"
-    )
-    gap_lines.append("")
-    for gap in source_gaps:
-        gap_lines.append(f"- **{gap['paper_result']}**: {gap['detail']}")
+    if source_gaps:
+        gap_lines.append(
+            "All locally recoverable results pass the executable audit. The following "
+            "older sources are still required for complete claim coverage:"
+        )
+        gap_lines.append("")
+        for gap in source_gaps:
+            gap_lines.append(f"- **{gap['paper_result']}**: {gap['detail']}")
+    else:
+        gap_lines.append(
+            "None. Both workflows in the release comparison have frozen sources."
+        )
     gap_lines.extend(
         [
             "",

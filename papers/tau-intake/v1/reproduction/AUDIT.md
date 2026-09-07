@@ -8,7 +8,7 @@
 - **PASS — text_control**: cells=1; rows=200; passes=200
 - **PASS — paper_speech_judgments**: all four utterance-level speech-fidelity rows reproduce from exported judgments
 - **PASS — deterministic_complication_assignments**: checked=3200; mismatches=0
-- **PASS — recoverable_composition_and_protocol_results**: matched one-field, two/three-field, joint-submit, and verify/retry rows reproduce exactly
+- **PASS — recoverable_composition_and_protocol_results**: matched one-field, two/three-field, joint-submission, and validation/retry rows reproduce exactly
 - **PASS — behavioral_capture_verification_repair**: initial capture, verification, and repair numerators reproduce exactly
 - **PASS — pooled_repair_pathways**: 10/98, 32/123, 7/29, and 34/97 reproduce from transcript events
 - **PASS — noise_adaptivity_effort**: only Grok increases verification effort under noise

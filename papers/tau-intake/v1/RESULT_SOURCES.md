@@ -206,10 +206,9 @@ simulator's silent `note_spell_request` / `note_readback` tools:
 - Combining those rows gives joint submission task 173/270=.641 and field
   492/630=.781. `intake_ehier` gives verify/retry task 222/270=.822 and field
   544/630=.863.
-- The separate no-retry source run is not present in the frozen local evidence
-  and is listed in `reproduction/SOURCE_GAPS.md`. A first-attempt
-  counterfactual over `intake_ehier` reproduces the reported no-retry field
-  numerator (440/630=.698), but not its task numerator.
+- The release comparison contains only these two observed workflows: joint
+  submission without validation, and field-by-field validation with retry. It
+  reports the final outcomes from each workflow.
 
 ## Text control
 

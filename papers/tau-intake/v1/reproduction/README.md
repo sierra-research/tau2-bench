@@ -14,7 +14,7 @@ This directory is the compact, reviewer-facing evidence archive for the tau-Elic
 - `analysis_inputs/`: crossed outcomes, rollups, deterministic complication draws, caller-effort ledger, deterministic behavioral recomputation, the 210-row matched one-field composition ledger, significance results, and speech rollup.
 - `audit.json`: executable claim checks.
 
-`SOURCE_GAPS.md` records the remaining older ablation source gap plus the statistical-analysis re-execution tools that were not present in the frozen local evidence.
+`SOURCE_GAPS.md` records the statistical-analysis re-execution tools that were not present in the frozen local evidence; both workflows in the release comparison have frozen sources.
 
 The prompt manifest distinguishes the caller guideline actually selected by the frozen simulation builders from a stale inbound guideline stored in the historical top-level run metadata. The content-addressed runtime prompt is the one used for reproduction.
 

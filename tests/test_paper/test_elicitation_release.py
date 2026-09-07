@@ -171,3 +171,25 @@ def test_matched_one_field_ledger_reproduces_paper_row() -> None:
     assert artifact["field_pass_at_1"] == 486 / 630
     assert len(artifact["rows"]) == 210
     assert all(len(row["source_outcomes"]) == 3 for row in artifact["rows"])
+
+
+def test_protocol_archive_contains_only_observed_workflows() -> None:
+    root = Path(__file__).resolve().parents[2]
+    artifact = json.loads(
+        (
+            root / "papers/tau-intake/v1/reproduction/analysis_inputs/"
+            "composition_protocol_recomputed.json"
+        ).read_text()
+    )
+    assert artifact["schema_version"] == "tau-elicit-composition-protocol-v2"
+    assert set(artifact["protocol"]) == {
+        "joint_submission_without_validation",
+        "field_by_field_validation_and_retry",
+    }
+    joint = artifact["protocol"]["joint_submission_without_validation"]
+    assert (joint["task_passes"], joint["observations"]) == (173, 270)
+    assert (joint["field_passes"], joint["fields"]) == (492, 630)
+    validated = artifact["protocol"]["field_by_field_validation_and_retry"]
+    assert (validated["task_passes"], validated["observations"]) == (222, 270)
+    assert (validated["field_passes"], validated["fields"]) == (544, 630)
+    assert artifact["source_gaps"] == []
