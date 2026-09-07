@@ -620,6 +620,15 @@ class Task(BaseModel):
             default=None,
         ),
     ]
+    agent_opener: Annotated[
+        Optional[str],
+        Field(
+            description="Deterministic text of the agent's scripted first message. "
+            "When set, the orchestrator seeds the first assistant turn with exactly "
+            "this text instead of the default greeting.",
+            default=None,
+        ),
+    ]
 
     def __str__(self) -> str:
         lines = []

@@ -21,6 +21,10 @@ DEFAULT_LLM_TEMPERATURE_USER = 0.0
 DEFAULT_LLM_ARGS_AGENT = {"temperature": DEFAULT_LLM_TEMPERATURE_AGENT}
 DEFAULT_LLM_ARGS_USER = {"temperature": DEFAULT_LLM_TEMPERATURE_USER}
 
+# Scripted caller-complication profile. Domains without a registered sampler
+# ignore the profile and run clean.
+DEFAULT_COMPLICATION_PROFILE = "default"
+
 DEFAULT_LLM_NL_ASSERTIONS = "gpt-4.1-2025-04-14"
 DEFAULT_LLM_NL_ASSERTIONS_TEMPERATURE = 0.0
 DEFAULT_LLM_NL_ASSERTIONS_ARGS = {"temperature": DEFAULT_LLM_NL_ASSERTIONS_TEMPERATURE}
@@ -103,6 +107,12 @@ DEFAULT_AUDIO_NATIVE_PROVIDER = (
 )
 DEFAULT_TICK_DURATION_SECONDS = 0.20  # overridable
 DEFAULT_MAX_STEPS_SECONDS = 1200  # overridable
+# tau-Elicitation calls are intentionally bounded in simulated time. The
+# provider wall-clock timeout remains a separate operational guard.
+DOMAIN_MAX_STEPS_SECONDS = {"intake": 240, "intake_free": 240}
+VOICE_TIMEOUT_SAFETY_FACTOR = 5.0
+DOMAIN_COMPLICATION_RATE: dict[str, float] = {"intake_free": 1.0}
+SPELL_PROTOCOL_FREE_DOMAINS = frozenset({"intake_free"})
 DEFAULT_SEND_AUDIO_INSTANT = False  # overridable
 
 # Turn-taking thresholds (overridable, in seconds, converted to ticks at runtime)
@@ -213,7 +223,9 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
 DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
     "openai": None,
     "gemini": "high",
-    "xai": "high",
+    # xAI's paper arm sent no reasoning setting. The adapter represents that
+    # wire behavior as None; run provenance uses ``provider_default``.
+    "xai": None,
     "nova": None,
     "qwen": None,
     "livekit": None,

@@ -9,10 +9,11 @@ The complexity level represents how challenging the user is for the agent to han
 Used by run.py and audio effects scheduler.
 """
 
+import hashlib
 import json
 import random
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -30,6 +31,53 @@ from tau2.data_model.voice_personas import (
     get_persona_name_by_voice_id,
 )
 from tau2.voice_config import BACKGROUND_NOISE_CONTINUOUS_DIR, BURST_NOISE_DIR
+
+
+def derive_task_seed(base_seed: int, task_id: str) -> int:
+    """Return the stable per-task seed used by the frozen experiments."""
+    digest = hashlib.sha256(task_id.encode("utf-8")).digest()
+    return base_seed + int.from_bytes(digest[:4], "big") % 1_000_000
+
+
+EffectsMode = Literal["light", "regular", "heavy"]
+
+# Pinned condition overlays used by the paper's R/C/S realizations.
+CHANNEL_EFFECTS_MODES: dict[str, dict] = {
+    "light": {
+        "frame_drop_rate": 0.0,
+        "enable_muffling": False,
+    },
+    "regular": {},
+    "heavy": {
+        "frame_drop_rate": 0.03,
+        "frame_drop_burst_duration_ms": 300,
+        "enable_muffling": True,
+        "muffle_probability": 0.5,
+        "noise_snr_db": 10.0,
+        "burst_noise_events_per_minute": 4.0,
+        "burst_snr_range_db": (-5.0, 0.0),
+    },
+}
+
+SPEECH_EFFECTS_MODES: dict[str, dict] = {
+    "light": {
+        "speech_insert_events_per_minute": 0.0,
+        "enable_vocal_tics": False,
+        "enable_non_directed_phrases": False,
+        "use_llm_backchannel": False,
+        "enable_interruptions": False,
+        "interrupt_tendency": "waits",
+    },
+    "regular": {},
+    "heavy": {
+        "speech_insert_events_per_minute": 1.5,
+        "enable_vocal_tics": True,
+        "enable_non_directed_phrases": True,
+        "use_llm_backchannel": True,
+        "enable_interruptions": True,
+        "interrupt_tendency": "interrupts",
+    },
+}
 
 # Seed offsets for each complexity level to ensure different voice selections
 # Control and regular offsets are fixed for backward compatibility
@@ -270,6 +318,8 @@ def sample_voice_config(
     seed: int,
     synthesis_config: SynthesisConfig,
     complexity: SpeechComplexity = "regular",
+    channel_effects_mode: EffectsMode = "regular",
+    speech_effects_mode: EffectsMode = "regular",
 ) -> SampledVoiceConfig:
     """Sample a complete voice configuration from complexity presets.
 
@@ -295,7 +345,11 @@ def sample_voice_config(
     # Apply complexity-specific seed offset to ensure different selections per complexity
     complexity_seed = seed + COMPLEXITY_SEED_OFFSETS.get(complexity, 0)
     rng = random.Random(complexity_seed)
-    preset = COMPLEXITY_CONFIGS[complexity]
+    preset = {
+        **COMPLEXITY_CONFIGS[complexity],
+        **CHANNEL_EFFECTS_MODES[channel_effects_mode],
+        **SPEECH_EFFECTS_MODES[speech_effects_mode],
+    }
 
     # Get base configs from synthesis_config
     base_channel = synthesis_config.channel_effects_config
@@ -372,14 +426,16 @@ def sample_voice_config(
     # -------------------------------------------------------------------------
     merged_source = SourceEffectsConfig(
         enable_background_noise=preset.get("enable_background_noise", False),
-        noise_snr_db=base_source.noise_snr_db,
+        noise_snr_db=preset.get("noise_snr_db", base_source.noise_snr_db),
         noise_snr_drift_db=base_source.noise_snr_drift_db,
         noise_variation_speed=base_source.noise_variation_speed,
         enable_burst_noise=preset.get("enable_burst_noise", False),
         burst_noise_events_per_minute=preset.get(
             "burst_noise_events_per_minute", base_source.burst_noise_events_per_minute
         ),
-        burst_snr_range_db=base_source.burst_snr_range_db,
+        burst_snr_range_db=preset.get(
+            "burst_snr_range_db", base_source.burst_snr_range_db
+        ),
     )
 
     # -------------------------------------------------------------------------
@@ -387,7 +443,9 @@ def sample_voice_config(
     # -------------------------------------------------------------------------
     merged_speech = SpeechEffectsConfig(
         enable_dynamic_muffling=preset.get("enable_muffling", False),
-        muffle_probability=base_speech.muffle_probability
+        muffle_probability=preset.get(
+            "muffle_probability", base_speech.muffle_probability
+        )
         if preset.get("enable_muffling")
         else 0.0,
         muffle_segment_count=base_speech.muffle_segment_count,
@@ -431,6 +489,8 @@ def sample_voice_config(
         speech_effects_config=merged_speech,
         persona_config=persona_config,
         complexity=complexity,
+        channel_effects_mode=channel_effects_mode,
+        speech_effects_mode=speech_effects_mode,
     )
 
 
@@ -539,7 +599,7 @@ def generate_task_voice_configs(
     configs: dict[str, TaskVoiceConfigsByComplexity] = {}
     for task in tasks:
         # Deterministic seed per task (same logic as run_task)
-        task_seed = base_seed + hash(task.id) % 1000000
+        task_seed = derive_task_seed(base_seed, task.id)
 
         # Sample for each complexity level
         task_configs: dict[str, SampledVoiceConfig] = {}
@@ -623,6 +683,8 @@ def get_or_load_task_voice_config(
     task_seed: int,
     complexity: SpeechComplexity,
     synthesis_config: SynthesisConfig,
+    channel_effects_mode: EffectsMode = "regular",
+    speech_effects_mode: EffectsMode = "regular",
 ) -> SampledVoiceConfig:
     """Get voice config for a task, loading from file if available.
 
@@ -636,6 +698,17 @@ def get_or_load_task_voice_config(
     Returns:
         SampledVoiceConfig for the task.
     """
+    # Non-regular realizations cannot use configs that have regular overlays
+    # baked in; sample them deterministically from the fixed run/task seed.
+    if channel_effects_mode != "regular" or speech_effects_mode != "regular":
+        return sample_voice_config(
+            seed=task_seed,
+            synthesis_config=synthesis_config,
+            complexity=complexity,
+            channel_effects_mode=channel_effects_mode,
+            speech_effects_mode=speech_effects_mode,
+        )
+
     config_path = get_task_voice_configs_path(domain)
 
     if config_path.exists():
@@ -668,6 +741,8 @@ def get_or_load_task_voice_config(
         seed=task_seed,
         synthesis_config=synthesis_config,
         complexity=complexity,
+        channel_effects_mode=channel_effects_mode,
+        speech_effects_mode=speech_effects_mode,
     )
 
 
@@ -704,7 +779,7 @@ def generate_task_voice_configs_for_levels(
 
     configs: dict[str, TaskVoiceConfigsByComplexity] = {}
     for task in tasks:
-        task_seed = base_seed + hash(task.id) % 1000000
+        task_seed = derive_task_seed(base_seed, task.id)
 
         task_configs: dict[str, SampledVoiceConfig] = {}
         for complexity in complexity_levels:

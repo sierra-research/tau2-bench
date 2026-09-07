@@ -20,6 +20,7 @@ from tau2.config import (
     DEFAULT_BACKCHANNEL_MAX_THRESHOLD_SECONDS,
     DEFAULT_BACKCHANNEL_MIN_THRESHOLD_SECONDS,
     DEFAULT_BACKCHANNEL_POISSON_RATE,
+    DEFAULT_COMPLICATION_PROFILE,
     DEFAULT_INTEGRATION_DURATION_SECONDS,
     DEFAULT_INTERRUPTION_CHECK_INTERVAL_SECONDS,
     DEFAULT_LLM_AGENT,
@@ -266,6 +267,51 @@ class AudioNativeConfig(BaseModel):
         return CASCADED_CONFIGS[self.cascaded_config_name]
 
 
+class ComplicationProfile(str, Enum):
+    """Closed catalog of deterministic scripted-complication profiles."""
+
+    DEFAULT = "default"
+    HARD = "hard"
+
+
+class SampledComplication(BaseModel):
+    """One deterministic caller complication attached to a simulation."""
+
+    kind: Annotated[
+        str,
+        Field(description="Domain-owned complication kind."),
+    ]
+    line: Annotated[
+        str,
+        Field(
+            description="Exact prompt line, or packet-display text when "
+            "injected is false."
+        ),
+    ]
+    params: Annotated[
+        dict,
+        Field(
+            description="Parameters selected by the deterministic draw.",
+            default_factory=dict,
+        ),
+    ]
+    catalog_version: Annotated[
+        str,
+        Field(description="Version of the domain complication catalog."),
+    ]
+    injected: Annotated[
+        bool,
+        Field(description="Whether line was appended to the caller prompt."),
+    ] = True
+    mispronunciation: Annotated[
+        Optional[str],
+        Field(
+            description="TTS-ready alternate reading for a prompt-silent "
+            "mispronunciation complication."
+        ),
+    ] = None
+
+
 class BaseRunConfig(BaseModel):
     """Base configuration shared by both text (half-duplex) and voice (full-duplex) modes.
 
@@ -482,6 +528,26 @@ class BaseRunConfig(BaseModel):
         ),
     ]
 
+    # ---- Scripted caller complications ----
+    complication_profile: Annotated[
+        "ComplicationProfile",
+        Field(
+            description="Named complication profile used by domains with a "
+            "registered deterministic sampler.",
+            default_factory=lambda: ComplicationProfile(DEFAULT_COMPLICATION_PROFILE),
+        ),
+    ]
+    complication_rate: Annotated[
+        Optional[float],
+        Field(
+            description="Optional uniform trigger-rate override. None preserves "
+            "the selected profile's per-kind rates.",
+            default=None,
+            ge=0.0,
+            le=1.0,
+        ),
+    ]
+
     # ---- Abstract-ish properties (subclasses must override) ----
 
     @model_validator(mode="after")
@@ -637,6 +703,20 @@ class VoiceRunConfig(BaseRunConfig):
         SpeechComplexity,
         Field(
             description="Speech environment complexity level: 'control' (clean speech, no effects), 'regular' (realistic with background noise and effects), plus ablation variants",
+            default="regular",
+        ),
+    ]
+    channel_effects_mode: Annotated[
+        Literal["light", "regular", "heavy"],
+        Field(
+            description="Channel/acoustic realization overlay.",
+            default="regular",
+        ),
+    ]
+    speech_effects_mode: Annotated[
+        Literal["light", "regular", "heavy"],
+        Field(
+            description="Conversational speech-behavior realization overlay.",
             default="regular",
         ),
     ]
@@ -1237,6 +1317,18 @@ class Info(BaseModel):
         description="Speech complexity level for audio-native mode",
         default=None,
     )
+    channel_effects_mode: Optional[str] = Field(
+        description="Channel/acoustic realization overlay.", default=None
+    )
+    speech_effects_mode: Optional[str] = Field(
+        description="Speech-behavior realization overlay.", default=None
+    )
+    complication_profile: Optional[str] = Field(
+        description="Recorded scripted-complication profile.", default=None
+    )
+    complication_rate: Optional[float] = Field(
+        description="Recorded explicit complication-rate override.", default=None
+    )
     audio_native_config: Optional["AudioNativeConfig"] = Field(
         description="Configuration for audio-native mode",
         default=None,
@@ -1315,6 +1407,9 @@ class SimulationRun(BaseModel):
     speech_environment: Optional[SpeechEnvironment] = Field(
         description="Speech environment used for this simulation",
         default=None,
+    )
+    complication: Optional["SampledComplication"] = Field(
+        description="Deterministically sampled caller complication.", default=None
     )
     review: Optional[Review] = Field(  # TODO: Add auth_classification to review field
         description="LLM-based review of the conversation (agent + user errors).",

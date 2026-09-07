@@ -1,0 +1,193 @@
+{
+  "instrument": "tau-elicit-main-significance",
+  "instrument_version": "1.1.0",
+  "seed": 42,
+  "num_permutations": 100000,
+  "num_bootstrap_resamples": 10000,
+  "analysis_unit": "200 aligned agent-directed tasks with regular, noise-heavy, and speech-heavy realizations",
+  "provider_method": "Two-sided paired sign-permutation test on regular-realization Pass@1 or all-realization pass; Holm correction across three provider pairs; +1 Monte Carlo correction; paired BCa 95% intervals.",
+  "realization_method": "Cochran Q across three paired binary realization outcomes within each system; Holm correction across three systems.",
+  "inputs": {
+    "GPT xhigh": {
+      "path": "data/analysis/modeb_campaign_2026-09-02/modeb_crossed.json",
+      "sha256": "9989d4cf1311c4080ce778860e816756151080ae9c468621b81acb83e3b69a2e",
+      "system_key": "openai_xhigh",
+      "realizations": [
+        "regular",
+        "chanheavy",
+        "speechheavy"
+      ]
+    },
+    "Gemini high": {
+      "path": "data/analysis/modeb_campaign_2026-09-02/modeb_crossed.json",
+      "sha256": "9989d4cf1311c4080ce778860e816756151080ae9c468621b81acb83e3b69a2e",
+      "system_key": "gemini_high",
+      "realizations": [
+        "regular",
+        "chanheavy",
+        "speechheavy"
+      ]
+    },
+    "Grok": {
+      "path": "data/analysis/modeb_campaign_2026-09-02/modeb_crossed.json",
+      "sha256": "9989d4cf1311c4080ce778860e816756151080ae9c468621b81acb83e3b69a2e",
+      "system_key": "xai_10",
+      "realizations": [
+        "regular",
+        "chanheavy",
+        "speechheavy"
+      ]
+    }
+  },
+  "systems": {
+    "GPT xhigh": {
+      "per_realization_passes": [
+        89,
+        78,
+        104
+      ],
+      "per_realization_rates": [
+        0.445,
+        0.39,
+        0.52
+      ],
+      "pass_at_1": 0.445,
+      "pass_at_1_bca_95": [
+        0.37,
+        0.51
+      ],
+      "pass_robust_3": 0.2,
+      "pass_robust_3_bca_95": [
+        0.145,
+        0.255
+      ],
+      "pass_at_1_minus_robust": 0.245,
+      "gap_bca_95": [
+        0.185,
+        0.305
+      ],
+      "tasks_changing_outcome": 100,
+      "cochran_q": 10.22,
+      "cochran_p": 0.006036082923599563,
+      "cochran_p_holm": 0.01810824877079869
+    },
+    "Gemini high": {
+      "per_realization_passes": [
+        103,
+        74,
+        89
+      ],
+      "per_realization_rates": [
+        0.515,
+        0.37,
+        0.445
+      ],
+      "pass_at_1": 0.515,
+      "pass_at_1_bca_95": [
+        0.44,
+        0.58
+      ],
+      "pass_robust_3": 0.135,
+      "pass_robust_3_bca_95": [
+        0.09,
+        0.185
+      ],
+      "pass_at_1_minus_robust": 0.38,
+      "gap_bca_95": [
+        0.31,
+        0.445
+      ],
+      "tasks_changing_outcome": 126,
+      "cochran_q": 10.015873015873016,
+      "cochran_p": 0.006684682874409367,
+      "cochran_p_holm": 0.01810824877079869
+    },
+    "Grok": {
+      "per_realization_passes": [
+        133,
+        125,
+        132
+      ],
+      "per_realization_rates": [
+        0.665,
+        0.625,
+        0.66
+      ],
+      "pass_at_1": 0.665,
+      "pass_at_1_bca_95": [
+        0.59,
+        0.725
+      ],
+      "pass_robust_3": 0.405,
+      "pass_robust_3_bca_95": [
+        0.335,
+        0.47
+      ],
+      "pass_at_1_minus_robust": 0.26,
+      "gap_bca_95": [
+        0.195,
+        0.32
+      ],
+      "tasks_changing_outcome": 90,
+      "cochran_q": 1.2666666666666666,
+      "cochran_p": 0.5308194505620139,
+      "cochran_p_holm": 0.5308194505620139
+    }
+  },
+  "provider_pairs": [
+    {
+      "system_a": "GPT xhigh",
+      "system_b": "Gemini high",
+      "delta_pass_at_1_a_minus_b": -0.07,
+      "delta_pass_at_1_bca_95": [
+        -0.155,
+        0.005
+      ],
+      "pass_permutation_p": 0.11314886851131489,
+      "delta_robust_a_minus_b": 0.065,
+      "delta_robust_bca_95": [
+        -0.005,
+        0.125
+      ],
+      "robust_permutation_p": 0.07809921900780992,
+      "pass_permutation_p_holm": 0.11314886851131489,
+      "robust_permutation_p_holm": 0.07809921900780992
+    },
+    {
+      "system_a": "GPT xhigh",
+      "system_b": "Grok",
+      "delta_pass_at_1_a_minus_b": -0.22,
+      "delta_pass_at_1_bca_95": [
+        -0.295,
+        -0.15
+      ],
+      "pass_permutation_p": 9.99990000099999e-06,
+      "delta_robust_a_minus_b": -0.205,
+      "delta_robust_bca_95": [
+        -0.285,
+        -0.1394311481795012
+      ],
+      "robust_permutation_p": 9.99990000099999e-06,
+      "pass_permutation_p_holm": 2.999970000299997e-05,
+      "robust_permutation_p_holm": 2.999970000299997e-05
+    },
+    {
+      "system_a": "Gemini high",
+      "system_b": "Grok",
+      "delta_pass_at_1_a_minus_b": -0.15,
+      "delta_pass_at_1_bca_95": [
+        -0.24,
+        -0.07
+      ],
+      "pass_permutation_p": 0.0008099919000809992,
+      "delta_robust_a_minus_b": -0.27,
+      "delta_robust_bca_95": [
+        -0.35,
+        -0.205
+      ],
+      "robust_permutation_p": 9.99990000099999e-06,
+      "pass_permutation_p_holm": 0.0016199838001619985,
+      "robust_permutation_p_holm": 2.999970000299997e-05
+    }
+  ]
+}

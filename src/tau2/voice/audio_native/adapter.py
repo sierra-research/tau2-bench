@@ -400,8 +400,10 @@ def create_adapter(
     Raises:
         ValueError: If the provider is unknown.
     """
-    # --- Resolve reasoning_effort default ---
-    if reasoning_effort is None:
+    # --- Resolve reasoning_effort default and its explicit no-setting value ---
+    if reasoning_effort == "provider_default":
+        reasoning_effort = None
+    elif reasoning_effort is None:
         reasoning_effort = DEFAULT_AUDIO_NATIVE_REASONING_EFFORT.get(provider)
 
     # --- Resolve model default ---

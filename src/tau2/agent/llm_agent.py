@@ -58,6 +58,9 @@ class LLMAgent(
     A half-duplex LLM agent for turn-based conversations.
     """
 
+    STOP_TOKEN = "###STOP###"
+    STOP_TOOL_NAMES = frozenset({"end_call"})
+
     def __init__(
         self,
         tools: List[Tool],
@@ -109,8 +112,26 @@ class LLMAgent(
         Respond to a user or tool message.
         """
         assistant_message = self._generate_next_message(message, state)
+        assistant_message = self._check_if_stop_toolcall(assistant_message)
         state.messages.append(assistant_message)
         return assistant_message, state
+
+    def _check_if_stop_toolcall(self, message: AssistantMessage) -> AssistantMessage:
+        """Mark an outbound call-ending tool invocation as a stop message."""
+        if message.tool_calls and any(
+            tool_call.name in self.STOP_TOOL_NAMES for tool_call in message.tool_calls
+        ):
+            message.content = (
+                self.STOP_TOKEN
+                if message.content is None
+                else f"{message.content} {self.STOP_TOKEN}"
+            )
+        return message
+
+    @classmethod
+    def is_stop(cls, message: AssistantMessage) -> bool:
+        """Return whether the agent has ended an outbound call."""
+        return message.content is not None and cls.STOP_TOKEN in message.content
 
     def _generate_next_message(
         self, message: ValidAgentInputMessage, state: LLMAgentStateType

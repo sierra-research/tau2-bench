@@ -5,6 +5,8 @@ from tau2.config import (
     DEFAULT_AGENT_IMPLEMENTATION,
     DEFAULT_AUDIO_NATIVE_MODELS,
     DEFAULT_AUDIO_NATIVE_PROVIDER,
+    DEFAULT_AUDIO_NATIVE_REASONING_EFFORT,
+    DEFAULT_COMPLICATION_PROFILE,
     DEFAULT_INTEGRATION_DURATION_SECONDS,
     DEFAULT_INTERRUPTION_CHECK_INTERVAL_SECONDS,
     DEFAULT_LLM_AGENT,
@@ -32,10 +34,13 @@ from tau2.config import (
     DEFAULT_WAIT_TO_RESPOND_THRESHOLD_SELF_SECONDS,
     DEFAULT_YIELD_THRESHOLD_WHEN_INTERRUPTED_SECONDS,
     DEFAULT_YIELD_THRESHOLD_WHEN_INTERRUPTING_SECONDS,
+    DOMAIN_COMPLICATION_RATE,
+    DOMAIN_MAX_STEPS_SECONDS,
 )
 from tau2.data_model.persona import PersonaConfig
 from tau2.data_model.simulation import (
     AudioNativeConfig,
+    ComplicationProfile,
     TextRunConfig,
     VoiceRunConfig,
 )
@@ -245,6 +250,19 @@ def add_run_args(parser):
         '\'{"verbosity": {"minimal": 0.8, "standard": 0.2}}\'. '
         "If not provided, uses default behavior (standard verbosity).",
     )
+    parser.add_argument(
+        "--complication-profile",
+        choices=[profile.value for profile in ComplicationProfile],
+        default=DEFAULT_COMPLICATION_PROFILE,
+        help="Scripted caller-complication profile. 'hard' restricts intake "
+        "to hard-tier tasks and triggers a feasible complication on each call.",
+    )
+    parser.add_argument(
+        "--complication-rate",
+        type=float,
+        default=None,
+        help="Optional trigger-rate override in [0, 1]. Zero runs clean.",
+    )
 
     # Audio-native mode arguments
     parser.add_argument(
@@ -278,9 +296,9 @@ def add_run_args(parser):
     parser.add_argument(
         "--reasoning-effort",
         type=str,
-        choices=["minimal", "low", "medium", "high", "xhigh"],
+        choices=["minimal", "low", "medium", "high", "xhigh", "provider_default"],
         default=None,
-        help="Reasoning effort for thinking models. Only applies to providers that support it (e.g. OpenAI).",
+        help="Reasoning effort for thinking models. 'provider_default' sends no reasoning setting.",
     )
     parser.add_argument(
         "--tick-duration",
@@ -291,8 +309,10 @@ def add_run_args(parser):
     parser.add_argument(
         "--max-steps-seconds",
         type=int,
-        default=DEFAULT_MAX_STEPS_SECONDS,
-        help=f"Maximum conversation duration in seconds for audio-native mode. Default is {DEFAULT_MAX_STEPS_SECONDS}.",
+        default=None,
+        help="Maximum simulated conversation duration in seconds. Defaults to "
+        "the domain-specific ceiling, otherwise "
+        f"{DEFAULT_MAX_STEPS_SECONDS}.",
     )
     parser.add_argument(
         "--speech-complexity",
@@ -311,6 +331,18 @@ def add_run_args(parser):
         ],
         default=DEFAULT_SPEECH_COMPLEXITY,
         help=f"Speech complexity level for audio effects. Default is '{DEFAULT_SPEECH_COMPLEXITY}'.",
+    )
+    parser.add_argument(
+        "--channel-effects-mode",
+        choices=["light", "regular", "heavy"],
+        default="regular",
+        help="Channel-effects intensity overlay for voice runs.",
+    )
+    parser.add_argument(
+        "--speech-effects-mode",
+        choices=["light", "regular", "heavy"],
+        default="regular",
+        help="Speech-behavior intensity overlay for voice runs.",
     )
 
     # Audio-native: Sample rates
@@ -598,6 +630,14 @@ def main():
     parser = argparse.ArgumentParser(description="Tau2 command line interface")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
+    # Paper evidence and reproduction commands (registered by the package).
+    paper_parser = subparsers.add_parser(
+        "paper", help="Build and verify paper reproduction artifacts"
+    )
+    from tau2.paper.cli import add_paper_args
+
+    add_paper_args(paper_parser)
+
     # Run command
     run_parser = subparsers.add_parser("run", help="Run a benchmark")
     add_run_args(run_parser)
@@ -622,15 +662,29 @@ def main():
             if args.xml_prompt:
                 use_xml_prompt = True
 
+            reasoning_effort = args.reasoning_effort
+            if reasoning_effort is None:
+                reasoning_effort = DEFAULT_AUDIO_NATIVE_REASONING_EFFORT.get(
+                    args.audio_native_provider
+                )
+                if reasoning_effort is None:
+                    reasoning_effort = "provider_default"
+
             audio_native_config = AudioNativeConfig(
                 # Provider
                 provider=args.audio_native_provider,
                 model=audio_native_model,
                 cascaded_config_name=args.cascaded_config,
-                reasoning_effort=args.reasoning_effort,
+                reasoning_effort=reasoning_effort,
                 # Timing
                 tick_duration_seconds=args.tick_duration,
-                max_steps_seconds=args.max_steps_seconds,
+                max_steps_seconds=(
+                    args.max_steps_seconds
+                    if args.max_steps_seconds is not None
+                    else DOMAIN_MAX_STEPS_SECONDS.get(
+                        args.domain, DEFAULT_MAX_STEPS_SECONDS
+                    )
+                ),
                 # Sample rates
                 pcm_sample_rate=args.pcm_sample_rate,
                 telephony_rate=args.telephony_rate,
@@ -645,6 +699,13 @@ def main():
                 # Agent behavior
                 use_xml_prompt=use_xml_prompt,
             )
+
+        if args.complication_rate is not None and not (
+            0.0 <= args.complication_rate <= 1.0
+        ):
+            run_parser.error("--complication-rate must be within [0, 1]")
+        if args.complication_rate is None:
+            args.complication_rate = DOMAIN_COMPLICATION_RATE.get(args.domain)
 
         # Set global LLM log mode (used by verbose logging)
         from tau2.utils.llm_utils import set_llm_log_mode
@@ -679,6 +740,8 @@ def main():
             hallucination_retries=args.hallucination_retries,
             retrieval_config=args.retrieval_config,
             retrieval_config_kwargs=args.retrieval_config_kwargs,
+            complication_profile=args.complication_profile,
+            complication_rate=args.complication_rate,
         )
 
         if audio_native_config is not None:
@@ -686,6 +749,8 @@ def main():
                 **shared_kwargs,
                 audio_native_config=audio_native_config,
                 speech_complexity=args.speech_complexity,
+                channel_effects_mode=args.channel_effects_mode,
+                speech_effects_mode=args.speech_effects_mode,
                 audio_debug=getattr(args, "audio_debug", False),
                 audio_taps=getattr(args, "audio_taps", False),
             )

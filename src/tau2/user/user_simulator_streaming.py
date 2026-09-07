@@ -2,7 +2,7 @@ import random
 import time
 from copy import deepcopy
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from loguru import logger
 
@@ -24,7 +24,11 @@ from tau2.data_model.audio import (
     AudioEncoding,
     audio_bytes_to_string,
 )
-from tau2.data_model.audio_effects import ChannelEffectsResult, EffectTimeline
+from tau2.data_model.audio_effects import (
+    ChannelEffectsResult,
+    EffectTimeline,
+    SpellOutDetection,
+)
 from tau2.data_model.message import (
     AssistantMessage,
     EnvironmentMessage,
@@ -36,7 +40,12 @@ from tau2.data_model.message import (
 from tau2.data_model.persona import InterruptTendency, PersonaConfig
 from tau2.data_model.voice import VoiceSettings
 from tau2.environment.tool import Tool
-from tau2.user.user_simulator import SYSTEM_PROMPT, get_global_user_sim_guidelines_voice
+from tau2.user.user_simulator import (
+    SYSTEM_PROMPT,
+    CallDirection,
+    get_global_user_sim_guidelines_voice,
+    strip_outbound_spell_offer_nudge,
+)
 from tau2.user.user_simulator_base import (
     OUT_OF_SCOPE,
     STOP,
@@ -446,6 +455,8 @@ class VoiceStreamingUserSimulator(
         tick_duration_seconds: float = 0.05,
         persona_config: Optional[PersonaConfig] = None,
         audio_taps_dir: Optional["Path"] = None,
+        domain: Optional[str] = None,
+        call_direction: CallDirection = CallDirection.INBOUND,
     ):
         """
         Initialize the streaming user simulator.
@@ -486,6 +497,8 @@ class VoiceStreamingUserSimulator(
             voice_settings=voice_settings,
         )
         self.persona_config = persona_config or PersonaConfig()
+        self.domain = domain
+        self.call_direction = call_direction
         self.integration_ticks = integration_ticks
         self.silence_annotation_threshold_ticks = silence_annotation_threshold_ticks
         self.tick_duration_seconds = tick_duration_seconds
@@ -524,6 +537,9 @@ class VoiceStreamingUserSimulator(
 
         # Effect timeline (always active, lightweight metadata)
         self._effect_timeline = EffectTimeline()
+        self.spell_event_detector: Optional[
+            Callable[[str], list[SpellOutDetection]]
+        ] = None
 
         # Audio taps for pipeline diagnostics (None = disabled, zero cost)
         self._audio_taps: Optional[dict[str, AudioTap]] = None
@@ -620,7 +636,14 @@ class VoiceStreamingUserSimulator(
     def global_simulation_guidelines(self) -> str:
         """The voice-specific simulation guidelines for the user simulator."""
         use_tools = self.tools is not None
-        return get_global_user_sim_guidelines_voice(use_tools=use_tools)
+        guidelines = get_global_user_sim_guidelines_voice(
+            use_tools=use_tools, direction=self.call_direction
+        )
+        from tau2.config import SPELL_PROTOCOL_FREE_DOMAINS
+
+        if self.domain in SPELL_PROTOCOL_FREE_DOMAINS:
+            return strip_outbound_spell_offer_nudge(guidelines)
+        return guidelines
 
     @property
     def system_prompt(self) -> str:
@@ -1309,6 +1332,17 @@ class VoiceStreamingUserSimulator(
         # Check for stop
         if self.is_stop(user_message):
             return user_message, state
+
+        if self.spell_event_detector is not None and user_message.content:
+            now_ms = int(state.elapsed_samples * 1000 / PCM_SAMPLE_RATE)
+            for detection in self.spell_event_detector(user_message.content):
+                event = self._effect_timeline.open_event(
+                    "spell_out",
+                    start_ms=now_ms,
+                    participant="user",
+                    params=detection.model_dump(),
+                )
+                event.end_ms = now_ms
 
         # Synthesize voice (without background noise - added per chunk) with timing
         effects_turn_idx = state.user_utterance_count

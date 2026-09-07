@@ -164,7 +164,16 @@ EffectType = Literal[
     "out_of_turn_speech",
     "telephony",
     "frame_drop",
+    "spell_out",
 ]
+
+
+class SpellOutDetection(BaseModel):
+    """A character-by-character rendering of one tracked entity field."""
+
+    field: str
+    letters_spoken: int = Field(ge=2)
+    spelled_text: str
 
 
 class EffectEvent(BaseModel):

@@ -109,6 +109,16 @@ You are a customer service agent handling a VOICE CALL with a customer.
 2. If authenticating the user fails based on user provided information, ALWAYS explicitly ask the customer to SPELL THINGS OUT or provide information LETTER BY LETTER (e.g. "first name J, O, H, N last name S, M, I, T, H").
 """.strip()
 
+AUDIO_NATIVE_VOICE_INSTRUCTION_SPELL_PROTOCOL_FREE = """
+You are a customer service agent handling a VOICE CALL with a customer.
+
+# Important Voice Call Considerations
+
+1. Respond naturally and conversationally as you would in a real phone call
+
+2. Try to be helpful and always follow the policy.
+""".strip()
+
 CASCADED_MODEL_INSTRUCTION = """
 You are a customer service agent handling a VOICE CALL with a customer.
 
@@ -128,6 +138,21 @@ You are a customer service agent handling a VOICE CALL with a customer.
 1. When collecting customer information (e.g. names, emails, IDs), ask the customer to spell it out letter by letter (e.g. "J, O, H, N") to ensure you have the correct information and accomodate for customer audio being unclear or background noise.
 
 2. If authenticating the user fails based on user provided information, ALWAYS explicitly ask the customer to SPELL THINGS OUT or provide information LETTER BY LETTER (e.g. "first name J, O, H, N last name S, M, I, T, H").
+""".strip()
+
+CASCADED_MODEL_INSTRUCTION_SPELL_PROTOCOL_FREE = """
+You are a customer service agent handling a VOICE CALL with a customer.
+
+# Important Voice Call Considerations
+
+1. For the conversation, you will see transcribed speech, not written text. Expect:
+- Misspellings of names, emails, or technical terms
+- Missing or incorrect punctuation (periods, commas)
+- Run-on sentences or incomplete thoughts
+
+2. Respond naturally and conversationally as you would in a real phone call. Do not use bullets (numbered or unnumbered) or markdown formatting.
+
+3. Try to be helpful and always follow the policy.
 """.strip()
 
 # System prompt without XML tags (for xAI and other providers that prefer plain text)
@@ -194,7 +219,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
     """
 
     STOP_TOKEN = "###STOP###"
-    STOP_FUNCTION_NAME = "transfer_to_human_agents"
+    STOP_TOOL_NAMES = frozenset({"transfer_to_human_agents", "end_call"})
 
     def __init__(
         self,
@@ -213,6 +238,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         use_xml_prompt: bool = False,
         cascaded_config: Optional["CascadedConfig"] = None,
         audio_taps_dir: Optional[Path] = None,
+        spell_protocol_guidance: bool = True,
     ):
         """Initialize the discrete-time audio native agent.
 
@@ -256,6 +282,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         self.reasoning_effort = reasoning_effort
         self.max_inactive_seconds = max_inactive_seconds
         self.cascaded_config = cascaded_config
+        self.spell_protocol_guidance = spell_protocol_guidance
 
         # Audio format (defaults to telephony)
         self.audio_format = audio_format or TELEPHONY_AUDIO_FORMAT
@@ -348,9 +375,17 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         # which work with transcribed speech rather than native audio
         provider_type = AUDIO_NATIVE_PROVIDER_TYPES.get(self.provider, "audio_native")
         if provider_type == "cascaded":
-            agent_instruction = CASCADED_MODEL_INSTRUCTION
+            agent_instruction = (
+                CASCADED_MODEL_INSTRUCTION
+                if self.spell_protocol_guidance
+                else CASCADED_MODEL_INSTRUCTION_SPELL_PROTOCOL_FREE
+            )
         else:
-            agent_instruction = AUDIO_NATIVE_VOICE_INSTRUCTION
+            agent_instruction = (
+                AUDIO_NATIVE_VOICE_INSTRUCTION
+                if self.spell_protocol_guidance
+                else AUDIO_NATIVE_VOICE_INSTRUCTION_SPELL_PROTOCOL_FREE
+            )
 
         return template.format(
             agent_instruction=agent_instruction,
@@ -795,7 +830,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         is_stop = False
         if message.tool_calls:
             for tool_call in message.tool_calls:
-                if tool_call.name == self.STOP_FUNCTION_NAME:
+                if tool_call.name in self.STOP_TOOL_NAMES:
                     is_stop = True
                     break
         if is_stop:
@@ -832,6 +867,7 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
     """
     audio_native_config = kwargs.get("audio_native_config")
     audio_taps_dir = kwargs.get("audio_taps_dir")
+    spell_protocol_guidance = bool(kwargs.get("spell_protocol_guidance", True))
     if audio_native_config is not None:
         return DiscreteTimeAudioNativeAgent(
             tools=tools,
@@ -845,6 +881,7 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
             use_xml_prompt=audio_native_config.use_xml_prompt,
             cascaded_config=getattr(audio_native_config, "cascaded_config", None),
             audio_taps_dir=audio_taps_dir,
+            spell_protocol_guidance=spell_protocol_guidance,
         )
     else:
         # Fallback: use individual kwargs or defaults
@@ -856,4 +893,5 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
             provider=kwargs.get("provider", DEFAULT_AUDIO_NATIVE_PROVIDER),
             model=kwargs.get("model"),
             audio_taps_dir=audio_taps_dir,
+            spell_protocol_guidance=spell_protocol_guidance,
         )

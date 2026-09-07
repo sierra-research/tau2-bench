@@ -2,7 +2,9 @@
 Helper functions for task loading, run configuration, and metadata.
 """
 
-from typing import Optional
+from typing import Annotated, Optional
+
+from pydantic import BaseModel, Field
 
 from tau2.data_model.simulation import (
     AgentInfo,
@@ -14,7 +16,10 @@ from tau2.data_model.simulation import (
 from tau2.data_model.tasks import Task
 from tau2.environment.environment import EnvironmentInfo
 from tau2.registry import RegistryInfo, registry
+from tau2.runner.complications import profile_task_filter
 from tau2.user.user_simulator import (
+    CallDirection,
+    call_direction_for_task,
     get_global_user_sim_guidelines,
     get_global_user_sim_guidelines_voice,
 )
@@ -93,6 +98,42 @@ def get_tasks(
     return tasks
 
 
+class ResolvedTasks(BaseModel):
+    """Tasks selected for a run plus reviewer-readable selection notes."""
+
+    tasks: Annotated[list[Task], Field(description="Tasks to run, in run order.")]
+    notices: list[str] = Field(default_factory=list)
+
+
+def resolve_tasks(config: RunConfig) -> ResolvedTasks:
+    """Resolve task IDs, count, agent filters, and complication-tier filters."""
+    task_set_name = config.task_set_name or config.domain
+    tasks = get_tasks(
+        task_set_name=task_set_name,
+        task_split_name=config.task_split_name,
+        task_ids=config.task_ids,
+        num_tasks=config.num_tasks,
+    )
+    notices: list[str] = []
+    task_filter = registry.get_agent_task_filter(config.effective_agent)
+    if task_filter is not None:
+        total = len(tasks)
+        tasks = [task for task in tasks if task_filter(task)]
+        notices.append(
+            f"Running {len(tasks)} out of {total} tasks for "
+            f"{config.effective_agent} (filtered)."
+        )
+    profile_filter = profile_task_filter(config)
+    if profile_filter is not None:
+        total = len(tasks)
+        tasks = [task for task in tasks if profile_filter(task)]
+        notices.append(
+            f"Complication profile '{config.complication_profile.value}': "
+            f"{len(tasks)} of {total} tasks (hard tier only)."
+        )
+    return ResolvedTasks(tasks=tasks, notices=notices)
+
+
 def make_run_name(config: RunConfig) -> str:
     """Generate a run name from the run config."""
     is_voice = isinstance(config, VoiceRunConfig)
@@ -140,11 +181,31 @@ def get_info(config: RunConfig, **overrides) -> Info:
         config.speech_complexity if is_voice else None,
     )
 
-    # Use voice guidelines for voice mode
+    use_tools = False
+    direction = overrides.get("call_direction", CallDirection.INBOUND)
+    try:
+        environment = registry.get_env_constructor(config.domain)()
+        use_tools = bool(environment.get_user_tools())
+    except Exception:
+        pass
+    if direction is CallDirection.INBOUND:
+        try:
+            tasks = load_tasks(config.task_set_name or config.domain)
+            direction = call_direction_for_task(tasks[0])
+        except Exception:
+            pass
+    if not use_tools:
+        direction = CallDirection.INBOUND
+
+    # Record the exact inbound/outbound guideline variant used at runtime.
     if is_voice:
-        global_user_sim_guidelines = get_global_user_sim_guidelines_voice()
+        global_user_sim_guidelines = get_global_user_sim_guidelines_voice(
+            use_tools=use_tools, direction=direction
+        )
     else:
-        global_user_sim_guidelines = get_global_user_sim_guidelines()
+        global_user_sim_guidelines = get_global_user_sim_guidelines(
+            use_tools=use_tools, direction=direction
+        )
 
     user_info = UserInfo(
         implementation=config.effective_user,
@@ -195,6 +256,10 @@ def get_info(config: RunConfig, **overrides) -> Info:
         environment_info=environment_info,
         seed=config.seed,
         speech_complexity=speech_complexity,
+        channel_effects_mode=getattr(config, "channel_effects_mode", None),
+        speech_effects_mode=getattr(config, "speech_effects_mode", None),
+        complication_profile=config.complication_profile.value,
+        complication_rate=config.complication_rate,
         audio_native_config=getattr(config, "audio_native_config", None),
         retrieval_config=getattr(config, "retrieval_config", None),
         retrieval_config_kwargs=getattr(config, "retrieval_config_kwargs", None),

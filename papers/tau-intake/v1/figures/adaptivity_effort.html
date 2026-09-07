@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: 620px 330px; margin: 0; }
+  html, body { width: 620px; height: 330px; margin: 0; background: #fff; }
+  svg { display: block; width: 620px; height: 330px; font-family: Arial, Helvetica, sans-serif; }
+  .legend, .row, .detail, .tick, .axis { fill: #111; }
+  .legend { font-size: 19px; }
+  .row { font-size: 22px; font-weight: 600; }
+  .detail { font-size: 16px; }
+  .tick { font-size: 20px; }
+  .axis { font-size: 20px; font-weight: 600; }
+  .grid { stroke: #dedede; stroke-width: 1; }
+  .baseline { stroke: #555; stroke-width: 1.5; }
+  .gpt { stroke: #2b78b8; fill: #2b78b8; stroke-width: 4; }
+  .gemini { stroke: #d97933; fill: #d97933; stroke-width: 4; }
+  .grok { stroke: #3e9e63; fill: #3e9e63; stroke-width: 4; }
+  .open { fill: #fff; stroke-width: 3; }
+  .marker-gpt { stroke: #2b78b8; }
+  .marker-gemini { stroke: #d97933; }
+  .marker-grok { stroke: #3e9e63; }
+  .challenge-gpt { fill: #2b78b8; }
+  .challenge-gemini { fill: #d97933; }
+  .challenge-grok { fill: #3e9e63; }
+</style>
+</head>
+<body>
+<svg viewBox="0 0 620 330" role="img" aria-labelledby="title desc">
+  <title id="title">Verification effort across challenge axes</title>
+  <desc id="desc">Mean read-backs plus spelling requests per call. Open circles show the baseline and filled diamonds show the challenge for GPT xhigh, Gemini, and Grok.</desc>
+
+  <g class="legend">
+    <line x1="12" y1="18" x2="40" y2="18" class="gpt"/><text x="47" y="24">GPT xh</text>
+    <line x1="125" y1="18" x2="153" y2="18" class="gemini"/><text x="160" y="24">Gemini</text>
+    <line x1="259" y1="18" x2="287" y2="18" class="grok"/><text x="294" y="24">Grok</text>
+    <circle cx="376" cy="18" r="7" class="open" stroke="#555"/><text x="389" y="24">Baseline</text>
+    <polygon points="492,10 500,18 492,26 484,18" fill="#555"/><text x="506" y="24">Challenge</text>
+  </g>
+
+  <g>
+    <line class="grid" x1="200" y1="42" x2="200" y2="270"/>
+    <line class="grid" x1="332" y1="42" x2="332" y2="270"/>
+    <line class="grid" x1="463" y1="42" x2="463" y2="270"/>
+    <line class="grid" x1="595" y1="42" x2="595" y2="270"/>
+    <line class="baseline" x1="200" y1="270" x2="595" y2="270"/>
+    <text class="tick" x="200" y="292" text-anchor="middle">0</text>
+    <text class="tick" x="332" y="292" text-anchor="middle">1</text>
+    <text class="tick" x="463" y="292" text-anchor="middle">2</text>
+    <text class="tick" x="595" y="292" text-anchor="middle">3</text>
+    <text class="axis" x="398" y="321" text-anchor="middle">Mean read-backs + spelling requests per call</text>
+  </g>
+
+  <g aria-label="Noise, regular to noisy">
+    <text class="row" x="190" y="68" text-anchor="end">Noise</text>
+    <text class="detail" x="190" y="87" text-anchor="end">regular → noisy</text>
+    <line x1="316" y1="61" x2="316" y2="61" class="gpt"/>
+    <circle cx="316" cy="61" r="8" class="open marker-gpt"/><polygon points="316,56 321,61 316,66 311,61" class="challenge-gpt"/>
+    <line x1="344" y1="74" x2="319" y2="74" class="gemini"/>
+    <circle cx="344" cy="74" r="7" class="open marker-gemini"/><polygon points="319,66 327,74 319,82 311,74" class="challenge-gemini"/>
+    <line x1="482" y1="87" x2="534" y2="87" class="grok"/>
+    <circle cx="482" cy="87" r="7" class="open marker-grok"/><polygon points="534,79 542,87 534,95 526,87" class="challenge-grok"/>
+  </g>
+
+  <g aria-label="Difficulty, easy to hard">
+    <text class="row" x="190" y="123" text-anchor="end">Difficulty</text>
+    <text class="detail" x="190" y="142" text-anchor="end">easy → hard</text>
+    <line x1="303" y1="116" x2="329" y2="116" class="gpt"/>
+    <circle cx="303" cy="116" r="7" class="open marker-gpt"/><polygon points="329,108 337,116 329,124 321,116" class="challenge-gpt"/>
+    <line x1="315" y1="129" x2="374" y2="129" class="gemini"/>
+    <circle cx="315" cy="129" r="7" class="open marker-gemini"/><polygon points="374,121 382,129 374,137 366,129" class="challenge-gemini"/>
+    <line x1="452" y1="142" x2="511" y2="142" class="grok"/>
+    <circle cx="452" cy="142" r="7" class="open marker-grok"/><polygon points="511,134 519,142 511,150 503,142" class="challenge-grok"/>
+  </g>
+
+  <g aria-label="Caller voice, own best to own worst by Pass at one">
+    <text class="row" x="190" y="178" text-anchor="end">Caller voice</text>
+    <text class="detail" x="190" y="197" text-anchor="end">own best → own worst</text>
+    <line x1="326" y1="171" x2="284" y2="171" class="gpt"/>
+    <circle cx="326" cy="171" r="7" class="open marker-gpt"/><polygon points="284,163 292,171 284,179 276,171" class="challenge-gpt"/>
+    <line x1="324" y1="184" x2="313" y2="184" class="gemini"/>
+    <circle cx="324" cy="184" r="7" class="open marker-gemini"/><polygon points="313,176 321,184 313,192 305,184" class="challenge-gemini"/>
+    <line x1="482" y1="197" x2="448" y2="197" class="grok"/>
+    <circle cx="482" cy="197" r="7" class="open marker-grok"/><polygon points="448,189 456,197 448,205 440,197" class="challenge-grok"/>
+  </g>
+
+  <g aria-label="Entity type, dates and times to medications and coined names">
+    <text class="row" x="190" y="233" text-anchor="end">Entity type</text>
+    <text class="detail" x="190" y="252" text-anchor="end">familiar → unfamiliar</text>
+    <line x1="226" y1="226" x2="345" y2="226" class="gpt"/>
+    <circle cx="226" cy="226" r="7" class="open marker-gpt"/><polygon points="345,218 353,226 345,234 337,226" class="challenge-gpt"/>
+    <line x1="240" y1="239" x2="316" y2="239" class="gemini"/>
+    <circle cx="240" cy="239" r="7" class="open marker-gemini"/><polygon points="316,231 324,239 316,247 308,239" class="challenge-gemini"/>
+    <line x1="345" y1="252" x2="546" y2="252" class="grok"/>
+    <circle cx="345" cy="252" r="7" class="open marker-grok"/><polygon points="546,244 554,252 546,260 538,252" class="challenge-grok"/>
+  </g>
+</svg>
+</body>
+</html>

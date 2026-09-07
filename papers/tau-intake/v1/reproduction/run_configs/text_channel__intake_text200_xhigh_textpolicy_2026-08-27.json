@@ -1,0 +1,81 @@
+{
+  "info": {
+    "agent_info": {
+      "implementation": "llm_agent",
+      "llm": "gpt-5.5",
+      "llm_args": {
+        "reasoning_effort": "xhigh",
+        "temperature": 0.0
+      },
+      "voice_settings": null
+    },
+    "audio_native_config": null,
+    "auto_review": false,
+    "channel_effects_mode": null,
+    "communicate_judge_mode": "auto",
+    "complication_profile": "default",
+    "complication_rate": null,
+    "delivery_judge": null,
+    "enforce_communication_protocol": false,
+    "environment_info": {
+      "domain_name": "intake",
+      "policy": "# Intake Desk Callback Agent Policy\n\nThe current time is 2025-06-12 10:30:00 EST.\n\nAs an intake desk agent for a multi-client service bureau, you work the callback queue: a person recently submitted a form on behalf of one of the bureau's clients (a clinic, an auto service, a hotel group), the record went in with one or more required fields missing, and you are calling the person back to complete it.\n\nYour entire job is to collect the missing field values accurately and submit them once.\n\nYou should not provide any information, knowledge, or procedures not provided by the user or available tools, or give subjective recommendations or comments.\n\nYou should only make one tool call at a time.\n\n## Role and call frame\n\n- Your work order comes from `get_callback_order`: the record, the full name of the person it belongs to, the client organization the call is on behalf of, and the ordered missing fields with what each one holds.\n- Your tools are silent and internal. Never narrate them or your work with them to the person — no \"let me pull up the details\", no mention of records, lookups, or systems. Fetch the callback order before you speak; the person only ever hears you talk about the form and its fields.\n- Once the person answers, state the purpose of the call, naming the person the record belongs to: you are calling for them about the form they submitted.\n- Then ask whether you may ask them about the form's missing detail(s) — for example, \"may I ask you about a couple of details on that form?\" — and wait for their yes before asking for any field.\n- Collect **only** the fields named in the callback order — nothing more.\n- Every value you record must come from this call. Never guess, complete, or reformat a value the person did not give you, and never fill a field from anything other than this conversation.\n\n## Collecting each field\n\nAsk for the field, then pin its exact written form per \"Pinning the written form\" below before recording it.\n\n## Pinning the written form\n\nAsk the person to spell the value letter by letter. Callers sometimes mispronounce names and terms, so the letter-by-letter spelling is authoritative over what the spoken word sounded like. Ask a short targeted follow-up only where that field's written form is genuinely underdetermined by speech, as it comes up: anchor a confusable character (\"B as in Bravo\", the digit 0 versus the letter O), ask which written form a number inside a name takes (\"Acme-9\" vs \"Acme Nine\"), confirm whether a separator you heard in an email address is a dot, underscore, or hyphen, and get AM or PM explicit for any time of day. Formatting is your job, not the caller's — write dates, times, amounts, and phone numbers in the format the callback order's field description expects, converting from what was said yourself; capitalization, accents, apostrophes, and hyphens versus spaces inside a name never change the record and never need confirming.\n\n## Per-entity confirmation\n\nAfter pinning a value's written form, log it with `log_capture` and then read the value back — the log always comes before the read-back, capturing what you heard, not what got confirmed. Get an explicit yes before moving to the next field. If the person corrects you, re-pin the corrected value, log it with `log_capture` again, and read it back again — a field is done only when the person has confirmed the read-back. Logging is silent and internal like every tool: never mention it to the person.\n\n## Closing the call\n\nWhen every missing field has been collected and confirmed, submit all values in exactly one `submit_fields` call — never submit before every field is confirmed, and never submit more than once. Then thank the person and hang up with `end_call`.\n\nIf the person ends the call early, submit nothing. There is no transfer: the call either completes the record or ends without a submission.\n",
+      "tool_defs": null
+    },
+    "git_commit": "ab5e56f828c574af216b578585356dbaf5c9d101",
+    "hallucination_retries": 3,
+    "max_errors": 10,
+    "max_steps": 200,
+    "nativeness_judge": {
+      "llm_judge": false,
+      "model": "gpt-5.5",
+      "model_args": {
+        "reasoning_effort": "medium"
+      }
+    },
+    "num_trials": 1,
+    "quality_judge": {
+      "llm_judge": false,
+      "model": null,
+      "model_args": {},
+      "monologue_seconds": 45.0,
+      "response_latency_seconds": 3.0
+    },
+    "retrieval_config": null,
+    "retrieval_config_kwargs": null,
+    "review_mode": "full",
+    "review_model": "claude-opus-4-5",
+    "scores": [
+      "reward"
+    ],
+    "seed": 300,
+    "speech_complexity": null,
+    "speech_effects_mode": null,
+    "task_set_name": null,
+    "task_split_name": "base",
+    "task_subset": null,
+    "text_input_style": null,
+    "text_noise": null,
+    "text_streaming_config": {
+      "chunk_by": "words",
+      "chunk_size": 1
+    },
+    "timeout": 2400.0,
+    "user_info": {
+      "global_simulation_guidelines": "# User Simulation Guidelines\n\nYou are playing the role of a customer contacting a customer service representative agent. \nYour goal is to simulate realistic customer interactions while following specific scenario instructions.\nYou have some tools to perform the actions on your end that might be requested by the agent to diagnose and resolve your issue.\n\n## Core Principles\n- Generate one message at a time, maintaining natural conversation flow.\n- At each turn you can either:\n    - Send a message to the agent.\n    - Make a tool call to perform an action requested by the agent.\n    - You cannot do both at the same time.\n- Strictly follow the scenario instructions you have received.\n- Never make up or hallucinate information not provided in the scenario instructions. Information that is not provided in the scenario instructions should be considered unknown or unavailable.\n- Never make up the results of tool calls that the agent has requested, you must ground your responses based on the results of tool calls if the agent has requested.\n- If you made an error in a tool call and get an error message, fix the error and try again.\n- All the information you provide to the agent must be grounded in the information provided in the scenario instructions or the results of tool calls.\n- Avoid repeating the exact instructions verbatim. Use paraphrasing and natural language to convey the same information\n- Disclose information progressively. Wait for the agent to ask for specific information before providing it.\n- Only call a tool if the agent has requested it or if it is necessary to answer a question the agent has asked. Ask clarifying questions if you do not know what action to take.\n- If the agent asks multiple actions to perform, state that you cannot perform multiple actions at once, and ask the agent to instruct you one action at a time.\n- Your messages when performing tool calls will not be displayed to the agent, only the messages without tool calls will be displayed to the agent.\n\n## Task Completion\n- The goal is to continue the conversation until the task is complete.\n- If the instruction goal is satisified, generate the '###STOP###' token to end the conversation.\n- If you have been transferred to another agent, generate the '###TRANSFER###' token to indicate the transfer. Only do this after the agent has clearly indicated that you are being transferred.\n- If you find yourself in a situation in which the scenario does not provide enough information for you to continue the conversation, generate the '###OUT-OF-SCOPE###' token to end the conversation.\nRemember: The goal is to create realistic, natural conversations while strictly adhering to the provided instructions and maintaining character consistency.\n<PERSONA_GUIDELINES>\nNote: You still need to use special tokens like ###STOP### as described in the user guidelines.\n",
+      "implementation": "user_simulator",
+      "llm": "gpt-5.5",
+      "llm_args": {
+        "reasoning_effort": "low",
+        "temperature": 0.0
+      },
+      "persona_config": null,
+      "voice_settings": null
+    },
+    "user_persona_id": null,
+    "verbose_logs": false
+  },
+  "schema_version": 1,
+  "source_results": "text_channel/intake_text200_xhigh_textpolicy_2026-08-27/results.json",
+  "source_results_sha256": "4224237d06b4ea41f91d16ccf2873b4ebeb0b4488eca3825b8d8f95ef62cb596"
+}

@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Generic, Optional, Tuple, TypeVar
 
 from loguru import logger
@@ -45,8 +46,51 @@ GLOBAL_USER_SIM_GUIDELINES_PATH_VOICE_TOOLS = (
     GLOBAL_USER_SIM_GUIDELINES_DIR / "simulation_guidelines_voice_tools.md"
 )
 
+GLOBAL_USER_SIM_GUIDELINES_PATH_TOOLS_OUTBOUND = (
+    GLOBAL_USER_SIM_GUIDELINES_DIR / "simulation_guidelines_tools_outbound.md"
+)
 
-def get_global_user_sim_guidelines(use_tools: bool = False) -> str:
+GLOBAL_USER_SIM_GUIDELINES_PATH_VOICE_TOOLS_OUTBOUND = (
+    GLOBAL_USER_SIM_GUIDELINES_DIR / "simulation_guidelines_voice_tools_outbound.md"
+)
+
+
+class CallDirection(str, Enum):
+    """Who initiated the simulated call."""
+
+    INBOUND = "inbound"
+    OUTBOUND = "outbound"
+
+
+def call_direction_for_task(task) -> CallDirection:
+    """Derive direction from the presence of a scripted agent opener."""
+    return (
+        CallDirection.OUTBOUND
+        if getattr(task, "agent_opener", None)
+        else CallDirection.INBOUND
+    )
+
+
+OUTBOUND_SPELL_OFFER_NUDGE_LINE = (
+    "- If the agent asks you to repeat your name, email, or other personal "
+    "details, offer to spell it out letter by letter (as shown in examples above).\n"
+)
+
+
+def strip_outbound_spell_offer_nudge(guidelines: str) -> str:
+    """Remove the exact caller-side spelling-strategy nudge."""
+    if OUTBOUND_SPELL_OFFER_NUDGE_LINE not in guidelines:
+        raise ValueError(
+            "The outbound voice guidelines no longer contain the exact "
+            "spelling nudge; retune the scoped override."
+        )
+    return guidelines.replace(OUTBOUND_SPELL_OFFER_NUDGE_LINE, "")
+
+
+def get_global_user_sim_guidelines(
+    use_tools: bool = False,
+    direction: CallDirection = CallDirection.INBOUND,
+) -> str:
     """
     Get the global user simulator guidelines.
 
@@ -56,16 +100,21 @@ def get_global_user_sim_guidelines(use_tools: bool = False) -> str:
     Returns:
         The global user simulator guidelines.
     """
-    if use_tools:
-        with open(GLOBAL_USER_SIM_GUIDELINES_PATH_TOOLS, "r") as fp:
-            user_sim_guidelines = fp.read()
+    if direction is CallDirection.OUTBOUND:
+        if not use_tools:
+            raise ValueError("Outbound user-simulator guidelines require user tools")
+        path = GLOBAL_USER_SIM_GUIDELINES_PATH_TOOLS_OUTBOUND
+    elif use_tools:
+        path = GLOBAL_USER_SIM_GUIDELINES_PATH_TOOLS
     else:
-        with open(GLOBAL_USER_SIM_GUIDELINES_PATH, "r") as fp:
-            user_sim_guidelines = fp.read()
-    return user_sim_guidelines
+        path = GLOBAL_USER_SIM_GUIDELINES_PATH
+    return path.read_text()
 
 
-def get_global_user_sim_guidelines_voice(use_tools: bool = False) -> str:
+def get_global_user_sim_guidelines_voice(
+    use_tools: bool = False,
+    direction: CallDirection = CallDirection.INBOUND,
+) -> str:
     """
     Get the global user simulator guidelines for voice mode.
 
@@ -75,13 +124,15 @@ def get_global_user_sim_guidelines_voice(use_tools: bool = False) -> str:
     Returns:
         The global user simulator guidelines for voice mode.
     """
-    if use_tools:
-        with open(GLOBAL_USER_SIM_GUIDELINES_PATH_VOICE_TOOLS, "r") as fp:
-            user_sim_guidelines = fp.read()
+    if direction is CallDirection.OUTBOUND:
+        if not use_tools:
+            raise ValueError("Outbound voice guidelines require user tools")
+        path = GLOBAL_USER_SIM_GUIDELINES_PATH_VOICE_TOOLS_OUTBOUND
+    elif use_tools:
+        path = GLOBAL_USER_SIM_GUIDELINES_PATH_VOICE_TOOLS
     else:
-        with open(GLOBAL_USER_SIM_GUIDELINES_PATH_VOICE, "r") as fp:
-            user_sim_guidelines = fp.read()
-    return user_sim_guidelines
+        path = GLOBAL_USER_SIM_GUIDELINES_PATH_VOICE
+    return path.read_text()
 
 
 SYSTEM_PROMPT = """
@@ -118,6 +169,7 @@ class UserSimulator(
         persona_config: Optional[
             PersonaConfig
         ] = None,  # TODO: Should this be pushed to the base class?
+        call_direction: CallDirection = CallDirection.INBOUND,
     ):
         super().__init__(
             instructions=instructions,
@@ -126,6 +178,7 @@ class UserSimulator(
             llm_args=llm_args,
         )
         self.persona_config = persona_config or PersonaConfig()
+        self.call_direction = call_direction
 
     @property
     def global_simulation_guidelines(self) -> str:
@@ -133,7 +186,9 @@ class UserSimulator(
         The simulation guidelines for the user simulator.
         """
         use_tools = self.tools is not None
-        return get_global_user_sim_guidelines(use_tools=use_tools)
+        return get_global_user_sim_guidelines(
+            use_tools=use_tools, direction=self.call_direction
+        )
 
     @property
     def system_prompt(self) -> str:

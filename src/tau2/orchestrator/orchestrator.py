@@ -405,6 +405,7 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
         simulation_id: Optional[str] = None,
         validate_communication: bool = False,
         timeout: Optional[float] = None,
+        first_agent_message: Optional[AssistantMessage] = None,
     ):
         """
         Initialize the Orchestrator for managing simulation between Agent, User, and Environment.
@@ -453,6 +454,7 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
         self.from_role: Optional[Role] = None
         self.to_role: Optional[Role] = None
         self.message: Optional[Message] = None
+        self.first_agent_message = first_agent_message
 
         # Validate mode compatibility
         self._validate_mode_compatibility()
@@ -627,7 +629,14 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
             # No message history - initialize fresh
             self.user_state = self.user.get_init_state()
             if not self.solo_mode:
-                first_message = deepcopy(DEFAULT_FIRST_AGENT_MESSAGE)
+                if self.task.agent_opener is not None:
+                    first_message = AssistantMessage(
+                        role="assistant", content=self.task.agent_opener, cost=0.0
+                    )
+                else:
+                    first_message = deepcopy(
+                        self.first_agent_message or DEFAULT_FIRST_AGENT_MESSAGE
+                    )
                 first_message.timestamp = get_now()
                 self.agent_state = self.agent.get_init_state(
                     message_history=[first_message]
@@ -813,6 +822,7 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
             seed=self.seed,
             mode=self.mode.value,
             speech_environment=speech_environment,
+            complication=getattr(self.user, "complication", None),
         )
         return simulation_run
 

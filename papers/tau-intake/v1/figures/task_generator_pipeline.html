@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tau-Elicitation pipeline — option G</title>
+<style>
+  @page { size: 1578px 626px; margin: 0; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1578px; height: 626px; overflow: hidden; }
+  :root { --ink: #1e293b; --paper: #ffffff; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", Inter, Arial, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle, #d7dade 1.2px, transparent 1.4px) 0 0 / 24px 24px,
+      linear-gradient(#fbfcfd, #f3f4f6);
+    -webkit-font-smoothing: antialiased;
+    padding: 12px 12px 8px;
+  }
+  .overlay { position: absolute; left: 0; top: 0; width: 1578px; height: 626px; color: #c3cad4; }
+  .mono { font-family: "SF Mono", Menlo, Consolas, monospace; }
+  .rnd { font-family: "Arial Rounded MT Bold", "Helvetica Rounded", Arial, sans-serif; }
+
+  .cols { display: grid; grid-template-columns: 400px 12px 396px 12px 442px 8px 284px; height: 606px; }
+  .col { display: flex; flex-direction: column; position: relative; }
+  .col-head { display: flex; align-items: center; gap: 10px; height: 30px; margin-bottom: 14px; }
+  .badge {
+    width: 27px; height: 27px; border-radius: 50%; flex: none;
+    background: var(--ink); color: #fff; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 3px 0 #ccd3dd;
+  }
+  .col-title { font-size: 18px; letter-spacing: 1.8px; text-transform: uppercase; white-space: nowrap; }
+  .col-title .lc { text-transform: none; }
+  .col-sub { font-size: 14px; color: #96a0af; font-weight: 550; white-space: nowrap; }
+
+  .flow { display: flex; align-items: center; justify-content: center; }
+  .flow svg { width: 30px; height: 60px; color: #a6afbd; overflow: visible; }
+
+  .cap {
+    background: var(--paper);
+    border: 2px solid var(--edge, #dfe4ec);
+    border-bottom-width: 5px;
+    border-radius: 13px;
+    box-shadow: 0 8px 16px rgba(43,52,70,.09);
+  }
+
+  /* ============ 1 · banks (10) ============ */
+  .collage { position: relative; flex: 1; }
+  .blk { position: absolute; padding: 8px 12px 9px; }
+  .blk-tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--bc); background: color-mix(in srgb, var(--bc) 11%, #fff);
+    border: 1.5px solid color-mix(in srgb, var(--bc) 28%, #fff); border-radius: 999px;
+    font-weight: 750;
+    padding: 2.5px 9px; margin-bottom: 5px; white-space: nowrap;
+  }
+  .blk-tag svg { width: 11px; height: 11px; }
+  .blk-val { font-size: 15px; font-weight: 650; color: var(--ink); white-space: nowrap; }
+  .blk-val .dim { color: #a3a3a3; font-weight: 500; }
+
+  .b-email { --bc: #3b82f6; left: 0; top: 0; width: 224px; transform: rotate(-2deg); z-index: 1; }
+  .b-email .blk-val { line-height: 1.65; }
+  .b-code  { --bc: #8b5cf6; left: 240px; top: 8px; width: 156px; transform: rotate(1.8deg); z-index: 2; }
+  .b-name  { --bc: #6366f1; left: 96px; top: 100px; width: 180px; transform: rotate(1.2deg); z-index: 3; }
+  .tiles { display: flex; gap: 5px; margin-top: 6px; }
+  .tile {
+    width: 33px; height: 38px; border-radius: 8px;
+    background: #fff; border: 2px solid #d9dcf0; border-bottom: 5px solid #b9bfe6;
+    display: flex; align-items: center; justify-content: center;
+    font-family: "SF Mono", Menlo, monospace; font-size: 16px; font-weight: 700; color: var(--ink);
+  }
+  .tile.hot { background: #6366f1; border-color: #4f52d6; border-bottom-color: #3f42b8; color: #fff; }
+  .b-med   { --bc: #f43f5e; left: 0; top: 210px; width: 172px; transform: rotate(-1.6deg); z-index: 2; }
+  .b-prop  { --bc: #0ea5e9; left: 226px; top: 216px; width: 170px; transform: rotate(1.6deg); z-index: 2; }
+  .b-coin  { --bc: #d9a406; left: 8px; top: 296px; width: 196px; transform: rotate(-1.4deg); z-index: 1; }
+  .b-coin .blk-val { line-height: 1.6; }
+  .b-coin .blk-val em { font-style: normal; font-size: 12.5px; color: #b08307; }
+  .b-addr  { --bc: #10b981; left: 168px; top: 318px; width: 228px; transform: rotate(1.2deg); z-index: 3; }
+  .b-phone { --bc: #14b8a6; left: 0; top: 402px; width: 208px; transform: rotate(-1.2deg); z-index: 2; }
+  .b-date  { --bc: #f59e0b; left: 226px; top: 408px; width: 170px; transform: rotate(2deg); z-index: 1; }
+  .b-time  { --bc: #d97706; left: 96px; top: 476px; width: 148px; transform: rotate(-1.8deg); z-index: 3; }
+  .collage-note { position: absolute; left: 4px; bottom: 0; font-size: 12px; color: #8b96a6; font-weight: 600; white-space: nowrap; }
+  .collage-ground {
+    position: absolute; left: 10px; right: 10px; bottom: 26px; height: 22px;
+    background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(43,52,70,.13), transparent 70%);
+  }
+
+  /* ============ 2 · generator machine ============ */
+  .machine-zone { position: relative; flex: 1; }
+  .m-ground {
+    position: absolute; left: 30px; width: 340px; top: 442px; height: 26px;
+    background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(43,52,70,.18), transparent 70%);
+  }
+  .hopper { position: absolute; left: 130px; top: -4px; width: 136px; height: 76px; }
+  .mbody {
+    position: absolute; left: 40px; top: 60px; width: 316px; height: 302px;
+    background: #ffffff;
+    border: 2px solid #cbd3de;
+    border-radius: 16px;
+    box-shadow: 0 8px 18px rgba(30,41,59,.08);
+  }
+  .gen-head {
+    display: flex; align-items: center; gap: 9px;
+    margin: 15px 16px 13px; padding-bottom: 12px;
+    border-bottom: 1.5px solid #e8ecf2;
+    font-size: 14px; letter-spacing: 2.2px; color: var(--ink);
+  }
+  .gen-head svg { width: 16px; height: 16px; color: #8d97a6; flex: none; }
+  .down-arrow { position: absolute; left: 186px; top: 382px; width: 24px; height: 14px; color: #8d97a6; }
+  .rivet { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #d4dbe4; box-shadow: inset 1px 1.5px 1.5px rgba(0,0,0,.22); }
+  .rv1 { left: 13px; top: 13px; } .rv2 { right: 13px; top: 13px; }
+  .rv3 { left: 13px; bottom: 13px; } .rv4 { right: 13px; bottom: 13px; }
+  .face {
+    margin: 0 16px; background: #f6f8fa; border: 1.5px solid #e3e8ef; border-radius: 12px;
+    padding: 12px 8px 8px;
+    display: grid; grid-template-columns: 1fr 1fr; row-gap: 8px;
+  }
+  .ctl { text-align: center; }
+  .ctl svg { width: 78px; height: 68px; }
+  .ctl-name { font-size: 12px; letter-spacing: 1.1px; color: #7e8a9b; text-transform: uppercase; }
+  .statusrow {
+    margin: 12px 20px 0; display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: #7e8a9b; font-weight: 650;
+  }
+  .led { width: 10px; height: 10px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 7px #4ade80, inset -1px -2px 0 rgba(0,0,0,.2); }
+  .task-out {
+    position: absolute; left: 40px; top: 408px; width: 316px;
+    z-index: 3; --edge: #d8ccf4;
+  }
+  .file-tab {
+    display: flex; align-items: center; gap: 7px;
+    background: #f6f2ff; border-bottom: 1.5px solid #e6ddfa;
+    border-radius: 11px 11px 0 0; padding: 6px 13px;
+    font-size: 13px; font-weight: 700; color: #5b5470;
+  }
+  .file-tab .dot { width: 9px; height: 9px; border-radius: 50%; background: #8b5cf6; box-shadow: inset -1px -1.5px 0 rgba(0,0,0,.2); }
+  .task-body { padding: 6px 10px 8px; font-size: 13px; line-height: 1.62; color: var(--ink); white-space: nowrap; }
+  .task-body .k { color: #7c50e8; font-weight: 650; }
+  .task-body .dim { color: #8b8b8b; }
+  .gen-note { position: absolute; left: 40px; bottom: -14px; font-size: 13px; color: #8b96a6; font-weight: 600; }
+
+  /* ============ 3 · the calls ============ */
+  .calls { flex: 1; display: flex; flex-direction: column; gap: 20px; }
+  .call { position: relative; --edge: #dde2ea; display: flex; flex-direction: column; }
+  .call-top { display: flex; align-items: center; gap: 10px; padding: 11px 15px 0; }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%; flex: none;
+    background: linear-gradient(#e8ddf8, #cfbcf0); color: #5b3fa8;
+    border: 2px solid #fff; box-shadow: 0 2px 5px rgba(43,52,70,.18);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800;
+  }
+  .callee { line-height: 1.15; }
+  .callee .nm { font-size: 16px; font-weight: 750; }
+  .callee .st { font-size: 12.5px; color: #96a0af; font-weight: 650; }
+  .timer { margin-left: auto; font-size: 13.5px; color: #96a0af; font-weight: 650; display: flex; align-items: center; gap: 6px; }
+  .live-dot { width: 9px; height: 9px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 6px #f87171; }
+
+  /* hero duplex: user <-> agent */
+  .duplex { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; padding: 14px 22px 0; }
+  .actor { position: relative; z-index: 2; }
+  .actor .disc {
+    width: 42px; height: 42px; border-radius: 50%; margin: 0 auto;
+    border: 2.5px solid #fff; box-shadow: 0 3px 6px rgba(43,52,70,.2);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .actor .disc.user { background: linear-gradient(#dbeafe, #b6d2f5); color: #2a5ca8; }
+  .actor .disc.agent { background: linear-gradient(#d7f0e2, #a9dcc0); color: #1f7a4d; }
+  .actor .disc svg { width: 22px; height: 22px; }
+  .duplex-mid { position: relative; height: 54px; }
+  .duplex-mid .wave { position: absolute; left: -40px; width: calc(100% + 80px); top: 15px; height: 24px; color: #7d8798; z-index: 1; }
+  .judge-chip {
+    position: absolute; right: -6px; top: -14px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .judge-chip .jlabel { font-size: 11px; letter-spacing: .9px; text-transform: uppercase; color: var(--ink); font-weight: 850; }
+  .judge-chip .jdisc {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(#fdeec9, #f5d98d); color: #8a6410;
+    border: 2px solid #fff; box-shadow: 0 2px 5px rgba(43,52,70,.18);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .judge-chip .jdisc svg { width: 16px; height: 16px; }
+  .exchange { padding: 8px 18px 0; display: flex; flex-direction: column; gap: 5px; }
+  .xline { display: flex; align-items: baseline; gap: 8px; font-size: 14px; }
+  .xline .who { flex: none; font-size: 11.5px; letter-spacing: .9px; text-transform: uppercase; font-weight: 800; }
+  .xline.agent .who { color: #96a0af; }
+  .xline.user .who { color: #5b3fa8; }
+  .xline .txt { color: #4b5568; font-weight: 600; font-style: italic; white-space: nowrap; }
+  .xline.user .txt { color: #3d3360; }
+  .btnrow { display: flex; justify-content: center; gap: 15px; padding: 10px 0 0; }
+  .cbtn {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: #f2f4f7; border: 1.5px solid #dfe4ec; border-bottom: 4px solid #ced6e0;
+    display: flex; align-items: center; justify-content: center; color: #6e7a8c;
+  }
+  .cbtn svg { width: 14px; height: 14px; }
+  .cbtn.end { background: #e5484d; border-color: #dc2626; border-bottom-color: #b02222; color: #fff; }
+  .cbtn.end svg { transform: rotate(135deg); }
+
+  /* db table */
+  .dbtable { margin: 11px 60px 12px 15px; }
+  .db-head {
+    display: inline-flex; align-items: center; gap: 6px; width: max-content;
+    margin-bottom: 4px; padding: 2px 7px; border: 1.5px solid #cbd5e1;
+    border-radius: 999px; background: #f3f6fa; font-size: 11.5px;
+    letter-spacing: 1px; text-transform: uppercase; color: var(--ink); font-weight: 850;
+  }
+  .db-head svg { width: 12px; height: 12px; }
+  .dbrows {
+    border-radius: 9px; overflow: hidden; background: var(--ink);
+    box-shadow: 0 3px 0 rgba(43,52,70,.3);
+  }
+  .dbrow { display: grid; grid-template-columns: 102px 1fr 26px; align-items: center; padding: 6px 12px; font-size: 13.5px; }
+  .dbrow + .dbrow { border-top: 1px solid rgba(233,237,242,.14); }
+  .dbrow .f { color: #8fa0b8; font-weight: 650; }
+  .dbrow .v { color: #e9edf2; font-weight: 700; }
+  .dbrow .ok { color: #a7d8bd; font-weight: 800; text-align: right; }
+
+  .grounding {
+    margin: 11px 66px 12px 15px; background: var(--ink); border-radius: 9px;
+    display: flex; align-items: center; padding: 7px 12px;
+    font-size: 13.5px; color: #e9edf2;
+    box-shadow: 0 3px 0 rgba(43,52,70,.3);
+  }
+  .grounding .res { margin-left: auto; font-weight: 700; padding-left: 14px; }
+  .grounding .res.ok { color: #a7d8bd; }
+  .grounding .res.bad { color: #ff9b9b; }
+  .sticker {
+    position: absolute; right: -10px; top: -13px; z-index: 4;
+    display: flex; align-items: center; gap: 6px;
+    background: #fff; border: 2px solid #c8d0dc; border-bottom-width: 4px; border-radius: 999px;
+    box-shadow: 0 4px 8px rgba(43,52,70,.18);
+    padding: 4px 12px; font-size: 13px; font-weight: 750; color: #5d6879;
+    transform: none;
+  }
+  .sticker svg { width: 14px; height: 14px; }
+  .sticker.noise { border-color: #d9a86e; color: #8f5f26; background: #fff8ee; }
+  .sticker.accent { border-color: #8fb6e8; color: #2f5f9e; background: #f2f8ff; }
+  .sticker.inline {
+    position: static; display: inline-flex; margin-left: 5px; vertical-align: middle;
+    padding: 2px 8px; border-bottom-width: 2px; box-shadow: none;
+  }
+  .rlabel {
+    position: absolute; right: -12px; bottom: 15px; z-index: 4;
+    background: #ffffff; border: 2px solid #d0d8e2; border-bottom-width: 4px;
+    border-radius: 999px; padding: 3px 11px;
+    box-shadow: 0 3px 7px rgba(43,52,70,.14);
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px; font-weight: 850; letter-spacing: .7px; color: #1e293b;
+  }
+  .rlabel.pass { border-color: #88c7a5; color: #17643e; background: #f2fbf6; }
+  .rlabel.fail { border-color: #eba0a0; color: #a82424; background: #fff5f5; }
+
+  /* ============ 4 · pooled ============ */
+  .pool { flex: 1; position: relative; }
+  .links { position: absolute; left: -20px; top: 0; width: 50px; height: 526px; color: #a6afbd; }
+  .stamp2 {
+    position: absolute; left: 24px; top: 178px; width: 258px;
+    padding: 17px 14px 15px; text-align: center;
+  }
+  .stamp2 .mathline { font-family: "Times New Roman", Georgia, serif; font-size: 23px; line-height: 1.65; color: var(--ink); }
+  .stamp2 .mathline sup { font-size: 12.5px; } .stamp2 .mathline sub { font-size: 11.5px; }
+  .stamp2 .mathline i { font-style: italic; }
+  .stamp2 .mathline .fail { color: #d42a2a; }
+  .xstamp {
+    position: absolute; right: -14px; top: -20px; width: 38px; height: 38px;
+    color: #d42a2a; transform: rotate(-14deg); opacity: .88;
+  }
+  .xstamp svg { width: 100%; height: 100%; }
+
+  /* Compact print layout: wider content, less internal vertical padding. */
+  @page { size: 1578px 500px; margin: 0; }
+  html, body { width: 1578px; height: 500px; }
+  body { padding: 8px 12px 6px; }
+  .overlay { width: 1578px; height: 500px; }
+  .cols {
+    grid-template-columns: 420px 6px 400px 6px 470px 6px 246px;
+    height: 486px;
+  }
+  .col-head { gap: 10px; height: 30px; margin-bottom: 8px; }
+  .badge { width: 29px; height: 29px; font-size: 16px; }
+  .col-title { font-size: 21px; letter-spacing: 1.7px; }
+
+  .blk { padding: 7px 12px 8px; }
+  .blk-tag { font-size: 14px; padding: 2px 9px; margin-bottom: 4px; }
+  .blk-tag svg { width: 13px; height: 13px; }
+  .blk-val { font-size: 18px; }
+  .b-email { left: 0; top: 0; width: 250px; }
+  .b-email .blk-val { line-height: 1.42; }
+  .b-code { left: 260px; top: 4px; width: 160px; }
+  .b-name { left: 92px; top: 78px; width: 210px; }
+  .b-med { left: 0; top: 155px; width: 190px; }
+  .b-prop { left: 230px; top: 158px; width: 190px; }
+  .b-coin { left: 5px; top: 218px; width: 250px; }
+  .b-coin .blk-val { line-height: 1.38; }
+  .b-coin .blk-val em { font-size: 15px; }
+  .b-addr { left: 170px; top: 250px; width: 250px; }
+  .b-phone { left: 0; top: 325px; width: 225px; }
+  .b-date { left: 240px; top: 328px; width: 180px; }
+  .b-time { left: 100px; top: 382px; width: 170px; }
+  .collage-ground { bottom: 0; }
+
+  .hopper { left: 132px; top: -8px; width: 136px; height: 64px; }
+  .mbody { left: 24px; top: 44px; width: 352px; height: 260px; }
+  .gen-head {
+    gap: 9px; margin: 9px 13px 7px; padding-bottom: 7px;
+    font-size: 17px;
+  }
+  .gen-head svg { width: 18px; height: 18px; }
+  .face {
+    margin: 0 13px; padding: 5px 8px 4px;
+    grid-template-columns: 1fr 1fr; row-gap: 1px;
+  }
+  .ctl svg { width: 92px; height: 65px; }
+  .ctl-name { font-size: 17px; letter-spacing: .9px; }
+  .statusrow { margin: 6px 17px 0; gap: 8px; font-size: 15px; }
+  .down-arrow { left: 188px; top: 305px; width: 24px; height: 14px; }
+  .task-out { left: 24px; top: 320px; width: 352px; }
+  .file-tab { padding: 5px 11px; font-size: 16px; }
+  .task-body { padding: 5px 10px 7px; font-size: 16px; line-height: 1.34; }
+
+  .calls { gap: 10px; }
+  .call-top { gap: 10px; padding: 8px 12px 0; }
+  .avatar { width: 38px; height: 38px; font-size: 15px; }
+  .callee .nm { font-size: 18px; }
+  .callee .st { font-size: 14px; }
+  .timer { font-size: 15px; }
+  .duplex { grid-template-columns: 40px 1fr 40px; padding: 7px 18px 0; }
+  .actor .disc { width: 40px; height: 40px; }
+  .actor .disc svg { width: 23px; height: 23px; }
+  .duplex-mid { height: 47px; }
+  .judge-chip { top: -13px; }
+  .judge-chip .jlabel { font-size: 13px; }
+  .judge-chip .jdisc { width: 40px; height: 40px; }
+  .judge-chip .jdisc svg { width: 21px; height: 21px; }
+  .btnrow { gap: 14px; padding: 4px 0 0; }
+  .cbtn { width: 29px; height: 29px; }
+  .dbtable { margin: -14px 54px 8px 12px; }
+  .db-head { margin-bottom: 3px; padding: 3px 8px; font-size: 15px; }
+  .db-head svg { width: 18px; height: 18px; }
+  .dbrow { grid-template-columns: 110px 1fr 26px; padding: 5px 10px; font-size: 15px; }
+  .grounding { margin: 7px 56px 8px 12px; padding: 7px 11px; font-size: 16px; }
+  .sticker { right: -7px; top: -18px; padding: 3px 11px; font-size: 15px; }
+  .sticker svg { width: 16px; height: 16px; }
+  .rlabel { right: -8px; bottom: 8px; padding: 3px 10px; font-size: 15px; }
+
+  .links { left: -20px; top: 0; width: 50px; height: 446px; }
+  .stamp2 { left: 5px; top: 142px; width: 238px; padding: 15px 8px 13px; }
+  .stamp2 .mathline { font-size: 25px; line-height: 1.55; }
+  .stamp2 .mathline sup { font-size: 15px; }
+  .stamp2 .mathline sub { font-size: 13px; }
+</style>
+</head>
+<body>
+<svg class="overlay" viewBox="0 0 1578 500" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+  <path d="M262 84 H 438"/>
+  <path d="M432 88 H 438"/>
+  <path d="M314 150 H 438"/>
+  <path d="M202 220 H 438"/>
+  <path d="M432 224 H 438"/>
+  <path d="M267 295 H 438"/>
+  <path d="M432 330 H 438"/>
+  <path d="M237 402 H 438"/>
+  <path d="M432 405 H 438"/>
+  <path d="M282 458 H 438"/>
+  <path d="M438 460 L 438 88 C 438 58 474 48 516 48 C 550 48 574 56 600 70"/>
+  <path d="M814 420 C 834 420 826 152 844 152"/>
+  <path d="M814 420 C 836 420 828 300 844 300"/>
+  <path d="M814 420 C 836 420 830 410 844 410"/>
+  <g fill="currentColor" stroke="none">
+
+    <circle cx="814" cy="420" r="3"/>
+  </g>
+</svg>
+<main class="cols">
+
+  <!-- ① banks -->
+  <section class="col">
+    <div class="col-head">
+      <div class="badge rnd">1</div>
+      <div class="col-title rnd">The banks</div>
+    </div>
+    <div class="collage">
+      <div class="collage-ground"></div>
+      <div class="cap blk b-email">
+        <div class="blk-tag rnd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>emails</div>
+        <div class="blk-val mono">d.marsh@vintra.se<br>j.zhou@brevik.no <span class="dim">…</span></div>
+      </div>
+      <div class="cap blk b-code">
+        <div class="blk-tag rnd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>codes</div>
+        <div class="blk-val mono">X7-Q4-BRAVO</div>
+      </div>
+      <div class="cap blk b-name">
+        <div class="blk-tag rnd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>names</div>
+        <div class="blk-val mono">Dana Marsh</div>
+        <div class="blk-val mono">Omar Reyes</div>
+      </div>
+      <div class="cap blk b-med">
+        <div class="blk-tag rnd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>meds</div>
+        <div class="blk-val mono">Levaxin 75 mcg</div>
+      </div>
+      <div class="cap blk b-prop">
+        <div class="blk-tag rnd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9 8h.01M15 8h.01M9 12h.01M15 12h.01M9 16h6"/></svg>property</div>
+        <div class="blk-val mono">APT 4B · LOT 17</div>
+      </div>
+      <div class="cap blk b-coin">
+        <div class="blk-tag rnd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.5L19.5 10l-5.7 1.5L12 17l-1.8-5.5L4.5 10l5.7-1.5z"/></svg>coined · no prior</div>
+        <div class="blk-val">Blorvex <em>(program)</em><br>Kwintra-7 <em>(plan)</em></div>
+      </div>
+      <div class="cap blk b-addr">
+        <div class="blk-tag rnd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>addresses</div>
+        <div class="blk-val mono">14 Alder Row, Gilford</div>
+      </div>
+      <div class="cap blk b-phone">
+        <div class="blk-tag rnd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>phones</div>
+        <div class="blk-val mono">415 233 8190</div>
+      </div>
+      <div class="cap blk b-date">
+        <div class="blk-tag rnd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>dates</div>
+        <div class="blk-val mono">Tue, March 4</div>
+      </div>
+      <div class="cap blk b-time">
+        <div class="blk-tag rnd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>times</div>
+        <div class="blk-val mono">9:30 am</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="flow"></div>
+
+  <!-- ② generator -->
+  <section class="col">
+    <div class="col-head">
+      <div class="badge rnd">2</div>
+      <div class="col-title rnd">One generator</div>
+    </div>
+    <div class="machine-zone">
+      <svg class="hopper" viewBox="0 0 136 76">
+        <!-- pellets: two in the air, one half-in -->
+        <circle cx="52" cy="4" r="6" fill="#e3edfd" stroke="#3b82f6" stroke-width="2"/>
+        <circle cx="88" cy="13" r="6" fill="#efe8fd" stroke="#8b5cf6" stroke-width="2"/>
+        <circle cx="66" cy="26" r="6" fill="#fde5e9" stroke="#f43f5e" stroke-width="2"/>
+        <!-- walls -->
+        <path d="M14 38 L54 58 Q56 59 56 61 L56 72 L80 72 L80 61 Q80 59 82 58 L122 38 Z"
+              fill="#f6f8fa" stroke="#c5cdd9" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M62 46 l6 5 6-5" fill="none" stroke="#c9d2de" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- rim lip -->
+        <rect x="4" y="26" width="128" height="12" rx="6" fill="#ffffff" stroke="#c5cdd9" stroke-width="2.5"/>
+      </svg>
+      <div class="mbody">
+        <div class="gen-head rnd">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <path d="M3 6h7M15 6h6M3 12h11M19 12h2M3 18h5M12 18h9"/>
+            <path d="M13 3.5v5M17 9.5v5M10 15.5v5"/>
+          </svg>
+          TASK GENERATOR</div>
+        <div class="face">
+          <!-- realism dial -->
+          <div class="ctl">
+            <svg viewBox="0 0 100 88">
+              <g stroke="#c3ccd9" stroke-width="2" stroke-linecap="round">
+                <line x1="50" y1="8" x2="50" y2="14" transform="rotate(-120 50 50)"/><line x1="50" y1="8" x2="50" y2="14" transform="rotate(-90 50 50)"/><line x1="50" y1="8" x2="50" y2="14" transform="rotate(-60 50 50)"/><line x1="50" y1="8" x2="50" y2="14" transform="rotate(-30 50 50)"/><line x1="50" y1="8" x2="50" y2="14" transform="rotate(0 50 50)"/><line x1="50" y1="8" x2="50" y2="14" transform="rotate(30 50 50)"/><line x1="50" y1="8" x2="50" y2="14" transform="rotate(60 50 50)"/><line x1="50" y1="8" x2="50" y2="14" transform="rotate(90 50 50)"/><line x1="50" y1="8" x2="50" y2="14" transform="rotate(120 50 50)"/>
+              </g>
+              <path d="M 24.9 64.5 A 29 29 0 1 1 75.1 64.5" fill="none" stroke="#e0e5ed" stroke-width="6.5" stroke-linecap="round"/>
+              <path d="M 24.9 64.5 A 29 29 0 1 1 75.1 64.5" fill="none" stroke="#ea580c" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="82.6 121.5"/>
+              <circle cx="50" cy="50" r="15.5" fill="#ffffff" stroke="#c5cdd9" stroke-width="2"/>
+              <line x1="50" y1="50" x2="50" y2="38.5" stroke="#1e293b" stroke-width="3.4" stroke-linecap="round" transform="rotate(43 50 50)"/>
+              <circle cx="50" cy="50" r="3.2" fill="#1e293b"/>
+              <text x="0" y="85" font-size="16" font-weight="600" fill="#8d97a6">clean</text>
+              <text x="49" y="85" font-size="16" font-weight="600" fill="#8d97a6">harder</text>
+            </svg>
+            <div class="ctl-name rnd">Realism</div>
+          </div>
+          <!-- entities selector 1,2,3 -->
+          <div class="ctl">
+            <svg viewBox="0 0 100 88">
+              <g stroke="#8d97a6" stroke-width="2.4" stroke-linecap="round">
+                <line x1="50" y1="9" x2="50" y2="17" transform="rotate(-70 50 50)"/>
+                <line x1="50" y1="9" x2="50" y2="17" transform="rotate(0 50 50)"/>
+                <line x1="50" y1="9" x2="50" y2="17" transform="rotate(70 50 50)"/>
+              </g>
+              <text x="18" y="35" font-size="17" font-weight="700" fill="#8d97a6">1</text>
+              <text x="45" y="19" font-size="18" font-weight="800" fill="#1e293b">2</text>
+              <text x="72" y="35" font-size="17" font-weight="700" fill="#8d97a6">3</text>
+              <circle cx="50" cy="52" r="20" fill="#ffffff" stroke="#c5cdd9" stroke-width="2"/>
+              <line x1="50" y1="52" x2="50" y2="35" stroke="#ea580c" stroke-width="4.4" stroke-linecap="round"/>
+              <circle cx="50" cy="52" r="4.4" fill="#1e293b"/>
+            </svg>
+            <div class="ctl-name rnd">Entities</div>
+          </div>
+          <!-- difficulty toggle -->
+          <div class="ctl">
+            <svg viewBox="0 0 100 88">
+              <rect x="20" y="28" width="60" height="36" rx="11" fill="#e0e5ed" stroke="#c5cdd9" stroke-width="2"/>
+              <circle cx="50" cy="46" r="8" fill="#8d97a6"/>
+              <line x1="50" y1="46" x2="69" y2="27" stroke="#1e293b" stroke-width="5.4" stroke-linecap="round"/>
+              <circle cx="69" cy="27" r="7" fill="#ea580c" stroke="#c2410c" stroke-width="2"/>
+              <text x="3" y="83" font-size="18" font-weight="600" fill="#8d97a6">easy</text>
+              <text x="55" y="83" font-size="18" font-weight="800" fill="#1e293b">hard</text>
+            </svg>
+            <div class="ctl-name rnd">Difficulty</div>
+          </div>
+          <!-- gating toggle -->
+          <div class="ctl">
+            <svg viewBox="0 0 100 88">
+              <rect x="20" y="28" width="60" height="36" rx="11" fill="#e0e5ed" stroke="#c5cdd9" stroke-width="2"/>
+              <circle cx="50" cy="46" r="8" fill="#8d97a6"/>
+              <line x1="50" y1="46" x2="69" y2="27" stroke="#1e293b" stroke-width="5.4" stroke-linecap="round"/>
+              <circle cx="69" cy="27" r="7" fill="#ea580c" stroke="#c2410c" stroke-width="2"/>
+              <text x="7" y="83" font-size="18" font-weight="600" fill="#8d97a6">off</text>
+              <text x="61" y="83" font-size="18" font-weight="800" fill="#1e293b">on</text>
+            </svg>
+            <div class="ctl-name rnd">Gating</div>
+          </div>
+        </div>
+        <div class="statusrow"><span class="led"></span><span class="mono">seed 7 · draw pinned to DB</span></div>
+      </div>
+      <svg class="down-arrow" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 3 12 11 20 3"/>
+      </svg>
+      <div class="cap task-out">
+        <div class="file-tab"><span class="dot"></span>task_042.yaml</div>
+        <div class="task-body mono">
+          <div><span class="k">elicit:</span>&nbsp;&nbsp;last_name <span class="dim">"Marsh"</span></div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;email <span class="dim">d.marsh@vintra.se</span></div>
+          <div><span class="k">realism:</span>&nbsp;spelled-out</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mid-call correction</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="flow"></div>
+
+  <!-- ③ the calls -->
+  <section class="col">
+    <div class="col-head">
+      <div class="badge rnd">3</div>
+      <div class="col-title rnd">The call ×3</div>
+    </div>
+    <div class="calls">
+      <!-- r1 regular, hero -->
+      <div class="cap call">
+        <div class="call-top">
+          <div class="avatar">DM</div>
+          <div class="callee"><div class="nm">Dana Marsh · regular</div></div>
+          <div class="timer"><span class="live-dot"></span><span class="mono">02:41</span></div>
+        </div>
+        <div class="duplex">
+          <div class="actor">
+            <div class="disc user"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7.5" r="4.4"/><path d="M12 13.6c-4.9 0-8.4 2.6-8.4 6.4 0 .8.6 1.4 1.4 1.4h14c.8 0 1.4-.6 1.4-1.4 0-3.8-3.5-6.4-8.4-6.4z"/></svg></div>
+          </div>
+          <div class="duplex-mid">
+            <div class="judge-chip">
+              <span class="jlabel rnd">speech judge</span>
+              <div class="jdisc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg></div>
+            </div>
+            <svg class="wave" viewBox="0 0 520 24" preserveAspectRatio="none" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6v12M12 7v10M20 5v14M28 7v10M36 10v4M44 6v12M52 6v12M60 5v14M68 7v10M76 4v16M84 10v4M92 10.5v3M100 10v4M108 5v14M116 6v12M124 9v6M132 4v16M140 10v4M148 10.5v3M156 11v2M164 6v12M172 9v6M180 10.5v3M188 11v2M196 5v14M204 10v4M212 8v8M220 9v6M228 12v.01M236 4v16M244 7v10M252 6v12M260 9v6M268 8v8M276 4v16M284 9v6M292 10.5v3M300 4v16M308 12v.01M316 7v10M324 5v14M332 11v2M340 12v.01M348 12v.01M356 10v4M364 10v4M372 4v16M380 12v.01M388 10v4M396 6v12M404 8v8M412 6v12M420 4v16M428 7v10M436 10v4M444 5v14M452 10v4M460 9v6M468 9v6M476 6v12M484 12v.01M492 9v6M500 11v2M508 6v12M516 9v6"/></svg>
+          </div>
+          <div class="actor">
+            <div class="disc agent"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 2.5h2v3h-2z"/><circle cx="12" cy="2.8" r="1.6"/><rect x="4" y="5.5" width="16" height="12.5" rx="4"/><circle cx="9" cy="11" r="1.7" fill="#fff"/><circle cx="15" cy="11" r="1.7" fill="#fff"/><rect x="9" y="14.6" width="6" height="1.7" rx="0.85" fill="#fff"/><path d="M7 18.5h10l-1.2 3H8.2z"/></svg></div>
+          </div>
+        </div>
+        <div class="btnrow">
+          <div class="cbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg></div>
+          <div class="cbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6h.01M12 6h.01M18 6h.01M6 12h.01M12 12h.01M18 12h.01M6 18h.01M12 18h.01M18 18h.01"/></svg></div>
+          <div class="cbtn end"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
+        </div>
+        <div class="dbtable">
+          <div class="db-head rnd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>DB</div>
+          <div class="dbrows">
+            <div class="dbrow mono"><span class="f">last_name</span><span class="v">Marsh</span><span class="ok">✓</span></div>
+            <div class="dbrow mono"><span class="f">email</span><span class="v">d.marsh@vintra.se</span><span class="ok">✓</span></div>
+          </div>
+        </div>
+        <div class="rlabel pass">PASS</div>
+      </div>
+      <!-- r2 noise-heavy -->
+      <div class="cap call">
+        <div class="call-top">
+          <div class="avatar">DM</div>
+          <div class="callee"><div class="nm">Same task <span class="sticker noise inline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6M8 6v12M12 3v18M16 7v10M20 10v4"/></svg>noise-heavy</span></div></div>
+          <div class="timer"><span class="live-dot"></span><span class="mono">03:07</span></div>
+        </div>
+        <div class="grounding mono">write(last_name="Marsh")<span class="res ok">✓ = DB</span></div>
+        <div class="rlabel pass">PASS</div>
+      </div>
+      <!-- r3 speech-heavy -->
+      <div class="cap call">
+        <div class="call-top">
+          <div class="avatar">DM</div>
+          <div class="callee"><div class="nm">Same task <span class="sticker accent inline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>speech-heavy</span></div></div>
+          <div class="timer"><span class="live-dot"></span><span class="mono">02:58</span></div>
+        </div>
+        <div class="grounding mono">write(last_name="March")<span class="res bad">✗ ≠ DB</span></div>
+        <div class="rlabel fail">FAIL</div>
+      </div>
+    </div>
+  </section>
+
+  <div></div>
+
+  <!-- ④ pooled -->
+  <section class="col">
+    <div class="col-head">
+      <div class="badge rnd">4</div>
+      <div class="col-title rnd">Pooled</div>
+    </div>
+    <div class="pool">
+      <svg class="links" viewBox="0 0 50 446" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M3 198 C 22 198 26 211 44 211"/>
+        <path d="M3 301 C 24 301 22 232 44 217"/>
+        <path d="M3 405 C 28 405 18 254 44 223"/>
+        <circle cx="3" cy="198" r="3" fill="currentColor" stroke="none"/>
+        <circle cx="3" cy="301" r="3" fill="currentColor" stroke="none"/>
+        <circle cx="3" cy="405" r="3" fill="currentColor" stroke="none"/>
+      </svg>
+      <div class="cap stamp2">
+        <div class="mathline">
+          Pass<sup>3</sup> = 1 · 1 · 0 <span class="fail">= 0</span>
+        </div>
+        <div class="xstamp">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round">
+            <path d="M5.5 5.5 L18.5 18.5 M18.5 5.5 L5.5 18.5" stroke-width="4.4"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>

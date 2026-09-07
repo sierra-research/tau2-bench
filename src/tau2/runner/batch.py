@@ -41,13 +41,12 @@ from tau2.data_model.voice_personas import warn_if_non_official_voices
 from tau2.evaluator.evaluator import EvaluationType
 from tau2.evaluator.reviewer import check_hallucination, format_hallucination_feedback
 from tau2.metrics.agent_metrics import compute_metrics
-from tau2.registry import registry
 from tau2.runner.build import _build_env_kwargs, build_orchestrator
 from tau2.runner.checkpoint import (
     create_checkpoint_fns,
     try_resume,
 )
-from tau2.runner.helpers import get_info, get_tasks, make_run_name
+from tau2.runner.helpers import get_info, make_run_name, resolve_tasks
 from tau2.runner.progress import StatusMonitor, run_with_retry
 from tau2.runner.simulation import run_simulation
 from tau2.runner.work import WorkQueue, WorkUnit, make_unit_id
@@ -55,7 +54,11 @@ from tau2.user.user_simulator import (
     get_global_user_sim_guidelines,
     get_global_user_sim_guidelines_voice,
 )
-from tau2.user_simulation_voice_presets import COMPLEXITY_CONFIGS
+from tau2.user_simulation_voice_presets import (
+    CHANNEL_EFFECTS_MODES,
+    COMPLEXITY_CONFIGS,
+    SPEECH_EFFECTS_MODES,
+)
 from tau2.utils.display import ConsoleDisplay, Text
 from tau2.utils.llm_utils import llm_log_mode, set_llm_log_dir, set_llm_log_mode
 from tau2.utils.utils import DATA_DIR
@@ -497,7 +500,11 @@ def make_voice_run_settings(
         transcription_config=None,
         synthesis_config=SynthesisConfig(),
     )
-    complexity_config = COMPLEXITY_CONFIGS[config.speech_complexity]
+    complexity_config = {
+        **COMPLEXITY_CONFIGS[config.speech_complexity],
+        **CHANNEL_EFFECTS_MODES[config.channel_effects_mode],
+        **SPEECH_EFFECTS_MODES[config.speech_effects_mode],
+    }
     user_persona_config = PersonaConfig(
         verbosity=Verbosity(complexity_config["verbosity"]),
         interrupt_tendency=InterruptTendency(complexity_config["interrupt_tendency"]),
@@ -1054,26 +1061,10 @@ def run_tasks(
 
 def _load_run_tasks(config: RunConfig) -> list[Task]:
     """Load a config's tasks and apply the agent's registered task filter."""
-    task_set_name = config.task_set_name or config.domain
-    tasks = get_tasks(
-        task_set_name=task_set_name,
-        task_split_name=config.task_split_name,
-        task_ids=config.task_ids,
-        num_tasks=config.num_tasks,
-    )
-
-    effective_agent = config.effective_agent
-    task_filter = registry.get_agent_task_filter(effective_agent)
-    if task_filter is not None:
-        total_num_tasks = len(tasks)
-        tasks = [task for task in tasks if task_filter(task)]
-        num_tasks = len(tasks)
-        console_text = Text(
-            text=f"Running {num_tasks} out of {total_num_tasks} tasks for {effective_agent} (filtered).",
-            style="bold green",
-        )
-        ConsoleDisplay.console.print(console_text)
-    return tasks
+    resolved = resolve_tasks(config)
+    for notice in resolved.notices:
+        ConsoleDisplay.console.print(Text(text=notice, style="bold green"))
+    return resolved.tasks
 
 
 def _run_save_paths(config: RunConfig) -> tuple[str, Path, Path, str]:

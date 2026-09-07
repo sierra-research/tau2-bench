@@ -14,6 +14,7 @@ from typing import Optional, Union
 from loguru import logger
 
 from tau2.agent.base_agent import FullDuplexAgent, HalfDuplexAgent
+from tau2.config import SPELL_PROTOCOL_FREE_DOMAINS
 from tau2.data_model.persona import PersonaConfig
 from tau2.data_model.simulation import (
     AudioNativeConfig,
@@ -27,9 +28,19 @@ from tau2.environment.environment import Environment
 from tau2.orchestrator.full_duplex_orchestrator import FullDuplexOrchestrator
 from tau2.orchestrator.orchestrator import Orchestrator
 from tau2.registry import registry
-from tau2.user.user_simulator import DummyUser, UserSimulator
+from tau2.runner.complications import (
+    run_pronunciation_map,
+    run_spell_event_detector,
+    sample_run_complication,
+)
+from tau2.user.user_simulator import (
+    DummyUser,
+    UserSimulator,
+    call_direction_for_task,
+)
 from tau2.user.user_simulator_base import FullDuplexUser, HalfDuplexUser
 from tau2.user_simulation_voice_presets import (
+    derive_task_seed,
     get_or_load_task_voice_config,
 )
 
@@ -122,6 +133,9 @@ def build_agent(
         task=task,
         audio_native_config=audio_native_config,
         audio_taps_dir=audio_taps_dir,
+        spell_protocol_guidance=(
+            environment.get_domain_name() not in SPELL_PROTOCOL_FREE_DOMAINS
+        ),
     )
 
 
@@ -173,6 +187,7 @@ def build_user(
     }
     if issubclass(UserConstructor, UserSimulator):
         user_kwargs["persona_config"] = persona_config
+        user_kwargs["call_direction"] = call_direction_for_task(task)
 
     return UserConstructor(**user_kwargs)
 
@@ -188,9 +203,12 @@ def build_voice_user(
     persona_config: Optional[PersonaConfig] = None,
     speech_complexity: SpeechComplexity = "regular",
     seed: int = 42,
+    persona_seed: Optional[int] = None,
     domain: Optional[str] = None,
     hallucination_feedback: Optional[str] = None,
     audio_taps_dir: Optional[Path] = None,
+    channel_effects_mode: str = "regular",
+    speech_effects_mode: str = "regular",
 ) -> FullDuplexUser:
     """Build a full-duplex voice user simulator.
 
@@ -237,13 +255,15 @@ def build_voice_user(
         )
 
     # Get voice config for this task (from pre-sampled file or sample on the fly)
-    task_seed = seed + hash(task.id) % 1000000
+    task_seed = derive_task_seed(seed, task.id)
     sampled_voice_config = get_or_load_task_voice_config(
         domain=domain,
         task_id=task.id,
         task_seed=task_seed,
         complexity=speech_complexity,
         synthesis_config=task_voice_settings.synthesis_config,
+        channel_effects_mode=channel_effects_mode,
+        speech_effects_mode=speech_effects_mode,
     )
 
     # Update synthesis_config with merged effect configs
@@ -299,6 +319,8 @@ def build_voice_user(
         tick_duration_seconds=audio_native_config.tick_duration_seconds,
         persona_config=persona_config,
         audio_taps_dir=audio_taps_dir,
+        domain=domain,
+        call_direction=call_direction_for_task(task),
     )
 
 
@@ -350,7 +372,29 @@ def _build_env_kwargs(config: RunConfig, task: Task) -> dict:
             env_kwargs["retrieval_kwargs"] = rk
     if getattr(config, "domain", None) == "banking_knowledge":
         env_kwargs["read_log_allowlist"] = _derive_read_log_allowlist(task)
+    if getattr(config, "domain", None) in {"intake", "intake_free"}:
+        env_kwargs["channel"] = "voice" if config.is_voice else "text"
     return env_kwargs
+
+
+def user_prompt_task(
+    config: RunConfig, task: Task, user_language: Optional[str] = None
+) -> Task:
+    """Return the caller-facing task with its deterministic complication."""
+    if user_language is not None:
+        raise ValueError("tau-Elicitation release supports English prompts only")
+    sampled = sample_run_complication(config, task)
+    if sampled is None or not sampled.injected:
+        return task
+    task = task.model_copy(deep=True)
+    instructions = task.user_scenario.instructions
+    if isinstance(instructions, str):
+        task.user_scenario.instructions = instructions + "\n\n" + sampled.line
+    else:
+        instructions.task_instructions = (
+            (instructions.task_instructions or "") + "\n\n" + sampled.line
+        )
+    return task
 
 
 def build_text_orchestrator(
@@ -404,12 +448,13 @@ def build_text_orchestrator(
     user = build_user(
         config.effective_user,
         environment,
-        task,
+        user_prompt_task(config, task),
         llm=config.llm_user,
         llm_args=config.llm_args_user,
         persona_config=user_persona_config,
         solo_mode=solo_mode,
     )
+    user.complication = sample_run_complication(config, task)
 
     orchestrator = Orchestrator(
         domain=domain,
@@ -502,7 +547,7 @@ def build_voice_orchestrator(
 
     user = build_voice_user(
         environment,
-        task,
+        user_prompt_task(config, task),
         config.audio_native_config,
         llm=config.llm_user,
         llm_args=config.llm_args_user,
@@ -513,7 +558,16 @@ def build_voice_orchestrator(
         domain=domain,
         hallucination_feedback=hallucination_feedback,
         audio_taps_dir=audio_taps_dir,
+        channel_effects_mode=config.channel_effects_mode,
+        speech_effects_mode=config.speech_effects_mode,
     )
+    user.complication = sample_run_complication(config, task)
+    pronunciation_map = run_pronunciation_map(config, user.complication)
+    if pronunciation_map:
+        user.voice_settings.pronunciation_map = pronunciation_map
+    spell_detector = run_spell_event_detector(config, task)
+    if spell_detector is not None:
+        user.spell_event_detector = spell_detector.detect
 
     orchestrator = FullDuplexOrchestrator(
         domain=domain,

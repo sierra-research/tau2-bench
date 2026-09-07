@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: 620px 345px; margin: 0; }
+  html, body { width: 620px; height: 345px; margin: 0; background: #fff; }
+  svg { display: block; width: 620px; height: 345px; font-family: Arial, Helvetica, sans-serif; }
+  .tick, .system, .legend, .value, .axis { fill: #111; }
+  .legend, .tick, .value { font-size: 23px; }
+  .system, .axis { font-size: 23px; font-weight: 600; }
+  .grid { stroke: #dedede; stroke-width: 1; }
+  .baseline { stroke: #555; stroke-width: 1.5; }
+  .agent-outer { fill: #2b78b8; opacity: .28; }
+  .agent-inner { fill: #2b78b8; }
+  .scaffold-outer { fill: #d97933; opacity: .28; }
+  .scaffold-inner { fill: #d97933; }
+  .outer { rx: 3; }
+  .inner { rx: 2; }
+</style>
+</head>
+<body>
+<svg viewBox="0 0 620 345" role="img" aria-labelledby="title desc">
+  <title id="title">Pass at one and robust Pass cubed by prompting strategy</title>
+  <desc id="desc">Paired vertical bars compare agent-directed and scaffolded prompting for four systems. Light full-width bars show Pass at one and dark inset bars show robust Pass cubed.</desc>
+
+  <g class="legend">
+    <rect x="36" y="10" width="22" height="16" class="agent-inner" rx="2"/><text x="66" y="27">Agent-directed</text>
+    <rect x="226" y="10" width="22" height="16" class="scaffold-inner" rx="2"/><text x="256" y="27">Scaffolded</text>
+    <rect x="396" y="7" width="24" height="20" fill="#777" opacity=".28" rx="2"/>
+    <rect x="402" y="15" width="12" height="12" fill="#555" rx="1"/>
+    <text x="428" y="27">Pass@1 / Pass³</text>
+  </g>
+
+  <g>
+    <line class="grid" x1="58" y1="305" x2="606" y2="305"/>
+    <line class="grid" x1="58" y1="256" x2="606" y2="256"/>
+    <line class="grid" x1="58" y1="207" x2="606" y2="207"/>
+    <line class="grid" x1="58" y1="158" x2="606" y2="158"/>
+    <line class="grid" x1="58" y1="109" x2="606" y2="109"/>
+    <line class="grid" x1="58" y1="60" x2="606" y2="60"/>
+    <line class="baseline" x1="58" y1="305" x2="606" y2="305"/>
+    <text class="tick" x="49" y="312" text-anchor="end">0</text>
+    <text class="tick" x="49" y="263" text-anchor="end">20</text>
+    <text class="tick" x="49" y="214" text-anchor="end">40</text>
+    <text class="tick" x="49" y="165" text-anchor="end">60</text>
+    <text class="tick" x="49" y="116" text-anchor="end">80</text>
+    <text class="tick" x="49" y="67" text-anchor="end">100</text>
+    <text class="axis" transform="translate(19 183) rotate(-90)" text-anchor="middle">Task success (%)</text>
+  </g>
+
+  <g aria-label="GPT minimal">
+    <rect x="76" y="203.3" width="42" height="101.7" class="outer agent-outer"/>
+    <rect x="86" y="268.3" width="22" height="36.7" class="inner agent-inner"/>
+    <text class="value" x="97" y="195" text-anchor="middle">41.5</text>
+    <text class="value" x="97" y="261" text-anchor="middle">15.0</text>
+    <rect x="130" y="112.7" width="42" height="192.3" class="outer scaffold-outer"/>
+    <rect x="140" y="193.5" width="22" height="111.5" class="inner scaffold-inner"/>
+    <text class="value" x="151" y="104" text-anchor="middle">78.5</text>
+    <text class="value" x="151" y="186" text-anchor="middle">45.5</text>
+    <text class="system" x="124" y="334" text-anchor="middle">GPT min</text>
+  </g>
+
+  <g aria-label="GPT xhigh">
+    <rect x="210" y="196.0" width="42" height="109.0" class="outer agent-outer"/>
+    <rect x="220" y="256.0" width="22" height="49.0" class="inner agent-inner"/>
+    <text class="value" x="231" y="188" text-anchor="middle">44.5</text>
+    <text class="value" x="231" y="249" text-anchor="middle">20.0</text>
+    <rect x="264" y="116.4" width="42" height="188.6" class="outer scaffold-outer"/>
+    <rect x="274" y="210.7" width="22" height="94.3" class="inner scaffold-inner"/>
+    <text class="value" x="285" y="108" text-anchor="middle">77.0</text>
+    <text class="value" x="285" y="203" text-anchor="middle">38.5</text>
+    <text class="system" x="258" y="334" text-anchor="middle">GPT xh</text>
+  </g>
+
+  <g aria-label="Gemini high">
+    <rect x="344" y="178.8" width="42" height="126.2" class="outer agent-outer"/>
+    <rect x="354" y="271.9" width="22" height="33.1" class="inner agent-inner"/>
+    <text class="value" x="365" y="171" text-anchor="middle">51.5</text>
+    <text class="value" x="365" y="265" text-anchor="middle">13.5</text>
+    <rect x="398" y="110.2" width="42" height="194.8" class="outer scaffold-outer"/>
+    <rect x="408" y="215.6" width="22" height="89.4" class="inner scaffold-inner"/>
+    <text class="value" x="419" y="102" text-anchor="middle">79.5</text>
+    <text class="value" x="419" y="208" text-anchor="middle">36.5</text>
+    <text class="system" x="392" y="334" text-anchor="middle">Gemini</text>
+  </g>
+
+  <g aria-label="Grok">
+    <rect x="478" y="142.1" width="42" height="162.9" class="outer agent-outer"/>
+    <rect x="488" y="205.8" width="22" height="99.2" class="inner agent-inner"/>
+    <text class="value" x="499" y="134" text-anchor="middle">66.5</text>
+    <text class="value" x="499" y="198" text-anchor="middle">40.5</text>
+    <rect x="532" y="105.3" width="42" height="199.7" class="outer scaffold-outer"/>
+    <rect x="542" y="172.7" width="22" height="132.3" class="inner scaffold-inner"/>
+    <text class="value" x="553" y="97" text-anchor="middle">81.5</text>
+    <text class="value" x="553" y="165" text-anchor="middle">54.0</text>
+    <text class="system" x="526" y="334" text-anchor="middle">Grok</text>
+  </g>
+</svg>
+</body>
+</html>

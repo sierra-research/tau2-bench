@@ -1,0 +1,221 @@
+{
+  "info": {
+    "agent_info": {
+      "implementation": "discrete_time_audio_native_agent",
+      "llm": "gemini:gemini-3.1-flash-live-preview",
+      "llm_args": null,
+      "voice_settings": null
+    },
+    "audio_native_config": {
+      "cascaded_config_name": null,
+      "disclose_voice_gender": true,
+      "integration_duration_seconds": 0.5,
+      "interruption_check_interval_seconds": 2.0,
+      "max_steps_seconds": 240,
+      "model": "gemini-3.1-flash-live-preview",
+      "pcm_sample_rate": 16000,
+      "provider": "gemini",
+      "reasoning_effort": "high",
+      "reasoning_effort_backfill": null,
+      "reasoning_effort_source": "run",
+      "send_audio_instant": false,
+      "silence_annotation_threshold_seconds": 4.0,
+      "telephony_rate": 8000,
+      "tick_duration_seconds": 0.2,
+      "use_llm_backchannel": true,
+      "use_xml_prompt": false,
+      "wait_to_respond_threshold_other_seconds": 1.0,
+      "wait_to_respond_threshold_self_seconds": 5.0,
+      "yield_threshold_when_interrupted_seconds": 1.0,
+      "yield_threshold_when_interrupting_seconds": 5.0
+    },
+    "auto_review": false,
+    "channel_effects_mode": "regular",
+    "communicate_judge_mode": "auto",
+    "complication_profile": "default",
+    "complication_rate": 1.0,
+    "delivery_judge": {
+      "concurrency": 8,
+      "fidelity_end_exclusion_seconds": 1.0,
+      "max_segments": 100,
+      "model": "gemini/gemini-3.1-pro-preview",
+      "model_args": {
+        "max_tokens": 8192,
+        "temperature": 0.0,
+        "timeout": 120
+      },
+      "sample_rate": 0.25
+    },
+    "enforce_communication_protocol": null,
+    "environment_info": {
+      "domain_name": "intake_free",
+      "policy": "# Intake Desk Callback Agent Policy\n\nThe current time is 2025-06-12 10:30:00 EST.\n\nAs an intake desk agent for a multi-client service bureau, you work the callback queue: a person recently submitted a form on behalf of one of the bureau's clients (a clinic, an auto service, a hotel group), the record went in with one or more required fields missing, and you are calling the person back to complete it.\n\nYour entire job is to collect the missing field values accurately and submit them once. The record must end up correct. How you get each value right is up to you. Getting each value exactly right is what matters: if you are not sure you heard a value exactly, verify it with the person before recording it — for example by asking them to spell it letter by letter.\n\nYou should not provide any information, knowledge, or procedures not provided by the user or available tools, or give subjective recommendations or comments.\n\nYou should only make one tool call at a time.\n\n## Role and call frame\n\n- Your work order comes from `get_callback_order`: the record, the full name of the person it belongs to, the client organization the call is on behalf of, and the ordered missing fields with what each one holds.\n- Your tools are silent and internal. Never narrate them or your work with them to the person — no \"let me pull up the details\", no mention of records, lookups, or systems. Fetch the callback order before you speak; the person only ever hears you talk about the form and its fields.\n- Once the person answers, state the purpose of the call, naming the person the record belongs to: you are calling for them about the form they submitted.\n- Then ask whether you may ask them about the form's missing detail(s) — for example, \"may I ask you about a couple of details on that form?\" — and wait for their yes before asking for any field.\n- Collect **only** the fields named in the callback order — nothing more.\n- Every value you record must come from this call. Never guess, complete, or reformat a value the person did not give you, and never fill a field from anything other than this conversation.\n\n## Logging\n\nEvery time the person provides an entity value, log it with `log_capture`, before you submit. Logging is silent and internal like every tool: never mention it to the person.\n\n## Closing the call\n\nWhen you have every missing field, submit all values in exactly one `submit_fields` call — never submit more than once. Then thank the person and hang up with `end_call`. Call `submit_fields` on its own turn and wait for its result before you say goodbye — never include `submit_fields`, or any other tool call, in the same turn as `end_call`.\n\nIf the person ends the call early, submit nothing. There is no transfer: the call either completes the record or ends without a submission.\n",
+      "tool_defs": null
+    },
+    "git_commit": "60eaf72a7b555a1f244d9cc5d0e45350c24bfec7",
+    "hallucination_retries": 3,
+    "max_errors": 10,
+    "max_steps": 1200,
+    "nativeness_judge": {
+      "llm_judge": false,
+      "model": "gpt-5.5",
+      "model_args": {
+        "reasoning_effort": "medium"
+      }
+    },
+    "num_trials": 1,
+    "quality_judge": {
+      "llm_judge": false,
+      "model": null,
+      "model_args": {},
+      "monologue_seconds": 45.0,
+      "response_latency_seconds": 3.0
+    },
+    "retrieval_config": null,
+    "retrieval_config_kwargs": null,
+    "review_mode": "full",
+    "review_model": "claude-opus-4-5",
+    "scores": [
+      "reward"
+    ],
+    "seed": 9401,
+    "speech_complexity": "regular",
+    "speech_effects_mode": "regular",
+    "task_set_name": null,
+    "task_split_name": "base",
+    "task_subset": null,
+    "text_input_style": null,
+    "text_noise": null,
+    "text_streaming_config": {
+      "chunk_by": "words",
+      "chunk_size": 1
+    },
+    "timeout": 1200.0,
+    "user_info": {
+      "global_simulation_guidelines": "# Voice Call Simulation Guidelines with Tools\n\nYou are playing the role of a customer making a VOICE CALL to a customer service representative. \nYour goal is to simulate realistic phone conversations while following specific scenario instructions.\nYou have some tools to perform actions on your end that might be requested by the agent to diagnose and resolve your issue.\n\n## Core Voice Call Principles\n- You are SPEAKING on a phone call, not typing messages. Use natural spoken language.\n- Generate one utterance at a time, as you would in a real phone conversation.\n- At each turn you can either:\n    - Send a spoken message to the agent.\n    - Make a tool call to perform an action requested by the agent.\n    - You cannot do both at the same time.\n- Include natural speech patterns:\n  - Disfluencies: <EXAMPLE:disfluency_fillers>\n  - Restarts: <EXAMPLE:restart_example>\n  - Filler words and pauses: <EXAMPLE:filler_pause_example>\n  - Use [pause] to signify pauses: <EXAMPLE:pause_marker_examples>\n- Don't worry about perfect grammar or complete sentences - speak naturally\n\n<SPOKEN_VALUES_SPELLOUT>\n\n## Scenario Adherence\n- Strictly follow the scenario instructions you have received.\n- **You only know what is explicitly stated in the scenario instructions.** If a piece of information is not provided, you do not know it — even if it is something a real person would typically know about themselves (e.g., zip code, address, order ID, size/color preferences, past order details). When asked, say you don't know or don't remember.\n- Never fabricate, guess, or infer information not explicitly provided in the scenario instructions. If asked for a preference (e.g., color, size, payment method) that is not in your instructions, say you have no preference or don't know.\n- **Do not end the conversation prematurely.** Agreeing to an action is not the same as the action being completed. If the agent offers to do something (e.g., cancel an order, process a refund), wait for the agent to confirm it is done before ending the conversation.\n- **Before ending the conversation, verify that ALL items in your scenario instructions have been addressed.** If your instructions include multiple requests, questions, or tasks, make sure every single one has been completed — do not stop after only some of them are resolved.\n\n## Natural Conversation Flow\n- Since this is an audio call, there may be background noise and the agent may have difficulty hearing you clearly. If the agent asks you to repeat information, it's okay to repeat it once or twice in the conversation\n- If the agent asks you to repeat your name, email, or other personal details, offer to spell it out letter by letter (as shown in examples above).\n- Interrupt yourself occasionally: <EXAMPLE:self_interruption_example>\n- Ask for clarification: <EXAMPLE:clarification_request>\n- Show emotion naturally: <EXAMPLE:emotion_examples>\n- Use conversational confirmations: <EXAMPLE:conversational_confirmations>\n- Vary your speech patterns - sometimes brief, sometimes more verbose\n\n## Handling Agent Silence\nIf it is the agent's turn to respond and the agent doesn't say anything for an extended period:\n- Check in with the agent to see if they're still there or if there are any updates on your previous questions\n- Examples: <EXAMPLE:silence_checkins>\n- Do NOT volunteer new information during these check-ins - only inquire about the current status\n- If the agent continues to not respond after 2 check-ins, show signs of frustration and end the call\n- Examples of frustrated endings: <EXAMPLE:frustrated_endings>\n\n## Tool Usage in Voice Calls\n- When the agent asks you to perform an action, acknowledge verbally first: <EXAMPLE:tool_acknowledgment>\n- After using a tool, report the results naturally: <EXAMPLE:tool_result_report>\n- If a tool call fails, express it conversationally: <EXAMPLE:tool_failure_report>\n- Only call a tool if the agent has requested it or if it's necessary to answer their question\n- If asked to do multiple actions, respond naturally: <EXAMPLE:multiple_actions_pushback>\n- Remember: Your messages when performing tool calls will not be displayed to the agent\n\n## Information Disclosure\n- **Only share information that is explicitly provided in the scenario instructions or returned by tool calls.**\n- When the agent asks for something not in your scenario, respond naturally: <EXAMPLE:dont_know_responses>\n- Never make up the results of tool calls - you must ground your responses based on actual tool results.\n- All information you provide must be grounded in the scenario instructions or tool call results.\n- Start with minimal information and only add details when specifically asked\n- Make the agent work for information: <EXAMPLE:make_agent_work_chain>\n- Disclose information progressively - wait for the agent to ask before providing details.\n- If asked for multiple pieces of information, provide them conversationally, one at a time — give one item, then let the agent ask for the next.<EXAMPLE:one_at_a_time_example>\n- Use vague initial statements: <EXAMPLE:vague_openers> rather than detailed explanations\n\n## Task Completion\n- The goal is to continue the conversation until the task is complete.\n- If the instruction goal is satisfied, generate the '###STOP###' token to end the conversation.\n- If you have been transferred to another agent, generate the '###TRANSFER###' token to indicate the transfer. Only do this after the agent has clearly indicated that you are being transferred.\n- If you find yourself in a situation in which the scenario does not provide enough information for you to continue the conversation, generate the '###OUT-OF-SCOPE###' token to end the conversation.\n\n## Important Reminders\n- Sound like a real person on a phone call having technical difficulties or needing help\n- Express confusion or frustration naturally when appropriate\n- Thank the agent when they help you: <EXAMPLE:gratitude_examples>\n- All unknown information should be expressed naturally: <EXAMPLE:unknown_info_phrases>\n\nRemember: The goal is to create realistic VOICE conversations that sound natural when transcribed, while strictly adhering to the provided instructions and maintaining character consistency.\n<PERSONA_GUIDELINES>\nNote: You still need to use special tokens like ###STOP### as described in the user guidelines.",
+      "implementation": "voice_streaming_user_simulator",
+      "llm": "gpt-5.5",
+      "llm_args": {
+        "reasoning_effort": "xhigh",
+        "temperature": 0.0
+      },
+      "persona_config": {
+        "interrupt_tendency": "interrupts",
+        "verbosity": "minimal"
+      },
+      "voice_settings": {
+        "output_dir": null,
+        "pronunciation_map": null,
+        "speech_environment": {
+          "background_noise_file": null,
+          "burst_noise_files": [],
+          "channel_effects_config": null,
+          "complexity": "regular",
+          "enable_interruptions": false,
+          "environment": null,
+          "language": null,
+          "locale": null,
+          "persona_id": null,
+          "persona_name": "matt_delaney",
+          "persona_tags": {},
+          "snr_speech_reference_rms": 3000.0,
+          "source_effects_config": null,
+          "speech_effects_config": null,
+          "telephony_enabled": true,
+          "use_llm_backchannel": true,
+          "voice_id": null,
+          "voice_seed": 300
+        },
+        "synthesis_config": {
+          "channel_effects_config": {
+            "enable_frame_drops": true,
+            "frame_drop_burst_duration_ms": 100.0,
+            "frame_drop_count": 1,
+            "frame_drop_duration_ms": 150,
+            "frame_drop_rate": 0.01
+          },
+          "provider": "elevenlabs",
+          "provider_config": {
+            "api_key": null,
+            "audio_tags_probability": 0.2,
+            "insert_audio_tags": true,
+            "language_code": null,
+            "model_id": "eleven_v3",
+            "seed": null,
+            "voice_id": null,
+            "voice_settings": {
+              "similarity_boost": 0.75,
+              "stability": 0.5,
+              "style": 0.0,
+              "use_speaker_boost": false
+            }
+          },
+          "source_effects_config": {
+            "burst_noise_events_per_minute": 1.0,
+            "burst_snr_range_db": [
+              -5.0,
+              10.0
+            ],
+            "enable_background_noise": true,
+            "enable_burst_noise": true,
+            "noise_snr_db": 15.0,
+            "noise_snr_drift_db": 3.0,
+            "noise_variation_speed": 0.5
+          },
+          "speech_effects_config": {
+            "enable_dynamic_muffling": true,
+            "enable_non_directed_phrases": true,
+            "enable_vocal_tics": true,
+            "min_words_for_vocal_tics": 3,
+            "muffle_cutoff_freq": 1500.0,
+            "muffle_probability": 0.2,
+            "muffle_segment_count": 1,
+            "muffle_segment_duration_ms": 500,
+            "muffle_transition_ms": 100,
+            "non_directed_phrases": [
+              {
+                "text": "Not now.",
+                "type": "non_directed_phrase"
+              },
+              {
+                "text": "Hold on a second.",
+                "type": "non_directed_phrase"
+              },
+              {
+                "text": "I'm on the phone.",
+                "type": "non_directed_phrase"
+              },
+              {
+                "text": "One second.",
+                "type": "non_directed_phrase"
+              }
+            ],
+            "speech_insert_events_per_minute": 0.7,
+            "vocal_tics": [
+              {
+                "text": ".[cough][cough][cough]",
+                "type": "vocal_tic"
+              },
+              {
+                "text": ".[sneeze][sneeze][sneeze]",
+                "type": "vocal_tic"
+              },
+              {
+                "text": ".[sniffle][sniffle][sniffle]",
+                "type": "vocal_tic"
+              }
+            ]
+          }
+        },
+        "synthesis_enabled": true,
+        "transcription_config": null,
+        "transcription_enabled": false
+      }
+    },
+    "user_persona_id": null,
+    "verbose_logs": false
+  },
+  "schema_version": 1,
+  "source_results": "main_runs/modeb_gemini_high_regular_2026-09-02/results.json",
+  "source_results_sha256": "182042ea3cccbf45ce1120164688f8c6f8d5228dd78db18951f64adea6041c97"
+}

@@ -195,9 +195,13 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
         # If agent has create_initial_message (audio-native agents), use it to get
         # a message with proper audio content. Otherwise, use the text-only default.
         if hasattr(self.agent, "create_initial_message"):
-            first_agent_message = self.agent.create_initial_message()
+            first_agent_message = self.agent.create_initial_message(
+                content=self.task.agent_opener
+            )
         else:
             first_agent_message = deepcopy(DEFAULT_FIRST_AGENT_MESSAGE)
+            if self.task.agent_opener is not None:
+                first_agent_message.content = self.task.agent_opener
             first_agent_message.chunk_id = 0
             first_agent_message.is_final_chunk = True
             first_agent_message.timestamp = get_now()
@@ -631,6 +635,7 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
             info=info,
             provider_session_id=provider_session_id,
             effect_timeline=effect_timeline,
+            complication=getattr(self.user, "complication", None),
         )
         return simulation_run
 

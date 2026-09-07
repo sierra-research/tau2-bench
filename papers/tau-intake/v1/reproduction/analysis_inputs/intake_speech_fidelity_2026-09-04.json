@@ -1,0 +1,125 @@
+{
+  "schema_version": "tau-elicitation-speech-fidelity-v1",
+  "generated_date": "2026-09-04",
+  "source_commit": "6009c8d0ef88adeb827360bddeec475cbbe45784",
+  "scope": {
+    "realization": "regular",
+    "calls_per_system": 200,
+    "trial": 0,
+    "total_calls": 800,
+    "excluded_realizations": [
+      "noise-heavy",
+      "speech-heavy"
+    ]
+  },
+  "judge": {
+    "model": "gemini/gemini-3.1-pro-preview",
+    "prompt_version": "v6",
+    "model_args": {
+      "temperature": 0.0,
+      "max_tokens": 8192,
+      "timeout": 120
+    },
+    "sample_rate": 1.0,
+    "finding_filter_version": "v1",
+    "fidelity_end_exclusion_seconds": 1.0
+  },
+  "metric_definition": {
+    "unit": "agent utterance",
+    "utterance_severity": "maximum retained fidelity-finding severity; zero when no retained fidelity finding exists",
+    "mean": "arithmetic mean of utterance_severity across valid judged utterances",
+    "severity_2plus_rate": "share of valid judged utterances with utterance_severity >= 2",
+    "judge_errors": "excluded from the scoring denominator and retained as explicit ERROR records"
+  },
+  "totals": {
+    "utterances_submitted": 4948,
+    "utterances_scored": 4946,
+    "judge_errors": 2,
+    "retained_severity_2plus": 160,
+    "excluded_final_window_findings": 342,
+    "excluded_final_window_severity_2plus": 180
+  },
+  "systems": {
+    "GPT minimal": {
+      "source": "data/simulations/paper_runs/tau-elicit/main_runs/modeb_openai_minimal_regular_2026-09-02",
+      "utterances_submitted": 946,
+      "utterances_scored": 945,
+      "judge_errors": 1,
+      "severity_counts": {
+        "0": 906,
+        "1": 15,
+        "2": 21,
+        "3": 3
+      },
+      "mean_max_retained_fidelity_severity": 0.06984126984126984,
+      "severity_2plus_count": 24,
+      "severity_2plus_rate": 0.025396825396825397,
+      "excluded_final_window_findings": 77,
+      "excluded_final_window_severity_2plus": 39,
+      "error_sim_ids": [
+        "19686782-3a74-4a2a-84ee-bd94a4e95f9e"
+      ]
+    },
+    "GPT xhigh": {
+      "source": "data/simulations/paper_runs/tau-elicit/main_runs/modeb_openai_xhigh_regular_2026-09-02",
+      "utterances_submitted": 1142,
+      "utterances_scored": 1142,
+      "judge_errors": 0,
+      "severity_counts": {
+        "0": 1100,
+        "1": 18,
+        "2": 23,
+        "3": 1
+      },
+      "mean_max_retained_fidelity_severity": 0.05866900175131348,
+      "severity_2plus_count": 24,
+      "severity_2plus_rate": 0.021015761821366024,
+      "excluded_final_window_findings": 95,
+      "excluded_final_window_severity_2plus": 48,
+      "error_sim_ids": []
+    },
+    "Gemini high": {
+      "source": "data/simulations/paper_runs/tau-elicit/main_runs/modeb_gemini_high_regular_2026-09-02",
+      "utterances_submitted": 1046,
+      "utterances_scored": 1046,
+      "judge_errors": 0,
+      "severity_counts": {
+        "0": 997,
+        "1": 11,
+        "2": 28,
+        "3": 10
+      },
+      "mean_max_retained_fidelity_severity": 0.09273422562141491,
+      "severity_2plus_count": 38,
+      "severity_2plus_rate": 0.03632887189292543,
+      "excluded_final_window_findings": 57,
+      "excluded_final_window_severity_2plus": 15,
+      "error_sim_ids": []
+    },
+    "Grok": {
+      "source": "data/simulations/paper_runs/tau-elicit/main_runs/modeb_xai_10_regular_2026-09-02",
+      "utterances_submitted": 1814,
+      "utterances_scored": 1813,
+      "judge_errors": 1,
+      "severity_counts": {
+        "0": 1707,
+        "1": 32,
+        "2": 65,
+        "3": 9
+      },
+      "mean_max_retained_fidelity_severity": 0.10424710424710425,
+      "severity_2plus_count": 74,
+      "severity_2plus_rate": 0.04081632653061224,
+      "excluded_final_window_findings": 113,
+      "excluded_final_window_severity_2plus": 78,
+      "error_sim_ids": [
+        "68c5d484-e1d0-4592-b49a-f31649e76284"
+      ]
+    }
+  },
+  "invocations": {
+    "initial": ".venv/bin/tau2 judges rejudge --delivery --delivery-only --delivery-sample-rate 1.0 --max-concurrency 15 <four regular run roots>",
+    "retry": ".venv/bin/tau2 judges rejudge --delivery --delivery-only --delivery-sample-rate 1.0 --max-concurrency 2 <GPT-minimal and Grok regular run roots>",
+    "retry_result": "The same two utterances returned truncated JSON again; their ERROR records remain explicit."
+  }
+}

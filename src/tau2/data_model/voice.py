@@ -268,6 +268,14 @@ class SampledVoiceConfig(BaseModel):
 
     # Complexity level (stored for reference)
     complexity: SpeechComplexity = Field(description="The complexity level used")
+    channel_effects_mode: str = Field(
+        default="regular",
+        description="Channel effects mode applied (light/regular/heavy).",
+    )
+    speech_effects_mode: str = Field(
+        default="regular",
+        description="Speech effects mode applied (light/regular/heavy).",
+    )
 
     def to_speech_environment(self, seed: int) -> "SpeechEnvironment":
         """Create a SpeechEnvironment from this sampled config."""
@@ -299,6 +307,11 @@ class VoiceSettings(BaseModel):
     output_dir: Optional[Path] = Field(default=None)
     speech_environment: Optional[SpeechEnvironment] = Field(
         default_factory=SpeechEnvironment
+    )
+    pronunciation_map: Optional[dict[str, str]] = Field(
+        default=None,
+        description="Whole-token substitutions applied immediately before "
+        "voice synthesis; stored transcript text remains unchanged.",
     )
 
     @computed_field

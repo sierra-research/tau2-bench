@@ -19,6 +19,7 @@ from tau2.voice.synthesis.audio_effects.scheduler import generate_turn_effects
 from tau2.voice.synthesis.synthesize import synthesize_voice
 from tau2.voice.transcription.transcribe import transcribe_audio
 from tau2.voice.utils.audio_io import save_wav_file
+from tau2.voice.utils.pronunciation_swap import apply_pronunciations
 from tau2.voice.utils.text_effects import insert_speech_text
 
 # Generic type variables for streaming mixins
@@ -124,6 +125,16 @@ class VoiceMixin(
         )
 
         text_to_synthesize = message.content
+        if self.voice_settings.pronunciation_map:
+            text_to_synthesize, swap_events = apply_pronunciations(
+                text_to_synthesize, self.voice_settings.pronunciation_map
+            )
+            if swap_events:
+                logger.info(
+                    "Pronunciation swaps: {} occurrences".format(
+                        sum(event.count for event in swap_events)
+                    )
+                )
         speech_config = synthesis_config.speech_effects_config
         text_effects_rng = random.Random(speech_env.voice_seed + effects_turn_idx)
 
