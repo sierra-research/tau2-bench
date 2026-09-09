@@ -10,6 +10,7 @@ layer.  This module provides a thin helper that manages a dedicated
 import asyncio
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional, TypeVar
 
 T = TypeVar("T")
@@ -28,9 +29,10 @@ class BackgroundAsyncLoop:
         bg.stop()
     """
 
-    def __init__(self) -> None:
+    def __init__(self, executor_workers: Optional[int] = None) -> None:
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._thread: Optional[threading.Thread] = None
+        self._executor_workers = executor_workers
 
     @property
     def loop(self) -> Optional[asyncio.AbstractEventLoop]:
@@ -51,9 +53,17 @@ class BackgroundAsyncLoop:
             return
 
         def _run_loop() -> None:
-            self._loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(self._loop)
-            self._loop.run_forever()
+            # Closing the runner also cancels tasks and joins codec executors.
+            with asyncio.Runner() as runner:
+                self._loop = runner.get_loop()
+                if self._executor_workers is not None:
+                    self._loop.set_default_executor(
+                        ThreadPoolExecutor(
+                            max_workers=self._executor_workers,
+                            thread_name_prefix="tau2-audio",
+                        )
+                    )
+                self._loop.run_forever()
 
         self._thread = threading.Thread(target=_run_loop, daemon=True)
         self._thread.start()

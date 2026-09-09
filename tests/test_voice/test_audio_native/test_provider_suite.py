@@ -58,6 +58,7 @@ import pytest
 from tau2.config import TELEPHONY_ULAW_SILENCE
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter, create_adapter
+from tau2.voice.audio_native.openai.live_config import LiveConfig
 from tau2.voice.audio_native.tick_result import TickResult
 
 pytestmark = pytest.mark.full_duplex_integration
@@ -72,6 +73,20 @@ TESTDATA_DIR = Path(__file__).parent / "testdata"
 # Each provider is gated by its env var so the suite only runs providers you
 # have credentials for.
 PROVIDERS = [
+    pytest.param(
+        "openai_live",
+        marks=pytest.mark.skipif(
+            not all(
+                os.environ.get(key)
+                for key in (
+                    "OPENAI_API_KEY",
+                    "OPENAI_LIVE_MODEL",
+                    "OPENAI_LIVE_BACKEND_MODEL",
+                )
+            ),
+            reason="OpenAI Live credentials and model names are required",
+        ),
+    ),
     pytest.param(
         "gemini",
         marks=pytest.mark.skipif(
@@ -339,6 +354,12 @@ def adapter(provider_name: str):
     """Create, yield, and teardown a DiscreteTimeAdapter."""
     real_provider = provider_name
     cascaded_config = None
+    live_config = None
+    model = None
+
+    if provider_name == "openai_live":
+        model = os.environ["OPENAI_LIVE_MODEL"]
+        live_config = LiveConfig(backend_model=os.environ["OPENAI_LIVE_BACKEND_MODEL"])
 
     if provider_name in CASCADED_CONFIG_ALIASES:
         from tau2.voice.audio_native.livekit.config import CASCADED_CONFIGS
@@ -350,6 +371,8 @@ def adapter(provider_name: str):
         real_provider,
         tick_duration_ms=TICK_DURATION_MS,
         cascaded_config=cascaded_config,
+        model=model,
+        live_config=live_config,
     )
     yield adapter
     if adapter.is_connected:

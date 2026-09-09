@@ -264,7 +264,7 @@ class StreamingState(BaseModel, Generic[InputMessageType, OutputMessageType]):
         tick_duration_seconds: Optional[float] = None,
     ) -> list[Message]:
         """
-        Convert tick-based history to sequential messages for LLM context.
+        Convert tick-based history to text-only messages for LLM context.
 
         This bridges the gap between full-duplex tick-based storage and the
         sequential message format that LLMs expect.
@@ -326,6 +326,21 @@ class StreamingState(BaseModel, Generic[InputMessageType, OutputMessageType]):
                     other_chunk=temp_other_chunk,
                 )
                 ticks_to_process.append(temp_tick)
+
+        # LLM callers consume transcripts and tools, not concatenated recordings.
+        # Keep speech flags/timing for segmentation and leave stored ticks intact.
+        for index, tick in enumerate(ticks_to_process):
+            updates = {}
+            for field in ("self_chunk", "other_chunk"):
+                chunk = getattr(tick, field)
+                if isinstance(chunk, ParticipantMessageBase) and (
+                    chunk.audio_content or chunk.audio_script_gold
+                ):
+                    updates[field] = chunk.model_copy(
+                        update={"audio_content": None, "audio_script_gold": None}
+                    )
+            if updates:
+                ticks_to_process[index] = tick.model_copy(update=updates)
 
         # Expand ticks with env_chunk into old-format ticks before linearization.
         # This ensures linearization sees the same tick structure as the base branch.
@@ -1369,6 +1384,11 @@ def _has_meaningful_content(chunk: Message) -> bool:
     if hasattr(chunk, "is_tool_call") and chunk.is_tool_call():
         return True
 
+    # Streaming transcripts can arrive before or after their audible frames.
+    # Keep their text in LLM history without treating them as speech activity.
+    if hasattr(chunk, "content") and chunk.content:
+        return True
+
     # Check contains_speech flag if available
     # Return True if contains_speech=True (audio content, even without transcript)
     # Return False if contains_speech=False (explicitly marked as no speech)
@@ -1377,10 +1397,6 @@ def _has_meaningful_content(chunk: Message) -> bool:
             return True
         if chunk.contains_speech is False:
             return False
-
-    # Check for actual content
-    if hasattr(chunk, "content") and chunk.content:
-        return True
 
     return False
 

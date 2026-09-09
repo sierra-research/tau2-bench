@@ -1,5 +1,7 @@
 import random
 import time
+from concurrent.futures import Future, ThreadPoolExecutor
+from contextvars import copy_context
 from copy import deepcopy
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -446,6 +448,7 @@ class VoiceStreamingUserSimulator(
         tick_duration_seconds: float = 0.05,
         persona_config: Optional[PersonaConfig] = None,
         audio_taps_dir: Optional["Path"] = None,
+        realtime_generation: bool = False,
     ):
         """
         Initialize the streaming user simulator.
@@ -499,6 +502,18 @@ class VoiceStreamingUserSimulator(
         self.backchannel_poisson_rate = backchannel_poisson_rate
         self.use_llm_backchannel = use_llm_backchannel
         self.interruption_check_interval = interruption_check_interval
+        self.realtime_generation = realtime_generation
+        self._generation: Future | None = None
+        self._generation_action = "generate_message"
+        self._listener: Future | None = None
+        self._generation_input_count = 0
+        self._generation_from_tool = False
+        self._last_generation_tick = 0
+        self._user_executor = (
+            ThreadPoolExecutor(max_workers=2, thread_name_prefix="voice-user")
+            if realtime_generation
+            else None
+        )
 
         # Default yield_threshold_when_interrupting to yield_threshold_when_interrupted if not set
         if (
@@ -678,6 +693,8 @@ class VoiceStreamingUserSimulator(
         tool_results: Optional[EnvironmentMessage] = None,
     ) -> None:
         """Stop the user simulator, close timeline events, and save audio taps."""
+        if self._user_executor is not None:
+            self._user_executor.shutdown(wait=True, cancel_futures=True)
         # Close any open timeline events at the final time
         if state is not None:
             end_ms = int(state.elapsed_samples * 1000 / PCM_SAMPLE_RATE)
@@ -778,6 +795,80 @@ class VoiceStreamingUserSimulator(
         return chunk.contains_speech if chunk.contains_speech is not None else True
 
     def _next_turn_taking_action(
+        self, state: UserAudioStreamingState
+    ) -> TurnTakingAction:
+        if not self.realtime_generation:
+            return self._compute_turn_taking_action(state)
+        if self._generation is not None:
+            return TurnTakingAction(
+                action=self._generation_action if self._generation.done() else "wait",
+                info="Customer generation pending",
+            )
+        if state.is_talking:
+            return self._compute_turn_taking_action(state)
+        if state.input_ongoing_speech_duration() > 0:
+            if self._listener is not None and self._listener.done():
+                action = self._listener.result()
+                self._listener = None
+                return action
+            if self._listener is None and (
+                self.interruption_check_interval is None
+                or state.tick_count % self.interruption_check_interval == 0
+            ):
+                self._listener = self._user_executor.submit(
+                    copy_context().run,
+                    self._compute_turn_taking_action,
+                    self._generation_snapshot(state),
+                )
+            return TurnTakingAction(action="wait", info="Listening")
+        if self._listener is not None and self._listener.done():
+            self._listener.result()  # Surface errors, but do not apply a stale reaction.
+            self._listener = None
+        if (
+            state.input_total_speech_duration() == 0
+            and state.tick_count - self._last_generation_tick
+            < self.wait_to_respond_threshold_self
+        ):
+            return TurnTakingAction(
+                action="wait", info="Waiting before next generation"
+            )
+        return self._compute_turn_taking_action(state)
+
+    @staticmethod
+    def _generation_snapshot(state: UserAudioStreamingState) -> UserAudioStreamingState:
+        # History messages are immutable here; isolate the lists the tick loop updates.
+        return state.model_copy(
+            update={
+                "ticks": list(state.ticks),
+                "input_turn_taking_buffer": list(state.input_turn_taking_buffer),
+                "output_streaming_queue": list(state.output_streaming_queue),
+            }
+        )
+
+    def _start_generation(self, state, tool_result=None) -> None:
+        snapshot = self._generation_snapshot(state)
+        self._generation_input_count = len(state.input_turn_taking_buffer)
+        self._generation_from_tool = tool_result is not None
+        self._generation_action = "generate_message"
+        self._last_generation_tick = state.tick_count
+        if self._listener is not None:
+            self._listener.cancel()
+            self._listener = None
+        if tool_result is not None:
+            snapshot.input_turn_taking_buffer = [tool_result]
+        message = (
+            snapshot.input_turn_taking_buffer[-1]
+            if snapshot.input_turn_taking_buffer
+            else None
+        )
+        self._generation = self._user_executor.submit(
+            copy_context().run,
+            self._generate_full_duplex_voice_message,
+            message,
+            snapshot,
+        )
+
+    def _compute_turn_taking_action(
         self, state: UserAudioStreamingState
     ) -> TurnTakingAction:
         """
@@ -1075,11 +1166,31 @@ class VoiceStreamingUserSimulator(
             state.output_streaming_queue = []
             state.is_backchanneling = False
         elif action.action == "generate_message":
-            merged_message = merge_homogeneous_chunks(state.input_turn_taking_buffer)
-            full_message, new_state = self._generate_full_duplex_voice_message(
-                merged_message, state
-            )
-            state.input_turn_taking_buffer = []
+            if self.realtime_generation:
+                if self._generation is None:
+                    self._start_generation(state)
+                    return self._emit_waiting_chunk(state)
+                if not self._generation.done():
+                    return self._emit_waiting_chunk(state)
+                full_message, generated_state = self._generation.result()
+                self._generation = None
+                state.user_utterance_count = generated_state.user_utterance_count
+                for name in ("_llm_generation_seconds", "_tts_synthesis_seconds"):
+                    setattr(state, name, getattr(generated_state, name, None))
+                fresh_input = state.input_turn_taking_buffer[
+                    self._generation_input_count :
+                ]
+                state.input_turn_taking_buffer = fresh_input
+                state.delivering_tool_result_speech = self._generation_from_tool
+                new_state = state
+            else:
+                merged_message = merge_homogeneous_chunks(
+                    state.input_turn_taking_buffer
+                )
+                full_message, new_state = self._generate_full_duplex_voice_message(
+                    merged_message, state
+                )
+                state.input_turn_taking_buffer = []
             if full_message.is_tool_call():
                 logger.debug("Generating message: Tool call detected")
                 noise_chunk = self._apply_chunk_effects(
@@ -1096,6 +1207,11 @@ class VoiceStreamingUserSimulator(
                 logger.debug("Generating message: Stop message detected")
                 full_message.turn_taking_action = action
                 return full_message, new_state
+            elif not full_message.has_text_content():
+                logger.info(
+                    "Customer returned no speech or tools; continuing to listen"
+                )
+                return self._emit_waiting_chunk(state)
             else:
                 logger.debug("Generating message: Creating chunk messages")
                 chunk_messages = self._create_chunk_messages(full_message)
@@ -1110,7 +1226,22 @@ class VoiceStreamingUserSimulator(
             logger.debug("Waiting: No action required")
         elif action.action == "backchannel":
             logger.debug("Backchannel: Generating backchannel message")
-            backchannel_message = self._generate_backchannel_message(state)
+            if self.realtime_generation:
+                if self._generation is None:
+                    self._generation_action = "backchannel"
+                    self._generation = self._user_executor.submit(
+                        copy_context().run,
+                        self._generate_backchannel_result,
+                        self._generation_snapshot(state),
+                    )
+                    return self._emit_waiting_chunk(state)
+                if not self._generation.done():
+                    return self._emit_waiting_chunk(state)
+                backchannel_message, generated_state = self._generation.result()
+                self._generation = None
+                state.user_utterance_count = generated_state.user_utterance_count
+            else:
+                backchannel_message = self._generate_backchannel_message(state)
             chunk_messages = self._create_chunk_messages(backchannel_message)
             logger.debug(f"Backchannel: Created {len(chunk_messages)} chunk messages")
             state.output_streaming_queue.extend(chunk_messages)
@@ -1162,6 +1293,13 @@ class VoiceStreamingUserSimulator(
         state: UserAudioStreamingState,
     ) -> Tuple[UserMessage, UserAudioStreamingState]:
         """Process a tool result by calling the LLM and returning the response."""
+        if self.realtime_generation:
+            if self._generation is not None:
+                raise RuntimeError(
+                    "Tool result arrived while customer generation is pending"
+                )
+            self._start_generation(state, tool_result)
+            return self._emit_waiting_chunk(state)
         # Temporarily set buffer so get_linearized_messages(include_pending_input=True)
         # picks up the tool result for LLM context
         saved_buffer = state.input_turn_taking_buffer
@@ -1232,7 +1370,9 @@ class VoiceStreamingUserSimulator(
         )
 
         # Check that last message is a valid user input message
-        if not isinstance(linearized_messages[-1], (ValidUserInputMessage)):
+        if linearized_messages and not isinstance(
+            linearized_messages[-1], (ValidUserInputMessage)
+        ):
             if isinstance(linearized_messages[-1], SystemMessage):
                 # SystemMessage at end is expected (e.g., silence annotations)
                 logger.debug(
@@ -1243,7 +1383,9 @@ class VoiceStreamingUserSimulator(
                     f"Last message is not a valid user input message: {type(linearized_messages[-1]).__name__}"
                 )
 
-        if isinstance(linearized_messages[-1], (AssistantMessage)):
+        if linearized_messages and isinstance(
+            linearized_messages[-1], (AssistantMessage)
+        ):
             if linearized_messages[-1].content is None:
                 logger.warning(
                     f"Last message is an assistant message with no content: {linearized_messages[-1]}"
@@ -1308,6 +1450,9 @@ class VoiceStreamingUserSimulator(
 
         # Check for stop
         if self.is_stop(user_message):
+            return user_message, state
+
+        if not user_message.has_text_content():
             return user_message, state
 
         # Synthesize voice (without background noise - added per chunk) with timing
@@ -1422,6 +1567,9 @@ class VoiceStreamingUserSimulator(
             add_telephony_format=False,
             add_channel_effects=False,
         )
+
+    def _generate_backchannel_result(self, state):
+        return self._generate_backchannel_message(state), state
 
 
 def _format_conversation_history(messages: list[Message]) -> str:
