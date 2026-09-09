@@ -480,7 +480,6 @@ class _BatchContext:
     info: Info
     console_display: bool = True
     save_fn: Optional[Callable] = None
-    replace_fn: Optional[Callable] = None
     monitor: Optional[StatusMonitor] = None
     shutdown_event: Optional[threading.Event] = None
     llm_log_mode_value: Optional[str] = None
@@ -493,7 +492,7 @@ def make_voice_run_settings(
     from the config (so a worker process re-derives the same values)."""
     if not isinstance(config, VoiceRunConfig):
         return None, None
-    user_voice_settings = VoiceSettings(
+    user_voice_settings = config.user_voice_settings or VoiceSettings(
         transcription_config=None,
         synthesis_config=SynthesisConfig(),
     )
@@ -579,7 +578,6 @@ def run_unit(
             max_retries=config.max_retries,
             retry_delay=config.retry_delay,
             console_display=ctx.console_display,
-            save_fn=ctx.save_fn,
             on_retry=(lambda: monitor.task_restarted(task_key)) if monitor else None,
             shutdown_event=ctx.shutdown_event,
         )
@@ -588,11 +586,16 @@ def run_unit(
         is_full_duplex = result.ticks is not None and len(result.ticks) > 0
         if hallucination_retries > 0 and is_full_duplex:
             hallucination_retry_count = 0
-            while hallucination_retry_count < hallucination_retries:
-                h_check = check_hallucination(result, task)
+            while True:
+                h_check = check_hallucination(
+                    result, task, review_model=config.review_model
+                )
                 result.hallucination_check = h_check
 
-                if not h_check.hallucination_found:
+                if (
+                    not h_check.hallucination_found
+                    or hallucination_retry_count >= hallucination_retries
+                ):
                     break
 
                 hallucination_retry_count += 1
@@ -609,27 +612,17 @@ def run_unit(
                 if save_dir is not None:
                     discarded_dir = save_dir / "hallucination_discarded"
                     discarded_dir.mkdir(parents=True, exist_ok=True)
-                    discarded_path = discarded_dir / "results_user_hallucination.json"
-
-                    if discarded_path.exists():
-                        with open(discarded_path, "r") as fp:
-                            discarded_data = json.load(fp)
-                        discarded_data["simulations"].append(
-                            result.model_dump(mode="json")
-                        )
-                        existing_task_ids = {t["id"] for t in discarded_data["tasks"]}
-                        if task.id not in existing_task_ids:
-                            discarded_data["tasks"].append(task.model_dump(mode="json"))
-                        with open(discarded_path, "w") as fp:
-                            json.dump(discarded_data, fp, indent=2)
-                    else:
-                        discarded_results = Results(
-                            info=ctx.info,
-                            tasks=[task],
-                            simulations=[result],
-                        )
-                        with open(discarded_path, "w") as fp:
-                            fp.write(discarded_results.model_dump_json(indent=2))
+                    # One owner per file: retry workers must not rewrite a
+                    # shared archive concurrently.
+                    discarded_path = discarded_dir / f"{result.id}.json"
+                    discarded_results = Results(
+                        info=ctx.info,
+                        tasks=[task],
+                        simulations=[result],
+                    )
+                    discarded_path.write_text(
+                        discarded_results.model_dump_json(indent=2)
+                    )
 
                     logger.info(
                         f"Saved discarded hallucination run to {discarded_path} "
@@ -668,12 +661,13 @@ def run_unit(
             result.hallucination_retries_used = hallucination_retry_count
 
             if hallucination_retry_count > 0:
-                # Replace the eagerly-saved hallucinated result in the
-                # checkpoint with the clean retry.  Use the original seed
-                # so resume matching stays consistent.
+                # Use the original seed so resume matching stays consistent.
                 result.seed = seed
-                if ctx.replace_fn:
-                    ctx.replace_fn((trial, task.id, seed), result)
+
+        # A failed reviewer must not leave an unreviewed success checkpoint.
+        # Raw attempt artifacts are already retained by the simulation runner.
+        if ctx.save_fn:
+            ctx.save_fn(result)
 
         # Mark the final sim as the one used in results
         if save_dir is not None:
@@ -971,7 +965,6 @@ def run_tasks(
         info=simulation_results.info,
         console_display=console_display,
         save_fn=prep.save_fn,
-        replace_fn=prep.replace_fn,
         monitor=monitor,
         shutdown_event=shutdown_event,
         # Capture ContextVar values from the main thread so worker threads
@@ -1136,6 +1129,7 @@ def run_domains(
     workers: int,
     provider_limits: Optional[dict[str, int]] = None,
     global_limit: Optional[int] = None,
+    partition_cpus: bool = False,
 ) -> dict[str, Results]:
     """Run several configs concurrently under one controller.
 
@@ -1187,6 +1181,7 @@ def run_domains(
             provider_limits=provider_limits,
             global_limit=global_limit,
             monitor=monitor,
+            partition_cpus=partition_cpus,
         )
     finally:
         monitor.stop()

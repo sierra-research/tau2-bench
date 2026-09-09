@@ -134,7 +134,10 @@ def _parse_hallucination_response(
     summary = result_data.get("summary", "")
 
     errors: list[HallucinationCheckError] = []
-    for h in result_data.get("hallucinations", []):
+    hallucinations = result_data["hallucinations"]
+    if not isinstance(hallucinations, list):
+        raise ValueError("Reviewer hallucinations must be a list")
+    for h in hallucinations:
         errors.append(
             HallucinationCheckError(
                 reasoning=h.get("reasoning", ""),
@@ -163,6 +166,7 @@ class FullDuplexHallucinationReviewer:
         cls,
         task: Task,
         full_trajectory: list[Tick],
+        review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
     ) -> HallucinationCheck:
         """
         Check whether the user simulator hallucinated information.
@@ -170,6 +174,7 @@ class FullDuplexHallucinationReviewer:
         Args:
             task: The task containing user scenario instructions.
             full_trajectory: List of Tick objects from full-duplex simulation.
+            review_model: Explicit judge model; defaults to the stock reviewer.
 
         Returns:
             HallucinationCheck with any hallucinations found.
@@ -194,32 +199,19 @@ class FullDuplexHallucinationReviewer:
         ]
 
         assistant_message = generate(
-            model=DEFAULT_LLM_EVAL_USER_SIMULATOR,
+            model=review_model,
             messages=messages,
             call_name="llm_judge_hallucination_check",
         )
 
-        try:
-            reasoning, hallucination_found, errors, summary = (
-                _parse_hallucination_response(assistant_message.content)
-            )
-            return HallucinationCheck(
-                reasoning=reasoning,
-                hallucination_found=hallucination_found,
-                errors=errors,
-                summary=summary,
-                cost=assistant_message.cost,
-            )
-        except Exception as e:
-            # If parsing fails, return a safe result (no hallucination detected)
-            return HallucinationCheck(
-                reasoning=f"Failed to parse LLM response: {e}",
-                hallucination_found=False,
-                errors=[
-                    HallucinationCheckError(
-                        reasoning=f"Failed to parse LLM response: {e}. Response: {assistant_message.content}",
-                    )
-                ],
-                summary="",
-                cost=assistant_message.cost,
-            )
+        # Invalid judge output is a review failure, never evidence of a clean user.
+        reasoning, hallucination_found, errors, summary = _parse_hallucination_response(
+            assistant_message.content
+        )
+        return HallucinationCheck(
+            reasoning=reasoning,
+            hallucination_found=hallucination_found,
+            errors=errors,
+            summary=summary,
+            cost=assistant_message.cost,
+        )

@@ -129,6 +129,10 @@ class TickResult(BaseModel):
     )
 
     # --- Raw agent audio (unpadded) ---
+    contains_speech: Optional[bool] = Field(
+        default=None,
+        description="Speech activity for continuous media; None uses the legacy audio-presence rule",
+    )
     # These store the actual audio received from the API, without padding.
     # Use these to detect if agent actually spoke.
     agent_audio_chunks: List[Tuple[bytes, Optional[str]]] = Field(
@@ -443,7 +447,7 @@ def buffer_excess_audio(
     keep_chunks: List[Tuple[bytes, Optional[str]]] = []
     buffer_chunks: List[Tuple[bytes, Optional[str]]] = []
 
-    for chunk_data, item_id in result.agent_audio_chunks:
+    for index, (chunk_data, item_id) in enumerate(result.agent_audio_chunks):
         if total_bytes + len(chunk_data) <= bytes_per_tick:
             keep_chunks.append((chunk_data, item_id))
             total_bytes += len(chunk_data)
@@ -454,7 +458,9 @@ def buffer_excess_audio(
                 buffer_chunks.append((chunk_data[space_left:], item_id))
             else:
                 buffer_chunks.append((chunk_data, item_id))
-            total_bytes = bytes_per_tick
+            # The rest is already buffered; don't rescan a growing audio backlog.
+            buffer_chunks.extend(result.agent_audio_chunks[index + 1 :])
+            break
 
     result.agent_audio_chunks = keep_chunks
     return buffer_chunks

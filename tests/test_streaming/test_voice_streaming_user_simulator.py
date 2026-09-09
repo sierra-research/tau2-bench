@@ -10,10 +10,17 @@ This test suite verifies that the voice streaming user simulator works correctly
 - Time counters
 """
 
+from threading import Event
+
 import pytest
 
 from tau2.data_model.audio import AudioEncoding, AudioFormat
-from tau2.data_model.message import AssistantMessage, ToolCall, UserMessage
+from tau2.data_model.message import (
+    AssistantMessage,
+    ToolCall,
+    TurnTakingAction,
+    UserMessage,
+)
 from tau2.data_model.voice import SynthesisConfig, VoiceSettings
 from tau2.user.user_simulator_streaming import VoiceStreamingUserSimulator
 
@@ -208,6 +215,55 @@ def test_voice_streaming_user_chunk_accumulation(
 
     assert response_1 is not None
     assert len(state.input_turn_taking_buffer) >= 2
+
+
+def test_audio_ticks_continue_while_caller_generation_is_pending(
+    user_instructions, voice_settings, monkeypatch
+):
+    user = VoiceStreamingUserSimulator(
+        llm="gpt-4.1-2025-04-14",
+        instructions=user_instructions,
+        tools=None,
+        voice_settings=voice_settings,
+        chunk_size=1600,
+        realtime_generation=True,
+    )
+    state = user.get_init_state()
+    state.input_turn_taking_buffer.append(
+        AssistantMessage(role="assistant", content="Ready?", contains_speech=True)
+    )
+    started, release = Event(), Event()
+
+    def generate(message, snapshot):
+        started.set()
+        assert release.wait(5), "Caller generation blocked the audio tick loop"
+        snapshot.user_utterance_count += 1
+        return UserMessage(role="user", content="###STOP###"), snapshot
+
+    monkeypatch.setattr(user, "_generate_full_duplex_voice_message", generate)
+    action = TurnTakingAction(action="generate_message")
+    try:
+        waiting, state = user._perform_turn_taking_action(state, action)
+        assert started.wait(1)
+        assert waiting.contains_speech is False
+        for text in ("Your ", "order ", "shipped."):
+            waiting, state = user.get_next_chunk(
+                state,
+                AssistantMessage(role="assistant", content=text, contains_speech=True),
+            )
+            assert waiting.contains_speech is False
+        assert state.tick_count == 3
+        release.set()
+        user._generation.result(timeout=1)
+        reply, state = user._perform_turn_taking_action(state, action)
+        assert reply.content == "###STOP###"
+        assert state.user_utterance_count == 1
+        assert "".join(chunk.content for chunk in state.input_turn_taking_buffer) == (
+            "Your order shipped."
+        )
+    finally:
+        release.set()
+        user.stop(state)
 
 
 def test_voice_streaming_user_contains_speech_on_all_responses(

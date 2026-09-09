@@ -20,6 +20,7 @@ import sys
 import threading
 import time
 import uuid
+from itertools import zip_longest
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -161,7 +162,12 @@ class Controller:
             raise ValueError("Controller runs must have unique run_ids")
         self.runs = {run.run_id: run for run in runs}
         self.queue = WorkQueue(
-            [unit for run in runs for unit in run.units],
+            [
+                unit
+                for group in zip_longest(*(run.units for run in runs))
+                for unit in group
+                if unit is not None
+            ],
             max_attempts=max_attempts,
             lease_ttl_seconds=lease_ttl_seconds,
             provider_limits=provider_limits,
@@ -357,11 +363,14 @@ def _start_server(app, host: str, port: int):
 
 
 def _spawn_worker(
-    controller_url: str, slots: int, index: int, log_dir: Path
+    controller_url: str,
+    slots: int,
+    index: int,
+    log_dir: Path,
+    cpu_ids: Optional[list[int]] = None,
 ) -> subprocess.Popen:
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"worker_{index}.log"
-    log_file = open(log_path, "w")
     cmd = [
         sys.executable,
         "-m",
@@ -373,10 +382,13 @@ def _spawn_worker(
         "--worker-id",
         f"local-{index}",
     ]
+    if cpu_ids is not None:
+        cmd = ["taskset", "--cpu-list", ",".join(map(str, cpu_ids)), *cmd]
     logger.info(f"Spawning worker {index}: {' '.join(cmd)} (log: {log_path})")
-    return subprocess.Popen(
-        cmd, stdout=log_file, stderr=subprocess.STDOUT, env=os.environ.copy()
-    )
+    with open(log_path, "w") as log_file:
+        return subprocess.Popen(
+            cmd, stdout=log_file, stderr=subprocess.STDOUT, env=os.environ.copy()
+        )
 
 
 def drive_batches(
@@ -389,6 +401,7 @@ def drive_batches(
     monitor: Optional[StatusMonitor] = None,
     worker_log_dir: Optional[Path] = None,
     host: str = "127.0.0.1",
+    partition_cpus: bool = False,
 ) -> Controller:
     """Drive prepared runs to completion with locally-spawned worker processes.
 
@@ -397,6 +410,16 @@ def drive_batches(
     """
     if workers <= 0:
         raise ValueError("drive_batches needs workers >= 1")
+
+    cpu_sets = [None] * workers
+    if partition_cpus:
+        if not hasattr(os, "sched_getaffinity"):
+            raise ValueError("CPU partitioning requires Linux affinity support")
+        cpus = sorted(os.sched_getaffinity(0))
+        # Bound FFmpeg pools even when isolating more I/O-bound sims than CPUs.
+        # Oversubscribed workers share a CPU, not a Python interpreter/GIL.
+        partitions = min(workers, len(cpus))
+        cpu_sets = [cpus[index % partitions :: partitions] for index in range(workers)]
 
     runs = [ControllerRun.from_prep(prep.run_id, prep) for prep in preps]
     controller = Controller(
@@ -425,7 +448,8 @@ def drive_batches(
         )
 
     procs = [
-        _spawn_worker(controller_url, slots, i, worker_log_dir) for i in range(workers)
+        _spawn_worker(controller_url, slots, i, worker_log_dir, cpu_sets[i])
+        for i in range(workers)
     ]
     ConsoleDisplay.console.print(
         Text(
