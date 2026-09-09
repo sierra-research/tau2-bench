@@ -458,7 +458,7 @@ class BaseRunConfig(BaseModel):
     review_model: Annotated[
         str,
         Field(
-            description="LLM model to use for review calls when auto_review is enabled.",
+            description="LLM model for conversation review and hallucination checks.",
             default=DEFAULT_LLM_EVAL_USER_SIMULATOR,
         ),
     ]

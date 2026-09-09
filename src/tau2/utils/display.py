@@ -2919,10 +2919,9 @@ class MarkdownDisplay:
 
             user_results_str = ""
             if user_results:
-                results_preview = [
-                    r[:100] + "..." if len(r) > 100 else r for r in user_results
-                ]
-                user_results_str = escape_table("; ".join(results_preview))
+                # This Markdown is also judge input: hiding fields can turn
+                # grounded customer claims into apparent hallucinations.
+                user_results_str = escape_table("; ".join(user_results))
 
             # Build row
             row = [tick_label, agent_content]
