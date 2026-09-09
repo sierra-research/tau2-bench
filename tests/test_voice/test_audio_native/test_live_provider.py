@@ -43,7 +43,7 @@ def provider():
     return result
 
 
-def test_policy_and_tools_are_backend_only(provider):
+def test_default_templates_slot_system_prompt_and_keep_tools_backend_only(provider):
     tool = Mock(
         openai_schema={
             "function": {
@@ -54,14 +54,52 @@ def test_policy_and_tools_are_backend_only(provider):
         }
     )
     session = provider._build_session("ORIGINAL DOMAIN POLICY", [tool])
-    assert "ORIGINAL DOMAIN POLICY" not in session["instructions"]
+    assert session["instructions"] == (
+        "ORIGINAL DOMAIN POLICY\n\n"
+        "You are the spoken interface for a live support conversation. You "
+        "control how and when to speak, listen, stop, interrupt, and delegate. "
+        "Listen to the user's complete turn. For every substantive request, "
+        "clarification, answer, or reported action, delegate to the backend and "
+        "remain silent until the backend result arrives. The backend owns task "
+        "reasoning, policy decisions, tool execution, and the substance of your "
+        "reply. Naturally rephrase only its concise customer-facing answer, "
+        "question, or requested customer action. Do not independently diagnose, "
+        "invent tool results, repeat the user, or narrate delegation. Stop "
+        "speaking immediately when the user speaks."
+    )
     backend = session["delegation"]["responses"]
-    assert backend["instructions"].endswith("ORIGINAL DOMAIN POLICY")
+    assert backend["instructions"] == (
+        "ORIGINAL DOMAIN POLICY\n\n"
+        "Normalize ten spoken phone-number digits as XXX-XXX-XXXX before "
+        "calling a phone lookup."
+    )
     assert backend["model"] == "test-backend"
     assert backend["reasoning"] == {"effort": "low"}
     assert backend["tools"][0]["name"] == "lookup"
     assert "tools" not in session
     assert session["audio"]["output"]["voice"] == "marin"
+
+
+def test_explicit_prompts_preserve_existing_override_behavior():
+    config = LiveConfig(
+        backend_model="test-backend",
+        frontend_prompt="CUSTOM FRONTEND",
+        backend_prompt="CUSTOM BACKEND",
+    )
+    provider = OpenAILiveProvider(
+        model="test-live",
+        config=config,
+        api_key="test-only",
+    )
+    session = provider._build_session("ORIGINAL DOMAIN POLICY", [])
+    assert session["instructions"] == "CUSTOM FRONTEND"
+    assert session["delegation"]["responses"]["instructions"] == (
+        "CUSTOM BACKEND\n\nORIGINAL DOMAIN POLICY"
+    )
+
+    config.append_system_prompt = False
+    session = provider._build_session("ORIGINAL DOMAIN POLICY", [])
+    assert session["delegation"]["responses"]["instructions"] == "CUSTOM BACKEND"
 
 
 def test_config_rejects_missing_or_misrouted_backend():

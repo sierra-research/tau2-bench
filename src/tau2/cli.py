@@ -279,7 +279,7 @@ def add_run_args(parser):
         "--live-config",
         type=json.loads,
         default=None,
-        help="JSON config for openai_live: backend_model (required), voice, frontend_prompt, backend_prompt.",
+        help="JSON config for openai_live: backend_model (required), voice, and optional frontend_prompt/backend_prompt overrides.",
     )
     parser.add_argument(
         "--realtime-generation",
