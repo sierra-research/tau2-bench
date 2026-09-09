@@ -492,7 +492,7 @@ def make_voice_run_settings(
     from the config (so a worker process re-derives the same values)."""
     if not isinstance(config, VoiceRunConfig):
         return None, None
-    user_voice_settings = VoiceSettings(
+    user_voice_settings = config.user_voice_settings or VoiceSettings(
         transcription_config=None,
         synthesis_config=SynthesisConfig(),
     )
@@ -1129,6 +1129,7 @@ def run_domains(
     workers: int,
     provider_limits: Optional[dict[str, int]] = None,
     global_limit: Optional[int] = None,
+    partition_cpus: bool = False,
 ) -> dict[str, Results]:
     """Run several configs concurrently under one controller.
 
@@ -1180,6 +1181,7 @@ def run_domains(
             provider_limits=provider_limits,
             global_limit=global_limit,
             monitor=monitor,
+            partition_cpus=partition_cpus,
         )
     finally:
         monitor.stop()
