@@ -106,6 +106,7 @@ def build_command(
     user_llm_args: dict | None = None,
     max_concurrency: int = 8,
     max_steps_seconds: int | None = None,
+    realtime_generation: bool | None = None,
 ) -> list[str]:
     cmd = [
         sys.executable,
@@ -143,6 +144,12 @@ def build_command(
         cmd.extend(["--num-tasks", str(num_tasks)])
     if max_steps_seconds is not None:
         cmd.extend(["--max-steps-seconds", str(max_steps_seconds)])
+    if realtime_generation is not None:
+        cmd.append(
+            "--realtime-generation"
+            if realtime_generation
+            else "--no-realtime-generation"
+        )
     return cmd
 
 
@@ -158,6 +165,7 @@ def build_config(
     user_llm_args: dict | None = None,
     max_concurrency: int = 8,
     max_steps_seconds: int | None = None,
+    realtime_generation: bool | None = None,
 ):
     """The same run build_command() shells out for, as a VoiceRunConfig —
     used by --workers mode to register combos with one controller."""
@@ -168,6 +176,7 @@ def build_config(
         model=spec.model,
         cascaded_config_name=spec.cascaded_config,
         reasoning_effort=spec.reasoning_effort,
+        realtime_generation=realtime_generation,
     )
     if max_steps_seconds is not None:
         audio_kwargs["max_steps_seconds"] = max_steps_seconds
@@ -218,6 +227,13 @@ def main():
         type=int,
         default=None,
         help="Cap conversation duration in seconds (passed through to tau2 run).",
+    )
+    parser.add_argument(
+        "--realtime-generation",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Run user LLM/TTS generation without blocking audio ticks. "
+        "Defaults to enabled for openai_live and disabled for other providers.",
     )
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--user-llm", type=str, default=DEFAULT_LLM_USER)
@@ -271,6 +287,7 @@ def main():
         user_llm_args=args.user_llm_args,
         max_concurrency=args.max_concurrency,
         max_steps_seconds=args.max_steps_seconds,
+        realtime_generation=args.realtime_generation,
     )
 
     def combo_save_to(domain, spec, complexity) -> str:
