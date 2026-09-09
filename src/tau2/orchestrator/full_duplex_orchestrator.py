@@ -219,7 +219,6 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
         self.current_agent_chunk = first_agent_message
 
         # Get first user chunk
-        self.user_state = self.user.get_init_state()
         self.current_user_chunk, self.user_state = self.user.get_next_chunk(
             self.user_state, participant_chunk=dummy_agent_message
         )
