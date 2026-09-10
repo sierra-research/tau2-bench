@@ -7,7 +7,7 @@ Provider syntax: "provider", "provider:model", or "provider:model:reasoning"
   - openai:gpt-realtime-1.5          (specific model)
   - openai:gpt-realtime-1.5:high     (model + reasoning effort)
   - openai:pine-voice-preview        (Pine's OpenAI-compatible model)
-  - openai_live:gpt-live:medium      (GPT Live frontend + reasoning effort)
+  - openai_live::medium              (default GPT Live frontend + reasoning effort)
   - livekit                           (default cascaded config)
   - livekit::openai-thinking          (default model + cascaded config)
 
@@ -67,8 +67,6 @@ def parse_provider(spec: str) -> ProviderSpec:
     """
     parts = spec.split(":")
     provider = parts[0]
-    if provider == "openai_live" and (len(parts) == 1 or not parts[1]):
-        raise ValueError("openai_live requires an explicit frontend model")
     model = DEFAULT_AUDIO_NATIVE_MODELS.get(provider, "dummy")
 
     if len(parts) == 1:

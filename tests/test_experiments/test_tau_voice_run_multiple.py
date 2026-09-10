@@ -12,6 +12,7 @@ from experiments.tau_voice.run_multiple import (
     parse_provider,
 )
 from tau2.cli import add_run_args
+from tau2.config import DEFAULT_OPENAI_LIVE_MODEL
 from tau2.data_model.simulation import AudioNativeConfig
 from tau2.runner.work import parse_provider_limits
 
@@ -90,9 +91,10 @@ def test_default_provider_limits_include_openai_live():
 
 
 @pytest.mark.parametrize("spec", ["openai_live", "openai_live::medium"])
-def test_openai_live_requires_explicit_frontend_model(spec):
-    with pytest.raises(ValueError, match="explicit frontend model"):
-        parse_provider(spec)
+def test_openai_live_uses_default_frontend_model(spec):
+    parsed = parse_provider(spec)
+
+    assert parsed.model == DEFAULT_OPENAI_LIVE_MODEL == "gpt-live-submission"
 
 
 @pytest.mark.parametrize(

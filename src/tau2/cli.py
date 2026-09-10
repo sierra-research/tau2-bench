@@ -627,8 +627,6 @@ def main():
             # Resolve model based on provider if not specified
             audio_native_model = args.audio_native_model
             if audio_native_model is None:
-                if args.audio_native_provider == "openai_live":
-                    parser.error("openai_live requires --audio-native-model")
                 audio_native_model = DEFAULT_AUDIO_NATIVE_MODELS[
                     args.audio_native_provider
                 ]

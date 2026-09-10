@@ -99,7 +99,7 @@ DEFAULT_SPEECH_COMPLEXITY = "regular"  # overridable: "control", "regular"
 DEFAULT_AUDIO_NATIVE_AGENT_IMPLEMENTATION = "discrete_time_audio_native_agent"
 DEFAULT_AUDIO_NATIVE_USER_IMPLEMENTATION = "voice_streaming_user_simulator"
 DEFAULT_AUDIO_NATIVE_PROVIDER = (
-    "openai"  # overridable: openai, gemini, xai, nova, qwen, livekit
+    "openai"  # overridable: openai, openai_live, gemini, xai, nova, qwen, livekit
 )
 DEFAULT_TICK_DURATION_SECONDS = 0.20  # overridable
 DEFAULT_MAX_STEPS_SECONDS = 1200  # overridable
@@ -136,6 +136,7 @@ DEFAULT_AUDIO_NATIVE_MAX_INACTIVE_SECONDS = 40.0  # fixed, stall detection
 # OPENAI PROVIDER (overridable model/voice, fixed API constants)
 # =============================================================================
 DEFAULT_OPENAI_REALTIME_MODEL = "gpt-realtime-1.5"  # overridable
+DEFAULT_OPENAI_LIVE_MODEL = "gpt-live-submission"  # overridable, limited-access alias
 _LEGACY_OPENAI_REALTIME_MODEL = "gpt-realtime-2025-08-28"
 DEFAULT_OPENAI_REALTIME_BASE_URL = "wss://api.openai.com/v1/realtime"  # fixed
 DEFAULT_OPENAI_VOICE = "alloy"  # overridable
@@ -203,6 +204,7 @@ DEFAULT_QWEN_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 # =============================================================================
 DEFAULT_AUDIO_NATIVE_MODELS = {
     "openai": DEFAULT_OPENAI_REALTIME_MODEL,
+    "openai_live": DEFAULT_OPENAI_LIVE_MODEL,
     "gemini": DEFAULT_GEMINI_MODEL,
     "xai": DEFAULT_XAI_MODEL,
     "nova": DEFAULT_NOVA_MODEL,
@@ -212,6 +214,7 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
 
 DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
     "openai": None,
+    "openai_live": None,
     "gemini": "high",
     "xai": "high",
     "nova": None,
@@ -221,6 +224,7 @@ DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
 
 AUDIO_NATIVE_PROVIDER_TYPES = {
     "openai": "audio_native",
+    "openai_live": "audio_native",
     "gemini": "audio_native",
     "xai": "audio_native",
     "nova": "audio_native",

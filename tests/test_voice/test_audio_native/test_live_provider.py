@@ -11,8 +11,10 @@ from aiortc.rtcpeerconnection import CODECS
 from aiortc.sdp import SessionDescription
 
 from tau2.agent.base.streaming import _has_meaningful_content
+from tau2.config import DEFAULT_OPENAI_LIVE_MODEL
 from tau2.data_model.message import AssistantMessage
 from tau2.data_model.simulation import AudioNativeConfig
+from tau2.voice.audio_native.adapter import create_adapter
 from tau2.voice.audio_native.audio_converter import StreamingTelephonyConverter
 from tau2.voice.audio_native.openai.discrete_time_adapter import (
     DiscreteTimeOpenAIAdapter,
@@ -107,6 +109,19 @@ def test_config_rejects_missing_or_misrouted_backend():
         AudioNativeConfig(provider="openai_live", model="test-live")
     with pytest.raises(ValueError, match="live_config is required"):
         AudioNativeConfig(provider="openai", live_config={"backend_model": "test"})
+
+
+def test_create_adapter_uses_default_live_frontend_model(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-only")
+
+    adapter, model = create_adapter(
+        "openai_live",
+        tick_duration_ms=200,
+        live_config=LiveConfig(backend_model="test-backend"),
+    )
+
+    assert model == DEFAULT_OPENAI_LIVE_MODEL == "gpt-live-submission"
+    assert adapter.model == DEFAULT_OPENAI_LIVE_MODEL
 
 
 def test_offer_advertises_audio_recovery_without_changing_other_providers(provider):
