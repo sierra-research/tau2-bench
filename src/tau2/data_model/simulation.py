@@ -59,6 +59,7 @@ from tau2.environment.environment import EnvironmentInfo
 from tau2.environment.toolkit import ToolType
 from tau2.orchestrator.modes import CommunicationMode
 from tau2.utils.utils import get_now
+from tau2.voice.audio_native.openai.live_config import LiveConfig
 
 SIMULATIONS_DIR = "simulations"
 
@@ -71,9 +72,11 @@ class AudioNativeConfig(BaseModel):
     """
 
     # Provider selection
-    provider: Literal["openai", "gemini", "xai", "nova", "qwen", "livekit"] = Field(
+    provider: Literal[
+        "openai", "openai_live", "gemini", "xai", "nova", "qwen", "livekit"
+    ] = Field(
         default=DEFAULT_AUDIO_NATIVE_PROVIDER,
-        description="Audio native API provider: 'openai' (OpenAI Realtime), 'gemini' (Gemini Live), 'xai' (xAI Grok Voice Agent), 'nova' (Amazon Nova Sonic), 'qwen' (Alibaba Qwen Omni), or 'livekit' (LiveKit cascaded STT→LLM→TTS)",
+        description="Audio native API provider: 'openai' (OpenAI Realtime), 'openai_live' (OpenAI Live), 'gemini' (Gemini Live), 'xai' (xAI Grok Voice Agent), 'nova' (Amazon Nova Sonic), 'qwen' (Alibaba Qwen Omni), or 'livekit' (LiveKit cascaded STT→LLM→TTS)",
     )
 
     # Cascaded config (for livekit provider)
@@ -90,6 +93,18 @@ class AudioNativeConfig(BaseModel):
         default=None,
         description="Reasoning effort for thinking models: 'minimal', 'low', 'medium', 'high'. If None, not sent.",
     )
+    live_config: Optional[LiveConfig] = Field(
+        default=None,
+        description="Backend, voice and split prompts for the openai_live provider",
+    )
+
+    @model_validator(mode="after")
+    def validate_live_config(self):
+        if (self.provider == "openai_live") != (self.live_config is not None):
+            raise ValueError(
+                "live_config is required for openai_live and only valid for that provider"
+            )
+        return self
 
     # Timing configuration
     tick_duration_seconds: float = Field(

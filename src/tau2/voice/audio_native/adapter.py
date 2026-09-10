@@ -10,7 +10,8 @@ create_adapter(): Factory function that validates parameters and constructs
 
 import asyncio
 from abc import ABC, abstractmethod
-from typing import Any, Awaitable, Callable, List, Optional, Tuple
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, List, Optional, Tuple
 
 from loguru import logger
 
@@ -30,6 +31,9 @@ from tau2.voice.audio_native.tick_result import (
     buffer_excess_audio,
     get_proportional_transcript,
 )
+
+if TYPE_CHECKING:
+    from tau2.voice.audio_native.openai.live_config import LiveConfig
 
 
 class DiscreteTimeAdapter(ABC):
@@ -383,6 +387,8 @@ def create_adapter(
     reasoning_effort: Optional[str] = None,
     audio_format: Optional[AudioFormat] = None,
     cascaded_config: Any = None,
+    live_config: Optional["LiveConfig"] = None,
+    trace_path: Optional[Path] = None,
 ) -> Tuple[DiscreteTimeAdapter, str]:
     """Create a discrete-time adapter for the given provider.
 
@@ -399,6 +405,8 @@ def create_adapter(
         audio_format: Audio format for external communication. Defaults to
             telephony (8kHz μ-law).
         cascaded_config: Configuration for cascaded providers (livekit).
+        live_config: Frontend and delegated backend configuration for OpenAI Live.
+        trace_path: Optional private protocol trace for OpenAI Live.
 
     Returns:
         Tuple of (adapter, resolved_model).
@@ -412,6 +420,8 @@ def create_adapter(
 
     # --- Resolve model default ---
     if model is None:
+        if provider == "openai_live":
+            raise ValueError("openai_live requires an explicit frontend model")
         if provider == "livekit":
             from tau2.voice.audio_native.livekit.config import CascadedConfig
 
@@ -441,6 +451,22 @@ def create_adapter(
             model=model,
             reasoning_effort=reasoning_effort,
             audio_format=audio_format,
+        )
+    elif provider == "openai_live":
+        from tau2.voice.audio_native.openai.live_adapter import (
+            DiscreteTimeOpenAILiveAdapter,
+        )
+
+        if live_config is None:
+            raise ValueError("openai_live requires live_config with a backend model")
+        adapter = DiscreteTimeOpenAILiveAdapter(
+            tick_duration_ms=tick_duration_ms,
+            model=model,
+            config=live_config,
+            reasoning_effort=reasoning_effort,
+            send_audio_instant=send_audio_instant,
+            audio_format=audio_format,
+            trace_path=trace_path,
         )
     elif provider == "gemini":
         from tau2.voice.audio_native.gemini.discrete_time_adapter import (
