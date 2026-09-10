@@ -93,6 +93,7 @@ def compute_simulation_rewards(
     evaluation_type: EvaluationType = EvaluationType.ALL,
     console: Optional[Console] = None,
     fresh_tasks: bool = False,
+    judge_llm: Optional[str] = None,
 ) -> Results:
     """
     Compute and update rewards for all simulations in the results.
@@ -103,6 +104,8 @@ def compute_simulation_rewards(
         console: Optional Rich console for output
         fresh_tasks: Re-grade against the current task definitions from the
             data directory instead of the ones embedded in the results file.
+        judge_llm: The LLM used by the NL assertions judge. Defaults to
+            DEFAULT_LLM_NL_ASSERTIONS when None.
     """
     results = deepcopy(results)
     if fresh_tasks:
@@ -131,6 +134,7 @@ def compute_simulation_rewards(
                 mode=get_communication_mode(results, simulation),
                 env_kwargs=_build_eval_env_kwargs(domain, task),
                 strict_replay=False,
+                judge_llm=judge_llm,
             )
 
             # Update the simulation with new reward info
@@ -150,6 +154,7 @@ def evaluate_trajectories(
     output_dir: str | None = None,
     evaluation_type: EvaluationType = EvaluationType.ALL,
     fresh_tasks: bool = False,
+    judge_llm: Optional[str] = None,
 ) -> None:
     """
     Evaluate trajectories and optionally save updated results with recomputed rewards.
@@ -160,6 +165,8 @@ def evaluate_trajectories(
         evaluation_type: Type of evaluation to perform
         fresh_tasks: Re-grade against the current task definitions from the data
             directory instead of the ones embedded in each results file.
+        judge_llm: The LLM used by the NL assertions judge. Defaults to
+            DEFAULT_LLM_NL_ASSERTIONS when None.
     """
     files = expand_paths(input_paths, extension=".json")
     console = ConsoleDisplay.console
@@ -201,6 +208,7 @@ def evaluate_trajectories(
                 evaluation_type=evaluation_type,
                 console=console,
                 fresh_tasks=fresh_tasks,
+                judge_llm=judge_llm,
             )
             console.print(
                 f"  ✅ Computed rewards for {len(updated_results.simulations)} simulation(s)",
@@ -265,6 +273,11 @@ def make_parser():
         action="store_true",
         help="Re-grade against the current task definitions from the data directory instead of the ones embedded in each results file.",
     )
+    parser.add_argument(
+        "--judge-llm",
+        default=None,
+        help="The LLM to use as the judge for natural-language assertions. Defaults to the configured judge model.",
+    )
     return parser
 
 
@@ -273,7 +286,12 @@ def main():
     logger.configure(handlers=[{"sink": sys.stderr, "level": "ERROR"}])
     parser = make_parser()
     args = parser.parse_args()
-    evaluate_trajectories(args.paths, args.output_dir, fresh_tasks=args.fresh_tasks)
+    evaluate_trajectories(
+        args.paths,
+        args.output_dir,
+        fresh_tasks=args.fresh_tasks,
+        judge_llm=args.judge_llm,
+    )
 
 
 if __name__ == "__main__":

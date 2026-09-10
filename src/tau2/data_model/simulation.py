@@ -26,6 +26,8 @@ from tau2.config import (
     DEFAULT_LLM_ARGS_AGENT,
     DEFAULT_LLM_ARGS_USER,
     DEFAULT_LLM_EVAL_USER_SIMULATOR,
+    DEFAULT_LLM_NL_ASSERTIONS,
+    DEFAULT_LLM_NL_ASSERTIONS_ARGS,
     DEFAULT_LLM_USER,
     DEFAULT_LOG_LEVEL,
     DEFAULT_MAX_CONCURRENCY,
@@ -322,6 +324,22 @@ class BaseRunConfig(BaseModel):
         Field(
             description="The arguments to pass to the LLM for the user simulator",
             default_factory=lambda: deepcopy(DEFAULT_LLM_ARGS_USER),
+        ),
+    ]
+
+    # ---- NL assertions judge ----
+    judge_llm: Annotated[
+        str,
+        Field(
+            description="The model to use for the natural-language assertions judge",
+            default=DEFAULT_LLM_NL_ASSERTIONS,
+        ),
+    ]
+    judge_llm_args: Annotated[
+        dict,
+        Field(
+            description="The arguments to pass to the LLM for the natural-language assertions judge",
+            default_factory=lambda: deepcopy(DEFAULT_LLM_NL_ASSERTIONS_ARGS),
         ),
     ]
 
