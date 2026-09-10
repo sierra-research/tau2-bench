@@ -154,6 +154,7 @@ def review_simulation(
 def check_hallucination(
     simulation: SimulationRun,
     task: Task,
+    review_model: str = DEFAULT_LLM_EVAL_USER_SIMULATOR,
 ) -> HallucinationCheck:
     """
     Check a simulation for user simulator hallucinations.
@@ -180,6 +181,7 @@ def check_hallucination(
     return FullDuplexHallucinationReviewer.review(
         task=task,
         full_trajectory=simulation.ticks,
+        review_model=review_model,
     )
 
 
