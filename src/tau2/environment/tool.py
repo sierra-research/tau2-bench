@@ -178,8 +178,9 @@ class Tool(BaseTool):
 
     @override
     def _call(self, *args: Any, **kwargs: Any) -> Any:
-        kwargs.update(self._predefined)  # use predefined kwargs
-        return self._func(*args, **kwargs)
+        validated_kwargs = self.params.model_validate(kwargs).model_dump()
+        validated_kwargs.update(self._predefined)  # use predefined kwargs
+        return self._func(*args, **validated_kwargs)
 
 
 def as_tool(func: Callable, **kwargs: Any) -> Tool:
