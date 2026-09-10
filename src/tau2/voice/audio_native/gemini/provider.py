@@ -448,7 +448,9 @@ class GeminiLiveProvider:
                 # Enable context window compression for long sessions.
                 # Leave parameters unset so the API uses model-dependent defaults.
                 config_kwargs["context_window_compression"] = (
-                    types.ContextWindowCompressionConfig()
+                    types.ContextWindowCompressionConfig(
+                        sliding_window=types.SlidingWindow()
+                    )
                 )
 
             # Add session resumption config (enables receiving resumption handles)
