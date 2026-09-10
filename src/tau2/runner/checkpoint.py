@@ -321,12 +321,6 @@ def create_checkpoint_fns(
         ):
             with lock:
                 old_sim_id = _key_to_sim_id.get(key)
-                if old_sim_id:
-                    old_path = sims_dir / f"{old_sim_id}.json"
-                    if old_path.exists():
-                        old_path.unlink()
-                    _index_by_id.pop(old_sim_id, None)
-
                 sim_path = sims_dir / f"{simulation.id}.json"
                 fd, tmp_path = tempfile.mkstemp(
                     suffix=".json", prefix=".sim_", dir=sims_dir
@@ -339,6 +333,15 @@ def create_checkpoint_fns(
                     if os.path.exists(tmp_path):
                         os.unlink(tmp_path)
                     raise
+                # Keep the previous trajectory and index until the new file has
+                # been written successfully. The retry may reuse the same id,
+                # in which case os.replace has already replaced the old file.
+                if old_sim_id:
+                    if old_sim_id != simulation.id:
+                        old_path = sims_dir / f"{old_sim_id}.json"
+                        if old_path.exists():
+                            old_path.unlink()
+                    _index_by_id.pop(old_sim_id, None)
                 _key_to_sim_id[key] = simulation.id
                 _saved_keys.discard(key)
                 _saved_keys.add(key)
