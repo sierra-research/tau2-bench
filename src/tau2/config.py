@@ -161,7 +161,7 @@ _LEGACY_GEMINI_MODEL = "gemini-live-2.5-flash-native-audio"
 DEFAULT_GEMINI_VOICE = "Zephyr"  # overridable
 DEFAULT_GEMINI_PROACTIVE_AUDIO = True  # fixed
 DEFAULT_GEMINI_LOCATION = "us-central1"  # fixed
-DEFAULT_GEMINI_INPUT_SAMPLE_RATE = 16000  # fixed, API-defined
+DEFAULT_GEMINI_INPUT_SAMPLE_RATE = 8000  # fixed, API-defined
 DEFAULT_GEMINI_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 
 # =============================================================================

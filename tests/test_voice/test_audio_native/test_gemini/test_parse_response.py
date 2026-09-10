@@ -291,3 +291,25 @@ class TestCombinedResponse:
         assert (
             len([e for e in events if isinstance(e, GeminiFunctionCallDoneEvent)]) == 1
         )
+
+
+class TestGeminiInputSampleRate:
+    """Test Gemini input sample rate configuration."""
+
+    def test_adapter_default_8khz(self):
+        """DiscreteTimeGeminiAdapter defaults to 8000 Hz input sample rate."""
+        from tau2.voice.audio_native.gemini.discrete_time_adapter import (
+            DiscreteTimeGeminiAdapter,
+        )
+
+        adapter = DiscreteTimeGeminiAdapter(tick_duration_ms=200)
+        assert adapter.input_sample_rate == 8000
+
+    def test_adapter_explicit_16khz(self):
+        """DiscreteTimeGeminiAdapter accepts an explicit 16000 Hz input sample rate."""
+        from tau2.voice.audio_native.gemini.discrete_time_adapter import (
+            DiscreteTimeGeminiAdapter,
+        )
+
+        adapter = DiscreteTimeGeminiAdapter(tick_duration_ms=200, input_sample_rate=16000)
+        assert adapter.input_sample_rate == 16000
