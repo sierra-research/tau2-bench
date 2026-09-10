@@ -25,6 +25,7 @@ class EnvironmentResponse(BaseModel):
 
 
 class SetStateRequest(BaseModel):
+    initialization_data: Optional[InitializationData] = None
     actions: list[Action]
     message_history: list[Message]
 
@@ -152,7 +153,12 @@ class EnvironmentManager:
 
         @self.app.post("/{env_id}/set_state")
         async def set_state(env_id: str, request: SetStateRequest) -> StatusResponse:
-            self.set_environment_state(env_id, request.actions, request.message_history)
+            self.set_environment_state(
+                env_id,
+                request.initialization_data,
+                request.actions,
+                request.message_history,
+            )
             return StatusResponse(status="success")
 
         @self.app.post("/{env_id}/stop_environment")
@@ -202,7 +208,7 @@ class EnvironmentManager:
     def set_environment_state(
         self,
         env_id: str,
-        initialization_data: InitializationData,
+        initialization_data: Optional[InitializationData],
         initialization_actions: list[EnvFunctionCall],
         message_history: list[tuple[str, Message]],
     ):
