@@ -282,6 +282,14 @@ def add_run_args(parser):
         help="JSON config for openai_live: backend_model (required), voice, frontend_prompt, backend_prompt.",
     )
     parser.add_argument(
+        "--realtime-generation",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Run user LLM/TTS generation without blocking audio ticks. "
+        "Defaults to enabled for openai_live and disabled for other providers. "
+        "Use --no-realtime-generation to disable.",
+    )
+    parser.add_argument(
         "--reasoning-effort",
         type=str,
         choices=["minimal", "low", "medium", "high", "xhigh"],
@@ -637,6 +645,7 @@ def main():
                 cascaded_config_name=args.cascaded_config,
                 reasoning_effort=args.reasoning_effort,
                 live_config=args.live_config,
+                realtime_generation=args.realtime_generation,
                 # Timing
                 tick_duration_seconds=args.tick_duration,
                 max_steps_seconds=args.max_steps_seconds,

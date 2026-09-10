@@ -299,7 +299,7 @@ def build_voice_user(
         tick_duration_seconds=audio_native_config.tick_duration_seconds,
         persona_config=persona_config,
         audio_taps_dir=audio_taps_dir,
-        realtime_generation=audio_native_config.provider == "openai_live",
+        realtime_generation=audio_native_config.realtime_generation_enabled,
     )
 
 
