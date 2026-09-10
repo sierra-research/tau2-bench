@@ -386,6 +386,13 @@ def generate(
         os.environ["VERTEXAI_LOCATION"] = "global"
 
     litellm_messages = to_litellm_messages(messages)
+    if model.startswith(("anthropic/", "claude-")):
+        conversation = [m for m in litellm_messages if m["role"] != "system"]
+        # The voice customer may be prompted after silence, with no initial
+        # user turn or with its own previous reply last. Avoid Anthropic
+        # treating that reply as an assistant prefill and returning no text.
+        if not conversation or conversation[-1]["role"] == "assistant":
+            litellm_messages.append({"role": "user", "content": "Please continue."})
     tools_schema = [tool.openai_schema for tool in tools] if tools else None
     if tools_schema and tool_choice is None:
         tool_choice = "auto"

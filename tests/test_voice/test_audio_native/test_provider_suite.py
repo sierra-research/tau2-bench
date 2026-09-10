@@ -73,6 +73,13 @@ TESTDATA_DIR = Path(__file__).parent / "testdata"
 # have credentials for.
 PROVIDERS = [
     pytest.param(
+        "livekit-cartesia",
+        marks=pytest.mark.skipif(
+            not os.environ.get("CARTESIA_TEST_ENABLED"),
+            reason="CARTESIA_TEST_ENABLED not set",
+        ),
+    ),
+    pytest.param(
         "gemini",
         marks=pytest.mark.skipif(
             not (
@@ -330,6 +337,7 @@ def provider_name(request) -> str:
 
 
 CASCADED_CONFIG_ALIASES = {
+    "livekit-cartesia": ("livekit", "cartesia-haiku"),
     "livekit-thinking": ("livekit", "openai-thinking"),
 }
 

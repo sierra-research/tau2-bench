@@ -493,9 +493,12 @@ def make_voice_run_settings(
     from the config (so a worker process re-derives the same values)."""
     if not isinstance(config, VoiceRunConfig):
         return None, None
-    user_voice_settings = VoiceSettings(
-        transcription_config=None,
-        synthesis_config=SynthesisConfig(),
+    user_voice_settings = (
+        config.user_voice_settings.model_copy(deep=True)
+        if config.user_voice_settings is not None
+        else VoiceSettings(
+            transcription_config=None, synthesis_config=SynthesisConfig()
+        )
     )
     complexity_config = COMPLEXITY_CONFIGS[config.speech_complexity]
     user_persona_config = PersonaConfig(

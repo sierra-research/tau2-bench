@@ -12,6 +12,8 @@ from typing import Dict, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
+from tau2.voice_config import DEFAULT_CARTESIA_TTS_MODEL
+
 # =============================================================================
 # STT Configurations
 # =============================================================================
@@ -50,7 +52,16 @@ class DeepgramSTTConfig(BaseModel):
 
 
 # Type alias for STT configs (extensible for future providers)
-STTConfig = DeepgramSTTConfig
+class CartesiaSTTConfig(BaseModel):
+    """Streaming Cartesia ASR with model-provided speech boundaries."""
+
+    provider: Literal["cartesia"] = "cartesia"
+    model: str = "ink-2"
+    language: str = "en"
+    utterance_end_ms: int = 2000
+
+
+STTConfig = Union[DeepgramSTTConfig, CartesiaSTTConfig]
 
 
 # =============================================================================
@@ -154,7 +165,17 @@ class ElevenLabsTTSConfig(BaseModel):
 
 
 # Type alias for TTS configs
-TTSConfig = Union[DeepgramTTSConfig, ElevenLabsTTSConfig]
+class CartesiaTTSConfig(BaseModel):
+    """Cartesia agent voice and PCM sample rate."""
+
+    provider: Literal["cartesia"] = "cartesia"
+    model: str = DEFAULT_CARTESIA_TTS_MODEL
+    voice_id: str = "16212f18-4955-4be9-a6cd-2196ce2c11d1"
+    language: str = "en"
+    sample_rate: int = 24000
+
+
+TTSConfig = Union[DeepgramTTSConfig, ElevenLabsTTSConfig, CartesiaTTSConfig]
 
 
 # =============================================================================
@@ -188,6 +209,11 @@ class CascadedConfig(BaseModel):
 # =============================================================================
 
 CASCADED_CONFIGS: Dict[str, CascadedConfig] = {
+    "cartesia-haiku": CascadedConfig(
+        stt=CartesiaSTTConfig(),
+        llm=AnthropicLLMConfig(model="claude-haiku-4-5-20251001", temperature=0.0),
+        tts=CartesiaTTSConfig(),
+    ),
     # Default: Balanced speed and quality
     "default": CascadedConfig(
         stt=DeepgramSTTConfig(model="nova-3"),

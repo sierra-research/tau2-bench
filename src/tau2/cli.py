@@ -39,6 +39,7 @@ from tau2.data_model.simulation import (
     TextRunConfig,
     VoiceRunConfig,
 )
+from tau2.data_model.voice import SynthesisConfig, VoiceSettings
 from tau2.domains.banking_knowledge.retrieval import get_all_variant_names
 from tau2.run import get_options, run_domain
 from tau2.runner.work import parse_provider_limits
@@ -266,7 +267,7 @@ def add_run_args(parser):
         type=str,
         default=None,
         help="Cascaded config preset name for livekit provider. "
-        "Available presets: 'default', 'openai-thinking'. "
+        "Available presets: 'default', 'openai-thinking', 'cartesia-haiku'. "
         "See tau2.voice.audio_native.livekit.config for details.",
     )
     parser.add_argument(
@@ -311,6 +312,12 @@ def add_run_args(parser):
         ],
         default=DEFAULT_SPEECH_COMPLEXITY,
         help=f"Speech complexity level for audio effects. Default is '{DEFAULT_SPEECH_COMPLEXITY}'.",
+    )
+
+    parser.add_argument(
+        "--user-tts-config",
+        type=str,
+        help="Path to a SynthesisConfig JSON file for customer speech (e.g. Cartesia).",
     )
 
     # Audio-native: Sample rates
@@ -681,11 +688,22 @@ def main():
             retrieval_config_kwargs=args.retrieval_config_kwargs,
         )
 
+        user_voice_settings = None
+        if args.user_tts_config:
+            if audio_native_config is None:
+                raise ValueError("--user-tts-config requires --audio-native")
+            with open(args.user_tts_config, encoding="utf-8") as f:
+                synthesis = SynthesisConfig.model_validate_json(f.read())
+            user_voice_settings = VoiceSettings(
+                transcription_config=None, synthesis_config=synthesis
+            )
+
         if audio_native_config is not None:
             config = VoiceRunConfig(
                 **shared_kwargs,
                 audio_native_config=audio_native_config,
                 speech_complexity=args.speech_complexity,
+                user_voice_settings=user_voice_settings,
                 audio_debug=getattr(args, "audio_debug", False),
                 audio_taps=getattr(args, "audio_taps", False),
             )

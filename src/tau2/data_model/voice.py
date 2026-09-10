@@ -1,10 +1,11 @@
 # Copyright Sierra
 """Voice data models for synthesis, transcription, and audio effects."""
 
+import os
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 from tau2.config import DEFAULT_SEED
 from tau2.data_model.audio import AudioEncoding, AudioFormat
@@ -17,6 +18,8 @@ from tau2.data_model.persona import PersonaConfig
 from tau2.data_model.voice_personas import DEFAULT_PERSONA_NAME, get_elevenlabs_voice_id
 from tau2.voice_config import (
     BURST_NOISE_EVENTS_PER_MINUTE,
+    DEFAULT_CARTESIA_API_VERSION,
+    DEFAULT_CARTESIA_TTS_MODEL,
     DEFAULT_TRANSCRIPTION_MODEL,
     DEFAULT_VOICE_SYNTHESIS_PROVIDER,
     ELEVENLABS_AUDIO_TAGS_PROBABILITY,
@@ -98,7 +101,21 @@ class ElevenLabsTTSConfig(BaseModel):
     seed: Optional[int] = Field(default=None)
 
 
-ProviderConfig = ElevenLabsTTSConfig
+class CartesiaTTSConfig(BaseModel):
+    """Cartesia customer speech; voice IDs are separate from ElevenLabs personas."""
+
+    model_id: str = DEFAULT_CARTESIA_TTS_MODEL
+    api_version: str = DEFAULT_CARTESIA_API_VERSION
+    voice_id: Optional[str] = None
+    persona_voice_ids: dict[str, str] = Field(default_factory=dict)
+    locale: str = "en"
+
+    @property
+    def output_audio_format(self) -> AudioFormat:
+        return AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=16000)
+
+
+ProviderConfig = ElevenLabsTTSConfig | CartesiaTTSConfig
 
 
 # ============================================================================
@@ -120,6 +137,43 @@ class SynthesisConfig(BaseModel):
     speech_effects_config: SpeechEffectsConfig = Field(
         default_factory=SpeechEffectsConfig
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_provider_config(cls, value):
+        """Restore the correct config type when loading saved runs or CLI JSON."""
+        if isinstance(value, dict):
+            value = dict(value)
+            provider = value.get("provider", "elevenlabs")
+            config_type = {
+                "elevenlabs": ElevenLabsTTSConfig,
+                "cartesia": CartesiaTTSConfig,
+            }.get(provider)
+            if config_type is None:
+                raise ValueError(f"Unsupported synthesis provider: {provider}")
+            config = value.get("provider_config")
+            if config is None or isinstance(config, dict):
+                value["provider_config"] = config_type.model_validate(config or {})
+            elif not isinstance(config, config_type):
+                raise ValueError(f"Wrong provider_config type for {provider}")
+        return value
+
+    def resolve_voice_id(self, persona_name: str) -> str:
+        """Resolve a provider-specific voice, failing rather than using the wrong ID."""
+        config = self.provider_config
+        if self.provider == "cartesia":
+            key = f"TAU2_CARTESIA_VOICE_ID_{persona_name.upper()}"
+            voice_id = (
+                config.persona_voice_ids.get(persona_name)
+                or os.getenv(key)
+                or config.voice_id
+            )
+            if not voice_id or not voice_id.strip():
+                raise ValueError(
+                    f"Set {key}, persona_voice_ids[{persona_name!r}], or an explicit Cartesia voice_id"
+                )
+            return voice_id
+        return get_elevenlabs_voice_id(persona_name)
 
 
 class SynthesisResult(BaseModel):

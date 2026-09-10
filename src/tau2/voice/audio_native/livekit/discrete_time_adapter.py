@@ -49,7 +49,11 @@ from tau2.data_model.usage import UsageRecord
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter
 from tau2.voice.audio_native.audio_converter import StreamingTelephonyConverter
-from tau2.voice.audio_native.livekit.config import CascadedConfig, DeepgramTTSConfig
+from tau2.voice.audio_native.livekit.config import (
+    CartesiaTTSConfig,
+    CascadedConfig,
+    DeepgramTTSConfig,
+)
 from tau2.voice.audio_native.livekit.provider import (
     CascadedEvent,
     CascadedEventType,
@@ -125,6 +129,8 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
         # Event queue for non-blocking tick processing.
         # Background tasks push events here; ticks drain within their time budget.
         self._event_queue: asyncio.Queue[CascadedEvent] = asyncio.Queue()
+        self._response_task: Optional[asyncio.Task] = None
+        self._suppress_response_audio = False
 
         # Audio buffering for tick alignment
         # Excess audio from one tick is carried over to the next
@@ -143,7 +149,7 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
         # Audio format conversion (telephony ↔ internal formats)
         # TTS sample rate depends on config (Deepgram=24kHz, ElevenLabs varies)
         tts_sample_rate = 24000  # default
-        if isinstance(self.cascaded_config.tts, DeepgramTTSConfig):
+        if isinstance(self.cascaded_config.tts, (DeepgramTTSConfig, CartesiaTTSConfig)):
             tts_sample_rate = self.cascaded_config.tts.sample_rate
         self._audio_converter = StreamingTelephonyConverter(
             input_sample_rate=16000,
@@ -206,6 +212,8 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
             self._tick_count = 0
             self._utterance_transcripts.clear()
             self._current_utterance_id = None
+            self._response_task = None
+            self._suppress_response_audio = False
             logger.info(
                 f"LiveKitCascadedAdapter connected "
                 f"(tick={self.tick_duration_ms}ms, bytes_per_tick={self.bytes_per_tick})"
@@ -255,7 +263,7 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
 
         if self._loop is not None and self._provider is not None:
             future = asyncio.run_coroutine_threadsafe(
-                self._provider.disconnect(),
+                self._disconnect_provider(),
                 self._loop,
             )
             try:
@@ -271,6 +279,15 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
         self._audio_converter.reset()
         logger.info("LiveKitCascadedAdapter disconnected")
 
+    async def _disconnect_provider(self) -> None:
+        """Finish pipeline tasks before closing their HTTP sessions and event loop."""
+        current = asyncio.current_task()
+        pending = [task for task in asyncio.all_tasks() if task is not current]
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+        await self._provider.disconnect()
+
     def _start_background_loop(self) -> None:
         """Start the background thread with async event loop."""
         if self._loop is not None:
@@ -280,6 +297,8 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
             self._loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self._loop)
             self._loop.run_forever()
+            self._loop.run_until_complete(self._loop.shutdown_asyncgens())
+            self._loop.close()
 
         self._thread = threading.Thread(target=run_loop, daemon=True)
         self._thread.start()
@@ -352,6 +371,11 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
         """
         try:
             async for event in async_gen:
+                if event.type in (
+                    CascadedEventType.LLM_STARTED,
+                    CascadedEventType.TTS_STARTED,
+                ):
+                    self._response_task = asyncio.current_task()
                 await self._event_queue.put(event)
         except Exception as e:
             logger.error(f"Background pipeline error: {e}")
@@ -538,7 +562,16 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
             vad_events: List to append VAD event names to.
             tool_calls: List to append tool calls to.
         """
-        if event.type == CascadedEventType.LLM_COMPLETED:
+        if event.type == CascadedEventType.ERROR:
+            raise RuntimeError(
+                f"LiveKit {event.data.get('stage', 'provider')} error: "
+                f"{event.data.get('error', 'unknown provider error')}"
+            )
+
+        elif event.type == CascadedEventType.LLM_STARTED:
+            self._suppress_response_audio = False
+
+        elif event.type == CascadedEventType.LLM_COMPLETED:
             # Store transcript for the current utterance for proportional
             # distribution across ticks as audio plays back.
             text = event.text or ""
@@ -553,7 +586,7 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
 
         elif event.type == CascadedEventType.TTS_AUDIO:
             audio = event.audio
-            if audio:
+            if audio and not self._suppress_response_audio:
                 # Convert TTS audio from internal format to telephony (8kHz μ-law)
                 telephony_audio = self._audio_converter.convert_output(audio)
                 utterance_id = f"utt_{self._utterance_counter}"
@@ -637,7 +670,12 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
         if has_agent_audio:
             vad_events.append("interrupted")
             self._clear_agent_audio(agent_audio_chunks)
-            logger.debug("Barge-in: cleared buffered agent audio")
+            self._suppress_response_audio = True
+            if self._response_task is not None and not self._response_task.done():
+                self._response_task.cancel()
+            logger.debug(
+                "Barge-in: cancelled response and cleared buffered agent audio"
+            )
 
     def _clear_agent_audio(
         self,
