@@ -120,7 +120,7 @@ def test_create_adapter_uses_default_live_frontend_model(monkeypatch):
         live_config=LiveConfig(backend_model="test-backend"),
     )
 
-    assert model == DEFAULT_OPENAI_LIVE_MODEL == "gpt-live-submission"
+    assert model == DEFAULT_OPENAI_LIVE_MODEL == "gpt-live-1-diamond-alpha"
     assert adapter.model == DEFAULT_OPENAI_LIVE_MODEL
 
 

@@ -94,7 +94,7 @@ def test_default_provider_limits_include_openai_live():
 def test_openai_live_uses_default_frontend_model(spec):
     parsed = parse_provider(spec)
 
-    assert parsed.model == DEFAULT_OPENAI_LIVE_MODEL == "gpt-live-submission"
+    assert parsed.model == DEFAULT_OPENAI_LIVE_MODEL == "gpt-live-1-diamond-alpha"
 
 
 @pytest.mark.parametrize(
