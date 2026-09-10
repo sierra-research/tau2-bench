@@ -632,7 +632,11 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         audio_format = self.audio_format
 
         # Check if there was actual speech (not just silence padding)
-        has_speech = len(tick_result.agent_audio_data) > 0
+        has_speech = (
+            tick_result.contains_speech
+            if tick_result.contains_speech is not None
+            else len(tick_result.agent_audio_data) > 0
+        )
 
         audio_content = base64.b64encode(agent_audio).decode("utf-8")
         content = transcript if transcript else None

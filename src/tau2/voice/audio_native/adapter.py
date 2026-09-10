@@ -91,6 +91,8 @@ class DiscreteTimeAdapter(ABC):
             self.audio_format.bytes_per_second * tick_duration_ms / 1000
         )
         self.send_audio_instant = send_audio_instant
+        self.realtime_pacing = False
+        self._next_tick_start: float | None = None
         self._voip_interval_ms = DEFAULT_AUDIO_NATIVE_VOIP_PACKET_INTERVAL_MS
 
         # Shared tick state (managed by _async_run_tick template)
@@ -181,6 +183,7 @@ class DiscreteTimeAdapter(ABC):
         survive disconnect() so it can be collected at simulation end.
         """
         self._buffered_agent_audio.clear()
+        self._next_tick_start = None
         self._utterance_transcripts.clear()
         self._pending_tool_results.clear()
         self._skip_item_id = None
@@ -227,6 +230,10 @@ class DiscreteTimeAdapter(ABC):
         Subclasses implement _execute_tick() and _flush_pending_tool_results().
         """
         tick_start = asyncio.get_running_loop().time()
+        if self.realtime_pacing:
+            if self._next_tick_start is not None:
+                tick_start = self._next_tick_start
+            self._next_tick_start = tick_start + self.tick_duration_ms / 1000
         self._current_tick_number = tick_number
 
         # 1. Flush pending tool results
@@ -248,9 +255,8 @@ class DiscreteTimeAdapter(ABC):
         )
 
         # 3. Prepend buffered audio from previous tick
-        for chunk_data, item_id in self._buffered_agent_audio:
-            result.agent_audio_chunks.append((chunk_data, item_id))
-        self._buffered_agent_audio.clear()
+        result.agent_audio_chunks = self._buffered_agent_audio
+        self._buffered_agent_audio = []
 
         # 4. Carry over skip state
         result.skip_item_id = self._skip_item_id
