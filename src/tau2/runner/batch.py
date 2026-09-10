@@ -11,7 +11,6 @@ execute them.
 import asyncio
 import asyncio.base_events
 import json
-import multiprocessing
 import os
 import random
 import threading
@@ -756,7 +755,7 @@ def prepare_batch(
     if config.llm_args_user and "seed" in config.llm_args_user:
         logger.warning("Each trial will modify the seed for the user")
 
-    lock = multiprocessing.Lock()
+    lock = threading.Lock()
 
     # Create run-level voice settings and persona config for voice mode
     user_voice_settings, user_persona_config = make_voice_run_settings(config)
