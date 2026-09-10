@@ -13,7 +13,6 @@ from tau2.config import DEFAULT_TELEPHONY_RATE
 from tau2.data_model.audio import AudioData
 from tau2.data_model.audio_effects import UserSpeechInsert
 from tau2.data_model.voice import SynthesisConfig
-from tau2.data_model.voice_personas import get_elevenlabs_voice_id
 from tau2.voice.synthesis.audio_effects.effects import apply_constant_muffling
 from tau2.voice.synthesis.synthesize import synthesize_voice
 from tau2.voice.utils.audio_preprocessing import resample_audio
@@ -124,7 +123,7 @@ def create_streaming_audio_generators(
     out_of_turn_items = speech_config.get_out_of_turn_speech_inserts()
 
     if out_of_turn_items:
-        voice_id = get_elevenlabs_voice_id(persona_name)
+        voice_id = synthesis_config.resolve_voice_id(persona_name)
         provider_config_with_voice = deepcopy(synthesis_config.provider_config)
         provider_config_with_voice.voice_id = voice_id
         out_of_turn_speech_generator = OutOfTurnSpeechGenerator(

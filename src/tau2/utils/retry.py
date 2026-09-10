@@ -75,6 +75,8 @@ def _is_retryable_tts_error(e: Exception) -> bool:
     exc_name = type(e).__name__.lower()
     if "timeout" in exc_name or "readtimeout" in exc_name:
         return True
+    if isinstance(e, httpx.HTTPStatusError):
+        return e.response.status_code in (409, 429) or e.response.status_code >= 500
     # HTTP status code based retries
     if hasattr(e, "status_code") and e.status_code is not None:
         # Retry on rate limiting (429), conflict (409), and server errors (5xx)

@@ -124,3 +124,7 @@ MIN_WORDS_FOR_VOCAL_TICS = 3
 
 # Backchannel
 BACKCHANNEL_PHRASES = ["uh-huh", "mm-hmm"]
+
+# Cartesia customer synthesis (pin model snapshots for reproducible runs).
+DEFAULT_CARTESIA_TTS_MODEL = "sonic-3.6-2026-08-27"
+DEFAULT_CARTESIA_API_VERSION = "2026-08-14"

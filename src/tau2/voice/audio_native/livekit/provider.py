@@ -30,6 +30,8 @@ from tau2.data_model.message import ToolCall
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.livekit.config import (
     AnthropicLLMConfig,
+    CartesiaSTTConfig,
+    CartesiaTTSConfig,
     CascadedConfig,
     DeepgramSTTConfig,
     DeepgramTTSConfig,
@@ -356,7 +358,10 @@ class CascadedVoiceProvider:
         # Stop STT stream
         await self._stop_stt_stream()
 
-        # Cleanup clients
+        # Close plugin resources before discarding clients.
+        for client in (self._stt_client, self._llm_client, self._tts_client):
+            if client is not None:
+                await client.aclose()
         self._stt_client = None
         self._llm_client = None
         self._tts_client = None
@@ -399,6 +404,15 @@ class CascadedVoiceProvider:
             except ImportError as e:
                 logger.error(f"Failed to import livekit-plugins-deepgram: {e}")
                 raise
+        elif isinstance(config, CartesiaSTTConfig):
+            from livekit.plugins import cartesia
+
+            self._stt_client = cartesia.STT(
+                model=config.model,
+                language=config.language,
+                sample_rate=DEFAULT_PCM_SAMPLE_RATE,
+                http_session=self._http_session,
+            )
         else:
             raise ValueError(f"Unknown STT config type: {type(config)}")
 
@@ -475,6 +489,16 @@ class CascadedVoiceProvider:
             except ImportError as e:
                 logger.error(f"Failed to import livekit-plugins-elevenlabs: {e}")
                 raise
+        elif isinstance(config, CartesiaTTSConfig):
+            from livekit.plugins import cartesia
+
+            self._tts_client = cartesia.TTS(
+                model=config.model,
+                voice=config.voice_id,
+                language=config.language,
+                sample_rate=config.sample_rate,
+                http_session=self._http_session,
+            )
         else:
             raise ValueError(f"Unknown TTS config type: {type(config)}")
 

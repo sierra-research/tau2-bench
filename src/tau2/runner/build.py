@@ -246,6 +246,15 @@ def build_voice_user(
         synthesis_config=task_voice_settings.synthesis_config,
     )
 
+    # Apply provider limitations after loading presets, including pre-sampled files.
+    if task_voice_settings.synthesis_config.provider == "cartesia":
+        sampled_voice_config = sampled_voice_config.model_copy(deep=True)
+        if sampled_voice_config.speech_effects_config.enable_vocal_tics:
+            logger.warning(
+                "Cartesia customer simulation disables ElevenLabs-only vocal tics; this is a modified speech condition."
+            )
+        sampled_voice_config.speech_effects_config.enable_vocal_tics = False
+
     # Update synthesis_config with merged effect configs
     task_voice_settings.synthesis_config.channel_effects_config = (
         sampled_voice_config.channel_effects_config
@@ -259,6 +268,14 @@ def build_voice_user(
 
     # Set speech environment
     speech_environment = sampled_voice_config.to_speech_environment(task_seed)
+    speech_environment.voice_id = task_voice_settings.synthesis_config.resolve_voice_id(
+        speech_environment.persona_name
+    )
+    # Persist the resolved voice so a saved task need not depend on environment overrides.
+    if task_voice_settings.synthesis_config.provider == "cartesia":
+        task_voice_settings.synthesis_config.provider_config.persona_voice_ids[
+            speech_environment.persona_name
+        ] = speech_environment.voice_id
     task_voice_settings.speech_environment = speech_environment
 
     # Use provided persona config or fall back to sampled config

@@ -136,3 +136,90 @@ See the [Voice Persona Setup Guide](../../docs/voice-personas.md) for step-by-st
 | `ELEVENLABS_API_KEY` | User simulator TTS (synthesis) |
 | `DEEPGRAM_API_KEY` | Transcription (Deepgram nova-2, nova-3) |
 | `TAU2_VOICE_ID_*` | Custom voice ID overrides (see [Voice Persona Setup](../../docs/voice-personas.md)) |
+
+## Cartesia customer speech
+
+The customer simulator can use Cartesia TTS independently of the agent provider.
+Install the voice dependencies and set `CARTESIA_API_KEY`, then run:
+
+```bash
+tau2 run --domain retail --audio-native --num-tasks 1 --num-trials 1 \
+  --speech-complexity control --verbose-logs \
+  --user-tts-config examples/voice/cartesia-customer.json
+```
+
+This example uses the single Hao stock voice for **all** customer personas and
+pins `sonic-3.6-2026-08-27`. It is a smoke-test configuration, not a reproduction
+of the standard customer accents. The command retains the default OpenAI agent
+and therefore also needs OpenAI access. It does not configure the agent's ASR or
+TTS; customer synthesis and the evaluated agent are independent.
+
+For persona-specific voices, remove the example's `voice_id` and supply
+`provider_config.persona_voice_ids`, mapping persona names such as `matt_delaney`
+and `lisa_brenner` to Cartesia voice IDs. Alternatively set
+`TAU2_CARTESIA_VOICE_ID_MATT_DELANEY`, `TAU2_CARTESIA_VOICE_ID_LISA_BRENNER`, etc.
+Resolution order is JSON persona mapping, persona environment variable, then an
+explicit shared `voice_id`. Missing voices fail instead of falling back to an
+ElevenLabs ID. Choose and audition voices matching the intended personas before
+comparing configurations. The standard `TAU2_VOICE_ID_*` variables remain
+ElevenLabs-only.
+
+The customer text LLM, policies, task definitions, and scoring are unchanged.
+Speech uses 16 kHz mono PCM before the existing noise, muffling, telephony, and
+frame-loss processing. Normal utterances, backchannels, and non-directed phrases
+all use the selected Cartesia voice. `[pause]` becomes a 500 ms Cartesia break.
+ElevenLabs-only cough/sneeze/sniffle inserts are disabled **after** task presets
+are loaded, including for `regular`; this is recorded in the task's effective
+speech settings. Those tags are rejected if they reach the Cartesia API helper.
+Other speech conditions and their timing settings remain in place.
+
+These are **modified customer-simulator conditions**, not directly comparable
+with the standard ElevenLabs results. Saved settings include the provider,
+model snapshot, API version, resolved task voice IDs, and effective effects.
+Credentials are read from the environment and are not part of the Cartesia
+configuration. No ElevenLabs API key is needed for Cartesia customer synthesis.
+
+Programmatically, pass `VoiceSettings(transcription_config=None,
+synthesis_config=SynthesisConfig(provider="cartesia",
+provider_config=CartesiaTTSConfig(...)))` as `VoiceRunConfig.user_voice_settings`.
+
+To check only the customer side (one short Cartesia request; no agent/LLM API):
+
+```bash
+uv run examples/voice/cartesia_customer_smoke.py
+```
+
+It saves a WAV and effective configuration under
+`data/simulations/cartesia-customer-smoke/` after passing through the real
+customer simulator's synthesis and telephony conversion.
+
+### Ten conversations with Cartesia on both sides
+
+With `ANTHROPIC_API_KEY` and `CARTESIA_API_KEY` in the environment or `.env`:
+
+```bash
+uv run examples/voice/run_cartesia_customer_examples.py
+```
+
+This runs retail tasks 0, 2, 5, 10, 12, 15, 16, 17, 18, and 21 once,
+with two conversations at a time and a 300-second conversation limit.
+The evaluated agent uses LiveKit's Cartesia Ink 2 ASR, Claude Haiku 4.5
+(`claude-haiku-4-5-20251001`), and Cartesia Sonic 3.6 with the Hao voice.
+The customer uses Haiku 4.5 for dialogue and the same Cartesia TTS snapshot.
+The `control` speech setting uses clean audio. This is an example run of a
+cascaded agent, not a test of Cartesia Managed Agents orchestration.
+Anthropic requests receive a "Please continue." user cue when initializing
+the customer or prompting it again after silence; this avoids assistant prefill.
+
+Results and audio are saved under `data/simulations/cartesia-haiku-both-10/`.
+Cartesia usage quantities are recorded, but total dollar cost is unavailable
+because the pricing table does not encode Cartesia's plan-dependent credits.
+To run live adapter validation, set `CARTESIA_TEST_ENABLED=1` and run
+`uv run tests/test_voice/test_audio_native/run_provider_suite.py`; its dollar-cost
+coverage assertion currently fails for Cartesia for that reason.
+
+If a batch is interrupted or blocked by API billing, rerun the example script
+with `--auto-resume` after resolving the issue. Completed calls are retained;
+infrastructure failures are retried. Use
+`uv run examples/voice/summarize_cartesia_examples.py` to export readable
+transcripts, tool calls, and `example-index.json` alongside the recordings.

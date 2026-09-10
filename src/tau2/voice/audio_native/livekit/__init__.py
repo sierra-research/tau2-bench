@@ -70,24 +70,15 @@ def preregister_livekit_plugins() -> None:
 
     Must be called from the main thread before any workers are created.
     """
+    from importlib import import_module
+
     from loguru import logger
 
-    try:
-        # Import the plugins - this triggers their registration
-        from livekit.plugins import (  # noqa: F401
-            anthropic,
-            deepgram,
-            elevenlabs,
-            openai,
-        )
-
-        logger.debug("LiveKit plugins pre-registered on main thread")
-    except ImportError as e:
-        logger.warning(
-            f"Failed to pre-register LiveKit plugins: {e}. "
-            "Install with: pip install livekit-plugins-openai livekit-plugins-deepgram "
-            "livekit-plugins-anthropic livekit-plugins-elevenlabs"
-        )
+    for plugin in ("anthropic", "cartesia", "deepgram", "elevenlabs", "openai"):
+        try:
+            import_module(f"livekit.plugins.{plugin}")
+        except ImportError:
+            logger.debug(f"Optional LiveKit plugin {plugin} is not installed")
 
 
 __all__ = [
