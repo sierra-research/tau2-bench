@@ -420,8 +420,6 @@ def create_adapter(
 
     # --- Resolve model default ---
     if model is None:
-        if provider == "openai_live":
-            raise ValueError("openai_live requires an explicit frontend model")
         if provider == "livekit":
             from tau2.voice.audio_native.livekit.config import CascadedConfig
 

@@ -279,7 +279,7 @@ def add_run_args(parser):
         "--live-config",
         type=json.loads,
         default=None,
-        help="JSON config for openai_live: backend_model (required), voice, frontend_prompt, backend_prompt.",
+        help="JSON config for openai_live: backend_model (required), voice, and optional frontend_prompt/backend_prompt overrides.",
     )
     parser.add_argument(
         "--realtime-generation",
@@ -627,8 +627,6 @@ def main():
             # Resolve model based on provider if not specified
             audio_native_model = args.audio_native_model
             if audio_native_model is None:
-                if args.audio_native_provider == "openai_live":
-                    parser.error("openai_live requires --audio-native-model")
                 audio_native_model = DEFAULT_AUDIO_NATIVE_MODELS[
                     args.audio_native_provider
                 ]

@@ -55,7 +55,7 @@ from typing import List, Optional
 
 import pytest
 
-from tau2.config import TELEPHONY_ULAW_SILENCE
+from tau2.config import DEFAULT_OPENAI_LIVE_MODEL, TELEPHONY_ULAW_SILENCE
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter, create_adapter
 from tau2.voice.audio_native.openai.live_config import LiveConfig
@@ -80,11 +80,10 @@ PROVIDERS = [
                 os.environ.get(key)
                 for key in (
                     "OPENAI_API_KEY",
-                    "OPENAI_LIVE_MODEL",
                     "OPENAI_LIVE_BACKEND_MODEL",
                 )
             ),
-            reason="OpenAI Live credentials and model names are required",
+            reason="OpenAI Live credentials and backend model are required",
         ),
     ),
     pytest.param(
@@ -358,7 +357,7 @@ def adapter(provider_name: str):
     model = None
 
     if provider_name == "openai_live":
-        model = os.environ["OPENAI_LIVE_MODEL"]
+        model = os.environ.get("OPENAI_LIVE_MODEL", DEFAULT_OPENAI_LIVE_MODEL)
         live_config = LiveConfig(backend_model=os.environ["OPENAI_LIVE_BACKEND_MODEL"])
 
     if provider_name in CASCADED_CONFIG_ALIASES:

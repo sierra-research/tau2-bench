@@ -95,7 +95,7 @@ class AudioNativeConfig(BaseModel):
     )
     live_config: Optional[LiveConfig] = Field(
         default=None,
-        description="Backend, voice and split prompts for the openai_live provider",
+        description="Backend model, voice, and optional prompt overrides for the openai_live provider",
     )
     realtime_generation: Optional[bool] = Field(
         default=None,

@@ -5,12 +5,16 @@ import sys
 import pytest
 
 from experiments.tau_voice.run_multiple import (
+    DEFAULT_PROVIDER_LIMITS,
     ProviderSpec,
     build_command,
     build_config,
+    parse_provider,
 )
 from tau2.cli import add_run_args
+from tau2.config import DEFAULT_OPENAI_LIVE_MODEL
 from tau2.data_model.simulation import AudioNativeConfig
+from tau2.runner.work import parse_provider_limits
 
 
 def test_build_command_uses_current_python_and_user_llm_args():
@@ -38,6 +42,59 @@ def test_build_config_sets_user_llm_args():
     )
 
     assert config.llm_args_user == {"reasoning_effort": "xhigh"}
+
+
+def test_build_command_sets_openai_live_backend_config():
+    command = build_command(
+        "retail",
+        ProviderSpec(provider="openai_live", model="gpt-live"),
+        "regular",
+        "/tmp/results",
+        live_backend_model="gpt-backend",
+        live_voice="cedar",
+    )
+
+    config_index = command.index("--live-config")
+    assert json.loads(command[config_index + 1]) == {
+        "backend_model": "gpt-backend",
+        "voice": "cedar",
+    }
+
+
+def test_build_config_sets_openai_live_backend_config():
+    config = build_config(
+        "retail",
+        ProviderSpec(provider="openai_live", model="gpt-live"),
+        "regular",
+        "/tmp/results",
+        live_backend_model="gpt-backend",
+        live_voice="cedar",
+    )
+
+    assert config.audio_native_config.live_config.backend_model == "gpt-backend"
+    assert config.audio_native_config.live_config.voice == "cedar"
+
+
+@pytest.mark.parametrize("builder", [build_command, build_config])
+def test_openai_live_requires_backend_model(builder):
+    with pytest.raises(ValueError, match="--live-backend-model"):
+        builder(
+            "retail",
+            ProviderSpec(provider="openai_live", model="gpt-live"),
+            "regular",
+            "/tmp/results",
+        )
+
+
+def test_default_provider_limits_include_openai_live():
+    assert parse_provider_limits(DEFAULT_PROVIDER_LIMITS)["openai_live"] == 40
+
+
+@pytest.mark.parametrize("spec", ["openai_live", "openai_live::medium"])
+def test_openai_live_uses_default_frontend_model(spec):
+    parsed = parse_provider(spec)
+
+    assert parsed.model == DEFAULT_OPENAI_LIVE_MODEL == "gpt-live-1-diamond-alpha"
 
 
 @pytest.mark.parametrize(

@@ -273,8 +273,7 @@ class OpenAILiveProvider(OpenAIRealtimeProvider):
     def _build_session(self, system_prompt: str, tools: list[Tool]) -> dict:
         responses = {
             "model": self.config.backend_model,
-            "instructions": self.config.backend_prompt
-            + ("\n\n" + system_prompt if self.config.append_system_prompt else ""),
+            "instructions": self.config.render_backend_prompt(system_prompt),
             "tools": self._format_tools_for_api(tools),
             "tool_choice": "auto",
             "parallel_tool_calls": False,
@@ -283,7 +282,7 @@ class OpenAILiveProvider(OpenAIRealtimeProvider):
             responses["reasoning"] = {"effort": self.reasoning_effort}
         return {
             "model": self.model,
-            "instructions": self.config.frontend_prompt,
+            "instructions": self.config.render_frontend_prompt(system_prompt),
             "audio": {"output": {"voice": self.config.voice}},
             "delegation": {"type": "responses", "responses": responses},
         }
