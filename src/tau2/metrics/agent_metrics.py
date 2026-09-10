@@ -135,14 +135,21 @@ def get_metrics_df(results: Results) -> tuple[pd.DataFrame, int]:
     """
     df = results.to_df()
 
-    infra_count = (
-        df.termination_reason == TerminationReason.INFRASTRUCTURE_ERROR
-    ).sum()
+    # Compare against the enum value rather than the enum member: under
+    # pandas 3.x the str-Enum column is inferred as a string dtype, whose
+    # elements are the raw values (e.g. "infrastructure_error"), while
+    # str(Enum member) is "TerminationReason.INFRASTRUCTURE_ERROR", so
+    # comparing the column to the member never matches and infrastructure
+    # errors are silently kept.
+    infra_mask = (
+        df.termination_reason == TerminationReason.INFRASTRUCTURE_ERROR.value
+    )
+    infra_count = infra_mask.sum()
     if infra_count > 0:
         logger.warning(
             f"Excluding {infra_count} infrastructure error simulation(s) from metrics."
         )
-        df = df[df.termination_reason != TerminationReason.INFRASTRUCTURE_ERROR]
+        df = df[~infra_mask]
 
     if df.empty:
         df["success"] = pd.Series(dtype=bool)
@@ -170,6 +177,13 @@ def get_tasks_pass_hat_k(results: Results) -> pd.DataFrame:
     """
     Compute the pass^k for each k from 1 to the maximum number of trials.
     """
+    # Build task infos from the unfiltered data so that tasks for which every
+    # trial ended with an infrastructure error still appear in the index:
+    # such tasks have zero successful trials and must contribute pass^k = 0
+    # to the task-level average instead of vanishing from the denominator
+    # (which would inflate pass^k, e.g. reporting 100% from a single
+    # successful simulation).
+    df_all = results.to_df()
     df, max_k = get_metrics_df(results)
     if df.empty or max_k == 0:
         return pd.DataFrame()
@@ -186,8 +200,12 @@ def get_tasks_pass_hat_k(results: Results) -> pd.DataFrame:
         "task_num_user_actions",
         "task_num_actions",
     ]
-    df_task_infos = df.groupby("task_id").first()[task_columns]
+    df_task_infos = df_all.groupby("task_id").first()[task_columns]
     df_pass_hat_k = df_task_infos.join(df_pass_hat_k)
+    # All-infrastructure-error tasks have no pass^k values after the join;
+    # they had zero successful trials, so fill with 0.0.
+    pass_columns = [c for c in df_pass_hat_k.columns if c.startswith("pass^")]
+    df_pass_hat_k[pass_columns] = df_pass_hat_k[pass_columns].fillna(0.0)
     return df_pass_hat_k
 
 
@@ -244,9 +262,12 @@ def compute_metrics(results: Results) -> AgentMetrics:
             pass_hat_ks[k] = df_pass_hat_k[column].mean()
     avg_agent_cost = df.agent_cost.mean()
 
-    # Counts exclude infrastructure errors
+    # Simulation counts exclude infrastructure errors (they never ran), but
+    # the task count covers the full configured evaluation matrix: a task
+    # whose trials all hit infrastructure errors is still a task that was not
+    # passed, so it must not disappear from task-level denominators.
     total_simulations = len(evaluated_sims)
-    total_tasks = len(set(sim.task_id for sim in evaluated_sims))
+    total_tasks = len(set(sim.task_id for sim in results.simulations))
 
     # Action metrics
     total_read_actions = 0
