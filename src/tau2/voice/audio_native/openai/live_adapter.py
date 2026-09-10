@@ -16,6 +16,7 @@ from tau2.voice.audio_native.openai.discrete_time_adapter import (
 from tau2.voice.audio_native.openai.events import AudioDeltaEvent
 from tau2.voice.audio_native.openai.live_config import LiveConfig
 from tau2.voice.audio_native.openai.live_provider import (
+    LiveInputTranscriptDelta,
     LiveTranscriptDelta,
     OpenAILiveProvider,
 )
@@ -90,6 +91,12 @@ class DiscreteTimeOpenAILiveAdapter(DiscreteTimeOpenAIAdapter):
         )
 
     async def _process_event(self, result: TickResult, event: object) -> None:
+        if isinstance(event, LiveInputTranscriptDelta):
+            # Live does not expose a separate VAD event. A timed input transcript
+            # delta is its structured indication that user speech was detected.
+            result.events.append(event)
+            result.vad_events.append("speech_started")
+            return
         if isinstance(event, LiveTranscriptDelta):
             result.events.append(event)
             self._transcript_deltas.append(event)

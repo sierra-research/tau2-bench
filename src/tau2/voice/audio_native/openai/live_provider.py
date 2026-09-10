@@ -8,7 +8,7 @@ import json
 import time
 from fractions import Fraction
 from pathlib import Path
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Literal
 
 import aiohttp
 import numpy as np
@@ -46,6 +46,15 @@ class LiveTranscriptDelta(AudioTranscriptDeltaEvent):
     """A native transcript delta located on the received PCM timeline."""
 
     audio_position_bytes: int
+    start_ms: int
+    end_ms: int
+
+
+class LiveInputTranscriptDelta(BaseRealtimeEvent):
+    """A timed input-transcript delta emitted by the Live frontend."""
+
+    type: Literal["session.input_transcript.delta"]
+    delta: str
     start_ms: int
     end_ms: int
 
@@ -400,6 +409,16 @@ class OpenAILiveProvider(OpenAIRealtimeProvider):
                     type="response.output_audio_transcript.delta",
                     delta=data["delta"],
                     audio_position_bytes=data["audio_position_bytes"],
+                    start_ms=data["start_ms"],
+                    end_ms=data["end_ms"],
+                )
+            ]
+        if event_type == "session.input_transcript.delta":
+            return [
+                LiveInputTranscriptDelta(
+                    type=event_type,
+                    event_id=data.get("event_id"),
+                    delta=data["delta"],
                     start_ms=data["start_ms"],
                     end_ms=data["end_ms"],
                 )
