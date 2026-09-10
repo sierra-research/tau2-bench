@@ -88,6 +88,7 @@ def get_environment(
         policy=policy,
         tools=tools,
         user_tools=user_tools,
+        enable_write_critic=True,
     )
 
 
