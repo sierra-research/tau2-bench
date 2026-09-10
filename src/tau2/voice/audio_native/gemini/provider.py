@@ -488,6 +488,14 @@ class GeminiLiveProvider:
                     thinking_level=self.reasoning_effort.upper(),
                 )
 
+            config_kwargs["realtime_input_config"] = types.RealtimeInputConfig(
+                automatic_activity_detection=types.AutomaticActivityDetection(
+                    start_of_speech_sensitivity=(
+                        types.StartSensitivity.START_SENSITIVITY_HIGH
+                    ),
+                )
+            )
+
             config = types.LiveConnectConfig(**config_kwargs)
 
             # Connect to the API - IMPORTANT: keep reference to context manager
