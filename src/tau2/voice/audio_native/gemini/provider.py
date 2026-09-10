@@ -610,6 +610,24 @@ class GeminiLiveProvider:
             logger.error(f"Session resumption failed: {e}")
             return False
 
+    def _goaway_deadline_elapsed(self) -> bool:
+        """Whether a GoAway deadline has passed without the receive loop acting.
+
+        The receive loop only re-checks `_reconnect_deadline` when a response
+        arrives (it is otherwise blocked in `async for response in turn`). If
+        the server goes silent after sending GoAway, that check never runs and
+        the reconnection window is missed entirely. The adapter polls this from
+        its own tick loop, which keeps running independently of the receive
+        task, so the deadline is honored either way.
+        """
+        if not self._reconnect_at_turn_boundary or self._reconnect_deadline is None:
+            return False
+        try:
+            now = asyncio.get_running_loop().time()
+        except RuntimeError:  # no running loop (called from sync context)
+            return False
+        return now >= self._reconnect_deadline
+
     @property
     def needs_reconnection(self) -> bool:
         """Whether a GoAway reconnection is pending.
@@ -617,7 +635,7 @@ class GeminiLiveProvider:
         The adapter should check this at the start of each tick and call
         perform_pending_reconnection() before any session I/O.
         """
-        return self._pending_reconnection
+        return self._pending_reconnection or self._goaway_deadline_elapsed()
 
     async def perform_pending_reconnection(self) -> bool:
         """Perform a pending GoAway reconnection.
@@ -630,7 +648,17 @@ class GeminiLiveProvider:
             True if reconnection succeeded, False otherwise.
         """
         if not self._pending_reconnection:
-            return True
+            if not self._goaway_deadline_elapsed():
+                return True
+            # GoAway deadline expired while the receive loop sat blocked on a
+            # silent server. Take over the reconnection here.
+            logger.warning(
+                "GoAway deadline elapsed without the receive loop reacting "
+                "(server silent); forcing reconnection at tick boundary"
+            )
+            self._reconnect_at_turn_boundary = False
+            self._reconnect_deadline = None
+            self._pending_reconnection = True
 
         self._pending_reconnection = False
 
