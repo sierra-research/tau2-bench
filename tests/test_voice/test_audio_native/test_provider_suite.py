@@ -202,6 +202,13 @@ def make_silence(tick_duration_ms: int = TICK_DURATION_MS) -> bytes:
     return TELEPHONY_ULAW_SILENCE * num_bytes
 
 
+def has_agent_speech(result: TickResult) -> bool:
+    """Use normalized activity when a continuous-media adapter provides it."""
+    if result.contains_speech is not None:
+        return result.contains_speech
+    return result.agent_audio_bytes > 0
+
+
 def _make_order_tool() -> Tool:
     """Create the get_order_status tool used in tool-call tests."""
 
@@ -324,7 +331,7 @@ def run_ticks_until(
         assert_audio_capping(result, adapter)
         assert_played_audio_length(result, adapter)
 
-        if stop_when == "agent_audio" and result.agent_audio_bytes > 0:
+        if stop_when == "agent_audio" and has_agent_speech(result):
             return results
         if stop_when == "tool_call" and result.tool_calls:
             return results
@@ -499,7 +506,7 @@ class TestSingleTurn:
             connected_adapter, chunks, timer, stop_when="agent_audio"
         )
 
-        got_audio = any(r.agent_audio_bytes > 0 for r in results)
+        got_audio = any(has_agent_speech(r) for r in results)
         assert got_audio, (
             f"Agent did not produce audio within {len(results)} ticks "
             f"({len(results) * TICK_DURATION_MS}ms) for {audio_file}"
@@ -538,7 +545,7 @@ class TestMultiTurn:
         results_t1 = run_ticks_until(
             connected_adapter, t1_chunks, timer, stop_when="agent_audio"
         )
-        got_audio_t1 = any(r.agent_audio_bytes > 0 for r in results_t1)
+        got_audio_t1 = any(has_agent_speech(r) for r in results_t1)
         assert got_audio_t1, "Turn 1: agent did not produce audio"
 
         # Let the agent finish responding (drain remaining audio)
@@ -564,10 +571,10 @@ class TestMultiTurn:
             results_t2.append(result)
             assert_audio_capping(result, connected_adapter)
             assert_played_audio_length(result, connected_adapter)
-            if result.agent_audio_bytes > 0:
+            if has_agent_speech(result):
                 break
 
-        got_audio_t2 = any(r.agent_audio_bytes > 0 for r in results_t2)
+        got_audio_t2 = any(has_agent_speech(r) for r in results_t2)
         assert got_audio_t2, "Turn 2: agent did not produce audio"
 
 
@@ -621,7 +628,7 @@ class TestToolCall:
             result = timer.run_tick(adapter, silence, tick_offset + tick + 1)
             assert_audio_capping(result, adapter)
             assert_played_audio_length(result, adapter)
-            if result.agent_audio_bytes > 0:
+            if has_agent_speech(result):
                 got_response_audio = True
                 break
 
@@ -658,7 +665,7 @@ class TestUsageReporting:
         results = run_ticks_until(
             connected_adapter, chunks, timer, stop_when="agent_audio"
         )
-        assert any(r.agent_audio_bytes > 0 for r in results), (
+        assert any(has_agent_speech(r) for r in results), (
             "Agent never produced audio; cannot check usage reporting"
         )
 
@@ -757,7 +764,7 @@ class TestBargeIn:
         results = run_ticks_until(
             adapter, trigger_chunks, timer, stop_when="agent_audio"
         )
-        assert any(r.agent_audio_bytes > 0 for r in results), (
+        assert any(has_agent_speech(r) for r in results), (
             f"Agent never started speaking for {audio_file}"
         )
 
@@ -808,9 +815,7 @@ class TestBargeIn:
         results = run_ticks_until(
             adapter, trigger_chunks, timer, stop_when="agent_audio"
         )
-        assert any(r.agent_audio_bytes > 0 for r in results), (
-            "Agent never started speaking"
-        )
+        assert any(has_agent_speech(r) for r in results), "Agent never started speaking"
 
         tick_num = len(results)
         silence = make_silence()
@@ -820,7 +825,7 @@ class TestBargeIn:
             tick_num += 1
             result = timer.run_tick(adapter, silence, tick_num)
             assert_audio_capping(result, adapter)
-            if result.agent_audio_bytes > 0:
+            if has_agent_speech(result):
                 agent_audio_ticks += 1
             if agent_audio_ticks >= MIN_AGENT_AUDIO_TICKS:
                 break
@@ -855,9 +860,7 @@ class TestBargeIn:
         results = run_ticks_until(
             adapter, trigger_chunks, timer, stop_when="agent_audio"
         )
-        assert any(r.agent_audio_bytes > 0 for r in results), (
-            "Agent never started speaking"
-        )
+        assert any(has_agent_speech(r) for r in results), "Agent never started speaking"
 
         # Phase 2: let agent speak for INTERRUPT_AFTER_TICKS (~1 second)
         tick_num = len(results)
@@ -868,7 +871,7 @@ class TestBargeIn:
             tick_num += 1
             result = timer.run_tick(adapter, silence, tick_num)
             assert_audio_capping(result, adapter)
-            if result.agent_audio_bytes > 0:
+            if has_agent_speech(result):
                 agent_audio_ticks += 1
             if agent_audio_ticks >= INTERRUPT_AFTER_TICKS:
                 break
@@ -903,7 +906,7 @@ class TestBargeIn:
 
             # After interruption, track silence
             if interruption_tick is not None:
-                if result.agent_audio_bytes > 0:
+                if has_agent_speech(result):
                     trailing_audio_ticks += 1
                     consecutive_silence = 0
                 else:

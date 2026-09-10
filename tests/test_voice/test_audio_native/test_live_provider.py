@@ -26,6 +26,7 @@ from tau2.voice.audio_native.openai.events import (
 from tau2.voice.audio_native.openai.live_adapter import DiscreteTimeOpenAILiveAdapter
 from tau2.voice.audio_native.openai.live_config import LiveConfig
 from tau2.voice.audio_native.openai.live_provider import (
+    LiveInputTranscriptDelta,
     LiveTranscriptDelta,
     OpenAILiveProvider,
     _LiveInputAudioTrack,
@@ -151,6 +152,54 @@ def test_audio_arrives_without_any_turn_or_transcript_marker(provider):
     assert len(events) == 1
     assert isinstance(events[0], AudioDeltaEvent)
     assert base64.b64decode(events[0].delta) == pcm
+
+
+def test_input_transcript_delta_preserves_structured_speech_timing(provider):
+    events = provider._normalize_event(
+        {
+            "type": "session.input_transcript.delta",
+            "event_id": "event-1",
+            "delta": " hello",
+            "start_ms": 1200,
+            "end_ms": 1400,
+        }
+    )
+
+    assert events == [
+        LiveInputTranscriptDelta(
+            type="session.input_transcript.delta",
+            event_id="event-1",
+            delta=" hello",
+            start_ms=1200,
+            end_ms=1400,
+        )
+    ]
+
+
+def test_input_transcript_delta_surfaces_normalized_speech_event(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-only")
+    adapter = DiscreteTimeOpenAILiveAdapter(
+        tick_duration_ms=200,
+        model="test-live",
+        config=LiveConfig(backend_model="test-backend"),
+    )
+    event = LiveInputTranscriptDelta(
+        type="session.input_transcript.delta",
+        delta=" hello",
+        start_ms=1200,
+        end_ms=1400,
+    )
+    result = TickResult(
+        tick_number=1,
+        audio_sent_bytes=1600,
+        audio_sent_duration_ms=200,
+    )
+
+    asyncio.run(adapter._process_event(result, event))
+
+    assert result.events == [event]
+    assert result.vad_events == ["speech_started"]
+    assert result.was_truncated is False
 
 
 def response_event(provider, event):
