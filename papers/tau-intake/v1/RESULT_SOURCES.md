@@ -163,26 +163,38 @@ simulator's silent `note_spell_request` / `note_readback` tools:
   without a continuity correction, with Holm correction across all ten voice
   pairs.
 
-## Realisms (agent-directed benchmark, pooled 12 cells)
+## Realisms (both prompting arms, 12 cells each)
 
-- Reproducer: `src/experiments/intake/realism_effects.py`; versioned output:
-  `analysis/intake_realism_effects_2026-09-07.json`, copied into the reviewer
-  archive under `reproduction/analysis_inputs/`. The artifact records all
-  12 input paths and SHA-256 hashes and verifies every stored assignment against
-  the deterministic catalog draw.
+- Reproducer: `src/experiments/intake/realism_effects.py`; versioned assignment-
+  effect outputs:
+  `analysis/intake_realism_effects_agent_directed_2026-09-11.json` and
+  `analysis/intake_realism_effects_scaffolded_2026-09-11.json`, both copied into
+  `reproduction/analysis_inputs/`. Each records all 12 input paths and SHA-256
+  hashes and verifies that the stored assignment for each task/environment unit
+  is identical across systems. The earlier agent-directed diagnostic artifact,
+  `analysis/intake_realism_effects_2026-09-07.json`, remains in the reviewer
+  archive for the observed-event and repair-cost checks below.
+- Regular and speech-heavy scaffolded runs use catalog 2.3.0; noise-heavy uses
+  2.4.0. Figure 4 therefore reports only subtypes common to both catalogs and
+  recovers the catalog-specific assignment probabilities within each environment.
 - The analysis unit is a task x environment assignment, with exact success
-  averaged across the four agent-directed systems. Each contrast retains units
+  averaged across the four systems in the selected arm. Each contrast retains units
   with positive probability of either the target realism or a clean draw, uses
   normalized inverse-probability (Hajek) means within each environment, and
   averages the three environment-specific effects.
-- Point estimates / assigned n and ESS / clean n and ESS: any realism -3.59 /
-  326, 291.4 / 166, 135.5; wrong-field answer -11.09 / 29, 26.0 / 166, 135.5;
-  spelling variation -8.71 / 94, 89.2 / 65, 61.9; self-correction -4.32 / 50,
-  45.6 / 166, 135.5; mispronunciation -0.50 / 49, 43.0 / 18, 15.2; and falter
-  and restart +2.04 / 99, 93.4 / 166, 135.5.
+- Agent-directed point estimates are -3.59 for any realism, -11.09 for a
+  wrong-field answer, -8.71 for spelling variation, -4.32 for self-correction,
+  and -0.50 for mispronunciation. Their 95% intervals are respectively
+  [-10.41, 3.01], [-22.13, 0.60], [-19.78, 2.50], [-14.34, 6.62], and
+  [-19.53, 15.01] points.
+- Scaffolded point estimates / assigned n and ESS / clean n and ESS: any realism
+  -4.16 / 195, 135.2 / 405, 369.5; wrong-field answer +2.42 / 19, 19.0 / 405,
+  369.5; spelling variation -7.41 / 70, 70.0 / 243, 223.6; self-correction
+  +0.33 / 30, 30.0 / 405, 369.5; and mispronunciation -1.31 / 39, 27.7 / 53,
+  45.4.
 - Two-sided randomization tests redraw the catalog's categorical assignment
-  100,000 times. Holm correction across the overall contrast and five estimable
-  subtypes gives a minimum adjusted p-value of .6664 (reported as .67).
+  100,000 times. Holm correction across the five displayed rows gives a minimum
+  adjusted p-value of .3569 (reported as .36).
 - Assignment is the intention-to-treat exposure and does not guarantee that a
   conditional realism is expressed. Across the four systems, spelling
   variation was assigned in 524 calls and 301 (57.4%) contained a spelling
@@ -212,8 +224,7 @@ simulator's silent `note_spell_request` / `note_readback` tools:
 - Valid utterances / mean severity / severity-2-or-higher count and rate are:
   GPT minimal 945 / .06984 / 24 (2.54%); GPT xhigh 1,142 / .05867 / 24
   (2.10%); Gemini high 1,046 / .09273 / 38 (3.63%); Grok 1,813 / .10425 / 74
-  (4.08%). Table values are rounded to three decimals and one percentage point
-  decimal.
+  (4.08%). The table reports the final rates, rounded to one decimal place.
 - The judge returned valid JSON for 4,946 of 4,948 utterances. One GPT-minimal
   and one Grok utterance repeatedly hit the output limit; both remain explicit
   `ERROR` records and are excluded from the denominator by the scoring
@@ -265,54 +276,52 @@ simulator's silent `note_spell_request` / `note_readback` tools:
 
 - `intake_final/intake_text200_xhigh_textpolicy_2026-08-27`: 200/200 = 1.00.
 
-## Pending analyses not shown in the compact manuscript
+## Human failure validation
 
-- Failure attribution on the current agent-directed cells. The completed validation
-  below is a separate, earlier provider-default cohort.
+- Frozen release-safe artifact:
+  `data/simulations/paper_runs/tau-elicit/judge_validation/human_failure_validation_90/`.
+- Unit and sample: 90 reward-zero calls, with 30 calls per provider.
+- `calls.csv` contains stable identifiers and final structured source and
+  subtype labels only. It excludes call-level notes and all speech-fidelity
+  fields or findings.
 
-## Human validation (separate earlier cohort)
-
-- Frozen annotation directory:
-  `data/simulations/paper_runs/tau-elicit/judge_validation/intake_review_100_2026-08-27/`
-- Source run:
-  `data/simulations/intake_bm200_2026-08-26_chanlight_speechheavy/` (no longer
-  kept locally; Drive: `Multilingual Tau/intake_paper_runs_2026-08-29/`)
-- Sample: 100 OpenAI `gpt-realtime-2` provider-default,
-  channel-light/speech-heavy calls: 70 reward-1 and 30 reward-0 calls.
-- Raters: Niko and Ian Belcher. Each reviewed every call from audio and later
-  supplied source attribution with the transcript and reward available. The
-  reported error-type summary uses calls 41--100. Both raters independently
-  reviewed all 41 fidelity-judge findings; strict metrics count only findings
-  confirmed by both.
-- Raw returns:
-  `niko_review.csv`, `ian_belcher_review.csv`, `niko_decisions.csv`, and
-  `ian_belcher_decisions.csv` in the frozen annotation directory.
-- Frozen summary:
-  `data/simulations/paper_runs/tau-elicit/judge_validation/intake_review_100_2026-08-27/results.md`.
-
-Post-reveal source attribution on the 30 failing calls is:
+Resolved call-level source attribution is:
 
 | Attribution | n | Share |
 | --- | ---: | ---: |
-| Agent, both raters | 29 | 96.7% |
-| User simulator, both raters | 0 | 0.0% |
-| Raters split (agent vs. user) | 1 | 3.3% |
+| Agent | 81 | 90.0% |
+| User simulator | 2 | 2.2% |
+| Infrastructure/system | 0 | 0.0% |
+| No labeled failure | 3 | 3.3% |
+| Unresolved | 4 | 4.4% |
 
-In the held-out audio-review segment, when both raters identify an error on a failing
-call, they agree on its type 88% of the time. The 14 consensus errors are 12
-transcription errors and two logical errors; neither rater pair agrees on a
-hallucination. Post-reveal, both raters agree on 20 transcription and five
-logical errors across the 30 failing calls. Transcription failures concentrate
-in emails (6), coined names (4), and properties (3).
+Within the 81 calls resolved as agent failures, the fine-grained labels are:
 
-Fidelity-judge validation over all 100 calls and 41 findings is:
+| Failure subtype | n | Share |
+| --- | ---: | ---: |
+| Transcription | 42 | 51.9% |
+| Logical | 16 | 19.8% |
+| VAD | 6 | 7.4% |
+| Hallucination | 2 | 2.5% |
+| Unresolved | 15 | 18.5% |
 
-| Criterion | Precision | Call-level recall | F1 |
-| --- | ---: | ---: | ---: |
-| Strict (both raters) | 0.73 | 1.00 | 0.85 |
-| Lenient (either rater) | 0.85 | 0.73 | 0.79 |
+Both user-simulator failures are logical errors.
 
-All 21 calls with a consensus human fidelity defect receive at least one
-confirmed judge finding. Finding-decision agreement is 0.88 with Cohen's
-kappa 0.63. Per-factor counts range from 1 to 12 and are directional rather
-than stable factor-level estimates.
+## Speech-fidelity judge validation
+
+- Frozen release-safe artifact:
+  `data/simulations/paper_runs/tau-elicit/judge_validation/fidelity_validation_60/`.
+- Unit and sample: 60 agent utterances, with 30 utterances per provider. The
+  artifact contains only final human reference labels and judge predictions.
+- The paper's operating point is severity $\geq 2$, matching Table 4.
+
+| Threshold | TP | FP | FN | TN | Precision | Recall | F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Severity $\geq 2$ | 12 | 3 | 4 | 41 | 0.800 | 0.750 | 0.774 |
+| Any retained fidelity finding | 13 | 4 | 3 | 40 | 0.765 | 0.813 | 0.788 |
+
+The 60-row release CSV contains stable identifiers, final human labels, and
+machine predictions, but no intermediate labels, free-text notes, judge
+summaries, finding text, or audio. The separate 6,422-row speech-judgment
+export contains automated LLM judge outputs rather than human annotations and
+remains the source for Table 4.

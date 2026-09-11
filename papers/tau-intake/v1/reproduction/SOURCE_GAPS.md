@@ -4,6 +4,10 @@
 
 None. Both workflows in the release comparison have frozen sources.
 
+## Intentionally excluded annotation inputs
+
+Intermediate annotation material and free-text notes are intentionally excluded from the reviewer archive. The two release-safe validation bundles retain final structured labels and derived metrics only; this minimization is not a missing paper-claim artifact.
+
 ## Missing re-execution tools
 
 None. The paper's statistical analyses, observed realism-event counts, mispronunciation repair-cost diagnostic, and caller-voice comparisons are re-executable from the compact reviewer archive.

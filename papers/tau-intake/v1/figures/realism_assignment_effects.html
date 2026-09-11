@@ -3,105 +3,159 @@
 <head>
 <meta charset="utf-8">
 <style>
-  @page { size: 620px 295px; margin: 0; }
-  html, body { width: 620px; height: 295px; margin: 0; background: #fff; }
-  svg { display: block; width: 620px; height: 295px; font-family: "Times New Roman", Times, serif; }
+  @page { size: 620px 384px; margin: 0; }
+  html, body { width: 620px; height: 384px; margin: 0; background: #fff; }
+  svg { display: block; width: 620px; height: 384px; font-family: "Times New Roman", Times, serif; }
   text { fill: #111; font-size: 23px; }
   .summary { font-weight: 700; }
   .grid { stroke: #dedede; stroke-width: 1; }
   .zero { stroke: #444; stroke-width: 2; }
-  .interval { stroke: #2b78b8; stroke-width: 4; }
-  .cap { stroke: #2b78b8; stroke-width: 2.5; }
-  .point { fill: #2b78b8; }
+  .agent-interval { stroke: #2b78b8; stroke-width: 3.5; }
+  .scaffold-interval { stroke: #e87519; stroke-width: 3.5; stroke-dasharray: 8 5; }
+  .cap { stroke-width: 2.5; stroke-dasharray: none; }
+  .agent-marker { fill: #2b78b8; }
+  .scaffold-marker { fill: #fff; stroke: #e87519; stroke-width: 3; }
   .axis { stroke: #555; stroke-width: 1.5; }
   .axis-title { font-size: 23px; }
   .value { fill: #111; }
 </style>
 </head>
 <body>
-<svg viewBox="0 0 620 295" role="img" aria-labelledby="title desc">
-  <title id="title">Effect of assigning caller realisms</title>
-  <desc id="desc">Horizontal forest plot of percentage-point changes in exact task success. Every estimated 95 percent interval crosses zero.</desc>
+<svg viewBox="0 0 620 384" role="img" aria-labelledby="title desc">
+  <title id="title">Effect of assigning caller realisms by prompting arm</title>
+  <desc id="desc">Horizontal forest plot comparing agent-directed and scaffolded percentage-point changes in exact task success. Every estimated 95 percent interval crosses zero.</desc>
 
-  <text x="337" y="21" text-anchor="middle">hurts success</text>
-  <text x="512" y="21" text-anchor="middle">helps success</text>
+  <g aria-label="Legend">
+    <line class="agent-interval" x1="10" y1="17" x2="42" y2="17"/>
+    <circle class="agent-marker" cx="26" cy="17" r="6"/>
+    <text x="49" y="24">Agent-directed</text>
+    <line class="scaffold-interval" x1="190" y1="17" x2="222" y2="17"/>
+    <rect class="scaffold-marker" x="200" y="11" width="12" height="12"/>
+    <text x="229" y="24">Scaffolded</text>
+  </g>
+  <text x="380" y="24" text-anchor="middle">hurts</text>
+  <text x="490" y="24" text-anchor="middle">helps</text>
 
   <g aria-hidden="true">
-    <line class="grid" x1="279" y1="27" x2="279" y2="235"/>
-    <line class="grid" x1="357" y1="27" x2="357" y2="235"/>
-    <line class="zero" x1="434" y1="27" x2="434" y2="235"/>
-    <line class="grid" x1="512" y1="27" x2="512" y2="235"/>
-    <line class="grid" x1="590" y1="27" x2="590" y2="235"/>
-    <line class="axis" x1="240" y1="235" x2="590" y2="235"/>
-    <line class="axis" x1="279" y1="235" x2="279" y2="242"/>
-    <line class="axis" x1="357" y1="235" x2="357" y2="242"/>
-    <line class="axis" x1="434" y1="235" x2="434" y2="242"/>
-    <line class="axis" x1="512" y1="235" x2="512" y2="242"/>
-    <line class="axis" x1="590" y1="235" x2="590" y2="242"/>
-    <text x="279" y="264" text-anchor="middle">-20</text>
-    <text x="357" y="264" text-anchor="middle">-10</text>
-    <text x="434" y="264" text-anchor="middle">0</text>
-    <text x="512" y="264" text-anchor="middle">+10</text>
-    <text x="590" y="264" text-anchor="middle">+20</text>
-    <text class="axis-title" x="390" y="289" text-anchor="middle">Exact-success change (percentage points)</text>
+    <line class="grid" x1="298" y1="34" x2="298" y2="310"/>
+    <line class="grid" x1="353" y1="34" x2="353" y2="310"/>
+    <line class="zero" x1="409" y1="34" x2="409" y2="310"/>
+    <line class="grid" x1="465" y1="34" x2="465" y2="310"/>
+    <line class="grid" x1="520" y1="34" x2="520" y2="310"/>
+    <line class="axis" x1="270" y1="310" x2="520" y2="310"/>
+    <line class="axis" x1="298" y1="310" x2="298" y2="317"/>
+    <line class="axis" x1="353" y1="310" x2="353" y2="317"/>
+    <line class="axis" x1="409" y1="310" x2="409" y2="317"/>
+    <line class="axis" x1="465" y1="310" x2="465" y2="317"/>
+    <line class="axis" x1="520" y1="310" x2="520" y2="317"/>
+    <text x="298" y="338" text-anchor="middle">-20</text>
+    <text x="353" y="338" text-anchor="middle">-10</text>
+    <text x="409" y="338" text-anchor="middle">0</text>
+    <text x="465" y="338" text-anchor="middle">+10</text>
+    <text x="520" y="338" text-anchor="middle">+20</text>
+    <text class="axis-title" x="410" y="368" text-anchor="middle">Exact-success change (percentage points)</text>
   </g>
 
-  <g aria-label="Any caller realism, minus 3.6 points, 95 percent interval minus 10.4 to plus 3.0">
-    <text class="summary" x="228" y="46" text-anchor="end">Any realism</text>
-    <line class="interval" x1="353" y1="40" x2="457" y2="40"/>
-    <line class="cap" x1="353" y1="32" x2="353" y2="48"/>
-    <line class="cap" x1="457" y1="32" x2="457" y2="48"/>
-    <polygon points="407,30 417,40 407,50 397,40" fill="#111"/>
-    <text class="summary value" x="467" y="48">-3.6</text>
+  <g aria-label="Any realism">
+    <text class="summary" x="228" y="69" text-anchor="end">Any realism</text>
+
+    <g aria-label="Agent-directed, -3.6 points, 95 percent interval -10.4 to +3.0">
+      <line class="agent-interval" x1="351.10281995262187" y1="50" x2="425.7087653011964" y2="50"/>
+      <line class="agent-interval cap" x1="351.10281995262187" y1="44" x2="351.10281995262187" y2="56"/>
+      <line class="agent-interval cap" x1="425.7087653011964" y1="44" x2="425.7087653011964" y2="56"/>
+      <circle class="agent-marker" cx="389.0508449612439" cy="50" r="6"/>
+      <text class="value" x="433.7087653011964" y="57">-3.6</text>
+    </g>
+
+    <g aria-label="Scaffolded, -4.2 points, 95 percent interval -8.9 to +0.4">
+      <line class="scaffold-interval" x1="359.7501718376197" y1="74" x2="411.3736169233923" y2="74"/>
+      <line class="scaffold-interval cap" x1="359.7501718376197" y1="68" x2="359.7501718376197" y2="80"/>
+      <line class="scaffold-interval cap" x1="411.3736169233923" y1="68" x2="411.3736169233923" y2="80"/>
+      <rect class="scaffold-marker" x="379.8872737005345" y="68" width="12" height="12"/>
+      <text class="value" x="419.3736169233923" y="81">-4.2</text>
+    </g>
+  </g>
+  <line x1="8" y1="89" x2="612" y2="89" stroke="#bbb" stroke-width="1.5"/>
+
+  <g aria-label="Wrong-field">
+    <text x="228" y="121" text-anchor="end">Wrong-field</text>
+
+    <g aria-label="Agent-directed, -11.1 points, 95 percent interval -22.1 to +0.6">
+      <line class="agent-interval" x1="285.9531052674018" y1="102" x2="412.3280588975474" y2="102"/>
+      <line class="agent-interval cap" x1="285.9531052674018" y1="96" x2="285.9531052674018" y2="108"/>
+      <line class="agent-interval cap" x1="412.3280588975474" y1="96" x2="412.3280588975474" y2="108"/>
+      <circle class="agent-marker" cx="347.330107008412" cy="102" r="6"/>
+      <text class="value" x="420.3280588975474" y="109">-11.1</text>
+    </g>
+
+    <g aria-label="Scaffolded, +2.4 points, 95 percent interval -9.6 to +13.3">
+      <line class="scaffold-interval" x1="355.4779852598627" y1="126" x2="483.22504848828993" y2="126"/>
+      <line class="scaffold-interval cap" x1="355.4779852598627" y1="120" x2="355.4779852598627" y2="132"/>
+      <line class="scaffold-interval cap" x1="483.22504848828993" y1="120" x2="483.22504848828993" y2="132"/>
+      <rect class="scaffold-marker" x="416.42808662330964" y="120" width="12" height="12"/>
+      <text class="value" x="491.22504848828993" y="133">+2.4</text>
+    </g>
   </g>
 
-  <line x1="8" y1="57" x2="612" y2="57" stroke="#bbb" stroke-width="1.5"/>
+  <g aria-label="Spelling variation">
+    <text x="228" y="173" text-anchor="end">Spelling variation</text>
 
-  <g aria-label="Wrong-field answer, minus 11.1 points, 95 percent interval minus 22.1 to plus 0.6">
-    <text x="228" y="80" text-anchor="end">Wrong-field</text>
-    <line class="interval" x1="261" y1="74" x2="439" y2="74"/>
-    <line class="cap" x1="261" y1="66" x2="261" y2="82"/>
-    <line class="cap" x1="439" y1="66" x2="439" y2="82"/>
-    <circle class="point" cx="348" cy="74" r="7"/>
-    <text class="value" x="449" y="82">-11.1</text>
+    <g aria-label="Agent-directed, -8.7 points, 95 percent interval -19.8 to +2.5">
+      <line class="agent-interval" x1="299.0200112744366" y1="154" x2="422.90587216985574" y2="154"/>
+      <line class="agent-interval cap" x1="299.0200112744366" y1="148" x2="299.0200112744366" y2="160"/>
+      <line class="agent-interval cap" x1="422.90587216985574" y1="148" x2="422.90587216985574" y2="160"/>
+      <circle class="agent-marker" cx="360.5498462435217" cy="154" r="6"/>
+      <text class="value" x="430.90587216985574" y="161">-8.7</text>
+    </g>
+
+    <g aria-label="Scaffolded, -7.4 points, 95 percent interval -15.4 to +0.5">
+      <line class="scaffold-interval" x1="323.51281847030043" y1="178" x2="411.6555890386663" y2="178"/>
+      <line class="scaffold-interval cap" x1="323.51281847030043" y1="172" x2="323.51281847030043" y2="184"/>
+      <line class="scaffold-interval cap" x1="411.6555890386663" y1="172" x2="411.6555890386663" y2="184"/>
+      <rect class="scaffold-marker" x="361.80232093678484" y="172" width="12" height="12"/>
+      <text class="value" x="419.6555890386663" y="185">-7.4</text>
+    </g>
   </g>
 
-  <g aria-label="Spelling variation, minus 8.7 points, 95 percent interval minus 19.8 to plus 2.5">
-    <text x="228" y="114" text-anchor="end">Spelling variation</text>
-    <line class="interval" x1="280" y1="108" x2="454" y2="108"/>
-    <line class="cap" x1="280" y1="100" x2="280" y2="116"/>
-    <line class="cap" x1="454" y1="100" x2="454" y2="116"/>
-    <circle class="point" cx="367" cy="108" r="7"/>
-    <text class="value" x="464" y="116">-8.7</text>
+  <g aria-label="Self-correction">
+    <text x="228" y="225" text-anchor="end">Self-correction</text>
+
+    <g aria-label="Agent-directed, -4.3 points, 95 percent interval -14.3 to +6.6">
+      <line class="agent-interval" x1="329.2692218262354" y1="206" x2="445.7999027627631" y2="206"/>
+      <line class="agent-interval cap" x1="329.2692218262354" y1="200" x2="329.2692218262354" y2="212"/>
+      <line class="agent-interval cap" x1="445.7999027627631" y1="200" x2="445.7999027627631" y2="212"/>
+      <circle class="agent-marker" cx="384.99902469294733" cy="206" r="6"/>
+      <text class="value" x="453.7999027627631" y="213">-4.3</text>
+    </g>
+
+    <g aria-label="Scaffolded, +0.3 points, 95 percent interval -9.0 to +9.3">
+      <line class="scaffold-interval" x1="358.9325830601788" y1="230" x2="460.94262078419615" y2="230"/>
+      <line class="scaffold-interval cap" x1="358.9325830601788" y1="224" x2="358.9325830601788" y2="236"/>
+      <line class="scaffold-interval cap" x1="460.94262078419615" y1="224" x2="460.94262078419615" y2="236"/>
+      <rect class="scaffold-marker" x="404.8447532899764" y="224" width="12" height="12"/>
+      <text class="value" x="468.94262078419615" y="237">+0.3</text>
+    </g>
   </g>
 
-  <g aria-label="Self-correction, minus 4.3 points, 95 percent interval minus 14.3 to plus 6.6">
-    <text x="228" y="148" text-anchor="end">Self-correction</text>
-    <line class="interval" x1="322" y1="142" x2="486" y2="142"/>
-    <line class="cap" x1="322" y1="134" x2="322" y2="150"/>
-    <line class="cap" x1="486" y1="134" x2="486" y2="150"/>
-    <circle class="point" cx="401" cy="142" r="7"/>
-    <text class="value" x="496" y="150">-4.3</text>
-  </g>
+  <g aria-label="Mispronunciation">
+    <text x="228" y="277" text-anchor="end">Mispronunciation</text>
 
-  <g aria-label="Mispronunciation, minus 0.5 points, 95 percent interval minus 19.5 to plus 15.0">
-    <text x="228" y="182" text-anchor="end">Mispronunciation</text>
-    <line class="interval" x1="282" y1="176" x2="551" y2="176"/>
-    <line class="cap" x1="282" y1="168" x2="282" y2="184"/>
-    <line class="cap" x1="551" y1="168" x2="551" y2="184"/>
-    <circle class="point" cx="431" cy="176" r="7"/>
-    <text class="value" x="561" y="184">-0.5</text>
-  </g>
+    <g aria-label="Agent-directed, -0.5 points, 95 percent interval -19.5 to +15.0">
+      <line class="agent-interval" x1="300.3998887214378" y1="258" x2="492.43706843236805" y2="258"/>
+      <line class="agent-interval cap" x1="300.3998887214378" y1="252" x2="300.3998887214378" y2="264"/>
+      <line class="agent-interval cap" x1="492.43706843236805" y1="252" x2="492.43706843236805" y2="264"/>
+      <circle class="agent-marker" cx="406.2447429283507" cy="258" r="6"/>
+      <text class="value" x="500.43706843236805" y="265">-0.5</text>
+    </g>
 
-  <g aria-label="Falter and restart, plus 2.0 points, 95 percent interval minus 6.7 to plus 10.7">
-    <text x="228" y="216" text-anchor="end">Falter/restart</text>
-    <line class="interval" x1="382" y1="210" x2="518" y2="210"/>
-    <line class="cap" x1="382" y1="202" x2="382" y2="218"/>
-    <line class="cap" x1="518" y1="202" x2="518" y2="218"/>
-    <circle class="point" cx="450" cy="210" r="7"/>
-    <text class="value" x="528" y="218">+2.0</text>
+    <g aria-label="Scaffolded, -1.3 points, 95 percent interval -10.3 to +7.4">
+      <line class="scaffold-interval" x1="351.7886762651364" y1="282" x2="450.07077065111116" y2="282"/>
+      <line class="scaffold-interval cap" x1="351.7886762651364" y1="276" x2="351.7886762651364" y2="288"/>
+      <line class="scaffold-interval cap" x1="450.07077065111116" y1="276" x2="450.07077065111116" y2="288"/>
+      <rect class="scaffold-marker" x="395.739688108437" y="276" width="12" height="12"/>
+      <text class="value" x="458.07077065111116" y="289">-1.3</text>
+    </g>
   </g>
-
 </svg>
 </body>
 </html>

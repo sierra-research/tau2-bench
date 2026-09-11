@@ -1,7 +1,7 @@
 % ICASSP 2027 draft using the official 2027 author-kit layout.
 \documentclass{article}
 
-\usepackage{spconf,amsmath,amssymb,upgreek,graphicx,booktabs,array,xcolor}
+\usepackage{spconf,amsmath,amssymb,upgreek,graphicx,booktabs,array}
 \usepackage{hyperref}
 \usepackage{microtype}
 \usepackage{flushend}
@@ -107,7 +107,7 @@ Deterministic database comparison scores both conditions without an LLM judge.
 We contribute a reproducible 200-task benchmark spanning 10 entity types,
 controlled difficulty and caller realisms, and multi-entity calls. It measures
 capture, verification, repair, effort, and robust success across three
-environments; \href{https://github.com/sierra-research/tau2-bench/blob/tau-elicitation/papers/tau-intake/v1/reproduction/README.md}{\textcolor{blue}{code and artifacts are available on GitHub}}.
+environments; \href{https://github.com/sierra-research/tau2-bench/tree/tau-elicitation}{code and artifacts are available on GitHub}.
 
 \begin{figure*}[t]
 \centering
@@ -243,11 +243,13 @@ permutations and the standard $+1$ correction. Holm correction is applied
 separately to the six system comparisons for \passone{} and \passk{}.
 
 \smallskip
-\noindent\textbf{Judge validation.}
-Two raters evaluate 70 passing and 30 failing calls from a separate GPT
-Realtime run with provider-default agent reasoning. Both runs use the same
-gpt-5.5 xhigh, temperature-zero caller. Blind raters adjudicate 41 findings;
-only joint confirmations count.
+\noindent\textbf{Human and judge validation.}
+Two raters independently review 90 failed calls across providers, labeling
+failure source and subtype. After discussion and six explicit adjudications,
+failure source is resolved for 86 of 90 calls and subtype for 66 of the 81
+calls resolved as agent failures.
+For fidelity validation, we freeze a stratified 60-utterance sample enriched
+for human-flagged candidates.
 
 \section{Results}
 \label{sec:results}
@@ -336,21 +338,20 @@ agents do not adapt their effort to voice-specific difficulty.
 \subsection{Stress tests and diagnostics}
 
 \noindent\textbf{Caller realisms mainly add repair cost.} No assigned realism
-detectably changes exact success after bank-specific weighting
-(Figure~\ref{fig:realism-effects}); the overall estimate is $-3.6$ points
-(95\% CI $[-10.4,3.0]$). These are intention-to-treat estimates: assignment
-does not guarantee that a conditional realism is expressed before the call
-ends. Mispronunciation is $-0.5$ points, but raises spelling requests about 24
-points and duration 26 seconds. Realisms therefore stress the repair process
-without explaining the benchmark's large baseline failure rate.
+detectably changes exact success in either arm (Figure~\ref{fig:realism-effects}).
+Overall H\'ajek estimates are $-3.6$ points (95\% CI $[-10.4,3.0]$)
+agent-directed and $-4.2$ ($[-8.9,0.4]$) scaffolded. Assigned realisms may
+remain latent. In agent-directed runs, mispronunciation changes success by only
+$-0.5$ points but adds 24 points of spelling requests and 26 seconds. Realisms
+therefore add repair cost without explaining the large baseline failure rate.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/realism_assignment_effects.pdf}
-\caption{Exact-success effects of assigned caller realisms. Each H\'ajek
-contrast compares realism and clean assignments among tasks where either could
-have been drawn; bars are task-clustered 95\% intervals. No subtype survives
-Holm correction ($p_{\rm adj}\geq .67$).}
+\vspace{-22pt}
+\caption{Caller-realism effects in agent-directed (solid circles) and
+scaffolded (dashed squares) runs. Bars show task-clustered 95\% H\'ajek
+intervals versus eligible clean assignments; none survives Holm correction.}
 \label{fig:realism-effects}
 \end{figure}
 
@@ -432,41 +433,35 @@ accuracy from 0.64 to 0.82 across the matched multi-field tasks
 (Table~\ref{tab:protocol-ablation}). Because the intervention combines both
 mechanisms, we do not attribute the gain to either one alone.
 
-\smallskip
-\noindent\textbf{Speech fidelity captures synthesis defects.} The judge
-compares agent audio with its reference transcript, including
-mispronunciations, omitted or added words, and clipping. Severity $\geq 2$
-denotes a clear, potentially confusing mismatch.
-
 \begin{table}[!ht]
-\caption{Speech fidelity by system over scored agent utterances. Mean is the
-average maximum retained severity; $\geq 2$ is the share with a clear defect
-(lower is better).}
+\caption{Share of scored agent utterances with a clear speech-fidelity defect
+by system (lower is better).}
 \label{tab:fidelity-provider}
 \centering
 \small
-\setlength{\tabcolsep}{5pt}
+\setlength{\tabcolsep}{3pt}
 \renewcommand{\arraystretch}{.9}
-\begin{tabular}{@{}lrrr@{}}
+\begin{tabular}{@{}lcccc@{}}
 \toprule
-System & Utterances & Mean & Severity $\geq 2$ \\
+& GPT minimal & GPT xhigh & Gemini high & Grok \\
 \midrule
-GPT minimal & 945   & .07 & 2.5\% \\
-GPT xhigh   & 1,142 & .06 & 2.1\% \\
-Gemini high & 1,046 & .09 & 3.6\% \\
-Grok        & 1,813 & .10 & 4.1\% \\
+Severity $\geq 2$ & 2.5\% & 2.1\% & 3.6\% & 4.1\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \smallskip
-\noindent\textbf{Human review shows mostly transcription failures.} In
-held-out blind review, 12 of 14 jointly identified errors were transcription
-errors; two were premature submissions or early hang-ups. Both raters attribute
-29 of 30 failures to the agent, and neither attributes one solely to the
-simulator. The fidelity judge reaches .73 precision, 1.00 clip recall, and .85
-F1 against consensus. A matched text run passes all 200 tasks, implicating
-spoken capture and repair rather than task understanding.
+\noindent\textbf{Human review.} Across 90 failed calls, agreement or
+adjudication assigns 81 failures to the agent and two to user-simulator logic;
+no call is jointly attributed solely to infrastructure. Among the 81 agent
+failures, agreed or adjudicated labels assign 42 as transcription, 16 as
+logical, six as VAD, and two as hallucination; the remaining 15 retain subtype
+disagreement. The speech-fidelity judge
+compares agent audio with its reference transcript, flagging mispronunciations,
+word additions or omissions, and clipping; severity $\geq 2$ denotes a clear,
+potentially confusing mismatch. At this threshold, the frozen 60-utterance set
+yields .80 precision, .75 recall, and .77 F1. A matched text run passes all 200
+tasks, implicating spoken capture and repair rather than task understanding.
 
 \section{Conclusion}
 

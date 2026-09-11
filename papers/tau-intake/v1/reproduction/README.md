@@ -1,6 +1,6 @@
 # tau-Elicitation reviewer evidence
 
-This directory is the compact, reviewer-facing evidence archive for the tau-Elicitation paper. It contains all 5,970 scored transcript records, all 6,422 available utterance-level speech-judge outputs, final human labels, exact run configurations and prompt objects, deterministic example calls, and the checked analysis inputs. The large audio/tick corpus remains a detached evidence root, is available from [Google Drive](https://drive.google.com/drive/folders/1GAuTs3Naog5irE4J4MwILMTpFyJz-2dm?usp=sharing), and is linked to the compact records by SHA-256.
+This directory is the compact, reviewer-facing evidence archive for the tau-Elicitation paper. It contains all 5,970 scored transcript records, all 6,422 available automated utterance-level LLM speech-judge outputs, a structured 90-call human failure-validation artifact, a separate 60-utterance human fidelity-validation artifact, exact run configurations and prompt objects, deterministic example calls, and the checked analysis inputs. The large audio/tick corpus remains a detached evidence root, is available from [Google Drive](https://drive.google.com/drive/folders/1GAuTs3Naog5irE4J4MwILMTpFyJz-2dm?usp=sharing), and is linked to the compact records by SHA-256.
 
 ## Contents
 
@@ -9,8 +9,9 @@ This directory is the compact, reviewer-facing evidence archive for the tau-Elic
 - `prompts/`: content-addressed agent policies, caller guidelines, exact historical task snapshots, and the v6 speech-judge prompt.
 - `transcripts/`: one compact JSONL file per results root, including agent tools and silent caller-side spelling/read-back events.
 - `examples/`: deterministic calls spanning both strategies and three systems.
-- `speech_judgments/`: all 6,422 exported utterance judgments: 4,948 from the paper's main speech cohort and 1,474 supplemental judgments, including retained/excluded findings and errors.
-- `judge_validation/`: direct utterance/call mapping between judge output and final human labels.
+- `speech_judgments/`: all 6,422 automated LLM utterance judgments: 4,948 from the paper's main speech cohort and 1,474 supplemental judgments, including retained/excluded findings and errors.
+- `judge_validation/human_failure_validation_90/`: structured source and subtype labels for 90 failed calls, with no notes or fidelity fields.
+- `judge_validation/fidelity_validation_60/`: isolated labels and judge predictions for the frozen 60-utterance fidelity cohort.
 - `analysis_inputs/`: crossed outcomes, rollups, deterministic complication draws, caller-effort ledger, the 2,400-call realism-event ledger, deterministic behavioral recomputation, the 210-row matched one-field composition ledger, the 200-task same-versus-crossed Pass3 ledger, caller-voice and main significance results, and speech rollup.
 - `audit.json`: executable claim checks.
 
@@ -20,7 +21,7 @@ The prompt manifest distinguishes the caller guideline actually selected by the 
 
 ## Detached source corpus
 
-The approximately 41 GB frozen source corpus is available in the [tau-elicit Google Drive folder](https://drive.google.com/drive/folders/1GAuTs3Naog5irE4J4MwILMTpFyJz-2dm?usp=sharing). It contains `main_runs/`, `ablations/`, and `text_channel/`; the human judge-validation data is already included in this compact archive. After downloading the corpus, pass its `tau-elicit` root as `--evidence-root`. The verifier checks the detached results and simulations against the recorded SHA-256 values.
+The approximately 41 GB frozen source corpus is available in the [tau-elicit Google Drive folder](https://drive.google.com/drive/folders/1GAuTs3Naog5irE4J4MwILMTpFyJz-2dm?usp=sharing). It contains `main_runs/`, `ablations/`, and `text_channel/`. Release-safe human validation projections are included in this compact archive as final structured labels and aggregate metrics only. After downloading the corpus, pass its `tau-elicit` root as `--evidence-root`. The verifier checks the detached results and simulations against the recorded SHA-256 values.
 
 ## Verify
 

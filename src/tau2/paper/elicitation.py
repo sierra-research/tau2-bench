@@ -16,12 +16,13 @@ import re
 import shutil
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Annotated, Any, Iterable, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-RELEASE_VERSION = "tau-elicit-review-release-v1"
+RELEASE_VERSION = "tau-elicit-review-release-v3"
 TRANSCRIPT_VERSION = "tau-elicit-compact-transcript-v1"
 EXAMPLE_SELECTION_VERSION = "tau-elicit-examples-v1"
 ONE_FIELD_REFERENCE_VERSION = "tau-elicit-matched-one-field-v1"
@@ -31,6 +32,13 @@ DETACHED_EVIDENCE_URL = (
     "https://drive.google.com/drive/folders/"
     "1GAuTs3Naog5irE4J4MwILMTpFyJz-2dm?usp=sharing"
 )
+
+HUMAN_FAILURE_VALIDATION = "human_failure_validation_90"
+FIDELITY_VALIDATION = "fidelity_validation_60"
+VALIDATION_RELEASE_FILES = {
+    HUMAN_FAILURE_VALIDATION: ("README.md", "calls.csv", "metrics.json"),
+    FIDELITY_VALIDATION: ("README.md", "utterances.csv", "metrics.json"),
+}
 
 PAPER_AGENT_DIRECTED = {
     *{
@@ -204,6 +212,253 @@ class ArtifactFile(BaseModel):
     rows: Optional[int] = None
 
 
+class HumanFailureValidationRow(BaseModel):
+    """Final human source and subtype labels for one failed call."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Annotated[str, Field(description="Call-label schema version.")]
+    validation_set_id: Annotated[str, Field(description="Frozen validation set.")]
+    provider: Annotated[
+        Literal["openai", "gemini", "xai"], Field(description="Voice provider.")
+    ]
+    simulation_id: Annotated[str, Field(description="Frozen simulation id.")]
+    task_id: Annotated[str, Field(description="Frozen benchmark task id.")]
+    bank: Annotated[str, Field(description="Entity-bank family.")]
+    tier: Annotated[Literal["easy", "hard"], Field(description="Task tier.")]
+    reward: Annotated[int, Field(description="Frozen task reward.")]
+    error_source: Annotated[
+        Literal["agent", "user", "system", "no_error", "unresolved"],
+        Field(description="Final human failure-source label."),
+    ]
+    error_subtype: Annotated[
+        Literal[
+            "",
+            "transcription_error",
+            "logical_error",
+            "vad",
+            "hallucination",
+            "unresolved",
+        ],
+        Field(description="Final human failure-subtype label."),
+    ]
+
+
+class FidelityValidationRow(BaseModel):
+    """Final human and judge labels for one frozen utterance."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    utterance_id: Annotated[str, Field(description="Stable utterance id.")]
+    provider: Annotated[Literal["gemini", "xai"], Field(description="Voice provider.")]
+    simulation_id: Annotated[str, Field(description="Frozen simulation id.")]
+    task_id: Annotated[str, Field(description="Frozen benchmark task id.")]
+    utterance_idx: Annotated[int, Field(ge=0, description="Agent utterance index.")]
+    human_fidelity_positive: Annotated[
+        bool, Field(description="Final human reference label.")
+    ]
+    judge_any_finding_positive: Annotated[
+        bool, Field(description="Any-retained-finding judge prediction.")
+    ]
+    judge_max_fidelity_severity: Annotated[
+        int, Field(ge=0, description="Maximum retained fidelity severity.")
+    ]
+    judge_severity_ge_2_positive: Annotated[
+        bool, Field(description="Primary judge prediction at severity >= 2.")
+    ]
+    confusion_severity_ge_2: Annotated[
+        Literal["TP", "FP", "FN", "TN"],
+        Field(description="Primary operating-point confusion cell."),
+    ]
+    confusion_any_finding: Annotated[
+        Literal["TP", "FP", "FN", "TN"],
+        Field(description="Secondary operating-point confusion cell."),
+    ]
+
+
+class CountShare(BaseModel):
+    """Count and share for one validation label."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    n: Annotated[int, Field(ge=0, description="Observed count.")]
+    share: Annotated[float, Field(ge=0, le=1, description="Observed share.")]
+
+
+class HumanFailureSourceCounts(BaseModel):
+    """Final call-source counts from the 90-call artifact."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    denominator: Annotated[int, Field(gt=0, description="Count denominator.")]
+    agent: CountShare
+    user: CountShare
+    system: CountShare
+    no_error: CountShare
+    unresolved: CountShare
+
+
+class HumanFailureSubtypeCounts(BaseModel):
+    """Final subtype counts among agent-attributed failures."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    denominator: Annotated[int, Field(gt=0, description="Count denominator.")]
+    transcription_error: CountShare
+    logical_error: CountShare
+    vad: CountShare
+    hallucination: CountShare
+    unresolved: CountShare
+
+
+class HumanFailureProviderCounts(BaseModel):
+    """Provider composition of the failed-call validation set."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    openai: Annotated[int, Field(ge=0)]
+    gemini: Annotated[int, Field(ge=0)]
+    xai: Annotated[int, Field(ge=0)]
+
+
+class HumanFailureUserSubtypeCounts(BaseModel):
+    """Subtype counts among final user-simulator failures."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    denominator: Annotated[int, Field(gt=0, description="Count denominator.")]
+    logical_error: CountShare
+
+
+class HumanFailureArtifactMetadata(BaseModel):
+    """Digest and row count for the failed-call artifact."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    calls_path: Annotated[str, Field(description="Relative CSV path.")]
+    calls_sha256: Annotated[str, Field(description="SHA-256 of calls.csv.")]
+    call_rows: Annotated[int, Field(gt=0, description="CSV row count.")]
+
+
+class HumanFailureMetrics(BaseModel):
+    """Final-label human-failure metrics contract."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Annotated[str, Field(description="Metrics schema version.")]
+    validation_set_id: Annotated[str, Field(description="Frozen validation set.")]
+    unit: Annotated[str, Field(description="Validation unit.")]
+    n_calls: Annotated[int, Field(gt=0, description="Number of failed calls.")]
+    reward: Annotated[int, Field(description="Reward shared by the cohort.")]
+    artifact: HumanFailureArtifactMetadata
+    provider_counts: HumanFailureProviderCounts
+    error_source: HumanFailureSourceCounts
+    agent_error_subtype: HumanFailureSubtypeCounts
+    user_error_subtype: HumanFailureUserSubtypeCounts
+
+
+class FidelityArtifactMetadata(BaseModel):
+    """Digest and row count for the utterance-level artifact."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    utterances_path: Annotated[str, Field(description="Relative CSV path.")]
+    utterances_sha256: Annotated[str, Field(description="SHA-256 of the CSV.")]
+    utterance_rows: Annotated[int, Field(gt=0, description="CSV row count.")]
+
+
+class FidelityProviderCounts(BaseModel):
+    """Provider composition of the frozen sample."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    gemini: Annotated[int, Field(ge=0)]
+    xai: Annotated[int, Field(ge=0)]
+
+
+class FidelityLabelPolicy(BaseModel):
+    """Definitions for human labels and judge operating points."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    human_fidelity_positive: Annotated[str, Field(description="Human-label policy.")]
+    judge_any_finding_positive: Annotated[
+        str, Field(description="Any-finding judge policy.")
+    ]
+    judge_severity_ge_2_positive: Annotated[
+        str, Field(description="Severity-threshold judge policy.")
+    ]
+    primary_operating_point: Annotated[str, Field(description="Primary metric key.")]
+    secondary_operating_point: Annotated[
+        str, Field(description="Secondary metric key.")
+    ]
+    confusion_cells: Annotated[str, Field(description="Confusion-cell definition.")]
+
+
+class FidelityCounts(BaseModel):
+    """Frozen human and judge class counts."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    utterances: Annotated[int, Field(gt=0, description="Total utterances.")]
+    human_fidelity_positive: Annotated[int, Field(ge=0, description="Human positives.")]
+    human_fidelity_negative: Annotated[int, Field(ge=0, description="Human negatives.")]
+    judge_any_finding_positive: Annotated[
+        int, Field(ge=0, description="Any-finding positives.")
+    ]
+    judge_any_finding_negative: Annotated[
+        int, Field(ge=0, description="Any-finding negatives.")
+    ]
+    judge_severity_ge_2_positive: Annotated[
+        int, Field(ge=0, description="Severity >= 2 positives.")
+    ]
+    judge_severity_ge_2_negative: Annotated[
+        int, Field(ge=0, description="Severity >= 2 negatives.")
+    ]
+
+
+class FidelityScores(BaseModel):
+    """Confusion counts and derived metrics for one operating point."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    threshold: Annotated[
+        Optional[int], Field(description="Severity threshold, when applicable.")
+    ] = None
+    tp: Annotated[int, Field(ge=0, description="True positives.")]
+    fp: Annotated[int, Field(ge=0, description="False positives.")]
+    fn: Annotated[int, Field(ge=0, description="False negatives.")]
+    tn: Annotated[int, Field(ge=0, description="True negatives.")]
+    precision: Annotated[float, Field(ge=0, le=1, description="Precision.")]
+    recall: Annotated[float, Field(ge=0, le=1, description="Recall.")]
+    f1: Annotated[float, Field(ge=0, le=1, description="F1 score.")]
+    accuracy: Annotated[float, Field(ge=0, le=1, description="Accuracy.")]
+
+
+class FidelityOperatingPoints(BaseModel):
+    """Primary and secondary fidelity-judge operating points."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    primary_severity_ge_2: FidelityScores
+    secondary_any_finding: FidelityScores
+
+
+class FidelityMetrics(BaseModel):
+    """Final-label fidelity-validation metrics contract."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Annotated[int, Field(description="Metrics schema version.")]
+    kind: Annotated[str, Field(description="Artifact kind.")]
+    unit: Annotated[str, Field(description="Validation unit.")]
+    artifact: FidelityArtifactMetadata
+    provider_counts: FidelityProviderCounts
+    label_policy: FidelityLabelPolicy
+    counts: FidelityCounts
+    metrics: FidelityOperatingPoints
+
+
 class ExampleCall(BaseModel):
     """One deterministically selected compact example call."""
 
@@ -308,7 +563,9 @@ class Pass3Comparison(BaseModel):
 class ReleaseManifest(BaseModel):
     """Top-level contract for the reviewer archive."""
 
-    schema_version: int = 1
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: int = 3
     release_version: str = RELEASE_VERSION
     evidence_root_name: str
     result_cells: list[ResultCell]
@@ -316,8 +573,8 @@ class ReleaseManifest(BaseModel):
     speech_judgment_count: int
     paper_speech_judgment_count: int
     speech_judgment_counts_by_cell: dict[str, int]
-    validation_call_count: int
-    validation_finding_count: int
+    human_failure_validation_call_count: int
+    fidelity_validation_utterance_count: int
     examples: list[ExampleCall]
     artifacts: list[ArtifactFile]
 
@@ -719,270 +976,360 @@ def _speech_rows(
         }
 
 
-def _read_csv(path: Path) -> list[dict[str, str]]:
+def _read_validation_rows[RowT: (HumanFailureValidationRow, FidelityValidationRow)](
+    path: Path, model: type[RowT]
+) -> list[RowT]:
+    """Load a CSV only when its columns exactly match the typed release schema."""
     with path.open(newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        expected = list(model.model_fields)
+        if reader.fieldnames != expected:
+            raise ValueError(
+                f"Unexpected columns in {path}: {reader.fieldnames}; expected {expected}"
+            )
         return [
-            {key: value.strip() for key, value in row.items()}
-            for row in csv.DictReader(handle)
+            model.model_validate(
+                {key: (value or "").strip() for key, value in row.items()}
+            )
+            for row in reader
         ]
 
 
-def _validation_sources(
-    validation_root: Path,
-) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    review_files = sorted(validation_root.glob("*_review.csv"))
-    decision_files = sorted(validation_root.glob("*_decisions.csv"))
-    if len(review_files) != 2 or len(decision_files) != 2:
-        raise ValueError(
-            "Expected exactly two review CSVs and two decision CSVs in "
-            f"{validation_root}"
+def _count_share_matches(value: CountShare, count: int, denominator: int) -> bool:
+    """Return whether a stored count/share pair matches its denominator."""
+    return value.n == count and abs(value.share - count / denominator) <= 1e-12
+
+
+def _validation_tree_errors(validation_root: Path) -> list[str]:
+    """Return deviations from the exact two-bundle release allowlist."""
+    expected_directories = set(VALIDATION_RELEASE_FILES)
+    try:
+        root_entries = list(validation_root.iterdir())
+    except OSError as exc:
+        return [f"Cannot read {validation_root}: {exc}"]
+    actual_directories = {path.name for path in root_entries}
+    errors: list[str] = []
+    if actual_directories != expected_directories or any(
+        not path.is_dir() for path in root_entries
+    ):
+        errors.append(
+            f"Unexpected entries in {validation_root}: "
+            f"{sorted(actual_directories)}; expected {sorted(expected_directories)}"
         )
-    reviews = [_read_csv(path) for path in review_files]
-    decisions = [_read_csv(path) for path in decision_files]
-    if any(len(rows) != 200 for rows in reviews):
-        raise ValueError("Each review CSV must contain 200 rows")
-    if any(len(rows) != 41 for rows in decisions):
-        raise ValueError("Each decision CSV must contain 41 rows")
-    return reviews, decisions
+        return errors
+
+    for directory, filenames in VALIDATION_RELEASE_FILES.items():
+        bundle = validation_root / directory
+        entries = list(bundle.iterdir())
+        expected_files = set(filenames)
+        actual_files = {path.name for path in entries}
+        if actual_files != expected_files or any(
+            not path.is_file() for path in entries
+        ):
+            errors.append(
+                f"Unexpected entries in {bundle}: {sorted(actual_files)}; "
+                f"expected {sorted(expected_files)}"
+            )
+    return errors
 
 
-def _kappa(left: list[bool], right: list[bool]) -> float:
-    if len(left) != len(right) or not left:
-        raise ValueError("Kappa inputs must be non-empty and aligned")
-    observed = sum(a == b for a, b in zip(left, right, strict=True)) / len(left)
-    left_positive = sum(left) / len(left)
-    right_positive = sum(right) / len(right)
-    expected = left_positive * right_positive + (1 - left_positive) * (
-        1 - right_positive
+def _read_validation_artifacts(
+    validation_root: Path,
+) -> tuple[
+    list[HumanFailureValidationRow],
+    HumanFailureMetrics,
+    list[FidelityValidationRow],
+    FidelityMetrics,
+]:
+    """Load the exact release allowlist through strict typed contracts."""
+    tree_errors = _validation_tree_errors(validation_root)
+    if tree_errors:
+        raise ValueError("; ".join(tree_errors))
+    trace_leaks = _validation_trace_leaks(validation_root)
+    if trace_leaks:
+        raise ValueError(
+            "Validation artifacts contain pre-resolution annotation material: "
+            f"{trace_leaks}"
+        )
+
+    human_dir = validation_root / HUMAN_FAILURE_VALIDATION
+    human_rows = _read_validation_rows(
+        human_dir / "calls.csv", HumanFailureValidationRow
     )
-    return (observed - expected) / (1 - expected) if expected != 1 else 1.0
+    human_metrics = HumanFailureMetrics.model_validate_json(
+        (human_dir / "metrics.json").read_text()
+    )
+    if (
+        human_metrics.schema_version != "tau-elicit-human-failure-metrics-v2"
+        or human_metrics.validation_set_id != HUMAN_FAILURE_VALIDATION
+        or human_metrics.unit != "failed_call"
+        or human_metrics.reward != 0
+        or human_metrics.n_calls != len(human_rows)
+        or human_metrics.artifact.calls_path != "calls.csv"
+        or human_metrics.artifact.call_rows != len(human_rows)
+        or human_metrics.artifact.calls_sha256 != _sha256_file(human_dir / "calls.csv")
+    ):
+        raise ValueError("Human-failure validation metadata does not match calls.csv")
+    human_provider_counts = Counter(row.provider for row in human_rows)
+    human_source_counts = Counter(row.error_source for row in human_rows)
+    human_agent_subtypes = Counter(
+        row.error_subtype for row in human_rows if row.error_source == "agent"
+    )
+    human_user_subtypes = Counter(
+        row.error_subtype for row in human_rows if row.error_source == "user"
+    )
+    if (
+        len(human_rows) != 90
+        or len({row.simulation_id for row in human_rows}) != 90
+        or any(row.reward != 0 for row in human_rows)
+        or any(
+            row.schema_version != "tau-elicit-human-failure-call-v2"
+            for row in human_rows
+        )
+        or any(row.validation_set_id != HUMAN_FAILURE_VALIDATION for row in human_rows)
+        or any(
+            (row.error_source in {"no_error", "unresolved"} and row.error_subtype)
+            or (row.error_source == "agent" and not row.error_subtype)
+            or (row.error_source == "user" and row.error_subtype != "logical_error")
+            for row in human_rows
+        )
+        or human_provider_counts != {"openai": 30, "gemini": 30, "xai": 30}
+        or human_source_counts
+        != {"agent": 81, "user": 2, "no_error": 3, "unresolved": 4}
+        or human_agent_subtypes
+        != {
+            "transcription_error": 42,
+            "logical_error": 16,
+            "vad": 6,
+            "hallucination": 2,
+            "unresolved": 15,
+        }
+        or human_user_subtypes != {"logical_error": 2}
+        or human_metrics.provider_counts.model_dump() != human_provider_counts
+        or human_metrics.error_source.denominator != 90
+        or not _count_share_matches(human_metrics.error_source.agent, 81, 90)
+        or not _count_share_matches(human_metrics.error_source.user, 2, 90)
+        or not _count_share_matches(human_metrics.error_source.system, 0, 90)
+        or not _count_share_matches(human_metrics.error_source.no_error, 3, 90)
+        or not _count_share_matches(human_metrics.error_source.unresolved, 4, 90)
+        or human_metrics.agent_error_subtype.denominator != 81
+        or not _count_share_matches(
+            human_metrics.agent_error_subtype.transcription_error, 42, 81
+        )
+        or not _count_share_matches(
+            human_metrics.agent_error_subtype.logical_error, 16, 81
+        )
+        or not _count_share_matches(human_metrics.agent_error_subtype.vad, 6, 81)
+        or not _count_share_matches(
+            human_metrics.agent_error_subtype.hallucination, 2, 81
+        )
+        or not _count_share_matches(
+            human_metrics.agent_error_subtype.unresolved, 15, 81
+        )
+        or human_metrics.user_error_subtype.denominator != 2
+        or not _count_share_matches(
+            human_metrics.user_error_subtype.logical_error, 2, 2
+        )
+    ):
+        raise ValueError("Human-failure validation must contain 90 unique failed calls")
+
+    fidelity_dir = validation_root / FIDELITY_VALIDATION
+    fidelity_rows = _read_validation_rows(
+        fidelity_dir / "utterances.csv", FidelityValidationRow
+    )
+    fidelity_metrics = FidelityMetrics.model_validate_json(
+        (fidelity_dir / "metrics.json").read_text()
+    )
+    if (
+        fidelity_metrics.schema_version != 2
+        or fidelity_metrics.kind != "tau_elicitation_fidelity_validation_60"
+        or fidelity_metrics.unit != "utterance"
+        or fidelity_metrics.artifact.utterances_path != "utterances.csv"
+        or fidelity_metrics.artifact.utterance_rows != len(fidelity_rows)
+        or fidelity_metrics.artifact.utterances_sha256
+        != _sha256_file(fidelity_dir / "utterances.csv")
+    ):
+        raise ValueError("Fidelity-validation metadata does not match utterances.csv")
+    fidelity_provider_counts = Counter(row.provider for row in fidelity_rows)
+    fidelity_human_positive = sum(row.human_fidelity_positive for row in fidelity_rows)
+    fidelity_any_positive = sum(row.judge_any_finding_positive for row in fidelity_rows)
+    fidelity_primary_positive = sum(
+        row.judge_severity_ge_2_positive for row in fidelity_rows
+    )
+    if (
+        len(fidelity_rows) != 60
+        or len({row.utterance_id for row in fidelity_rows}) != 60
+        or fidelity_provider_counts != {"gemini": 30, "xai": 30}
+        or fidelity_metrics.provider_counts.model_dump() != fidelity_provider_counts
+        or fidelity_metrics.counts.utterances != len(fidelity_rows)
+        or fidelity_human_positive != fidelity_metrics.counts.human_fidelity_positive
+        or 60 - fidelity_human_positive
+        != fidelity_metrics.counts.human_fidelity_negative
+        or fidelity_any_positive != fidelity_metrics.counts.judge_any_finding_positive
+        or 60 - fidelity_any_positive
+        != fidelity_metrics.counts.judge_any_finding_negative
+        or fidelity_primary_positive
+        != fidelity_metrics.counts.judge_severity_ge_2_positive
+        or 60 - fidelity_primary_positive
+        != fidelity_metrics.counts.judge_severity_ge_2_negative
+        or any(
+            row.judge_any_finding_positive != (row.judge_max_fidelity_severity >= 1)
+            or row.judge_severity_ge_2_positive
+            != (row.judge_max_fidelity_severity >= 2)
+            or row.confusion_severity_ge_2
+            != _confusion_cell(
+                row.human_fidelity_positive,
+                row.judge_severity_ge_2_positive,
+            )
+            or row.confusion_any_finding
+            != _confusion_cell(
+                row.human_fidelity_positive,
+                row.judge_any_finding_positive,
+            )
+            for row in fidelity_rows
+        )
+    ):
+        raise ValueError("Fidelity validation must contain 60 unique utterances")
+
+    return human_rows, human_metrics, fidelity_rows, fidelity_metrics
 
 
-VALIDATION_COLUMNS = (
-    "unit_type",
-    "clip_id",
-    "simulation_id",
-    "task_id",
-    "bank",
-    "tier",
-    "reward",
-    "factor",
-    "utterance_index",
-    "utterance_text",
-    "judge_label",
-    "judge_severity",
-    "judge_issue",
-    "human_positive_votes",
-    "human_strict_label",
+def _copy_validation_artifacts(
+    validation_root: Path,
+    out: Path,
+) -> tuple[
+    list[HumanFailureValidationRow],
+    HumanFailureMetrics,
+    list[FidelityValidationRow],
+    FidelityMetrics,
+]:
+    """Copy and validate only the six approved human-validation artifacts."""
+    tree_errors = _validation_tree_errors(validation_root)
+    if tree_errors:
+        raise ValueError("; ".join(tree_errors))
+
+    release_root = out / "judge_validation"
+    for directory, filenames in VALIDATION_RELEASE_FILES.items():
+        source_dir = validation_root / directory
+        target_dir = release_root / directory
+        target_dir.mkdir(parents=True, exist_ok=True)
+        for filename in filenames:
+            shutil.copy2(source_dir / filename, target_dir / filename)
+
+    return _read_validation_artifacts(release_root)
+
+
+_FORBIDDEN_HUMAN_FIDELITY_FIELDS = {
+    "fidelity_notes",
+    "fidelity_severity",
     "human_lenient_label",
-    "human_severity_a",
-    "human_severity_b",
-    "human_error_source_a",
-    "human_error_source_b",
-    "human_error_subtype_a",
-    "human_error_subtype_b",
     "human_notes_a",
     "human_notes_b",
+    "human_positive_votes",
+    "human_severity_a",
+    "human_severity_b",
+    "human_strict_label",
+}
+
+_FORBIDDEN_VALIDATION_TRACE_FIELDS = {
+    "adjudication_applied",
+    "clip_id",
+    "cohort",
+    "error_source_agreement",
+    "error_subtype_agreement",
+    "ian_error_source",
+    "ian_error_subtype",
+    "niko_error_source",
+    "niko_error_subtype",
+    "rater_consensus_error_source",
+    "rater_consensus_error_subtype",
+    "resolution_status",
+    "selection_stratum",
+    "source_clip_id",
+}
+
+_FORBIDDEN_VALIDATION_TRACE_PATTERNS = (
+    re.compile(r"\b(?:ian|niko)\b", re.IGNORECASE),
+    re.compile(r"\braters?\b", re.IGNORECASE),
+    re.compile(r"\badjudicat\w*\b", re.IGNORECASE),
+    re.compile(r"\bpost[-_]discussion\b", re.IGNORECASE),
+    re.compile(r"\b(?:single|both)[-_]raters?[-_]", re.IGNORECASE),
+    re.compile(r"\b(?:source|subtype)[-_]split\b", re.IGNORECASE),
+    re.compile(r"\bsource_provenance\b", re.IGNORECASE),
+    re.compile(r"\binput_files\b", re.IGNORECASE),
+    re.compile(r"\bfalse_(?:negative|positive)_decisions\b", re.IGNORECASE),
+    re.compile(r"data/annotation/", re.IGNORECASE),
 )
 
 
-def _old_fidelity_findings(simulation: dict[str, Any]) -> list[dict[str, Any]]:
-    delivery = simulation.get("delivery_info") or {}
-    return list(((delivery.get("fidelity") or {}).get("findings") or []))
+def _confusion_cell(reference: bool, prediction: bool) -> str:
+    """Return the binary confusion cell for one reference/prediction pair."""
+    if reference:
+        return "TP" if prediction else "FN"
+    return "FP" if prediction else "TN"
 
 
-def _export_validation(
-    validation_root: Path,
-    validation_run_root: Path,
-    out: Path,
-) -> tuple[int, int, dict[str, Any]]:
-    """Write final call/finding labels without packet-workflow metadata."""
-    reviews, decisions = _validation_sources(validation_root)
-    final_reviews: list[dict[str, dict[str, str]]] = []
-    for rows in reviews:
-        selected = {
-            row["simulation_id"]: row for row in rows if row["phase"] == "post_reveal"
-        }
-        if len(selected) != 100:
-            raise ValueError("Expected 100 final per-call annotations per reviewer")
-        final_reviews.append(selected)
+def _validation_trace_leaks(validation_root: Path) -> list[str]:
+    """Find pre-resolution metadata inside the two public validation bundles."""
+    leaks: list[str] = []
+    for path in sorted(validation_root.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(validation_root).as_posix()
+        if path.name.endswith(("_review.csv", "_decisions.csv")):
+            leaks.append(relative)
+            continue
+        if path.suffix == ".csv":
+            with path.open(newline="", encoding="utf-8-sig") as handle:
+                fields = set(csv.DictReader(handle).fieldnames or [])
+            if fields & (
+                _FORBIDDEN_VALIDATION_TRACE_FIELDS | _FORBIDDEN_HUMAN_FIDELITY_FIELDS
+            ):
+                leaks.append(relative)
+                continue
+        if path.suffix in {
+            ".csv",
+            ".json",
+            ".md",
+            ".txt",
+        }:
+            text = path.read_text(encoding="utf-8")
+            if any(
+                pattern.search(text) for pattern in _FORBIDDEN_VALIDATION_TRACE_PATTERNS
+            ):
+                leaks.append(relative)
+    return leaks
 
-    final_decisions = [{row["finding_id"]: row for row in rows} for rows in decisions]
-    finding_ids = sorted(set(final_decisions[0]) & set(final_decisions[1]))
-    if len(finding_ids) != 41:
-        raise ValueError("Finding decision files are not aligned on 41 findings")
 
-    simulation_ids = sorted(set(final_reviews[0]) & set(final_reviews[1]))
-    rows_out: list[dict[str, object]] = []
-    judge_flagged_calls: set[str] = set()
-    strict_human_calls: set[str] = set()
-    lenient_human_calls: set[str] = set()
-    sim_cache: dict[str, dict[str, Any]] = {}
-
-    for simulation_id in simulation_ids:
-        sim_path = validation_run_root / "simulations" / f"{simulation_id}.json"
-        simulation = json.loads(sim_path.read_text())
-        sim_cache[simulation_id] = simulation
-        findings = _old_fidelity_findings(simulation)
-        if findings:
-            judge_flagged_calls.add(simulation_id)
-        human = [mapping[simulation_id] for mapping in final_reviews]
-        severities = [int(row.get("fidelity_severity") or 0) for row in human]
-        votes = sum(value > 0 for value in severities)
-        if votes == 2:
-            strict_human_calls.add(simulation_id)
-        if votes:
-            lenient_human_calls.add(simulation_id)
-        rows_out.append(
-            {
-                "unit_type": "call",
-                "clip_id": human[0]["clip_id"],
-                "simulation_id": simulation_id,
-                "task_id": human[0]["task_id"],
-                "bank": human[0]["bank"],
-                "tier": human[0]["tier"],
-                "reward": human[0]["reward"],
-                "factor": "speech_fidelity_any",
-                "utterance_index": "",
-                "utterance_text": "",
-                "judge_label": int(bool(findings)),
-                "judge_severity": max(
-                    (int(row.get("severity") or 0) for row in findings), default=0
-                ),
-                "judge_issue": " | ".join(
-                    str(row.get("issue") or "") for row in findings
-                ),
-                "human_positive_votes": votes,
-                "human_strict_label": int(votes == 2),
-                "human_lenient_label": int(votes > 0),
-                "human_severity_a": severities[0],
-                "human_severity_b": severities[1],
-                "human_error_source_a": human[0].get("error_source", ""),
-                "human_error_source_b": human[1].get("error_source", ""),
-                "human_error_subtype_a": human[0].get("error_subtype", ""),
-                "human_error_subtype_b": human[1].get("error_subtype", ""),
-                "human_notes_a": human[0].get("fidelity_notes", ""),
-                "human_notes_b": human[1].get("fidelity_notes", ""),
-            }
-        )
-
-    decision_a: list[bool] = []
-    decision_b: list[bool] = []
-    for finding_id in finding_ids:
-        human = [mapping[finding_id] for mapping in final_decisions]
-        simulation_id = human[0]["simulation_id"]
-        if human[1]["simulation_id"] != simulation_id:
-            raise ValueError(f"Finding {finding_id} maps to different simulations")
-        confirmations = [row["decision"] == "confirmed" for row in human]
-        decision_a.append(confirmations[0])
-        decision_b.append(confirmations[1])
-        utterance_index = int(human[0]["utterance_index"])
-        agent_turns = [
-            row.text
-            for row in _full_duplex_turns(sim_cache[simulation_id])
-            if row.role == "agent"
-        ]
-        utterance_text = (
-            agent_turns[utterance_index]
-            if 0 <= utterance_index < len(agent_turns)
-            else ""
-        )
-        call_row = final_reviews[0][simulation_id]
-        rows_out.append(
-            {
-                "unit_type": "finding",
-                "clip_id": human[0]["clip_id"],
-                "simulation_id": simulation_id,
-                "task_id": human[0]["task_id"],
-                "bank": call_row["bank"],
-                "tier": call_row["tier"],
-                "reward": call_row["reward"],
-                "factor": human[0]["category"],
-                "utterance_index": utterance_index,
-                "utterance_text": utterance_text,
-                "judge_label": 1,
-                "judge_severity": human[0]["judge_severity"],
-                "judge_issue": human[0]["judge_issue"],
-                "human_positive_votes": sum(confirmations),
-                "human_strict_label": int(all(confirmations)),
-                "human_lenient_label": int(any(confirmations)),
-                "human_severity_a": "",
-                "human_severity_b": "",
-                "human_error_source_a": "",
-                "human_error_source_b": "",
-                "human_error_subtype_a": "",
-                "human_error_subtype_b": "",
-                "human_notes_a": human[0].get("note", ""),
-                "human_notes_b": human[1].get("note", ""),
-            }
-        )
-
-    csv_path = out / "judge_validation" / "validation.csv"
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-    with csv_path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(
-            handle, fieldnames=VALIDATION_COLUMNS, lineterminator="\n"
-        )
-        writer.writeheader()
-        writer.writerows(rows_out)
-
-    strict_tp = sum(a and b for a, b in zip(decision_a, decision_b, strict=True))
-    lenient_tp = sum(a or b for a, b in zip(decision_a, decision_b, strict=True))
-    strict_recalled = len(strict_human_calls & judge_flagged_calls)
-    lenient_recalled = len(lenient_human_calls & judge_flagged_calls)
-
-    def scores(
-        tp: int, predicted: int, recalled: int, positives: int
-    ) -> dict[str, float]:
-        precision = tp / predicted
-        recall = recalled / positives
-        return {
-            "precision": precision,
-            "recall": recall,
-            "f1": 2 * precision * recall / (precision + recall),
-        }
-
-    metrics = {
-        "schema_version": 1,
-        "unit_contract": {
-            "precision": "finding level",
-            "recall": "call level; any speech-fidelity finding flags a call",
-            "strict": "both human labels are positive",
-            "lenient": "either human label is positive",
-        },
-        "counts": {
-            "calls": len(simulation_ids),
-            "judge_findings": len(finding_ids),
-            "judge_flagged_calls": len(judge_flagged_calls),
-            "strict_human_positive_calls": len(strict_human_calls),
-            "lenient_human_positive_calls": len(lenient_human_calls),
-            "strict_confirmed_findings": strict_tp,
-            "lenient_confirmed_findings": lenient_tp,
-        },
-        "strict": scores(
-            strict_tp, len(finding_ids), strict_recalled, len(strict_human_calls)
-        ),
-        "lenient": scores(
-            lenient_tp, len(finding_ids), lenient_recalled, len(lenient_human_calls)
-        ),
-        "finding_decision_agreement": sum(
-            a == b for a, b in zip(decision_a, decision_b, strict=True)
-        )
-        / len(finding_ids),
-        "finding_decision_kappa": _kappa(decision_a, decision_b),
-        "source_files": {
-            path.name: _sha256_file(path)
-            for path in sorted(validation_root.glob("*.csv"))
-        },
-        "source_run": {
-            "results_sha256": _sha256_file(validation_run_root / "results.json"),
-            "git_commit": json.loads(
-                (validation_run_root / "results.json").read_text()
-            )["info"]["git_commit"],
-        },
-    }
-    _write_json(out / "judge_validation" / "metrics.json", metrics)
-    return len(simulation_ids), len(finding_ids), metrics
+def _human_validation_leaks(root: Path) -> list[str]:
+    """Find raw or pre-resolution human annotation material in a release."""
+    validation_root = root / "judge_validation"
+    allowed = (validation_root / FIDELITY_VALIDATION).resolve()
+    leaks = [
+        f"judge_validation/{relative}"
+        for relative in _validation_trace_leaks(validation_root)
+    ]
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.resolve().is_relative_to(validation_root):
+            continue
+        relative = path.relative_to(root).as_posix()
+        if path.name.endswith(("_review.csv", "_decisions.csv")):
+            leaks.append(relative)
+            continue
+        if path.suffix == ".csv":
+            with path.open(newline="", encoding="utf-8-sig") as handle:
+                fields = set(csv.DictReader(handle).fieldnames or [])
+            if (
+                not path.resolve().is_relative_to(allowed)
+                and fields & _FORBIDDEN_HUMAN_FIDELITY_FIELDS
+            ):
+                leaks.append(relative)
+                continue
+        if path.suffix in {".json", ".jsonl"}:
+            text = path.read_text(encoding="utf-8")
+            if any(f'"{field}"' in text for field in _FORBIDDEN_HUMAN_FIDELITY_FIELDS):
+                leaks.append(relative)
+    return leaks
 
 
 ANALYSIS_INPUTS = (
@@ -998,6 +1345,8 @@ PAPER_ANALYSIS_INPUTS = (
     "intake_caller_voice_significance_2026-09-07.json",
     "intake_main_significance_2026-09-05.json",
     "intake_realism_effects_2026-09-07.json",
+    "intake_realism_effects_agent_directed_2026-09-11.json",
+    "intake_realism_effects_scaffolded_2026-09-11.json",
     "intake_speech_fidelity_2026-09-04.json",
 )
 
@@ -1676,7 +2025,10 @@ def _export_ablation_analysis(
 
 def _audit_document(
     cells: list[ResultCell],
-    validation: dict[str, Any],
+    human_rows: list[HumanFailureValidationRow],
+    human_metrics: HumanFailureMetrics,
+    fidelity_rows: list[FidelityValidationRow],
+    fidelity_metrics: FidelityMetrics,
     *,
     out: Path,
 ) -> dict[str, Any]:
@@ -2022,6 +2374,45 @@ def _audit_document(
         if realism_observed == (253, 498, 674, 1302)
         else str(realism_observed),
     )
+    arm_realism = {
+        arm: json.loads(
+            (
+                out
+                / "analysis_inputs"
+                / f"intake_realism_effects_{arm}_2026-09-11.json"
+            ).read_text()
+        )
+        for arm in ("agent_directed", "scaffolded")
+    }
+    agent_any = arm_realism["agent_directed"]["effects"][0]
+    scaffolded_any = arm_realism["scaffolded"]["effects"][0]
+    both_arm_realism_ok = (
+        all(row["instrument_version"] == "2.0.0" for row in arm_realism.values())
+        and all(len(row["inputs"]) == 12 for row in arm_realism.values())
+        and abs(agent_any["effect_points"] - -3.587977524956134) <= 1e-12
+        and abs(scaffolded_any["effect_points"] - -4.156965161774373) <= 1e-12
+        and all(
+            effect["randomization_p_holm"] >= 0.05
+            for row in arm_realism.values()
+            for effect in row["effects"]
+        )
+    )
+    check(
+        "realism_assignment_effects_both_arms",
+        both_arm_realism_ok,
+        "12 cells per arm; overall effects=-3.59/-4.16 points; no Holm-significant contrast"
+        if both_arm_realism_ok
+        else json.dumps(
+            {
+                arm: {
+                    "inputs": len(row["inputs"]),
+                    "overall": row["effects"][0]["effect_points"],
+                }
+                for arm, row in arm_realism.items()
+            },
+            sort_keys=True,
+        ),
+    )
     realism_analysis = json.loads(
         (out / "analysis_inputs" / "intake_realism_effects_2026-09-07.json").read_text()
     )
@@ -2095,25 +2486,85 @@ def _audit_document(
         if caller_voice_ok
         else json.dumps(mildred_adjusted, sort_keys=True),
     )
-    strict = validation["strict"]
-    check(
-        "strict_speech_validation",
-        round(strict["precision"], 2) == 0.73
-        and round(strict["recall"], 2) == 1.00
-        and round(strict["f1"], 2) == 0.85,
-        f"P/R/F1={strict['precision']:.4f}/{strict['recall']:.4f}/{strict['f1']:.4f}",
+    source_counts = Counter(row.error_source for row in human_rows)
+    expected_source_counts = {
+        "agent": 81,
+        "user": 2,
+        "system": 0,
+        "no_error": 3,
+        "unresolved": 4,
+    }
+    subtype_counts = Counter(
+        row.error_subtype for row in human_rows if row.error_source == "agent"
     )
-    lenient = validation["lenient"]
+    expected_subtype_counts = {
+        "transcription_error": 42,
+        "logical_error": 16,
+        "vad": 6,
+        "hallucination": 2,
+        "unresolved": 15,
+    }
     check(
-        "lenient_speech_validation",
-        round(lenient["precision"], 2) == 0.85
-        and round(lenient["recall"], 2) == 0.73
-        and round(lenient["f1"], 2) == 0.79,
-        f"P/R/F1={lenient['precision']:.4f}/{lenient['recall']:.4f}/"
-        f"{lenient['f1']:.4f}",
+        "human_failure_validation",
+        len(human_rows) == human_metrics.n_calls == 90
+        and source_counts == Counter(expected_source_counts)
+        and human_metrics.error_source.denominator == 90
+        and human_metrics.error_source.agent.n == 81
+        and human_metrics.error_source.user.n == 2
+        and human_metrics.error_source.system.n == 0
+        and human_metrics.error_source.no_error.n == 3
+        and human_metrics.error_source.unresolved.n == 4,
+        "calls=90; sources=agent 81, user 2, system 0, no-error 3, unresolved 4",
+    )
+    check(
+        "human_failure_subtypes",
+        subtype_counts == expected_subtype_counts
+        and human_metrics.agent_error_subtype.denominator == 81
+        and human_metrics.agent_error_subtype.transcription_error.n == 42
+        and human_metrics.agent_error_subtype.logical_error.n == 16
+        and human_metrics.agent_error_subtype.vad.n == 6
+        and human_metrics.agent_error_subtype.hallucination.n == 2
+        and human_metrics.agent_error_subtype.unresolved.n == 15,
+        "agent subtypes=42 transcription, 16 logical, 6 VAD, 2 hallucination, "
+        "15 unresolved",
+    )
+
+    primary_counts = Counter(row.confusion_severity_ge_2 for row in fidelity_rows)
+    primary = fidelity_metrics.metrics.primary_severity_ge_2
+    check(
+        "fidelity_validation_severity_ge_2",
+        len(fidelity_rows) == fidelity_metrics.counts.utterances == 60
+        and primary_counts == {"TP": 12, "FP": 3, "FN": 4, "TN": 41}
+        and (primary.tp, primary.fp, primary.fn, primary.tn) == (12, 3, 4, 41)
+        and round(primary.precision, 3) == 0.800
+        and round(primary.recall, 3) == 0.750
+        and round(primary.f1, 3) == 0.774,
+        f"TP/FP/FN/TN={primary.tp}/{primary.fp}/{primary.fn}/{primary.tn}; "
+        f"P/R/F1={primary.precision:.4f}/{primary.recall:.4f}/{primary.f1:.4f}",
+    )
+    secondary_counts = Counter(row.confusion_any_finding for row in fidelity_rows)
+    secondary = fidelity_metrics.metrics.secondary_any_finding
+    check(
+        "fidelity_validation_any_finding",
+        secondary_counts == {"TP": 13, "FP": 4, "FN": 3, "TN": 40}
+        and (secondary.tp, secondary.fp, secondary.fn, secondary.tn) == (13, 4, 3, 40)
+        and round(secondary.precision, 3) == 0.765
+        and round(secondary.recall, 3) == 0.812
+        and round(secondary.f1, 3) == 0.788,
+        f"TP/FP/FN/TN={secondary.tp}/{secondary.fp}/{secondary.fn}/{secondary.tn}; "
+        f"P/R/F1={secondary.precision:.4f}/{secondary.recall:.4f}/"
+        f"{secondary.f1:.4f}",
+    )
+    leaks = _human_validation_leaks(out)
+    check(
+        "human_validation_release_safety",
+        not leaks,
+        "validation bundles contain final labels only and no raw review material"
+        if not leaks
+        else f"unexpected files={leaks}",
     )
     return {
-        "schema_version": 1,
+        "schema_version": 3,
         "release_version": RELEASE_VERSION,
         "ok": all(row["ok"] for row in findings),
         "findings": findings,
@@ -2129,8 +2580,9 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "# tau-Elicitation reviewer evidence\n\n"
         "This directory is the compact, reviewer-facing evidence archive for the "
         "tau-Elicitation paper. It contains all 5,970 scored transcript records, "
-        "all 6,422 available utterance-level speech-judge outputs, final human "
-        "labels, "
+        "all 6,422 available automated utterance-level LLM speech-judge outputs, "
+        "a structured 90-call human failure-validation artifact, a separate "
+        "60-utterance human fidelity-validation artifact, "
         "exact run configurations and prompt objects, deterministic example calls, "
         "and the checked analysis inputs. The large audio/tick corpus remains a "
         "detached evidence root, is available from "
@@ -2144,11 +2596,13 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "- `transcripts/`: one compact JSONL file per results root, including "
         "agent tools and silent caller-side spelling/read-back events.\n"
         "- `examples/`: deterministic calls spanning both strategies and three systems.\n"
-        "- `speech_judgments/`: all 6,422 exported utterance judgments: 4,948 "
+        "- `speech_judgments/`: all 6,422 automated LLM utterance judgments: 4,948 "
         "from the paper's main speech cohort and 1,474 supplemental judgments, "
         "including retained/excluded findings and errors.\n"
-        "- `judge_validation/`: direct utterance/call mapping between judge output "
-        "and final human labels.\n"
+        "- `judge_validation/human_failure_validation_90/`: structured source and "
+        "subtype labels for 90 failed calls, with no notes or fidelity fields.\n"
+        "- `judge_validation/fidelity_validation_60/`: isolated labels and judge "
+        "predictions for the frozen 60-utterance fidelity cohort.\n"
         "- `analysis_inputs/`: crossed outcomes, rollups, deterministic complication "
         "draws, caller-effort ledger, the 2,400-call realism-event ledger, "
         "deterministic behavioral recomputation, "
@@ -2166,10 +2620,12 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "## Detached source corpus\n\n"
         "The approximately 41 GB frozen source corpus is available in the "
         f"[tau-elicit Google Drive folder]({DETACHED_EVIDENCE_URL}). It contains "
-        "`main_runs/`, `ablations/`, and `text_channel/`; the human judge-validation "
-        "data is already included in this compact archive. After downloading the "
-        "corpus, pass its `tau-elicit` root as `--evidence-root`. The verifier checks "
-        "the detached results and simulations against the recorded SHA-256 values.\n\n"
+        "`main_runs/`, `ablations/`, and `text_channel/`. Release-safe human "
+        "validation projections are included in this compact archive as final "
+        "structured labels and aggregate metrics only. After downloading "
+        "the corpus, pass its `tau-elicit` root as `--evidence-root`. The verifier "
+        "checks the detached results and simulations against the recorded SHA-256 "
+        "values.\n\n"
         "## Verify\n\n"
         "```bash\n"
         "tau2 paper elicitation-verify --root papers/tau-intake/v1/reproduction\n"
@@ -2238,6 +2694,13 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
     gap_lines.extend(
         [
             "",
+            "## Intentionally excluded annotation inputs",
+            "",
+            "Intermediate annotation material and free-text notes are intentionally "
+            "excluded from the reviewer archive. The two release-safe validation "
+            "bundles retain final structured labels and derived metrics only; this "
+            "minimization is not a missing paper-claim artifact.",
+            "",
             "## Missing re-execution tools",
             "",
             "None. The paper's statistical analyses, observed realism-event counts, "
@@ -2261,7 +2724,6 @@ def build_release(
     *,
     evidence_root: Path,
     validation_root: Path,
-    validation_run_root: Path,
     analysis_root: Path,
     out: Path,
 ) -> ReleaseManifest:
@@ -2559,10 +3021,17 @@ def build_release(
         },
     )
 
-    validation_call_count, validation_finding_count, validation_metrics = (
-        _export_validation(validation_root, validation_run_root, out)
+    human_rows, human_metrics, fidelity_rows, fidelity_metrics = (
+        _copy_validation_artifacts(validation_root, out)
     )
-    audit = _audit_document(cells, validation_metrics, out=out)
+    audit = _audit_document(
+        cells,
+        human_rows,
+        human_metrics,
+        fidelity_rows,
+        fidelity_metrics,
+        out=out,
+    )
     _write_json(out / "audit.json", audit)
     _write_readmes(out, audit)
 
@@ -2589,8 +3058,8 @@ def build_release(
         speech_judgment_count=speech_count,
         paper_speech_judgment_count=paper_speech_count,
         speech_judgment_counts_by_cell=dict(sorted(speech_counts_by_cell.items())),
-        validation_call_count=validation_call_count,
-        validation_finding_count=validation_finding_count,
+        human_failure_validation_call_count=len(human_rows),
+        fidelity_validation_utterance_count=len(fidelity_rows),
         examples=examples,
         artifacts=artifacts,
     )
@@ -2605,6 +3074,18 @@ def verify_release(
     root = root.resolve()
     manifest = ReleaseManifest.model_validate_json((root / "manifest.json").read_text())
     checks: list[VerificationCheck] = []
+    checks.append(
+        VerificationCheck(
+            code="release_schema",
+            ok=(
+                manifest.schema_version == 3
+                and manifest.release_version == RELEASE_VERSION
+            ),
+            detail=(
+                f"schema={manifest.schema_version}; release={manifest.release_version}"
+            ),
+        )
+    )
     for artifact in manifest.artifacts:
         path = root / artifact.path
         actual = _sha256_file(path) if path.exists() else "missing"
@@ -2671,11 +3152,55 @@ def verify_release(
     checks.append(
         VerificationCheck(
             code="validation_counts",
-            ok=manifest.validation_call_count == 100
-            and manifest.validation_finding_count == 41,
+            ok=manifest.human_failure_validation_call_count == 90
+            and manifest.fidelity_validation_utterance_count == 60,
             detail=(
-                f"calls={manifest.validation_call_count}; "
-                f"findings={manifest.validation_finding_count}"
+                "human_failure_calls="
+                f"{manifest.human_failure_validation_call_count}; "
+                "fidelity_utterances="
+                f"{manifest.fidelity_validation_utterance_count}"
+            ),
+        )
+    )
+    try:
+        (
+            human_validation_rows,
+            _,
+            fidelity_validation_rows,
+            _,
+        ) = _read_validation_artifacts(root / "judge_validation")
+        validation_artifacts_ok = (
+            len(human_validation_rows)
+            == manifest.human_failure_validation_call_count
+            == 90
+            and len(fidelity_validation_rows)
+            == manifest.fidelity_validation_utterance_count
+            == 60
+        )
+        validation_artifacts_detail = (
+            f"human_failure_calls={len(human_validation_rows)}; "
+            f"fidelity_utterances={len(fidelity_validation_rows)}"
+        )
+    except (OSError, ValueError) as exc:
+        validation_artifacts_ok = False
+        validation_artifacts_detail = str(exc)
+    checks.append(
+        VerificationCheck(
+            code="validation_artifacts",
+            ok=validation_artifacts_ok,
+            detail=validation_artifacts_detail,
+        )
+    )
+    validation_leaks = _human_validation_leaks(root)
+    checks.append(
+        VerificationCheck(
+            code="human_validation_release_safety",
+            ok=not validation_leaks,
+            detail=(
+                "validation bundles contain final labels only and no raw review "
+                "material"
+                if not validation_leaks
+                else f"unexpected files={validation_leaks}"
             ),
         )
     )
