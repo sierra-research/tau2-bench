@@ -1,0 +1,56 @@
+{
+  "model_name": "Validity-Synthesa DeepSeek-V4-Flash Banking Agent",
+  "model_organization": "ByteVerity",
+  "submitting_organization": "ByteVerity",
+  "submission_date": "2026-07-24",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "mohit@byteverity.com",
+    "name": "Mohit",
+    "github": "mohitunplugged"
+  },
+  "results": {
+    "banking_knowledge": {
+      "pass_1": 86.5979381443299,
+      "pass_2": 82.64604810996565,
+      "pass_3": 79.63917525773195,
+      "pass_4": 77.31958762886599,
+      "cost": 0.016383449123711327,
+      "retrieval_config": "terminal_use+synthesa_public_clause_store"
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "banking_knowledge": "banking_knowledge_results.json"
+  },
+  "references": [
+    {
+      "title": "Validity repository",
+      "url": "https://github.com/byteverity/validity",
+      "type": "github"
+    },
+    {
+      "title": "Synthesa repository",
+      "url": "https://github.com/byteverity/synthesa",
+      "type": "github"
+    },
+    {
+      "title": "Full banking_knowledge trajectories (97 tasks, 4 trials)",
+      "url": "https://github.com/mohitunplugged/tau2-bench/releases/download/validity-synthesa-banking-n4-full97-20260724/validity-synthesa-deepseek-v4-flash_banking_knowledge_4trials_full97_20260724.tar.gz",
+      "type": "trajectories"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-07-24",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "fireworks_ai/deepseek-v4-flash",
+    "notes": "This is a custom text submission for a ByteVerity neuro-symbolic banking agent using DeepSeek V4 Flash via Fireworks. The agent combines two ByteVerity products. Synthesa is the neural proposal layer: the LLM proposes the next action and operands from the conversation, retrieved banking knowledge-base context, and observed state. Validity is the symbolic decision layer: a deterministic engine tracks banking task state, validates policy and operands, gates actions, and certifies completion. Together, Synthesa and Validity form the ByteVerity neuro-symbolic deterministic decision compiler. Validity decides; the model proposes. All checks are against banking policy, the knowledge base, available tools, conversation, and observed state only. The system never uses benchmark gold labels, reward, or evaluator outputs during the run. The evaluation covers all 97 banking_knowledge base tasks with four trials each, no task filter or omissions, concurrency 12, at most 260 steps, and zero infrastructure-invalid trajectories. Agent, user simulator, and evaluator use fireworks_ai/deepseek-v4-flash; the user simulator uses temperature 0 and max_tokens 1024. Tau retrieval is terminal_use, augmented by a Synthesa clause store compiled from 698 public Tau banking-policy documents at commit 5ebebbe827b455b3ed04fcb9294235c6ef4e5fd6 (3,672 source-cited clauses). That public corpus snapshot predates the Tau 1.0.1 document corrections. The decision compiler is deterministic for identical observed inputs; the end-to-end conversation is not claimed to be deterministic because provider and user-simulator variation remains possible. Reported cost is agent-only: the sum of every billed assistant-model message divided by all 388 trajectories. Schema-marked deterministic controller/product messages invoke no model and cost zero. User-simulator cost is excluded.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "Custom neuro-symbolic deterministic decision compiler using Synthesa and Validity; full 97-task base split, four trials, no task filters."
+    }
+  }
+}
