@@ -1,0 +1,51 @@
+{
+  "model_name": "deepseek-v4-flash",
+  "model_organization": "DeepSeek",
+  "submitting_organization": "Nablo",
+  "submission_date": "2026-08-12",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "isaac@nablo.io",
+    "name": "Isaac Kargar",
+    "github": "kargarisaac"
+  },
+  "results": {
+    "retail": {
+      "pass_1": 89.47368421052632,
+      "pass_2": 83.33333333333334,
+      "pass_3": 78.50877192982456,
+      "pass_4": 74.56140350877193,
+      "cost": 0.001755700849122807
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "retail": "deepseek-v4-flash_nablo-react_retail_base114x4.json"
+  },
+  "references": [
+    {
+      "title": "Post-training a 4B retail agent with hard-token trajectory SFT",
+      "url": "https://nablo.io/blog/08_qwen4b_tau2_retail_sft/",
+      "type": "blog_post"
+    },
+    {
+      "title": "Tau2 retail Nablo ReAct trajectories",
+      "url": "https://huggingface.co/datasets/kargarisaac/tau2-retail-nablo-react-trajectories",
+      "type": "huggingface"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-08-09",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "deepseek-v4-flash",
+    "notes": "Single PydanticAI agent in a ReAct loop with the standard Tau retail tools and a modified general policy-grounded instruction suffix. DeepSeek V4 Flash served as agent, user simulator, and natural-language assertion judge. All 114 base tasks ran for four trials with no omissions. Cost is the measured average agent API cost per trajectory; simulator and judge cost are excluded from the leaderboard cost field.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "The agent system prompt adds a general deliberation suffix; the user simulator follows Tau's task instructions through a custom first-party DeepSeek route."
+    }
+  },
+  "reasoning_effort": "enabled"
+}
