@@ -16,12 +16,21 @@ from tau2.orchestrator.modes import CommunicationMode
 from tau2.utils.display import ConsoleDisplay
 from tau2.utils.io_utils import expand_paths
 
+# Agent implementations that run without a real user (paired with dummy_user). Their trajectories must be
+# replayed with the environment in solo mode so the user-side tools are present. "llm_agent_solo_gt" is the
+# ground-truth variant used to record some result files; omitting it dropped those tools on replay and
+# silently collapsed the re-graded scores (see #502).
+SOLO_AGENT_IMPLEMENTATIONS = ("llm_agent_solo", "llm_agent_solo_gt")
+
 
 def is_solo_mode(results: Results) -> bool:
     """Checks if the solo mode is the same for all the tasks."""
     agent_implementation = results.info.agent_info.implementation
     user_implementation = results.info.user_info.implementation
-    if agent_implementation == "llm_agent_solo" and user_implementation == "dummy_user":
+    if (
+        agent_implementation in SOLO_AGENT_IMPLEMENTATIONS
+        and user_implementation == "dummy_user"
+    ):
         return True
     return False
 
