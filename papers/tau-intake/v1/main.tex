@@ -142,21 +142,24 @@ Speech NER \cite{shon2022slue,yu2024heard,assemblyai2026mer} & -- & -- & $\check
 \end{tabular}
 \end{table}
 
-\tauvoice{}, EVA-Bench, DuplexWorld, and Full-Duplex-Bench-v3 evaluate
-end-to-end spoken agents and tool use
+Existing voice-agent benchmarks---\tauvoice{}, EVA-Bench, DuplexWorld, and
+Full-Duplex-Bench-v3---measure end-to-end task performance and interaction
+quality; several also exercise tool use
 \cite{ray2026tauvoice,bogavelli2026evabench,bhosale2026duplexworld,lin2026fdbv3}.
-They reveal task and interaction failures, but treat exact entity capture as one
-part of a broader workflow rather than as the controlled target.
-Both \tauvoice{} and EVA-Bench emphasize authentication: \tauvoice{} identifies
-it as the dominant bottleneck, while EVA-Bench makes it a prerequisite for
-nearly every task and reports it as a dedicated diagnostic
-\cite{ray2026tauvoice,bogavelli2026evabench}.
+Their broad scope reveals failures such as authentication---identified as the
+dominant bottleneck in \tauvoice{} and reported separately in EVA-Bench---but
+does not isolate exact entity capture
+\cite{ray2026tauvoice,bogavelli2026evabench}. \telicit{} extends the
+\mbox{$\uptau$-bench}, \mbox{$\uptau^2$-Bench}, and \tauvoice{} lineage by making
+controlled voice entity collection the primary task
+\cite{yao2024taubench,barres2025tau2bench,ray2026tauvoice}.
 
-SpokenWOZ and \emph{A Slot Is Not Built in One Utterance} track values across
-dialogue turns \cite{si2023spokenwoz,zhang2022slot}. SLUE benchmarks spoken NER
-on natural speech; \emph{I've Heard of You!} targets unseen entities in
-synthesized audio; and AssemblyAI's Missed Entity Rate measures STT errors on
-high-value entities \cite{shon2022slue,yu2024heard,assemblyai2026mer}.
+Dialogue-state tracking spans MultiWOZ, SpokenWOZ, and cross-utterance sub-slot
+tracking
+\cite{budzianowski2018multiwoz,si2023spokenwoz,zhang2022slot}.
+ASR and spoken-entity work covers natural-speech NER, ASR error propagation,
+unseen entities in synthesized audio, and industrial missed-entity rates
+\cite{shon2022slue,szymanski2023ner,yu2024heard,assemblyai2026mer}.
 \emph{Error Detection and Recovery in Spoken Dialogue Systems} studies repair strategies
 \cite{filisko-seneff-2004-error}. None combines live tool execution, exact
 database writes, controlled entity type, difficulty and count, an agent's
@@ -221,10 +224,13 @@ caller voices.
 \label{sec:experiments}
 
 \noindent\textbf{Systems.}
-We evaluate four configurations: gpt-realtime-2 with minimal and xhigh
-reasoning, gemini-3.1-flash-live-preview with high reasoning, and
-grok-voice-think-fast-1.0 with its provider default. The simulated caller uses
-gpt-5.5 with xhigh reasoning and temperature zero.
+We evaluate gpt-realtime-2 (minimal and xhigh reasoning),
+gemini-3.1-flash-live-preview (high), and grok-voice-think-fast-1.0
+(provider default)
+\cite{openai2026models,google2026models,xai2026grokvoicethinkfast}.
+The caller uses gpt-5.5 (xhigh, temperature zero) \cite{openai2026models},
+with speech synthesized by ElevenLabs eleven\_v3
+\cite{elevenlabs2026elevenv3}.
 
 \smallskip
 \noindent\textbf{Matched runs.}
@@ -248,8 +254,9 @@ Two raters independently review 90 failed calls across providers, labeling
 failure source and subtype. After discussion and six explicit adjudications,
 failure source is resolved for 86 of 90 calls and subtype for 66 of the 81
 calls resolved as agent failures.
-For fidelity validation, we freeze a stratified 60-utterance sample enriched
-for human-flagged candidates.
+For fidelity validation, gemini-3.1-pro-preview (temperature zero) scores a
+frozen stratified 60-utterance sample enriched for human flags
+\cite{google2026models}.
 
 \section{Results}
 \label{sec:results}
@@ -458,9 +465,9 @@ failures, agreed or adjudicated labels assign 42 as transcription, 16 as
 logical, six as VAD, and two as hallucination; the remaining 15 retain subtype
 disagreement. The speech-fidelity judge
 compares agent audio with its reference transcript, flagging mispronunciations,
-word additions or omissions, and clipping; severity $\geq 2$ denotes a clear,
-potentially confusing mismatch. At this threshold, the frozen 60-utterance set
-yields .80 precision, .75 recall, and .77 F1. A matched text run passes all 200
+word additions, omissions, and clipping; severity $\geq 2$ marks a clear,
+potentially confusing mismatch. The frozen set yields .80 precision, .75
+recall, and .77 F1. A matched text run passes all 200
 tasks, implicating spoken capture and repair rather than task understanding.
 
 \section{Conclusion}
@@ -485,7 +492,7 @@ reports synthesis defects, but they do not yet affect task reward. The
 multi-field study is formative; broader provider, human-caller, and
 multilingual validation remain future work.
 
-\smallskip
+\vspace{\baselineskip}
 \noindent\textbf{Acknowledgment.} We thank Ben Shi, Ola Zytek, Vijay Iyengar,
 Ajeet Grewal, and Clay Bavor for feedback and support.
 

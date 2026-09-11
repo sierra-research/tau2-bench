@@ -103,13 +103,13 @@ const rows = effects
       .join("\n");
     const divider =
       index === 0
-        ? '<line x1="8" y1="89" x2="612" y2="89" stroke="#bbb" stroke-width="1.5"/>'
+        ? '\n  <line x1="8" y1="89" x2="612" y2="89" stroke="#bbb" stroke-width="1.5"/>'
         : "";
     return `
   <g aria-label="${effect.displayLabel}">
     <text${labelClass} x="228" y="${y + 7}" text-anchor="end">${effect.displayLabel}</text>
 ${seriesRows}
-  </g>${divider ? `\n  ${divider}` : ""}`;
+  </g>${divider}`;
   })
   .join("\n");
 

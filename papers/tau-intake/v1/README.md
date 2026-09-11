@@ -13,5 +13,6 @@ make
 
 The submission PDF is written to `ray.pdf`.
 
-`RESULT_SOURCES.md` records the frozen runs, validation sets, and
-provenance-bearing analysis artifacts behind every reported result.
+`RESULT_SOURCES.md` separates completed formative results from the planned
+confirmatory evaluation. Do not convert planned cells into reported findings
+until provenance-bearing analysis artifacts exist.
