@@ -1,7 +1,8 @@
 # Reviewer-release verification
 
-This release candidate was checked on 2026-09-08 and its active-only validation
-cleanup was reverified on 2026-09-09. All checks below are read-only with
+This release candidate was checked on 2026-09-08, its active-only validation
+cleanup was reverified on 2026-09-09, and the paper citation update was
+reverified on 2026-09-11. All checks below are read-only with
 respect to the frozen result bundle unless an output directory is explicitly
 supplied.
 
@@ -22,7 +23,7 @@ supplied.
 | Experience reproduction | The full 4,500-call replay regenerated `experience.json` byte-for-byte (SHA-256 `2087ea23bcb9c14cd73cb945e70f53ffd0685d2c36c5492d3c7a325b44f1369f`) |
 | Retail-ablation transcripts | 360 calls, 8,617 delivered turns, 12 source-result hashes, and 360 source-simulation hashes verified; all four ablation rows reproduce |
 | Offline tests and style | 120 affected paper/archive tests pass; repository-wide Ruff check passes and all 640 Python files are formatted |
-| Manuscript | Clean five-page build; no undefined references or overfull boxes; PDF size 231,055 bytes |
+| Manuscript | Clean five-page build; no undefined references or overfull boxes; PDF size 234,367 bytes |
 | Executable voice smoke | One Spanish airline call completed normally through the real OpenAI streaming path; 2/2 action checks and DB match passed, with no agent, caller, or infrastructure error. The communication criterion failed, so this one stochastic smoke received reward 0; it is a pipeline check, not a reported result. |
 
 ## Documented audit warnings
