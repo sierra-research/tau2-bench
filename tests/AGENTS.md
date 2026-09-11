@@ -43,13 +43,13 @@ Tests are organized into tiers that match the project's optional dependency grou
 
 | Tier | Directories | Required install |
 |------|-------------|-----------------|
-| Core (`make test`) | `test_agent.py`, `test_environment.py`, `test_orchestrator.py`, `test_run.py`, `test_tasks.py`, `test_user.py`, `test_utils.py`, `test_llm_utils.py`, `test_checkpoint.py`, `test_results_format.py`, `test_domains/test_airline/`, `test_domains/test_mock/`, `test_domains/test_retail/`, `test_domains/test_telecom/` | `uv sync --extra dev` |
+| Core (`make test`) | Everything except the tiers below — includes `test_multilingual/`, `test_annotation/`, `test_judges/`, and the core domains (`test_domains/test_airline/`, `test_mock/`, `test_retail/`, `test_telecom/`) | `uv sync --extra dev` |
 | Voice (`make test-voice`) | `test_voice/`, `test_streaming/` | `uv sync --extra voice --extra dev` |
 | Knowledge (`make test-knowledge`) | `test_domains/test_banking_knowledge/` | `uv sync --extra knowledge --extra dev` |
 | Gym (`make test-gym`) | `test_gym/` | `uv sync --extra gym --extra dev` |
 | All (`make test-all`) | Everything above | `uv sync --all-extras` |
 
-`make test` is the safe default for contributors who only work on core domains (airline, retail, telecom, mock). It requires no optional packages beyond pytest and ruff.
+`make test` is the safe default: it runs on a plain `uv sync --extra dev` install. Voice-stack modules keep their optional third-party clients (elevenlabs, websockets, pyaudio) behind lazy imports so that core code — prompt rendering, packet building — can import them without the voice extra installed.
 
 ## Key Conventions
 

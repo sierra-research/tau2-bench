@@ -405,6 +405,7 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
         simulation_id: Optional[str] = None,
         validate_communication: bool = False,
         timeout: Optional[float] = None,
+        first_agent_message: Optional[AssistantMessage] = None,
     ):
         """
         Initialize the Orchestrator for managing simulation between Agent, User, and Environment.
@@ -453,6 +454,10 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
         self.from_role: Optional[Role] = None
         self.to_role: Optional[Role] = None
         self.message: Optional[Message] = None
+
+        # Optional override for the seeded first agent turn (e.g. a localized
+        # greeting for a language-pack run). None keeps the English default.
+        self.first_agent_message = first_agent_message
 
         # Validate mode compatibility
         self._validate_mode_compatibility()
@@ -627,7 +632,9 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
             # No message history - initialize fresh
             self.user_state = self.user.get_init_state()
             if not self.solo_mode:
-                first_message = deepcopy(DEFAULT_FIRST_AGENT_MESSAGE)
+                first_message = deepcopy(
+                    self.first_agent_message or DEFAULT_FIRST_AGENT_MESSAGE
+                )
                 first_message.timestamp = get_now()
                 self.agent_state = self.agent.get_init_state(
                     message_history=[first_message]
@@ -791,10 +798,14 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
         # Update voice metadata with final turn_idx values
         self._finalize_voice_metadata(messages)
 
-        # Get speech_environment from user's voice_settings if available
-        speech_environment = None
+        # Get speech_environment from the user. Text user simulators carry it
+        # directly (set by the builder for language-pack runs, so the run records
+        # the active language for nativeness); voice users carry it on their
+        # voice_settings.
+        speech_environment = getattr(self.user, "speech_environment", None)
         if (
-            hasattr(self.user, "voice_settings")
+            speech_environment is None
+            and hasattr(self.user, "voice_settings")
             and self.user.voice_settings is not None
         ):
             speech_environment = self.user.voice_settings.speech_environment
@@ -813,6 +824,11 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
             seed=self.seed,
             mode=self.mode.value,
             speech_environment=speech_environment,
+            # Noise-armed text runs carry the task's entity noise plan on the
+            # user simulator; recording it here makes every clean → corrupted
+            # pair readable off the result (capture/repair checks need only
+            # the results file).
+            text_noise=getattr(self.user, "entity_noise", None),
         )
         return simulation_run
 
@@ -838,6 +854,9 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
                 self.message, self.user_state
             )
             user_msg.validate()
+            # UserSimulator.is_stop is False for tool-call messages, so a
+            # user stop can never leave a pending ENV round-trip (unlike the
+            # agent path below).
             if UserSimulator.is_stop(user_msg):
                 self.done = True
                 self.termination_reason = TerminationReason.USER_STOP
@@ -859,16 +878,15 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
                 self.message, self.agent_state
             )
             agent_msg.validate()
-            if self.agent.is_stop(agent_msg):
-                self.done = True
-                self.termination_reason = TerminationReason.AGENT_STOP
-
             self.trajectory.append(agent_msg)
             self.message = agent_msg
             self.from_role = Role.AGENT
             if agent_msg.is_tool_call():
                 self.to_role = Role.ENV
             else:
+                if self.agent.is_stop(agent_msg):
+                    self.done = True
+                    self.termination_reason = TerminationReason.AGENT_STOP
                 self.to_role = Role.USER
                 # In solo mode, there is no user, so if the message is not a tool call and not a stop, then we end and report an agent error
                 if self.solo_mode and not self.agent.is_stop(agent_msg):

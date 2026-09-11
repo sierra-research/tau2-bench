@@ -6,7 +6,10 @@ import pandas as pd
 from loguru import logger
 from pydantic import BaseModel
 
-from tau2.data_model.simulation import Results, TerminationReason
+from tau2.data_model.simulation import (
+    Results,
+    TerminationReason,
+)
 
 
 def is_successful(reward: float) -> bool:
@@ -21,6 +24,13 @@ class AgentMetrics(BaseModel):
     avg_reward: float
     pass_hat_ks: dict[int, float]
     avg_agent_cost: float
+
+    # There is deliberately no nativeness metric here. The judges still run and
+    # still persist their verdicts on each simulation; the paper reads them as
+    # FEATURES (``judged_nativeness`` and friends) through the scoring chain,
+    # where they carry a fitted coefficient. A pass-rate average alongside
+    # reward invited reading the two as comparable headline numbers, which they
+    # are not — see ``tau2 annotate report``.
 
     # Simulation counts
     total_simulations: int = 0

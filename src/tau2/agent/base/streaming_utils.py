@@ -62,6 +62,43 @@ def extract_all_chunk_ids(script_gold: str) -> set[int]:
     return {int(m.group(1)) for m in re.finditer(r"<chunk id=(\d+)>", script_gold)}
 
 
+def extract_delivered_text(script_gold: str) -> tuple[str, bool]:
+    """Plain text of the chunks actually delivered, plus whether any were cut.
+
+    Streaming voice runs store ``audio_script_gold`` as a marked-up template —
+    ``<message uuid=".." active="0,1"><chunk id=0>..</chunk>..</message>`` — where
+    ``active`` lists the chunks whose audio was actually emitted. Downstream
+    consumers (delivery/nativeness judges, annotation exports) must see (a) plain
+    text, never the markup, and (b) only the *delivered* chunks' text, so a caller
+    barge-in never contributes text that was never spoken. The second return value
+    is True when some template chunks were never delivered (interruption).
+    Plain-text golds (non-streaming synthesis path, older runs) pass through
+    unchanged.
+    """
+    if "<chunk id=" not in script_gold:
+        return script_gold, False
+
+    # Chunk ids restart at 0 per <message> block (merged golds may hold several
+    # messages), so parse each block independently.
+    blocks = re.findall(r"<message .*?</message>", script_gold, flags=re.DOTALL) or [
+        script_gold
+    ]
+    delivered_parts: list[str] = []
+    interrupted = False
+    for block in blocks:
+        active = extract_active_chunk_ids(block)
+        all_ids = extract_all_chunk_ids(block)
+        # Chunks split text mid-word (character-level), so join within a block
+        # with no separator; blocks are distinct utterances, joined with a space.
+        delivered_parts.append(
+            "".join(
+                text for cid, text in extract_chunks_with_text(block) if cid in active
+            )
+        )
+        interrupted = interrupted or bool(all_ids - active)
+    return " ".join(part for part in delivered_parts if part), interrupted
+
+
 def merge_audio_script_gold(script_golds: list[str | None]) -> str | None:
     """Merge multiple audio_script_gold strings, handling multiple messages.
 

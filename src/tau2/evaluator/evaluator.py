@@ -1,7 +1,11 @@
 from enum import Enum
 from typing import Optional
 
-from tau2.data_model.simulation import RewardInfo, SimulationRun, TerminationReason
+from tau2.data_model.simulation import (
+    RewardInfo,
+    SimulationRun,
+    TerminationReason,
+)
 from tau2.data_model.tasks import RewardType, Task
 from tau2.environment.toolkit import ToolType, get_tool_types
 from tau2.evaluator.evaluator_action import ActionEvaluator, FullDuplexActionEvaluator
@@ -17,6 +21,7 @@ from tau2.evaluator.evaluator_nl_assertions import (
     FullDuplexNLAssertionsEvaluator,
     NLAssertionsEvaluator,
 )
+from tau2.multilingual import get_multilingual_persona
 from tau2.orchestrator.modes import CommunicationMode
 from tau2.registry import registry
 
@@ -85,6 +90,30 @@ class EvaluationType(str, Enum):
     ALL_WITH_NL_ASSERTIONS_IGNORE_BASIS = "all_with_nl_assertions_ignore_basis"
 
 
+def get_simulation_language_info(
+    simulation: SimulationRun,
+) -> tuple[Optional[str], Optional[str]]:
+    """Resolve the (language, script) of a simulation run.
+
+    Reads ``simulation.speech_environment`` (populated when a language-pack
+    persona is active, see ``tau2.multilingual``). Returns (None, None) for
+    English runs / text runs without a speech environment.
+    """
+    speech_environment = getattr(simulation, "speech_environment", None)
+    if speech_environment is None:
+        return None, None
+    language = speech_environment.language
+    script = None
+    if speech_environment.persona_id:
+        hit = get_multilingual_persona(speech_environment.persona_id)
+        if hit is not None:
+            _pack, persona = hit
+            script = persona.script
+            if language is None:
+                language = persona.language
+    return language, script
+
+
 def evaluate_simulation(
     simulation: SimulationRun,
     task: Task,
@@ -93,6 +122,7 @@ def evaluate_simulation(
     domain: str,
     mode: CommunicationMode = CommunicationMode.HALF_DUPLEX,
     env_kwargs: dict = None,
+    llm_communicate_judge: Optional[bool] = None,
     strict_replay: bool = True,
 ) -> RewardInfo:
     """
@@ -107,6 +137,12 @@ def evaluate_simulation(
         mode: The communication mode (HALF_DUPLEX or FULL_DUPLEX).
               Defaults to HALF_DUPLEX. In FULL_DUPLEX mode, evaluation uses
               simulation.ticks instead of simulation.messages.
+        llm_communicate_judge: Force (True) or disable (False) the LLM judge
+              for communicate_info checks. None (default) auto-activates the
+              judge iff the run's language is set and not English; English
+              runs keep exact substring matching. Can also be forced via the
+              TAU2_FORCE_LLM_COMMUNICATE_JUDGE env var (e.g. for an English
+              baseline arm scored with the identical metric).
         strict_replay: Whether the environment replay should raise when a
               replayed tool call's output differs from the recorded one.
               Live evaluation keeps the default (True); trajectory re-grading
@@ -139,6 +175,10 @@ def evaluate_simulation(
     # Select trajectory and evaluators based on mode
     is_full_duplex = mode == CommunicationMode.FULL_DUPLEX
     trajectory = simulation.ticks if is_full_duplex else simulation.messages
+
+    # Language of the run (None for English), used by the language-aware
+    # communicate and NL-assertion evaluators.
+    language, script = get_simulation_language_info(simulation)
 
     # Select evaluator classes based on mode
     EnvEvaluator = (
@@ -181,11 +221,15 @@ def evaluate_simulation(
         reward_info = NLEvaluator.calculate_reward(
             task=task,
             full_trajectory=trajectory,
+            language=language,
+            script=script,
         )
     elif evaluation_type == EvaluationType.COMMUNICATE:
         reward_info = CommEvaluator.calculate_reward(
             task=task,
             full_trajectory=trajectory,
+            language=language,
+            llm_communicate_judge=llm_communicate_judge,
         )
     elif evaluation_type == EvaluationType.ACTION:
         reward_info = ActEvaluator.calculate_reward(
@@ -210,6 +254,8 @@ def evaluate_simulation(
         communicate_reward_info = CommEvaluator.calculate_reward(
             task=task,
             full_trajectory=trajectory,
+            language=language,
+            llm_communicate_judge=llm_communicate_judge,
         )
         nl_reward_info = None
         task_needs_nl = RewardType.NL_ASSERTION in task.evaluation_criteria.reward_basis
@@ -217,6 +263,8 @@ def evaluate_simulation(
             nl_reward_info = NLEvaluator.calculate_reward(
                 task=task,
                 full_trajectory=trajectory,
+                language=language,
+                script=script,
             )
 
         ## Combine all the rewards.
@@ -292,12 +340,16 @@ def evaluate_simulation(
         communicate_reward_info = CommEvaluator.calculate_reward(
             task=task,
             full_trajectory=trajectory,
+            language=language,
+            llm_communicate_judge=llm_communicate_judge,
         )
         nl_reward_info = None
         if evaluation_type == EvaluationType.ALL_WITH_NL_ASSERTIONS_IGNORE_BASIS:
             nl_reward_info = NLEvaluator.calculate_reward(
                 task=task,
                 full_trajectory=trajectory,
+                language=language,
+                script=script,
             )
 
         # Combine all rewards regardless of the task's reward_basis

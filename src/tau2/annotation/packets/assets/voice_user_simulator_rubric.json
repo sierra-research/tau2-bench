@@ -1,0 +1,246 @@
+{
+  "rubric_name": "Voice User Simulator Realism Evaluation",
+  "version": "3.0",
+  "description": "Rubric for evaluating how well the tau-voice user simulator approximates a real human caller. Rate each dimension on a 1-4 scale.",
+  "setting": "realistic",
+  "instructions": "Listen to the full conversation audio. The CALLER is synthetic; the AGENT is an AI customer service rep. Rate how well the CALLER approximates natural human behavior on each dimension (1-4). Focus on the caller, not the agent.",
+  "calibration": {
+    "description": "A score of 4 = a real human caller. A score of 1-2 = a clearly robotic system like the example below.",
+    "anchor_high": {
+      "score": 4,
+      "label": "A real human caller on a customer service phone call."
+    },
+    "anchor_low": {
+      "score": "1-2",
+      "label": "A clearly robotic automated system.",
+      "reference_url": "https://www.youtube.com/watch?v=S5t6K9iwcdw"
+    }
+  },
+  "dimensions": [
+    {
+      "id": "voice_prosody_quality",
+      "name": "Voice & Prosody Quality",
+      "short_description": "Does the voice sound natural in quality, intonation, pacing, and expressiveness?",
+      "description": "Rate the caller's voice (timbre, articulation) and delivery (intonation, rhythm, emphasis, emotion). Natural speakers adjust prosody to context — questions rise, frustration sharpens pace, account numbers are slow and deliberate.",
+      "scores": {
+        "1": {
+          "label": "Poor",
+          "description": "Noticeably synthetic — robotic quality, unnatural pronunciation, or artifacts. Flat or inappropriate delivery with little variation in pitch, pace, or emphasis."
+        },
+        "2": {
+          "label": "Below Average",
+          "description": "Some natural qualities but synthetic traits dominate. Prosody feels mechanical — a 'reading aloud' cadence, forced emotion, or misplaced emphasis. More artificial than natural."
+        },
+        "3": {
+          "label": "Above Average",
+          "description": "Good approximation for most of the conversation. Generally adjusts pace, tone, and emphasis to context. Some noticeable drops — unnaturally even pacing, a flat emotional response, or an off-sounding word — but outweighed by convincing sections."
+        },
+        "4": {
+          "label": "Excellent",
+          "description": "Closely approximates natural speech throughout. Realistic texture, natural articulation, rich prosody — speeds up when excited, slows when thinking, modulates tone with emotion. No significant shortcomings."
+        }
+      }
+    },
+    {
+      "id": "audio_environment_realism",
+      "name": "Audio Environment Realism",
+      "short_description": "Does the audio environment sound like a real phone call?",
+      "description": "Rate the realism of background noise, phone line quality, and incidental sounds (coughs, nearby speech). Real phone calls have imperfect audio — some noise, slight telephony distortion, occasional environmental interruptions.",
+      "scores": {
+        "1": {
+          "label": "Poor",
+          "description": "Obviously fake. Background noise loops, appears/disappears abruptly, or is implausible. Incidental sounds feel synthetic or poorly timed. Does not resemble a real call."
+        },
+        "2": {
+          "label": "Below Average",
+          "description": "Some realistic elements but unconvincing overall. Noise feels layered on rather than natural — poor blending, too-consistent volume, or filter-like phone quality. More artificial than natural."
+        },
+        "3": {
+          "label": "Above Average",
+          "description": "Convincing for most of the call with some imperfections — looping noise, a slightly out-of-place sound, or inconsistent telephony quality. Noticeable but the environment still leans believable."
+        },
+        "4": {
+          "label": "Excellent",
+          "description": "Closely approximates a real phone call. Noise varies naturally, phone quality feels authentic, incidental sounds are well-integrated. No significant shortcomings."
+        }
+      }
+    },
+    {
+      "id": "turn_taking_naturalness",
+      "name": "Turn-Taking Naturalness",
+      "short_description": "Is the timing of when the caller starts and stops speaking natural?",
+      "description": "Rate the rhythm of the conversation — response delays, pause lengths, overall pacing. Real callers vary their timing: quick replies to simple questions, longer pauses after complex information.",
+      "scores": {
+        "1": {
+          "label": "Robotic",
+          "description": "Mechanical timing — same delay regardless of context, or unnatural silences followed by sudden speech. Feels like two recordings played in sequence."
+        },
+        "2": {
+          "label": "Awkward",
+          "description": "Timing is off for most of the conversation — too fast, too slow, or unnaturally uniform. Variation exists but doesn't match context. More rigid than natural."
+        },
+        "3": {
+          "label": "Somewhat Natural",
+          "description": "Natural for most exchanges with some variation. A few off moments — an oddly long pause, a too-consistent delay, or a too-quick response after complex info. Overall rhythm leans natural."
+        },
+        "4": {
+          "label": "Natural",
+          "description": "Natural throughout — quick acknowledgments, thoughtful pauses, appropriate hesitation. The rhythm has the organic ebb and flow of a real call. No significant shortcomings."
+        }
+      }
+    },
+    {
+      "id": "backchannel_naturalness",
+      "name": "Backchannel Naturalness",
+      "short_description": "Are listener signals (mm-hmm, uh-huh, okay) natural and well-timed?",
+      "description": "Rate the caller's backchannel signals — 'mm-hmm', 'uh-huh', 'okay', 'got it'. These matter most during longer agent speech (explanations, reading details). They are NOT expected during short responses or quick exchanges — real people don't backchannel every turn.",
+      "scores": {
+        "1": {
+          "label": "Absent or Disruptive",
+          "description": "Never backchannels (even during long agent speech) OR backchannels at wrong moments — mid-word, over important info, or in random positions."
+        },
+        "2": {
+          "label": "Poorly Timed",
+          "description": "Backchannels exist but mostly poorly placed — mid-sentence, mechanically regular, or forced. May backchannel unnecessarily during short responses or stay silent during long explanations. More awkward than natural."
+        },
+        "3": {
+          "label": "Somewhat Natural",
+          "description": "Reasonably placed for most of the conversation. Some issues — a mistimed backchannel, a too-long silence during a lengthy explanation, or a slightly too-regular pattern. Limited variety of tokens. Leans convincing overall."
+        },
+        "4": {
+          "label": "Natural",
+          "description": "Closely approximates natural listening. Appears during longer speech at right moments, absent during short exchanges. Frequency adapts to the conversation. No significant shortcomings."
+        }
+      }
+    },
+    {
+      "id": "interruption_behavior",
+      "name": "Interruption Behavior",
+      "short_description": "Are the caller's interruptions natural and well-motivated?",
+      "description": "Rate whether interruptions are well-timed and motivated. Valid reasons: agent is rambling, repeating known info, going off track, or the caller has heard enough to respond. Interrupting while the agent conveys new, important info is inappropriate. Note: when both speak at once, the user may continue — yielding is the agent's job. If no interruptions occur, rate whether that absence feels natural.",
+      "scores": {
+        "1": {
+          "label": "Disruptive",
+          "description": "Interruptions are clearly inappropriate — cuts off the agent for no reason, interrupts during important info, or never interrupts even when the agent rambles excessively. Feels mechanical."
+        },
+        "2": {
+          "label": "Awkward",
+          "description": "Noticeably unnatural — interrupts too early or at bad moments, or is too passive when the agent repeats itself. More mechanical than natural."
+        },
+        "3": {
+          "label": "Somewhat Natural",
+          "description": "Most interruptions feel motivated and reasonably timed. Some noticeable moments — an unmotivated interruption or one that comes slightly too early. Majority of behavior is convincing."
+        },
+        "4": {
+          "label": "Natural",
+          "description": "Interruptions are well-motivated and timed at natural points. Interrupts when appropriate, holds back when the agent is conveying useful info. No significant shortcomings."
+        }
+      }
+    },
+    {
+      "id": "behavioral_plausibility",
+      "name": "Behavioral Plausibility",
+      "short_description": "Does the caller behave like a real person would?",
+      "description": "Rate whether the caller is believable as a real customer. Consider patience levels, emotional reactions to delays or mistakes, and genuine engagement vs. scripted behavior.",
+      "scores": {
+        "1": {
+          "label": "Scripted",
+          "description": "Behaves like a machine — infinitely patient, no emotional reactions, information delivered in a robotic sequence. No genuine engagement."
+        },
+        "2": {
+          "label": "Stilted",
+          "description": "Predominantly unrealistic — too patient with errors, no frustration when warranted, flat affect. Occasional human moments but overall feels overly cooperative and tolerant."
+        },
+        "3": {
+          "label": "Somewhat Plausible",
+          "description": "Behaves like a real person most of the time. Some off moments — too patient after a long delay, too-consistent engagement, or missing pushback where expected. Leans convincingly human."
+        },
+        "4": {
+          "label": "Convincing",
+          "description": "Believable throughout — patience has limits, shows genuine relief or frustration, engagement waxes and wanes. Pushes back when appropriate. No significant shortcomings."
+        }
+      }
+    },
+    {
+      "id": "speech_accuracy",
+      "name": "Speech Accuracy",
+      "short_description": "Was the text actually said? Does the spoken audio match the caller's transcript?",
+      "description": "Rate how faithfully the synthesized audio renders the caller's intended text (the transcript). This is a SYNTHESIS-fidelity check, not a judgment of word choice — read the transcript and compare it to what you hear. Look for dropped, mangled, duplicated, or skipped words; mispronounced or garbled numbers, order IDs, emails, and names; truncated or cut-off utterances; or words rendered in the wrong language.",
+      "scores": {
+        "1": {
+          "label": "Inaccurate",
+          "description": "Frequently fails to say the text — significant words dropped or garbled, key details (numbers, IDs, names) mispronounced or unintelligible, or utterances truncated. Hard to follow what the caller meant to say from the audio alone."
+        },
+        "2": {
+          "label": "Several Errors",
+          "description": "Several noticeable mismatches between transcript and audio — multiple mangled words or a mispronounced critical detail (an order ID, email, or number) that could mislead the agent. More error-prone than clean."
+        },
+        "3": {
+          "label": "Mostly Accurate",
+          "description": "Audio matches the text for most of the call with minor slips — an occasional swallowed word, a slightly off pronunciation, or one shaky detail — but nothing that obscures meaning or misleads the agent."
+        },
+        "4": {
+          "label": "Accurate",
+          "description": "The audio faithfully says the text throughout. All words present, numbers/IDs/names pronounced clearly and correctly, no truncation. No significant shortcomings."
+        }
+      }
+    },
+    {
+      "id": "phrasing_naturalness",
+      "name": "Phrasing Naturalness",
+      "short_description": "Is the wording itself what a real person would say (independent of how it sounds)?",
+      "description": "Rate the caller's WORD CHOICE and sentence construction as TEXT — judge the transcript, not the audio. This isolates phrasing problems (what the simulator wrote) from synthesis problems (how it was spoken, covered by Voice & Prosody). A line can be voiced perfectly yet still be phrased like no real caller would speak. Look for stilted or over-formal wording, robotic or templated constructions, assistant-style LLM-isms ('I'd be happy to', 'Certainly!', 'As an AI'), over-complete or over-explained sentences, and repetitive phrasing.",
+      "scores": {
+        "1": {
+          "label": "Robotic",
+          "description": "Wording reads like a script or a chatbot — over-formal, templated, or full of assistant-style phrasing. No real caller would talk this way."
+        },
+        "2": {
+          "label": "Stilted",
+          "description": "Phrasing is unnatural for most of the call — overly complete sentences, formal word choice, or repeated canned constructions. Occasional natural lines but stilted phrasing dominates."
+        },
+        "3": {
+          "label": "Mostly Natural",
+          "description": "Wording sounds like a real caller most of the time. Some off moments — an over-formal sentence, a slightly templated turn, or a mild LLM-ism — but the majority is convincingly conversational."
+        },
+        "4": {
+          "label": "Natural",
+          "description": "Word choice and sentence construction read like a real person throughout — conversational, appropriately terse, contractions and casual phrasing where expected. No significant shortcomings."
+        }
+      }
+    }
+  ],
+  "metadata_fields": [
+    {
+      "id": "conversation_id",
+      "description": "Unique identifier for the conversation being evaluated"
+    },
+    {
+      "id": "evaluator_id",
+      "description": "Unique identifier for the human evaluator"
+    },
+    {
+      "id": "domain",
+      "description": "The domain of the conversation (airline, retail, telecom)"
+    },
+    {
+      "id": "persona",
+      "description": "The voice persona used for the simulated caller"
+    },
+    {
+      "id": "agent_provider",
+      "description": "The voice agent provider being used in the conversation"
+    },
+    {
+      "id": "has_interruptions",
+      "description": "Whether the conversation contains any speech overlap or interruption events"
+    }
+  ],
+  "optional_fields": [
+    {
+      "id": "free_text_comments",
+      "type": "text",
+      "description": "Any additional observations — specific moments that were particularly convincing or unconvincing."
+    }
+  ]
+}

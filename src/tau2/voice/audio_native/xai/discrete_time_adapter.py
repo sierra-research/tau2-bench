@@ -64,6 +64,7 @@ from tau2.voice.audio_native.xai.events import (
     XAITimeoutEvent,
 )
 from tau2.voice.audio_native.xai.provider import (
+    XAI_LANGUAGE_HINTS,
     XAIAudioFormat,
     XAIRealtimeProvider,
     XAIVADConfig,
@@ -100,22 +101,27 @@ class DiscreteTimeXAIAdapter(DiscreteTimeAdapter):
         reasoning_effort: Optional[str] = None,
         provider: Optional[XAIRealtimeProvider] = None,
         voice: str = DEFAULT_XAI_VOICE,
+        language: Optional[str] = None,
     ):
         """Initialize the discrete-time xAI adapter.
 
         Args:
             tick_duration_ms: Duration of each tick in milliseconds. Must be > 0.
             send_audio_instant: If True, send audio in one call (discrete-time mode).
-            model: Model to use (e.g. grok-voice-think-fast-2.0). Defaults to
+            model: Model to use (e.g. grok-voice-think-fast-1.0). Defaults to
                 DEFAULT_XAI_MODEL.
-            reasoning_effort: "high" or "none". If None, the API default
-                ("high") applies.
+            reasoning_effort: Not supported by the paper's pinned xAI model.
+                Must be None.
             provider: Optional provider instance. Created lazily if not provided.
-            voice: Voice to use (lowercase voice ID). Default: ara.
+            voice: Voice to use. One of: Ara, Rex, Sal, Eve, Leo. Default: Ara.
+            language: The run's language pack code (e.g. "es"), mapped through
+                XAI_LANGUAGE_HINTS to the session's ASR language_hint. None
+                (or an unmapped code) omits the hint: the model auto-detects.
+                Ignored when an explicit ``provider`` instance is supplied.
         """
-        if reasoning_effort is not None and reasoning_effort not in ("high", "none"):
+        if reasoning_effort is not None:
             raise ValueError(
-                f"xAI reasoning_effort must be 'high' or 'none' "
+                f"xAI provider does not support reasoning_effort "
                 f"(got '{reasoning_effort}')"
             )
         super().__init__(tick_duration_ms, send_audio_instant=send_audio_instant)
@@ -126,6 +132,7 @@ class DiscreteTimeXAIAdapter(DiscreteTimeAdapter):
         self.model = model or DEFAULT_XAI_MODEL
         self.reasoning_effort = reasoning_effort
         self.voice = voice
+        self.language = language
 
         # Provider - created lazily if not provided
         self._provider = provider
@@ -146,6 +153,9 @@ class DiscreteTimeXAIAdapter(DiscreteTimeAdapter):
                 model=self.model,
                 voice=self.voice,
                 audio_format=XAIAudioFormat.PCMU,  # G.711 μ-law
+                language_hint=(
+                    XAI_LANGUAGE_HINTS.get(self.language) if self.language else None
+                ),
             )
         return self._provider
 

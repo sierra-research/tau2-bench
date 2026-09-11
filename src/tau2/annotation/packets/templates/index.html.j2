@@ -1,0 +1,38 @@
+{% extends "base.html.j2" %}
+{% block title %}{{ batch_name }} - {{ task_label }}{% endblock %}
+{% block body %}
+    <div class="header">
+        <h1>{{ batch_name }} <span style="font-size: 14px; color: #666; font-weight: normal;">({{ task_label }})</span> <span class="rater-badge" id="raterDisplay"></span></h1>
+    </div>
+
+    <div class="export-section">
+        <div class="stats">
+            <span id="completedCount">0</span> completed ·
+            <span id="inProgressCount">0</span> in progress ·
+            <span id="pendingCount">0</span> pending
+        </div>
+        <div>
+            <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="importFromCSV(event)">
+            <button class="btn btn-tertiary" onclick="document.getElementById('csvFileInput').click()">📤 Import CSV</button>
+            <button class="btn btn-secondary" onclick="clearAnnotations()">Clear All</button>
+            <button class="btn" onclick="exportToCSV()">📥 Export All to CSV</button>
+        </div>
+    </div>
+
+    <div id="importStatus" class="import-status"></div>
+
+    <table id="taskTable">
+        <thead>
+            <tr>
+                <th class="sortable" data-sort="task" data-type="number">Task <span class="sort-arrow"></span></th>
+                <th class="sortable" data-sort="experiment">Experiment <span class="sort-arrow"></span></th>
+                <th class="sortable" data-sort="status">Status <span class="sort-arrow"></span></th>
+            </tr>
+        </thead>
+        <tbody id="taskList">
+            {% for row in rows %}
+            <tr data-task="{{ row.task_id }}" data-sim="{{ row.sim_id }}"><td><a href="{{ row.href }}" title="{{ row.task_id }}">{{ row.domain_prefix }}Task {{ row.display_task_id }}</a>{% if row.double_annotate %} <span class="ve-double-badge" title="Annotated by two raters">2×</span>{% endif %}</td><td class="experiment-col">{{ row.experiment }}</td><td><span class="status pending">pending</span></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

@@ -6,6 +6,22 @@
 
 τ-bench is a simulation framework for evaluating conversational customer service agents. It supports text and voice interactions in half-duplex (turn-based) and full-duplex (simultaneous/streaming) communication modes. Domains include `mock`, `airline`, `retail`, `telecom`, and `banking_knowledge`.
 
+## Design Standards (read first)
+
+**[docs/CODE_DESIGN.md](docs/CODE_DESIGN.md)** codifies this repo's design conventions
+and is binding for all new code: pydantic v2 models at every boundary (LLM replies
+validated into response models; serialized contracts generated from models), all LLM
+calls through `tau2.utils.llm_utils.generate()` with stable `call_name`s and versioned
+prompts, config flowing `config.py` → RunConfig → recorded on results, package-owned
+`add_*_args()` CLI registration, and provenance-bearing artifacts.
+
+It also carries two standing mandates:
+1. **Machine, not scripts** — anything run twice becomes a `tau2` CLI verb; LLM content
+   generation uses fixed in-code prompts, never coding-agent improvisation; artifacts
+   are idempotent.
+2. **Rip out and redo** — research code; results/packs/artifacts are regenerable.
+   Rewrite below-standard code instead of adding compat shims or legacy schema support.
+
 ## Setup
 
 ```bash
@@ -50,22 +66,80 @@ Required keys depend on the task:
 
 ```bash
 # Text half-duplex (standard)
-tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 1 --num-tasks 5
+tau2 run --domain airline --agent-llm gpt-5.4-mini --user-llm gpt-5.4-mini --num-trials 1 --num-tasks 5
 
 # Voice full-duplex (audio native)
 tau2 run --domain retail --audio-native --num-tasks 1 --verbose-logs
 
 # Knowledge domain (requires --retrieval-config)
-tau2 run --domain banking_knowledge --retrieval-config qwen_embeddings --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-tasks 5
+tau2 run --domain banking_knowledge --retrieval-config qwen_embeddings --agent-llm gpt-5.4-mini --user-llm gpt-5.4-mini --num-tasks 5
 ```
 
 Results go to `data/simulations/`. Use `tau2 view` to browse them.
+
+### Which tasks a run scores on
+
+A benchmark run scores on its domain's **fixed subset** — 50 tasks per domain,
+checked in under `data/tau2/task_subsets/` and applied automatically
+(`--task-subset auto`, the default). The subsets are per domain and never
+pooled: `airline_50`, `retail_50`, `telecom_50`.
+
+```bash
+tau2 tasks list                       # what ships
+tau2 tasks show telecom_50 --ids      # design, strata, ids
+tau2 tasks verify                     # frames unchanged, every language resolves
+tau2 tasks subset --domain <d> [--size N --seed S]   # redraw (new name, not in place)
+```
+
+- `--task-subset all` runs the whole task set.
+- `--task-ids`/`--num-tasks` are explicit selections and switch the subset off
+  (a console note says so).
+- The subset a run used is recorded in `results.info.task_subset`.
+
+**Do not reach for `--num-tasks 50`.** It takes a *prefix* of the task file, and
+the domain files are grouped by scenario family — on telecom that prefix is a
+census of `mobile_data_issue`, a partial sample of `service_issue`, and zero of
+the 49 `mms_issue` tasks (43% of the pool), which is what every telecom run
+before 2026-07-27 measured. Localized task sets resolve through the same subset:
+`telecom_es`'s `<id>_es` variants match the canonical ids, so every language
+runs the same 50 tasks.
+
+A subset is frozen once runs have scored on it. Changing the sample means a new
+name (`telecom_50_v2`), never an edit in place — `tau2 tasks verify` fails if a
+shipped subset's frame drifts underneath it.
+
+**Pin `--reasoning-effort` on every voice run.** Providers differ in what they
+default to (`DEFAULT_AUDIO_NATIVE_REASONING_EFFORT`: gemini runs `high`, openai
+sends nothing at all), so an unpinned cross-provider comparison is confounded.
+Levels are `minimal|low|medium|high|xhigh`, but they are not a shared
+vocabulary — `xhigh` is OpenAI-only, gemini takes `minimal|low|medium|high`, and
+xai/nova/qwen/livekit take no level at all
+(`SUPPORTED_AUDIO_NATIVE_REASONING_EFFORTS`; an unsupported pair is rejected at
+config time, not 40 minutes into the run at websocket connect). Plus
+`provider_default` = send no reasoning setting at all — not a level, and not
+equivalent to pinning one:
+unpinned `gpt-realtime-2` spent ~10x the reasoning tokens of pinned `low`
+(measured 2026-07-25), because pinning imposes a budget the default does not.
+The effective value is always recorded
+in `results.info.audio_native_config`; passing it explicitly makes the arm
+visible in the invocation too:
+
+```bash
+tau2 run --domain telecom --audio-native --audio-native-provider gemini \
+  --reasoning-effort high ...
+```
+
+Runs written before the value was resolved eagerly recorded `null`; those were
+repaired by the now-retired `tau2 backfill-reasoning-effort` verb, which stamped
+the filled value as inferred rather than observed. A pre-resolution run that was
+never backfilled has an untrustworthy effort and the readers refuse it.
 
 ## Architecture
 
 ```
 src/tau2/
 ├── agent/           # Agent implementations (half-duplex and full-duplex)
+├── annotation/      # Human-facing annotation: sheets, workbooks, packets, calibration metrics
 ├── api_service/     # FastAPI-based API service
 ├── config.py        # Central configuration (single source of truth for defaults)
 ├── cli.py           # CLI entry point (tau2 command)
@@ -74,8 +148,10 @@ src/tau2/
 ├── environment/     # Environment, DB, server, toolkit base classes
 ├── evaluator/       # Task evaluation logic
 ├── gym/             # Gymnasium-compatible RL interface
+├── judges/          # Post-hoc judging (nativeness + delivery/perceptual quality)
 ├── knowledge/       # Knowledge retrieval pipeline (embedders, retrievers, postprocessors, sandbox)
 ├── metrics/         # Metrics computation
+├── multilingual/    # Language factory: pack drafting, translation, entity localization, asset generation, run presets
 ├── orchestrator/    # Simulation orchestrators (half-duplex, full-duplex)
 ├── registry.py      # Global registry for agents, domains, tasks, users
 ├── runner/          # Simulation runner (batch execution, checkpointing, build helpers)
@@ -85,6 +161,26 @@ src/tau2/
 └── voice/           # Voice synthesis, transcription, audio-native providers
     └── audio_native/  # Real-time voice providers (openai, gemini, nova, xai, deepgram, qwen, livekit)
 ```
+
+`tau2 tasks` owns the fixed per-domain task subsets (`task_subsets/`): draw,
+list, show and verify the frozen 50 every run scores on (see "Which tasks a run
+scores on" above).
+
+The three multilingual pillars each own a CLI command group (registered from the
+package itself, high level: run `tau2 <group> --help` for the current verbs and flags):
+- `tau2 factory` — language-pack pipeline (`multilingual/factory/`): autoform → draft → finalize → generate-assets (voice-only).
+  The retired stages (task translation + parity, locale bed generation, variety repin, the native prompt arm) were deleted on 2026-08-03; see docs/cli-reference.md
+- `tau2 judges` — post-hoc nativeness/delivery/audio-quality/conversation
+  judging over stored results (`judges/`). The human-preference judge,
+  predictor-suite, rubric-score, and dashboard pipeline was moved to the
+  `preference-archive` branch on 2026-08-26
+- `tau2 annotate` — annotation sheets, workbooks, packets, and calibration metrics (`annotation/`)
+- `tau2 run-preset` — execute a language pack's generated run presets (`multilingual/`)
+- `tau2 pool` — execute a registered (languages x arms) grid as typed ordinary runs
+  through one multiprocess controller. The specs in `runner/pools.py` own the run
+  conditions, so cells are comparable by construction; controller retries handle
+  transient failures, ordinary resume retries final infrastructure errors on a later
+  invocation, and `tau2 pool status` prints the usable-result matrix
 
 Other top-level directories:
 - `data/` — Domain data (JSON, TOML, policies), simulation outputs

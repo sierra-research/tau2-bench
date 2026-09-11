@@ -123,9 +123,9 @@ PRICING: Dict[Tuple[str, str], Rates] = {
         output_audio=13.60,
     ),
     # --- xAI voice agent (verified: docs.x.ai/developers/models). Billed per
-    # audio-minute, not per token; the endpoint-determined "xai-realtime"
-    # model is assumed to map to grok-voice-think-fast-1.0 ($0.05/min).
-    # Token records from xAI are recorded with billable=False. ---
+    # audio-minute, not per token; token records from xAI are recorded with
+    # billable=False. "xai-realtime" is the legacy placeholder recorded by
+    # runs before the ?model= pin; those were assumed to serve think-fast-1.0.
     ("xai", "xai-realtime"): Rates(per_audio_input_minute=0.05),
     ("xai", "grok-voice-think-fast-1.0"): Rates(per_audio_input_minute=0.05),
     ("xai", "grok-voice-think-fast-2.0"): Rates(per_audio_input_minute=0.08),

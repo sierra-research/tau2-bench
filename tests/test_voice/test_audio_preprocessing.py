@@ -20,11 +20,54 @@ from tau2.voice.utils.audio_preprocessing import (
     convert_to_mono,
     convert_to_pcm16,
     convert_to_ulaw,
+    merge_audio_datas,
     mix_audio_dynamic,
     normalize_audio,
     numpy_to_audio_data,
     resample_audio,
 )
+
+
+def test_merge_audio_uses_segment_sample_rate_for_silence() -> None:
+    segment = AudioData(
+        data=b"\x01\x00" * 80,
+        format=AudioFormat(
+            encoding=AudioEncoding.PCM_S16LE,
+            sample_rate=8_000,
+            channels=1,
+        ),
+    )
+
+    merged = merge_audio_datas([segment, segment], silence_duration_ms=300)
+
+    expected_silence_bytes = 2_400 * 2
+    assert merged.format.sample_rate == 8_000
+    assert merged.data[160 : 160 + expected_silence_bytes] == (
+        b"\0" * expected_silence_bytes
+    )
+    assert len(merged.data) == 160 * 2 + expected_silence_bytes
+    assert merged.duration == pytest.approx(0.32)
+
+
+def test_merge_audio_rejects_incompatible_sample_rates() -> None:
+    first = AudioData(
+        data=b"\0\0",
+        format=AudioFormat(
+            encoding=AudioEncoding.PCM_S16LE,
+            sample_rate=8_000,
+        ),
+    )
+    second = first.model_copy(
+        update={"format": first.format.model_copy(update={"sample_rate": 16_000})}
+    )
+
+    with pytest.raises(ValueError, match="same sample rate"):
+        merge_audio_datas([first, second], silence_duration_ms=300)
+
+
+def test_merge_audio_rejects_empty_input() -> None:
+    with pytest.raises(ValueError, match="at least one audio segment"):
+        merge_audio_datas([])
 
 
 @pytest.fixture

@@ -55,7 +55,6 @@ def streaming_user(
         wait_to_respond_threshold_other=2,
         wait_to_respond_threshold_self=4,
         yield_threshold_when_interrupted=2,
-        backchannel_min_threshold=None,
     )
 
 
@@ -382,34 +381,32 @@ def test_voice_streaming_user_yield_threshold_when_interrupted_none_disables(
 # --- Backchanneling Parameter Tests ---
 
 
-def test_voice_streaming_user_backchannel_threshold(user_instructions, voice_settings):
-    """Test that backchannel_min_threshold is properly set."""
+def test_voice_streaming_user_backchannel_enabled(user_instructions, voice_settings):
+    """Test that use_llm_backchannel enables backchanneling."""
     user = VoiceStreamingUserSimulator(
         llm="gpt-4o-mini",
         instructions=user_instructions,
         tools=None,
         voice_settings=voice_settings,
         chunk_size=8000,
-        backchannel_min_threshold=3,
+        use_llm_backchannel=True,
     )
 
-    assert user.backchannel_min_threshold == 3
+    assert user.use_llm_backchannel is True
 
 
-def test_voice_streaming_user_backchannel_threshold_none_disables(
-    user_instructions, voice_settings
-):
-    """Test that backchannel_min_threshold=None disables backchanneling."""
+def test_voice_streaming_user_backchannel_disabled(user_instructions, voice_settings):
+    """Test that use_llm_backchannel=False disables backchanneling."""
     user = VoiceStreamingUserSimulator(
         llm="gpt-4o-mini",
         instructions=user_instructions,
         tools=None,
         voice_settings=voice_settings,
         chunk_size=8000,
-        backchannel_min_threshold=None,
+        use_llm_backchannel=False,
     )
 
-    assert user.backchannel_min_threshold is None
+    assert user.use_llm_backchannel is False
 
 
 # --- Voice Settings Tests ---

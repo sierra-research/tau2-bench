@@ -1,0 +1,786 @@
+{
+  "acoustic_presets": null,
+  "agent_greeting": "¡Hola! ¿En qué puedo ayudarle?",
+  "agent_language_clause": "Respond in Spanish using Latin script for Spanish and Latin script for English insertions; mirror the user's code-switching register; keep all tool calls, arguments, and structured outputs in English exactly as specified. The customer database stores every name and address without accents or diacritics (e.g. 'Ivan Sanchez', never 'Iván Sánchez'); spell database values in tool-call arguments in plain unaccented letters.",
+  "agent_native_script_db_clause": null,
+  "backchannel_level": "medium",
+  "default_out_of_turn_events_per_minute": 1.0,
+  "display_name": "Spanish",
+  "language": "es",
+  "localization": {
+    "amount_readout": {
+      "examples": [
+        {
+          "spoken": "doscientos cincuenta y tres euros",
+          "written": "253 €"
+        },
+        {
+          "spoken": "treinta y cinco euros con cincuenta",
+          "written": "35,50 €"
+        },
+        {
+          "spoken": "mil doscientos cincuenta euros con setenta y cinco",
+          "written": "1.250,75 €"
+        },
+        {
+          "spoken": "doce mil euros",
+          "written": "12.000 €"
+        }
+      ],
+      "rule": "The currency word goes AFTER the amount, spoken in full words (never digit by digit). The decimal separator is the comma, spoken 'con' before the cents (or 'coma' when reading a bare decimal number). Large amounts use 'mil' and 'millón/millones'. Currency for this pack is euros."
+    },
+    "date_examples": [
+      {
+        "spoken": "diecisiete de mayo",
+        "written": "May 17"
+      },
+      {
+        "spoken": "diecisiete del cinco",
+        "written": "05/17"
+      },
+      {
+        "spoken": "tres de diciembre",
+        "written": "December 3"
+      },
+      {
+        "spoken": "veintiuno de noviembre de dos mil veinticuatro",
+        "written": "2024-11-21"
+      }
+    ],
+    "digit_names": {},
+    "domain_glossaries": {
+      "airline": [
+        {
+          "native": "ID de usuario",
+          "note": "airline user id is an alphanumeric handle (e.g. 'mia_li_3668'), not numeric; 'ID' spelled i-de; avoid 'número' which implies digits only",
+          "term_id": "user_id"
+        },
+        {
+          "native": "reserva",
+          "term_id": "reservation"
+        },
+        {
+          "native": "localizador",
+          "note": "'localizador' is the usual term; also 'código de reserva'",
+          "term_id": "reservation_id"
+        },
+        {
+          "native": "vuelo",
+          "term_id": "flight"
+        },
+        {
+          "native": "número de vuelo",
+          "term_id": "flight_number"
+        },
+        {
+          "native": "reembolso",
+          "note": "in casual register also 'el refund'",
+          "term_id": "refund"
+        },
+        {
+          "native": "seguro de viaje",
+          "term_id": "travel_insurance"
+        },
+        {
+          "native": "maleta facturada",
+          "note": "also 'equipaje facturado'",
+          "term_id": "checked_bag"
+        },
+        {
+          "native": "equipaje de mano",
+          "term_id": "carry_on"
+        },
+        {
+          "native": "viaje futuro",
+          "note": "also 'un viaje que tengo pendiente'",
+          "term_id": "future_trip"
+        },
+        {
+          "native": "viaje de ida",
+          "term_id": "one_way"
+        },
+        {
+          "native": "viaje de ida y vuelta",
+          "term_id": "round_trip"
+        },
+        {
+          "native": "clase turista básica",
+          "note": "also 'la tarifa básica'",
+          "term_id": "basic_economy"
+        },
+        {
+          "native": "clase turista",
+          "term_id": "economy"
+        },
+        {
+          "native": "clase business",
+          "note": "'business' is an established English loanword, the usual term; also 'clase preferente'",
+          "term_id": "business"
+        },
+        {
+          "native": "tarjeta de crédito",
+          "term_id": "credit_card"
+        },
+        {
+          "native": "tarjeta regalo",
+          "note": "'tarjeta regalo' dominates in Spain; the English 'gift card' is not the usual spoken form",
+          "term_id": "gift_card"
+        },
+        {
+          "native": "bono de viaje",
+          "note": "also 'vale de viaje'",
+          "term_id": "travel_certificate"
+        },
+        {
+          "native": "nivel de socio",
+          "note": "regular / plata / oro; also 'nivel de fidelidad'",
+          "term_id": "membership_tier"
+        },
+        {
+          "native": "cancelación",
+          "term_id": "cancellation"
+        },
+        {
+          "native": "forma de pago",
+          "note": "also 'método de pago'",
+          "term_id": "payment_method"
+        }
+      ],
+      "retail": [
+        {
+          "native": "identificador de usuario",
+          "note": "casual register often says 'el usuario' or the loanword 'el user ID'.",
+          "term_id": "user_id"
+        },
+        {
+          "native": "código postal",
+          "term_id": "zip_code"
+        },
+        {
+          "native": "pedido",
+          "term_id": "order"
+        },
+        {
+          "native": "número de pedido",
+          "note": "literally 'order number'; the natural everyday term.",
+          "term_id": "order_id"
+        },
+        {
+          "native": "estado del pedido",
+          "term_id": "order_status"
+        },
+        {
+          "native": "pedido pendiente",
+          "term_id": "pending_order"
+        },
+        {
+          "native": "pedido entregado",
+          "term_id": "delivered_order"
+        },
+        {
+          "native": "cancelación",
+          "term_id": "cancellation"
+        },
+        {
+          "native": "devolución",
+          "term_id": "return"
+        },
+        {
+          "native": "cambio",
+          "term_id": "exchange"
+        },
+        {
+          "native": "reembolso",
+          "note": "casual register commonly code-switches to the loanword 'el refund'.",
+          "term_id": "refund"
+        },
+        {
+          "native": "producto",
+          "term_id": "product"
+        },
+        {
+          "native": "artículo",
+          "term_id": "item"
+        },
+        {
+          "native": "opción",
+          "note": "when specifying, natives say 'color', 'talla' or 'material'.",
+          "term_id": "product_option"
+        },
+        {
+          "native": "número de artículo",
+          "term_id": "item_id"
+        },
+        {
+          "native": "número de producto",
+          "term_id": "product_id"
+        },
+        {
+          "native": "disponibilidad",
+          "term_id": "availability"
+        },
+        {
+          "native": "diferencia de precio",
+          "term_id": "price_difference"
+        },
+        {
+          "native": "número de seguimiento",
+          "note": "casual register often uses the loanword 'el tracking'.",
+          "term_id": "tracking_number"
+        },
+        {
+          "native": "dirección de envío",
+          "term_id": "shipping_address"
+        },
+        {
+          "native": "dirección predeterminada",
+          "note": "also 'la dirección por defecto' in everyday usage.",
+          "term_id": "default_address"
+        },
+        {
+          "native": "método de pago",
+          "term_id": "payment_method"
+        },
+        {
+          "native": "tarjeta de crédito",
+          "term_id": "credit_card"
+        },
+        {
+          "native": "tarjeta regalo",
+          "note": "casual register also says the loanword 'la gift card'.",
+          "term_id": "gift_card"
+        },
+        {
+          "native": "PayPal",
+          "note": "brand name; pronounced as in English.",
+          "term_id": "paypal"
+        },
+        {
+          "native": "agente humano",
+          "note": "also 'una persona' / 'un operador de verdad' in everyday speech.",
+          "term_id": "human_agent"
+        }
+      ],
+      "telecom": [
+        {
+          "native": "número de cliente",
+          "term_id": "customer_id"
+        },
+        {
+          "native": "número de teléfono",
+          "term_id": "phone_number"
+        },
+        {
+          "native": "línea",
+          "term_id": "line"
+        },
+        {
+          "native": "plan",
+          "note": "also 'tarifa' in Peninsular register; both natural",
+          "term_id": "plan"
+        },
+        {
+          "native": "datos incluidos",
+          "note": "colloquially 'los gigas que tengo'",
+          "term_id": "data_allowance"
+        },
+        {
+          "native": "consumo de datos",
+          "term_id": "data_usage"
+        },
+        {
+          "native": "recarga de datos",
+          "note": "the extra data top-up bought mid-cycle",
+          "term_id": "data_refuel"
+        },
+        {
+          "native": "datos móviles",
+          "term_id": "mobile_data"
+        },
+        {
+          "native": "roaming",
+          "note": "established loanword; what everyone says in Spain",
+          "term_id": "roaming"
+        },
+        {
+          "native": "modo avión",
+          "term_id": "airplane_mode"
+        },
+        {
+          "native": "tarjeta SIM",
+          "note": "often just 'la SIM'",
+          "term_id": "sim_card"
+        },
+        {
+          "native": "eSIM",
+          "note": "established loanword; read 'i sim'",
+          "term_id": "esim"
+        },
+        {
+          "native": "ajustes del APN",
+          "note": "'APN' spelled out a, pe, ene",
+          "term_id": "apn_settings"
+        },
+        {
+          "native": "ahorro de datos",
+          "term_id": "data_saver"
+        },
+        {
+          "native": "wifi",
+          "note": "established loanword; said 'el wifi'",
+          "term_id": "wifi"
+        },
+        {
+          "native": "llamadas por wifi",
+          "term_id": "wifi_calling"
+        },
+        {
+          "native": "VPN",
+          "note": "spelled out uve, pe, ene",
+          "term_id": "vpn"
+        },
+        {
+          "native": "test de velocidad",
+          "note": "'test' is a common loanword; also 'prueba de velocidad'",
+          "term_id": "speed_test"
+        },
+        {
+          "native": "cobertura",
+          "note": "colloquially 'las rayitas' or 'la señal'",
+          "term_id": "network_signal"
+        },
+        {
+          "native": "barra de estado",
+          "term_id": "status_bar"
+        },
+        {
+          "native": "MMS",
+          "note": "spelled out eme, eme, ese",
+          "term_id": "mms"
+        },
+        {
+          "native": "factura",
+          "term_id": "bill"
+        },
+        {
+          "native": "factura pendiente",
+          "note": "the one unpaid and past due",
+          "term_id": "overdue_bill"
+        },
+        {
+          "native": "enlace de pago",
+          "note": "the link the agent sends to pay",
+          "term_id": "payment_request"
+        },
+        {
+          "native": "línea suspendida",
+          "term_id": "line_suspension"
+        },
+        {
+          "native": "forma de pago",
+          "note": "also 'método de pago'",
+          "term_id": "payment_method"
+        }
+      ]
+    },
+    "guideline_examples": [
+      {
+        "kind": "disfluency_fillers",
+        "utterances": [
+          "eh...",
+          "este...",
+          "o sea",
+          "a ver",
+          "pues nada",
+          "bueno",
+          "viste",
+          "¿sabe?"
+        ]
+      },
+      {
+        "kind": "restart_example",
+        "utterances": [
+          "¿Usted puede—perdón, lo que quería preguntar era si me podría ayudar con..."
+        ]
+      },
+      {
+        "kind": "filler_pause_example",
+        "utterances": [
+          "Pues, eh, estaba pensando si, a ver, me podría echar una mano con esto."
+        ]
+      },
+      {
+        "kind": "pause_marker_examples",
+        "utterances": [
+          "Estaba intentando—espere, déjeme pensar [pause]",
+          "El problema empezó [pause] hace como tres días, creo."
+        ]
+      },
+      {
+        "kind": "self_interruption_example",
+        "utterances": [
+          "Estaba intentando... ah, espere, ¿le doy primero el número de cuenta?"
+        ]
+      },
+      {
+        "kind": "clarification_request",
+        "utterances": [
+          "Perdón, ¿me lo repite? No le escuché bien."
+        ]
+      },
+      {
+        "kind": "emotion_examples",
+        "utterances": [
+          "La verdad es que me molesta bastante porque...",
+          "¡Ah, mirá, eso me viene bárbaro!"
+        ]
+      },
+      {
+        "kind": "conversational_confirmations",
+        "utterances": [
+          "claro",
+          "vale",
+          "dale",
+          "de acuerdo",
+          "muy bien",
+          "ajá",
+          "sí, sí",
+          "por supuesto"
+        ]
+      },
+      {
+        "kind": "silence_checkins",
+        "utterances": [
+          "¿Hola? ¿Me escucha?",
+          "¿Encontró algo?",
+          "¿Alguna novedad con lo que le comenté?"
+        ]
+      },
+      {
+        "kind": "frustrated_endings",
+        "utterances": [
+          "Esto ya es demasiado, llamo más tarde.",
+          "No tengo tiempo para esto, cuelgo."
+        ]
+      },
+      {
+        "kind": "dont_know_responses",
+        "utterances": [
+          "Uy, la verdad no sé.",
+          "Ahora mismo no lo recuerdo.",
+          "Mmm, eso lo tendría que mirar."
+        ]
+      },
+      {
+        "kind": "make_agent_work_chain",
+        "utterances": [
+          "No funciona.",
+          "La aplicación.",
+          "Su app del móvil."
+        ]
+      },
+      {
+        "kind": "one_at_a_time_example",
+        "utterances": [
+          "Sí, mi correo es juan guion bajo perez arroba gmail punto com... ah, ¿también necesita el teléfono?"
+        ]
+      },
+      {
+        "kind": "forget_details_example",
+        "utterances": [
+          "Mi número de pedido es... eh, espere, déjeme ver..."
+        ]
+      },
+      {
+        "kind": "vague_openers",
+        "utterances": [
+          "Tengo un problema.",
+          "Pasa algo raro con mi cuenta."
+        ]
+      },
+      {
+        "kind": "unknown_info_phrases",
+        "utterances": [
+          "No estoy seguro de eso.",
+          "No tengo ese dato."
+        ]
+      },
+      {
+        "kind": "tool_acknowledgment",
+        "utterances": [
+          "Ah, vale, déjeme que lo pruebo... un momento."
+        ]
+      },
+      {
+        "kind": "tool_result_report",
+        "utterances": [
+          "Vale, ya lo hice y, eh, me sale que..."
+        ]
+      },
+      {
+        "kind": "tool_failure_report",
+        "utterances": [
+          "Mmm, no funcionó... me está dando un error."
+        ]
+      },
+      {
+        "kind": "multiple_actions_pushback",
+        "utterances": [
+          "Uy, eso es mucho de golpe... ¿me lo puede ir explicando paso a paso?"
+        ]
+      },
+      {
+        "kind": "gratitude_examples",
+        "utterances": [
+          "¡Ay, muchísimas gracias!",
+          "Genial, le agradezco de verdad la ayuda."
+        ]
+      }
+    ],
+    "letter_names": {},
+    "number_examples": [
+      {
+        "spoken": "doscientos cincuenta y tres dólares",
+        "written": "253 dollars"
+      },
+      {
+        "spoken": "veintiuno",
+        "written": "21"
+      },
+      {
+        "spoken": "mil doscientos cincuenta euros con setenta y cinco céntimos",
+        "written": "1.250,75 €"
+      },
+      {
+        "spoken": "más cuarenta y nueve",
+        "written": "+49"
+      }
+    ],
+    "phone_number_readout": {
+      "examples": [
+        {
+          "spoken": "seis, uno, dos... tres, cuatro... cinco, seis... siete, ocho",
+          "written": "612 34 56 78"
+        },
+        {
+          "spoken": "nueve, uno... dos, tres, cuatro... cinco, seis... siete, ocho",
+          "written": "91 234 56 78"
+        },
+        {
+          "spoken": "más, tres, cuatro... seis, cinco, cinco... cuatro, cero... uno, dos... nueve, cero",
+          "written": "+34 655 40 12 90"
+        }
+      ],
+      "rule": "Spanish speakers group phone numbers in short blocks (Spain mobile: 3-2-2-2, e.g. 612 34 56 78; Spain landline: 2-3-2-2, e.g. 91 234 56 78) and read them digit by digit within each block, pausing between blocks. Grouping digits into two-digit numbers (sesenta y uno...) is acceptable but when unsure a native falls back to strict digit-by-digit for clarity. An initial '+' is read 'más' followed by the country-code digits."
+    },
+    "spelled_entity_normalization": false,
+    "spelling_alphabet": {
+      "anchor_examples": [
+        {
+          "spoken": "B de Barcelona",
+          "written": "B"
+        },
+        {
+          "spoken": "M de Madrid",
+          "written": "M"
+        },
+        {
+          "spoken": "A de Antonio",
+          "written": "A"
+        },
+        {
+          "spoken": "uve de Valencia",
+          "written": "V"
+        },
+        {
+          "spoken": "E de España",
+          "written": "E"
+        }
+      ],
+      "avoid": "The NATO/anglo phonetic alphabet ('B for Bravo', 'B for boy').",
+      "rule": "Spanish speakers disambiguate letters with the 'letra DE palabra ancla' pattern, anchoring on Spanish given names and cities (B de Barcelona, M de Madrid, A de Antonio, V de Valencia, E de España). Letters are named with Spanish letter names (be, ce, uve, i griega, etc.)."
+    },
+    "spoken_value_examples": [
+      {
+        "kind": "email",
+        "spoken": "Sí, es juan guion bajo perez arroba gmail punto com",
+        "written": "juan_perez@gmail.com"
+      },
+      {
+        "kind": "user_id",
+        "spoken": "Mi número de usuario es eme, i, a, guion bajo, ele, i, guion bajo, cero",
+        "written": "mia_li_0"
+      },
+      {
+        "kind": "phone",
+        "spoken": "Mi teléfono es seis, uno, dos... tres, cuatro... cinco, seis... siete, ocho",
+        "written": "612 34 56 78"
+      },
+      {
+        "kind": "spelling_name",
+        "spoken": "Es erre, u, be, e, ene... R de Ramón, U de Úrsula, B de Barcelona, E de España, N de Navarra",
+        "written": "RUBEN"
+      },
+      {
+        "kind": "account_number",
+        "spoken": "Mi número de reserva es zeta, efe, a, cero, cuatro, i griega",
+        "written": "ZFA04Y"
+      },
+      {
+        "kind": "website",
+        "spoken": "Estaba en su página, doble ve, doble ve, doble ve punto example punto com barra soporte",
+        "written": "www.example.com/soporte"
+      }
+    ],
+    "symbol_readouts": [
+      {
+        "spoken": [
+          "arroba"
+        ],
+        "symbol": "@"
+      },
+      {
+        "spoken": [
+          "punto"
+        ],
+        "symbol": "."
+      },
+      {
+        "spoken": [
+          "guion bajo"
+        ],
+        "symbol": "_"
+      },
+      {
+        "spoken": [
+          "guion",
+          "raya"
+        ],
+        "symbol": "-"
+      },
+      {
+        "spoken": [
+          "barra",
+          "barra inclinada"
+        ],
+        "symbol": "/"
+      },
+      {
+        "spoken": [
+          "más",
+          "signo de más"
+        ],
+        "symbol": "+"
+      },
+      {
+        "spoken": [
+          "cero"
+        ],
+        "symbol": "0"
+      }
+    ]
+  },
+  "personas": {
+    "alejandro_es_v1": {
+      "backchannel_phrases": [
+        "ajá"
+      ],
+      "display_name": "Alejandro",
+      "interrupt_tendency": "waits",
+      "language": "es",
+      "locale": "ES-MD",
+      "non_directed_phrases": [
+        "Un momento",
+        "Ahora mismo voy",
+        "Perdona, sigo"
+      ],
+      "persona_id": "alejandro_es_v1",
+      "pragmatics_clauses": [
+        "Speak careful, high-register Peninsular Spanish (Latin script) with full distinción — you pronounce c/z as /θ/, so 'gracias' sounds like 'grathias' and 'cinco' like 'thinco'. Your sentences are complete and measured, with few fillers. You prefer proper Spanish terms even for tech and avoid English: say 'correo electrónico' (not 'email'), 'contraseña' (not 'password'), 'cancelar' (not the anglicism), 'la transferencia' for a transfer. Natural examples: 'Buenas tardes, quisiera consultar el estado de una transferencia', 'Permítame que se lo confirme con calma'.",
+        "You address the agent with 'usted' at ALL times — 'usted', '¿podría usted...?', 'le agradezco' — never 'tú'. You stay within polite forms even when firm: 'Disculpe, pero insisto en que lo revise una vez más, por favor'. You use 'vosotros' only when speaking informally about a group, never to the agent.",
+        "When you open formally, natural forms are 'Buenos días', 'Buenas tardes, mire, le llamo por un asunto', and you state your matter in a full sentence. When you react, mild restrained interjections are natural — 'Vaya, qué fastidio', 'Menos mal' when something resolves.",
+        "You have LOW tolerance for an English-only agent. If the agent speaks only English, you keep responding in Spanish, repeat yourself more slowly, and ask for help in Spanish: 'Perdone, ¿podría atenderme en español, por favor?', 'No manejo bien el inglés, le agradecería que continuáramos en español'. You do not switch into sustained English; at most a brand name or a figure slips through.",
+        "Under pressure or confusion you do NOT switch to English — you slow down, enunciate more, and ask the agent to repeat too: 'Disculpe, ¿sería tan amable de repetírmelo más despacio?'. You remain in Spanish and articulate throughout.",
+        "When you want to refuse, you do so indirectly and courteously — rarely a flat 'no'. You use 'Verá, lo que ocurre es que...', 'Hmm, me temo que eso me resultaría complicado', or you simply restate your original request. The agent must infer your reluctance from your hesitation and your hedging.",
+        "When frustrated you become MORE formal and insistent, not rude: longer polite preambles, a repeated 'por favor', a measured 'Disculpe que insista', and patient repetition. You do not raise your voice and do not drop 'usted'.",
+        "When the agent mishears a name or code, you spell slowly using Spanish letter names (a, be, ce, de, e, efe, ge, hache, i, jota...) and city anchors for clarity — 'B de Barcelona', 'M de Madrid', 'S de Sevilla'. You read codes like 'A7K2' as 'a, siete, ka, dos', digit by letter, clearly separated, and you confirm them back: '¿Le repito? A, siete, ka, dos. ¿Correcto?'. Numbers and amounts you read in full words ('mil doscientos cincuenta euros'), unhurried.",
+        "When the conversation is unhurried and courteous, closings extend across several turns through an extended pre-closing ritual, for example: 'Pues muy bien, le agradezco mucho su atención' → 'Ha sido usted muy amable' → 'Que tenga un buen día' → 'Igualmente, muchas gracias, hasta luego'. In that case, do not collapse the goodbye into a single line."
+      ],
+      "script": "latn",
+      "short_description": "Mid-50s Madrid senior bank relationship manager; careful high-register Peninsular Spanish with full distinción and consistent usted; low tolerance for an English-only agent",
+      "tags": {
+        "age_band": "50s",
+        "closing_style": "extended",
+        "code_switch": "low",
+        "english_tolerance": "low",
+        "formality": "high",
+        "gender": "male",
+        "register": "urban_professional"
+      },
+      "tts_voice_prompt": "A man in his mid-50s from Madrid, a senior bank relationship manager calling from a quiet home office. He speaks careful, high-register Peninsular Spanish with full distinción (the /θ/ for c and z, so 'gracias' sounds like 'grathias'), consistent use of 'usted', complete sentences and very few fillers. Lower pitch, warm but composed and slightly formal timbre, measured and deliberate pacing with clear pauses, courteous register that stays polite even when insistent. He enunciates numbers and booking codes slowly and confirms them back. Phone-call audio quality with a quiet indoor room tone.",
+      "verbosity": "standard",
+      "voice_id": "l43uhLv9aXdHYq1A4gDs"
+    },
+    "camila_es_v1": {
+      "backchannel_phrases": [
+        "ajá"
+      ],
+      "display_name": "Camila",
+      "interrupt_tendency": "interrupts",
+      "language": "es",
+      "locale": "ES-MD",
+      "non_directed_phrases": [
+        "Un cortado, porfa",
+        "¡Que ya voy!",
+        "Venga, ahora voy"
+      ],
+      "persona_id": "camila_es_v1",
+      "pragmatics_clauses": [
+        "Speak fast, casual Peninsular Spanish (Latin script) with tuteo — 'tú tienes', 'tú sabes', 'mira', 'fíjate', 'oye', 'tío/tía' — and full distinción (c/z before e/i and z = /θ/, so 'gracias' and 'plaza' have the 'th' sound). You use 'vosotros' for informal plurals ('¿vosotros lo tenéis?'). Roughly 25-30% of your words are English insertions (Latin script) for work and tech: 'mándame el brief', 'el deadline', 'súbelo a la nube', 'el archivo', 'te hago un update', 'me cancelaron el pago'. Connectives and grammar stay Spanish. Your register is neutral-informal, not stiff formal Spanish.",
+        "When you open casually, natural forms are 'Hola, ¿qué tal?', 'Buenas, mira, te llamo por una cosa', or straight to the point — 'Hola, necesito que me echéis una mano con algo'. When something works out and you react, interjections take forms like 'uf, qué palo', 'venga, genial', 'ah, mira tú'. When you close briskly, forms are short — 'Vale, guay, gracias, chao'.",
+        "You address the agent with informal 'tú' by default — 'oye, ¿me puedes ayudar?', '¿me estás diciendo que...?'. You only shift toward 'usted' if the agent is very stiff, and even then it slips back to 'tú' quickly.",
+        "You have HIGH tolerance for an English-only agent. If the agent clearly cannot follow Spanish, you switch smoothly into fluent, fast English and carry the whole conversation in English. As the call settles you naturally drift back into Spanish (English words start creeping into Spanish sentences again). You do not demand that the agent speak Spanish.",
+        "You overlap and interrupt: you finish the agent's sentences, jump in with 'sí, sí, ya lo sé', and self-correct out loud — 'es el martes... no, espera, el miércoles'. You think aloud and trail off with discourse markers: 'o sea...', 'en plan...', 'nada, que...'.",
+        "When you disagree or want to refuse, you hedge rather than say a flat 'no': 'sí, vale, pero...', 'mira, la verdad es que eso no me vale mucho', 'mmm, no sé, no me convence'. You push back directly only once you're genuinely annoyed.",
+        "When frustration builds, it surfaces first as clipped and faster speech ('sí, sí, eso es lo que te digo'), then as audible impatience ('oye, ¿cuántas veces te lo repito?'), then as short sharp sentences. Even when annoyed you stay competent and clear — never incoherent.",
+        "When the agent mishears a name or code, you spell with Spanish letter names (a, be, ce, de, e, efe...) and city anchors — 'B de Barcelona', 'C de Cádiz', 'M de Madrid'. Codes like 'A7K2' you read 'a, siete, ka, dos', letters and digits separated. You read amounts in full words and repeat them when needed: '¿el código? a, siete, ka, dos, venga'.",
+        "Your informality lives in tuteo, rhythm and everyday words ('mira', 'venga', 'en plan', 'o sea', 'tío'), not in stacked colourful idioms. Do not force ultra-informal set phrases like 'estoy hasta las narices', 'me tiene frita' or 'ni de coña' into the call — nobody performs slang at a support agent. When genuinely annoyed, a mild 'uf, qué palo' or a clipped 'venga, sí, eso ya lo sé' is plenty; keep the register neutral-informal throughout."
+      ],
+      "script": "latn",
+      "short_description": "Mid-20s Madrid freelance graphic designer; fast casual Peninsular Spanish with tuteo, distinción and heavy English code-switching; high tolerance for an English-only agent",
+      "tags": {
+        "age_band": "20s",
+        "closing_style": "brisk",
+        "code_switch": "high",
+        "english_tolerance": "high",
+        "formality": "low",
+        "gender": "female",
+        "register": "gig_worker"
+      },
+      "tts_voice_prompt": "A woman in her mid-20s from Madrid, a freelance graphic designer calling customer support from her mobile. She speaks fast, casual Peninsular Spanish — unmistakably from Spain, never Latin American (no Rioplatense or Argentinian intonation, no sheísmo) — with tuteo ('tú tienes', 'oye', 'mira') and full distinción (the 'th' sound for c/z, so 'gracias' and 'plaza' have a clear θ), with frequent English insertions for work and tech terms, all pronounced naturally in a central Madrid accent. Medium-high pitch, warm, chatty and energetic delivery, quick conversational rhythm with overlaps, self-corrections and trailing discourse markers. Recorded close to the microphone with studio clarity — a full, present, crisp voice with no distance, muffling or room echo.",
+      "verbosity": "standard",
+      "voice_id": "5sOL9YXF4fBxgbAkAtlN"
+    }
+  },
+  "text_input": {
+    "styles": [
+      {
+        "examples": [
+          {
+            "standard": "¿Cuándo sale mi vuelo a Bogotá?",
+            "typed": "Cuando sale mi vuelo a Bogota?"
+          },
+          {
+            "standard": "No sé qué pasó con mi reservación",
+            "typed": "No se que paso con mi reservacion"
+          },
+          {
+            "standard": "Está bien, muchísimas gracias",
+            "typed": "Esta bien, muchisimas gracias"
+          }
+        ],
+        "style": "diacritic_free"
+      }
+    ]
+  }
+}

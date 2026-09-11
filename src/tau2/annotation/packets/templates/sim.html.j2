@@ -1,0 +1,255 @@
+{% extends "base.html.j2" %}
+{% from "_nav.html.j2" import packet_nav %}
+{% block title %}Task {{ meta.task_id }} - Simulation {{ meta.sim_id[:8] }}{% endblock %}
+{% block body %}
+    <!-- Back to Index -->
+    <a href="../index.html" class="back-link">← Back to Index</a>
+
+    <!-- Rater display -->
+    <span class="rater-badge" id="raterDisplay"></span>
+
+    <!-- Help Button -->
+    <button class="help-btn" id="helpBtn" title="Press G to open guidelines">
+        📖 Guidelines <span class="shortcut">G</span>
+    </button>
+
+    <!-- Guidelines Modal -->
+    <div class="modal-overlay" id="guidelinesModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📖 Annotation Guidelines</h2>
+                <button class="modal-close" id="modalClose" title="Press Escape to close">&times;</button>
+            </div>
+            <div class="modal-body" id="guidelinesContent">
+                {% if guidelines %}{{ guidelines | safe }}{% else %}Guidelines not available.{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Task {{ meta.task_id }} <span style="font-size: 14px; color: #666; font-weight: normal;">{{ meta.experiment }}</span></h1>
+
+        {{ packet_nav(nav, "call") }}
+
+        {% if audio_filename %}
+        <div class="section" style="padding: 12px 20px;">
+            <strong>Audio:</strong> {{ audio_filename }}
+            <span style="color: #666; font-size: 12px;">(Use sticky player at bottom or keyboard: Space=play/pause, ←→=seek)</span>
+        </div>
+        {% endif %}
+
+        {% if task %}
+        <div class="section task-section">
+            <details>
+                {% if task.structured %}
+                <summary><h2 style="display: inline; cursor: pointer;">User Instructions (What the simulated user is trying to accomplish) ▶</h2></summary>
+                <table class="info-table">
+                    <tr><th>Domain</th><td>{{ meta.domain }}</td></tr>
+                    <tr><th>Reason for Call</th><td>{{ task.reason_for_call }}</td></tr>
+                    <tr><th>Known Info</th><td><pre class="info-pre">{{ task.known_info }}</pre></td></tr>
+                    <tr><th>Unknown Info</th><td><pre class="info-pre">{{ task.unknown_info }}</pre></td></tr>
+                    <tr><th>Task Instructions</th><td><pre class="info-pre">{{ task.task_instructions }}</pre></td></tr>
+                </table>
+                {% else %}
+                <summary><h2 style="display: inline; cursor: pointer;">User Instructions ▶</h2></summary>
+                <pre>{{ task.raw }}</pre>
+                {% endif %}
+            </details>
+        </div>
+        {% endif %}
+
+        {% if policy %}
+        <div class="section policy-section">
+            <details>
+                <summary><h2 style="display: inline; cursor: pointer;">Agent Policy (Rules the agent must follow) ▶</h2></summary>
+                <div class="policy-content">
+                    <pre class="policy-pre">{{ policy }}</pre>
+                </div>
+            </details>
+        </div>
+        {% endif %}
+
+        {% if eval %}
+        <div class="section eval-section">
+            <h2>Evaluation Criteria (What the agent must do to succeed)</h2>
+            {% if eval.reward_basis %}
+            <div class="reward-subsection"><strong>Reward Basis:</strong>
+                <code>{{ eval.reward_basis | join(", ") }}</code>
+                <span class="section-hint">(which components must be satisfied to score reward)</span></div>
+            {% endif %}
+            <div class="reward-subsection"><strong>Expected Actions (DB-changing tool calls the agent should make):</strong>
+                {% if eval.actions %}
+                <ul class="action-list">
+                    {% for action in eval.actions %}<li><code>{{ action }}</code></li>{% endfor %}
+                </ul>
+                {% else %}
+                <p class="section-hint">None — the agent should make no database-changing tool calls for this task (e.g. it should refuse, or only look information up).</p>
+                {% endif %}
+            </div>
+            {% if eval.communicate %}
+            <div class="reward-subsection"><strong>Expected Communicated Info (the agent must convey these to the user):</strong>
+                <ul>{% for c in eval.communicate %}<li><code>{{ c }}</code></li>{% endfor %}</ul>
+            </div>
+            {% endif %}
+            {% if eval.nl_assertions %}
+            <div class="reward-subsection"><strong>NL Assertions (must hold true by the end):</strong>
+                <ul>{% for a in eval.nl_assertions %}<li>{{ a }}</li>{% endfor %}</ul>
+            </div>
+            {% endif %}
+            {% if eval.env_assertions %}
+            <div class="reward-subsection"><strong>Env Assertions (expected database state):</strong>
+                <ul>{% for e in eval.env_assertions %}<li><code>{{ e }}</code></li>{% endfor %}</ul>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="section">
+            <h2>Simulation Info</h2>
+            <table class="info-table">
+                {# Blind packets pass an empty experiment label — skip the row
+                   rather than show an empty labeled cell. #}
+                {% if meta.experiment %}
+                <tr><th>Experiment</th><td>{{ meta.experiment }}</td></tr>
+                {% endif %}
+                <tr><th>Task ID</th><td>{{ meta.task_id }}</td></tr>
+                <tr><th>Simulation ID</th><td><code>{{ meta.sim_id }}</code></td></tr>
+                <tr><th>Trial</th><td>{{ meta.trial }}</td></tr>
+                <tr><th>Duration</th><td>{{ meta.duration }}</td></tr>
+                <tr><th>Termination</th><td>{{ meta.termination }}</td></tr>
+                {# Reward is an outcome cue — suppressed on outcome-blind forms
+                   together with the Reward Details / judge review sections. #}
+                {% if form.show_judge_review %}
+                <tr><th>Reward</th><td class="{{ meta.reward_class }}">{{ meta.reward }}</td></tr>
+                {% endif %}
+            </table>
+        </div>
+
+        {% if reward %}
+        <div class="section reward-section">
+            <details>
+                <summary><h2 style="display: inline; cursor: pointer;">Reward Details (Reward: <span class="{{ meta.reward_class }}">{{ meta.reward }}</span>) ▶</h2></summary>
+                <div class="reward-content">
+                    {% if reward.breakdown %}
+                    <div class="reward-subsection"><strong>Reward Breakdown:</strong>
+                        <table class="info-table">
+                            {% for b in reward.breakdown %}<tr><th>{{ b.label }}</th><td class="{{ b.cls }}">{{ b.score }}</td></tr>{% endfor %}
+                        </table>
+                    </div>
+                    {% endif %}
+                    {% if reward.note %}
+                    <div class="reward-subsection"><strong>Note:</strong> {{ reward.note }}</div>
+                    {% endif %}
+                    {% if reward.db_check is not none %}
+                    <div class="reward-subsection"><strong>DB Check:</strong>
+                        <span class="{{ 'success' if reward.db_check else 'failure' }}">{{ '✓ Passed' if reward.db_check else '✗ Failed' }}</span></div>
+                    {% endif %}
+                    {% if reward.action_checks %}
+                    <div class="reward-subsection"><strong>Action Checks:</strong><ul>
+                        {% for c in reward.action_checks %}<li><span class="{{ 'success' if c.ok else 'failure' }}">{{ '✓' if c.ok else '✗' }}</span> <code>{{ c.text }}</code></li>{% endfor %}
+                    </ul></div>
+                    {% endif %}
+                    {% for section in [('Communicate Checks', reward.communicate_checks), ('NL Assertions', reward.nl_checks)] %}
+                    {% if section[1] %}
+                    <div class="reward-subsection"><strong>{{ section[0] }}:</strong><ul>
+                        {% for c in section[1] %}<li><span class="{{ 'success' if c.ok else 'failure' }}">{{ '✓' if c.ok else '✗' }}</span> <code>{{ c.text }}</code>{% if c.justification %}<div class="reward-justification">{{ c.justification }}</div>{% endif %}</li>{% endfor %}
+                    </ul></div>
+                    {% endif %}
+                    {% endfor %}
+                    {% if reward.env_checks %}
+                    <div class="reward-subsection"><strong>Env Assertions:</strong><ul>
+                        {% for c in reward.env_checks %}<li><span class="{{ 'success' if c.ok else 'failure' }}">{{ '✓' if c.ok else '✗' }}</span> <code>{{ c.text }}</code></li>{% endfor %}
+                    </ul></div>
+                    {% endif %}
+                </div>
+            </details>
+        </div>
+        {% endif %}
+
+        {% if review %}
+        <div class="section review-section">
+            <details open>
+                <summary>
+                    <h2 style="display: inline; cursor: pointer;">LLM Judge Review
+                        {% if review.agent_error %}<span class="badge badge-agent">Agent Error</span>{% endif %}
+                        {% if review.user_error %}<span class="badge badge-user">User Error</span>{% endif %}
+                        {% if not review.agent_error and not review.user_error %}<span class="badge badge-success">No Errors</span>{% endif %}
+                        ▶</h2>
+                </summary>
+                <div class="review-content">
+                    <div class="review-summary">
+                        <strong>Summary:</strong>
+                        <p>{{ review.summary }}</p>
+                    </div>
+                    {% if review.errors %}
+                    <div class="errors-list">
+                        {% for err in review.errors %}
+                        <details class="error-item error-{{ err.source_class }} error-{{ err.severity_class }}" data-error-id="{{ err.id }}">
+                            <summary>
+                                <span class="error-source">{{ err.source | upper }}</span>
+                                <span class="error-severity">{{ err.severity }}</span>
+                                {% for tag in err.tags %}<span class="error-tag">{{ tag }}</span> {% endfor %}
+                                {% if err.clickable %}<span class="error-ticks clickable-error" data-tick-start="{{ err.tick_start }}" data-tick-end="{{ err.tick_end }}" data-error-id="{{ err.id }}" title="Click to go to this section">T{{ err.tick_start }}-{{ err.tick_end }} ↗</span>{% endif %}
+                            </summary>
+                            <div class="error-details">
+                                <p><strong>Reasoning:</strong> {{ err.reasoning }}</p>
+                                <p><strong>Correct behavior:</strong> {{ err.correct_behavior }}</p>
+                            </div>
+                        </details>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </details>
+        </div>
+        {% endif %}
+
+        <div class="section">
+            {% if collapse_transcript %}
+            <details>
+                <summary><h2 style="display: inline; cursor: pointer;">Conversation Transcript (click to expand) ▶</h2></summary>
+            {% else %}
+            <h2>Conversation</h2>
+            {% endif %}
+                <div class="column-toggles">
+                    <button class="column-toggle" data-col="tick"><span class="indicator"></span> {{ "Turn" if text_mode else "Tick" }}</button>
+                    {% if not text_mode %}<button class="column-toggle" data-col="time"><span class="indicator"></span> Time</button>{% endif %}
+                    <button class="column-toggle" data-col="agent-speech"><span class="indicator"></span> {{ "Agent Message" if text_mode else "Agent Speech" }}</button>
+                    <button class="column-toggle" data-col="agent-tools"><span class="indicator"></span> Agent Tools</button>
+                    <button class="column-toggle" data-col="user-speech"><span class="indicator"></span> {{ "User Message" if text_mode else "User Speech" }}</button>
+                    <button class="column-toggle" data-col="user-tools"><span class="indicator"></span> User Tools</button>
+                </div>
+                <table class="conversation-table">
+                    <thead><tr>
+                        <th class="tick-col" data-col="tick">{{ "Turn" if text_mode else "Tick" }}</th>
+                        {% if not text_mode %}<th class="time-col" data-col="time">Time</th>{% endif %}
+                        <th data-col="agent-speech">{{ "Agent Message" if text_mode else "Agent Speech" }}</th>
+                        <th data-col="agent-tools">Agent Tools</th>
+                        <th data-col="user-speech">{{ "User Message" if text_mode else "User Speech" }}</th>
+                        <th data-col="user-tools">User Tools</th>
+                    </tr></thead>
+                    <tbody>{{ ticks_html | safe }}</tbody>
+                </table>
+            {% if collapse_transcript %}
+            </details>
+            {% endif %}
+        </div>
+    </div>
+
+    {% include "_form.html.j2" %}
+
+    <div class="container">
+        {{ packet_nav(nav, "call") }}
+    </div>
+
+    {% if audio_filename %}
+    <div class="sticky-player">
+        <audio id="mainAudio" controls>
+            <source src="{{ audio_filename }}" type="audio/wav">
+        </audio>
+        <div class="shortcut-hint">
+            Keyboard: Space = play/pause | ← = -5s | → = +5s
+        </div>
+    </div>
+    {% endif %}
+{% endblock %}

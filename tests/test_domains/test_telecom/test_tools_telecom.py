@@ -52,6 +52,14 @@ class TestTelecomTools(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.tools.get_customer_by_phone("555-9999")
 
+    def test_localized_phone_alias_resolves_canonical_line(self):
+        """A localized scenario number still selects the intended line."""
+        self.db.phone_number_aliases["612 34 56 78"] = "555-123-2002"
+
+        line = self.tools._get_line_by_phone("612 34 56 78")
+
+        self.assertEqual(line.line_id, "L1002")
+
     def test_get_customer_by_id(self):
         """Test getting a customer by their ID."""
         customer = self.tools.get_customer_by_id("C1001")
@@ -75,6 +83,44 @@ class TestTelecomTools(unittest.TestCase):
         dob = date(1980, 1, 1)
         customers = self.tools.get_customer_by_name("Jane Doe", dob)
         self.assertEqual(len(customers), 0)
+
+    def test_get_customer_by_name_is_case_insensitive(self):
+        """Case is not part of the identity — the agent types what it heard."""
+        dob = str(date(1985, 6, 15))
+        customers = self.tools.get_customer_by_name("john SMITH", dob)
+        self.assertEqual([c.customer_id for c in customers], ["C1001"])
+
+    def test_get_customer_by_name_accented_record_unaccented_query(self):
+        """Regression (es voice runs): an accented DB record must be found from
+        an unaccented query.
+
+        Observed failure: the agent correctly transcribed the caller's spoken
+        'Álvaro Fernández' but the record read 'Alvaro Fernandez', the exact
+        match returned zero rows, and the agent transferred the call — scored
+        (and annotated) as an agent transcription error when it was an
+        orthography mismatch.
+        """
+        dob = str(date(1985, 6, 15))
+        self.db.customers[0].full_name = "Álvaro Fernández"
+        customers = self.tools.get_customer_by_name("Alvaro Fernandez", dob)
+        self.assertEqual([c.customer_id for c in customers], ["C1001"])
+
+    def test_get_customer_by_name_unaccented_record_accented_query(self):
+        """...and the mirror image: the agent supplies the accents the record
+        happens not to carry."""
+        dob = str(date(1985, 6, 15))
+        self.db.customers[0].full_name = "Alvaro Fernandez"
+        customers = self.tools.get_customer_by_name("Álvaro Fernández", dob)
+        self.assertEqual([c.customer_id for c in customers], ["C1001"])
+
+    def test_get_customer_by_name_still_requires_exact_dob(self):
+        """Only the NAME is folded. The DOB is the verification factor and is
+        matched exactly — folding must not leak into it."""
+        self.db.customers[0].full_name = "Álvaro Fernández"
+        customers = self.tools.get_customer_by_name(
+            "Alvaro Fernandez", str(date(1985, 6, 16))
+        )
+        self.assertEqual(customers, [])
 
     def test_suspend_line(self):
         """Test suspending a line."""

@@ -1,0 +1,185 @@
+    <div class="annotation-form" id="annotationForm">
+        <h2>{{ form.heading }}</h2>
+
+        <div class="readonly-info">
+            <strong>Simulation:</strong> <code id="formSimulationId">{{ meta.sim_id }}</code> |
+            <strong>Task:</strong> <code id="formTaskId">{{ meta.task_id }}</code> |
+            <strong>Trial:</strong> <code id="formTrial">{{ meta.trial }}</code>
+        </div>
+
+        {% if form.form.value == 'voice_review' %}
+        <h3 class="form-section-title">① Findings — what went wrong?</h3>
+        <p class="section-hint">Identify the first critical error in the call. We are primarily looking for <strong>user-simulator</strong> errors, but record agent/system errors too. Leave blank if the call has no error.</p>
+        {% endif %}
+        {% if form.show_findings %}
+        <!-- Quick Summary Section -->
+        <div class="summary-section">
+            <h3>📋 Quick Summary</h3>
+            <p class="section-hint">High-level classification of the first critical error</p>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="summaryErrorSource">Error Source</label>
+                    <select id="summaryErrorSource">
+                        <option value="">-- No error / Not applicable --</option>
+                        {% for source in error_sources %}
+                        <option value="{{ source.value }}">{{ source.display }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="summaryErrorType">Error Type</label>
+                    <select id="summaryErrorType">
+                        <option value="">-- Select type --</option>
+                        {% for type in error_types %}
+                        <option value="{{ type.value }}">{{ type.display }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group wide">
+                    <label for="summaryNotes">Summary Notes</label>
+                    <textarea id="summaryNotes" placeholder="Brief description of what happened..."></textarea>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if form.form.value == 'voice_review' %}
+        <h3 class="form-section-title">② Audio — how realistic was the caller?</h3>
+        <p class="section-hint">Rate each dimension 1-4 after listening. <strong>Speech Accuracy</strong> = was the text actually said; <strong>Phrasing Naturalness</strong> = was the wording itself natural (text), separate from how it was voiced (synthesis). If a dimension genuinely cannot be judged from this call, pick <strong>N/A</strong> — never a 1.</p>
+        {% endif %}
+        {% if form.show_audio %}
+        <div class="calibration-box">
+            <strong>Calibration:</strong> A score of <strong>4</strong> = a real human caller on a phone call. A score of <strong>1-2</strong> = a clearly robotic system (<a href="https://www.youtube.com/watch?v=S5t6K9iwcdw" target="_blank">example</a>).
+        </div>
+
+        <div class="rating-progress" id="ratingProgress">
+            <span class="count">0</span> / {{ dims | length }} dimensions rated
+        </div>
+
+        <div class="dimension-list">
+            {% for dim in dims %}
+            <div class="dimension-card" data-dim-id="{{ dim.id }}">
+                <div class="dimension-header">
+                    <div>
+                        <div class="dimension-name">{{ dim.name }}</div>
+                        <div class="dimension-short-desc">{{ dim.short_description }}</div>
+                    </div>
+                    <button class="dimension-expand-btn" type="button">More</button>
+                </div>
+                <div class="dimension-full-desc">{{ dim.description }}</div>
+                <div class="score-options">
+                    {% for score_val, score in dim.sorted_scores() %}
+                    <label class="score-option" data-dimension="{{ dim.id }}" data-score="{{ score_val }}">
+                        <input type="radio" name="dim_{{ dim.id }}" value="{{ score_val }}">
+                        <span class="score-radio"></span>
+                        <span class="score-number">{{ score_val }}</span>
+                        <span class="score-text">
+                            <span class="score-label">{{ score.label }}</span>
+                            <span class="score-detail">{{ score.description }}</span>
+                        </span>
+                    </label>
+                    {% endfor %}
+                    <label class="score-option score-option-na" data-dimension="{{ dim.id }}" data-score="NA">
+                        <input type="radio" name="dim_{{ dim.id }}" value="NA">
+                        <span class="score-radio"></span>
+                        <span class="score-number">N/A</span>
+                        <span class="score-text">
+                            <span class="score-label">Unable to evaluate</span>
+                            <span class="score-detail">This dimension cannot be judged from this call (e.g. call only a few seconds, audio missing, this side never speaks). Not a low score — N/A is excluded from analysis.</span>
+                        </span>
+                    </label>
+                </div>
+                <div class="dim-notes-container" id="dimNotes_{{ dim.id }}" style="display:none;">
+                    <label class="dim-notes-label">Why this rating? (required for scores 1-2 and N/A)</label>
+                    <textarea class="dim-notes-input" id="dimNotesInput_{{ dim.id }}" placeholder="Brief explanation (1-2 lines)..."></textarea>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="optional-fields">
+            <div class="optional-field">
+                <label for="freeTextComments">Additional Comments (optional)</label>
+                <textarea id="freeTextComments" placeholder="Any observations about the caller's realism — e.g., specific moments that were particularly convincing or unconvincing, patterns you noticed, etc."></textarea>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if form.show_experience %}
+        <h3 class="form-section-title">③ Experience — would a real caller put up with this call?</h3>
+        <p class="section-hint">Rate the experience a real caller would have had, <strong>given the agent's behavior</strong> (who was at fault belongs in section ①). Customer service is a captive setting — people rarely hang up — so think <strong>tolerance</strong>: would this call make someone hang up, or end it really frustrated?</p>
+
+        <div class="dimension-card" id="experienceCard">
+            <div class="score-options">
+                {% for anchor in experience_anchors %}
+                <label class="score-option" data-experience-score="{{ anchor.value }}">
+                    <input type="radio" name="caller_experience" value="{{ anchor.value }}">
+                    <span class="score-radio"></span>
+                    <span class="score-number">{{ anchor.value }}</span>
+                    <span class="score-text">
+                        <span class="score-label">{{ anchor.label }}</span>
+                        <span class="score-detail">{{ anchor.description }}</span>
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <div class="experience-detail" id="experienceDetail" style="display:none;">
+                <div class="form-group">
+                    <label>Where did it break?</label>
+                    <div class="experience-bp-options">
+                        {% for bp in breaking_points %}
+                        <label class="experience-bp-option"><input type="radio" name="experience_breaking_point" value="{{ bp.value }}"> {{ bp.display }}</label>
+                        {% endfor %}
+                    </div>
+                    <div class="experience-tick-row" id="experienceTickRow" style="display:none;">
+                        <label for="experienceBreakingTick">Tick</label>
+                        <input type="number" id="experienceBreakingTick" min="0" placeholder="tick number from the transcript">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>What made it bad? Check every contributing factor, then mark exactly ONE as primary.</label>
+                    <p class="section-hint"><strong>Factors overlap on purpose — check the symptom and its cause.</strong> <strong>Had to repeat or re-explain</strong> is a symptom, and <strong>Heard/said wrong</strong> and <strong>Didn&#39;t understand or follow</strong> are its usual causes: when the caller had to repeat themselves because of one of those, checking both is the correct answer, not a double-count. Make primary whichever dominated the call — the cause if one bad mishearing or misunderstanding did the damage, repetition if what wore the caller down was having to say it over and over.</p>
+                    <table class="experience-factor-table">
+                        <thead><tr><th>Factor</th><th>contributed</th><th>primary</th></tr></thead>
+                        <tbody>
+                        {% for f in experience_factors %}
+                        <tr>
+                            <td class="experience-factor-label">{{ f.display }}</td>
+                            <td><input type="checkbox" class="exp-factor-check" data-factor="{{ f.value }}"></td>
+                            <td><input type="radio" name="primary_factor" class="exp-factor-primary" value="{{ f.value }}" disabled></td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="form-group wide">
+                    <label for="experienceNotes">Why was it bad? (required — and elaborate if you checked a factor that asks for it, e.g. what exactly the user-sim broke)</label>
+                    <textarea id="experienceNotes" placeholder="What made the call intolerable — the specific moments, wording, or behavior..."></textarea>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="form-row complete-row">
+            <label class="complete-checkbox">
+                <input type="checkbox" id="markComplete">
+                <span class="checkmark"></span>
+                <strong>Mark as Complete</strong> — {{ form.complete_hint }}
+            </label>
+        </div>
+
+        <div class="button-row">
+            <button type="button" class="btn-primary" id="copyAnnotationBtn">📋 Copy Annotation (JSON)</button>
+            <button type="button" class="btn-secondary" id="downloadAnnotationBtn">💾 Download Annotation</button>
+        </div>
+
+        <div class="status-message" id="statusMessage"></div>
+    </div>

@@ -1,0 +1,874 @@
+language: es
+display_name: Spanish
+backchannel_level: medium  # density knob (tau2.backchannel)
+agent_language_clause: Respond in Spanish using Latin script for Spanish and Latin
+  script for English insertions; mirror the user's code-switching register; keep all
+  tool calls, arguments, and structured outputs in English exactly as specified.
+  The customer database stores every name and address without accents or diacritics
+  (e.g. 'Ivan Sanchez', never 'Iván Sánchez'); spell database values in tool-call
+  arguments in plain unaccented letters.
+default_out_of_turn_events_per_minute: 1.0
+experiments:
+- preset_name: multilingual_v1_spanish
+  description: 'Spanish v1 headline experiment: the pack''s personas on the airline
+    tasks vs a matched English baseline (same base tasks, same provider, same complexity,
+    identical LLM-judge metric).'
+  domain: airline
+  main_arm_name: spanish
+  task_set_suffix: es
+  smoke_task_stem: '3'
+- preset_name: multilingual_v1_spanish_telecom
+  description: 'Spanish v1 telecom experiment: the pack''s personas on the telecom
+    tasks.'
+  domain: telecom
+  main_arm_name: spanish_telecom
+  task_set_suffix: es
+  smoke_task_stem: '[mobile_data_issue]airplane_mode_on|data_mode_off[PERSONA:None]'
+- preset_name: multilingual_v1_spanish_retail
+  description: 'Spanish v1 retail experiment: the pack''s personas on the retail tasks.'
+  domain: retail
+  main_arm_name: spanish_retail
+  task_set_suffix: es
+  smoke_task_stem: '83'
+# --- persona pragmatics (conditional-realization form) ---
+# pragmatics_clauses redrafted by `tau2 factory redraft-pragmatics` (prompt v1 sha256:6f7590c925ac, model:claude-opus-4-8).
+# Personas own the language profile; the TASK owns attitude/affect —
+# clauses realize attitudes conditionally, never prescribe them.
+# --- persona variety re-pin (camila_es_v1 -> ES-MD) ---
+# re-pinned by `tau2 factory repin-variety` (prompt v1 sha256:87adb6191011, model:claude-opus-4-8).
+# Judge factor rubrics were deliberately NOT touched (calibrated
+# artifacts; they only change through the judge hill-climb loop).
+# --- persona out-of-turn speech (away-from-the-mic length) ---
+# non_directed_phrases clipped by `tau2 factory shorten-non-directed` (prompt v1 sha256:d22aa7ecbce7, model:claude-opus-4-8).
+# Out-of-turn speech is spliced into the live call as one burst, so it
+# is bounded at 4 words — a glance away from the phone, not a second
+# conversation. Same addressee, situation and register as before.
+personas:
+  alejandro_es_v1:
+    voice_id: l43uhLv9aXdHYq1A4gDs
+    verbosity: standard
+    interrupt_tendency: waits
+    persona_id: alejandro_es_v1
+    display_name: Alejandro
+    short_description: Mid-50s Madrid senior bank relationship manager; careful high-register
+      Peninsular Spanish with full distinción and consistent usted; low tolerance
+      for an English-only agent
+    language: es
+    locale: ES-MD
+    script: latn
+    pragmatics_clauses:
+    - 'Speak careful, high-register Peninsular Spanish (Latin script) with full distinción
+      — you pronounce c/z as /θ/, so ''gracias'' sounds like ''grathias'' and ''cinco''
+      like ''thinco''. Your sentences are complete and measured, with few fillers. You
+      prefer proper Spanish terms even for tech and avoid English: say ''correo electrónico''
+      (not ''email''), ''contraseña'' (not ''password''), ''cancelar'' (not the anglicism),
+      ''la transferencia'' for a transfer. Natural examples: ''Buenas tardes, quisiera
+      consultar el estado de una transferencia'', ''Permítame que se lo confirme con calma''.'
+    - 'You address the agent with ''usted'' at ALL times — ''usted'', ''¿podría usted...?'',
+      ''le agradezco'' — never ''tú''. You stay within polite forms even when firm: ''Disculpe,
+      pero insisto en que lo revise una vez más, por favor''. You use ''vosotros'' only
+      when speaking informally about a group, never to the agent.'
+    - When you open formally, natural forms are 'Buenos días', 'Buenas tardes, mire, le
+      llamo por un asunto', and you state your matter in a full sentence. When you react,
+      mild restrained interjections are natural — 'Vaya, qué fastidio', 'Menos mal'
+      when something resolves.
+    - 'You have LOW tolerance for an English-only agent. If the agent speaks only English,
+      you keep responding in Spanish, repeat yourself more slowly, and ask for help in
+      Spanish: ''Perdone, ¿podría atenderme en español, por favor?'', ''No manejo bien
+      el inglés, le agradecería que continuáramos en español''. You do not switch into
+      sustained English; at most a brand name or a figure slips through.'
+    - 'Under pressure or confusion you do NOT switch to English — you slow down, enunciate
+      more, and ask the agent to repeat too: ''Disculpe, ¿sería tan amable de repetírmelo
+      más despacio?''. You remain in Spanish and articulate throughout.'
+    - When you want to refuse, you do so indirectly and courteously — rarely a flat 'no'.
+      You use 'Verá, lo que ocurre es que...', 'Hmm, me temo que eso me resultaría complicado',
+      or you simply restate your original request. The agent must infer your reluctance
+      from your hesitation and your hedging.
+    - 'When frustrated you become MORE formal and insistent, not rude: longer polite preambles,
+      a repeated ''por favor'', a measured ''Disculpe que insista'', and patient repetition.
+      You do not raise your voice and do not drop ''usted''.'
+    - 'When the agent mishears a name or code, you spell slowly using Spanish letter names
+      (a, be, ce, de, e, efe, ge, hache, i, jota...) and city anchors for clarity — ''B
+      de Barcelona'', ''M de Madrid'', ''S de Sevilla''. You read codes like ''A7K2''
+      as ''a, siete, ka, dos'', digit by letter, clearly separated, and you confirm them
+      back: ''¿Le repito? A, siete, ka, dos. ¿Correcto?''. Numbers and amounts you read
+      in full words (''mil doscientos cincuenta euros''), unhurried.'
+    - 'When the conversation is unhurried and courteous, closings extend across several
+      turns through an extended pre-closing ritual, for example: ''Pues muy bien, le agradezco
+      mucho su atención'' → ''Ha sido usted muy amable'' → ''Que tenga un buen día'' →
+      ''Igualmente, muchas gracias, hasta luego''. In that case, do not collapse the goodbye
+      into a single line.'
+    backchannel_phrases:
+    - ajá
+    non_directed_phrases:
+    - Un momento
+    - Ahora mismo voy
+    - Perdona, sigo
+    tts_voice_prompt: A man in his mid-50s from Madrid, a senior bank relationship
+      manager calling from a quiet home office. He speaks careful, high-register Peninsular
+      Spanish with full distinción (the /θ/ for c and z, so 'gracias' sounds like
+      'grathias'), consistent use of 'usted', complete sentences and very few fillers.
+      Lower pitch, warm but composed and slightly formal timbre, measured and deliberate
+      pacing with clear pauses, courteous register that stays polite even when insistent.
+      He enunciates numbers and booking codes slowly and confirms them back. Phone-call
+      audio quality with a quiet indoor room tone.
+    tags:
+      code_switch: low
+      formality: high
+      english_tolerance: low
+      age_band: 50s
+      register: urban_professional
+      closing_style: extended
+      gender: male
+  camila_es_v1:
+    voice_id: 5sOL9YXF4fBxgbAkAtlN
+    verbosity: standard
+    interrupt_tendency: interrupts
+    persona_id: camila_es_v1
+    display_name: Camila
+    short_description: Mid-20s Madrid freelance graphic designer; fast casual Peninsular
+      Spanish with tuteo, distinción and heavy English code-switching; high tolerance
+      for an English-only agent
+    language: es
+    locale: ES-MD
+    script: latn
+    pragmatics_clauses:
+    - 'Speak fast, casual Peninsular Spanish (Latin script) with tuteo — ''tú tienes'',
+      ''tú sabes'', ''mira'', ''fíjate'', ''oye'', ''tío/tía'' — and full distinción
+      (c/z before e/i and z = /θ/, so ''gracias'' and ''plaza'' have the ''th'' sound).
+      You use ''vosotros'' for informal plurals (''¿vosotros lo tenéis?''). Roughly
+      25-30% of your words are English insertions (Latin script) for work and tech:
+      ''mándame el brief'', ''el deadline'', ''súbelo a la nube'', ''el archivo'', ''te
+      hago un update'', ''me cancelaron el pago''. Connectives and grammar stay Spanish.
+      Your register is neutral-informal, not stiff formal Spanish.'
+    - When you open casually, natural forms are 'Hola, ¿qué tal?', 'Buenas, mira, te
+      llamo por una cosa', or straight to the point — 'Hola, necesito que me echéis
+      una mano con algo'. When something works out and you react, interjections take
+      forms like 'uf, qué palo', 'venga, genial', 'ah, mira tú'. When you close briskly,
+      forms are short — 'Vale, guay, gracias, chao'.
+    - You address the agent with informal 'tú' by default — 'oye, ¿me puedes ayudar?',
+      '¿me estás diciendo que...?'. You only shift toward 'usted' if the agent is very
+      stiff, and even then it slips back to 'tú' quickly.
+    - You have HIGH tolerance for an English-only agent. If the agent clearly cannot
+      follow Spanish, you switch smoothly into fluent, fast English and carry the whole
+      conversation in English. As the call settles you naturally drift back into Spanish
+      (English words start creeping into Spanish sentences again). You do not demand
+      that the agent speak Spanish.
+    - 'You overlap and interrupt: you finish the agent''s sentences, jump in with ''sí,
+      sí, ya lo sé'', and self-correct out loud — ''es el martes... no, espera, el miércoles''.
+      You think aloud and trail off with discourse markers: ''o sea...'', ''en plan...'',
+      ''nada, que...''.'
+    - 'When you disagree or want to refuse, you hedge rather than say a flat ''no'':
+      ''sí, vale, pero...'', ''mira, la verdad es que eso no me vale mucho'', ''mmm,
+      no sé, no me convence''. You push back directly only once you''re genuinely annoyed.'
+    - When frustration builds, it surfaces first as clipped and faster speech ('sí,
+      sí, eso es lo que te digo'), then as audible impatience ('oye, ¿cuántas veces
+      te lo repito?'), then as short sharp sentences. Even when annoyed you stay competent
+      and clear — never incoherent.
+    - 'When the agent mishears a name or code, you spell with Spanish letter names (a,
+      be, ce, de, e, efe...) and city anchors — ''B de Barcelona'', ''C de Cádiz'',
+      ''M de Madrid''. Codes like ''A7K2'' you read ''a, siete, ka, dos'', letters and
+      digits separated. You read amounts in full words and repeat them when needed:
+      ''¿el código? a, siete, ka, dos, venga''.'
+    - Your informality lives in tuteo, rhythm and everyday words ('mira', 'venga', 'en
+      plan', 'o sea', 'tío'), not in stacked colourful idioms. Do not force ultra-informal
+      set phrases like 'estoy hasta las narices', 'me tiene frita' or 'ni de coña' into
+      the call — nobody performs slang at a support agent. When genuinely annoyed, a
+      mild 'uf, qué palo' or a clipped 'venga, sí, eso ya lo sé' is plenty; keep the
+      register neutral-informal throughout.
+    backchannel_phrases:
+    - ajá
+    non_directed_phrases:
+    - Un cortado, porfa
+    - ¡Que ya voy!
+    - Venga, ahora voy
+    tts_voice_prompt: A woman in her mid-20s from Madrid, a freelance graphic designer
+      calling customer support from her mobile. She speaks fast, casual Peninsular
+      Spanish — unmistakably from Spain, never Latin American (no Rioplatense or
+      Argentinian intonation, no sheísmo) — with tuteo ('tú tienes', 'oye', 'mira')
+      and full distinción (the 'th' sound for c/z, so 'gracias' and 'plaza' have a clear
+      θ), with frequent English insertions for work and tech terms, all pronounced naturally
+      in a central Madrid accent. Medium-high pitch, warm, chatty and energetic delivery,
+      quick conversational rhythm with overlaps, self-corrections and trailing discourse
+      markers. Recorded close to the microphone with studio clarity — a full, present,
+      crisp voice with no distance, muffling or room echo.
+    tags:
+      code_switch: high
+      formality: low
+      english_tolerance: high
+      age_band: 20s
+      register: gig_worker
+      closing_style: brisk
+      gender: female
+translation_guidance: 'Target register: natural spoken Spanish. The pack spans two
+  registers within Peninsular Spanish — high-register Peninsular (Alejandro: distinción,
+  ''usted'', minimal English) and casual Peninsular (Camila: tuteo, distinción, heavy
+  English code-switching). Do NOT flatten everything into neutral/textbook Spanish;
+  match the persona register where the persona is known, and otherwise default to
+  natural neutral spoken Spanish.
+
+
+  LOANWORD / CODE-SWITCHING POLICY:
+
+  - For the casual Peninsular register, English loanwords for work, tech, money and
+  everyday terms are the INTENDED register and stay in Latin script inline: brief,
+  deadline, update, email, file, link, status, online, mail. Do NOT ''purify'' these
+  into stiff Spanish when the casual register is intended (e.g. don''t force ''el
+  deadline'' into ''la fecha límite'' in Camila''s voice).
+
+  - For the formal Peninsular register, prefer proper Spanish terms: ''correo electrónico''
+  (not ''email''), ''contraseña'' (not ''password''), ''transferencia'', ''cancelar''.
+  A loanword that matches the persona''s register is never a defect; the defect is
+  using the WRONG register for the persona.
+
+  - Spanish stays the matrix language (connectives, verbs, grammar); English words
+  are insertions.
+
+
+  CALQUE TRAPS (translate the MEANING, not the words):
+
+  - ''if and only if'' must NOT become the literal ''si y sólo si'' in conversational
+  prose — use ''solo si...'' / ''únicamente cuando...'' / ''solamente en caso de que...''.
+
+  - ''as soon as possible'' -> ''lo antes posible'' / ''cuanto antes'', never a word-for-word
+  string.
+
+  - ''make sure that'' -> ''asegúrate de que'' / ''asegúrese de que'' / ''que no se
+  te olvide que'', NOT ''haz seguro que''.
+
+  - ''I look forward to...'' has no literal calque — render as ''quedo a la espera
+  de...'' (formal) or just ''venga, ya me dices'' (casual).
+
+  - ''actually'' as a discourse marker -> ''en realidad'' / ''la verdad'' (NOT ''actualmente'',
+  which means ''currently'' — classic false friend).
+
+  - ''to apply'' (for something) -> ''solicitar'', NOT ''aplicar'' (in Peninsular
+  formal); ''aplicar a'' is not natural in Peninsular, so avoid it even for Camila.
+
+  - Conditionals: keep the same trigger and consequence; ''si ... entonces ...'' must
+  map the English if/then exactly — never drop the consequence, and use natural Spanish
+  ''si + present, ... future/imperative''.
+
+
+  GENDER:
+
+  - Spanish inflects adjectives and participles for the speaker''s/referent''s gender.
+  When the speaker''s gender is unknown in the task prose, the unmarked/DEFAULT is
+  masculine (e.g. ''estoy seguro'', ''quedo agradecido''). Write the prose in this
+  default; do NOT bake a specific gender into the task prose. The speaker''s actual
+  gender is injected at runtime via the voice persona.
+
+  - The unmarked/default masculine form is CORRECT and intended: it is never a meaning,
+  naturalness or register problem, and forced agreement using it is never a meaning
+  difference. The only gender defect is INCONSISTENCY within one text — e.g. one clause
+  ''estoy seguro'' and the next ''estoy segura'' for the same speaker.
+
+  - Watch tú/usted consistency: do not mix ''usted'' and ''tú'' forms for the same
+  addressee within one passage unless the persona is explicitly slipping.
+
+
+  SCRIPT / NUMBER CONVENTIONS:
+
+  - Script is Latin throughout. All concrete values — ids, booking codes, amounts,
+  dates, reservation numbers — stay verbatim with Latin digits (1, 2, 3). The VALUE
+  is verbatim; an attached unit/word localizes (e.g. ''3h'' -> ''3 horas'', keep the
+  digit, translate the unit).
+
+  - Spanish uses a DECIMAL COMMA and a THOUSANDS POINT (1.250,75). Currency for this
+  Spain-targeted pack is euros (€), written after the amount: ''1.250,75 €''. When
+  read aloud, quantities and prices are spoken in full words (''mil doscientos cincuenta
+  euros''), not digit by digit.
+
+  - Booking codes and letters: spelled with Spanish letter names (a, be, ce, de, e,
+  efe, ge, hache, i, jota, ka, ele, eme, ene, eñe, o, pe, cu, erre, ese, te, u, uve,
+  equis, i griega/ye, zeta) and optional city anchors (''B de Barcelona'', ''C de
+  Córdoba'').
+
+  - Email/symbols read aloud: ''@'' = ''arroba'', ''.'' = ''punto'', ''-'' = ''guion'',
+  ''_'' = ''guion bajo'' (e.g. ''juan arroba correo punto e ese'').
+
+
+  REGISTER EXAMPLES (natural target):
+
+  - Formal Peninsular: ''Buenas tardes, quisiera consultar el estado de una transferencia,
+  por favor.'' / ''Perdone, ¿sería tan amable de repetírmelo más despacio?''
+
+  - Casual Peninsular: ''Hola, oye, mira, necesito que me echéis una mano con un pago
+  que me han cancelado.'' / ''Venga, mándame el update por mail y listo.''
+
+  - Conditional mapping: ''Si el agente se niega, entonces no insistas.'''
+agent_greeting: ¡Hola! ¿En qué puedo ayudarle?
+guidelines_voice_path: guidelines/simulation_guidelines_voice_es.md
+guidelines_text_path: guidelines/simulation_guidelines_text_es.md
+
+# --- nativeness scoring ---
+# judge_factors select from the closed catalog in tau2.multilingual.nativeness_catalog;
+# factor_id must exist there (the loader rejects unknown ids). email_symbols
+# are native verbalizations of email symbols for the deterministic checker.
+nativeness:
+  judge_factors:
+  - factor_id: register_formality
+    enabled: false
+    nuance: Formal address (usted vs tú)
+    question: Did the agent use usted or tú appropriately and keep that choice
+      consistent throughout the call?
+    native_does: Uses one natural form of address and its matching grammar. Examples
+      are "¿Me puede dar su número de reserva?" with usted and "¿Me puedes dar tu
+      número de reserva?" with tú. A change is fine when the customer clearly invites
+      a more familiar or more formal register.
+    ai_likely_does: Switches between usted and tú for the same customer without a
+      reason, or mixes their grammar. Examples are "¿Me puede dar tu número?" and
+      moving from "usted" to "tú" halfway through the call. Judge the form of address
+      here; other gender or verb errors belong to their own criteria.
+  - factor_id: gender_agreement
+    enabled: false
+    nuance: Gender agreement
+    question: Did gendered words agree with each other and with the known gender of
+      the agent or customer?
+    native_does: Catch three subtypes of agreement. (1) Agent self-reference — a
+      known female agent uses feminine forms for herself, such as "estoy lista" or
+      "encantada de ayudar". In a greeting or any utterance before the speakers'
+      identities are known, masculine-inclusive language is the neutral default and
+      is correct — "bienvenido" in an opening turn is never a violation. (2)
+      Addressing the customer — gendered words agree with the customer's known
+      gender, and a known male customer can be addressed as "señor". Masculine
+      plural for a mixed-gender group is correct — "lo vemos juntos" for a female
+      agent and a male customer is right. (3) Noun and internal agreement —
+      articles, adjectives, participles, and gendered numbers agree with their
+      actual referent, as in "la reserva está confirmada", "doscientos euros", and
+      "doscientas reservas". Resolve the referent before judging a pronoun or
+      demonstrative — a masculine pronoun whose antecedent is a masculine noun is
+      correct even in a sentence full of feminine nouns.
+    ai_likely_does: (1) Self-reference — a known female agent uses masculine forms
+      for herself, such as "encantado de ayudar" or "estoy listo", or a known male
+      agent says "estoy lista". Spoken slash-alternatives are always a violation
+      regardless of gender — saying "listo/a" aloud is wrong on its face; the
+      speaker must commit to one form. (2) Customer-directed — gendered words
+      contradict the customer's known gender, such as "señor" to a known female
+      customer, "cuando estés listo" to a known female customer, or a feminine
+      plural that includes a known male customer, such as "lo vemos juntas". (3)
+      Noun agreement — a clear mismatch with the actual referent, such as "la
+      reserva está confirmado" or "doscientos reservas". Never infer gender from a
+      name. If gender is unknown, judge only the agreement visible in the
+      utterance. Judge only clear agreement errors — word-for-word English calques
+      and awkward-but-agreeing phrasing belong to other criteria, not here.
+  - factor_id: natural_word_choice
+    nuance: Combined utterance naturalness for Madrid Spanish
+    question: >-
+      This is a customer-service call in contemporary Spanish as spoken in Madrid,
+      Spain. Does this utterance use natural Madrid Spanish without translationese
+      or unnatural word choice, and with correct verb forms and basic function
+      words?
+    native_does: >-
+      Natural conversational Madrid Spanish appropriate to a customer-service call
+      passes, including ordinary formal or informal speech and established English
+      borrowings or code-switching when they sound natural in context. Literal
+      names, identifiers, and genuinely user-visible product, interface, setting,
+      or status labels that must be preserved may remain in English when naturally
+      integrated. Vocabulary and grammar must be natural in contemporary Madrid
+      Spanish, with an internally consistent regional variety; regional validity
+      elsewhere does not by itself pass. Judge language use only, not factual or
+      task correctness.
+    ai_likely_does: >-
+      Inspect every complete clause independently. Permitted English, technical
+      material, or natural wording elsewhere does not excuse a separate defect.
+      Flag language that would sound clearly odd, ungrammatical, or non-Madrid in
+      this setting, including English-shaped or word-for-word service phrasing or
+      result constructions; unnatural word choice, collocation, or customer-facing
+      backend language; avoidable raw English where Spanish is ordinarily expected;
+      a clear error in verb form, subject-verb person or number, required clitics or
+      governed prepositions, ser/estar, por/para, or other basic function words; and
+      lexical, grammatical, or second-person forms that are not natural in
+      contemporary Madrid Spanish. Also flag within-utterance mixing of Madrid and
+      non-Madrid regional varieties. One clear marker in the utterance is
+      sufficient; it need not recur across the call. Also flag missing, extra, or
+      misplaced written Spanish diacritics, including accent marks, ñ, and ü, when
+      standard orthography requires them. Ignore only a diacritic issue that is part
+      of an obvious transcription artifact or the clipped ending of an interrupted
+      turn. Quotation marks or apparent system provenance alone do not make an
+      untranslated generic category or ordinary service term acceptable. Also flag
+      a generic customer-data word when its ordinary Spanish meaning does not
+      naturally identify the specific field being requested. A merely smoother,
+      more specialized, or more formal alternative is not enough. Do not flag
+      gender agreement, politeness, or mere switching between otherwise natural
+      Madrid formal and informal forms of address. For interrupted turns, judge
+      complete material before the cutoff and ignore only the clipped ending.
+  - factor_id: request_politeness
+    enabled: false
+    nuance: Request softening / politeness routines
+    question: Did the agent make requests with a natural level of politeness for a
+      service call?
+    native_does: Uses a polite question, conditional, or simple softener. Examples are
+      "¿Me puede dar su número?", "Cuando pueda", "Si no es molestia", and "¿Sería
+      tan amable de confirmarlo?". A direct request can still be polite; every request
+      does not need several softeners.
+    ai_likely_does: Repeatedly gives the customer bare commands such as "Dame tu
+      número" or "Confirma ahora" when a polite request is expected. Judge the force of
+      the request here; the choice between usted and tú belongs to the register
+      criterion.
+  - factor_id: counting_units
+    nuance: Spanish number scale and decimal reading
+    question: When the agent said a large number, an amount, or a decimal, did it
+      use the natural Spanish number scale and reading?
+    native_does: Uses the Spanish long scale and the decimal comma. Examples are
+      "mil millones de dólares" for the English billion, "quinientos mil", "dos
+      coma cinco" for 2.5, and "treinta y cinco euros con cincuenta". "Un billón"
+      is correct only when a true million millions is meant.
+    ai_likely_does: Reads a number on the English scale or with an English decimal
+      point. Examples are "un billón" for the English billion instead of "mil
+      millones", "quinientos miles" instead of "quinientos mil", and "dos punto
+      cinco" instead of "dos coma cinco". Do not flag "punto" in emails or
+      websites such as "gmail punto com", digits read one by one in codes or
+      phone numbers, or a figure the customer said that the agent merely echoed.
+  - factor_id: name_address_conventions
+    enabled: false
+    nuance: Natural name and title address
+    question: When the agent addressed the customer by name, did it pair the name
+      and title the way a Spanish speaker would?
+    native_does: Pairs señor or señora with the surname in formal address and uses
+      the bare first name under tuteo. Examples are "señor Sánchez", "señora
+      García, ¿me confirma el código?", and "Gracias, Lucía" in a tuteo call.
+      "Don" or "doña" with the first name is also natural, and addressing the
+      customer without any name is fine. If the agent never uses the customer's
+      name, there is no opportunity.
+    ai_likely_does: Pairs señor or señora with the bare first name, such as "señor
+      Iván" instead of "señor Sánchez" or "don Iván"; addresses the customer by
+      surname alone, such as "Sánchez, ¿me confirma?"; or keeps addressing the
+      customer with the full name, such as "señor Iván Sánchez" in turn after
+      turn. Do not require name use or infer gender from a name. Judge the choice
+      between usted and tú under the register criterion and a wrong-gender title
+      under the gender-agreement criterion.
+  enabled_deterministic_factors:
+  - email_symbol_verbalization
+  email_symbols:
+    '@':
+    - arroba
+    .:
+    - punto
+
+# --- delivery scoring (audio-layer) ---
+# judge_factors select from the closed catalog in tau2.multilingual.delivery_catalog;
+# factor_id must exist there (the loader rejects unknown ids). Rubrics are grounded
+# in confirmed human-annotation findings (docs/multilingual/annotation/nuance_map.json).
+delivery:
+  judge_factors:
+  - factor_id: regional_accent_consistency
+    listen_for: Pronunciation that repeatedly conflicts with the configured
+      Spanish locale or audibly switches between incompatible systems within
+      the call, such as sustained switching between distinción and seseo.
+      Accept ordinary speaker variation and judge against the simulation's
+      configured locale, not one preferred Spanish accent.
+
+# --- spoken localization (symbols / date-numeral rule / speech conventions / domain glossary) ---
+# Upgraded by `tau2 factory draft-localization`: domain_glossaries[retail] drafted by prompt v7 sha256:6c4c09381c8b (model:claude-opus-4-8);
+# all previously-reviewed fields preserved verbatim.
+# Symbols and term_ids select from the closed catalogs in
+# tau2.multilingual.localization_catalog (the loader rejects unknown ids).
+localization:
+  symbol_readouts:
+  - symbol: '@'
+    spoken:
+    - arroba
+  - symbol: .
+    spoken:
+    - punto
+  - symbol: _
+    spoken:
+    - guion bajo
+  - symbol: '-'
+    spoken:
+    - guion
+    - raya
+  - symbol: /
+    spoken:
+    - barra
+    - barra inclinada
+  - symbol: +
+    spoken:
+    - más
+    - signo de más
+  - symbol: '0'
+    spoken:
+    - cero
+  date_examples:
+  - written: May 17
+    spoken: diecisiete de mayo
+  - written: 05/17
+    spoken: diecisiete del cinco
+  - written: December 3
+    spoken: tres de diciembre
+  - written: '2024-11-21'
+    spoken: veintiuno de noviembre de dos mil veinticuatro
+  number_examples:
+  - written: 253 dollars
+    spoken: doscientos cincuenta y tres dólares
+  - written: '21'
+    spoken: veintiuno
+  - written: 1.250,75 €
+    spoken: mil doscientos cincuenta euros con setenta y cinco céntimos
+  - written: '+49'
+    spoken: más cuarenta y nueve
+  domain_glossaries:
+    airline:
+    - term_id: user_id
+      native: ID de usuario
+      note: airline user id is an alphanumeric handle (e.g. 'mia_li_3668'), not numeric;
+        'ID' spelled i-de; avoid 'número' which implies digits only
+    - term_id: reservation
+      native: reserva
+    - term_id: reservation_id
+      native: localizador
+      note: '''localizador'' is the usual term; also ''código de reserva'''
+    - term_id: flight
+      native: vuelo
+    - term_id: flight_number
+      native: número de vuelo
+    - term_id: refund
+      native: reembolso
+      note: in casual register also 'el refund'
+    - term_id: travel_insurance
+      native: seguro de viaje
+    - term_id: checked_bag
+      native: maleta facturada
+      note: also 'equipaje facturado'
+    - term_id: carry_on
+      native: equipaje de mano
+    - term_id: future_trip
+      native: viaje futuro
+      note: also 'un viaje que tengo pendiente'
+    - term_id: one_way
+      native: viaje de ida
+    - term_id: round_trip
+      native: viaje de ida y vuelta
+    - term_id: basic_economy
+      native: clase turista básica
+      note: also 'la tarifa básica'
+    - term_id: economy
+      native: clase turista
+    - term_id: business
+      native: clase business
+      note: '''business'' is an established English loanword, the usual term; also
+        ''clase preferente'''
+    - term_id: credit_card
+      native: tarjeta de crédito
+    - term_id: gift_card
+      native: tarjeta regalo
+      note: '''tarjeta regalo'' dominates in Spain; the English ''gift card'' is not
+        the usual spoken form'
+    - term_id: travel_certificate
+      native: bono de viaje
+      note: also 'vale de viaje'
+    - term_id: membership_tier
+      native: nivel de socio
+      note: regular / plata / oro; also 'nivel de fidelidad'
+    - term_id: cancellation
+      native: cancelación
+    - term_id: payment_method
+      native: forma de pago
+      note: also 'método de pago'
+    telecom:
+    - term_id: customer_id
+      native: número de cliente
+    - term_id: phone_number
+      native: número de teléfono
+    - term_id: line
+      native: línea
+    - term_id: plan
+      native: plan
+      note: also 'tarifa' in Peninsular register; both natural
+    - term_id: data_allowance
+      native: datos incluidos
+      note: colloquially 'los gigas que tengo'
+    - term_id: data_usage
+      native: consumo de datos
+    - term_id: data_refuel
+      native: recarga de datos
+      note: the extra data top-up bought mid-cycle
+    - term_id: mobile_data
+      native: datos móviles
+    - term_id: roaming
+      native: roaming
+      note: established loanword; what everyone says in Spain
+    - term_id: airplane_mode
+      native: modo avión
+    - term_id: sim_card
+      native: tarjeta SIM
+      note: often just 'la SIM'
+    - term_id: esim
+      native: eSIM
+      note: established loanword; read 'i sim'
+    - term_id: apn_settings
+      native: ajustes del APN
+      note: '''APN'' spelled out a, pe, ene'
+    - term_id: data_saver
+      native: ahorro de datos
+    - term_id: wifi
+      native: wifi
+      note: established loanword; said 'el wifi'
+    - term_id: wifi_calling
+      native: llamadas por wifi
+    - term_id: vpn
+      native: VPN
+      note: spelled out uve, pe, ene
+    - term_id: speed_test
+      native: test de velocidad
+      note: '''test'' is a common loanword; also ''prueba de velocidad'''
+    - term_id: network_signal
+      native: cobertura
+      note: colloquially 'las rayitas' or 'la señal'
+    - term_id: status_bar
+      native: barra de estado
+    - term_id: mms
+      native: MMS
+      note: spelled out eme, eme, ese
+    - term_id: bill
+      native: factura
+    - term_id: overdue_bill
+      native: factura pendiente
+      note: the one unpaid and past due
+    - term_id: payment_request
+      native: enlace de pago
+      note: the link the agent sends to pay
+    - term_id: line_suspension
+      native: línea suspendida
+    - term_id: payment_method
+      native: forma de pago
+      note: also 'método de pago'
+    retail:
+    - term_id: user_id
+      native: identificador de usuario
+      note: casual register often says 'el usuario' or the loanword 'el user ID'.
+    - term_id: zip_code
+      native: código postal
+    - term_id: order
+      native: pedido
+    - term_id: order_id
+      native: número de pedido
+      note: literally 'order number'; the natural everyday term.
+    - term_id: order_status
+      native: estado del pedido
+    - term_id: pending_order
+      native: pedido pendiente
+    - term_id: delivered_order
+      native: pedido entregado
+    - term_id: cancellation
+      native: cancelación
+    - term_id: return
+      native: devolución
+    - term_id: exchange
+      native: cambio
+    - term_id: refund
+      native: reembolso
+      note: casual register commonly code-switches to the loanword 'el refund'.
+    - term_id: product
+      native: producto
+    - term_id: item
+      native: artículo
+    - term_id: product_option
+      native: opción
+      note: when specifying, natives say 'color', 'talla' or 'material'.
+    - term_id: item_id
+      native: número de artículo
+    - term_id: product_id
+      native: número de producto
+    - term_id: availability
+      native: disponibilidad
+    - term_id: price_difference
+      native: diferencia de precio
+    - term_id: tracking_number
+      native: número de seguimiento
+      note: casual register often uses the loanword 'el tracking'.
+    - term_id: shipping_address
+      native: dirección de envío
+    - term_id: default_address
+      native: dirección predeterminada
+      note: also 'la dirección por defecto' in everyday usage.
+    - term_id: payment_method
+      native: método de pago
+    - term_id: credit_card
+      native: tarjeta de crédito
+    - term_id: gift_card
+      native: tarjeta regalo
+      note: casual register also says the loanword 'la gift card'.
+    - term_id: paypal
+      native: PayPal
+      note: brand name; pronounced as in English.
+    - term_id: human_agent
+      native: agente humano
+      note: also 'una persona' / 'un operador de verdad' in everyday speech.
+  phone_number_readout:
+    rule: 'Spanish speakers group phone numbers in short blocks (Spain mobile: 3-2-2-2,
+      e.g. 612 34 56 78; Spain landline: 2-3-2-2, e.g. 91 234 56 78) and read them
+      digit by digit within each block, pausing between blocks. Grouping digits into
+      two-digit numbers (sesenta y uno...) is acceptable but when unsure a native
+      falls back to strict digit-by-digit for clarity. An initial ''+'' is read ''más''
+      followed by the country-code digits.'
+    examples:
+    - written: 612 34 56 78
+      spoken: seis, uno, dos... tres, cuatro... cinco, seis... siete, ocho
+    - written: 91 234 56 78
+      spoken: nueve, uno... dos, tres, cuatro... cinco, seis... siete, ocho
+    - written: +34 655 40 12 90
+      spoken: más, tres, cuatro... seis, cinco, cinco... cuatro, cero... uno, dos...
+        nueve, cero
+  amount_readout:
+    rule: The currency word goes AFTER the amount, spoken in full words (never digit
+      by digit). The decimal separator is the comma, spoken 'con' before the cents
+      (or 'coma' when reading a bare decimal number). Large amounts use 'mil' and
+      'millón/millones'. Currency for this pack is euros.
+    examples:
+    - written: 253 €
+      spoken: doscientos cincuenta y tres euros
+    - written: 35,50 €
+      spoken: treinta y cinco euros con cincuenta
+    - written: 1.250,75 €
+      spoken: mil doscientos cincuenta euros con setenta y cinco
+    - written: 12.000 €
+      spoken: doce mil euros
+  spelling_alphabet:
+    rule: Spanish speakers disambiguate letters with the 'letra DE palabra ancla'
+      pattern, anchoring on Spanish given names and cities (B de Barcelona, M de Madrid,
+      A de Antonio, V de Valencia, E de España). Letters are named with Spanish letter
+      names (be, ce, uve, i griega, etc.).
+    avoid: The NATO/anglo phonetic alphabet ('B for Bravo', 'B for boy').
+    anchor_examples:
+    - written: B
+      spoken: B de Barcelona
+    - written: M
+      spoken: M de Madrid
+    - written: A
+      spoken: A de Antonio
+    - written: V
+      spoken: uve de Valencia
+    - written: E
+      spoken: E de España
+  spoken_value_examples:
+  - kind: email
+    written: juan_perez@gmail.com
+    spoken: Sí, es juan guion bajo perez arroba gmail punto com
+  - kind: user_id
+    written: mia_li_0
+    spoken: Mi número de usuario es eme, i, a, guion bajo, ele, i, guion bajo, cero
+  - kind: phone
+    written: 612 34 56 78
+    spoken: Mi teléfono es seis, uno, dos... tres, cuatro... cinco, seis... siete,
+      ocho
+  - kind: spelling_name
+    written: RUBEN
+    spoken: Es erre, u, be, e, ene... R de Ramón, U de Úrsula, B de Barcelona, E de
+      España, N de Navarra
+  - kind: account_number
+    written: ZFA04Y
+    spoken: Mi número de reserva es zeta, efe, a, cero, cuatro, i griega
+  - kind: website
+    written: www.example.com/soporte
+    spoken: Estaba en su página, doble ve, doble ve, doble ve punto example punto
+      com barra soporte
+  guideline_examples:
+  - kind: disfluency_fillers
+    utterances:
+    - eh...
+    - este...
+    - o sea
+    - a ver
+    - pues nada
+    - bueno
+    - viste
+    - ¿sabe?
+  - kind: restart_example
+    utterances:
+    - ¿Usted puede—perdón, lo que quería preguntar era si me podría ayudar con...
+  - kind: filler_pause_example
+    utterances:
+    - Pues, eh, estaba pensando si, a ver, me podría echar una mano con esto.
+  - kind: pause_marker_examples
+    utterances:
+    - Estaba intentando—espere, déjeme pensar [pause]
+    - El problema empezó [pause] hace como tres días, creo.
+  - kind: self_interruption_example
+    utterances:
+    - Estaba intentando... ah, espere, ¿le doy primero el número de cuenta?
+  - kind: clarification_request
+    utterances:
+    - Perdón, ¿me lo repite? No le escuché bien.
+  - kind: emotion_examples
+    utterances:
+    - La verdad es que me molesta bastante porque...
+    - ¡Ah, mirá, eso me viene bárbaro!
+  - kind: conversational_confirmations
+    utterances:
+    - claro
+    - vale
+    - dale
+    - de acuerdo
+    - muy bien
+    - ajá
+    - sí, sí
+    - por supuesto
+  - kind: silence_checkins
+    utterances:
+    - ¿Hola? ¿Me escucha?
+    - ¿Encontró algo?
+    - ¿Alguna novedad con lo que le comenté?
+  - kind: frustrated_endings
+    utterances:
+    - Esto ya es demasiado, llamo más tarde.
+    - No tengo tiempo para esto, cuelgo.
+  - kind: dont_know_responses
+    utterances:
+    - Uy, la verdad no sé.
+    - Ahora mismo no lo recuerdo.
+    - Mmm, eso lo tendría que mirar.
+  - kind: make_agent_work_chain
+    utterances:
+    - No funciona.
+    - La aplicación.
+    - Su app del móvil.
+  - kind: one_at_a_time_example
+    utterances:
+    - Sí, mi correo es juan guion bajo perez arroba gmail punto com... ah, ¿también
+      necesita el teléfono?
+  - kind: forget_details_example
+    utterances:
+    - Mi número de pedido es... eh, espere, déjeme ver...
+  - kind: vague_openers
+    utterances:
+    - Tengo un problema.
+    - Pasa algo raro con mi cuenta.
+  - kind: unknown_info_phrases
+    utterances:
+    - No estoy seguro de eso.
+    - No tengo ese dato.
+  - kind: tool_acknowledgment
+    utterances:
+    - Ah, vale, déjeme que lo pruebo... un momento.
+  - kind: tool_result_report
+    utterances:
+    - Vale, ya lo hice y, eh, me sale que...
+  - kind: tool_failure_report
+    utterances:
+    - Mmm, no funcionó... me está dando un error.
+  - kind: multiple_actions_pushback
+    utterances:
+    - Uy, eso es mucho de golpe... ¿me lo puede ir explicando paso a paso?
+  - kind: gratitude_examples
+    utterances:
+    - ¡Ay, muchísimas gracias!
+    - Genial, le agradezco de verdad la ayuda.
+  spelled_entity_normalization: false
+  letter_names: {}
+  digit_names: {}
+# --- text input styles (closed catalog: tau2.multilingual.text_input_catalog) ---
+# Applicability decision (docs/designs/text-mode-multilingual.md): typing
+# without tildes/accents (and without ¿ ¡) is routine in informal Spanish
+# chat. Examples are persona-neutral typing MECHANICS only.
+text_input:
+  styles:
+  - style: diacritic_free
+    examples:
+    - standard: ¿Cuándo sale mi vuelo a Bogotá?
+      typed: Cuando sale mi vuelo a Bogota?
+    - standard: No sé qué pasó con mi reservación
+      typed: No se que paso con mi reservacion
+    - standard: Está bien, muchísimas gracias
+      typed: Esta bien, muchisimas gracias

@@ -84,6 +84,16 @@ class ElevenLabsTTSConfig(BaseModel):
     voice_id: Optional[str] = Field(default=None)
     api_key: Optional[str] = Field(default=None)
     voice_settings: Any = Field(default=DEFAULT_ELEVENLABS_VOICE_SETTINGS)
+    language_code: Optional[str] = Field(
+        default=None,
+        description="ISO 639-1 language code pinned on the TTS request (WS7): "
+        "stops per-language misrendering of spelled letters/digits (pt letter "
+        "names, pl digit strings read with Russian/Ukrainian pronunciation). "
+        "Verified live on eleven_v3: the API accepts the parameter and "
+        "validates the code against the model's supported languages "
+        "(unsupported codes raise 'unsupported_language'). None omits the "
+        "parameter entirely (never serialized as null).",
+    )
 
     @property
     def output_format_name(self) -> str:
@@ -170,6 +180,27 @@ class SpeechEnvironment(BaseModel):
         default=None,
         description="The TTS voice ID actually used for synthesis.",
     )
+    language: Optional[str] = Field(
+        default=None,
+        description="ISO 639-1 language code when a language-pack persona is "
+        "active (see tau2.multilingual). None means English.",
+    )
+    locale: Optional[str] = Field(
+        default=None,
+        description="Region/locale tag of the active language-pack persona.",
+    )
+    persona_id: Optional[str] = Field(
+        default=None,
+        description="persona_id of the active language-pack persona. None for "
+        "plain English voice personas.",
+    )
+    persona_tags: dict[str, str] = Field(
+        default_factory=dict,
+        description="Structured tags of the active language-pack persona (see "
+        "tau2.multilingual.tags), persisted so results can be joined to "
+        "persona properties without loading packs. Empty for plain English "
+        "personas and runs persisted before tags existed.",
+    )
     background_noise_file: Optional[str] = Field(default=None)
     burst_noise_files: list[str] = Field(
         default_factory=list,
@@ -179,13 +210,9 @@ class SpeechEnvironment(BaseModel):
         default=None,
         description="Environment preset (indoor/outdoor), or None if control",
     )
-    backchannel_min_threshold: Optional[int] = Field(
-        default=None,
-        description="Threshold for backchanneling (ticks of agent speech). None disables backchanneling.",
-    )
     use_llm_backchannel: bool = Field(
         default=True,
-        description="Whether to use LLM-based backchanneling. If False, uses Poisson-based policy.",
+        description="Whether to enable backchanneling via the LLM decision prompt. If False, disables backchanneling.",
     )
     enable_interruptions: bool = Field(
         default=False,
@@ -234,13 +261,9 @@ class SampledVoiceConfig(BaseModel):
         default=None,
         description="Environment preset (indoor/outdoor), or None if control",
     )
-    backchannel_min_threshold: Optional[int] = Field(
-        default=None,
-        description="Threshold for backchanneling (ticks of agent speech). None disables backchanneling.",
-    )
     use_llm_backchannel: bool = Field(
         default=True,
-        description="Whether to use LLM-based backchanneling. If False, uses Poisson-based policy.",
+        description="Whether to enable backchanneling via the LLM decision prompt. If False, disables backchanneling.",
     )
     enable_interruptions: bool = Field(
         default=False, description="Whether user interruptions are enabled"
@@ -269,16 +292,45 @@ class SampledVoiceConfig(BaseModel):
     # Complexity level (stored for reference)
     complexity: SpeechComplexity = Field(description="The complexity level used")
 
+    # Effects-mode overlay provenance (owner call 2026-08-25): the intensity
+    # modes applied over the complexity preset when this config was sampled.
+    channel_effects_mode: str = Field(
+        default="regular",
+        description="Channel effects mode applied (light/regular/heavy)",
+    )
+    speech_effects_mode: str = Field(
+        default="regular",
+        description="Speech effects mode applied (light/regular/heavy)",
+    )
+
     def to_speech_environment(self, seed: int) -> "SpeechEnvironment":
         """Create a SpeechEnvironment from this sampled config."""
+        # Language-pack metadata (None for plain English personas).
+        from tau2.multilingual.registry import get_multilingual_persona
+
+        language = None
+        locale = None
+        persona_id = None
+        persona_tags: dict[str, str] = {}
+        multilingual = get_multilingual_persona(self.persona_name)
+        if multilingual is not None:
+            pack, persona = multilingual
+            language = pack.language
+            locale = persona.locale
+            persona_id = persona.persona_id
+            persona_tags = dict(persona.tags)
+
         return SpeechEnvironment(
             voice_seed=seed,
             persona_name=self.persona_name,
             voice_id=get_elevenlabs_voice_id(self.persona_name),
+            language=language,
+            locale=locale,
+            persona_id=persona_id,
+            persona_tags=persona_tags,
             background_noise_file=self.background_noise_file,
             burst_noise_files=self.burst_noise_files,
             environment=self.environment,
-            backchannel_min_threshold=self.backchannel_min_threshold,
             use_llm_backchannel=self.use_llm_backchannel,
             enable_interruptions=self.enable_interruptions,
             telephony_enabled=self.telephony_enabled,

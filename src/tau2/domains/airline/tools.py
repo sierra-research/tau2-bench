@@ -25,8 +25,38 @@ from tau2.domains.airline.data_model import (
     User,
 )
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.utils.text_match import fold_for_match
 
 # TODO: Add an abstract base class for the tools
+
+
+def _resolve_key_folded(mapping: dict, key: str) -> Optional[str]:
+    """Resolve a DB key tolerant of letter case, diacritics, and whitespace.
+
+    DB keys are ASCII and unique up to case (user ids are lowercase, e.g.
+    ``sara_doe_496``; reservation/flight codes are uppercase, e.g. ``ZFA04Y``),
+    so folding case and accents cannot merge two distinct keys. This matters
+    for the voice benchmark: the agent transcribes a spoken id and routinely
+    mis-renders it — a name-derived user id comes back as ``Sara_Doe_496``, an
+    uppercase code gets lowercased, and a localized caller whose displayed name
+    is ``Álvaro Rodríguez`` gets their id transcribed ``álvaro_rodríguez_7015``
+    against a DB key that is romanized ASCII. An exact dict lookup rejects all
+    three as "not found".
+
+    Returns the canonical key present in ``mapping``, or ``None`` if no match.
+    Exact matches take the fast path, so callers that copy ids verbatim (e.g.
+    the text benchmark) keep identical behavior.
+    """
+    if key in mapping:
+        return key
+    stripped = key.strip()
+    if stripped in mapping:
+        return stripped
+    folded = fold_for_match(stripped)
+    for candidate in mapping:
+        if fold_for_match(candidate) == folded:
+            return candidate
+    return None
 
 
 class AirlineTools(ToolKitBase):  # Tools
@@ -38,22 +68,25 @@ class AirlineTools(ToolKitBase):  # Tools
         super().__init__(db)
 
     def _get_user(self, user_id: str) -> User:
-        """Get user from database."""
-        if user_id not in self.db.users:
+        """Get user from database (case- and diacritic-insensitive)."""
+        key = _resolve_key_folded(self.db.users, user_id)
+        if key is None:
             raise ValueError(f"User {user_id} not found")
-        return self.db.users[user_id]
+        return self.db.users[key]
 
     def _get_reservation(self, reservation_id: str) -> Reservation:
-        """Get reservation from database."""
-        if reservation_id not in self.db.reservations:
+        """Get reservation from database (case- and diacritic-insensitive)."""
+        key = _resolve_key_folded(self.db.reservations, reservation_id)
+        if key is None:
             raise ValueError(f"Reservation {reservation_id} not found")
-        return self.db.reservations[reservation_id]
+        return self.db.reservations[key]
 
     def _get_flight(self, flight_number: str) -> Flight:
-        """Get flight from database."""
-        if flight_number not in self.db.flights:
+        """Get flight from database (case- and diacritic-insensitive)."""
+        key = _resolve_key_folded(self.db.flights, flight_number)
+        if key is None:
             raise ValueError(f"Flight {flight_number} not found")
-        return self.db.flights[flight_number]
+        return self.db.flights[key]
 
     def _get_flight_instance(self, flight_number: str, date: str) -> FlightDateStatus:
         """Get flight instance from database."""
@@ -223,6 +256,10 @@ class AirlineTools(ToolKitBase):  # Tools
                 Payment(**payment_method) for payment_method in payment_methods
             ]
         user = self._get_user(user_id)
+        # _get_user is case-insensitive; canonicalize so the stored reservation
+        # and the db.users write below use the real (case-correct) key — a
+        # mis-cased id must not pass lookup and then KeyError on write.
+        user_id = user.user_id
         reservation_id = self._get_new_reservation_id()
 
         reservation = Reservation(
@@ -246,8 +283,10 @@ class AirlineTools(ToolKitBase):  # Tools
         all_flights_date_data: list[FlightDateStatusAvailable] = []
 
         for flight_info in flights:
-            flight_number = flight_info.flight_number
-            flight = self._get_flight(flight_number)
+            flight = self._get_flight(flight_info.flight_number)
+            # _get_flight is case-insensitive; store the canonical flight number
+            # so a mis-cased voice transcript doesn't persist a wrong-case id.
+            flight_number = flight.flight_number
             flight_date_data = self._get_flight_instance(
                 flight_number=flight_number, date=flight_info.date
             )
@@ -625,12 +664,18 @@ class AirlineTools(ToolKitBase):  # Tools
         total_price = 0
         reservation_flights = []
         for flight_info in flights:
+            # _get_flight is case-insensitive; resolve the canonical flight number
+            # once so the existing-flight match, availability check, and the stored
+            # ReservationFlight all use the real (case-correct) id — a mis-cased
+            # code must not duplicate a flight or store a wrong-case number.
+            flight = self._get_flight(flight_info.flight_number)
+            flight_number = flight.flight_number
             # if existing flight, keep it
             matching_reservation_flight = next(
                 (
                     reservation_flight
                     for reservation_flight in reservation.flights
-                    if reservation_flight.flight_number == flight_info.flight_number
+                    if reservation_flight.flight_number == flight_number
                     and reservation_flight.date == flight_info.date
                     and cabin == reservation.cabin
                 ),
@@ -643,27 +688,23 @@ class AirlineTools(ToolKitBase):  # Tools
                 reservation_flights.append(matching_reservation_flight)
                 continue
 
-            # If new flight:
-            flight = self._get_flight(flight_info.flight_number)
-            # Check flight availability
+            # If new flight: check availability
             flight_date_data = self._get_flight_instance(
-                flight_number=flight_info.flight_number,
+                flight_number=flight_number,
                 date=flight_info.date,
             )
             if not isinstance(flight_date_data, FlightDateStatusAvailable):
                 raise ValueError(
-                    f"Flight {flight_info.flight_number} not available on date {flight_info.date}"
+                    f"Flight {flight_number} not available on date {flight_info.date}"
                 )
 
             # Check seat availability
             if flight_date_data.available_seats[cabin] < len(reservation.passengers):
-                raise ValueError(
-                    f"Not enough seats on flight {flight_info.flight_number}"
-                )
+                raise ValueError(f"Not enough seats on flight {flight_number}")
 
             # Calculate price and add to reservation
             reservation_flight = ReservationFlight(
-                flight_number=flight_info.flight_number,
+                flight_number=flight_number,
                 date=flight_info.date,
                 price=flight_date_data.prices[cabin],
                 origin=flight.origin,

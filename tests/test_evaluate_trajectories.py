@@ -331,6 +331,69 @@ class TestRegradingOptions:
         )
         assert captured[0]["task"].evaluation_criteria != EvaluationCriteria()
 
+    def _capture_task_set_loads(self, monkeypatch):
+        """Route registry.get_tasks_loader through a recorder so tests can
+        assert which task set --fresh-tasks reloads from."""
+        from tau2.registry import registry
+
+        requested = []
+        real_mock_loader = registry.get_tasks_loader("mock")
+
+        def fake_get_tasks_loader(name):
+            requested.append(name)
+            return real_mock_loader
+
+        monkeypatch.setattr(registry, "get_tasks_loader", fake_get_tasks_loader)
+        return requested
+
+    def test_fresh_tasks_uses_recorded_task_set(self, monkeypatch):
+        """Localized runs record their task set (e.g. 'airline_hi') in the
+        results Info; --fresh-tasks must reload from it, not from the domain
+        default, or English task definitions get silently swapped in."""
+        embedded_task = get_tasks("mock", task_ids=["create_task_1"])[0]
+        requested = self._capture_task_set_loads(monkeypatch)
+        results = Results(
+            info=_make_info(),
+            tasks=[embedded_task],
+            simulations=[_make_half_duplex_sim(embedded_task.id)],
+        )
+        results.info.task_set_name = "mock_xx"
+
+        self._capture_eval_kwargs(monkeypatch, results, fresh_tasks=True)
+        assert requested == ["mock_xx"]
+
+    def test_fresh_tasks_set_overrides_recorded(self, monkeypatch):
+        """--fresh-tasks-set wins over the recorded task set (escape hatch for
+        results files predating the recorded field)."""
+        embedded_task = get_tasks("mock", task_ids=["create_task_1"])[0]
+        requested = self._capture_task_set_loads(monkeypatch)
+        results = Results(
+            info=_make_info(),
+            tasks=[embedded_task],
+            simulations=[_make_half_duplex_sim(embedded_task.id)],
+        )
+        results.info.task_set_name = "mock_xx"
+
+        self._capture_eval_kwargs(
+            monkeypatch, results, fresh_tasks=True, fresh_tasks_set="mock_yy"
+        )
+        assert requested == ["mock_yy"]
+
+    def test_fresh_tasks_falls_back_to_domain(self, monkeypatch):
+        """Results files predating the recorded task set reload from the
+        domain default (pre-existing behavior)."""
+        embedded_task = get_tasks("mock", task_ids=["create_task_1"])[0]
+        requested = self._capture_task_set_loads(monkeypatch)
+        results = Results(
+            info=_make_info(),
+            tasks=[embedded_task],
+            simulations=[_make_half_duplex_sim(embedded_task.id)],
+        )
+        assert results.info.task_set_name is None
+
+        self._capture_eval_kwargs(monkeypatch, results, fresh_tasks=True)
+        assert requested == ["mock"]
+
     def test_embedded_tasks_used_by_default(self, monkeypatch):
         embedded_task = get_tasks("mock", task_ids=["create_task_1"])[0]
         embedded_task = embedded_task.model_copy(deep=True)

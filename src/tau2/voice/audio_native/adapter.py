@@ -17,10 +17,11 @@ from loguru import logger
 
 from tau2.config import (
     DEFAULT_AUDIO_NATIVE_MODELS,
-    DEFAULT_AUDIO_NATIVE_REASONING_EFFORT,
     DEFAULT_AUDIO_NATIVE_VOIP_PACKET_INTERVAL_MS,
     DEFAULT_SEND_AUDIO_INSTANT,
     TELEPHONY_ULAW_SILENCE,
+    ReasoningEffort,
+    require_resolved_reasoning_effort,
 )
 from tau2.data_model.audio import TELEPHONY_AUDIO_FORMAT, AudioFormat
 from tau2.data_model.usage import UsageRecord
@@ -382,13 +383,14 @@ _PROVIDERS_WITH_ENDPOINT_DETERMINED_MODEL: tuple[str, ...] = ()
 def create_adapter(
     provider: str,
     tick_duration_ms: int,
+    reasoning_effort: ReasoningEffort,
     send_audio_instant: bool = DEFAULT_SEND_AUDIO_INSTANT,
     model: Optional[str] = None,
-    reasoning_effort: Optional[str] = None,
     audio_format: Optional[AudioFormat] = None,
     cascaded_config: Any = None,
     live_config: Optional["LiveConfig"] = None,
     trace_path: Optional[Path] = None,
+    language: Optional[str] = None,
 ) -> Tuple[DiscreteTimeAdapter, str]:
     """Create a discrete-time adapter for the given provider.
 
@@ -400,6 +402,17 @@ def create_adapter(
         provider: Provider identifier (openai, gemini, xai, nova, qwen,
             livekit).
         tick_duration_ms: Duration of each tick in milliseconds.
+        reasoning_effort: The ALREADY-RESOLVED effective effort (see
+            tau2.config.resolve_audio_native_reasoning_effort). This factory is
+            BELOW the resolution boundary: it never applies a provider default
+            of its own, because resolving here would happen after the run
+            config was recorded, leaving results.info claiming an effort the
+            run did not use. The boundaries above it (the CLI,
+            AudioNativeConfig, DiscreteTimeAudioNativeAgent.__init__) all
+            resolve, so the None guard below is unreachable through a run — it
+            is the guard for a direct caller of this factory, which is exactly
+            who would otherwise get a silent default one level down.
+            ReasoningEffort.PROVIDER_DEFAULT sends nothing to the provider.
         send_audio_instant: If True, send audio in one call per tick.
         model: Model identifier. If None, uses the provider's default.
         audio_format: Audio format for external communication. Defaults to
@@ -407,16 +420,29 @@ def create_adapter(
         cascaded_config: Configuration for cascaded providers (livekit).
         live_config: Frontend and delegated backend configuration for OpenAI Live.
         trace_path: Optional private protocol trace for OpenAI Live.
+        language: ISO 639-1 code of the run's active language-pack persona
+            (see tau2.multilingual). Forwarded to provider language settings
+            where supported: openai (input transcription), gemini (Live
+            SpeechConfig.language_code), livekit (STT config). None means
+            English (provider defaults unchanged).
 
     Returns:
         Tuple of (adapter, resolved_model).
 
     Raises:
-        ValueError: If the provider is unknown.
+        ValueError: If the provider is unknown, or reasoning_effort was not
+            resolved by the caller.
     """
-    # --- Resolve reasoning_effort default ---
-    if reasoning_effort is None:
-        reasoning_effort = DEFAULT_AUDIO_NATIVE_REASONING_EFFORT.get(provider)
+    # --- Reasoning effort: consumed, never re-derived ---
+    reasoning_effort = require_resolved_reasoning_effort(
+        provider, reasoning_effort, caller="create_adapter"
+    )
+    # What actually goes on the wire: PROVIDER_DEFAULT means "send nothing".
+    wire_reasoning_effort: Optional[str] = (
+        None
+        if reasoning_effort is ReasoningEffort.PROVIDER_DEFAULT
+        else reasoning_effort.value
+    )
 
     # --- Resolve model default ---
     if model is None:
@@ -447,8 +473,9 @@ def create_adapter(
             tick_duration_ms=tick_duration_ms,
             send_audio_instant=send_audio_instant,
             model=model,
-            reasoning_effort=reasoning_effort,
+            reasoning_effort=wire_reasoning_effort,
             audio_format=audio_format,
+            language=language,
         )
     elif provider == "openai_live":
         from tau2.voice.audio_native.openai.live_adapter import (
@@ -461,7 +488,7 @@ def create_adapter(
             tick_duration_ms=tick_duration_ms,
             model=model,
             config=live_config,
-            reasoning_effort=reasoning_effort,
+            reasoning_effort=wire_reasoning_effort,
             send_audio_instant=send_audio_instant,
             audio_format=audio_format,
             trace_path=trace_path,
@@ -475,7 +502,8 @@ def create_adapter(
             tick_duration_ms=tick_duration_ms,
             send_audio_instant=send_audio_instant,
             model=model,
-            reasoning_effort=reasoning_effort,
+            reasoning_effort=wire_reasoning_effort,
+            language=language,
         )
     elif provider == "xai":
         from tau2.voice.audio_native.xai.discrete_time_adapter import (
@@ -486,7 +514,8 @@ def create_adapter(
             tick_duration_ms=tick_duration_ms,
             send_audio_instant=send_audio_instant,
             model=model,
-            reasoning_effort=reasoning_effort,
+            reasoning_effort=wire_reasoning_effort,
+            language=language,
         )
     elif provider == "nova":
         from tau2.voice.audio_native.nova.discrete_time_adapter import (
@@ -497,7 +526,7 @@ def create_adapter(
             tick_duration_ms=tick_duration_ms,
             send_audio_instant=send_audio_instant,
             model=model,
-            reasoning_effort=reasoning_effort,
+            reasoning_effort=wire_reasoning_effort,
         )
     elif provider == "qwen":
         from tau2.voice.audio_native.qwen.discrete_time_adapter import (
@@ -508,7 +537,7 @@ def create_adapter(
             tick_duration_ms=tick_duration_ms,
             send_audio_instant=send_audio_instant,
             model=model,
-            reasoning_effort=reasoning_effort,
+            reasoning_effort=wire_reasoning_effort,
         )
     elif provider == "livekit":
         from tau2.voice.audio_native.livekit.config import CascadedConfig
@@ -517,6 +546,10 @@ def create_adapter(
         )
 
         config = cascaded_config or CascadedConfig()
+        if language is not None:
+            # Deep copy so shared presets (CASCADED_CONFIGS) are not mutated.
+            config = config.model_copy(deep=True)
+            config.stt.language = language
         adapter = LiveKitCascadedAdapter(
             tick_duration_ms=tick_duration_ms,
             cascaded_config=config,

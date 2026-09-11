@@ -1,0 +1,250 @@
+# Locale identity corpus for hi (India, urban Hindi-belt) — reviewed raw
+# material for the `tau2 factory localize-entities` step. The name POOLS are
+# Latin (standard everyday English/romanized spellings, matching the pack's
+# urban Mumbai/Delhi personas); the native_* tables below map each pool entry
+# to its Devanagari form for the native-script DB ablation. The generator
+# draws deterministically per caller (seeded by the original user_id, gender
+# inherited from the English caller's given name) and preserves the numeric
+# suffix for user_id uniqueness.
+country: IND
+phone_number_format: "9#### #####"
+email_domain: example.com
+zip_format: "######"
+address_format:
+  city_region: "{city}, {region}"
+  city_country: "{city}, {region}, {country}"
+address_review:
+  source: "reviewed localization corpus (updated 2026-08-03)"
+  status: annotator_feedback_applied
+
+female_first_names:
+  - Priya
+  - Ananya
+  - Neha
+  - Pooja
+  - Shreya
+  - Kavya
+  - Divya
+  - Sneha
+  - Riya
+  - Anjali
+  - Meera
+  - Swati
+  - Nidhi
+  - Aarti
+  - Sunita
+  - Ritu
+  - Payal
+  - Tanvi
+  - Ishita
+  - Sakshi
+
+male_first_names:
+  - Rahul
+  - Amit
+  - Rohan
+  - Arjun
+  - Vikram
+  - Sanjay
+  - Rajesh
+  - Aditya
+  - Karan
+  - Nikhil
+  - Manish
+  - Suresh
+  - Deepak
+  - Ankit
+  - Varun
+  - Siddharth
+  - Gaurav
+  - Abhishek
+  - Ravi
+  - Mohit
+
+last_names:
+  - Sharma
+  - Verma
+  - Gupta
+  - Singh
+  - Kumar
+  - Patel
+  - Mehta
+  - Joshi
+  - Desai
+  - Reddy
+  - Nair
+  - Iyer
+  - Rao
+  - Chopra
+  - Malhotra
+  - Agarwal
+  - Mishra
+  - Pandey
+  - Bhatt
+  - Saxena
+  - Chauhan
+  - Yadav
+  - Trivedi
+  - Srivastava
+
+# --- Native-script DB ablation (romanization x localization 2x2) ---------
+# Devanagari forms of every pool name, keyed by the romanized pool entry.
+# Consumed ONLY by `tau2 factory localize-entities --native-script`; the
+# ordinary `_identity` build keeps the romanized/folded names above.
+# CURATED CONTENT — flag any change for native-speaker review.
+native_female_first_names:
+  Priya: प्रिया
+  Ananya: अनन्या
+  Neha: नेहा
+  Pooja: पूजा
+  Shreya: श्रेया
+  Kavya: काव्या
+  Divya: दिव्या
+  Sneha: स्नेहा
+  Riya: रिया
+  Anjali: अंजलि
+  Meera: मीरा
+  Swati: स्वाति
+  Nidhi: निधि
+  Aarti: आरती
+  Sunita: सुनीता
+  Ritu: ऋतु
+  Payal: पायल
+  Tanvi: तन्वी
+  Ishita: इशिता
+  Sakshi: साक्षी
+
+native_male_first_names:
+  Rahul: राहुल
+  Amit: अमित
+  Rohan: रोहन
+  Arjun: अर्जुन
+  Vikram: विक्रम
+  Sanjay: संजय
+  Rajesh: राजेश
+  Aditya: आदित्य
+  Karan: करण
+  Nikhil: निखिल
+  Manish: मनीष
+  Suresh: सुरेश
+  Deepak: दीपक
+  Ankit: अंकित
+  Varun: वरुण
+  Siddharth: सिद्धार्थ
+  Gaurav: गौरव
+  Abhishek: अभिषेक
+  Ravi: रवि
+  Mohit: मोहित
+
+native_last_names:
+  Sharma: शर्मा
+  Verma: वर्मा
+  Gupta: गुप्ता
+  Singh: सिंह
+  Kumar: कुमार
+  Patel: पटेल
+  Mehta: मेहता
+  Joshi: जोशी
+  Desai: देसाई
+  Reddy: रेड्डी
+  Nair: नायर
+  Iyer: अय्यर
+  Rao: राव
+  Chopra: चोपड़ा
+  Malhotra: मल्होत्रा
+  Agarwal: अग्रवाल
+  Mishra: मिश्रा
+  Pandey: पांडे
+  Bhatt: भट्ट
+  Saxena: सक्सेना
+  Chauhan: चौहान
+  Yadav: यादव
+  Trivedi: त्रिवेदी
+  Srivastava: श्रीवास्तव
+
+street_patterns:
+  - "{n} MG Road"
+  - "{n} Station Road"
+  - "{n} Link Road"
+  - "{n} Mall Road"
+  - "{n} Ring Road"
+  - "{n} Nehru Marg"
+  - "{n} Gandhi Nagar Main Road"
+  - "{n} Subhash Chowk"
+
+# Secondary address line — the unit within the street address, drawn like
+# every other field. Retail needs a real one: its records always carry a
+# "Suite NNN" and some tasks turn on the unit NEXT DOOR (task 17 wants
+# delivery to Suite 641 when the record says Suite 640), which only works
+# if the locale line has a number of its own to move. Exactly one number
+# per pattern, for that reason.
+secondary_line_patterns:
+  - "Flat {n}"
+  - "Apartment {n}"
+  - "Floor {n}"
+  - "Block {n}"
+secondary_line_number_max: 19
+
+cities:
+  - {city: Mumbai, region: MH}
+  - {city: Delhi, region: DL}
+  - {city: Bengaluru, region: KA}
+  - {city: Hyderabad, region: TS}
+  - {city: Chennai, region: TN}
+  - {city: Kolkata, region: WB}
+  - {city: Pune, region: MH}
+  - {city: Ahmedabad, region: GJ}
+  - {city: Jaipur, region: RJ}
+  - {city: Lucknow, region: UP}
+  - {city: Chandigarh, region: CH}
+  - {city: Nagpur, region: MH}
+
+reviewed_address_cities:
+  - city: Mumbai
+    region: MH
+    postal_codes: ["400001"]
+    street_patterns: ["{n} MG Road"]
+  - city: Delhi
+    region: DL
+    postal_codes: ["110001"]
+    street_patterns: ["{n} Connaught Place"]
+  - city: Bengaluru
+    region: KA
+    postal_codes: ["560001"]
+    street_patterns: ["{n} MG Road"]
+  - city: Hyderabad
+    region: TS
+    postal_codes: ["500001"]
+    street_patterns: ["{n} Abids Road"]
+  - city: Chennai
+    region: TN
+    postal_codes: ["600001"]
+    street_patterns: ["{n} Anna Salai"]
+  - city: Kolkata
+    region: WB
+    postal_codes: ["700001"]
+    street_patterns: ["{n} Park Street"]
+  - city: Pune
+    region: MH
+    postal_codes: ["411001"]
+    street_patterns: ["{n} MG Road"]
+  - city: Ahmedabad
+    region: GJ
+    postal_codes: ["380001"]
+    street_patterns: ["{n} Relief Road"]
+  - city: Jaipur
+    region: RJ
+    postal_codes: ["302001"]
+    street_patterns: ["{n} MI Road"]
+  - city: Lucknow
+    region: UP
+    postal_codes: ["226001"]
+    street_patterns: ["{n} Hazratganj Road"]
+  - city: Chandigarh
+    region: CH
+    postal_codes: ["160017"]
+    street_patterns: ["{n} Madhya Marg"]
+  - city: Nagpur
+    region: MH
+    postal_codes: ["440001"]
+    street_patterns: ["{n} Central Avenue"]

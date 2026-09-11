@@ -1054,6 +1054,9 @@ class AgentGymEnv(gym.Env):
                 instructions=task.user_scenario,
                 llm=self.user_llm,
                 llm_args=self.user_llm_args,
+                # The run's domain selects which per-domain glossary renders
+                # into the localization section (same as runner/build.py).
+                domain=environment.get_domain_name(),
             )
         return user_simulator
 

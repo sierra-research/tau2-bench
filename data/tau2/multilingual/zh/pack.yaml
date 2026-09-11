@@ -1,0 +1,833 @@
+language: zh
+display_name: Mandarin
+name_order: family_first  # 胡伟 / "Hu Wei" — the order a Mandarin caller says
+backchannel_level: medium  # density knob (tau2.backchannel)
+agent_language_clause: Respond in Mandarin using Simplified Chinese characters for
+  Mandarin and Latin script for English insertions; mirror the user's code-switching
+  register; keep all tool calls, arguments, and structured outputs in English exactly
+  as specified.
+# Appended ONLY on native-script DB ablation runs (task sets *_identity_native);
+# it must supersede the keep-arguments-in-English rule for name fields and must
+# never ship on the folded _identity sets. CURATED CONTENT — review any change.
+agent_native_script_db_clause: 'For this variant, the customer database stores
+  customer first and last names in Simplified Chinese characters, exactly as the
+  customer gives them (e.g. first_name "志强", last_name "郑"). This is the one
+  exception to writing tool-call arguments in English: write name arguments to
+  lookup and update tools in Chinese characters — pinyin or Latin spellings like
+  "Zhiqiang Zheng" will not match any record. User ids, emails, addresses, and
+  all other values remain in Latin script exactly as specified.'
+default_out_of_turn_events_per_minute: 1.0
+experiments:
+- preset_name: multilingual_v1_mandarin
+  description: 'Mandarin v1 headline experiment: the pack''s personas on the airline
+    tasks vs a matched English baseline (same base tasks, same provider, same complexity,
+    identical LLM-judge metric).'
+  domain: airline
+  main_arm_name: mandarin
+  task_set_suffix: zh
+  smoke_task_stem: '3'
+- preset_name: multilingual_v1_mandarin_telecom
+  description: 'Mandarin v1 telecom experiment: the pack''s personas on the telecom
+    tasks.'
+  domain: telecom
+  main_arm_name: mandarin_telecom
+  task_set_suffix: zh
+  smoke_task_stem: '[mobile_data_issue]airplane_mode_on|data_mode_off[PERSONA:None]'
+- preset_name: multilingual_v1_mandarin_retail
+  description: 'Mandarin v1 retail experiment: the pack''s personas on the retail
+    tasks.'
+  domain: retail
+  main_arm_name: mandarin_retail
+  task_set_suffix: zh
+  smoke_task_stem: '83'
+# --- persona pragmatics (conditional-realization form) ---
+# pragmatics_clauses redrafted by `tau2 factory redraft-pragmatics` (prompt v1 sha256:6f7590c925ac, model:claude-opus-4-8).
+# Personas own the language profile; the TASK owns attitude/affect —
+# clauses realize attitudes conditionally, never prescribe them.
+# --- persona out-of-turn speech (away-from-the-mic length) ---
+# non_directed_phrases clipped by `tau2 factory shorten-non-directed` (prompt v1 sha256:d22aa7ecbce7, model:claude-opus-4-8).
+# Out-of-turn speech is spliced into the live call as one burst, so it
+# is bounded at 4 words — a glance away from the phone, not a second
+# conversation. Same addressee, situation and register as before.
+personas:
+  jianguo_zh_v1:
+    voice_id: VGnBaAmdjw6fmjX7vUZ9
+    verbosity: standard
+    interrupt_tendency: waits
+    persona_id: jianguo_zh_v1
+    display_name: Jianguo
+    language: zh
+    locale: CN-BJ
+    script: hans
+    short_description: Mid-50s Beijing retired civil-service section chief, now on
+      a residential committee; formal standard Putonghua, polished northern accent,
+      almost no English; low tolerance for an English-only agent
+    pragmatics_clauses:
+    - 'Speak formal, standard Putonghua (Simplified characters) in complete, well-formed
+      sentences with a polished northern register — crisp retroflex zh/ch/sh/r and natural
+      erhua. Use 您 throughout, never 你. Almost no English; only an unavoidable brand name
+      or unit slips in. Natural examples: ''您好，我想咨询一下我的预订。'', ''麻烦您帮我核对一下，可以吗？'', ''不好意思，打扰您了。''
+      Your Mandarin is full and standard rather than clipped or slangy; the sentences
+      stay complete regardless of mood.'
+    - 'You open by stating your purpose plainly in this high register: ''您好，我这边有个情况想麻烦您处理一下。''
+      You occasionally use a correct, serious 成语 (e.g. ''我这边的情况是这么个来龙去脉……''), never as
+      a joke.'
+    - 'You confirm important details when needed. After the agent gives you a key number,
+      date, or code, you read it back and ask for confirmation: ''您是说……对吧？我再跟您确认一遍。''
+      You do this for details that matter, not reflexively for everything.'
+    - 'You have LOW tolerance for an English-only agent. If the agent speaks only English,
+      you keep responding in Chinese and politely ask for Chinese: ''不好意思，能不能麻烦您用中文跟我说？我英文不太好。''
+      You do NOT switch into sustained English.'
+    - When you want to refuse or correct something, you do it naturally according to
+      the situation — direct responses like '不是', '不用了', '不要', or '不行' are normal when
+      correcting information or declining something. You reserve indirect forms such as
+      '恐怕不太方便。' or '这个嘛……我再考虑考虑。' for situations that genuinely call for softening;
+      indirectness is not your default.
+    - 'When frustrated you become MORE formal and deliberate, not rude — longer polite
+      preambles, slower repetition, and insistence within courtesy: ''我再说一遍，麻烦您仔细听一下。''
+      Even then you do not raise your voice and do not drop 您.'
+    - 'When the agent mishears a name or code, you read digits one by one, saying 幺 (yao)
+      for ''1'' to avoid confusion with 七 (qi): ''我的手机号是 幺三九……''. For letters you do not
+      just repeat the letter name — you clarify it with an example: alphabet position for
+      easily confused letters (''二B'' for B, ''四D'' for D, ''最后一个字母Z'' for Z), or a familiar
+      Chinese word containing the letter''s sound (''M，木头，木的M'').'
+    - 'When the exchange is unhurried, closings extend across several back-and-forth turns
+      rather than an abrupt hang-up: ''好的，那就这样……'' → ''麻烦您了，辛苦您。'' → ''好的好的，谢谢啊。'' → ''行，那就再见，再见。''
+      In that case, stretch the goodbye across a few turns with repeated thanks before
+      you actually disconnect.'
+    backchannel_phrases:
+    - 嗯
+    non_directed_phrases:
+    - 老伴儿，等会儿
+    - 开下门
+    - 一会儿再说
+    tts_voice_prompt: A man in his mid-50s from Beijing, a retired civil-service section
+      chief now serving on his residential committee, calling customer support from
+      a quiet home study. He speaks clean, standard broadcast Putonghua with a polished
+      northern accent — crisp retroflex zh/ch/sh/r and natural erhua — in complete,
+      grammatical sentences, with almost no English. Lower pitch, warm but authoritative
+      slightly resonant timbre, measured pacing with deliberate pauses, polite and
+      formal register that stays composed even when insistent. Phone-call audio quality
+      with a quiet indoor household room tone.
+    tags:
+      code_switch: none
+      formality: high
+      english_tolerance: low
+      age_band: 50s
+      register: retiree
+      closing_style: extended
+      gender: male
+  xiaomeng_zh_v1:
+    voice_id: yTRvrpRtdAfXRu27kYzO
+    verbosity: standard
+    interrupt_tendency: interrupts
+    persona_id: xiaomeng_zh_v1
+    display_name: Xiaomeng
+    language: zh
+    locale: CN-SH
+    script: hans
+    short_description: Mid-20s Shanghai tech-marketing professional; fast casual southern-accented
+      Mandarin, heavy Chinese-English code-switching; high tolerance for an English-only
+      agent
+    pragmatics_clauses:
+    - 'Speak fast, casual Mandarin (Simplified characters) with a southern Mainland accent
+      — merged zh/z, ch/c, sh/s and minimal-to-no erhua. Code-switch the Mainland way: drop
+      common English tech and lifestyle nouns in Latin script into Chinese sentences, especially
+      ''OK'', ''deadline'', ''App'', ''case'', ''PPT'', ''WiFi'', ''KTV'' — while verbs and
+      grammar stay Chinese (跟进, not ''follow up''). Natural examples: ''这个 case 还没跟进。'',
+      ''你直接发我 App 上就好啦。'', ''OK OK 我知道啦～''. Your register axis is casual, not stiff formal
+      Mandarin.'
+    - 'You use casual address 你 (never 您) and lean on sentence-final particles — 啊, 吧,
+      呀, 啦, 嘛 — plus internet slang. When you open casually, natural forms are: ''喂，你好～'',
+      ''诶你好，我问一下啊。'''
+    - You keep the conversation in Chinese. Even if the agent speaks only English, you
+      carry on in Chinese — with at most your usual English nouns inside Chinese sentences
+      — and you do NOT switch into sustained English. You have HIGH tolerance for an English-only
+      agent in the sense that you don't make a point of demanding Chinese; you just keep
+      speaking it.
+    - 'When you want to disagree or refuse, you hedge rather than say a flat ''不'': ''嗯……这个可能不行诶。'',
+      ''啊我再看看吧。'', ''不是啦，我意思是……''. You push back directly only when genuinely annoyed.'
+    - 'When impatient about being put on hold, that surfaces as: ''啊还要等啊？'', ''可以快一点吗？我有点赶时间。''.
+      When frustration builds after repeated refusals, you challenge the agent before pressing
+      your request again: ''你有没有听我说话？'', ''我说的还不够清楚吗？'' — and you keep pushing for what
+      you want. You get faster and more clipped, and sigh, but you stay competent and articulate,
+      never incoherent.'
+    - When the agent mishears a name or code, you rattle digits one by one, saying 幺 (yao)
+      for '1' to avoid confusion with 七 (qi). Letters use English letter names ('A'='ei',
+      'B'='bi'), read quickly but clearly separated.
+    - 'When you close briskly without lingering, a natural form is: ''行行行，OK，那就这样啦，拜拜～''.'
+    backchannel_phrases:
+    - 嗯嗯
+    non_directed_phrases:
+    - 等下啊
+    - 看下那个PPT
+    - 马上马上
+    tts_voice_prompt: A woman in her mid-20s from Shanghai working in tech marketing,
+      calling customer support from her mobile — often from a busy open-plan office,
+      the street, or a café, sometimes on speakerphone while multitasking. A native
+      Mandarin speaker with a southern Mainland accent — merged zh/z and sh/s, weak
+      or absent erhua, lighter retroflex — who talks in fast, casual Chinese with
+      frequent English tech and lifestyle words mixed in naturally. Medium-high pitch,
+      quick energetic delivery, matter-of-fact and slightly hurried, with overlapping
+      backchannels and short pauses. Mobile phone-call audio quality with ambient
+      street/office noise and occasional speakerphone reverb.
+    tags:
+      code_switch: high
+      formality: low
+      english_tolerance: high
+      age_band: 20s
+      register: urban_professional
+      closing_style: brisk
+      gender: female
+translation_guidance: 'Target register: natural Mainland spoken Putonghua in Simplified
+  characters. Two register poles coexist in this pack: a formal, complete-sentence
+  northern standard (Jianguo, uses 您) and a fast casual southern-accented Chinese-English
+  mix (Xiaomeng, uses 你). Match the persona''s register; do NOT flatten everything
+  into stiff written/literary Chinese. Avoid Taiwan-specific vocabulary and never
+  emit Traditional characters.
+
+
+  LOANWORD / CODE-SWITCHING POLICY:
+
+  - For the casual urban-professional register, English tech and lifestyle words are
+  the INTENDED register and must be written in Latin script inline: OK, deadline,
+  App, case, PPT, WiFi, KTV, email, update, cancel, confirm. Do NOT ''purify''
+  these into formal Chinese when the casual register is intended (e.g. don''t force
+  ''App'' to 应用程序 when the speaker would say the English). English VERBS are not
+  inserted this way on the Mainland — the verb stays Chinese (跟进, not ''follow up'').
+  A loanword noun that matches this register is never a defect.
+
+  - Chinese stays the matrix language: connectives, verbs, grammar, and sentence-final
+  particles (啊/吧/呀/啦/嘛) are in Chinese; English words are insertions.
+
+  - The formal register (您-speaker) carries almost NO English — keep his lines in
+  clean Chinese, with at most a brand name or unit in Latin.
+
+
+  CALQUE TRAPS (translate the MEANING, not the words):
+
+  - ''if and only if'' must NOT become a literal string. Use natural phrasing: ''只有在……的情况下才……''
+  or ''当且仅当'' only for genuinely technical/legal text.
+
+  - ''as soon as possible'' -> ''尽快'' / ''越快越好'', not a word-for-word rendering.
+
+  - ''make sure that'' -> ''记得……'' / ''一定要确认……'' / ''确保……'', choosing register; don''t
+  reflexively write a stiff ''务必确保'' for a casual speaker.
+
+  - ''let me know'' -> ''到时候跟我说一声'' / ''告诉我一下'', not ''让我知道''.
+
+  - ''I''m afraid not'' (polite refusal) -> ''恐怕不太方便'' / ''可能不行'', not a literal ''我害怕''.
+
+  - Conditionals: keep trigger and consequence aligned; ''如果……就……'' / ''要是……的话就……''
+  must map the English if/then exactly (don''t drop the 就 consequence).
+
+
+  GENDER:
+
+  - Mandarin does NOT inflect verbs or adjectives for the speaker''s gender — first-person
+  我 and second-person 你/您 are gender-neutral, so there is no gendered-verb default
+  to manage. Write the prose neutrally; the speaker''s actual gender is injected at
+  runtime via the voice persona. Using the gender-neutral form is CORRECT and intended
+  and is never a meaning or register defect.
+
+  - The only place gender surfaces is the written third-person pronoun (他/她/它), all
+  pronounced ''tā''. When the referent''s gender is unknown or unmarked, default to
+  他; using it is never a meaning difference. The only defect is INCONSISTENCY — switching
+  他/她 for the same known referent within one text.
+
+
+  SCRIPT / NUMBER CONVENTIONS:
+
+  - All concrete values — ids, codes, amounts, dates, phone/flight/reservation numbers
+  — stay verbatim with Latin/Arabic digits (1, 2, 3), never Chinese numeral characters
+  (一, 二, 三) for those. The VALUE is verbatim; an attached unit/word localizes (e.g.
+  ''3h'' -> ''3 小时''; keep the digit, translate the unit).
+
+  - When prose spells out a phone number or code digit-by-digit in narration, reflect
+  the convention that ''1'' is read 幺 (yao) and digits are separated, but the stored
+  value stays as plain digits.
+
+  - Dates render year-month-day: ''2024年3月5日''. Currency in 元/块. Decimal point is
+  点. Email ''@'' may be read ''艾特''/at and ''.'' read 点, but the literal address string
+  stays verbatim Latin.
+
+  - Common everyday units and brand names (WiFi, App, PPT, KTV, OK) stay in Latin.
+
+
+  REGISTER EXAMPLES (natural targets):
+
+  - Casual (Xiaomeng): ''这个 case 还没跟进，你直接发我 App 上就好啦。''
+
+  - Casual refusal: ''嗯……这个可能不行诶，我再看看吧。''
+
+  - Formal (Jianguo): ''不好意思，麻烦您帮我核对一下，我再跟您确认一遍。''
+
+  - Conditional: ''如果客服那边拒绝的话，您就先别坚持了。'''
+agent_greeting: 您好！请问有什么可以帮您？
+guidelines_voice_path: guidelines/simulation_guidelines_voice_zh.md
+
+# --- nativeness scoring ---
+# judge_factors select from the closed catalog in tau2.multilingual.nativeness_catalog;
+# factor_id must exist there (the loader rejects unknown ids). email_symbols
+# are native verbalizations of email symbols for the deterministic checker.
+nativeness:
+  judge_factors:
+  - factor_id: register_formality
+    enabled: false
+    nuance: Formal customer address with 您
+    question: Did the agent address the customer with 您 rather than 你?
+    native_does: Uses 您 for customer address. Omitting the pronoun is fine when
+      Mandarin does not need it, and colloquial 你 inside light-verb phrases such as
+      帮你 or 麻烦你 in an otherwise-您 call is unmarked natural service speech, not
+      a violation.
+    ai_likely_does: Addresses the customer with 你-family forms throughout and never
+      reaches for 您 anywhere in the call. Mixed 您/你 usage is acceptable. Quoted
+      customer wording does not count. Judge request wording under request
+      politeness, not here.
+  - factor_id: regional_consistency
+    enabled: false
+    nuance: Mainland Mandarin vocabulary
+    question: Across the call, did the agent consistently use natural Mainland Mandarin
+      vocabulary?
+    native_does: Uses ordinary Mainland service words such as 手机, 软件 or App, 身份证,
+      订单, 退票, 改签, and 退款. A widely understood regional word, a quotation, or
+      mirroring the customer once is fine.
+    ai_likely_does: Repeatedly mixes distinctly Taiwan or Hong Kong vocabulary such as
+      行動電話 or 軟體 into otherwise Mainland wording without a reason. Judge vocabulary
+      only; accent, pronunciation, and written-form differences such as 身分證 versus
+      身份证 or Simplified versus Traditional script are not violations in a voice
+      transcript.
+  # Colloquial Mandarin accepts 张 with 预订/订单/行程 and default 个 with
+  # abstract nouns (几个关键信息 is standard); only incompatible pairings count.
+  - factor_id: counting_units
+    nuance: Natural numbers and measure words
+    question: When the agent counted something, did it use a natural measure word and
+      the natural form of two?
+    native_does: Says 两张票 and 两个订单 for counted quantities. Uses 二 naturally in
+      ordinals and fixed strings, such as 第二个 and 二零二五年. Both 二百 and 两百 are
+      fine. Common broad measure words are also fine, such as 几个问题.
+    ai_likely_does: Says an incompatible combination such as 一位字母, or says 二个订单
+      or 二张票 where a native speaker would say 两个订单 or 两张票. Do not flag 二百
+      or 两百, and do not flag measure-word pairings natives accept in fast speech,
+      such as 这张行程 when the ticket is meant.
+  # This is an omission factor: persistently flat, particle-free textbook tone
+  # is evaluated at conversation level.
+  - factor_id: modal_particles
+    nuance: Natural sentence-final particles
+    question: Across a substantial call, did the agent use sentence-final particles in
+      a natural conversational way?
+    native_does: Uses particles such as 吗, 呢, 吧, and 啊 where they naturally soften a
+      question, confirmation, or suggestion, for example 这样可以吗 or 您稍等一下吧.
+      Not every sentence needs a particle.
+    ai_likely_does: Sounds persistently like flat written Chinese because it misses clear
+      opportunities for particles across the call, or adds the same particle to nearly
+      every sentence mechanically. Do not flag one plain sentence.
+  - factor_id: natural_word_choice
+    nuance: Combined utterance naturalness for Mainland Mandarin
+    question: >-
+      This is one agent utterance from a customer-service call in Mainland Mandarin.
+      Does it contain English-shaped translationese or clearly unnatural word choice?
+    native_does: >-
+      Pass natural spoken Mainland Mandarin, including ordinary service formality,
+      colloquial phrasing, and established borrowings or code-switching that sound
+      natural. Names, identifiers, codes, and product names may remain as given. An
+      English interface, setting, or status label passes when the context establishes
+      that it is the actual displayed label or it is naturally mirrored from the
+      customer; do not assume that every generic English technical phrase is such a
+      label. Ignore harmless transcription spacing or punctuation. Judge language use
+      only, not listening accuracy, facts, policy compliance, or task success.
+    ai_likely_does: >-
+      Inspect every complete clause and phrase independently. A clearly unnatural
+      local collocation or selectional mismatch is a violation even when the rest of
+      the utterance is fluent. Flag wording that would sound clearly odd to a Mainland
+      Mandarin speaker because it follows English structure or idiom word for word;
+      uses forced nominal or passive phrasing, unnatural pronouns, connectors, or
+      aspect particles; uses an unnatural word choice, collocation, or literal
+      coinage; inserts unnecessary English, especially a cluster of generic settings,
+      permissions, or statuses where ordinary Chinese is expected; or exposes raw
+      backend or system language as customer-facing speech. One clear instance is
+      enough. Do not flag mere formality, a smoother alternative, or wording that is
+      only slightly awkward. For interrupted turns, judge complete material before
+      the cutoff and ignore only the clipped ending.
+  # Added from the 2026-08-13 audit review: the R2 "Request softeners 麻烦/帮我/可以…吗"
+  # row was confirmed (sev 2), and register_formality explicitly routes
+  # softeners away with nowhere to send them until now. Anchors are the
+  # confirmed row's phrases only. Flip to live after the cold-eval pass.
+  - factor_id: request_politeness
+    enabled: false
+    nuance: Natural service-call requests
+    question: When the agent asked the customer to do something, did it phrase the
+      request naturally and politely?
+    native_does: Uses forms such as 麻烦您帮我确认一下, 请问您方便提供号码吗, or
+      能不能再说一遍. A short direct instruction can be natural when urgency or context
+      calls for it; not every request needs an extra softener.
+    ai_likely_does: Repeatedly gives bare commands such as 给我号码, 等着, or 再说
+      without a reason. A single curt line also counts when it lands as impatient -
+      a bare re-ask after the agent's own mistake (请再拼一遍 alone, with no
+      acknowledgment or apology), or a hasty admonition such as 先说清楚一点. Friendly
+      colloquial closers such as 您忙您的吧 are acceptable, not brusque. Judge 您
+      versus 你 under address register and sentence-final particles under natural
+      sentence-final particles.
+  - factor_id: name_address_conventions
+    nuance: Chinese name order and title attachment
+    question: When the agent used the customer's name, did it keep Chinese name
+      order and attach 先生 or 女士 naturally?
+    native_does: Keeps the family name first and attaches the title to the surname
+      or the full name. Examples are 王先生, 李女士, and 王明先生. Addressing the
+      customer as 您 without a name is also natural. If the agent never uses the
+      customer's name, there is no opportunity.
+    ai_likely_does: Reverses the known localized name into Western order, such as
+      明王 for 王明; attaches the title to the given name alone, such as 明先生;
+      or keeps addressing the customer by the bare given name, such as
+      明，请确认. Romanized forms are different - Western order is the normal
+      way to romanize a Chinese name, so saying 周浩然先生 and later spelling
+      the name out as Haoran Zhou is acceptable. The violation is rendering
+      different people's names in different orders within the same call.
+      小姐 and 女士 are both acceptable titles. Do not require name use, infer a
+      Chinese name from a foreign or source name, or flag quoted reports or
+      third-party names. Judge 您 versus 你 under address register.
+  enabled_deterministic_factors:
+  - email_symbol_verbalization
+  email_symbols:
+    '@':
+    - 艾特
+    - at
+    .:
+    - 点
+    - dot
+
+# --- delivery scoring (audio-layer) ---
+# judge_factors select from the closed catalog in tau2.multilingual.delivery_catalog;
+# factor_id must exist there (the loader rejects unknown ids). Rubrics are grounded
+# in confirmed human-annotation findings (docs/multilingual/annotation/nuance_map.json).
+delivery:
+  judge_factors:
+  # R2b-confirmed "买 mǎi vs 卖 mài (buy vs sell)" (sev 3): a wrong tone flips
+  # the transaction meaning.
+  - factor_id: tone_meaning_flip
+    listen_for: Lexical tone errors that flip a word's meaning — the confirmed
+      case is 买 mǎi (buy) realized as 卖 mài (sell); listen for tones on
+      meaning-bearing words that turn them into different words.
+  - factor_id: regional_accent_consistency
+    listen_for: Pronunciation that repeatedly conflicts with Mainland standard
+      Putonghua or audibly switches between incompatible systems within the
+      call — sustained Taiwan- or Hong Kong-accented Mandarin, a heavy regional
+      accent, or an English-accented rendering of Chinese words. Accept
+      ordinary speaker variation; judge accent only — a tone error that turns a
+      word into a different word belongs to the tone-meaning criterion.
+
+# --- spoken localization (symbols / date-numeral rule / speech conventions / domain glossary) ---
+# Upgraded by `tau2 factory draft-localization`: domain_glossaries[retail] drafted by prompt v7 sha256:6c4c09381c8b (model:claude-opus-4-8);
+# all previously-reviewed fields preserved verbatim.
+# Symbols and term_ids select from the closed catalogs in
+# tau2.multilingual.localization_catalog (the loader rejects unknown ids).
+localization:
+  symbol_readouts:
+  - symbol: '@'
+    spoken:
+    - 艾特
+    - at
+  - symbol: .
+    spoken:
+    - 点
+  - symbol: _
+    spoken:
+    - 下划线
+  - symbol: '-'
+    spoken:
+    - 横杠
+    - 杠
+    - 减号
+  - symbol: /
+    spoken:
+    - 斜杠
+  - symbol: +
+    spoken:
+    - 加号
+    - 加
+  - symbol: '0'
+    spoken:
+    - 零
+    - 洞
+  date_examples:
+  - written: May 17
+    spoken: 5 月 17 日
+  - written: '2024-03-05'
+    spoken: 2024 年 3 月 5 日
+  - written: 05/17
+    spoken: 5 月 17 号
+  - written: December 1
+    spoken: 12 月 1 号
+  number_examples:
+  - written: 253 dollars
+    spoken: 253 刀
+  - written: '21'
+    spoken: '21'
+  - written: '1250.50'
+    spoken: 1250 点 5 元
+  - written: '+49'
+    spoken: 加四九
+  - written: HAT123
+    spoken: HAT 幺 2 3
+  domain_glossaries:
+    airline:
+    - term_id: user_id
+      native: 用户 ID
+      note: '''ID'' is an established loanword retained in Latin, read as the English
+        letters; casual callers say ''ID'', formal speakers may say 用户账号'
+    - term_id: reservation
+      native: 预订
+      note: also 订单 in casual speech
+    - term_id: reservation_id
+      native: 订单号
+      note: also 预订编号 in formal register
+    - term_id: flight
+      native: 航班
+    - term_id: flight_number
+      native: 航班号
+    - term_id: refund
+      native: 退款
+    - term_id: travel_insurance
+      native: 旅行保险
+      note: also just 保险
+    - term_id: checked_bag
+      native: 托运行李
+    - term_id: carry_on
+      native: 随身行李
+      note: also '手提行李'
+    - term_id: future_trip
+      native: 以后的行程
+      note: also 未来的行程 in formal register
+    - term_id: one_way
+      native: 单程
+    - term_id: round_trip
+      native: 往返
+      note: also 来回
+    - term_id: basic_economy
+      native: 基础经济舱
+    - term_id: economy
+      native: 经济舱
+    - term_id: business
+      native: 商务舱
+    - term_id: credit_card
+      native: 信用卡
+    - term_id: gift_card
+      native: 礼品卡
+    - term_id: travel_certificate
+      native: 旅行券
+      note: also '旅行代金券'
+    - term_id: membership_tier
+      native: 会员等级
+      note: 'levels: ''普通''、''银卡''、''金卡'''
+    - term_id: cancellation
+      native: 取消
+      note: casual speakers often say 'cancel' in English
+    - term_id: payment_method
+      native: 付款方式
+      note: also '付款方式'
+    telecom:
+    - term_id: customer_id
+      native: 客户号
+    - term_id: phone_number
+      native: 手机号
+    - term_id: line
+      native: 号码
+      note: in casual speech refers to one line under an account, often said as '这个号'
+    - term_id: plan
+      native: 套餐
+    - term_id: data_allowance
+      native: 流量额度
+      note: casual speech also often just says '流量'
+    - term_id: data_usage
+      native: 流量使用量
+      note: 'casual register: ''用了多少流量'''
+    - term_id: data_refuel
+      native: 流量包
+      note: 'refers to a temporary add-on of data; casual: ''加个流量包'''
+    - term_id: mobile_data
+      native: 移动数据
+      note: casual speech also says '数据流量' or '流量'
+    - term_id: roaming
+      native: 国际漫游
+      note: casual speech often shortens to '漫游'
+    - term_id: airplane_mode
+      native: 飞行模式
+    - term_id: sim_card
+      native: SIM 卡
+      note: established loanword — casual speech says 'SIM 卡' or '手机卡'
+    - term_id: esim
+      native: eSIM
+      note: established loanword — use the English abbreviation directly
+    - term_id: apn_settings
+      native: APN 设置
+      note: established loanword — read the English abbreviation A P N directly
+    - term_id: data_saver
+      native: 流量节省模式
+      note: 'casual register: ''省流量模式'''
+    - term_id: wifi
+      native: WiFi
+      note: established loanword — written in Latin, read as '歪fai'/'无线'
+    - term_id: wifi_calling
+      native: WiFi 通话
+    - term_id: vpn
+      native: VPN
+      note: established loanword — read the English abbreviation directly
+    - term_id: speed_test
+      native: 测速
+    - term_id: network_signal
+      native: 信号
+      note: casual speech says '信号格' or '信号'
+    - term_id: status_bar
+      native: 状态栏
+    - term_id: mms
+      native: 彩信
+    - term_id: bill
+      native: 账单
+    - term_id: overdue_bill
+      native: 欠费账单
+      note: casual speech often says '欠费了'
+    - term_id: payment_request
+      native: 付款链接
+      note: payment link sent by the agent
+    - term_id: line_suspension
+      native: 停机
+      note: 'casual: ''号被停了'''
+    - term_id: payment_method
+      native: 付款方式
+    retail:
+    - term_id: user_id
+      native: 用户 ID
+      note: '''ID'' kept in Latin is the everyday spoken usage; formal register also
+        says ''用户名'''
+    - term_id: zip_code
+      native: 邮编
+      note: everyday short form; full form '邮政编码' in formal register
+    - term_id: order
+      native: 订单
+    - term_id: order_id
+      native: 订单号
+    - term_id: order_status
+      native: 订单状态
+    - term_id: pending_order
+      native: 还没发货的订单
+      note: natural descriptive phrasing; formal register may say '待处理订单'
+    - term_id: delivered_order
+      native: 已经收到的订单
+      note: natural descriptive phrasing; formal register may say '已送达订单'
+    - term_id: cancellation
+      native: 取消
+      note: casual register also says 'cancel' inline in Latin
+    - term_id: return
+      native: 退货
+    - term_id: exchange
+      native: 换货
+    - term_id: refund
+      native: 退款
+    - term_id: product
+      native: 商品
+      note: the product type; '产品' also natural
+    - term_id: item
+      native: 这一款
+      note: the specific variant; often said as '具体这个款式' or just '这个' in context
+    - term_id: product_option
+      native: 选项
+      note: attribute like colour/size; often named directly, e.g. '颜色'、'尺码'
+    - term_id: item_id
+      native: 商品编号
+    - term_id: product_id
+      native: 产品编号
+    - term_id: availability
+      native: 有没有货
+      note: everyday phrasing; formal register '库存情况'
+    - term_id: price_difference
+      native: 差价
+    - term_id: tracking_number
+      native: 物流单号
+      note: also '快递单号' in everyday speech
+    - term_id: shipping_address
+      native: 收货地址
+    - term_id: default_address
+      native: 默认地址
+    - term_id: payment_method
+      native: 支付方式
+      note: casual register may say '付款方式'
+    - term_id: credit_card
+      native: 信用卡
+    - term_id: gift_card
+      native: 礼品卡
+    - term_id: paypal
+      native: PayPal
+      note: brand name kept in Latin; this is the natural spoken usage
+    - term_id: human_agent
+      native: 人工客服
+      note: the standard term for a live human agent
+  phone_number_readout:
+    rule: Mainland mobile numbers are 11 digits, chunked 3-4-4 and read digit-by-digit.
+      Read each digit individually in Chinese; the digit 1 is commonly read '幺' (yao)
+      inside strings, and 0 as '零' or '洞'. Never merge digits into grouped number
+      words. Landlines are read as area-code then number, also digit-by-digit.
+    examples:
+    - written: 138 1234 5678
+      spoken: 幺、三、八——幺、二、三、四——五、六、七、八
+    - written: 010 6789 0123
+      spoken: 零、幺、零——六、七、八、九——零、幺、二、三
+  amount_readout:
+    rule: Currency word (元, colloquially 块) follows the number. The decimal point
+      is read '点'; the fractional part after it is usually read as 角/分 or just digit-by-digit
+      after '点'. Large amounts use the unit '万' (ten thousand), e.g. 12000 = '一万两千'.
+      元/块 are for RMB; US-dollar amounts use the colloquial 刀.
+    examples:
+    - written: 253 dollars
+      spoken: 两百五十三刀
+    - written: '1299.50'
+      spoken: 一千两百九十九块五毛
+    - written: '12000'
+      spoken: 一万两千块
+  spelling_alphabet:
+    # The benchmark's caller names are ROMANIZED pinyin held in the agent's
+    # records (e.g. 'Liu Feng'), said family name first — the order the record
+    # now stores. So the name case is a pinyin case: give the family name
+    # first, spell it in Latin letters, and name the two parts with 姓/名 when
+    # the agent needs to know which is which. Character decomposition stays
+    # below for a name genuinely written in 汉字.
+    rule: For a caller's own name, say the family name first and then the given
+      name, and spell each in Latin letters when the agent mishears ('我姓 Liu，
+      L、I、U；名 Feng，F、E、N、G'). Name the parts with 姓 (family) and 名 (given)
+      rather than translating 'first/last name' literally. For a name written in
+      Chinese characters, disambiguate by decomposing the character into its parts
+      or naming a well-known word that contains it — the standard phone convention
+      (e.g. '弓长张' for 张, '木子李' for 李, '口天吴' for 吴, '伟大的伟' for 伟). For a Latin letter
+      in a code, just repeat the letter name clearly and optionally anchor it to an
+      English word.
+    avoid: The NATO/anglo phonetic alphabet ('A for Alpha', 'B for Bravo') is NOT
+      used for Chinese characters. Do NOT give a romanized name given-name-first
+      ('Feng Liu') — that is the English order, not how the name is said or stored.
+    anchor_examples:
+    - written: 张
+      spoken: 弓长张
+    - written: 李
+      spoken: 木子李
+    - written: 吴
+      spoken: 口天吴
+    - written: 陈
+      spoken: 耳东陈
+    - written: B
+      spoken: 是 B，2B 的 B
+  # 贵姓 is the honorific 'surname' used only when ASKING someone else (您贵姓?);
+  # about oneself it is 我姓… / 我的姓. Added off the same trap measured in Korean
+  # (성함 self-applied in 71/300 ko sims); zh has not been counted independently.
+  # PENDING NATIVE REVIEW: the pair.
+  honorific_self_reference:
+  - concept_id: name
+    honorific: 贵姓
+    plain: 姓
+  spoken_value_examples:
+  - kind: email
+    written: john_doe@gmail.com
+    spoken: 我邮箱是 J、O、H、N 下划线 D、O、E 艾特 gmail 点 com
+  - kind: user_id
+    written: mia_li88
+    spoken: 我的用户 ID 是 M、I、A 下划线 L、I、八、八
+  - kind: phone
+    written: 138 1234 5678
+    spoken: 我电话是幺、三、八——幺、二、三、四——五、六、七、八
+  - kind: spelling_name
+    written: Liu Feng
+    spoken: 我姓 Liu，L、I、U；名 Feng，F、E、N、G
+  - kind: account_number
+    written: ZFA04Y
+    spoken: 我的预订编号是 Z、F、A、零、四、Y
+  - kind: website
+    written: www.example.com/support
+    spoken: 网址是 www 点 example 点 com 斜杠 support
+  guideline_examples:
+  - kind: disfluency_fillers
+    utterances:
+    - 嗯……
+    - 那个
+    - 就是
+    - 怎么说呢
+    - 这个嘛
+    - 呃
+  - kind: restart_example
+    utterances:
+    - 您能不能——等一下，我是想问……您这边能帮我看看吗
+  - kind: filler_pause_example
+    utterances:
+    - 那个，嗯，我就是想问一下，您这边能不能帮我看看
+  - kind: pause_marker_examples
+    utterances:
+    - 我刚在试——等等，我想想 [pause]
+    - 这个问题大概是 [pause] 三天前开始的吧？
+  - kind: self_interruption_example
+    utterances:
+    - 我一直在试……哎等一下，我先把账号给您吧？
+  - kind: clarification_request
+    utterances:
+    - 不好意思，您能再说一遍吗？刚没听清。
+  - kind: emotion_examples
+    utterances:
+    - 我是真的有点着急，因为……
+    - 哎那太好了！
+  - kind: conversational_confirmations
+    utterances:
+    - 嗯
+    - 好的
+    - 对
+    - 明白了
+    - 行
+    - 是
+    - OK
+    - 嗯嗯
+  - kind: silence_checkins
+    utterances:
+    - 喂？您还在吗？
+    - 有结果了吗？
+    - 我之前问的那个……有进展吗？
+  - kind: frustrated_endings
+    utterances:
+    - 这也太离谱了，我等会儿再打吧。
+    - 我实在没时间耗了，先这样吧。
+  - kind: dont_know_responses
+    utterances:
+    - 呃，这个我还真不知道
+    - 一时想不起来了
+    - 嗯……这个我得查一下。
+  - kind: make_agent_work_chain
+    utterances:
+    - 用不了
+    - 那个 app
+    - 就你们的手机 app 啊
+  - kind: one_at_a_time_example
+    utterances:
+    - 嗯，我邮箱是 john 下划线 doe 艾特 gmail 点 com……哦，还要电话号码是吧？
+  - kind: forget_details_example
+    utterances:
+    - 我订单号是……呃，等一下，我看看……
+  - kind: vague_openers
+    utterances:
+    - 我这边有个问题
+    - 我账户好像有点不对劲
+  - kind: unknown_info_phrases
+    utterances:
+    - 这个我不太确定
+    - 我没有这个信息。
+  - kind: tool_acknowledgment
+    utterances:
+    - 哦，好的，我试试看啊……您稍等一下
+  - kind: tool_result_report
+    utterances:
+    - 行，我刚试了一下，它这边显示……
+  - kind: tool_failure_report
+    utterances:
+    - 嗯……不行诶，没有查到。
+  - kind: multiple_actions_pushback
+    utterances:
+    - 哎哟一下这么多啊……您能不能一步一步带我操作？
+  - kind: gratitude_examples
+    utterances:
+    - 哎太谢谢您了！
+    - 行，真是麻烦您了，非常感谢。
+  spelled_entity_normalization: false
+  letter_names: {}
+  digit_names: {}

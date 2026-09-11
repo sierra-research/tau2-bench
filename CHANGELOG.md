@@ -8,12 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Multilingual (non-English) voice-benchmark support. A data-driven **Language Pack** system (`src/tau2/multilingual/`) lets a new language be added as a single `data/tau2/multilingual/<lang>/` folder — personas, re-authored voice guidelines, localized task sets, and acoustic presets — with no shared-code edits; English behavior is unchanged when no pack is active. Ships a reference Hindi (`hi`) pack (airline domain), generated run presets with optional adaptive (sequential) stopping, and the **Language Studio** (`tau2 studio`, since renamed to `tau2 factory`): an LLM-assisted authoring toolchain (draft → translate → parity probe → calibrate → finalize).
+- Three-pillar multilingual refactor (2026-07-13). The multilingual toolchain is reorganized into three packages, each owning its CLI command group: `src/tau2/multilingual/` (language factory: pack drafting, translation, entity localization, asset generation, run presets), `src/tau2/judges/` (post-hoc nativeness + delivery judging), and `src/tau2/annotation/` (human-facing sheets, workbooks, packets, calibration metrics). New command groups: `tau2 judges`, `tau2 annotate`, and `tau2 run-preset`.
 
 ### Changed
+- Leaderboard website now fetches submission and trajectory data from S3 (`sierra-tau-bench-public`) instead of serving from GitHub Pages directly
+- `tau2 studio` renamed and absorbed into `tau2 factory` (2026-07-13), which also takes over asset generation (`tau2 factory generate-assets`, formerly `tau2 studio generate-assets`).
+- Score selection unified under a single `--scores reward,nativeness,delivery` flag (2026-07-13), replacing the `ScoreAxis` config field and the `--judge-delivery` flag.
 
 ### Deprecated
 
 ### Removed
+- `TAU2_NATIVENESS_JUDGE` environment variable (2026-07-13) — disable the LLM judge with `--no-nativeness-llm-judge` instead.
 
 ### Fixed
 

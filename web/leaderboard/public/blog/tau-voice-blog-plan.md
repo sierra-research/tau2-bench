@@ -17,7 +17,7 @@ Goal: write an engaging technical blog post about τ-voice in `web/leaderboard/p
 
 ## Source material gathered
 
-- arXiv paper (`/Users/victorbarres/code/tau-voice-paper/tau-voice_arXiv/`): abstract, intro, methods, experiments, results, conclusion, related work.
+- τ-voice arXiv paper: abstract, intro, methods, experiments, results, conclusion, related work.
 - Sierra blog announcement on τ³-bench (knowledge + voice).
 - Beamer template (visual style cues only).
 - Audio examples already in `web/leaderboard/public/blog/audio/{clean,realistic}/`.

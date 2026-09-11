@@ -17,6 +17,7 @@ from tau2.data_model.voice_personas import get_elevenlabs_voice_id
 from tau2.voice.synthesis.audio_effects.effects import apply_constant_muffling
 from tau2.voice.synthesis.synthesize import synthesize_voice
 from tau2.voice.utils.audio_preprocessing import resample_audio
+from tau2.voice.utils.elevenlabs_utils import elevenlabs_language_code
 from tau2.voice.utils.probability import poisson_should_trigger
 
 from .noise_generator import BackgroundNoiseGenerator, create_background_noise_generator
@@ -109,8 +110,15 @@ def create_streaming_audio_generators(
     persona_name: str,
     sample_rate: int,
     background_noise_file: Optional[Path] = None,
+    language: Optional[str] = None,
 ) -> tuple[BackgroundNoiseGenerator, Optional[OutOfTurnSpeechGenerator]]:
-    """Create audio generators for streaming mode."""
+    """Create audio generators for streaming mode.
+
+    ``language`` is the active language pack's ISO 639-1 code (None for
+    plain English personas); out-of-turn speech (vocal tics, non-directed
+    phrases) is rendered with the same TTS language pinning as in-turn
+    speech (WS7 Part A).
+    """
     source_config = synthesis_config.source_effects_config
     speech_config = synthesis_config.speech_effects_config
 
@@ -127,6 +135,7 @@ def create_streaming_audio_generators(
         voice_id = get_elevenlabs_voice_id(persona_name)
         provider_config_with_voice = deepcopy(synthesis_config.provider_config)
         provider_config_with_voice.voice_id = voice_id
+        provider_config_with_voice.language_code = elevenlabs_language_code(language)
         out_of_turn_speech_generator = OutOfTurnSpeechGenerator(
             voice_id=voice_id,
             provider=synthesis_config.provider,

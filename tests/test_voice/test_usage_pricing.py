@@ -79,7 +79,7 @@ class TestOpenAIStyleParsing:
         record = UsageRecord.from_openai_realtime_usage(
             {"input_tokens": 10, "output_tokens": 5},
             provider="xai",
-            model="xai-realtime",
+            model="grok-voice-think-fast-1.0",
         )
         assert record.input_tokens == 10
         assert record.input_text_tokens is None
@@ -287,7 +287,7 @@ class TestPricing:
     def test_non_billable_costs_zero(self):
         record = UsageRecord(
             provider="xai",
-            model="xai-realtime",
+            model="grok-voice-think-fast-1.0",
             component="realtime",
             input_tokens=1_000_000,
             billable=False,
@@ -297,13 +297,25 @@ class TestPricing:
     def test_per_minute_meter(self):
         record = UsageRecord(
             provider="xai",
-            model="xai-realtime",
+            model="grok-voice-think-fast-1.0",
             component="realtime",
             semantics="cumulative",
             scope_id="s",
             audio_input_seconds=120.0,
         )
         assert compute_record_cost(record) == pytest.approx(2 * 0.05)
+
+    def test_legacy_xai_realtime_placeholder_still_priced(self):
+        """Records from runs before the ?model= pin keep their rate."""
+        record = UsageRecord(
+            provider="xai",
+            model="xai-realtime",
+            component="realtime",
+            semantics="cumulative",
+            scope_id="s",
+            audio_input_seconds=60.0,
+        )
+        assert compute_record_cost(record) == pytest.approx(0.05)
 
     def test_stt_and_tts_meters(self):
         stt = UsageRecord(
@@ -419,7 +431,7 @@ class TestSessionUsage:
         records = [
             UsageRecord(
                 provider="xai",
-                model="xai-realtime",
+                model="grok-voice-think-fast-1.0",
                 component="realtime",
                 input_tokens=1000,
                 output_tokens=200,
@@ -427,7 +439,7 @@ class TestSessionUsage:
             ),
             UsageRecord(
                 provider="xai",
-                model="xai-realtime",
+                model="grok-voice-think-fast-1.0",
                 component="realtime",
                 semantics="cumulative",
                 scope_id="audio-session-1",
@@ -436,7 +448,7 @@ class TestSessionUsage:
             # flushed at disconnect + live re-read: same scope, last wins
             UsageRecord(
                 provider="xai",
-                model="xai-realtime",
+                model="grok-voice-think-fast-1.0",
                 component="realtime",
                 semantics="cumulative",
                 scope_id="audio-session-1",

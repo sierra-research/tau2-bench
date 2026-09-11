@@ -6,7 +6,6 @@ import os
 import wave
 
 import requests
-import websockets
 from dotenv import load_dotenv
 
 from tau2.config import (
@@ -205,6 +204,10 @@ def transcribe_whisper(
 async def transcribe_gpt4o_realtime(
     audio_data: AudioData, config: TranscriptionConfig
 ) -> TranscriptionResult:
+    # Lazy import: websockets (voice extra) is only needed for the realtime
+    # transcription call, not for importing this module from core code.
+    import websockets
+
     try:
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:

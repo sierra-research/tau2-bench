@@ -19,6 +19,7 @@ from tau2.voice.synthesis.audio_effects.scheduler import generate_turn_effects
 from tau2.voice.synthesis.synthesize import synthesize_voice
 from tau2.voice.transcription.transcribe import transcribe_audio
 from tau2.voice.utils.audio_io import save_wav_file
+from tau2.voice.utils.elevenlabs_utils import elevenlabs_language_code
 from tau2.voice.utils.text_effects import insert_speech_text
 
 # Generic type variables for streaming mixins
@@ -61,9 +62,21 @@ class VoiceMixin(
             format=message.audio_format,
             audio_path=message.audio_path,
         )
+        transcription_config = self.voice_settings.transcription_config
+        speech_environment = self.voice_settings.speech_environment
+        if (
+            transcription_config.language is None
+            and speech_environment is not None
+            and speech_environment.language is not None
+        ):
+            # Default the transcription language from the active language-pack
+            # persona. No-op for English runs (language is None).
+            transcription_config = transcription_config.model_copy(
+                update={"language": speech_environment.language}
+            )
         transcription_result = transcribe_audio(
             audio_data=audio_data,
-            config=self.voice_settings.transcription_config,
+            config=transcription_config,
         )
         if transcription_result.error:
             raise ValueError(f"Transcription failed: {transcription_result.error}")
@@ -115,6 +128,10 @@ class VoiceMixin(
         synthesis_config = self.voice_settings.synthesis_config
         provider_config = deepcopy(synthesis_config.provider_config)
         provider_config.voice_id = get_elevenlabs_voice_id(speech_env.persona_name)
+        # Pin the TTS language from the active language pack ('en' for plain
+        # English personas) so ElevenLabs never guesses the language of
+        # spelled letters/digits from context (WS7 Part A).
+        provider_config.language_code = elevenlabs_language_code(speech_env.language)
 
         # Generate per-turn effects (complexity overrides already merged into synthesis_config)
         speech_effects, source_effects, channel_effects = generate_turn_effects(
@@ -124,6 +141,7 @@ class VoiceMixin(
         )
 
         text_to_synthesize = message.content
+
         speech_config = synthesis_config.speech_effects_config
         text_effects_rng = random.Random(speech_env.voice_seed + effects_turn_idx)
 
@@ -135,6 +153,26 @@ class VoiceMixin(
                 min_words=speech_config.min_words_for_vocal_tics,
                 in_turn=True,
             )
+
+        # WS7 Part B: opt-in pre-TTS spelled-entity normalization. Applies
+        # ONLY when the active language pack sets
+        # localization.spelled_entity_normalization (pt/pl initially); the
+        # stored transcript (message.content) keeps the original text, and
+        # the expansion lands in audio_script_gold like the vocal-tic markup
+        # — the delivered-text record of what the TTS actually received.
+        if speech_env.language is not None:
+            # Function-level import mirrors to_speech_environment: keeps the
+            # multilingual package out of the base voice import chain.
+            from tau2.multilingual.registry import get_spelled_entity_tables
+            from tau2.multilingual.spelled_entity_normalizer import (
+                normalize_spelled_entities,
+            )
+
+            spelled_entity_tables = get_spelled_entity_tables(speech_env.language)
+            if spelled_entity_tables is not None:
+                text_to_synthesize = normalize_spelled_entities(
+                    text_to_synthesize, spelled_entity_tables
+                )
 
         audio_data = synthesize_voice(
             text=text_to_synthesize,

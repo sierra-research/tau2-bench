@@ -20,7 +20,6 @@ from tau2.data_model.message import (
 )
 from tau2.utils.utils import get_now
 from tau2.voice.utils.audio_preprocessing import pad_audio_with_zeros
-from tau2.voice.utils.probability import poisson_should_trigger
 
 # Generic type variables for streaming mixins
 InputMessageType = TypeVar("InputMessageType", bound=Message)
@@ -2206,39 +2205,6 @@ BasicActionType = Literal[  #
 ]
 
 
-def should_backchannel(
-    ticks_since_last_backchannel: int,
-    ongoing_speech_duration: int,
-    min_threshold: int,
-    max_threshold: int,
-    poisson_rate: float,
-    tick_duration_seconds: float,
-    rng: Optional[random.Random] = None,
-) -> tuple[bool, str]:
-    """Determine if a backchannel should be triggered."""
-    # No backchannel if no ongoing speech
-    if ongoing_speech_duration <= 0:
-        return False, "No ongoing speech"
-
-    if ticks_since_last_backchannel < min_threshold:
-        return (
-            False,
-            f"Below min threshold ({ticks_since_last_backchannel} < {min_threshold})",
-        )
-
-    if ticks_since_last_backchannel >= max_threshold:
-        return (
-            True,
-            f"Forced at max threshold ({ticks_since_last_backchannel} >= {max_threshold})",
-        )
-
-    # Between min and max - use Poisson probability
-    if rng is None:
-        rng = random.Random()
-    triggered = poisson_should_trigger(poisson_rate, tick_duration_seconds, rng)
-    return triggered, f"Poisson (rate={poisson_rate:.6f}/s, triggered={triggered})"
-
-
 @dataclass
 class ListenerReactionDecision:
     """Result of a single listener reaction callback with metadata from the LLM call."""
@@ -2362,9 +2328,6 @@ def basic_turn_taking_policy(
     wait_to_respond_threshold_self: int = 4,
     yield_threshold_when_interrupted: Optional[int] = None,
     yield_threshold_when_interrupting: Optional[int] = None,
-    backchannel_min_threshold: Optional[int] = None,
-    backchannel_max_threshold: Optional[int] = None,
-    backchannel_poisson_rate: Optional[float] = None,
     tick_duration_seconds: float = 0.05,
     should_interrupt_callback: Optional[ListenerReactionCallback] = None,
     should_backchannel_callback: Optional[ListenerReactionCallback] = None,
@@ -2394,21 +2357,15 @@ def basic_turn_taking_policy(
         yield_threshold_when_interrupting: How long self keeps speaking when SELF initiated the interruption
             (i.e., other was talking first, self started speaking over other). Should be defaulted to
             yield_threshold_when_interrupted at initialization if not explicitly set.
-        backchannel_min_threshold: Minimum ticks before Poisson backchanneling is allowed.
-            Used when use_llm_backchannel=False. If None, Poisson backchannel is disabled.
-        backchannel_max_threshold: Maximum ticks - force Poisson backchannel at this point.
-            Used when use_llm_backchannel=False.
-        backchannel_poisson_rate: Poisson rate (events per second) for probabilistic backchanneling.
-            Used when use_llm_backchannel=False.
-        tick_duration_seconds: Duration of each tick in seconds. Used for Poisson calculations.
+        tick_duration_seconds: Duration of each tick in seconds.
         should_interrupt_callback: Listener reaction callback for interruption decisions.
             Called with (state) and should return True if user should interrupt, False otherwise.
             Only used when self is not talking and other participant is currently speaking.
         should_backchannel_callback: Listener reaction callback for backchannel decisions.
             Called with (state) and should return True if user should backchannel, False otherwise.
             Only used when use_llm_backchannel=True.
-        use_llm_backchannel: If True, use should_backchannel_callback for backchannel decisions.
-            If False, use Poisson-based backchannel logic with min/max thresholds.
+        use_llm_backchannel: If True, enable backchanneling via should_backchannel_callback.
+            If False, backchanneling is disabled.
         listener_reaction_check_interval: If set, only check listener reaction callbacks every N ticks.
             When None (default), checks every tick. Useful to reduce callback frequency.
             Both interrupt and backchannel callbacks use the same interval.
@@ -2428,9 +2385,6 @@ def basic_turn_taking_policy(
     can_use_interrupt_callback = should_interrupt_callback is not None
     can_use_backchannel_callback = (
         use_llm_backchannel and should_backchannel_callback is not None
-    )
-    can_use_poisson_backchannel = (
-        not use_llm_backchannel and backchannel_min_threshold is not None
     )
 
     if state.is_talking:
@@ -2581,27 +2535,7 @@ def basic_turn_taking_policy(
                         f"DECISION: wait (keep listening) - "
                         f"callbacks decided to keep listening, ongoing_speech={ongoing_speech_duration} chunks"
                     )
-                    # Fall through to wait/Poisson backchannel logic below
-
-        # Poisson-based backchannel (when use_llm_backchannel=False)
-        if can_use_poisson_backchannel and ongoing_speech_duration > 0:
-            ticks_since_bc = state.ticks_since_last_backchannel
-            trigger, reason = should_backchannel(
-                ticks_since_last_backchannel=ticks_since_bc,
-                ongoing_speech_duration=ongoing_speech_duration,
-                min_threshold=backchannel_min_threshold,
-                max_threshold=backchannel_max_threshold,
-                poisson_rate=backchannel_poisson_rate,
-                tick_duration_seconds=tick_duration_seconds,
-                rng=state.backchannel_rng,
-            )
-            if trigger:
-                logger.debug(
-                    f"DECISION: backchannel (Poisson) - "
-                    f"{reason}, ongoing_speech={ongoing_speech_duration} chunks, "
-                    f"ticks_since_bc={ticks_since_bc}"
-                )
-                return "backchannel", f"Poisson backchannel: {reason}"
+                    # Fall through to wait logic below
 
         # Wait for a long enough silence to generate a message
         # Both thresholds must be satisfied:

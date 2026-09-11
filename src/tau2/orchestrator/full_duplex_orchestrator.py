@@ -599,9 +599,15 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
 
         # Extract provider session ID if available (e.g., OpenAI session ID)
         provider_session_id = None
+        agent_voice = None
         if hasattr(self.agent, "adapter") and hasattr(self.agent.adapter, "provider"):
             provider = self.agent.adapter.provider
             provider_session_id = getattr(provider, "session_id", None)
+            # Recorded so the nativeness judge can resolve the agent's gender
+            # without re-deriving it. None when the provider doesn't expose a
+            # voice attr (then the provider default applies).
+            agent_voice = getattr(provider, "voice", None)
+        agent_provider = getattr(self.agent, "provider", None)
 
         # Collect effect timeline from user simulator if available
         effect_timeline = None
@@ -627,6 +633,8 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
             seed=self.seed,
             mode=self.mode.value,
             speech_environment=speech_environment,
+            agent_provider=agent_provider,
+            agent_voice=agent_voice,
             info=info,
             provider_session_id=provider_session_id,
             effect_timeline=effect_timeline,

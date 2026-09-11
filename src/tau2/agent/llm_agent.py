@@ -58,15 +58,36 @@ class LLMAgent(
     A half-duplex LLM agent for turn-based conversations.
     """
 
+    STOP_TOKEN = "###STOP###"
+    STOP_TOOL_NAMES = frozenset({"end_call"})
+
     def __init__(
         self,
         tools: List[Tool],
         domain_policy: str,
         llm: str,
         llm_args: Optional[dict] = None,
+        language: Optional[str] = None,
+        locale: Optional[str] = None,
+        native_script_db: bool = False,
     ):
         """
         Initialize the LLMAgent.
+
+        Args:
+            language: ISO 639-1 code of the run's active language-pack persona
+                (see tau2.multilingual). When set, the pack's
+                agent_language_clause is appended to the system prompt so the
+                agent responds in the target language. None means English
+                (unchanged behavior).
+            locale: ISO 3166-2 locale of the resolved caller persona. When set,
+                the agent language clause identifies the caller's original
+                regional background without asserting their current location.
+            native_script_db: True when the run's task is a native-script
+                identity variant (``*_identity_native``): the pack's
+                agent_native_script_db_clause is appended so the prompt tells
+                the truth about the DB's script. Derived from the task id by
+                the builder (tau2.runner.build.build_agent).
         """
         super().__init__(
             tools=tools,
@@ -74,12 +95,35 @@ class LLMAgent(
             llm=llm,
             llm_args=llm_args,
         )
+        self.language = language
+        self.locale = locale
+        self.native_script_db = native_script_db
+
+    def _get_agent_language_clause(self) -> Optional[str]:
+        """The agent-side language clause for the run's language, or None.
+
+        The shared renderer composes the pack's response conventions with the
+        resolved persona's original locale (and the native-script DB clause on
+        native-variant runs). None when the run has no active language pack.
+        Mirrors the voice agent.
+        """
+        if self.language is None:
+            return None
+        from tau2.multilingual import get_agent_language_clause
+
+        return get_agent_language_clause(
+            self.language, self.locale, native_script_db=self.native_script_db
+        )
 
     @property
     def system_prompt(self) -> str:
-        return SYSTEM_PROMPT.format(
+        prompt = SYSTEM_PROMPT.format(
             domain_policy=self.domain_policy, agent_instruction=AGENT_INSTRUCTION
         )
+        language_clause = self._get_agent_language_clause()
+        if language_clause:
+            prompt = f"{prompt}\n\n{language_clause}"
+        return prompt
 
     def get_init_state(
         self, message_history: Optional[list[Message]] = None
@@ -108,9 +152,24 @@ class LLMAgent(
         """
         Respond to a user or tool message.
         """
-        assistant_message = self._generate_next_message(message, state)
+        assistant_message = self._check_if_stop_toolcall(
+            self._generate_next_message(message, state)
+        )
         state.messages.append(assistant_message)
         return assistant_message, state
+
+    def _check_if_stop_toolcall(self, message: AssistantMessage) -> AssistantMessage:
+        """Mark a call-ending tool invocation for the orchestrator."""
+        if message.tool_calls and any(
+            tool_call.name in self.STOP_TOOL_NAMES for tool_call in message.tool_calls
+        ):
+            message.content = self.STOP_TOKEN
+        return message
+
+    @classmethod
+    def is_stop(cls, message: AssistantMessage) -> bool:
+        """Return whether an assistant message ends the conversation."""
+        return message.content is not None and cls.STOP_TOKEN in message.content
 
     def _generate_next_message(
         self, message: ValidAgentInputMessage, state: LLMAgentStateType
@@ -495,12 +554,22 @@ def create_llm_agent(tools, domain_policy, **kwargs):
         **kwargs: Additional arguments. Supports:
             - llm (str): LLM model name.
             - llm_args (dict): Additional LLM arguments.
+            - language (str): ISO 639-1 code of the run's active language-pack
+              persona; appends the pack's agent_language_clause so the agent
+              responds in the target language. None/absent means English.
+            - locale (str): ISO 3166-2 locale of the resolved caller persona;
+              adds original-region context to the agent prompt.
+            - native_script_db (bool): the run's task is a native-script
+              identity variant; appends the pack's native-DB clause.
     """
     return LLMAgent(
         tools=tools,
         domain_policy=domain_policy,
         llm=kwargs.get("llm"),
         llm_args=kwargs.get("llm_args"),
+        language=kwargs.get("language"),
+        locale=kwargs.get("locale"),
+        native_script_db=bool(kwargs.get("native_script_db")),
     )
 
 

@@ -80,16 +80,16 @@ class TestFormatDetection:
     def test_json_file_detected_as_json(self, tmp_path):
         p = tmp_path / "results.json"
         p.write_text("{}")
-        assert Results._detect_format(p) == "json"
+        assert Results.detect_format(p) == "json"
 
     def test_directory_detected_as_dir(self, tmp_path):
-        assert Results._detect_format(tmp_path) == "dir"
+        assert Results.detect_format(tmp_path) == "dir"
 
     def test_json_with_sibling_sims_dir_detected_as_dir(self, tmp_path):
         p = tmp_path / "results.json"
         p.write_text("{}")
         (tmp_path / SIMULATIONS_DIR).mkdir()
-        assert Results._detect_format(p) == "dir"
+        assert Results.detect_format(p) == "dir"
 
     def test_resolve_paths_from_json(self, tmp_path):
         p = tmp_path / "results.json"

@@ -46,6 +46,7 @@ from tau2.voice.synthesis.audio_effects.scheduler import (
 from tau2.voice.utils.audio_io import save_wav_file
 from tau2.voice.utils.audio_preprocessing import audio_data_to_numpy
 from tau2.voice.utils.probability import GilbertElliottConfig, GilbertElliottModel
+from tau2.voice_config import NOISE_SNR_DB
 
 # ============================================================================
 # Fixtures
@@ -331,7 +332,7 @@ class TestNoiseGenerator:
         assert chunk.num_samples == 1000
 
         # Silent mode uses default SNR settings
-        assert generator.snr_db == 15.0  # Default NOISE_SNR_DB
+        assert generator.snr_db == NOISE_SNR_DB  # voice_config default
 
     def test_background_noise_generator_with_audio_data(
         self, sample_pcm16_audio: AudioData

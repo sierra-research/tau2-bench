@@ -10,21 +10,21 @@ Usage:
 Generating annotation sets (retail, 2026-03-10):
 
   # Voice Fragile: text passed but control failed (control results only)
-  uv run python src/experiments/tau_voice/annotation/export_html.py \
+  uv run tau2 annotate packets --form error_analysis \
     --batch-name 2026-03-10_voice_fragile \
     --results tmp/organized_results_mar10/voice/voice_trial1/base/retail_control_gemini_gemini-live-2.5-flash-native-audio/results.json \
              tmp/organized_results_mar10/voice/voice_trial1/base/retail_control_openai_gpt-realtime-1.5/results.json \
              tmp/organized_results_mar10/voice/voice_trial1/base/retail_control_xai_xai-realtime/results.json \
-    --filter-tasks 6,7,8,14,19,22,23,24,25,28,31,33,35,36,51,56,59,79,87,106 \
+    --filter-tasks 6 7 8 14 19 22 23 24 25 28 31 33 35 36 51 56 59 79 87 106 \
     --filter-reward "< 1"
 
   # Noise Fragile: control passed but regular failed (regular results only)
-  uv run python src/experiments/tau_voice/annotation/export_html.py \
+  uv run tau2 annotate packets --form error_analysis \
     --batch-name 2026-03-10_noise_fragile \
     --results tmp/organized_results_mar10/voice/voice_trial1/base/retail_regular_gemini_gemini-live-2.5-flash-native-audio/results.json \
              tmp/organized_results_mar10/voice/voice_trial1/base/retail_regular_openai_gpt-realtime-1.5/results.json \
              tmp/organized_results_mar10/voice/voice_trial1/base/retail_regular_xai_xai-realtime/results.json \
-    --filter-tasks 0,16,29,32,42,46,48,58,66,76,80,81,83,89,94,98,101,108,113 \
+    --filter-tasks 0 16 29 32 42 46 48 58 66 76 80 81 83 89 94 98 101 108 113 \
     --filter-reward "< 1"
 """
 

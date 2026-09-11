@@ -92,7 +92,7 @@ See the [Voice Persona Setup Guide](voice-personas.md) for step-by-step instruct
 ### Standard text-based evaluation (half-duplex)
 
 ```bash
-tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 \
+tau2 run --domain airline --agent-llm gpt-5.4-mini --user-llm gpt-5.4-mini \
   --num-trials 1 --num-tasks 5
 ```
 
@@ -112,7 +112,7 @@ See the [Audio Native Documentation](../src/tau2/voice/audio_native/README.md) f
 
 ```bash
 tau2 run --domain banking_knowledge --retrieval-config bm25 \
-  --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-tasks 5
+  --agent-llm gpt-5.4-mini --user-llm gpt-5.4-mini --num-tasks 5
 ```
 
 See the [Knowledge Retrieval Documentation](../src/tau2/knowledge/README.md) for retrieval configuration options.

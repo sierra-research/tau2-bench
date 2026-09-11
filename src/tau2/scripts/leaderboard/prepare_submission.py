@@ -328,7 +328,7 @@ def _copy_voice_experiment_trimmed(
     exp_dst.mkdir(parents=True, exist_ok=True)
 
     # Always save in dir format — converts from monolithic JSON if needed.
-    src_fmt = TrajectoryResults._detect_format(exp_src / "results.json")
+    src_fmt = TrajectoryResults.detect_format(exp_src / "results.json")
     results.save(exp_dst / "results.json", format="dir")
 
     if src_fmt != "dir":

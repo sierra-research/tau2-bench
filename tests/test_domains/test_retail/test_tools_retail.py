@@ -213,6 +213,22 @@ def test_find_user_id_by_name_zip(
     assert response.content == "Error: User not found"
 
 
+def test_find_user_id_by_name_zip_folds_case_and_accents(
+    environment: Environment, find_user_id_by_name_zip_call: ToolCall
+):
+    """The name half of the lookup is spoken aloud, so it matches on the folded
+    form (as telecom's name+DOB auth does). A localized caller spells out
+    'Vázquez' with no way to voice the accent; rejecting 'Vazquez' would make
+    the task unsolvable. The zip is dictated digit by digit and stays exact."""
+    find_user_id_by_name_zip_call.arguments.update(first_name="sárá", last_name="DOE")
+    response = environment.get_response(find_user_id_by_name_zip_call)
+    assert response.content == "sara_doe_496"
+    # The zip is the verification factor — no tolerance there.
+    find_user_id_by_name_zip_call.arguments["zip"] = "94150"
+    response = environment.get_response(find_user_id_by_name_zip_call)
+    assert response.content == "Error: User not found"
+
+
 @pytest.fixture
 def find_user_id_by_email_call() -> ToolCall:
     return ToolCall(
@@ -231,6 +247,32 @@ def test_find_user_id_by_email(
     find_user_id_by_email_call.arguments["email"] = "nonexistent@example.com"
     response = environment.get_response(find_user_id_by_email_call)
     assert response.content == "Error: User not found"
+
+
+def test_folded_lookups_bridge_an_accented_db_record(retail_db: RetailDB):
+    """The direction voice runs actually exercise: a swapped-in locale record
+    ('Vázquez') found by the unaccented form the agent hears. Covers both
+    folded lookups — name+zip and email — against the accented DB side."""
+    user = retail_db.users["sara_doe_496"]
+    user.name = UserName(first_name="Rocío", last_name="Vázquez")
+    user.email = "rocío.vazquez7726@example.com"
+    environment = get_environment(retail_db)
+    response = environment.get_response(
+        ToolCall(
+            id="fold1",
+            name="find_user_id_by_name_zip",
+            arguments={"first_name": "Rocio", "last_name": "vazquez", "zip": "94105"},
+        )
+    )
+    assert response.content == "sara_doe_496"
+    response = environment.get_response(
+        ToolCall(
+            id="fold2",
+            name="find_user_id_by_email",
+            arguments={"email": "ROCIO.vazquez7726@example.com"},
+        )
+    )
+    assert response.content == "sara_doe_496"
 
 
 @pytest.fixture

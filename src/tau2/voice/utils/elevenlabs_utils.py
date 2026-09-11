@@ -1,9 +1,8 @@
 import os
 import re
 from copy import deepcopy
-from typing import Tuple
+from typing import Optional, Tuple
 
-from elevenlabs import ElevenLabs
 from loguru import logger
 
 from tau2.data_model.audio import AudioData
@@ -46,6 +45,17 @@ AUDIO_TAG_PATTERN = re.compile(r"\[(cough|sneeze|sniffle)\]")
 PAUSE_TAG_PATTERN = re.compile(r"\[pause\]", re.IGNORECASE)
 
 
+def elevenlabs_language_code(language: Optional[str]) -> str:
+    """Map a language-pack language to the ElevenLabs ``language_code``.
+
+    Language packs carry ISO 639-1 codes (see ``LanguagePack.language``),
+    which is exactly what the ElevenLabs API expects — an identity mapping.
+    None (no pack active, i.e. a plain English persona) pins ``'en'`` so
+    every user-sim render is language-pinned, English included (WS7 Part A).
+    """
+    return language or "en"
+
+
 def tts_elevenlabs(
     text: str,
     config: ElevenLabsTTSConfig,
@@ -58,6 +68,10 @@ def tts_elevenlabs(
     Returns:
         AudioData with the specified output format
     """
+    # Lazy import: elevenlabs (voice extra) is only needed to hit the API,
+    # not for the prompt/format helpers that core code reaches.
+    from elevenlabs import ElevenLabs
+
     api_key = config.api_key or os.getenv("ELEVENLABS_API_KEY")
     if not api_key:
         raise ValueError("ELEVENLABS_API_KEY not found in config or environment")
@@ -83,8 +97,15 @@ def tts_elevenlabs(
     text_preview = text[:50] + "..." if len(text) > 50 else text
     logger.debug(
         f"ElevenLabs TTS: calling API for text '{text_preview}' "
-        f"(voice_id={voice_id}, model={config.model_id})"
+        f"(voice_id={voice_id}, model={config.model_id}, "
+        f"language_code={config.language_code})"
     )
+
+    # Only include language_code when pinned: the SDK's default is an OMIT
+    # sentinel, and an explicit None would serialize as null.
+    convert_kwargs = {}
+    if config.language_code is not None:
+        convert_kwargs["language_code"] = config.language_code
 
     try:
         audio = client.text_to_speech.convert(
@@ -94,6 +115,7 @@ def tts_elevenlabs(
             model_id=config.model_id,
             output_format=config.output_format_name,
             seed=config.seed,
+            **convert_kwargs,
         )
 
         audio_bytes = b"".join(audio)

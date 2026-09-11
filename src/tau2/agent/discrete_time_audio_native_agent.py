@@ -62,6 +62,8 @@ from tau2.config import (
     DEFAULT_AUDIO_NATIVE_PROVIDER,
     DEFAULT_OPENAI_VAD_THRESHOLD,
     DEFAULT_SEND_AUDIO_INSTANT,
+    ReasoningEffort,
+    resolve_audio_native_reasoning_effort,
 )
 from tau2.data_model.audio import TELEPHONY_AUDIO_FORMAT, AudioEncoding, AudioFormat
 from tau2.data_model.message import (
@@ -133,6 +135,21 @@ You are a customer service agent handling a VOICE CALL with a customer.
 2. If authenticating the user fails based on user provided information, ALWAYS explicitly ask the customer to SPELL THINGS OUT or provide information LETTER BY LETTER (e.g. "first name J, O, H, N last name S, M, I, T, H").
 """.strip()
 
+# Voice-gender disclosure: an opt-in system-prompt line stating the gender of
+# the agent's provider voice, resolved from the reviewed provider-voice
+# catalog (tau2.voice.voice_gender). Exists because providers accept a voice
+# config but give the model no signal connecting that voice to its grammatical
+# self-reference — in gendered languages every model defaults masculine
+# against a female voice (hi gender_agreement investigation, 2026-09-02).
+# Version history — 1.0.0: initial (voice-gender grounding ablation arm).
+VOICE_GENDER_DISCLOSURE_VERSION = "1.0.0"
+
+VOICE_GENDER_DISCLOSURE_TEMPLATE = """
+# Your Voice
+
+The voice the caller hears from you is {gender}. When you refer to yourself, use grammatical forms consistent with a {gender} speaker.
+""".strip()
+
 # System prompt without XML tags (for xAI and other providers that prefer plain text)
 AUDIO_NATIVE_SYSTEM_PROMPT_PLAIN = """
 {agent_instruction}
@@ -197,7 +214,9 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
     """
 
     STOP_TOKEN = "###STOP###"
-    STOP_FUNCTION_NAME = "transfer_to_human_agents"
+    # Call-terminating tool names: a call to any of these ends the simulation
+    # (the message is marked with STOP_TOKEN, never synthesized).
+    STOP_TOOL_NAMES = frozenset({"end_call", "transfer_to_human_agents"})
 
     def __init__(
         self,
@@ -211,12 +230,16 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         audio_format: Optional[AudioFormat] = None,
         provider: AudioNativeProvider = DEFAULT_AUDIO_NATIVE_PROVIDER,
         model: Optional[str] = None,
-        reasoning_effort: Optional[str] = None,
+        reasoning_effort: Optional[ReasoningEffort] = None,
         max_inactive_seconds: float = DEFAULT_AUDIO_NATIVE_MAX_INACTIVE_SECONDS,
         use_xml_prompt: bool = False,
         cascaded_config: Optional["CascadedConfig"] = None,
         audio_taps_dir: Optional[Path] = None,
         live_config: Optional[LiveConfig] = None,
+        language: Optional[str] = None,
+        locale: Optional[str] = None,
+        native_script_db: bool = False,
+        disclose_voice_gender: bool = True,
     ):
         """Initialize the discrete-time audio native agent.
 
@@ -238,6 +261,17 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
                 - "gemini": Google Gemini Live API
             model: Model to use. Defaults to None. If not provided, the default
                 model for the provider will be used.
+            reasoning_effort: Effective reasoning effort. This constructor is a
+                resolution BOUNDARY (see the policy above
+                tau2.config.resolve_audio_native_reasoning_effort): a None here
+                means "nothing was pinned" and resolves from the provider
+                default table, which is a value the agent genuinely runs at,
+                not an after-the-fact inference. Runs never rely on that —
+                they pass the value already resolved on AudioNativeConfig, so
+                results.info records what the provider was actually told;
+                resolving here as well is idempotent and keeps manual
+                construction from reaching create_adapter, which is below the
+                boundary and refuses a None.
             max_inactive_seconds: Maximum seconds without provider activity before
                 raising a stall error. Set to 0 to disable stall detection.
                 Default is 30 seconds.
@@ -248,6 +282,26 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
                 Only used when provider="livekit". Ignored for other providers.
                 Can be a CascadedConfig instance or None to use defaults.
             audio_taps_dir: Directory to save audio taps. Only used when audio_taps_dir is not None.
+            live_config: Frontend and backend configuration for OpenAI Live.
+            language: ISO 639-1 language code of the run's active language-pack
+                persona (see tau2.multilingual). When set, the pack's
+                agent_language_clause (if any) is appended to the system prompt
+                and the code is forwarded to provider STT/transcription configs.
+                None means English (behavior unchanged).
+            locale: ISO 3166-2 locale of the resolved caller persona. When set,
+                the agent language clause identifies the caller's original
+                regional background without asserting their current location.
+            native_script_db: True when the run's task is a native-script
+                identity variant (``*_identity_native``): the pack's
+                agent_native_script_db_clause is appended so the prompt tells
+                the truth about the DB's script. Derived from the task id by
+                the builder (tau2.runner.build.build_agent).
+            disclose_voice_gender: If True (default), append
+                VOICE_GENDER_DISCLOSURE_TEMPLATE to the system prompt with the
+                provider voice's catalog gender. False runs the ungrounded
+                ablation arm. Raises at prompt build when
+                the catalog has no gender for the provider's default voice
+                (livekit) — auto-disabled with a warning there.
         """
         self.tools = tools
         self.domain_policy = domain_policy
@@ -257,13 +311,32 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         self.provider = provider
         self.use_xml_prompt = use_xml_prompt
         self.model = model
-        self.reasoning_effort = reasoning_effort
+        self.reasoning_effort = resolve_audio_native_reasoning_effort(
+            provider, reasoning_effort
+        )
         self.max_inactive_seconds = max_inactive_seconds
         self.cascaded_config = cascaded_config
         self.live_config = live_config
         self._live_trace_path = (
             audio_taps_dir / "live.jsonl" if audio_taps_dir else None
         )
+        self.language = language
+        self.locale = locale
+        self.native_script_db = native_script_db
+        # Auto-off when the catalog cannot honor a disclosure (mirrors
+        # AudioNativeConfig._resolve_disclosure_feasibility for direct
+        # constructions that bypass the config).
+        if disclose_voice_gender:
+            from tau2.voice.voice_gender import resolve_agent_gender
+
+            if resolve_agent_gender(provider, None) is None:
+                logger.warning(
+                    f"disclose_voice_gender: provider {provider!r}'s default "
+                    "voice has no gender in the provider-voice catalog; "
+                    "disclosure disabled"
+                )
+                disclose_voice_gender = False
+        self.disclose_voice_gender = disclose_voice_gender
 
         # Audio format (defaults to telephony)
         self.audio_format = audio_format or TELEPHONY_AUDIO_FORMAT
@@ -353,16 +426,64 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         )
 
         # Use CASCADED_MODEL_INSTRUCTION for cascaded models (e.g., livekit)
-        # which work with transcribed speech rather than native audio
+        # which work with transcribed speech rather than native audio.
         provider_type = AUDIO_NATIVE_PROVIDER_TYPES.get(self.provider, "audio_native")
         if provider_type == "cascaded":
             agent_instruction = CASCADED_MODEL_INSTRUCTION
         else:
             agent_instruction = AUDIO_NATIVE_VOICE_INSTRUCTION
 
-        return template.format(
+        prompt = template.format(
             agent_instruction=agent_instruction,
             domain_policy=self.domain_policy,
+        )
+
+        # Append the language pack's agent-side clause for non-English runs.
+        # No-op when language is None (English), no pack exists for the
+        # language, or the pack defines no clause.
+        language_clause = self._get_agent_language_clause()
+        if language_clause:
+            prompt = f"{prompt}\n\n{language_clause}"
+
+        # Opt-in voice-gender disclosure (see VOICE_GENDER_DISCLOSURE_TEMPLATE).
+        if self.disclose_voice_gender:
+            prompt = f"{prompt}\n\n{self._voice_gender_disclosure()}"
+
+        return prompt
+
+    def _voice_gender_disclosure(self) -> str:
+        """The disclosure line for this run's provider voice.
+
+        Gender comes from the reviewed provider-voice catalog via the
+        provider's default voice — the same voice every run pins (the harness
+        never overrides provider voices). Fails loud when the catalog has no
+        gender for it: a silent no-op would record a run that claims disclosure
+        without having made one.
+        """
+        from tau2.voice.voice_gender import resolve_agent_gender
+
+        gender = resolve_agent_gender(self.provider, None)
+        if gender is None:
+            raise ValueError(
+                "disclose_voice_gender: the provider-voice catalog has no "
+                f"gender for provider {self.provider!r}'s default voice"
+            )
+        return VOICE_GENDER_DISCLOSURE_TEMPLATE.format(gender=gender)
+
+    def _get_agent_language_clause(self) -> Optional[str]:
+        """Resolve the agent-side language clause for the run's language.
+
+        The shared renderer composes the pack's response conventions with the
+        resolved persona's original locale (and the native-script DB clause on
+        native-variant runs). Returns None when the run has no active language
+        pack.
+        """
+        if self.language is None:
+            return None
+        from tau2.multilingual import get_agent_language_clause
+
+        return get_agent_language_clause(
+            self.language, self.locale, native_script_db=self.native_script_db
         )
 
     @property
@@ -379,6 +500,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
                 cascaded_config=self.cascaded_config,
                 live_config=self.live_config,
                 trace_path=self._live_trace_path,
+                language=self.language,
             )
         return self._adapter
 
@@ -720,20 +842,39 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             return []
         return self._adapter.get_usage_records()
 
-    def create_initial_message(
-        self, content: str = "Hi! How can I help you today?"
-    ) -> AssistantMessage:
+    def _get_greeting(self) -> str:
+        """Resolve the agent's opening greeting for the run's language.
+
+        Falls back to the English default when the run is English (language is
+        None), the language has no registered pack, or the pack defines no
+        agent_greeting — so English/unlocalized runs are unaffected.
+        """
+        default = "Hi! How can I help you today?"
+        if self.language is None:
+            return default
+        from tau2.multilingual import get_language_pack
+
+        pack = get_language_pack(self.language)
+        if pack is None or not pack.agent_greeting:
+            return default
+        return pack.agent_greeting
+
+    def create_initial_message(self, content: Optional[str] = None) -> AssistantMessage:
         """Create the initial greeting message with silence audio.
 
         The initial message is text-only (no TTS) but includes silence audio
         to maintain temporal alignment in the tick-based trajectory.
 
         Args:
-            content: The greeting text content.
+            content: The greeting text content. When None, the greeting is
+                resolved from the run's language pack (localized for non-English
+                runs), falling back to the English default.
 
         Returns:
             AssistantMessage with text content and silence audio.
         """
+        if content is None:
+            content = self._get_greeting()
         # Generate silence audio for one tick
         silence = self._get_silence()
         return AssistantMessage(
@@ -803,13 +944,13 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
 
     def _check_if_stop_toolcall(self, message: AssistantMessage) -> AssistantMessage:
         """Check if the message is a stop message.
-        If the message contains a tool call with the name STOP_FUNCTION_NAME,
+        If the message contains a call to any tool in STOP_TOOL_NAMES,
         then the message is a stop message.
         """
         is_stop = False
         if message.tool_calls:
             for tool_call in message.tool_calls:
-                if tool_call.name == self.STOP_FUNCTION_NAME:
+                if tool_call.name in self.STOP_TOOL_NAMES:
                     is_stop = True
                     break
         if is_stop:
@@ -842,10 +983,18 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
             - audio_native_config: AudioNativeConfig with provider settings.
               If provided, the following fields are extracted from it:
               tick_duration_ms, send_audio_instant, provider, model, use_xml_prompt.
+            - language: ISO 639-1 code of the run's active language-pack
+              persona. None means English.
+            - locale: ISO 3166-2 locale of the resolved caller persona.
+            - native_script_db (bool): the run's task is a native-script
+              identity variant; appends the pack's native-DB clause.
             - Individual overrides for any of the above fields.
     """
     audio_native_config = kwargs.get("audio_native_config")
     audio_taps_dir = kwargs.get("audio_taps_dir")
+    language = kwargs.get("language")
+    locale = kwargs.get("locale")
+    native_script_db = bool(kwargs.get("native_script_db"))
     if audio_native_config is not None:
         return DiscreteTimeAudioNativeAgent(
             tools=tools,
@@ -860,6 +1009,10 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
             cascaded_config=getattr(audio_native_config, "cascaded_config", None),
             audio_taps_dir=audio_taps_dir,
             live_config=audio_native_config.live_config,
+            language=language,
+            locale=locale,
+            native_script_db=native_script_db,
+            disclose_voice_gender=audio_native_config.disclose_voice_gender,
         )
     else:
         # Fallback: use individual kwargs or defaults
@@ -870,5 +1023,9 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
             modality=kwargs.get("modality", "audio"),
             provider=kwargs.get("provider", DEFAULT_AUDIO_NATIVE_PROVIDER),
             model=kwargs.get("model"),
+            disclose_voice_gender=bool(kwargs.get("disclose_voice_gender", True)),
             audio_taps_dir=audio_taps_dir,
+            language=language,
+            locale=locale,
+            native_script_db=native_script_db,
         )

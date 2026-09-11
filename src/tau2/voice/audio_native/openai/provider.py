@@ -9,7 +9,6 @@ import os
 from enum import Enum
 from typing import AsyncGenerator, Dict, List, Optional
 
-import websockets
 from dotenv import load_dotenv
 from loguru import logger
 from pydantic import BaseModel
@@ -32,6 +31,14 @@ from tau2.voice.audio_native.openai.events import (
     parse_realtime_event,
 )
 from tau2.voice.utils.openai_utils import audio_format_to_openai
+
+# Same guard as tau2.utils.retry: websockets (voice extra) is only needed to
+# open a live connection; the module must stay importable without it so core
+# code can build agents for prompt rendering.
+try:
+    import websockets
+except ImportError:
+    websockets = None
 
 load_dotenv()
 
@@ -122,6 +129,8 @@ class OpenAIRealtimeProvider:
         api_key: Optional[str] = None,
         model: Optional[str] = None,
         reasoning_effort: Optional[str] = None,
+        language: Optional[str] = None,
+        voice: Optional[str] = None,
     ):
         """Initialize the OpenAI Realtime provider.
 
@@ -131,6 +140,11 @@ class OpenAIRealtimeProvider:
             model: Model identifier to use. Defaults to DEFAULT_MODEL.
             reasoning_effort: Reasoning effort for thinking models ("minimal",
                 "low", "medium", "high"). If None, not sent to the API.
+            language: ISO 639-1 language code for input audio transcription.
+                Defaults to "en" when None.
+            voice: Output voice. Defaults to DEFAULT_OPENAI_VOICE. Stored on the
+                instance so the run can record which voice the agent spoke with
+                (see tau2.judges.nativeness.agent_voice).
 
         Raises:
             ValueError: If no API key is provided or found in environment.
@@ -155,6 +169,8 @@ class OpenAIRealtimeProvider:
                 )
 
         self.reasoning_effort = reasoning_effort
+        self.language = language or "en"
+        self.voice = voice or DEFAULT_OPENAI_VOICE
         self.ws: Optional[websockets.WebSocketClientProtocol] = None
         self._current_vad_config: Optional[OpenAIVADConfig] = None
         self._audio_format: AudioFormat = TELEPHONY_AUDIO_FORMAT
@@ -192,6 +208,11 @@ class OpenAIRealtimeProvider:
         Raises:
             RuntimeError: If the initial handshake fails or receives unexpected response.
         """
+        if websockets is None:
+            raise ImportError(
+                "websockets is required to connect to the OpenAI Realtime API "
+                "(install the voice extra)"
+            )
         if self.is_connected:
             return
 
@@ -352,7 +373,7 @@ class OpenAIRealtimeProvider:
                     "format": audio_fmt,
                     "transcription": {
                         "model": DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
-                        "language": "en",
+                        "language": self.language,
                     },
                     "noise_reduction": {"type": DEFAULT_OPENAI_NOISE_REDUCTION},
                     "turn_detection": self._build_turn_detection_config(vad_config),
@@ -362,7 +383,7 @@ class OpenAIRealtimeProvider:
         if modality == "audio":
             session.setdefault("audio", {})["output"] = {
                 "format": audio_fmt,
-                "voice": DEFAULT_OPENAI_VOICE,
+                "voice": self.voice,
             }
 
         await self.ws.send(json.dumps({"type": "session.update", "session": session}))

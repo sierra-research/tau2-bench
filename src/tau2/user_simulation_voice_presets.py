@@ -9,10 +9,11 @@ The complexity level represents how challenging the user is for the agent to han
 Used by run.py and audio effects scheduler.
 """
 
+import hashlib
 import json
 import random
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -21,6 +22,7 @@ from tau2.data_model.audio_effects import (
     ChannelEffectsConfig,
     SourceEffectsConfig,
     SpeechEffectsConfig,
+    UserSpeechInsert,
 )
 from tau2.data_model.persona import InterruptTendency, PersonaConfig, Verbosity
 from tau2.data_model.voice import SampledVoiceConfig, SpeechComplexity, SynthesisConfig
@@ -30,6 +32,91 @@ from tau2.data_model.voice_personas import (
     get_persona_name_by_voice_id,
 )
 from tau2.voice_config import BACKGROUND_NOISE_CONTINUOUS_DIR, BURST_NOISE_DIR
+
+
+def derive_task_seed(base_seed: int, task_id: str) -> int:
+    """Deterministic per-task sampling seed: base_seed + digest(task_id).
+
+    Uses a stable sha256 digest of the task id, NOT Python's ``hash()``:
+    str hashing is salted per process, so a hash()-derived seed would
+    resample acoustic environments, noise files, and derived voice seeds
+    on every run despite a fixed ``--seed``. The single owner of the
+    per-task seed derivation — build (``build_voice_user``) and the
+    pre-sampling generators below all call this.
+    """
+    digest = hashlib.sha256(task_id.encode("utf-8")).digest()
+    return base_seed + int.from_bytes(digest[:4], "big") % 1_000_000
+
+
+# ============================================================================
+# Effects modes (owner call 2026-08-25, condition-crossed reliability runs)
+# ============================================================================
+#
+# Orthogonal, fixed in-code intensity modes layered OVER a complexity preset:
+# each mode is a set of preset-key overrides applied after the preset lookup,
+# so every downstream merge (channel config, speech config, persona) sees the
+# adjusted values. "regular" overrides nothing -- the preset stands, and the
+# default path is byte-identical to a pre-modes run.
+#
+# CHANNEL mode covers the transmission artifacts of the caller's line (frame
+# drops, dynamic muffling). SPEECH mode covers the caller's conversational
+# behavior (interruptions, backchannels, vocal tics, non-directed phrases).
+# Acoustics (background/burst noise) stay at stock for "light"/"regular";
+# channel-"heavy" additionally raises the noise floor and burst rate (owner
+# redefinition 2026-09-02) so the C realization is genuinely
+# environment-heavy, not frame-drops-only.
+
+EffectsMode = Literal["light", "regular", "heavy"]
+
+CHANNEL_EFFECTS_MODES: dict[str, dict] = {
+    "light": {
+        # Clean line: no frame drops, no muffling.
+        "frame_drop_rate": 0.0,
+        "enable_muffling": False,
+    },
+    "regular": {},
+    "heavy": {
+        # Bad connection: 1.5x the regular loss rate in longer bursts, and
+        # muffling strikes 2.5x as often.
+        "frame_drop_rate": 0.03,
+        "frame_drop_burst_duration_ms": 300,
+        "enable_muffling": True,
+        "muffle_probability": 0.5,
+        # Genuinely heavy acoustics (owner, 2026-09-02): the noise floor
+        # rises from the stock 15 dB SNR to 10 dB, bursts fire 4x the
+        # regular rate, and every burst lands loud (the stock range's quiet
+        # tail is cut). Toned down from the first cut (6 bursts/min, 6%
+        # drops) the same day — that mix floored openai/gemini mode-B cells.
+        # Legacy channel-heavy cells (frame-drops-only) are NOT comparable
+        # to runs with these params — redo, never pool.
+        "noise_snr_db": 10.0,
+        "burst_noise_events_per_minute": 4.0,
+        "burst_snr_range_db": (-5.0, 0.0),
+    },
+}
+
+SPEECH_EFFECTS_MODES: dict[str, dict] = {
+    "light": {
+        # Patient caller: no interruptions, no backchannels, no inserts.
+        "speech_insert_events_per_minute": 0.0,
+        "enable_vocal_tics": False,
+        "enable_non_directed_phrases": False,
+        "use_llm_backchannel": False,
+        "enable_interruptions": False,
+        "interrupt_tendency": "waits",
+    },
+    "regular": {},
+    "heavy": {
+        # Chatty interruptive caller: everything on, inserts at 2x regular.
+        "speech_insert_events_per_minute": 1.5,
+        "enable_vocal_tics": True,
+        "enable_non_directed_phrases": True,
+        "use_llm_backchannel": True,
+        "enable_interruptions": True,
+        "interrupt_tendency": "interrupts",
+    },
+}
+
 
 # Seed offsets for each complexity level to ensure different voice selections
 # Control and regular offsets are fixed for backward compatibility
@@ -119,8 +206,7 @@ CONTROL_CONFIG = {
     # Muffling - disabled
     "enable_muffling": False,
     # Backchanneling and interruptions - disabled
-    "backchannel_min_threshold": None,  # None = disabled
-    "use_llm_backchannel": False,  # Disable LLM-based backchanneling
+    "use_llm_backchannel": False,  # Disable backchanneling
     "enable_interruptions": False,
     # User persona - patient, waits for agent to finish
     "verbosity": "minimal",
@@ -150,7 +236,6 @@ REGULAR_CONFIG = {
     # Muffling - always on
     "enable_muffling": True,
     # Backchanneling and interruptions
-    "backchannel_min_threshold": 3,
     "use_llm_backchannel": True,  # Enable LLM-based backchanneling
     "enable_interruptions": True,
     # User persona - may interrupt the agent
@@ -200,7 +285,6 @@ CONTROL_BEHAVIOR_CONFIG = {
     "enable_vocal_tics": True,
     "enable_non_directed_phrases": True,
     # Backchanneling - enabled with regular settings
-    "backchannel_min_threshold": 3,
     "use_llm_backchannel": True,
     # Interruptions - enabled
     "enable_interruptions": True,
@@ -231,7 +315,6 @@ CONTROL_AUDIO_BEHAVIOR_CONFIG = {
     "enable_vocal_tics": True,
     "enable_non_directed_phrases": True,
     # Backchanneling - enabled with regular settings
-    "backchannel_min_threshold": 3,
     "use_llm_backchannel": True,
     # Interruptions - enabled
     "enable_interruptions": True,
@@ -266,17 +349,49 @@ COMPLEXITY_CONFIGS: dict[SpeechComplexity, dict] = {
 # ============================================================================
 
 
+# Shared with text-mode persona resolution (tau2.multilingual.registry): both
+# use one balanced round-robin and one rotation key, so voice and text assign
+# the same persona to the same task. Deliberate late imports (module cycle).
+from tau2.multilingual.registry import (  # noqa: E402
+    language_persona_order as _language_persona_order,
+)
+from tau2.multilingual.registry import (  # noqa: E402
+    persona_rotation_key as _persona_rotation_key,
+)
+
+
+def _english_persona_gender(persona_name: str) -> str:
+    """The gender of a stock English persona, from its given name.
+
+    English persona definitions carry no gender tags; the closed name catalog
+    (``tau2.multilingual.factory.name_genders``) is the single source of
+    truth, keyed by the persona name's given-name token (``matt_delaney`` →
+    ``matt``). Raises on an un-catalogued name — caller-gender pinning must
+    never guess.
+    """
+    from tau2.multilingual.factory.name_genders import source_caller_gender
+
+    return source_caller_gender(persona_name.split("_")[0])
+
+
 def sample_voice_config(
     seed: int,
     synthesis_config: SynthesisConfig,
     complexity: SpeechComplexity = "regular",
+    persona_name: Optional[str] = None,
+    task_id: Optional[str] = None,
+    run_seed: Optional[int] = None,
+    caller_gender: Optional[str] = None,
+    channel_effects_mode: EffectsMode = "regular",
+    speech_effects_mode: EffectsMode = "regular",
 ) -> SampledVoiceConfig:
     """Sample a complete voice configuration from complexity presets.
 
     This function:
     1. Looks up the complexity preset
-    2. Selects persona deterministically from the preset's persona list (unless provided
-       via synthesis_config.provider_config.persona_name)
+    2. Selects persona deterministically from the preset's persona list (unless
+       forced via `persona_name` or provided via
+       synthesis_config.provider_config.voice_id)
     3. For regular mode, selects environment (indoor/outdoor) and associated audio files
     4. Creates configs with complexity settings applied
     5. Creates PersonaConfig from complexity settings
@@ -284,18 +399,64 @@ def sample_voice_config(
     Each complexity level uses a different seed offset to ensure different persona
     selections across complexity levels for the same base seed.
 
+    When `persona_name` names a language-pack persona (see tau2.multilingual),
+    the returned persona_config is that persona's MultilingualPersonaConfig
+    (the persona author controls verbosity/interrupt tendency), and its
+    acoustic preset (if registered) replaces the indoor/outdoor environment
+    selection.
+
+    A bare language code (e.g. 'hi') assigns one of that pack's personas per
+    task before the same resolution applies. The assignment is a balanced,
+    seed-rotated round-robin: the pack's persona ids are shuffled once with a
+    seed-keyed RNG (string-seeded, so stable across processes), then indexed
+    by the task's number. Balance guarantee: for a fixed rotation seed, task
+    ids whose numeric stems cover a contiguous range (the localized-set
+    convention, e.g. ``0_hi``..``49_hi``) split across the pack's personas
+    with per-persona counts differing by at most 1 (exactly 25/25 on a
+    50-task set with two personas); the assignment is deterministic per
+    (rotation seed, task_id), and different seeds rotate which persona gets
+    which task. The rotation seed is ``run_seed`` when given (the batch
+    runner passes the run-level seed, which is constant across a run's tasks,
+    so the balance guarantee holds within a run even though each task's
+    sampling ``seed`` differs) and ``seed`` otherwise. Without a task_id it
+    falls back to the seeded rng.
+
     Args:
         seed: Random seed for reproducibility.
         synthesis_config: Base synthesis configuration with effect configs.
         complexity: Speech environment complexity level ("control" or "regular").
+        persona_name: Optional persona override (e.g. from --user-persona-id).
+        task_id: Optional task id, used only for the language-code persona
+            assignment above.
+        run_seed: Optional run-level seed, used only to key the language-code
+            persona rotation above. Defaults to `seed`.
+        caller_gender: Optional caller gender ("male"/"female") from the
+            task's caller-gender sidecar. Restricts the language-code persona
+            assignment — and the stock English persona choice — to same-gender
+            personas so the voice always matches the task's caller name; None
+            keeps the full pool.
 
     Returns:
         SampledVoiceConfig with all configs instantiated and complexity settings applied.
+
+    Raises:
+        PersonaResolutionError: If ``persona_name`` is given but names no
+            registered pack, pack persona, or stock voice persona. Degrading
+            to a stock English voice instead would write a call nothing
+            downstream can tell apart from a real one.
     """
     # Apply complexity-specific seed offset to ensure different selections per complexity
     complexity_seed = seed + COMPLEXITY_SEED_OFFSETS.get(complexity, 0)
     rng = random.Random(complexity_seed)
     preset = COMPLEXITY_CONFIGS[complexity]
+    # Effects-mode overlay: fixed in-code intensity overrides on top of the
+    # preset. "regular" contributes nothing, keeping the default path
+    # byte-identical to a pre-modes run.
+    preset = {
+        **preset,
+        **CHANNEL_EFFECTS_MODES[channel_effects_mode],
+        **SPEECH_EFFECTS_MODES[speech_effects_mode],
+    }
 
     # Get base configs from synthesis_config
     base_channel = synthesis_config.channel_effects_config
@@ -305,12 +466,88 @@ def sample_voice_config(
     # -------------------------------------------------------------------------
     # Sample persona (simulation-level, same speaker throughout)
     # -------------------------------------------------------------------------
-    provider_config = synthesis_config.provider_config
-    voice_id = provider_config.voice_id if provider_config else None
-    persona_name = get_persona_name_by_voice_id(voice_id) if voice_id else None
     if not persona_name:
+        provider_config = synthesis_config.provider_config
+        voice_id = provider_config.voice_id if provider_config else None
+        persona_name = get_persona_name_by_voice_id(voice_id) if voice_id else None
+    if persona_name:
+        # An explicitly requested persona MUST resolve. Letting an
+        # unresolvable one through here is how a localized run ends up with a
+        # stock English voice and a null speech_environment.persona_id.
+        from tau2.multilingual.registry import require_persona_override
+
+        require_persona_override(persona_name)
+    else:
+        # The legitimate stock-persona path: no override, no voice-id pin —
+        # a plain English run picks from the complexity preset's pool.
         persona_names = preset.get("persona_names", CONTROL_PERSONA_NAMES)
+        if caller_gender:
+            # English arms of seed-diversified domains (e.g. telecom _en
+            # tasks) pin the stock-persona choice to the task's caller gender,
+            # mirroring the language-pack pinning below. Both preset pools
+            # carry both genders (coverage-guarded in tests), so the filter
+            # never empties.
+            persona_names = [
+                name
+                for name in persona_names
+                if _english_persona_gender(name) == caller_gender.lower()
+            ]
         persona_name = rng.choice(persona_names)
+
+    # A bare language code (e.g. persona_name='hi') means "assign one of that
+    # pack's personas", mirroring how English runs sample among the preset's
+    # persona list. With a task_id the assignment is a seed-rotated
+    # round-robin keyed by persona_rotation_key (the task id's first digit
+    # run) — reproducible across runs/processes (string-keyed RNG, not salted
+    # hash(task.id)), evenly split across the pack's personas (counts differ
+    # by at most 1 on contiguous task numbers, e.g. exactly 25/25 on the 50
+    # airline_hi tasks), and rotated by the run seed so different seeds
+    # exercise different (task, persona) pairings. Without task-id digits it
+    # falls back to the first element of the seeded order — the same fallback
+    # as the text path (resolve_task_persona), so text and voice always
+    # assign the same persona.
+    from tau2.multilingual.registry import get_language_pack
+
+    language_pack = get_language_pack(persona_name)
+    if language_pack is not None:
+        # Only an explicitly requested language code reaches a pack here, and
+        # require_persona_override has already rejected a pack with no
+        # personas — so the pool below is never empty.
+        persona_ids = sorted(language_pack.personas)
+        # Localized runs pin the caller's voice to the gender of the task's
+        # caller name — the caller-gender sidecar covers plain AND _identity
+        # task ids (packs are exactly 1 male + 1 female, so this resolves to
+        # one persona). Falls back to the balanced round-robin when no gender
+        # is provided or no same-gender persona exists.
+        gender_ids = (
+            [
+                pid
+                for pid in persona_ids
+                if str(
+                    (getattr(language_pack.personas[pid], "tags", None) or {}).get(
+                        "gender", ""
+                    )
+                ).lower()
+                == caller_gender.lower()
+            ]
+            if caller_gender
+            else []
+        )
+        pool = gender_ids or persona_ids
+        if len(pool) == 1:
+            persona_name = pool[0]
+        else:
+            order = _language_persona_order(
+                pool, run_seed if run_seed is not None else seed
+            )
+            key = _persona_rotation_key(task_id)
+            persona_name = order[key % len(order)] if key is not None else order[0]
+
+    # Language-pack persona? Resolves to (pack, MultilingualPersonaConfig);
+    # None for plain English personas (the default path, unchanged).
+    from tau2.multilingual.registry import get_multilingual_persona
+
+    multilingual = get_multilingual_persona(persona_name)
 
     # -------------------------------------------------------------------------
     # Select environment and audio files
@@ -319,7 +556,34 @@ def sample_voice_config(
     background_noise_file: Optional[str] = None
     burst_noise_files: list[str] = []
 
-    if preset.get("enable_background_noise") or preset.get("enable_burst_noise"):
+    noise_enabled = preset.get("enable_background_noise") or preset.get(
+        "enable_burst_noise"
+    )
+    acoustic_preset = (
+        multilingual[0].get_acoustic_preset(multilingual[1]) if multilingual else None
+    )
+
+    if acoustic_preset is not None and noise_enabled:
+        # Language-pack acoustic preset replaces indoor/outdoor selection.
+        environment = acoustic_preset.id
+        if (
+            preset.get("enable_background_noise")
+            and acoustic_preset.background_noise_files
+        ):
+            bg_filename = rng.choice(acoustic_preset.background_noise_files)
+            bg_path = BACKGROUND_NOISE_CONTINUOUS_DIR / bg_filename
+            if bg_path.exists():
+                background_noise_file = bg_filename
+            else:
+                logger.warning(f"Background noise file not found: {bg_path}")
+        if preset.get("enable_burst_noise"):
+            for burst_filename in acoustic_preset.burst_noise_files:
+                burst_path = BURST_NOISE_DIR / burst_filename
+                if burst_path.exists():
+                    burst_noise_files.append(burst_filename)
+                else:
+                    logger.warning(f"Burst noise file not found: {burst_path}")
+    elif preset.get("enable_background_noise") or preset.get("enable_burst_noise"):
         # Select environment deterministically based on seed
         env_setting = preset.get("environment")
         if env_setting == "auto":
@@ -372,22 +636,48 @@ def sample_voice_config(
     # -------------------------------------------------------------------------
     merged_source = SourceEffectsConfig(
         enable_background_noise=preset.get("enable_background_noise", False),
-        noise_snr_db=base_source.noise_snr_db,
+        # Preset-aware since the channel-heavy acoustics redefinition (owner,
+        # 2026-09-02): no complexity preset defines these keys, so outside
+        # channel-"heavy" they fall back to the stock base_source values and
+        # the default path stays byte-identical to a pre-modes run.
+        noise_snr_db=preset.get("noise_snr_db", base_source.noise_snr_db),
         noise_snr_drift_db=base_source.noise_snr_drift_db,
         noise_variation_speed=base_source.noise_variation_speed,
         enable_burst_noise=preset.get("enable_burst_noise", False),
         burst_noise_events_per_minute=preset.get(
             "burst_noise_events_per_minute", base_source.burst_noise_events_per_minute
         ),
-        burst_snr_range_db=base_source.burst_snr_range_db,
+        burst_snr_range_db=preset.get(
+            "burst_snr_range_db", base_source.burst_snr_range_db
+        ),
     )
 
     # -------------------------------------------------------------------------
     # Create merged SpeechEffectsConfig
     # -------------------------------------------------------------------------
+    # Out-of-turn speech localization: a language-pack persona's
+    # phrase list replaces the English phrases; the rate is a language-level
+    # (pack) setting, falling back to the preset value.
+    non_directed_phrases = base_speech.non_directed_phrases
+    speech_insert_events_per_minute = preset.get(
+        "speech_insert_events_per_minute",
+        base_speech.speech_insert_events_per_minute,
+    )
+    if multilingual is not None:
+        pack, ml_persona = multilingual
+        if ml_persona.non_directed_phrases:
+            non_directed_phrases = [
+                UserSpeechInsert(text=phrase, type="non_directed_phrase")
+                for phrase in ml_persona.non_directed_phrases
+            ]
+        if pack.default_out_of_turn_events_per_minute is not None:
+            speech_insert_events_per_minute = pack.default_out_of_turn_events_per_minute
+
     merged_speech = SpeechEffectsConfig(
         enable_dynamic_muffling=preset.get("enable_muffling", False),
-        muffle_probability=base_speech.muffle_probability
+        muffle_probability=preset.get(
+            "muffle_probability", base_speech.muffle_probability
+        )
         if preset.get("enable_muffling")
         else 0.0,
         muffle_segment_count=base_speech.muffle_segment_count,
@@ -402,27 +692,28 @@ def sample_voice_config(
         enable_non_directed_phrases=preset.get(
             "enable_non_directed_phrases", base_speech.enable_non_directed_phrases
         ),
-        non_directed_phrases=base_speech.non_directed_phrases,
-        speech_insert_events_per_minute=preset.get(
-            "speech_insert_events_per_minute",
-            base_speech.speech_insert_events_per_minute,
-        ),
+        non_directed_phrases=non_directed_phrases,
+        speech_insert_events_per_minute=speech_insert_events_per_minute,
     )
 
     # -------------------------------------------------------------------------
     # Create PersonaConfig from complexity settings
     # -------------------------------------------------------------------------
-    persona_config = PersonaConfig(
-        verbosity=Verbosity(preset["verbosity"]),
-        interrupt_tendency=InterruptTendency(preset["interrupt_tendency"]),
-    )
+    if multilingual is not None:
+        # The language-pack persona IS the persona config (verbosity, interrupt
+        # tendency, and language fields are author-controlled).
+        persona_config = multilingual[1]
+    else:
+        persona_config = PersonaConfig(
+            verbosity=Verbosity(preset["verbosity"]),
+            interrupt_tendency=InterruptTendency(preset["interrupt_tendency"]),
+        )
 
     return SampledVoiceConfig(
         persona_name=persona_name,
         background_noise_file=background_noise_file,
         burst_noise_files=burst_noise_files,
         environment=environment,
-        backchannel_min_threshold=preset.get("backchannel_min_threshold"),
         use_llm_backchannel=preset.get("use_llm_backchannel", True),
         enable_interruptions=preset.get("enable_interruptions", False),
         telephony_enabled=preset.get("telephony_enabled", True),
@@ -431,6 +722,8 @@ def sample_voice_config(
         speech_effects_config=merged_speech,
         persona_config=persona_config,
         complexity=complexity,
+        channel_effects_mode=channel_effects_mode,
+        speech_effects_mode=speech_effects_mode,
     )
 
 
@@ -517,11 +810,16 @@ def generate_task_voice_configs(
     """Generate pre-sampled voice configs for all tasks in a task set.
 
     Generates configs for all complexity levels (control, regular) for each task.
-    Each task gets a deterministic seed based on base_seed + hash(task.id).
+    Each task gets a deterministic seed via ``derive_task_seed(base_seed, task.id)``.
+
+    Tasks covered by the domain's ``en`` caller-gender sidecar are sampled with
+    the stock-persona choice pinned to the task caller's gender — the same pin
+    the runtime on-the-fly path applies, so the pre-sampled file and a live
+    sample agree.
 
     Args:
         task_set_name: Name of the task set (e.g., "telecom", "airline").
-        base_seed: Base random seed. Each task gets seed = base_seed + hash(task.id) % 1000000.
+        base_seed: Base random seed. Each task gets seed = derive_task_seed(base_seed, task.id).
         synthesis_config: Base synthesis config. If None, uses defaults.
         task_split_name: Optional task split to filter tasks.
 
@@ -529,6 +827,7 @@ def generate_task_voice_configs(
         TaskVoiceConfigs with pre-sampled configs for all tasks and complexity levels.
     """
     # Import here to avoid circular imports
+    from tau2.multilingual.factory.entity_localization import caller_gender_for_task
     from tau2.run import load_tasks
 
     if synthesis_config is None:
@@ -539,7 +838,8 @@ def generate_task_voice_configs(
     configs: dict[str, TaskVoiceConfigsByComplexity] = {}
     for task in tasks:
         # Deterministic seed per task (same logic as run_task)
-        task_seed = base_seed + hash(task.id) % 1000000
+        task_seed = derive_task_seed(base_seed, task.id)
+        caller_gender = caller_gender_for_task(task.id, "en", task_set_name)
 
         # Sample for each complexity level
         task_configs: dict[str, SampledVoiceConfig] = {}
@@ -548,6 +848,7 @@ def generate_task_voice_configs(
                 seed=task_seed,
                 synthesis_config=synthesis_config,
                 complexity=complexity,
+                caller_gender=caller_gender,
             )
             task_configs[complexity] = sampled
             logger.debug(
@@ -623,8 +924,19 @@ def get_or_load_task_voice_config(
     task_seed: int,
     complexity: SpeechComplexity,
     synthesis_config: SynthesisConfig,
+    persona_name: Optional[str] = None,
+    run_seed: Optional[int] = None,
+    channel_effects_mode: EffectsMode = "regular",
+    speech_effects_mode: EffectsMode = "regular",
 ) -> SampledVoiceConfig:
     """Get voice config for a task, loading from file if available.
+
+    English runs (``persona_name=None``) consult the domain's ``en``
+    caller-gender sidecar first: task ids it covers (the seed-diversified
+    multilingual arms, e.g. telecom ``_en`` ids) are sampled on the fly with
+    the stock-persona choice pinned to the caller's gender — bypassing
+    pre-sampled configs, which bake in an arbitrary-gender persona. Ids
+    without a sidecar entry keep the pre-sampled path unchanged.
 
     Args:
         domain: Domain name.
@@ -632,10 +944,91 @@ def get_or_load_task_voice_config(
         task_seed: Seed to use if sampling is needed.
         complexity: Speech complexity level.
         synthesis_config: Base synthesis config for sampling.
+        persona_name: Optional persona override. When set, pre-sampled configs
+            are bypassed (they bake in a different persona) and the config is
+            sampled on the fly with this persona.
+        run_seed: Optional run-level seed (constant across a run's tasks),
+            used only to key the language-code persona rotation in
+            ``sample_voice_config``.
 
     Returns:
         SampledVoiceConfig for the task.
     """
+    if persona_name is not None:
+        logger.info(
+            f"Persona override '{persona_name}' for task {task_id}: sampling "
+            f"voice config on the fly (seed={task_seed}, complexity={complexity})"
+        )
+        # Localized tasks pin the caller's voice to the gender of the task's
+        # caller name (locale identity on "_identity" sets, English source
+        # name on the plain localized set — the sidecar covers both);
+        # persona_name is the bare language code. Task ids without a sidecar
+        # entry resolve to None and keep the balanced round-robin.
+        caller_gender = None
+        if task_id:
+            from tau2.multilingual.factory.entity_localization import (
+                caller_gender_for_task,
+            )
+
+            caller_gender = caller_gender_for_task(task_id, persona_name, domain)
+        return sample_voice_config(
+            seed=task_seed,
+            synthesis_config=synthesis_config,
+            complexity=complexity,
+            persona_name=persona_name,
+            task_id=task_id,
+            run_seed=run_seed,
+            caller_gender=caller_gender,
+            channel_effects_mode=channel_effects_mode,
+            speech_effects_mode=speech_effects_mode,
+        )
+
+    # ENGLISH caller-gender pinning: an ``en`` sidecar exists only for
+    # seed-diversified multilingual arms (e.g. the telecom ``_en`` task ids),
+    # where a pre-sampled config would bake in an arbitrary-gender persona —
+    # covered tasks sample on the fly with the gender pin instead. Plain
+    # English runs (no sidecar entry) keep the pre-sampled path unchanged.
+    if task_id:
+        from tau2.multilingual.factory.entity_localization import (
+            caller_gender_for_task,
+        )
+
+        caller_gender = caller_gender_for_task(task_id, "en", domain)
+        if caller_gender is not None:
+            logger.info(
+                f"Caller-gender pin '{caller_gender}' for English task "
+                f"{task_id}: sampling voice config on the fly "
+                f"(seed={task_seed}, complexity={complexity})"
+            )
+            return sample_voice_config(
+                seed=task_seed,
+                synthesis_config=synthesis_config,
+                complexity=complexity,
+                task_id=task_id,
+                run_seed=run_seed,
+                caller_gender=caller_gender,
+                channel_effects_mode=channel_effects_mode,
+                speech_effects_mode=speech_effects_mode,
+            )
+
+    # Effects-mode runs bypass pre-sampled configs: those bake in the
+    # complexity preset's regular-intensity values.
+    if channel_effects_mode != "regular" or speech_effects_mode != "regular":
+        logger.info(
+            f"Effects modes (channel={channel_effects_mode}, "
+            f"speech={speech_effects_mode}) for task {task_id}: sampling "
+            f"voice config on the fly (seed={task_seed}, complexity={complexity})"
+        )
+        return sample_voice_config(
+            seed=task_seed,
+            synthesis_config=synthesis_config,
+            complexity=complexity,
+            task_id=task_id,
+            run_seed=run_seed,
+            channel_effects_mode=channel_effects_mode,
+            speech_effects_mode=speech_effects_mode,
+        )
+
     config_path = get_task_voice_configs_path(domain)
 
     if config_path.exists():
@@ -692,9 +1085,14 @@ def generate_task_voice_configs_for_levels(
         synthesis_config: Base synthesis config. If None, uses defaults.
         task_split_name: Optional task split to filter tasks.
 
+    Tasks covered by the domain's ``en`` caller-gender sidecar are sampled
+    with the stock-persona choice pinned to the task caller's gender (see
+    :func:`generate_task_voice_configs`).
+
     Returns:
         TaskVoiceConfigs with pre-sampled configs for specified complexity levels.
     """
+    from tau2.multilingual.factory.entity_localization import caller_gender_for_task
     from tau2.run import load_tasks
 
     if synthesis_config is None:
@@ -704,7 +1102,8 @@ def generate_task_voice_configs_for_levels(
 
     configs: dict[str, TaskVoiceConfigsByComplexity] = {}
     for task in tasks:
-        task_seed = base_seed + hash(task.id) % 1000000
+        task_seed = derive_task_seed(base_seed, task.id)
+        caller_gender = caller_gender_for_task(task.id, "en", task_set_name)
 
         task_configs: dict[str, SampledVoiceConfig] = {}
         for complexity in complexity_levels:
@@ -712,6 +1111,7 @@ def generate_task_voice_configs_for_levels(
                 seed=task_seed,
                 synthesis_config=synthesis_config,
                 complexity=complexity,
+                caller_gender=caller_gender,
             )
             task_configs[complexity] = sampled
             logger.debug(

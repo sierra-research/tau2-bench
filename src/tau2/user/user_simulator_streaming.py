@@ -19,7 +19,9 @@ from tau2.agent.base.streaming import (
     merge_homogeneous_chunks,
 )
 from tau2.agent.base.voice import VoiceMixin, VoiceState
-from tau2.config import VOICE_USER_SIMULATOR_DECISION_MODEL
+from tau2.config import (
+    VOICE_USER_SIMULATOR_DECISION_MODEL,
+)
 from tau2.data_model.audio import (
     PCM_SAMPLE_RATE,
     AudioData,
@@ -38,7 +40,16 @@ from tau2.data_model.message import (
 from tau2.data_model.persona import InterruptTendency, PersonaConfig
 from tau2.data_model.voice import VoiceSettings
 from tau2.environment.tool import Tool
-from tau2.user.user_simulator import SYSTEM_PROMPT, get_global_user_sim_guidelines_voice
+from tau2.user.user_simulator import (
+    SYSTEM_PROMPT,
+    get_end_of_prompt_reminder,
+    get_global_user_sim_guidelines_voice,
+    get_target_language_directive,
+    insert_language_directive,
+    substitute_example_slots,
+    substitute_persona_slot,
+    substitute_spellout_slot,
+)
 from tau2.user.user_simulator_base import (
     OUT_OF_SCOPE,
     STOP,
@@ -116,7 +127,7 @@ Say YES if:
 Say NO if:
 - The agent just started speaking (fewer than 2 substantive sentences)
 - The user spoke OR backchanneled within the last 2-3 exchanges
-- The agent's current turn contains or ends with a question
+- The agent's current turn contains or ends with a question, a request, or an instruction addressed to the user (anything asking them to answer, confirm, supply information, or do something — "read me the full number", "check your settings and tell me what you see" — deserves a real response, not a continuer)
 - The agent is wrapping up or about to finish their thought
 
 Frequency guidance:
@@ -152,62 +163,6 @@ Respond with ONLY "YES" or "NO".
 
 # Alias for backward compatibility (default is continuer version)
 BACKCHANNEL_DECISION_PROMPT = BACKCHANNEL_DECISION_PROMPT_CONTINUER
-
-# Alternative prompt focused on acknowledgments (responding to specific content)
-# Acknowledgments are content-driven responses ("ok", "got it") to specific information.
-# NOTE: THIS IS HERE FOR EXPERIMENTAL PURPOSES. ACKNOWLEDGEMENT WIHTOUT ACCESS TO THE FULL USER INSTRUCTIONS IS RISKY!
-BACKCHANNEL_DECISION_PROMPT_ACKNOWLEDGMENT = """You simulate a natural listener who briefly acknowledges when the speaker shares important information.
-
-<conversation_history>
-{conversation_history}
-</conversation_history>
-
-The agent is still speaking [CURRENTLY SPEAKING, INCOMPLETE]. Ignore the trailing incomplete word/phrase — focus only on the COMPLETE sentences delivered so far in the agent's current turn.
-
-Acknowledgments ("ok", "got it", "I see", "right") are brief responses that confirm you understood something specific. They:
-- React to meaningful information (confirmations, prices, instructions, findings)
-- Show you processed what was said
-- Are content-driven, not just signals of attention
-
-Say YES if the agent just completed a statement containing:
-- A confirmation ("I found your account", "The exchange has been processed")
-- A price or cost ("That will be $249", "The refund is $13.46")
-- Important information ("Your order includes...", "The status is delivered")
-- An instruction or next step ("You'll receive an email with...")
-AND the user hasn't acknowledged recently (last 2-3 exchanges)
-
-Say NO if:
-- The agent just started speaking (no complete meaningful statement yet)
-- The user recently spoke or acknowledged
-- The agent is asking a question
-- The agent is giving routine/filler speech (greetings, "let me check", transitions)
-
-Frequency guidance:
-- Acknowledgments should feel purposeful, not automatic
-- Only acknowledge genuinely important information
-- Aim for 1 acknowledgment per significant piece of information shared
-- When in doubt, say NO — not every statement needs acknowledgment
-- Too few acknowledgments is better than too many
-
-Examples:
-
-AGENT: "Hi there! How can I hel [CURRENTLY SPEAKING, INCOMPLETE]"
-→ NO (greeting, nothing to acknowledge)
-
-AGENT: "Let me look that up for you. I'll check our system now and see if I can fin [CURRENTLY SPEAKING, INCOMPLETE]"
-→ NO (routine transition, nothing substantive to acknowledge)
-
-AGENT: "I found your account. Your order number is W2378156. It includes a keyboard and thermosta [CURRENTLY SPEAKING, INCOMPLETE]"
-→ YES (agent confirmed finding account and shared order details — worth an "ok" or "got it")
-
-AGENT: "The exchange has been processed. The refund of $13.46 will go to your card ending in 2478. You'll receive an ema [CURRENTLY SPEAKING, INCOMPLETE]"
-→ YES (confirmation + price + next steps — natural moment for "ok" or "I see")
-
-AGENT: "Could you please spell your last name letter by lett [CURRENTLY SPEAKING, INCOMPLETE]"
-→ NO (agent is asking a question)
-
-Respond with ONLY "YES" or "NO".
-"""
 
 
 class UserStreamingState(UserState, StreamingState[ValidUserInputMessage, UserMessage]):
@@ -318,6 +273,7 @@ def user_interruption_policy(
 def user_backchannel_policy(
     state: UserStreamingState,
     integration_ticks: int = 1,
+    decision_prompt: Optional[str] = None,
 ) -> ListenerReactionDecision:
     """
     Decide whether the user should backchannel while the agent is speaking.
@@ -331,6 +287,8 @@ def user_backchannel_policy(
         state: The current streaming state
         integration_ticks: Number of consecutive silent ticks before an overlap region ends
             during linearization. Higher values are more tolerant of brief pauses. Default is 1.
+        decision_prompt: Optional override for the backchannel decision prompt template
+            (must contain a {conversation_history} placeholder). None uses the English default.
 
     Returns:
         ListenerReactionDecision with decision and metadata from the LLM call
@@ -352,12 +310,11 @@ def user_backchannel_policy(
     logger.info(f"CHECKING BACKCHANNEL:\nSent to LLM:\n{formatted_history}\n\n\n")
 
     # Build the prompt for backchannel decision using template
-    decision_prompt = BACKCHANNEL_DECISION_PROMPT.format(
-        conversation_history=formatted_history
-    )
+    prompt_template = decision_prompt or BACKCHANNEL_DECISION_PROMPT
+    formatted_prompt = prompt_template.format(conversation_history=formatted_history)
 
     # Create messages for LLM call
-    decision_messages = [UserMessage(role="user", content=decision_prompt)]
+    decision_messages = [UserMessage(role="user", content=formatted_prompt)]
 
     try:
         response = generate(
@@ -438,9 +395,6 @@ class VoiceStreamingUserSimulator(
         wait_to_respond_threshold_self: int = 4,
         yield_threshold_when_interrupted: Optional[int] = 2,
         yield_threshold_when_interrupting: Optional[int] = None,
-        backchannel_min_threshold: Optional[int] = None,
-        backchannel_max_threshold: Optional[int] = None,
-        backchannel_poisson_rate: Optional[float] = None,
         use_llm_backchannel: bool = True,
         interruption_check_interval: Optional[int] = None,
         integration_ticks: int = 1,
@@ -449,6 +403,7 @@ class VoiceStreamingUserSimulator(
         persona_config: Optional[PersonaConfig] = None,
         audio_taps_dir: Optional["Path"] = None,
         realtime_generation: bool = False,
+        domain: Optional[str] = None,
     ):
         """
         Initialize the streaming user simulator.
@@ -465,19 +420,18 @@ class VoiceStreamingUserSimulator(
                 Both this AND wait_to_respond_threshold_other must be satisfied.
             yield_threshold_when_interrupted: How long user keeps speaking when agent interrupts user. If None, cannot be interrupted.
             yield_threshold_when_interrupting: How long user keeps speaking when user interrupts agent. If None, uses yield_threshold_when_interrupted.
-            backchannel_min_threshold: Min threshold for backchanneling (ticks). If None and using Poisson, cannot backchannel.
-            backchannel_max_threshold: Max threshold for backchanneling (ticks). Used with Poisson policy.
-            backchannel_poisson_rate: Poisson rate for backchanneling (events/second). Used with Poisson policy.
-            use_llm_backchannel: If True, use LLM-based backchannel policy. If False, use Poisson-based policy.
+            use_llm_backchannel: If True, enable backchanneling via the LLM decision prompt. If False, disable backchanneling.
             interruption_check_interval: If set, only check for interruption every N ticks. Useful to reduce callback frequency.
             integration_ticks: Number of consecutive silent ticks before an overlap region ends
                 during linearization. Higher values are more tolerant of brief pauses. Default is 1.
             silence_annotation_threshold_ticks: If set, add silence annotations to conversation history
                 when both parties are silent for more than this many ticks.
-            tick_duration_seconds: Duration of each tick in seconds. Used for backchanneling Poisson calculations.
+            tick_duration_seconds: Duration of each tick in seconds.
             voice_settings: Voice settings for the user.
             persona_config: Runtime persona configuration for user behavior (e.g., verbosity level, interrupt tendency)
             audio_taps_dir: If set, record audio at each pipeline stage to WAV files in this directory.
+            realtime_generation: Generate user LLM/TTS output without blocking audio ticks.
+            domain: Benchmark domain used to select multilingual glossary guidance.
         """
         # Initialize mixin and base class
         super().__init__(
@@ -489,6 +443,10 @@ class VoiceStreamingUserSimulator(
             voice_settings=voice_settings,
         )
         self.persona_config = persona_config or PersonaConfig()
+        # The run's benchmark domain; selects which of a language pack's
+        # per-domain glossaries renders into the localization section. None
+        # (non-multilingual runs) renders no glossary.
+        self.domain = domain
         self.integration_ticks = integration_ticks
         self.silence_annotation_threshold_ticks = silence_annotation_threshold_ticks
         self.tick_duration_seconds = tick_duration_seconds
@@ -497,9 +455,6 @@ class VoiceStreamingUserSimulator(
         self.wait_to_respond_threshold_self = wait_to_respond_threshold_self
         self.yield_threshold_when_interrupted = yield_threshold_when_interrupted
         self.yield_threshold_when_interrupting = yield_threshold_when_interrupting
-        self.backchannel_min_threshold = backchannel_min_threshold
-        self.backchannel_max_threshold = backchannel_max_threshold
-        self.backchannel_poisson_rate = backchannel_poisson_rate
         self.use_llm_backchannel = use_llm_backchannel
         self.interruption_check_interval = interruption_check_interval
         self.realtime_generation = realtime_generation
@@ -514,6 +469,13 @@ class VoiceStreamingUserSimulator(
             if realtime_generation
             else None
         )
+
+        # Backchannel localization: a language-pack persona's phrase list and
+        # its pack's decision prompt / Poisson rate override the defaults
+        # above. Plain English personas keep them untouched.
+        self.backchannel_phrases: list[str] = BACKCHANNEL_PHRASES
+        self.backchannel_decision_prompt: str = BACKCHANNEL_DECISION_PROMPT
+        self._apply_multilingual_backchannel_overrides()
 
         # Default yield_threshold_when_interrupting to yield_threshold_when_interrupted if not set
         if (
@@ -605,6 +567,53 @@ class VoiceStreamingUserSimulator(
             }
             logger.info(f"Audio taps enabled, output dir: {audio_taps_dir}")
 
+    def _apply_multilingual_backchannel_overrides(self) -> None:
+        """Resolve backchannel overrides from the persona's language pack.
+
+        Phrases come from the persona. The decision prompt is resolved through
+        the density knob (:mod:`tau2.backchannel`) in priority order:
+
+          1. ``TAU2_BACKCHANNEL_LEVEL`` env var (run-level experiment override,
+             applies to every language including English);
+          2. the pack's ``backchannel_level`` (the per-language default);
+          3. the English default (left untouched).
+
+        A plain PersonaConfig (no persona_id) keeps the English default unless
+        the env override is set.
+        """
+        import os
+
+        from tau2.backchannel import BackchannelLevel, render_backchannel_prompt
+
+        env_level = os.environ.get("TAU2_BACKCHANNEL_LEVEL")
+
+        persona_id = getattr(self.persona_config, "persona_id", None)
+        pack = persona = None
+        if persona_id is not None:
+            from tau2.multilingual.registry import get_multilingual_persona
+
+            multilingual = get_multilingual_persona(persona_id)
+            if multilingual is not None:
+                pack, persona = multilingual
+
+        if persona is not None and persona.backchannel_phrases:
+            self.backchannel_phrases = persona.backchannel_phrases
+
+        # Resolve the decision prompt via the knob.
+        level = None
+        if env_level:
+            level = BackchannelLevel(env_level.lower())
+        elif pack is not None and pack.backchannel_level is not None:
+            level = pack.backchannel_level
+
+        if level is not None:
+            language_name = pack.display_name if pack is not None else "English"
+            self.backchannel_decision_prompt = render_backchannel_prompt(
+                level,
+                language_name=language_name,
+                phrases=self.backchannel_phrases,
+            )
+
     def validate_turn_taking_settings(self) -> None:
         """Validate the turn-taking settings."""
         if (
@@ -633,9 +642,14 @@ class VoiceStreamingUserSimulator(
 
     @property
     def global_simulation_guidelines(self) -> str:
-        """The voice-specific simulation guidelines for the user simulator."""
-        use_tools = self.tools is not None
-        return get_global_user_sim_guidelines_voice(use_tools=use_tools)
+        """The voice-specific simulation guidelines for the user simulator.
+
+        EVERY persona gets the English guidelines — the target language is
+        directed by the fixed directive block (see
+        ``get_target_language_directive``), not by translating the prompt.
+
+        """
+        return get_global_user_sim_guidelines_voice(use_tools=self.tools is not None)
 
     @property
     def system_prompt(self) -> str:
@@ -645,20 +659,56 @@ class VoiceStreamingUserSimulator(
 
         guidelines = self.global_simulation_guidelines
 
-        # Check if persona config adds any guidelines
-        persona_guidelines = self.persona_config.to_guidelines_text()
-        if persona_guidelines is None:
-            persona_guidelines = ""
+        # The directive goes near the TOP (after the title/role-framing
+        # intro): the language mandate must be visible before any behavioral
+        # instruction or example.
+        directive = get_target_language_directive(self.persona_config)
+        guidelines = insert_language_directive(guidelines, directive)
+
+        language = getattr(self.persona_config, "language", None)
+
+        # The English guidelines carry a <SPOKEN_VALUES_SPELLOUT> slot: a
+        # language-pack persona renders the symbol table + worked value
+        # readouts natively there; plain English personas get the fixed
+        # English section.
+        guidelines = substitute_spellout_slot(guidelines, language)
+
+        # The English guidelines also carry inline <EXAMPLE:kind> slots for
+        # every behavioral example utterance (disfluency palette,
+        # confirmations, silence check-ins, …): pack data renders them in the
+        # target language; the fixed English defaults apply otherwise. The
+        # persona's gender tag selects the male
+        # realization of any kind the pack marks as gendered language
+        # mechanics (ja pronouns / sentence-final particles / softeners).
+        gender = getattr(self.persona_config, "tags", {}).get("gender")
+        guidelines = substitute_example_slots(guidelines, language, gender)
+
+        # Check if persona config adds any guidelines. A language pack's
+        # localization block (date/numeral consistency rule, phone/amount/
+        # spelling conventions, domain-term glossary) rides the same
+        # <PERSONA_GUIDELINES> slot.
+        from tau2.multilingual.registry import get_localization_guidelines
+
+        sections = [
+            self.persona_config.to_guidelines_text(),
+            get_localization_guidelines(language, mode="voice", domain=self.domain),
+        ]
+        persona_guidelines = "\n\n".join(s for s in sections if s)
         if persona_guidelines:
             persona_guidelines = f"\n\n{persona_guidelines}\n"
-        guidelines_with_persona = guidelines.replace(
-            "<PERSONA_GUIDELINES>", persona_guidelines
+        guidelines_with_persona = substitute_persona_slot(
+            guidelines, persona_guidelines
         )
 
         system_prompt = SYSTEM_PROMPT.format(
             global_user_sim_guidelines_with_persona=guidelines_with_persona,
             instructions=self.instructions,
         )
+        # A terse recency anchor AFTER the scenario block: the language
+        # mandate and the special-token contract, restated in two lines.
+        reminder = get_end_of_prompt_reminder(self.persona_config)
+        if reminder:
+            system_prompt = f"{system_prompt}\n\n{reminder}"
         return system_prompt
 
     @classmethod
@@ -747,6 +797,7 @@ class VoiceStreamingUserSimulator(
                 persona_name=speech_env.persona_name,
                 sample_rate=PCM_SAMPLE_RATE,
                 background_noise_file=background_noise_file,
+                language=speech_env.language,
             )
         )
 
@@ -889,11 +940,16 @@ class VoiceStreamingUserSimulator(
 
         # Backchannel callback is tied to the use_llm_backchannel config
         if self.use_llm_backchannel:
+            backchannel_decision_prompt = self.backchannel_decision_prompt
 
             def should_backchannel_callback(
                 s: UserStreamingState,
             ) -> ListenerReactionDecision:
-                return user_backchannel_policy(s, integration_ticks=integration_ticks)
+                return user_backchannel_policy(
+                    s,
+                    integration_ticks=integration_ticks,
+                    decision_prompt=backchannel_decision_prompt,
+                )
 
         action, info = basic_turn_taking_policy(
             state,
@@ -901,9 +957,6 @@ class VoiceStreamingUserSimulator(
             yield_threshold_when_interrupting=self.yield_threshold_when_interrupting,
             wait_to_respond_threshold_other=self.wait_to_respond_threshold_other,
             wait_to_respond_threshold_self=self.wait_to_respond_threshold_self,
-            backchannel_min_threshold=self.backchannel_min_threshold,
-            backchannel_max_threshold=self.backchannel_max_threshold,
-            backchannel_poisson_rate=self.backchannel_poisson_rate,
             tick_duration_seconds=self.tick_duration_seconds,
             should_interrupt_callback=should_interrupt_callback,
             should_backchannel_callback=should_backchannel_callback,
@@ -1513,8 +1566,12 @@ class VoiceStreamingUserSimulator(
             elif isinstance(msg, AssistantMessage):
                 # Agent's message -> becomes user input
                 # Skip tool calls and messages without text content
-                # (audio-only messages can't be converted to text UserMessage)
-                if not msg.is_tool_call() and msg.content and msg.content.strip():
+                # (audio-only messages can't be converted to text UserMessage).
+                # has_text_content() (not bare truthiness) because streamed
+                # transcript chunks can be whitespace-only (observed with
+                # Devanagari transcript deltas, e.g. a lone ' ' chunk), and
+                # generate() rejects whitespace-only messages downstream.
+                if not msg.is_tool_call() and msg.has_text_content():
                     flipped.append(
                         UserMessage(
                             role="user",
@@ -1546,7 +1603,7 @@ class VoiceStreamingUserSimulator(
         effects_turn_idx = state.user_utterance_count
 
         # Randomly select a backchannel phrase
-        content = state.backchannel_rng.choice(BACKCHANNEL_PHRASES)
+        content = state.backchannel_rng.choice(self.backchannel_phrases)
 
         user_message = UserMessage(
             role="user",

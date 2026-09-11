@@ -335,8 +335,23 @@ class Environment:
                     and message.is_tool_call()
                 ):
                     tool_calls = message.tool_calls
-                    for tc in tool_calls:
+                    for i, tc in enumerate(tool_calls):
                         if len(messages) == 0:
+                            # A history may legitimately END with a tool-call
+                            # message none of whose calls executed: the
+                            # orchestrator drops calls the agent bundled with
+                            # its call-terminating turn and stops. Skip them —
+                            # they never reached the environment, so replay
+                            # must not apply them either (the DB check then
+                            # scores the dropped work). Results present for
+                            # only SOME of the calls is still corruption.
+                            if i == 0:
+                                logger.warning(
+                                    "Message history ends with an unexecuted "
+                                    f"tool-call message ({len(tool_calls)} "
+                                    "calls); skipping them in replay."
+                                )
+                                break
                             raise ValueError("Tool message expected. Got None.")
                         tm = messages.pop()
                         if not isinstance(tm, ToolMessage):
@@ -350,16 +365,24 @@ class Environment:
             return actions
 
         if initialization_data is not None:
+            # When agent and user toolkits share ONE db instance (mock/airline-
+            # style), update_db creating a new instance would silently split
+            # them — re-point the other side. Domains with DISTINCT agent/user
+            # dbs (telecom: TelecomDB vs TelecomUserDB) must NOT be aliased:
+            # that would clobber one side's db with the other's model type.
             if initialization_data.agent_data is not None:
+                shared_db = (
+                    self.user_tools is not None and self.user_tools.db is self.tools.db
+                )
                 self.tools.update_db(initialization_data.agent_data)
-                # Sync user_tools.db to point to the same db instance as tools.db
-                # This is necessary because update_db creates a new db instance
-                if self.user_tools is not None and self.user_tools.db is not None:
+                if shared_db:
                     self.user_tools.db = self.tools.db
             if initialization_data.user_data is not None:
+                shared_db = (
+                    self.tools is not None and self.tools.db is self.user_tools.db
+                )
                 self.user_tools.update_db(initialization_data.user_data)
-                # Sync tools.db to point to the same db instance as user_tools.db
-                if self.tools is not None and self.tools.db is not None:
+                if shared_db:
                     self.tools.db = self.user_tools.db
 
         if initialization_actions is not None:

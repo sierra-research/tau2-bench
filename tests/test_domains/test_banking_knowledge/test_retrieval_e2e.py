@@ -17,7 +17,22 @@ from unittest.mock import MagicMock, patch
 import pytest
 from loguru import logger
 
-logger.disable("tau2")
+
+@pytest.fixture(autouse=True, scope="module")
+def _quiet_retrieval_logs():
+    """Silence tau2's per-query retrieval logging for THIS module only.
+
+    ``logger.disable`` is process-wide and loguru offers no scoped form of it,
+    so calling it at module scope leaks into every test collected afterwards —
+    it silently emptied a preference-sampler test that asserts on a tau2
+    warning. Disable around this module's tests and hand logging back.
+    """
+    logger.disable("tau2")
+    try:
+        yield
+    finally:
+        logger.enable("tau2")
+
 
 requires_openai = pytest.mark.skipif(
     not os.environ.get("OPENAI_API_KEY"),
@@ -34,6 +49,10 @@ requires_sandbox_runtime = pytest.mark.skipif(
 requires_all_tools_deps = pytest.mark.skipif(
     not os.environ.get("OPENAI_API_KEY") or shutil.which("srt") is None,
     reason="alltools requires OPENAI_API_KEY and sandbox-runtime (srt)",
+)
+requires_all_tools_qwen_deps = pytest.mark.skipif(
+    not os.environ.get("OPENROUTER_API_KEY") or shutil.which("srt") is None,
+    reason="alltools-qwen requires OPENROUTER_API_KEY and sandbox-runtime (srt)",
 )
 DOCUMENTS: List[Dict[str, Any]] = [
     {
@@ -128,6 +147,11 @@ _ALL_VARIANTS = [
         {"KB_search_bm25", "KB_search_dense", "shell"},
         "all_tools",
     ),
+    (
+        "alltools-qwen",
+        {"KB_search_bm25", "KB_search_dense", "shell"},
+        "all_tools_qwen",
+    ),
 ]
 
 
@@ -140,6 +164,8 @@ def _api_mark(gate):
         return requires_sandbox_runtime
     if gate == "all_tools":
         return requires_all_tools_deps
+    if gate == "all_tools_qwen":
+        return requires_all_tools_qwen_deps
     return pytest.mark.skipif(False, reason="")
 
 

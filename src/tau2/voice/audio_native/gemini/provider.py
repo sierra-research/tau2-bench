@@ -46,6 +46,21 @@ GEMINI_OUTPUT_SAMPLE_RATE = DEFAULT_GEMINI_OUTPUT_SAMPLE_RATE
 GEMINI_INPUT_BYTES_PER_SECOND = GEMINI_INPUT_SAMPLE_RATE * 2  # 16-bit = 2 bytes
 GEMINI_OUTPUT_BYTES_PER_SECOND = GEMINI_OUTPUT_SAMPLE_RATE * 2
 
+# ISO 639-1 code → Gemini Live BCP-47 SpeechConfig.language_code. Only
+# languages in Gemini Live's supported set are present. Regional pins follow
+# the language packs' variety pins: es → Spain (es-ES), pt → Brazil (pt-BR),
+# zh → Mainland Mandarin (cmn-CN).
+# A language missing from this map simply omits language_code: half-cascade
+# Live models then auto-detect, and native-audio models auto-detect regardless
+# of this field.
+GEMINI_LIVE_LANGUAGE_CODES: dict[str, str] = {
+    "es": "es-ES",
+    "hi": "hi-IN",
+    "ko": "ko-KR",
+    "pt": "pt-BR",
+    "zh": "cmn-CN",
+}
+
 
 class GeminiVADMode(str, Enum):
     """Voice Activity Detection modes for Gemini Live.
@@ -354,6 +369,7 @@ class GeminiLiveProvider:
         vad_config: Optional[GeminiVADConfig] = None,
         modality: str = "audio",
         voice: Optional[str] = None,
+        language: Optional[str] = None,
         _resumption_handle: Optional[str] = None,
     ) -> None:
         """Connect to the Gemini Live API and configure the session.
@@ -366,6 +382,11 @@ class GeminiLiveProvider:
                 - "audio": Audio input and audio output.
                 - "text": Text-only output (audio input still supported).
             voice: Voice name for audio output. Defaults to DEFAULT_VOICE.
+            language: ISO 639-1 code of the run's active language-pack
+                persona, or None. Mapped through GEMINI_LIVE_LANGUAGE_CODES to
+                the SpeechConfig.language_code of the audio modality;
+                None/unmapped omits the field (Live auto-detects, and
+                native-audio models auto-detect regardless).
             _resumption_handle: Internal parameter for session resumption.
                 Pass the handle from a previous session to resume it.
             proactive_audio: If True, allow model to ignore irrelevant audio input.
@@ -381,14 +402,20 @@ class GeminiLiveProvider:
             vad_config = GeminiVADConfig()
 
         voice = voice or self.DEFAULT_VOICE
+        # Record which voice the agent spoke with (read post-run by the
+        # nativeness judge via tau2.judges.nativeness.agent_voice).
+        self.voice = voice
 
-        # Store connection config for potential reconnection
+        # Store connection config for potential reconnection ("language"
+        # included, so session-resumption reconnects preserve the pinned
+        # SpeechConfig.language_code).
         self._connect_config = {
             "system_prompt": system_prompt,
             "tools": tools,
             "vad_config": vad_config,
             "modality": modality,
             "voice": voice,
+            "language": language,
         }
 
         # Reset resumption count on fresh connect (not a resumption)
@@ -425,12 +452,24 @@ class GeminiLiveProvider:
 
             # Add speech config for audio modality
             if modality == "audio":
-                config_kwargs["speech_config"] = types.SpeechConfig(
-                    voice_config=types.VoiceConfig(
+                speech_config_kwargs: Dict[str, Any] = {
+                    "voice_config": types.VoiceConfig(
                         prebuilt_voice_config=types.PrebuiltVoiceConfig(
                             voice_name=voice
                         )
                     )
+                }
+                # Pin the session's speech language when the run's language
+                # maps to a Gemini Live code. None/unmapped omits the field:
+                # half-cascade Live models auto-detect the language, and
+                # native-audio models auto-detect regardless of this field.
+                language_code = (
+                    GEMINI_LIVE_LANGUAGE_CODES.get(language) if language else None
+                )
+                if language_code is not None:
+                    speech_config_kwargs["language_code"] = language_code
+                config_kwargs["speech_config"] = types.SpeechConfig(
+                    **speech_config_kwargs
                 )
 
             # Add tools if any

@@ -1,0 +1,82 @@
+{
+  "schema_version": "tau-multi-factor-validation-prompt-v1",
+  "language": "hi",
+  "factor": {
+    "id": "gender_agreement",
+    "category": "gender",
+    "severity": 3,
+    "evaluation_level": "utterance",
+    "aggregation": "any",
+    "precheck_type": "hi_gender_agreement"
+  },
+  "validation_execution": {
+    "unit": "one_row_one_utterance",
+    "factor_batch": [
+      "gender_agreement"
+    ],
+    "precheck_scope": "row",
+    "positive_class": "violation",
+    "production_unresolved_batch_peers": [
+      "name_address_conventions"
+    ]
+  },
+  "participant_frame": {
+    "agent_gender_mode": "fixed",
+    "agent_gender": "male",
+    "caller_gender_mode": "row_field",
+    "caller_gender_field": "caller_gender",
+    "interruption_mode": "row_field",
+    "interruption_field": "source_interrupted",
+    "interruption_marker": "[cut off by caller]"
+  },
+  "versions": {
+    "gender_checker": "v3",
+    "judge_prompt": "v16",
+    "runtime_rubric": "nativeness-rubric-v26"
+  },
+  "judge": {
+    "model": "gpt-5.5",
+    "model_args": {
+      "reasoning_effort": "medium"
+    },
+    "call_name": "nativeness_judge_batch",
+    "system_prompt": "You evaluate language use in an AI agent's speech. Return JSON only."
+  },
+  "precheck": {
+    "behavior": "fail_short_circuits_no_opportunity_falls_through",
+    "input_text_field": "precheck_text",
+    "allowed_literals_field": "allowed_literals",
+    "ordered_patterns": [
+      {
+        "id": "female_agent_masculine_self_reference",
+        "regex": "मैं\\s+[^।.!?\\n]{0,48}?सकता\\s+ह(?:ूँ|ूं)"
+      },
+      {
+        "id": "male_agent_feminine_self_reference",
+        "regex": "मैं\\s+[^।.!?\\n]{0,48}?सकती\\s+ह(?:ूँ|ूं)"
+      },
+      {
+        "id": "male_caller_feminine_address",
+        "regex": "आप\\s+[^।.!?\\n]{0,48}?रही\\s+हैं"
+      },
+      {
+        "id": "spoken_slash_alternative",
+        "regex": "(?:[क-ह][ा-ौँ-ः]*)?(?:ता|ती|रहा|रही|गा|गी|ूँगा|ूँगी)\\s*[/|]\\s*(?:[क-ह][ा-ौँ-ः]*)?(?:ता|ती|रहा|रही|गा|गी|ूँगा|ूँगी)(?![क-हा-ौ])"
+      }
+    ]
+  },
+  "llm_fallback": {
+    "criterion": {
+      "factor_id": "gender_agreement",
+      "question": "Did gendered language agree internally and with the known agent or customer gender supplied in the judge context?",
+      "opportunity": "agent uses gendered words, titles, adjectives, participles, or numerals",
+      "positive_examples": "Catch three subtypes of agreement. (1) Agent self-reference — a known female agent uses feminine first-person forms, such as \"मैं आपकी मदद कर सकती हूँ\". (2) Addressing the customer — with आप, masculine plural is the normal polite form for any addressee, including a known female customer; \"आप बता सकते हैं\" and \"आप कर रहे हैं\" said to a woman are correct and must never be flagged. (3) Noun and internal agreement — gendered adjectives, participles, and verbs agree with their nouns and with gender established earlier in the utterance, as in \"आपकी booking cancel हो गई है\". English loanwords have no fixed grammatical gender, so masculine default agreement with them is also correct — \"अपना यूजर आईडी बताइए\" must never be flagged.",
+      "negative_examples": "Violations, by the same three subtypes. (1) Self-reference — a known female agent saying \"मैं आपकी मदद कर सकता हूँ\" or \"मैं समझ गया\". Spoken slash-alternatives are always a violation regardless of gender — a speaker never voices both forms, so \"मैं सुन रहा/रही हूँ\" or \"बता देता/देती हूँ\" is wrong on its face; the agent must commit to one form. (2) Addressing the customer — feminine forms toward a known male customer, such as \"आप परेशान लग रही हैं\" said to a man; masculine plural with आप is never a violation, whatever the customer's gender. (3) Noun agreement — conflicting endings in one clear construction, such as \"booking cancel हो गया\" after booking has been established as feminine. If gender is neither supplied nor internally established, mark no opportunity."
+    },
+    "agent_context_templates": {
+      "male": "The speaker is an AI customer-service voice agent. Agent gender: male. Use this for the agent's first-person gender agreement. Caller gender: male. Use this only when the agent directly addresses or refers to the caller with gender-marked language. Do not infer any missing gender from a name or stereotype.",
+      "female": "The speaker is an AI customer-service voice agent. Agent gender: male. Use this for the agent's first-person gender agreement. Caller gender: female. Use this only when the agent directly addresses or refers to the caller with gender-marked language. Do not infer any missing gender from a name or stereotype."
+    },
+    "user_prompt_template": "Language: hi\nEvaluation unit: one agent utterance\n\nFor every criterion:\n- opportunity is true only when this speech gave the agent a genuine chance to exhibit the criterion.\n- violated is true only when the agent actually violated the criterion. The criterion question asks about the desired behavior; answer violated=true when the answer is no.\n- severity is 0 when violated is false. When violated is true: 1 = minor, 2 = clear, 3 = major, 4 = egregious. Repetition may increase severity at call level.\n- quote is an exact offending span copied from AGENT SPEECH. Use an empty string for no violation or for a diffuse call-level pattern.\n- Judge only AGENT SPEECH. Use CUSTOMER CONTEXT only to interpret it.\n- A turn ending in \"[cut off by caller]\" was interrupted mid-delivery: its final word may be truncated mid-word and endings (agreement suffixes, polite verb endings, sentence-final particles) may be missing. Never count a truncation artifact at the cut-off point as a violation of any criterion; judge only what was audibly complete.\n- When violated is true and the violation localizes to a quoted span, reasoning must also give the natural way a native speaker would phrase that span, in the target language.\n\nCriteria:\n[\n  {\n    \"factor_id\": \"gender_agreement\",\n    \"question\": \"Did gendered language agree internally and with the known agent or customer gender supplied in the judge context?\",\n    \"opportunity\": \"agent uses gendered words, titles, adjectives, participles, or numerals\",\n    \"positive_examples\": \"Catch three subtypes of agreement. (1) Agent self-reference — a known female agent uses feminine first-person forms, such as \\\"मैं आपकी मदद कर सकती हूँ\\\". (2) Addressing the customer — with आप, masculine plural is the normal polite form for any addressee, including a known female customer; \\\"आप बता सकते हैं\\\" and \\\"आप कर रहे हैं\\\" said to a woman are correct and must never be flagged. (3) Noun and internal agreement — gendered adjectives, participles, and verbs agree with their nouns and with gender established earlier in the utterance, as in \\\"आपकी booking cancel हो गई है\\\". English loanwords have no fixed grammatical gender, so masculine default agreement with them is also correct — \\\"अपना यूजर आईडी बताइए\\\" must never be flagged.\",\n    \"negative_examples\": \"Violations, by the same three subtypes. (1) Self-reference — a known female agent saying \\\"मैं आपकी मदद कर सकता हूँ\\\" or \\\"मैं समझ गया\\\". Spoken slash-alternatives are always a violation regardless of gender — a speaker never voices both forms, so \\\"मैं सुन रहा/रही हूँ\\\" or \\\"बता देता/देती हूँ\\\" is wrong on its face; the agent must commit to one form. (2) Addressing the customer — feminine forms toward a known male customer, such as \\\"आप परेशान लग रही हैं\\\" said to a man; masculine plural with आप is never a violation, whatever the customer's gender. (3) Noun agreement — conflicting endings in one clear construction, such as \\\"booking cancel हो गया\\\" after booking has been established as feminine. If gender is neither supplied nor internally established, mark no opportunity.\"\n  }\n]\n\nAbout the agent being judged:\n<ROW_AGENT_CONTEXT>\n\nCUSTOMER CONTEXT — DO NOT JUDGE:\n<ROW_CUSTOMER_CONTEXT>\n\nAGENT SPEECH TO JUDGE:\n<ROW_AGENT_SPEECH_WITH_INTERRUPTION_MARKER>\n\nReturn JSON only:\n{\n  \"results\": [\n    {\n      \"factor_id\": \"<exact factor_id>\",\n      \"opportunity\": true,\n      \"violated\": false,\n      \"severity\": 0,\n      \"reasoning\": \"<brief explanation>\",\n      \"quote\": \"\"\n    }\n  ]\n}\n"
+  }
+}

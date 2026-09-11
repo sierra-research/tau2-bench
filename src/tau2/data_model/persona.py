@@ -23,6 +23,21 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 
+class PromptMode(str, Enum):
+    """Rendering mode for persona/localization prompt sections.
+
+    ``voice`` renders spoken-form content (readouts, spellouts); ``text``
+    (half-duplex typed chat) omits the spoken-only sub-sections. This is the
+    typed axis behind every ``mode=`` parameter on the persona/localization
+    prompt seams (``PersonaConfig.to_guidelines_text``,
+    ``LocalizationPackConfig.to_prompt_text``,
+    ``registry.get_localization_guidelines``).
+    """
+
+    VOICE = "voice"
+    TEXT = "text"
+
+
 class Verbosity(str, Enum):
     """How verbose the user is in their responses."""
 
@@ -59,10 +74,19 @@ class PersonaConfig(BaseModel):
     # technical_skill: TechnicalSkill = TechnicalSkill.AVERAGE
     # speech_quirks: list[str] = []
 
-    def to_guidelines_text(self) -> Optional[str]:
+    def to_guidelines_text(
+        self,
+        mode: PromptMode = PromptMode.VOICE,
+    ) -> Optional[str]:
         """
         Convert persona config to additional guidelines text to append to system prompt.
         Returns None if no modifications needed (all defaults).
+
+        Args:
+            mode: Voice or text rendering. The base config does not branch on it; the
+                param exists so the multilingual override
+                (``MultilingualPersonaConfig.to_guidelines_text``) can share this
+                signature and callers need no isinstance branch.
         """
         guidelines = []
 

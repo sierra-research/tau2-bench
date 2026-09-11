@@ -11,7 +11,10 @@ from aiortc.rtcpeerconnection import CODECS
 from aiortc.sdp import SessionDescription
 
 from tau2.agent.base.streaming import _has_meaningful_content
-from tau2.config import DEFAULT_OPENAI_LIVE_MODEL
+from tau2.config import (
+    DEFAULT_OPENAI_LIVE_MODEL,
+    resolve_audio_native_reasoning_effort,
+)
 from tau2.data_model.message import AssistantMessage
 from tau2.data_model.simulation import AudioNativeConfig
 from tau2.voice.audio_native.adapter import create_adapter
@@ -118,6 +121,7 @@ def test_create_adapter_uses_default_live_frontend_model(monkeypatch):
     adapter, model = create_adapter(
         "openai_live",
         tick_duration_ms=200,
+        reasoning_effort=resolve_audio_native_reasoning_effort("openai_live", None),
         live_config=LiveConfig(backend_model="test-backend"),
     )
 

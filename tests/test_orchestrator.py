@@ -82,6 +82,29 @@ def test_orchestrator_initialize_base(
     assert orchestrator.message.content == DEFAULT_FIRST_AGENT_MESSAGE.content
 
 
+def test_orchestrator_initialize_with_first_agent_message(
+    domain_name: str,
+    user_simulator: UserSimulator,
+    agent: LLMAgent,
+    get_environment: Callable[[], Environment],
+    base_task: Task,
+):
+    """A run-level first-agent message overrides the default greeting."""
+    localized = AssistantMessage(
+        role="assistant", content="Localized greeting", cost=0.0
+    )
+    orchestrator = Orchestrator(
+        domain=domain_name,
+        user=user_simulator,
+        agent=agent,
+        environment=get_environment(),
+        task=base_task,
+        first_agent_message=localized,
+    )
+    orchestrator.initialize()
+    assert orchestrator.trajectory[0].content == "Localized greeting"
+
+
 def test_orchestrator_initialize_with_message_history(
     domain_name: str,
     user_simulator: UserSimulator,

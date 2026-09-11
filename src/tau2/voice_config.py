@@ -83,6 +83,10 @@ CONSTANT_MUFFLE_CUTOFF_FREQ = (
 
 # Source Effects
 ENABLE_BACKGROUND_NOISE = True
+# Higher SNR = quieter bed relative to speech. 15 dB is the original τ³-bench
+# 1.0.0 level — all languages run the same beds at the same mix as the main
+# English benchmark (the multilingual-era softening to 18 then 20 dB was
+# reverted along with the locale beds).
 NOISE_SNR_DB = 15.0
 NOISE_SNR_DRIFT_DB = 3.0
 NOISE_VARIATION_SPEED = 0.5
@@ -102,17 +106,19 @@ VOCAL_TICS = [
     ".[sneeze][sneeze][sneeze]",
     ".[sniffle][sniffle][sniffle]",
 ]
+# Out-of-turn speech: what the caller says AWAY from the phone, to whoever is
+# in the room with them. It is spliced in mid-call as one uninterrupted burst,
+# so a long phrase reads as a second conversation rather than a glance away —
+# real away-from-the-mic speech is clipped. Both bounds below are enforced for
+# the per-persona lists in the language packs (see
+# tau2.multilingual.brevity.non_directed_phrase_problems).
+MAX_NON_DIRECTED_PHRASES = 4
+MAX_NON_DIRECTED_PHRASE_WORDS = 4
 NON_DIRECTED_PHRASES = [
     "Not now.",
     "Hold on a second.",
     "I'm on the phone.",
-    "Just a minute.",
-    "I don't know.",
-    "Give me a moment.",
     "One second.",
-    "I'll be right with you.",
-    "Can you wait?",
-    "Shh, quiet.",
 ]
 ENABLE_OUT_OF_TURN_SPEECH = True
 OUT_OF_TURN_SPEECH_EVENTS_PER_MINUTE = 0.7
