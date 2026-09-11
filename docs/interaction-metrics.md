@@ -1,5 +1,80 @@
 # Voice Interaction Metrics
 
+## The facts-first interaction suite (`tau2 metrics interaction-facts`)
+
+The τ-ML paper's headline interaction report is a **descriptive suite of
+deterministic interaction facts** — per call and aggregated per
+(language × domain × provider × reasoning-effort) cell — produced by:
+
+```bash
+tau2 metrics interaction-facts <run-dirs...> -o facts.json \
+  [--langs es pt] [--domain telecom] [--long-gap-threshold 3.0] [--no-turns]
+```
+
+Composite scores are deliberately demoted (binding decision, 2026-08-18):
+EVA-Bench-style thresholds and composite scores are arbitrary and lossy,
+especially across languages. The EVA turn-taking composite is still computed
+and version-stamped for comparability, but it lives in a structurally
+separate `shadow_scores` section labeled `uncalibrated-shadow` — never ranked
+or headlined. The LLM-dependent composites (the full EVA-X conjunction and
+the τ quality composite) live in the `tau2 judges legacy conversation` artifact's
+shadow section (see [Conversation judges](conversation-judge.md)). The
+organizing rule: deterministic computation lives under `tau2 metrics`;
+LLM-judged computation lives under `tau2 judges`.
+
+Event sourcing is exclusively the orchestrator's **typed** sim actions and
+injected effects, read through the canonical extractor layer in
+`voice_interaction_metrics.py` and routed by the canonical scorer in
+`tau2.metrics.turn_taking` — one event taxonomy shared with the leaderboard
+panel below. Nothing is re-inferred from audio-only heuristics.
+
+### First-class fact columns (per call, and mean/median per cell)
+
+- **Response latency** (ordinary turns): mean/p50/p90, plus the tool-turn vs
+  plain-turn latency split (`tool_turn_latency_mean_ms` /
+  `plain_turn_latency_mean_ms`).
+- **Responsiveness**: `missed_response_rate` (scored turns left unanswered)
+  and the promoted τ-voice panel `response_rate`.
+- **Interruption behavior**: `agent_interruption_rate`,
+  `caller_interruption_rate`, `incursion_overlap_mean_ms` (overlap duration
+  on agent incursions), yield latency p50/p90, post-interrupt recovery
+  latency p50/p90.
+- **Turn route mix**: the fraction of scored turns per route class
+  (ordinary / agent-interruption / caller-interruption / dual /
+  missed-response).
+- **Selectivity**: `selectivity_backchannel`, `selectivity_vocal_tic`,
+  `selectivity_non_directed` — promoted from the τ-voice extractor below,
+  not reimplemented.
+- **Dead air** (the one new instrument): maximal spans of the (end-filtered)
+  tick timeline where neither party is speaking. Reported as
+  `dead_air_total_s`, `dead_air_fraction` (of call duration),
+  `dead_air_max_gap_s`, and `dead_air_long_gap_count` (gaps strictly longer
+  than the long-silence threshold; default the shared 3.0s constant,
+  parameterized via `--long-gap-threshold`). A gap that IS a measured
+  ordinary response latency is still dead air acoustically and counts once
+  in the totals; `dead_air_excl_response_s` additionally excludes those
+  ordinary response-latency gaps, isolating silence no pending response
+  accounts for.
+
+### Typed N/A, never silent gaps
+
+Every fact that can be unscoreable is a typed `Fact` carrying an
+N/A-with-reason (`no_tick_timeline` for text runs, `no_scored_turns`,
+`no_events` for empty denominators) — the same pattern as the turn-taking
+scorer's reasoned N/A (`no_scoreable_turns`, `agent_mute` for the
+infrastructure-mute population). Cell aggregates report per-reason N/A counts
+next to every mean, and shadow-score cell blocks report per-reason shadow N/A
+counts. A mute call keeps its descriptive facts (they are true observations)
+while its shadow composite is a reasoned N/A that drops out of shadow means.
+
+The artifact also carries per-turn evidence (`turns`: route, latency,
+overlap, interrupt count, yield/recovery latencies per real caller turn;
+drop with `--no-turns` on very large pools), canonical panel event counts,
+and full provenance (instrument version, config, git sha, content-derived
+artifact id, per-run source metadata).
+
+---
+
 The τ-voice leaderboard reports **interaction quality** alongside task success
 (pass^1). Interaction metrics measure the conversational dynamics of a voice
 agent on the open, full-duplex audio channel: how fast it responds, whether it
@@ -42,6 +117,27 @@ and S_ND. It is shown only when all three components are present and backed
 by at least 10 events — a partial mean would not be comparable across rows —
 and an Overall value is additionally hidden if any contributing domain rate
 falls below that threshold.
+
+## Universal quality-rubric mapping
+
+The per-simulation universal quality rubric reuses this same event extractor;
+it does not maintain a second definition of response gaps or speech overlap. The
+eight panel measurements map to six non-overlapping deterministic checks:
+
+| Quality factor | Panel evidence | Failure condition |
+|----------------|----------------|-------------------|
+| `responsiveness` | L_R + R_R | A caller turn is unanswered, or mean response latency exceeds the configured threshold (3.0 s by default). |
+| `yielding` | L_Y + R_Y | The agent fails to yield to any real caller interruption within the 2.0 s event window. |
+| `inappropriate_interruption` | I_A | The agent begins speaking over the caller. |
+| `backchannel_selectivity` | S_BC | The agent incorrectly yields to a backchannel. |
+| `vocal_tic_selectivity` | S_VT | The agent responds or yields to a vocal tic. |
+| `non_directed_selectivity` | S_ND | The agent responds or yields to non-directed speech. |
+
+Latency and rate are still recorded separately. Each related pair contributes
+only one binary factor, preventing response behavior or yielding behavior from
+receiving twice the weight of interruption and selectivity. The rubric's
+`monologue` factor remains separate because floor-hold duration is not one of the
+original τ-voice panel metrics.
 
 These definitions and all detection windows are identical to the τ-voice
 paper's analysis pipeline; the implementation lives in

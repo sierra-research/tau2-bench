@@ -28,11 +28,13 @@ from tau2.data_model.message import (
 from tau2.metrics.voice_interaction_metrics import (
     InteractionMetricsConfig,
     NoVoiceTicksError,
+    VoiceQualityEvent,
     aggregate_domain_metrics,
     compute_interaction_metrics_for_experiment,
     compute_voice_quality_metrics,
     extract_voice_quality_events_from_simulation,
     filter_end_of_conversation_ticks,
+    summarize_voice_quality_events,
     voice_quality_events_to_dataframe,
 )
 from tau2.scripts.leaderboard.compute_interaction_metrics import (
@@ -256,6 +258,32 @@ class TestPreprocessing:
 
 
 class TestAggregation:
+    def test_typed_summary_contains_complete_panel(self):
+        events = [
+            VoiceQualityEvent("response", "response", False, latency_sec=0.4),
+            VoiceQualityEvent("response", "response", False, latency_sec=0.8),
+            VoiceQualityEvent("response", "no_response", True),
+            VoiceQualityEvent("yield", "yield", False, latency_sec=0.6),
+            VoiceQualityEvent("yield", "no_yield", True),
+            VoiceQualityEvent("backchannel", "backchannel_correct", False),
+            VoiceQualityEvent("backchannel", "backchannel_error", True),
+            VoiceQualityEvent("vocal_tic", "vocal_tic_correct", False),
+            VoiceQualityEvent("non_directed", "non_directed_error", True),
+            VoiceQualityEvent("agent_interruption", "agent_interrupts_user", True),
+        ]
+
+        metrics = summarize_voice_quality_events(events, n_simulations=1)
+
+        assert metrics.response_latency_mean == pytest.approx(0.6)
+        assert metrics.yield_latency_mean == pytest.approx(0.6)
+        assert metrics.response_rate == pytest.approx(2 / 3)
+        assert metrics.yield_rate == pytest.approx(0.5)
+        assert metrics.agent_interruption_rate == pytest.approx(1 / 3)
+        assert metrics.selectivity_backchannel == pytest.approx(0.5)
+        assert metrics.selectivity_vocal_tic == pytest.approx(1.0)
+        assert metrics.selectivity_non_directed == pytest.approx(0.0)
+        assert metrics.counts.agent_interrupts_count == 1
+
     def test_compute_metrics_nan_safe_without_effects(self):
         # Only response events; selectivity denominators are 0 -> NaN rates
         ticks = build_ticks(

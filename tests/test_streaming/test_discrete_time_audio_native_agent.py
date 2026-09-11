@@ -19,11 +19,12 @@ from typing import List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
-from tau2.voice.audio_native.openai.tick_runner import TickResult
 
 from tau2.agent.discrete_time_audio_native_agent import (
+    VOICE_GENDER_DISCLOSURE_TEMPLATE,
     DiscreteTimeAgentState,
     DiscreteTimeAudioNativeAgent,
+    create_discrete_time_audio_native_agent,
 )
 from tau2.data_model.audio import TELEPHONY_SAMPLE_RATE, AudioEncoding, AudioFormat
 from tau2.data_model.message import (
@@ -33,6 +34,7 @@ from tau2.data_model.message import (
     UserMessage,
 )
 from tau2.environment.tool import Tool
+from tau2.voice.audio_native.tick_result import TickResult
 
 # =============================================================================
 # Mock TickResult Helper
@@ -58,6 +60,8 @@ def make_mock_tick_result(
     result.get_played_agent_audio.return_value = agent_audio or b"\x7f" * 8000
     result.item_ids = item_ids or []
     result.tool_calls = tool_calls or []
+    result.usage_records = []
+    result.contains_speech = None
     result.model_dump.return_value = {
         "tick_number": tick_number,
         "agent_audio_bytes": len(agent_audio),
@@ -66,6 +70,7 @@ def make_mock_tick_result(
         "was_truncated": was_truncated,
         "item_ids": item_ids or [],
         "tool_calls": tool_calls or [],
+        "usage_records": [],
     }
     return result
 
@@ -697,6 +702,89 @@ class TestConfiguration:
         )
 
         assert agent.send_audio_instant is False
+
+
+class TestVoiceGenderDisclosure:
+    """Tests for the opt-in voice-gender disclosure prompt line."""
+
+    def test_on_by_default(self, mock_tools, domain_policy):
+        # Voice-gender disclosure is the default everywhere.
+        agent = DiscreteTimeAudioNativeAgent(
+            tools=mock_tools, domain_policy=domain_policy
+        )
+        assert "The voice the caller hears" in agent.system_prompt
+
+    def test_explicit_off_removes_disclosure(self, mock_tools, domain_policy):
+        agent = DiscreteTimeAudioNativeAgent(
+            tools=mock_tools,
+            domain_policy=domain_policy,
+            disclose_voice_gender=False,
+        )
+        assert "The voice the caller hears" not in agent.system_prompt
+
+    def test_disclosure_uses_catalog_gender_of_pinned_voice(
+        self, mock_tools, domain_policy
+    ):
+        # xai's default voice (Ara) is catalogued female; the disclosure must
+        # come from the catalog, never from a hardcoded gender.
+        agent = DiscreteTimeAudioNativeAgent(
+            tools=mock_tools,
+            domain_policy=domain_policy,
+            provider="xai",
+            disclose_voice_gender=True,
+        )
+        expected = VOICE_GENDER_DISCLOSURE_TEMPLATE.format(gender="female")
+        assert agent.system_prompt.endswith(expected)
+
+    def test_disclosure_appends_after_language_clause(self, mock_tools, domain_policy):
+        # Non-English run: the disclosure is the final section, after the
+        # pack's agent language clause (when one is registered).
+        agent = DiscreteTimeAudioNativeAgent(
+            tools=mock_tools,
+            domain_policy=domain_policy,
+            provider="openai",
+            disclose_voice_gender=True,
+        )
+        expected = VOICE_GENDER_DISCLOSURE_TEMPLATE.format(gender="female")
+        assert agent.system_prompt.endswith(expected)
+        assert agent.system_prompt.count("The voice the caller hears") == 1
+
+    def test_unknown_catalog_gender_auto_disables(self, mock_tools, domain_policy):
+        # livekit has no provider-default voice in the catalog: disclosure
+        # auto-disables (with a warning) and the attribute records the truth.
+        agent = DiscreteTimeAudioNativeAgent(
+            tools=mock_tools,
+            domain_policy=domain_policy,
+            provider="livekit",
+            disclose_voice_gender=True,
+        )
+        assert agent.disclose_voice_gender is False
+        assert "The voice the caller hears" not in agent.system_prompt
+
+    def test_factory_threads_flag_from_audio_native_config(
+        self, mock_tools, domain_policy
+    ):
+        from tau2.data_model.simulation import AudioNativeConfig
+
+        config = AudioNativeConfig(provider="xai", disclose_voice_gender=True)
+        agent = create_discrete_time_audio_native_agent(
+            tools=mock_tools,
+            domain_policy=domain_policy,
+            audio_native_config=config,
+        )
+        assert agent.disclose_voice_gender is True
+        expected = VOICE_GENDER_DISCLOSURE_TEMPLATE.format(gender="female")
+        assert agent.system_prompt.endswith(expected)
+
+    def test_config_default_is_on(self):
+        from tau2.data_model.simulation import AudioNativeConfig
+
+        assert AudioNativeConfig(provider="xai").disclose_voice_gender is True
+
+    def test_config_auto_disables_for_unresolvable_provider(self):
+        from tau2.data_model.simulation import AudioNativeConfig
+
+        assert AudioNativeConfig(provider="livekit").disclose_voice_gender is False
 
 
 if __name__ == "__main__":

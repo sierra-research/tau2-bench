@@ -1,0 +1,313 @@
+# Locale identity corpus for zh (Mainland China, Mandarin/Putonghua) —
+# reviewed raw material for the `tau2 factory localize-entities` step. The
+# name POOLS are romanized (Hanyu Pinyin without tone marks — the model's
+# validator rejects native-script pool names); the native_* tables below map
+# each pool entry to its Hanzi form for the native-script DB ablation. The
+# generator draws deterministically per caller (seeded by the original
+# user_id, gender inherited from the English caller's given name) and
+# preserves the numeric suffix for user_id uniqueness.
+country: CHN
+phone_number_format: "138 #### ####"
+email_domain: example.com
+zip_format: "######"
+address_format:
+  city_region: "{region} {city}"
+  city_country: "{country} {region} {city}"
+  full_address: "{region} {city}, {address1}, {address2}, {postcode}"
+address_review:
+  source: "reviewed localization corpus (updated 2026-08-03)"
+  status: annotator_feedback_applied
+
+female_first_names:
+  - Jing
+  - Fang
+  - Yan
+  - Min
+  - Na
+  - Juan
+  - Hui
+  - Xia
+  - Mei
+  - Lan
+  - Ying
+  - Dan
+  - Ting
+  - Xue
+  - Qian
+  - Yuting
+  - Xinyi
+  - Jiayi
+  - Zihan
+  - Xiaoyan
+
+male_first_names:
+  - Wei
+  - Jun
+  - Lei
+  - Qiang
+  - Ming
+  - Tao
+  - Chao
+  - Bin
+  - Peng
+  - Hao
+  - Yang
+  - Bo
+  - Feng
+  - Gang
+  - Jian
+  - Zhiqiang
+  - Junjie
+  - Haoran
+  - Yuxuan
+  - Zhihao
+
+last_names:
+  - Wang
+  - Li
+  - Zhang
+  - Liu
+  - Chen
+  - Yang
+  - Huang
+  - Zhao
+  - Wu
+  - Zhou
+  - Xu
+  - Sun
+  - Ma
+  - Zhu
+  - Hu
+  - Guo
+  - He
+  - Lin
+  - Gao
+  - Luo
+  - Zheng
+  - Liang
+  - Song
+  - Tang
+
+# --- Native-script DB ablation (romanization x localization 2x2) ---------
+# Hanzi forms of every pool name, keyed by the romanized (pinyin) pool entry.
+# Consumed ONLY by `tau2 factory localize-entities --native-script`; the
+# ordinary `_identity` build keeps the romanized names above. The same
+# romanization maps to DIFFERENT characters per role on purpose (surname
+# Yang 杨 vs given-name Yang 阳), which is why the tables are per pool.
+# CURATED CONTENT — flag any change for native-speaker review.
+native_female_first_names:
+  Jing: 静
+  Fang: 芳
+  Yan: 燕
+  Min: 敏
+  Na: 娜
+  Juan: 娟
+  Hui: 慧
+  Xia: 霞
+  Mei: 梅
+  Lan: 兰
+  Ying: 英
+  Dan: 丹
+  Ting: 婷
+  Xue: 雪
+  Qian: 倩
+  Yuting: 雨婷
+  Xinyi: 欣怡
+  Jiayi: 佳怡
+  Zihan: 子涵
+  Xiaoyan: 晓燕
+
+native_male_first_names:
+  Wei: 伟
+  Jun: 军
+  Lei: 磊
+  Qiang: 强
+  Ming: 明
+  Tao: 涛
+  Chao: 超
+  Bin: 斌
+  Peng: 鹏
+  Hao: 浩
+  Yang: 阳
+  Bo: 波
+  Feng: 峰
+  Gang: 刚
+  Jian: 建
+  Zhiqiang: 志强
+  Junjie: 俊杰
+  Haoran: 浩然
+  Yuxuan: 宇轩
+  Zhihao: 志豪
+
+native_last_names:
+  Wang: 王
+  Li: 李
+  Zhang: 张
+  Liu: 刘
+  Chen: 陈
+  Yang: 杨
+  Huang: 黄
+  Zhao: 赵
+  Wu: 吴
+  Zhou: 周
+  Xu: 徐
+  Sun: 孙
+  Ma: 马
+  Zhu: 朱
+  Hu: 胡
+  Guo: 郭
+  He: 何
+  Lin: 林
+  Gao: 高
+  Luo: 罗
+  Zheng: 郑
+  Liang: 梁
+  Song: 宋
+  Tang: 唐
+
+# Per-character clarification glosses — the closed catalog the native-script
+# spell-out payload draws from (one gloss per character of the full name;
+# see tau2.multilingual.native_script.han_spellout). Surnames use the 标准
+# phone conventions where one exists (弓长张, 木子李, 三横王, 口天吴, 双人徐,
+# 耳东陈, ...); given-name characters use a well-known containing word
+# ("X的X"). Every character of every native name form above must be covered
+# (the corpus validator enforces it).
+# CURATED CONTENT — flag any change for native-speaker review.
+character_clarifications:
+  # surnames — standard phone conventions first
+  王: 三横王
+  李: 木子李
+  张: 弓长张
+  刘: 文刀刘
+  陈: 耳东陈
+  杨: 木易杨
+  黄: 草头黄
+  赵: 走肖赵
+  吴: 口天吴
+  周: 周末的周
+  徐: 双人徐
+  孙: 子小孙
+  马: 骑马的马
+  朱: 朱红的朱
+  胡: 古月胡
+  郭: 城郭的郭
+  何: 人可何
+  林: 双木林
+  高: 高低的高
+  罗: 四维罗
+  郑: 郑州的郑
+  梁: 桥梁的梁
+  宋: 宋朝的宋
+  唐: 唐朝的唐
+  # female given-name characters
+  静: 安静的静
+  芳: 芬芳的芳
+  燕: 燕子的燕
+  敏: 聪敏的敏
+  娜: 婀娜的娜
+  娟: 娟秀的娟
+  慧: 智慧的慧
+  霞: 彩霞的霞
+  梅: 梅花的梅
+  兰: 兰花的兰
+  英: 英雄的英
+  丹: 牡丹的丹
+  婷: 亭亭玉立的婷，女字旁
+  雪: 下雪的雪
+  倩: 倩影的倩
+  雨: 下雨的雨
+  欣: 欣喜的欣
+  怡: 心旷神怡的怡
+  佳: 最佳的佳
+  子: 孩子的子
+  涵: 涵养的涵
+  晓: 拂晓的晓
+  # male given-name characters
+  伟: 伟大的伟
+  军: 军队的军
+  磊: 三石磊
+  强: 强大的强
+  明: 明天的明
+  涛: 波涛的涛
+  超: 超过的超
+  斌: 文武斌
+  鹏: 大鹏展翅的鹏
+  浩: 浩瀚的浩
+  阳: 太阳的阳
+  波: 波浪的波
+  峰: 山峰的峰
+  刚: 刚强的刚
+  建: 建设的建
+  志: 志气的志
+  俊: 英俊的俊
+  杰: 杰出的杰
+  宇: 宇宙的宇
+  轩: 气宇轩昂的轩
+  豪: 自豪的豪
+  然: 自然的然
+
+street_patterns:
+  - "Renmin Lu {n} Hao"
+  - "Zhongshan Lu {n} Hao"
+  - "Jianshe Lu {n} Hao"
+  - "Jiefang Lu {n} Hao"
+  - "Beijing Lu {n} Hao"
+  - "Heping Lu {n} Hao"
+  - "Chaoyang Lu {n} Hao"
+  - "Xinhua Lu {n} Hao"
+
+# Secondary address line — the unit within the street address, drawn like
+# every other field. Retail needs a real one: its records always carry a
+# "Suite NNN" and some tasks turn on the unit NEXT DOOR (task 17 wants
+# delivery to Suite 641 when the record says Suite 640), which only works
+# if the locale line has a number of its own to move. Exactly one number
+# per pattern, for that reason.
+secondary_line_patterns:
+  - "{n} Shi"
+  - "{n} Ceng"
+  - "{n} Danyuan"
+secondary_line_number_max: 19
+
+cities:
+  - {city: Beijing, region: BJ}
+  - {city: Shanghai, region: SH}
+  - {city: Guangzhou, region: GD}
+  - {city: Shenzhen, region: GD}
+  - {city: Chengdu, region: SC}
+  - {city: Hangzhou, region: ZJ}
+  - {city: Wuhan, region: HB}
+  - {city: Xi'an, region: SN}
+  - {city: Nanjing, region: JS}
+  - {city: Tianjin, region: TJ}
+  - {city: Chongqing, region: CQ}
+  - {city: Qingdao, region: SD}
+
+reviewed_address_cities:
+  - city: Qingdao
+    region: Shandong
+    postal_codes: ["266000"]
+    street_patterns: ["Xianggang Zhong Lu {n} Hao"]
+  - city: Shenzhen
+    region: Guangdong
+    postal_codes: ["518000"]
+    street_patterns: ["Shennan Dadao {n} Hao"]
+  - city: Xi'an
+    region: Shaanxi
+    postal_codes: ["710000"]
+    street_patterns: ["Chang'an Bei Lu {n} Hao"]
+  - city: Guangzhou
+    region: Guangdong
+    postal_codes: ["510000"]
+    street_patterns: ["Tianhe Lu {n} Hao"]
+  - city: Wuhan
+    region: Hubei
+    postal_codes: ["430000"]
+    street_patterns: ["Jiefang Dadao {n} Hao"]
+  - city: Hangzhou
+    region: Zhejiang
+    postal_codes: ["310000"]
+    street_patterns: ["Yan'an Lu {n} Hao"]
+  - city: Nanjing
+    region: Jiangsu
+    postal_codes: ["210000"]
+    street_patterns: ["Zhongshan Dong Lu {n} Hao"]

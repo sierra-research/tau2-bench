@@ -1,0 +1,169 @@
+# τ-Multilingual reproduction audit
+
+Artifact: `08863c9fff5b4c5f`
+Repository commit: `45a6115e53994b4acddde77012aeed447680b44e`
+Evidence root: `tau-multi`
+
+τ-Multilingual audit: 141 pass, 8 warning, 0 fail
+
+## Findings
+
+- **PASS — result-cell:** en/airline/openai_minimal: shape and configuration match
+- **PASS — result-cell:** en/airline/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** en/airline/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** en/airline/gemini_high: shape and configuration match
+- **PASS — result-cell:** en/airline/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** en/retail/openai_minimal: shape and configuration match
+- **PASS — result-cell:** en/retail/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** en/retail/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** en/retail/gemini_high: shape and configuration match
+- **PASS — result-cell:** en/retail/xai_provider_default: shape and configuration match
+- **WARN — result-cell:** en/telecom/openai_minimal: task ids match the frozen subset, but task_subset metadata is absent
+- **WARN — result-cell:** en/telecom/openai_xhigh: task ids match the frozen subset, but task_subset metadata is absent
+- **WARN — result-cell:** en/telecom/gemini_minimal: task ids match the frozen subset, but task_subset metadata is absent
+- **WARN — result-cell:** en/telecom/gemini_high: task ids match the frozen subset, but task_subset metadata is absent
+- **PASS — result-cell:** en/telecom/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** es/airline/openai_minimal: shape and configuration match
+- **PASS — result-cell:** es/airline/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** es/airline/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** es/airline/gemini_high: shape and configuration match
+- **PASS — result-cell:** es/airline/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** es/retail/openai_minimal: shape and configuration match
+- **PASS — result-cell:** es/retail/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** es/retail/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** es/retail/gemini_high: shape and configuration match
+- **PASS — result-cell:** es/retail/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** es/telecom/openai_minimal: shape and configuration match
+- **PASS — result-cell:** es/telecom/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** es/telecom/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** es/telecom/gemini_high: shape and configuration match
+- **PASS — result-cell:** es/telecom/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** pt/airline/openai_minimal: shape and configuration match
+- **PASS — result-cell:** pt/airline/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** pt/airline/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** pt/airline/gemini_high: shape and configuration match
+- **PASS — result-cell:** pt/airline/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** pt/retail/openai_minimal: shape and configuration match
+- **PASS — result-cell:** pt/retail/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** pt/retail/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** pt/retail/gemini_high: shape and configuration match
+- **PASS — result-cell:** pt/retail/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** pt/telecom/openai_minimal: shape and configuration match
+- **PASS — result-cell:** pt/telecom/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** pt/telecom/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** pt/telecom/gemini_high: shape and configuration match
+- **PASS — result-cell:** pt/telecom/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** hi/airline/openai_minimal: shape and configuration match
+- **PASS — result-cell:** hi/airline/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** hi/airline/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** hi/airline/gemini_high: shape and configuration match
+- **PASS — result-cell:** hi/airline/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** hi/retail/openai_minimal: shape and configuration match
+- **PASS — result-cell:** hi/retail/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** hi/retail/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** hi/retail/gemini_high: shape and configuration match
+- **PASS — result-cell:** hi/retail/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** hi/telecom/openai_minimal: shape and configuration match
+- **PASS — result-cell:** hi/telecom/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** hi/telecom/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** hi/telecom/gemini_high: shape and configuration match
+- **PASS — result-cell:** hi/telecom/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** ko/airline/openai_minimal: shape and configuration match
+- **PASS — result-cell:** ko/airline/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** ko/airline/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** ko/airline/gemini_high: shape and configuration match
+- **PASS — result-cell:** ko/airline/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** ko/retail/openai_minimal: shape and configuration match
+- **PASS — result-cell:** ko/retail/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** ko/retail/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** ko/retail/gemini_high: shape and configuration match
+- **PASS — result-cell:** ko/retail/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** ko/telecom/openai_minimal: shape and configuration match
+- **PASS — result-cell:** ko/telecom/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** ko/telecom/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** ko/telecom/gemini_high: shape and configuration match
+- **PASS — result-cell:** ko/telecom/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** zh/airline/openai_minimal: shape and configuration match
+- **PASS — result-cell:** zh/airline/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** zh/airline/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** zh/airline/gemini_high: shape and configuration match
+- **PASS — result-cell:** zh/airline/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** zh/retail/openai_minimal: shape and configuration match
+- **PASS — result-cell:** zh/retail/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** zh/retail/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** zh/retail/gemini_high: shape and configuration match
+- **PASS — result-cell:** zh/retail/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** zh/telecom/openai_minimal: shape and configuration match
+- **PASS — result-cell:** zh/telecom/openai_xhigh: shape and configuration match
+- **PASS — result-cell:** zh/telecom/gemini_minimal: shape and configuration match
+- **PASS — result-cell:** zh/telecom/gemini_high: shape and configuration match
+- **PASS — result-cell:** zh/telecom/xai_provider_default: shape and configuration match
+- **PASS — result-cell:** en/airline/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** en/airline/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** en/retail/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** en/retail/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** en/telecom/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** en/telecom/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** es/airline/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** es/airline/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** es/retail/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** es/retail/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** es/telecom/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** es/telecom/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** pt/airline/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** pt/airline/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** pt/retail/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** pt/retail/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** pt/telecom/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** pt/telecom/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** hi/airline/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** hi/airline/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** hi/retail/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** hi/retail/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** hi/telecom/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** hi/telecom/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** ko/airline/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** ko/airline/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** ko/retail/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** ko/retail/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** ko/telecom/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** ko/telecom/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** zh/airline/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** zh/airline/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** zh/retail/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** zh/retail/gemini31pro_high: shape and configuration match
+- **PASS — result-cell:** zh/telecom/gpt55_xhigh: shape and configuration match
+- **PASS — result-cell:** zh/telecom/gemini31pro_high: shape and configuration match
+- **PASS — retail-ablation-cell:** hi/openai_xhigh: ablation row reproduces
+- **PASS — retail-ablation-cell:** hi/gemini_high: ablation row reproduces
+- **PASS — retail-ablation-cell:** zh/openai_xhigh: ablation row reproduces
+- **PASS — retail-ablation-cell:** zh/gemini_high: ablation row reproduces
+- **PASS — task-success-claims:** All 30 task-success values reproduce at one decimal place
+- **PASS — text-voice-gap-claims:** All pooled text-minus-voice gaps reproduce
+- **PASS — trial-stability-claims:** All trial-stability rows and pooled rates reproduce
+- **PASS — repeated-cohort-fingerprint:** Canonical fingerprint over 72 repeated-system results files
+- **PASS — xai-websocket-model:** Every recorded xAI websocket URL uses grok-voice-think-fast-1.0
+- **PASS — prompt-snapshot-archive:** All 10,140 scored simulations have source-verified frozen prompts
+- **PASS — xai-cohort-fingerprint:** Canonical fingerprint over 18 xAI results files
+- **PASS — current-pack-guardrails:** en: current pack passes guardrails
+- **WARN — pack-run-drift:** en: current effective pack values differ from 4 recorded run profile(s)
+- **PASS — current-pack-guardrails:** es: current pack passes guardrails
+- **PASS — pack-run-drift:** es: effective pack values match every recorded run snapshot
+- **PASS — current-pack-guardrails:** pt: current pack passes guardrails
+- **PASS — pack-run-drift:** pt: effective pack values match every recorded run snapshot
+- **PASS — current-pack-guardrails:** hi: current pack passes guardrails
+- **WARN — pack-run-drift:** hi: current effective pack values differ from 25 recorded run profile(s)
+- **PASS — current-pack-guardrails:** ko: current pack passes guardrails
+- **WARN — pack-run-drift:** ko: current effective pack values differ from 4 recorded run profile(s)
+- **PASS — current-pack-guardrails:** zh: current pack passes guardrails
+- **WARN — pack-run-drift:** zh: current effective pack values differ from 4 recorded run profile(s)
+
+## Generated tables and samples
+
+- `task_success.csv`: trial-0 voice Pass@1 by language and system.
+- `text_success.csv`: text Pass@1 by language and system.
+- `text_voice_gap.csv`: pooled text-minus-voice Pass@1 by language.
+- `trial_stability.csv`: repeated-system trial rates and maximum gaps.
+- `retail_ablations.csv`: the 30-task entity-localization ablations.
+- `listening_manifest.json`: deterministic three-call-per-language sample.
+- `audit.json`: complete cell provenance and evidence for every finding.

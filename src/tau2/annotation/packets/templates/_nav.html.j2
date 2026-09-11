@@ -1,0 +1,18 @@
+{# The shared prev/next navigation bar every sequential packet page renders
+   (top and bottom). `nav` is a PageNavVM (packets.page); `unit` names the
+   page unit in the labels ("call", "pair"). Styles live in annotation.css
+   (.packet-nav); form_core.js flushes pending edits on these links. The
+   builder's --append nav refresh string-replaces whole <nav class="packet-nav">
+   blocks, so this macro must render exactly one such block and nothing else. #}
+{% macro packet_nav(nav, unit) %}
+    <nav class="packet-nav">
+        {% if nav.prev_href %}
+        <a class="packet-nav-link" href="{{ nav.prev_href }}">← Previous {{ unit }}</a>
+        {% else %}
+        <span class="packet-nav-link packet-nav-disabled">← Previous {{ unit }}</span>
+        {% endif %}
+        <span class="packet-nav-pos">{{ unit | capitalize }} {{ nav.position }} of {{ nav.total }}</span>
+        <a class="packet-nav-link" href="../index.html">Index</a>
+        <a class="packet-nav-link packet-nav-next" href="{{ nav.next_href }}">{% if nav.is_last %}Done — back to index{% else %}Next {{ unit }} →{% endif %}</a>
+    </nav>
+{% endmacro %}

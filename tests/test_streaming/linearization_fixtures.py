@@ -16,7 +16,9 @@ Categories:
 5. Edge Cases - boundary conditions
 6. Tool Calls - proper call/result ordering (including MultiToolMessage)
 
-See: src/experiments/tau_voice/linearization/cases.md
+The case taxonomy originated in the (since-removed) experimental tau_voice
+linearization notes; the fixtures in this file are now the authoritative
+enumeration of the cases.
 """
 
 from dataclasses import dataclass

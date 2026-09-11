@@ -35,6 +35,11 @@ import time
 from dotenv import load_dotenv
 from loguru import logger
 
+from tau2.voice.utils.voice_design import (
+    create_voice_from_preview,
+    design_voice_preview,
+)
+
 load_dotenv()
 
 SAMPLE_TEXT = (
@@ -218,37 +223,34 @@ def setup_voices(
                 print("  Creating duplicate.")
 
         try:
-            result = client.text_to_voice.design(
+            selected_preview = design_voice_preview(
+                client,
                 voice_description=persona.prompt,
-                text=SAMPLE_TEXT,
+                audition_text=SAMPLE_TEXT,
                 model_id=model,
                 loudness=VOICE_DESIGN_LOUDNESS,
                 guidance_scale=VOICE_DESIGN_GUIDANCE_SCALE,
                 seed=seed,
-                auto_generate_text=False,
             )
 
-            if not result.previews:
+            if selected_preview is None:
                 print(f"  ERROR: No previews returned for {persona.display_name}")
                 continue
 
-            selected_preview = result.previews[0]
-            print(
-                f"  Generated {len(result.previews)} preview(s), "
-                f"using first: {selected_preview.generated_voice_id}"
-            )
+            print(f"  Using preview: {selected_preview.generated_voice_id}")
 
             if preview:
                 _play_preview(selected_preview)
 
-            voice = client.text_to_voice.create(
+            voice_id = create_voice_from_preview(
+                client,
                 voice_name=voice_name,
-                voice_description=persona.short_description,
+                short_description=persona.short_description,
                 generated_voice_id=selected_preview.generated_voice_id,
             )
 
-            created_voices[persona.name] = voice.voice_id
-            print(f"  Saved as voice_id: {voice.voice_id}")
+            created_voices[persona.name] = voice_id
+            print(f"  Saved as voice_id: {voice_id}")
             print()
 
             if i < len(personas):

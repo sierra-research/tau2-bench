@@ -3,7 +3,7 @@
 Status: draft design (2026-08-04)
 
 **Scope**: standard tau (text), tau-voice, and tau-multi (the multilingual
-pool/preset drivers on `soham/tau-multilingual`). Hyper-tau is explicitly
+pool/preset drivers on `tau-multilingual`). Hyper-tau is explicitly
 out of current scope — the seam covers it structurally (see Coverage), and
 it joins later once its own `tau2 run` integration lands. A separate
 follow-up item, after this ships and the tau-multi drivers are ported:
@@ -16,8 +16,8 @@ producer-side code.
 
 A `tau2 run` process executes simulations on a `ThreadPoolExecutor` bounded by
 `--max-concurrency` (`src/tau2/runner/batch.py`). The bottleneck is not the
-providers — it is Python compute in the main process. `tau2 bench-concurrency`
-(private repo, `soham/tau-multilingual`, 2026-07-28) measured this directly:
+providers — it is Python compute in the main process. Internal concurrency
+benchmarks measured this directly:
 
 - 1 process at concurrency 30: 272.7 sims/hr, ~100 ms asyncio tick overrun,
   and it could not even fill its own pool (21.6 of 30 slots busy).
@@ -25,7 +25,7 @@ providers — it is Python compute in the main process. `tau2 bench-concurrency`
   60 simulations genuinely in flight. Zero provider errors at any level.
 
 So the ceiling is **per process**, and useful parallelism above ~10 means
-**more processes**. The private repo's `tau2 pool` verb builds on that: a
+**more processes**. The `tau2 pool` verb builds on that: a
 driver loop launches one `tau2 run --auto-resume` subprocess per (language ×
 arm) cell, each at concurrency 10, bounded by a host-wide budget of 8 cells,
 with per-cell `flock` locks so two drivers never put two writers on one
@@ -358,7 +358,7 @@ the pool driver uses today.
    spawn path, lease TTL/retry, per-provider limits. Validate against
    `bench-concurrency` numbers: 6×10 should reproduce ~626 sims/hr.
 3. **Port the drivers** — `run_multiple.py` (public, tau-voice) and
-   pool/preset (private, tau-multilingual) become producers over the shared
+   pool/preset (tau-multilingual) become producers over the shared
    controller. `run_multiple.py` is the simplest port and the proof of the
    "multiple top-level runs" story: today it runs its grid combos
    *sequentially*, one `tau2 run --auto-resume` subprocess at a time; as a

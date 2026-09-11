@@ -1,0 +1,779 @@
+language: ko
+display_name: Korean
+name_order: family_first  # 김민준 / "Kim Minjun" — the order a Korean caller says
+backchannel_level: medium  # density knob (tau2.backchannel)
+agent_language_clause: Respond in Korean using Hangul for Korean and Latin script
+  for English insertions; mirror the user's code-switching register; keep all tool
+  calls, arguments, and structured outputs in English exactly as specified.
+default_out_of_turn_events_per_minute: 1.0
+experiments:
+- preset_name: multilingual_v1_korean
+  description: 'Korean v1 headline experiment: the pack''s personas on the airline
+    tasks vs a matched English baseline (same base tasks, same provider, same complexity,
+    identical LLM-judge metric).'
+  domain: airline
+  main_arm_name: korean
+  task_set_suffix: ko
+  smoke_task_stem: '3'
+- preset_name: multilingual_v1_korean_telecom
+  description: 'Korean v1 telecom experiment: the pack''s personas on the telecom
+    tasks.'
+  domain: telecom
+  main_arm_name: korean_telecom
+  task_set_suffix: ko
+  smoke_task_stem: '[mobile_data_issue]airplane_mode_on|data_mode_off[PERSONA:None]'
+- preset_name: multilingual_v1_korean_retail
+  description: 'Korean v1 retail experiment: the pack''s personas on the retail tasks.'
+  domain: retail
+  main_arm_name: korean_retail
+  task_set_suffix: ko
+  smoke_task_stem: '83'
+# --- persona pragmatics (conditional-realization form) ---
+# pragmatics_clauses redrafted by `tau2 factory redraft-pragmatics` (prompt v1 sha256:6f7590c925ac, model:claude-opus-4-8).
+# Personas own the language profile; the TASK owns attitude/affect —
+# clauses realize attitudes conditionally, never prescribe them.
+# --- persona out-of-turn speech (away-from-the-mic length) ---
+# non_directed_phrases clipped by `tau2 factory shorten-non-directed` (prompt v1 sha256:d22aa7ecbce7, model:claude-opus-4-8).
+# Out-of-turn speech is spliced into the live call as one burst, so it
+# is bounded at 4 words — a glance away from the phone, not a second
+# conversation. Same addressee, situation and register as before.
+personas:
+  jihun_ko_v1:
+    voice_id: vxjPPXpTLT92rJEW7L3V
+    verbosity: standard
+    interrupt_tendency: waits
+    persona_id: jihun_ko_v1
+    display_name: Jihun
+    short_description: 47-year-old Seoul bank branch supervisor; crisp standard Korean
+      in deferential 하십시오체; patient and precise, minimal English
+    language: ko
+    locale: KR-11
+    script: hang
+    pragmatics_clauses:
+    - 'Speak crisp, precise standard Korean (표준어) in the deferential 하십시오체 throughout:
+      ''예, 말씀하신 내용 확인했습니다'', ''잠시만 기다려 주시겠습니까?'', ''제가 도와드리겠습니다''. As a senior bank branch
+      supervisor, your vocabulary is exact and professional and your sentences are complete.
+      Use only well-established loanwords (계좌, 카드, 이메일, 시스템) and never trendy English
+      insertions — overly casual mixing sounds unprofessional for someone in your position.'
+    - 'When you open courteously, natural forms are ''안녕하십니까'', ''예, 안녕하세요'', and you
+      get to the point politely: ''예, 한 가지 여쭤볼 게 있어서 연락드렸습니다''. When the conversation
+      is unhurried and courteous, closings extend across several turns with thanks and
+      a proper farewell: ''예, 도움 주셔서 감사합니다'' → ''그럼 수고하십시오'' → ''예, 안녕히 계십시오'', rather
+      than ending abruptly.'
+    - You hold the 하십시오체 consistently and never slip into 해요체 or 반말. When frustrated,
+      firmness surfaces as polite insistence within the formal register ('예, 이해합니다만, 한
+      번만 더 확인 부탁드리겠습니다'), never as rudeness or a drop in honorifics.
+    - 'You have MEDIUM tolerance for an English-only agent. You follow simple English
+      and a few loanwords fine, but you prefer Korean and will politely ask for it: ''죄송하지만
+      한국어로 말씀해 주시면 감사하겠습니다''. You do not carry a long conversation in sustained English.'
+    - When you want to refuse, you do so indirectly rather than with a flat '아니요'. You
+      use '음, 그건 조금 곤란할 것 같습니다', '글쎄요, 그 부분은 다시 한번 확인 부탁드립니다', or you restate your original
+      question. The agent must infer your reluctance from your hedging.
+    - 'When frustrated, you become MORE formal and deliberate, not rude: you slow down,
+      repeat yourself carefully, and ask the agent to confirm again — ''예, 다시 한번 천천히 확인
+      부탁드리겠습니다''. You do not raise your voice and do not break honorifics.'
+    - 'When the agent mishears a name or code, you read it slowly and clearly: digits
+      in Sino-Korean (''공일공 일이삼사''), Latin letters by English name, codes character by
+      character (예: ''KR7A'' → ''케이, 알, 칠, 에이''). You spell out ambiguous letters to clarify
+      and repeat as many times as needed.'
+    backchannel_phrases:
+    - 음
+    non_directed_phrases:
+    - 잠깐만요, 통화 중입니다
+    - 김 대리, 그 서류요
+    - 예, 곧 들어가겠습니다
+    tts_voice_prompt: A man in his late 40s from Seoul, a senior bank branch supervisor
+      calling customer support from a quiet office. He speaks crisp, precise standard
+      Korean (표준어) in the deferential 하십시오체, with exact professional vocabulary and
+      only well-established loanwords pronounced naturally. Lower-medium pitch, calm
+      and measured pacing with deliberate pauses, warm but professional timbre that
+      stays composed even when insistent. Phone-call audio quality with low office
+      background hum.
+    tags:
+      code_switch: low
+      formality: high
+      english_tolerance: medium
+      age_band: 40s
+      register: urban_professional
+      closing_style: extended
+      gender: male
+  soyeon_ko_v1:
+    voice_id: yKdz7buij7rOycduUNgm
+    verbosity: standard
+    interrupt_tendency: interrupts
+    persona_id: soyeon_ko_v1
+    display_name: Soyeon
+    short_description: 24-year-old Busan-born student/part-timer in Seoul; fast casual
+      해요체 with Gyeongsang intonation; English/IT loanwords; high English tolerance
+    language: ko
+    locale: KR-26
+    script: hang
+    pragmatics_clauses:
+    - 'Speak fast, casual Korean in 해요체, with a faint Busan/Gyeongsang pitch-accent and
+      rising sentence-final intonation. You slide into 반말 with familiar people but keep
+      해요체 with the agent. Sprinkle in English and IT loanwords freely: ''앱'', ''예약'',
+      ''캔슬'', ''리필'', ''확인'', ''체크''. Natural examples: ''아 그거 그냥 캔슬해 주세요'', ''앱에서는 안
+      되던데요?'', ''예약 status 좀 확인해 주실래요?''. Never use the stiff deferential 하십시오체 — it sounds
+      robotic for someone your age.'
+    - 'When you open casually, natural forms are ''아 네 안녕하세요~'', ''여보세요? 네네'', or you
+      go straight to the point: ''아 저 뭐 좀 여쭤볼 게 있어서요''. When you want to close quickly,
+      closings are short: ''아 네네 감사합니다 끊을게요~''.'
+    - When engaged and following along, you backchannel a lot — '네', '아 네네', '맞아요', '그쵸',
+      '음음', '아 진짜요' — and you may overlap and finish the agent's sentences when you already
+      get it.
+    - You have HIGH tolerance for an English-only agent. If the agent clearly can't follow
+      Korean, you switch smoothly into fluent, fast English and carry on. As the call
+      relaxes you naturally drift back into Korean (loanwords creep back in first). You
+      do not demand that the agent speak Korean.
+    - 'When you want to refuse, you do it softly through hedging rather than a flat ''아니요'':
+      ''아 음... 그건 좀 그런데요'', ''아 그건 별로 안 끌리는데'', ''네 근데 그건 좀...''. You only push back directly
+      once genuinely annoyed.'
+    - When frustration builds you get clipped and faster ('네 네 그러니까 그게요'), then audible
+      impatience ('아 진짜 이거 몇 번을 말해요'), then more 반말 slips and short sharp sentences with
+      sighs. Even when annoyed you stay clear and articulate — never incoherent.
+    - 'When the agent mishears a name or code, you read digits in Sino-Korean (''공일공 일이삼사
+      오육칠팔''), Latin letters by English name, and spell codes character by character (예:
+      ''KR7A'' → ''케이 알 칠 에이''). Phone numbers go digit by digit with 0 as ''공''.'
+    backchannel_phrases:
+    - 음음
+    non_directed_phrases:
+    - 저기요, 아메리카노 하나요
+    - 야 잠깐만
+    - 어 곧 갈게~
+    tts_voice_prompt: A woman in her early 20s, originally from Busan and now studying
+      and working part-time in Seoul, calling customer support from a noisy café or
+      busy street. She speaks fast, friendly casual Korean in 해요체 with a faint Gyeongsang
+      pitch-accent and rising sentence-final intonation, peppered with English and
+      IT loanwords pronounced naturally. Medium-high pitch, bright and a little impatient
+      delivery, quick conversational rhythm with short pauses and frequent backchannels.
+      Mobile phone-call audio quality with café chatter and street traffic in the
+      background.
+    tags:
+      code_switch: medium
+      formality: low
+      english_tolerance: high
+      age_band: 20s
+      register: student
+      closing_style: brisk
+      gender: female
+translation_guidance: 'Target register: natural spoken Standard Korean (표준어). Honorific
+  level is the single most important register dimension — match the persona. Service/professional
+  speech defaults to the deferential 하십시오체 (''확인했습니다'', ''기다려 주시겠습니까?'') or the polite
+  해요체 (''확인했어요'', ''기다려 주실래요?''); casual speakers use 해요체 sliding toward 반말. Never
+  mix 하십시오체 and 반말 in the same speaker''s text.
+
+
+  LOANWORD / CODE-SWITCHING POLICY:
+
+  - Established English loanwords for tech, money, travel, and everyday terms are
+  the INTENDED register and should be written in Hangul transliteration where that
+  is the natural spelling: 앱, 예약, 캔슬, 카드, 이메일, 시스템, 체크, 리필, 오케이. Latin-script insertions
+  (status, refund) are acceptable for the casual urban-professional/student register;
+  keep them inline. Do NOT over-purify into stiff Sino-Korean equivalents when the
+  loanword is what a real speaker would say (e.g. don''t force ''cancel'' into ''해약''
+  if ''캔슬'' is natural for the persona). Korean stays the matrix language; English
+  words are insertions.
+
+  - For the formal bank-supervisor register, prefer the precise Korean/Sino-Korean
+  term (계좌, 해지, 확인) and keep loanwords minimal.
+
+
+  CALQUE TRAPS (translate the MEANING, not the words):
+
+  - ''if and only if'' must NOT become a literal calque. Use ''오직 ~할 때만'' or ''~인
+  경우에 한해서만''.
+
+  - ''as soon as possible'' -> ''가능한 한 빨리'', not a word-for-word string.
+
+  - ''make sure that'' -> ''~인지 꼭 확인하세요'' / ''반드시 ~하도록 하세요'', not a literal ''확실하게
+  만들다''.
+
+  - Conditionals: Korean marks the condition with ''-(으)면'' / ''-(ㄴ)다면'' and keeps
+  the consequence; map English if/then faithfully — ''상담원이 거절하면, 더 우기지 마세요''.
+
+  - English ''you'' is usually NOT translated as ''당신'' (which sounds confrontational
+  or like a textbook). Drop the subject or use a role/title (고객님, 상담원). Address with
+  appropriate honorific forms instead.
+
+
+  GENDER:
+
+  - Korean verbs and adjectives do NOT inflect for the speaker''s gender, so there
+  is no gendered-verb agreement to track and no masculine/feminine default to choose.
+  The same prose serves any speaker; the persona''s gender is realized only through
+  the voice. Do not invent gender marking. The only register agreement to keep CONSISTENT
+  within one text is the honorific level (do not switch between 하십시오체, 해요체, and 반말
+  for the same speaker).
+
+
+  SCRIPT / NUMBER CONVENTIONS:
+
+  - Korean prose is Hangul. All concrete values — ids, codes, amounts, dates, reservation/flight
+  numbers — stay verbatim with Latin digits (1, 2, 3) and Latin letters where they
+  originate; do not convert to Korean numeral words in written text. An attached unit/word
+  localizes (''3h'' -> ''3시간''; keep the digit, translate the unit).
+
+  - Spoken readings (for voice/TTS context) follow locale conventions: dates, money
+  (원), minutes, and phone numbers use Sino-Korean numerals; counting items/hours/ages
+  uses native numerals. Phone numbers are read digit-by-digit with 0 as ''공''. Money
+  groups by 만/억 (35,000원 → ''삼만 오천 원''). Email ''@'' is ''골뱅이'', ''.'' is ''점''. Latin
+  letters spelled by English name (에이, 비, 씨); alphanumeric codes read character-by-character
+  (KR7A → ''케이 알 칠 에이'').
+
+
+  REGISTER EXAMPLES (natural target):
+
+  - Formal (Jihun): ''예, 말씀하신 계좌 확인했습니다. 잠시만 기다려 주시겠습니까?''
+
+  - Casual (Soyeon): ''아 그거 그냥 캔슬해 주세요~ 앱에서는 안 되던데요?''
+
+  - Conditional: ''상담원이 거절하면, 너무 우기지 마세요.'''
+agent_greeting: 안녕하세요, 무엇을 도와드릴까요?
+guidelines_voice_path: guidelines/simulation_guidelines_voice_ko.md
+
+# --- nativeness scoring ---
+# judge_factors select from the closed catalog in tau2.multilingual.nativeness_catalog;
+# factor_id must exist there (the loader rejects unknown ids). email_symbols
+# are native verbalizations of email symbols for the deterministic checker.
+nativeness:
+  judge_factors:
+  - factor_id: honorific_levels
+    enabled: false
+    nuance: 'Honorific speech levels (존댓말: 합쇼체/해요체)'
+    question: Did the agent use polite Korean with the customer throughout the call?
+    native_does: Uses 존댓말. Both 합쇼체 and 해요체 are natural in a South Korean
+      service call, and the agent may move between them. Examples are "확인해
+      드리겠습니다", "확인해 볼게요", and "잠시만 기다려 주세요". A clipped
+      fragment or quiet self-talk such as "어디 보자" is also fine.
+    ai_likely_does: Directs sustained 반말 at the customer, such as repeatedly saying
+      "이름 말해", "기다려", or "알겠어?". Do not flag 해요체, and do not flag one
+      isolated plain ending in an otherwise polite call.
+  - factor_id: honorific_agreement
+    enabled: true
+    nuance: Honorific agreement with the grammatical subject
+    question: Did the agent use -시- for the customer's actions and avoid using it for
+      the agent's own actions?
+    native_does: Honors the customer as the grammatical subject. Examples are
+      "고객님께서 신청하신 예약" and "확인하셨나요?". For the agent's own action,
+      "제가 확인하겠습니다" is natural. The final ending may be either -요 or
+      -습니다.
+    ai_likely_does: Clearly omits -시- where the customer is being honored, points
+      the honorific at the agent's own action, or attaches -시- to an inanimate
+      subject. Examples are "고객님께서 신청한 예약", "제가 확인하시겠습니다", and
+      "결제가 완료되셨습니다". One clear instance is enough. Do not guess when
+      the subject is omitted or ambiguous; "고객님이 필요한 서류" alone is not a
+      clear omission. Natives frequently drop -시- inside pre-nominal (relative)
+      clauses ("주문한 상품", "입력한 우편번호") and in connective clauses with
+      an omitted subject ("재부팅을 했는데도") - do not flag those. Also do not
+      flag indirect honorification (간접높임) of the customer's own needs,
+      attributes, or perceptions - "궁금한 점이 있으신가요?", "성함이 어떻게
+      되세요?", and "시간 괜찮으세요?" are natural. Flag only a main clause
+      where the customer is the explicit honored subject, -시- attached to the
+      agent's own action, or -시- attached to an object, state, or procedure
+      that does not belong to the customer, such as "요금제가 변경되셨습니다"
+      or "결제가 완료되셨습니다".
+  - factor_id: request_politeness
+    enabled: false
+    nuance: Natural request softening
+    question: Did the agent phrase requests naturally instead of repeatedly giving blunt
+      commands?
+    native_does: Uses a natural request such as "번호를 말씀해 주세요" or "확인해
+      주시겠어요?". A short direct instruction can be fine when the context calls for
+      it; not every request needs several softeners.
+    ai_likely_does: Repeatedly gives command-shaped requests such as "번호를 말씀하세요",
+      "지금 확인하세요", or "다시 말하세요" without a reason. Judge request force here.
+      Judge -요/-습니다 versus 반말 under honorific speech levels.
+  - factor_id: natural_word_choice
+    nuance: Combined utterance naturalness for South Korean Korean
+    question: >-
+      This is a customer-service call in Korean. Does this utterance contain
+      translationese or unnatural word choice?
+    native_does: >-
+      Natural spoken South Korean customer-service Korean passes, including ordinary
+      polite or formal speech, established loanwords, and code-switching that sounds
+      natural to a native speaker. Literal names, identifiers, and genuine branded
+      product, interface, setting, or status labels may remain in English when
+      naturally integrated. Ordinary Korean wording for money or credit returning to
+      a payment method also passes; do not require the most specialized service verb.
+      Judge language use only, not factual or task correctness.
+    ai_likely_does: >-
+      Flag wording that would sound clearly odd to a native South Korean speaker,
+      including English-shaped or word-for-word phrasing, unnatural word choice or
+      collocation, and genuinely unnatural backend or system language exposed to the
+      customer. Also flag an untranslated generic English category or service term
+      when ordinary Korean is expected, awkward duplication of English and Korean
+      alternatives, wording that treats verbally supplied information as typed input,
+      and a clear customer-service register mismatch such as restarting a greeting
+      mid-conversation or using an overly casual interjection. A merely smoother or
+      more specialized Korean alternative is not enough. For interrupted turns, judge
+      complete material before the cutoff and ignore only the clipped ending.
+  - factor_id: counting_units
+    enabled: false
+    nuance: Natural numbers and counting words (분류사)
+    question: Did the agent use the correct counter and Korean number system for the
+      thing being counted?
+    native_does: Uses native Korean numbers with common counters, such as "수하물 한
+      개", "승객 두 명", "세 시간", and "한 시". Uses Sino-Korean where expected,
+      such as "삼십 분", and may combine them naturally in "세 시 삼십 분". Other
+      natural forms include "표 한 장" and "예약 한 건".
+    ai_likely_does: Uses a clearly wrong numeral-counter pair, such as "수하물 일 개"
+      instead of "수하물 한 개", "삼 시간" instead of "세 시간", or "사람 두 개"
+      instead of "두 명". One clear error is enough. Do not flag a stylistic choice
+      between two accepted counters.
+  - factor_id: name_address_conventions
+    nuance: Korean name order and service-call address
+    question: When the agent used the customer's name, did it keep Korean name order and
+      attach the title naturally?
+    native_does: Keeps family name first and attaches the title to the name. Examples
+      are "김민준 고객님" and "김민준 님". Using 고객님 without a name is also natural.
+      If the agent never uses the customer's name, there is no opportunity.
+    ai_likely_does: Reverses the known localized caller name, such as "김민준" to
+      "민준 김", or directly addresses that caller by family name alone as "김 씨".
+      Also check every name the agent says, including romanized ones - rendering
+      one person's name given-name-first and another person's name family-first
+      within the same call is a violation, even when each form alone would be
+      fine. One consistently used order is acceptable, and romanizing a single
+      Korean name in Western order is acceptable. Do not require name use, infer
+      a Korean name from a foreign/source name, or flag spacing before 님, quoted
+      reports, third-party names, or an ambiguous reference.
+  enabled_deterministic_factors:
+  - email_symbol_verbalization
+  email_symbols:
+    '@':
+    - 골뱅이
+    .:
+    - 점
+# --- delivery scoring (audio-layer) ---
+# judge_factors select from the closed catalog in tau2.multilingual.delivery_catalog;
+# factor_id must exist there (the loader rejects unknown ids). Rubrics are grounded
+# in confirmed human-annotation findings (docs/multilingual/annotation/nuance_map.json).
+delivery:
+  judge_factors:
+  - factor_id: regional_accent_consistency
+    listen_for: Pronunciation that repeatedly conflicts with standard Seoul
+      Korean or audibly switches between incompatible systems within the call —
+      sustained regional-dialect intonation, or an English-accented rendering of
+      Korean words. Accept ordinary speaker variation; judge against standard
+      Seoul Korean, not one preferred voice.
+
+# --- spoken localization (symbols / date-numeral rule / speech conventions / domain glossary) ---
+# Upgraded by `tau2 factory draft-localization`: domain_glossaries[retail] drafted by prompt v7 sha256:6c4c09381c8b (model:claude-opus-4-8);
+# all previously-reviewed fields preserved verbatim.
+# Symbols and term_ids select from the closed catalogs in
+# tau2.multilingual.localization_catalog (the loader rejects unknown ids).
+localization:
+  symbol_readouts:
+  - symbol: '@'
+    spoken:
+    - 골뱅이
+  - symbol: .
+    spoken:
+    - 점
+  - symbol: _
+    spoken:
+    - 밑줄
+    - 언더바
+  - symbol: '-'
+    spoken:
+    - 대시
+  - symbol: /
+    spoken:
+    - 슬래시
+  - symbol: +
+    spoken:
+    - 플러스
+    - 더하기
+  - symbol: '0'
+    spoken:
+    - 공
+    - 영
+  date_examples:
+  - written: May 17
+    spoken: 오월 십칠일
+  - written: 05/17
+    spoken: 오월 십칠일
+  - written: December 3
+    spoken: 십이월 삼일
+  - written: '2024-01-09'
+    spoken: 이천이십사년 일월 구일
+  number_examples:
+  - written: 253 dollars
+    spoken: 이백오십삼 달러
+  - written: 35,000원
+    spoken: 삼만 오천 원
+  - written: 21 (a date or price)
+    spoken: 이십일
+  - written: 21 (counting items or age)
+    spoken: 스물하나
+  - written: 3h
+    spoken: 세 시간
+  - written: +82 10 1234 5678
+    spoken: 플러스 팔이 일공 일이삼사 오륙칠팔
+  domain_glossaries:
+    airline:
+    - term_id: user_id
+      native: 아이디
+      note: established loanword — natives say 아이디 for a user ID
+    - term_id: reservation
+      native: 예약
+    - term_id: reservation_id
+      native: 예약번호
+    - term_id: flight
+      native: 항공편
+    - term_id: flight_number
+      native: 편명
+      note: 항공편 번호 is also natural in a slightly more explicit register
+    - term_id: refund
+      native: 환불
+    - term_id: travel_insurance
+      native: 여행자 보험
+    - term_id: checked_bag
+      native: 위탁 수하물
+      note: casual speakers say 부치는 짐
+    - term_id: carry_on
+      native: 기내 수하물
+      note: casual speakers say 기내에 들고 타는 짐
+    - term_id: future_trip
+      native: 예정된 여행
+      note: 다가오는 여행 is also natural
+    - term_id: one_way
+      native: 편도
+    - term_id: round_trip
+      native: 왕복
+    - term_id: basic_economy
+      native: 베이직 이코노미
+      note: established loanword — natives use the transliterated cabin name
+    - term_id: economy
+      native: 이코노미
+      note: established loanword; 일반석 in a more formal register
+    - term_id: business
+      native: 비즈니스
+      note: established loanword; 비즈니스석/비즈니스 클래스
+    - term_id: credit_card
+      native: 신용카드
+    - term_id: gift_card
+      native: 기프트 카드
+      note: established loanword
+    - term_id: travel_certificate
+      native: 여행 상품권
+      note: 트래블 서티피케이트 in loanword-heavy speech
+    - term_id: membership_tier
+      native: 회원 등급
+    - term_id: cancellation
+      native: 취소
+      note: casual speakers say 캔슬
+    - term_id: payment_method
+      native: 결제 수단
+    telecom:
+    - term_id: customer_id
+      native: 고객 아이디
+      note: '''아이디'' is an established loanword and the natural expression'
+    - term_id: phone_number
+      native: 전화번호
+    - term_id: line
+      native: 회선
+    - term_id: plan
+      native: 요금제
+    - term_id: data_allowance
+      native: 데이터 제공량
+      note: '''데이터'' is an established loanword'
+    - term_id: data_usage
+      native: 데이터 사용량
+    - term_id: data_refuel
+      native: 데이터 충전
+      note: also '데이터 리필'
+    - term_id: mobile_data
+      native: 모바일 데이터
+      note: established loanword expression
+    - term_id: roaming
+      native: 로밍
+      note: established loanword — the natural expression in practice
+    - term_id: airplane_mode
+      native: 비행기 모드
+    - term_id: sim_card
+      native: 심 카드
+      note: also commonly said as '유심'
+    - term_id: esim
+      native: 이심
+      note: established transliteration of eSIM
+    - term_id: apn_settings
+      native: APN 설정
+      note: naturally read as the Latin letters (에이피엔)
+    - term_id: data_saver
+      native: 데이터 절약 모드
+    - term_id: wifi
+      native: 와이파이
+      note: established loanword
+    - term_id: wifi_calling
+      native: 와이파이 통화
+    - term_id: vpn
+      native: 브이피엔
+      note: established loanword (VPN)
+    - term_id: speed_test
+      native: 속도 측정
+      note: also '스피드 테스트'
+    - term_id: network_signal
+      native: 네트워크 신호
+      note: '''신호'' alone is also used'
+    - term_id: status_bar
+      native: 상태 표시줄
+    - term_id: mms
+      native: 엠엠에스
+      note: established expression for MMS
+    - term_id: bill
+      native: 요금 청구서
+      note: '''요금'' alone is also used'
+    - term_id: overdue_bill
+      native: 미납 요금
+      note: also '밀린 요금'
+    - term_id: payment_request
+      native: 결제 요청
+    - term_id: line_suspension
+      native: 정지된 회선
+      note: also '회선 정지'
+    - term_id: payment_method
+      native: 결제 수단
+    retail:
+    - term_id: user_id
+      native: 아이디
+      note: established loanword; the natural spoken term is '아이디', not the Sino-Korean
+        '사용자 식별번호'
+    - term_id: zip_code
+      native: 우편번호
+    - term_id: order
+      native: 주문
+    - term_id: order_id
+      native: 주문번호
+    - term_id: order_status
+      native: 주문 상태
+    - term_id: pending_order
+      native: 아직 배송 안 된 주문
+      note: descriptive spoken form; formal register also '배송 대기 중인 주문'
+    - term_id: delivered_order
+      native: 배송된 주문
+      note: casual register also '이미 받은 주문'
+    - term_id: cancellation
+      native: 취소
+      note: casual register also uses the loanword '캔슬'
+    - term_id: return
+      native: 반품
+    - term_id: exchange
+      native: 교환
+    - term_id: refund
+      native: 환불
+    - term_id: product
+      native: 상품
+      note: the product TYPE; also '제품'
+    - term_id: item
+      native: 품목
+      note: a specific variant; casual speakers often just say '그 옵션' or '그거'
+    - term_id: product_option
+      native: 옵션
+      note: established loanword; '옵션' is the natural spoken term for colour/size/etc.
+    - term_id: item_id
+      native: 품목 번호
+      note: also '아이템 번호' in casual/IT register
+    - term_id: product_id
+      native: 상품 번호
+    - term_id: availability
+      native: 재고
+      note: spoken as '재고 있어요?' for in-stock
+    - term_id: price_difference
+      native: 차액
+    - term_id: tracking_number
+      native: 송장번호
+      note: also '운송장 번호'; casual register '트래킹 번호'
+    - term_id: shipping_address
+      native: 배송지 주소
+      note: also just '배송지'
+    - term_id: default_address
+      native: 기본 배송지
+    - term_id: payment_method
+      native: 결제 수단
+    - term_id: credit_card
+      native: 신용카드
+      note: often shortened to '카드'
+    - term_id: gift_card
+      native: 기프트 카드
+      note: established loanword; '상품권' in some contexts
+    - term_id: paypal
+      native: 페이팔
+      note: established loanword, always transliterated
+    - term_id: human_agent
+      native: 상담원
+      note: human representative; '상담사' is a formal variant
+  phone_number_readout:
+    rule: Korean mobile numbers are read digit-by-digit in Sino-Korean numerals, with
+      0 pronounced '공'. Group as 3-4-4 (010-XXXX-XXXX), pausing between blocks. Landlines
+      group by area code then the remaining blocks. Never read a block as a composed
+      number word (e.g. 1234 as '천이백삼십사'); always digit-by-digit. Within a block the
+      digits may be delivered as a fluent run ('일이삼사') or with deliberate pauses ('일,
+      이, 삼, 사') — both are digit-by-digit readings.
+    examples:
+    - written: 010-1234-5678
+      spoken: 공, 일, 공 — 일, 이, 삼, 사 — 오, 육, 칠, 팔
+    - written: 02-777-0100
+      spoken: 공, 이 — 칠, 칠, 칠 — 공, 일, 공, 공
+  amount_readout:
+    rule: 'The currency word (''원'' for won, ''달러'' for dollars) follows the number.
+      Amounts are read in Sino-Korean numerals grouped by the Korean myriad units
+      만 (10,000) and 억 (100,000,000): 35,000 → ''삼만 오천''. For decimals, the decimal
+      separator is read ''점'' and the fractional digits are read digit-by-digit; cents
+      in dollar amounts are commonly read as ''달러 …센트''.'
+    examples:
+    - written: 35,000 won
+      spoken: 삼만 오천 원
+    - written: 1,500,000 won
+      spoken: 백오십만 원
+    - written: 253.75 dollars
+      spoken: 이백오십삼 달러 칠십오 센트
+  spelling_alphabet:
+    rule: 'For Hangul names, decompose each syllable into its jamo, said one by one
+      by jamo name: ''김'' → ''기역, 이, 미음''; ''박'' → ''비읍, 아, 기역''. Decomposing the
+      full name this way is for when the listener explicitly asks for a spell-out
+      (as in the spelling_name example); unprompted, natives typically decompose only
+      the ambiguous syllable (e.g. distinguishing ''재'' from ''제'') rather than routinely
+      spelling out a whole name. For Latin letters in codes, say each letter by its
+      Korean-pronounced English letter name (에이, 비, 씨, 디…), separated with comma and
+      space; alphanumeric codes are read character-by-character.'
+    avoid: The NATO/anglo phonetic alphabet ('Alpha, Bravo, Charlie' or 'B for boy');
+      Korean spells names by jamo decomposition, not by anchor words.
+    anchor_examples:
+    - written: 김
+      spoken: 기역, 이, 미음
+    - written: 박
+      spoken: 비읍, 아, 기역
+    - written: 지
+      spoken: 지읒, 이
+    - written: B
+      spoken: 비
+    - written: M
+      spoken: 엠
+  # Honorific words the caller must not apply to itself. For example, 성함 is
+  # the honorific word for a listener's name; a speaker uses 이름 for their own
+  # name. The plain alternatives below keep self-reference non-honorific.
+  # PENDING NATIVE REVIEW: all four pairs.
+  honorific_self_reference:
+  - concept_id: name
+    honorific: 성함
+    plain: 이름
+  - concept_id: age
+    honorific: 연세
+    plain: 나이
+  - concept_id: birthday
+    honorific: 생신
+    plain: 생일
+  - concept_id: home
+    honorific: 댁
+    plain: 집
+  spoken_value_examples:
+  - kind: email
+    written: john_doe@gmail.com
+    spoken: 네, john 언더바 doe 골뱅이 gmail 점 com 이에요
+  - kind: user_id
+    written: soyeon_24
+    spoken: 아이디는 S, O, Y, E, O, N, 언더바, 이, 사 예요
+  - kind: phone
+    written: 010-1234-5678
+    spoken: 제 번호는 공, 일, 공 — 일, 이, 삼, 사 — 오, 육, 칠, 팔 이에요
+  - kind: spelling_name
+    written: 김지훈
+    spoken: 이름은 김지훈인데요, 김은 기역, 이, 미음, 지는 지읒, 이, 훈은 히읗, 우, 니은 이에요
+  - kind: account_number
+    written: 110-234-567890
+    spoken: 계좌번호는 일, 일, 공 — 이, 삼, 사 — 오, 육, 칠, 팔, 구, 공 입니다
+  - kind: website
+    written: www.example.com/support
+    spoken: 사이트는 www 점 example 점 com 슬래시 support 예요
+  guideline_examples:
+  - kind: disfluency_fillers
+    utterances:
+    - 음...
+    - 어...
+    - 그게
+    - 뭐랄까
+    - 아 그러니까
+    - 그
+    - 저기요
+  - kind: restart_example
+    utterances:
+    - 혹시 그—아니, 잠깐만요, 제가 여쭤보려던 건...
+  - kind: filler_pause_example
+    utterances:
+    - 그, 음, 제가 생각을 좀 해봤는데요, 혹시 좀 도와주실 수 있을까요
+  - kind: pause_marker_examples
+    utterances:
+    - 해보려고 했는데—잠깐만요, 생각 좀 [pause]
+    - 문제가 시작된 게 [pause] 한 사흘 전쯤이었나?
+  - kind: self_interruption_example
+    utterances:
+    - 해보려고 했는데... 아 잠깐, 계좌번호부터 드릴까요?
+  - kind: clarification_request
+    utterances:
+    - 죄송한데 한 번만 다시 말씀해 주시겠어요? 잘 안 들려서요.
+  - kind: emotion_examples
+    utterances:
+    - 사실 좀 답답해서요, 왜냐면...
+    - 어 진짜요? 그럼 너무 좋죠!
+  - kind: conversational_confirmations
+    utterances:
+    - 네
+    - 예
+    - 아 네네
+    - 그렇군요
+    - 맞아요
+    - 음
+    - 오케이
+    - 알겠습니다
+  - kind: silence_checkins
+    utterances:
+    - 여보세요? 듣고 계세요?
+    - 뭐 좀 확인되셨나요?
+    - 아까 그거... 혹시 진행 상황이 있을까요?
+  - kind: frustrated_endings
+    utterances:
+    - 이거 좀 너무하네요, 나중에 다시 전화할게요
+    - 이럴 시간이 없어서요, 끊겠습니다.
+  - kind: dont_know_responses
+    utterances:
+    - 음, 그건 잘 모르겠는데요
+    - 지금 정확히 기억이 안 나네요
+    - 그건 좀 찾아봐야 할 것 같아요.
+  - kind: make_agent_work_chain
+    utterances:
+    - 작동을 안 해요
+    - 앱이요
+    - 거기 모바일 앱이요.
+  - kind: one_at_a_time_example
+    utterances:
+    - 네, 제 이메일은 john 언더바 doe 골뱅이 gmail 점 com이고요... 아, 전화번호도 필요하세요?
+  - kind: forget_details_example
+    utterances:
+    - 주문번호가... 음, 잠깐만요, 좀 볼게요...
+  - kind: vague_openers
+    utterances:
+    - 문제가 좀 있어서요
+    - 제 계정이 뭔가 이상해서요
+  - kind: unknown_info_phrases
+    utterances:
+    - 그건 제가 정확히 모르겠어요
+    - 그 정보는 제가 가지고 있지 않아요.
+  - kind: tool_acknowledgment
+    utterances:
+    - 아 네, 한번 해볼게요... 잠깐만요.
+  - kind: tool_result_report
+    utterances:
+    - 아 방금 해봤는데요, 어, 이렇게 뜨네요...
+  - kind: tool_failure_report
+    utterances:
+    - 음, 안 되는데요... 에러가 뜨네요.
+  - kind: multiple_actions_pushback
+    utterances:
+    - 어어, 한꺼번에 너무 많은데요... 하나씩 좀 알려주시겠어요?
+  - kind: gratitude_examples
+    utterances:
+    - 아 정말 감사합니다!
+    - 네, 도와주셔서 정말 감사해요.
+  spelled_entity_normalization: false
+  letter_names: {}
+  digit_names: {}

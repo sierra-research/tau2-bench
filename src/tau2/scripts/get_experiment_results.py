@@ -50,6 +50,17 @@ def get_results_summary(results_file: Path, first_n: int | None = None) -> dict:
     ]
     success_count = sum(1 for r in rewards if r == 1.0)
 
+    # Nativeness (mean over sims that carry a score; None for English runs)
+    nativeness_scores = [
+        (s.get("nativeness_info") or {}).get("score")
+        for s in sims
+        if s.get("nativeness_info")
+        and (s.get("nativeness_info") or {}).get("score") is not None
+    ]
+    avg_nativeness = (
+        sum(nativeness_scores) / len(nativeness_scores) if nativeness_scores else None
+    )
+
     # DB match
     db_ok = db_fail = 0
     for s in sims:
@@ -82,6 +93,7 @@ def get_results_summary(results_file: Path, first_n: int | None = None) -> dict:
         "db_ok": db_ok,
         "db_total": db_total,
         "reward_ok": success_count,
+        "avg_nativeness": avg_nativeness,
     }
 
 

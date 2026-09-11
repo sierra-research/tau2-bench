@@ -207,9 +207,6 @@ def basic_turn_taking_policy(
     wait_to_respond_threshold_self: int = 4,
     yield_threshold_when_interrupted: Optional[int] = None,
     yield_threshold_when_interrupting: Optional[int] = None,
-    backchannel_min_threshold: Optional[int] = None,
-    backchannel_max_threshold: Optional[int] = None,
-    backchannel_poisson_rate: Optional[float] = None,
     tick_duration_seconds: float = 0.05,
     # ... additional callback and config params
 ) -> tuple[BasicActionType, str]

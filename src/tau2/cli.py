@@ -1,17 +1,24 @@
 import argparse
 import json
+from copy import deepcopy
+from pathlib import Path
 
 from tau2.config import (
     DEFAULT_AGENT_IMPLEMENTATION,
     DEFAULT_AUDIO_NATIVE_MODELS,
     DEFAULT_AUDIO_NATIVE_PROVIDER,
+    DEFAULT_DELIVERY_MAX_SEGMENTS,
+    DEFAULT_DELIVERY_SAMPLE_RATE,
     DEFAULT_INTEGRATION_DURATION_SECONDS,
     DEFAULT_INTERRUPTION_CHECK_INTERVAL_SECONDS,
     DEFAULT_LLM_AGENT,
+    DEFAULT_LLM_ARGS_USER,
+    DEFAULT_LLM_DELIVERY_JUDGE,
     DEFAULT_LLM_EVAL_USER_SIMULATOR,
     DEFAULT_LLM_LOG_MODE,
+    DEFAULT_LLM_NATIVENESS_JUDGE,
+    DEFAULT_LLM_QUALITY_JUDGE,
     DEFAULT_LLM_TEMPERATURE_AGENT,
-    DEFAULT_LLM_TEMPERATURE_USER,
     DEFAULT_LLM_USER,
     DEFAULT_LOG_LEVEL,
     DEFAULT_MAX_CONCURRENCY,
@@ -26,26 +33,80 @@ from tau2.config import (
     DEFAULT_SILENCE_ANNOTATION_THRESHOLD_SECONDS,
     DEFAULT_SPEECH_COMPLEXITY,
     DEFAULT_TELEPHONY_RATE,
+    DEFAULT_TEXT_MAX_CONCURRENCY,
+    DEFAULT_TEXT_NOISE_SEED,
+    DEFAULT_TEXT_WORKERS,
     DEFAULT_TICK_DURATION_SECONDS,
+    DEFAULT_TIMEOUT_SECONDS,
     DEFAULT_USER_IMPLEMENTATION,
     DEFAULT_WAIT_TO_RESPOND_THRESHOLD_OTHER_SECONDS,
     DEFAULT_WAIT_TO_RESPOND_THRESHOLD_SELF_SECONDS,
     DEFAULT_YIELD_THRESHOLD_WHEN_INTERRUPTED_SECONDS,
     DEFAULT_YIELD_THRESHOLD_WHEN_INTERRUPTING_SECONDS,
+    SUBSET_ALL,
+    SUBSET_AUTO,
+    VOICE_TIMEOUT_SAFETY_FACTOR,
+    ReasoningEffort,
+    resolve_audio_native_reasoning_effort,
 )
 from tau2.data_model.persona import PersonaConfig
 from tau2.data_model.simulation import (
     AudioNativeConfig,
+    DeliveryJudgeSettings,
+    NativenessJudgeSettings,
+    QualityJudgeSettings,
+    Results,
+    RunConfig,
+    Score,
+    TerminationReason,
+    TextNoiseSettings,
     TextRunConfig,
     VoiceRunConfig,
+    parse_scores,
 )
 from tau2.domains.banking_knowledge.retrieval import get_all_variant_names
+from tau2.multilingual.text_input_catalog import TextInputStyle
 from tau2.run import get_options, run_domain
+from tau2.runner.batch import infrastructure_error_count
+from tau2.runner.helpers import resolve_timeout
 from tau2.runner.work import parse_provider_limits
+
+
+def _resolve_run_mode_defaults(
+    *,
+    audio_native: bool,
+    scores: str | None,
+    max_concurrency: int | None,
+    workers: int | None,
+) -> tuple[set[Score], int, int]:
+    """Resolve modality-sensitive run defaults before building a typed config."""
+    resolved_scores = parse_scores(
+        scores or ("reward,quality,nativeness" if audio_native else "reward"),
+        voice=audio_native,
+    )
+    resolved_concurrency = (
+        max_concurrency
+        if max_concurrency is not None
+        else DEFAULT_MAX_CONCURRENCY
+        if audio_native
+        else DEFAULT_TEXT_MAX_CONCURRENCY
+    )
+    resolved_workers = (
+        workers if workers is not None else 0 if audio_native else DEFAULT_TEXT_WORKERS
+    )
+    return resolved_scores, resolved_concurrency, resolved_workers
 
 
 def get_all_retrieval_config_names():
     return get_all_variant_names()
+
+
+def _run_domain_cli(config: RunConfig) -> Results:
+    """Run a domain and make persisted infrastructure failures fail the CLI."""
+    results = run_domain(config)
+    if infrastructure_error_count(results):
+        raise SystemExit(1)
+    return results
 
 
 def add_run_args(parser):
@@ -99,8 +160,9 @@ def add_run_args(parser):
     parser.add_argument(
         "--user-llm-args",
         type=json.loads,
-        default={"temperature": DEFAULT_LLM_TEMPERATURE_USER},
-        help=f"The arguments to pass to the LLM for the user. Default is '{{\"temperature\": {DEFAULT_LLM_TEMPERATURE_USER}}}'.",
+        default=None,
+        help="The arguments to pass to the LLM for the user. Default is "
+        f"'{json.dumps(DEFAULT_LLM_ARGS_USER)}'.",
     )
     parser.add_argument(
         "--task-set-name",
@@ -125,7 +187,17 @@ def add_run_args(parser):
         "--num-tasks",
         type=int,
         default=None,
-        help="The number of tasks to run.",
+        help="The number of tasks to run. Takes a PREFIX of the task set — "
+        "for a fixed, reviewable sample use --task-subset instead.",
+    )
+    parser.add_argument(
+        "--task-subset",
+        type=str,
+        default=SUBSET_AUTO,
+        help="Fixed task subset to run (data/tau2/task_subsets/, see "
+        f"`tau2 tasks list`). '{SUBSET_AUTO}' (default) uses the domain's "
+        f"canonical subset unless --task-ids/--num-tasks is given; "
+        f"'{SUBSET_ALL}' runs the whole task set.",
     )
     parser.add_argument(
         "--max-steps",
@@ -143,7 +215,77 @@ def add_run_args(parser):
         "--timeout",
         type=float,
         default=None,
-        help="Maximum wallclock time in seconds for each simulation. No timeout by default.",
+        help="Wallclock guard for each simulation — a bound on wedged sessions, "
+        "not a duration budget. Defaults to "
+        f"{DEFAULT_TIMEOUT_SECONDS:.0f}s for text runs and to "
+        f"{VOICE_TIMEOUT_SAFETY_FACTOR:.0f}x --max-steps-seconds for voice runs, "
+        "so that the simulated-time conversation budget is the only cap that "
+        "fires on a healthy call regardless of provider latency. Pass 0 for no "
+        "timeout.",
+    )
+    parser.add_argument(
+        "--scores",
+        default=None,
+        help="Comma-separated scoring axes: reward,quality,nativeness,delivery. "
+        "'all' expands per mode (text: reward+quality+nativeness; voice: all four). "
+        "Delivery is voice-only and adds real per-utterance judge cost. "
+        "Default: text=reward only; voice=reward,quality,nativeness.",
+    )
+    parser.add_argument(
+        "--quality-llm-judge",
+        action="store_true",
+        help="Run the task-aware LLM factors in the quality rubric. Off by "
+        "default: deterministic factors run and semantic factors are DEFERRED.",
+    )
+    parser.add_argument(
+        "--nativeness-llm-judge",
+        action="store_true",
+        help="Run the LLM judge for judge-type nativeness factors. Off by "
+        "default: deterministic checkers only, LLM factors recorded DEFERRED. "
+        "Turn it on for a calibration round, not for a production run.",
+    )
+    parser.add_argument(
+        "--llm-communicate-judge",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Pin communicate_info scoring to the semantic LLM judge (or "
+        "--no-llm-communicate-judge for exact matching). By default the judge "
+        "is used for non-English runs only.",
+    )
+    parser.add_argument(
+        "--nativeness-judge-model",
+        type=str,
+        default=DEFAULT_LLM_NATIVENESS_JUDGE,
+        help=f"Model for the LLM nativeness judge. Default: {DEFAULT_LLM_NATIVENESS_JUDGE}.",
+    )
+    parser.add_argument(
+        "--quality-judge-model",
+        type=str,
+        default=None,
+        help="Global model override for every semantic quality factor. By default "
+        f"each factor uses its catalog model (currently {DEFAULT_LLM_QUALITY_JUDGE}).",
+    )
+    parser.add_argument(
+        "--delivery-judge-model",
+        type=str,
+        default=DEFAULT_LLM_DELIVERY_JUDGE,
+        help=f"Model for the audio delivery judge. Default: {DEFAULT_LLM_DELIVERY_JUDGE}.",
+    )
+    parser.add_argument(
+        "--delivery-sample-rate",
+        type=float,
+        default=DEFAULT_DELIVERY_SAMPLE_RATE,
+        help="Fraction of voice CONVERSATIONS to judge (deterministic per sim; "
+        "a sampled conversation gets all its agent utterances judged, others "
+        "are skipped entirely). 1.0 judges every conversation. "
+        f"Default: {DEFAULT_DELIVERY_SAMPLE_RATE}.",
+    )
+    parser.add_argument(
+        "--delivery-max-segments",
+        type=int,
+        default=DEFAULT_DELIVERY_MAX_SEGMENTS,
+        help="Max agent utterances judged per conversation (delivery cost cap). "
+        f"Default: {DEFAULT_DELIVERY_MAX_SEGMENTS}.",
     )
     parser.add_argument(
         "--save-to",
@@ -152,17 +294,29 @@ def add_run_args(parser):
         help="The path to save the simulation results. Will be saved to data/simulations/<save_to>/results.json. If not provided, will save to <timestamp>_<domain>_<agent>_<user>. If the file already exists, it will try to resume the run.",
     )
     parser.add_argument(
+        "--results-format",
+        type=str,
+        choices=["json", "dir"],
+        default=None,
+        help="Checkpoint storage format. Default: the modality's format "
+        "(voice: dir, text: json). Text runs that feed the pool census or the "
+        "annotation packet builders should pass 'dir'. A resumed run must keep "
+        "the format it was started under.",
+    )
+    parser.add_argument(
         "--max-concurrency",
         type=int,
-        default=DEFAULT_MAX_CONCURRENCY,
-        help=f"The maximum number of concurrent simulations to run. Default is {DEFAULT_MAX_CONCURRENCY}. "
+        default=None,
+        help="The maximum number of concurrent simulations to run per process. "
+        f"Default: text={DEFAULT_TEXT_MAX_CONCURRENCY}; voice={DEFAULT_MAX_CONCURRENCY}. "
         "With --workers, this is the number of simulations each worker process holds.",
     )
     parser.add_argument(
         "--workers",
         type=int,
-        default=0,
-        help="Number of worker processes to spawn. 0 (default) runs simulations in this "
+        default=None,
+        help=f"Number of worker processes to spawn. Default: text={DEFAULT_TEXT_WORKERS}; "
+        "voice=0. A value of 0 runs simulations in this "
         "process. N > 0 makes this process a controller that schedules and checkpoints "
         "while N worker processes execute (N x --max-concurrency simulations in flight); "
         "use when scaling beyond the single-process concurrency ceiling.",
@@ -245,7 +399,43 @@ def add_run_args(parser):
         '\'{"verbosity": {"minimal": 0.8, "standard": 0.2}}\'. '
         "If not provided, uses default behavior (standard verbosity).",
     )
-
+    parser.add_argument(
+        "--user-persona-id",
+        type=str,
+        default=None,
+        help="Force the user persona. Accepts a persona id "
+        "(e.g. a language-pack persona like 'rishika_hindi_v1', pinning one "
+        "speaker for every task) or a bare language code (e.g. 'hi', sampling "
+        "deterministically per task among that pack's personas). See "
+        "tau2.multilingual. Works in both text and voice (--audio-native) modes.",
+    )
+    parser.add_argument(
+        "--text-input-style",
+        type=str,
+        choices=[s.value for s in TextInputStyle],
+        default=None,
+        help="TEXT mode only: pin the run to one text input style (how the "
+        "user simulator TYPES the target language). Non-default styles "
+        "require a language-pack run whose pack declares the style "
+        "(hi: romanized/code_mixed; es/pt: diacritic_free). Default: "
+        "native_script (no directive; today's behavior).",
+    )
+    parser.add_argument(
+        "--text-noise",
+        action="store_true",
+        default=False,
+        help="TEXT mode only: arm noisy-text entity probes — deterministic, "
+        "seeded corruption of the user simulator's FIRST conveyance of each "
+        "pinned identity entity (see tau2.multilingual.text_noise). Review "
+        "the stimulus bank first: tau2 factory text-noise-bank.",
+    )
+    parser.add_argument(
+        "--text-noise-seed",
+        type=int,
+        default=DEFAULT_TEXT_NOISE_SEED,
+        help="Seed for the text-noise corruption draw (default: %(default)s). "
+        "Same seed => byte-identical corrupted stimuli (paired design).",
+    )
     # Audio-native mode arguments
     parser.add_argument(
         "--audio-native",
@@ -290,11 +480,29 @@ def add_run_args(parser):
         "Use --no-realtime-generation to disable.",
     )
     parser.add_argument(
+        "--disclose-voice-gender",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Append a system-prompt line stating the gender of the agent's "
+        "provider voice (from the reviewed provider-voice catalog). Default "
+        "on because ungrounded agents default masculine in gendered languages. "
+        "--no-disclose-voice-gender runs the "
+        "ungrounded ablation arm (required for livekit, whose default voice "
+        "has no catalog gender).",
+    )
+    parser.add_argument(
         "--reasoning-effort",
         type=str,
-        choices=["minimal", "low", "medium", "high", "xhigh"],
+        choices=[e.value for e in ReasoningEffort],
         default=None,
-        help="Reasoning effort for thinking models. Only applies to providers that support it (e.g. OpenAI).",
+        help="Reasoning effort for thinking models. Not every level is valid "
+        "for every provider ('xhigh' is OpenAI-only; xai/nova/qwen/livekit take "
+        "no level at all) — see SUPPORTED_AUDIO_NATIVE_REASONING_EFFORTS; an "
+        "unsupported pair is rejected here, not at connect. 'provider_default' "
+        "sends no reasoning setting at all (server-side default). Omitted = the "
+        "provider's entry in DEFAULT_AUDIO_NATIVE_REASONING_EFFORT; either way "
+        "the EFFECTIVE value is recorded in results.info. Pin it explicitly on "
+        "every run you intend to compare.",
     )
     parser.add_argument(
         "--tick-duration",
@@ -305,8 +513,9 @@ def add_run_args(parser):
     parser.add_argument(
         "--max-steps-seconds",
         type=int,
-        default=DEFAULT_MAX_STEPS_SECONDS,
-        help=f"Maximum conversation duration in seconds for audio-native mode. Default is {DEFAULT_MAX_STEPS_SECONDS}.",
+        default=None,
+        help="Maximum SIMULATED conversation duration in seconds (tick clock). "
+        f"Default: {DEFAULT_MAX_STEPS_SECONDS}.",
     )
     parser.add_argument(
         "--speech-complexity",
@@ -325,6 +534,30 @@ def add_run_args(parser):
         ],
         default=DEFAULT_SPEECH_COMPLEXITY,
         help=f"Speech complexity level for audio effects. Default is '{DEFAULT_SPEECH_COMPLEXITY}'.",
+    )
+    parser.add_argument(
+        "--channel-effects-mode",
+        type=str,
+        choices=["light", "regular", "heavy"],
+        default="regular",
+        help=(
+            "Channel-effects intensity overlay on the complexity preset: "
+            "'light' = clean line (no frame drops or muffling), 'regular' = "
+            "preset values, 'heavy' = elevated frame drops in longer bursts "
+            "plus more frequent muffling. Voice mode only."
+        ),
+    )
+    parser.add_argument(
+        "--speech-effects-mode",
+        type=str,
+        choices=["light", "regular", "heavy"],
+        default="regular",
+        help=(
+            "Speech-effects intensity overlay on the complexity preset: "
+            "'light' = patient caller (no interruptions, backchannels, or "
+            "speech inserts), 'regular' = preset values, 'heavy' = chatty "
+            "interruptive caller (2x insert rate). Voice mode only."
+        ),
     )
 
     # Audio-native: Sample rates
@@ -429,6 +662,14 @@ def add_run_args(parser):
         action="store_true",
         default=False,
         help="Automatically resume from existing save file without prompting (for non-interactive runs).",
+    )
+    parser.add_argument(
+        "--redo-stale-tasks",
+        action="store_true",
+        default=False,
+        help="On resume, drop the recorded simulations of any task whose text "
+        "changed since the checkpoint was written and re-run them against the "
+        "current text. Without this a modified task aborts the resume.",
     )
 
     # Auto-review mode
@@ -580,7 +821,7 @@ def run_intro():
         "tau2 check-data\n"
         "\n"
         "# 2. Run a text (half-duplex) evaluation\n"
-        "tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 "
+        "tau2 run --domain airline --agent-llm gpt-5.4-mini --user-llm gpt-5.4-mini "
         "--num-trials 1 --num-tasks 5\n"
         "\n"
         "# 3. Run a voice (full-duplex) evaluation\n"
@@ -636,17 +877,33 @@ def main():
             if args.xml_prompt:
                 use_xml_prompt = True
 
+            # Resolved HERE, not in the adapter: results.info must record the
+            # effort the provider was actually run with. Also the point where a
+            # level the provider will not accept (`xhigh` on gemini) is
+            # rejected — argparse cannot, the choices are provider-dependent.
+            try:
+                reasoning_effort = resolve_audio_native_reasoning_effort(
+                    args.audio_native_provider, args.reasoning_effort
+                )
+            except ValueError as e:
+                run_parser.error(str(e))
+
             audio_native_config = AudioNativeConfig(
                 # Provider
                 provider=args.audio_native_provider,
                 model=audio_native_model,
                 cascaded_config_name=args.cascaded_config,
-                reasoning_effort=args.reasoning_effort,
+                reasoning_effort=reasoning_effort,
                 live_config=args.live_config,
                 realtime_generation=args.realtime_generation,
+                disclose_voice_gender=args.disclose_voice_gender,
                 # Timing
                 tick_duration_seconds=args.tick_duration,
-                max_steps_seconds=args.max_steps_seconds,
+                max_steps_seconds=(
+                    args.max_steps_seconds
+                    if args.max_steps_seconds is not None
+                    else DEFAULT_MAX_STEPS_SECONDS
+                ),
                 # Sample rates
                 pcm_sample_rate=args.pcm_sample_rate,
                 telephony_rate=args.telephony_rate,
@@ -667,6 +924,30 @@ def main():
 
         set_llm_log_mode(args.llm_log_mode)
 
+        if args.user_llm_args is None:
+            args.user_llm_args = deepcopy(DEFAULT_LLM_ARGS_USER)
+
+        # Scoring axes + judge settings
+        try:
+            scores, max_concurrency, workers = _resolve_run_mode_defaults(
+                audio_native=args.audio_native,
+                scores=args.scores,
+                max_concurrency=args.max_concurrency,
+                workers=args.workers,
+            )
+        except ValueError as exc:
+            run_parser.error(str(exc))
+        if not args.audio_native and Score.DELIVERY in scores:
+            run_parser.error("delivery is judged inline on voice runs only")
+        nativeness_judge = NativenessJudgeSettings(
+            llm_judge=args.nativeness_llm_judge,
+            model=args.nativeness_judge_model,
+        )
+        quality_judge = QualityJudgeSettings(
+            llm_judge=args.quality_llm_judge,
+            model=args.quality_judge_model,
+        )
+
         # Shared config kwargs
         shared_kwargs = dict(
             domain=args.domain,
@@ -674,14 +955,26 @@ def main():
             task_split_name=args.task_split_name,
             task_ids=args.task_ids,
             num_tasks=args.num_tasks,
+            task_subset=args.task_subset,
+            scores=scores,
+            nativeness_judge=nativeness_judge,
+            quality_judge=quality_judge,
+            communicate_judge_mode=(
+                "auto"
+                if args.llm_communicate_judge is None
+                else "llm"
+                if args.llm_communicate_judge
+                else "exact"
+            ),
             llm_user=args.user_llm,
             llm_args_user=args.user_llm_args,
             num_trials=args.num_trials,
             max_errors=args.max_errors,
-            timeout=args.timeout,
+            timeout=resolve_timeout(args.timeout, audio_native_config),
             save_to=args.save_to,
-            max_concurrency=args.max_concurrency,
-            workers=args.workers,
+            results_format=args.results_format,
+            max_concurrency=max_concurrency,
+            workers=workers,
             provider_limits=parse_provider_limits(args.provider_limit),
             seed=args.seed,
             log_level=args.log_level,
@@ -689,6 +982,7 @@ def main():
             max_retries=args.max_retries,
             retry_delay=args.retry_delay,
             auto_resume=args.auto_resume,
+            redo_stale_tasks=args.redo_stale_tasks,
             auto_review=args.auto_review,
             review_mode=args.review_mode,
             review_model=args.review_model,
@@ -697,13 +991,32 @@ def main():
             retrieval_config_kwargs=args.retrieval_config_kwargs,
         )
 
+        if args.audio_native and args.text_input_style is not None:
+            run_parser.error(
+                "--text-input-style applies to text runs only "
+                "(typing style is meaningless in voice mode)"
+            )
+        if args.audio_native and args.text_noise:
+            run_parser.error(
+                "--text-noise applies to text runs only (voice runs degrade "
+                "entity conveyance acoustically)"
+            )
+
         if audio_native_config is not None:
             config = VoiceRunConfig(
                 **shared_kwargs,
                 audio_native_config=audio_native_config,
+                delivery_judge=DeliveryJudgeSettings(
+                    model=args.delivery_judge_model,
+                    sample_rate=args.delivery_sample_rate,
+                    max_segments=args.delivery_max_segments,
+                ),
                 speech_complexity=args.speech_complexity,
+                channel_effects_mode=args.channel_effects_mode,
+                speech_effects_mode=args.speech_effects_mode,
                 audio_debug=getattr(args, "audio_debug", False),
                 audio_taps=getattr(args, "audio_taps", False),
+                user_persona_id=args.user_persona_id,
             )
         else:
             config = TextRunConfig(
@@ -714,11 +1027,33 @@ def main():
                 user=args.user,
                 max_steps=args.max_steps,
                 enforce_communication_protocol=args.enforce_communication_protocol,
+                user_persona_id=args.user_persona_id,
+                text_input_style=args.text_input_style,
+                text_noise=(
+                    TextNoiseSettings(seed=args.text_noise_seed)
+                    if args.text_noise
+                    else None
+                ),
             )
 
-        return run_domain(config)
+        return _run_domain_cli(config)
 
     run_parser.set_defaults(func=run_command)
+
+    # `tau2 run refill` — re-run named simulations of an existing run
+    # directory on the config that directory records. A sub-verb of `run`
+    # rather than a sibling because it IS a run: same engine, same checkpoint,
+    # the only difference is where the configuration comes from. Optional, so
+    # plain `tau2 run --domain ...` is untouched.
+    run_subparsers = run_parser.add_subparsers(dest="run_command", required=False)
+    refill_parser = run_subparsers.add_parser(
+        "refill",
+        help="Delete and re-run individual simulations of an existing run, "
+        "on the run config read back from its results (no retyped flags)",
+    )
+    from tau2.runner.cli import add_refill_args
+
+    add_refill_args(refill_parser)
 
     # Play command
     play_parser = subparsers.add_parser(
@@ -765,6 +1100,53 @@ def main():
         help="Show full tool results without truncation.",
     )
     view_parser.set_defaults(func=lambda args: run_view_simulations(args))
+
+    # Drop-sims command
+    drop_sims_parser = subparsers.add_parser(
+        "drop-sims",
+        help="Remove completed simulations from a results checkpoint by "
+        "termination reason so the next --auto-resume run redoes them "
+        "(the explicit-verb version of the automatic infrastructure_error redo)",
+    )
+    drop_sims_parser.add_argument(
+        "results",
+        type=str,
+        help="Results dir or results.json of the run (e.g. "
+        "data/simulations/<run>/results.json)",
+    )
+    drop_sims_parser.add_argument(
+        "--termination",
+        nargs="+",
+        default=None,
+        choices=[t.value for t in TerminationReason],
+        help="Termination reason(s) to drop, e.g. --termination timeout max_steps",
+    )
+    drop_sims_parser.add_argument(
+        "--tasks",
+        nargs="+",
+        default=None,
+        help="Task id(s) whose sims to drop (combined with --termination when "
+        "both are given; at least one filter is required)",
+    )
+
+    def drop_sims_command(args):
+        from tau2.runner.checkpoint import drop_simulations
+
+        if not args.termination and not args.tasks:
+            drop_sims_parser.error("provide --termination and/or --tasks")
+        dropped = drop_simulations(
+            results_path=Path(args.results),
+            terminations=[TerminationReason(t) for t in args.termination or []],
+            task_ids=args.tasks,
+        )
+        if not dropped:
+            print("No simulations matched — nothing dropped.")
+            return
+        for task_id, trial, reason in dropped:
+            print(f"dropped [{reason}] trial {trial} task {task_id}")
+        print(f"{len(dropped)} simulation(s) dropped; --auto-resume will redo them.")
+
+    drop_sims_parser.set_defaults(func=drop_sims_command)
 
     # Domain command
     domain_parser = subparsers.add_parser("domain", help="Show domain documentation")
@@ -837,14 +1219,44 @@ def main():
     evaluate_parser.add_argument(
         "-o",
         "--output-dir",
-        help="Directory to save updated trajectory files with recomputed rewards. If not provided, only displays metrics.",
+        help="Directory to save rescored results as updated_<name>. "
+        "Default: update each input in place.",
+    )
+    evaluate_parser.add_argument(
+        "--scores",
+        default="reward,quality,nativeness",
+        help="Comma-separated scoring axes to recompute: "
+        "reward,quality,nativeness,delivery (or 'all'). Delivery re-scores from the "
+        "stored disk audio (full-duplex voice runs). Unselected axes are "
+        "left untouched on each simulation.",
+    )
+    evaluate_parser.add_argument(
+        "--nativeness-llm-judge",
+        action="store_true",
+        help="Run the LLM judge for judge-type nativeness factors. Off by "
+        "default: deterministic checkers only, LLM factors recorded DEFERRED.",
+    )
+    evaluate_parser.add_argument(
+        "--quality-llm-judge",
+        action="store_true",
+        help="Run task-aware semantic quality factors. Off by default.",
     )
     evaluate_parser.add_argument(
         "--fresh-tasks",
         action="store_true",
         help="Re-grade against the current task definitions from the data directory instead of the ones embedded in each results file.",
     )
-    evaluate_parser.set_defaults(func=lambda args: run_evaluate_trajectories(args))
+    evaluate_parser.add_argument(
+        "--fresh-tasks-set",
+        default=None,
+        help="Registered task set to reload tasks from with --fresh-tasks "
+        "(e.g. 'airline_hi'), overriding the one recorded in the results "
+        "file. Needed for localized runs whose results predate the recorded "
+        "task set.",
+    )
+    evaluate_parser.set_defaults(
+        func=lambda args: run_evaluate_trajectories(args, evaluate_parser)
+    )
 
     # Review command - LLM-based conversation review
     review_parser = subparsers.add_parser(
@@ -1042,6 +1454,80 @@ def main():
     )
     convert_parser.set_defaults(func=lambda args: run_convert_results(args))
 
+    # Factory command (Language Factory: automated language onboarding)
+    factory_parser = subparsers.add_parser(
+        "factory",
+        help="Language Factory: onboard new languages (autoform, draft, translate, validate)",
+    )
+    from tau2.multilingual.factory.cli import add_factory_args
+
+    add_factory_args(factory_parser)
+
+    # Judges command (post-hoc nativeness rejudging / verdict-record export)
+    judges_parser = subparsers.add_parser(
+        "judges",
+        help="Judge harness: rejudge stored results, export typed verdict records",
+    )
+    from tau2.judges.cli import add_judges_args
+
+    add_judges_args(judges_parser)
+
+    # Annotate command (annotation factory: sheets, workbooks, audit, ingest)
+    annotate_parser = subparsers.add_parser(
+        "annotate",
+        help="Annotation factory: export/ingest annotator sheets, build "
+        "workbooks and audit tabs",
+    )
+    from tau2.annotation.cli import add_annotate_args
+
+    add_annotate_args(annotate_parser)
+
+    # Tasks command (fixed per-domain task subsets)
+    tasks_parser = subparsers.add_parser(
+        "tasks",
+        help="Fixed task subsets: draw, list, show and verify the frozen "
+        "per-domain samples runs score on",
+    )
+    from tau2.task_subsets.cli import add_tasks_args
+
+    add_tasks_args(tasks_parser)
+
+    # Run-preset command (multilingual run presets + provider matrix driver)
+    run_preset_parser = subparsers.add_parser(
+        "run-preset",
+        help="Run a multilingual preset (smoke/full stages) or the "
+        "all-languages provider matrix",
+    )
+    from tau2.multilingual.cli import add_run_preset_args
+
+    add_run_preset_args(run_preset_parser)
+
+    pool_parser = subparsers.add_parser(
+        "pool",
+        help="Run a languages x arms grid through one multiprocess controller",
+    )
+    from tau2.runner.cli import add_pool_args
+
+    add_pool_args(pool_parser)
+
+    # Metrics command (deterministic shadow loss instruments over stored runs)
+    metrics_parser = subparsers.add_parser(
+        "metrics",
+        help="Deterministic shadow loss instruments: caller-cost counters "
+        "and entity capture/argument tracing over stored runs",
+    )
+    from tau2.metrics.cli import add_metrics_args
+
+    add_metrics_args(metrics_parser)
+
+    paper_parser = subparsers.add_parser(
+        "paper",
+        help="Reproduce paper results and package reviewer evidence",
+    )
+    from tau2.paper.cli import add_paper_args
+
+    add_paper_args(paper_parser)
+
     args = parser.parse_args()
     if not hasattr(args, "func"):
         run_intro()
@@ -1101,7 +1587,7 @@ def run_verify_trajectories(args):
     verify_trajectories(args.paths, VerificationMode.PUBLIC)
 
 
-def run_evaluate_trajectories(args):
+def run_evaluate_trajectories(args, parser):
     import sys
 
     from loguru import logger
@@ -1110,8 +1596,18 @@ def run_evaluate_trajectories(args):
 
     logger.configure(handlers=[{"sink": sys.stderr, "level": "ERROR"}])
 
+    try:
+        scores = parse_scores(args.scores, voice=True)
+    except ValueError as exc:
+        parser.error(str(exc))
     evaluate_trajectories(
-        args.paths, args.output_dir, fresh_tasks=getattr(args, "fresh_tasks", False)
+        args.paths,
+        args.output_dir,
+        scores=scores,
+        nativeness_judge=NativenessJudgeSettings(llm_judge=args.nativeness_llm_judge),
+        quality_judge=QualityJudgeSettings(llm_judge=args.quality_llm_judge),
+        fresh_tasks=getattr(args, "fresh_tasks", False),
+        fresh_tasks_set=getattr(args, "fresh_tasks_set", None),
     )
 
 
@@ -1225,7 +1721,7 @@ def run_convert_results(args):
     from tau2.data_model.simulation import Results
 
     path = Path(args.path)
-    current_fmt = Results._detect_format(path)
+    current_fmt = Results.detect_format(path)
     target_fmt = args.target_format
 
     if target_fmt is None:

@@ -254,6 +254,11 @@ class CascadedVoiceProvider:
         self.config = config or CascadedConfig()
         self.turn_taking = turn_taking or TurnTakingConfig()
 
+        # Expose the TTS voice so the orchestrator can record it on the run
+        # (parity with the realtime providers, which all set ``self.voice``).
+        # Only ElevenLabs carries a human voice id; Deepgram TTS is model-only.
+        self.voice = getattr(self.config.tts, "voice_id", None)
+
         # State
         self._state = ProviderState.DISCONNECTED
         self._context = ConversationContext()
@@ -410,17 +415,52 @@ class CascadedVoiceProvider:
             try:
                 from livekit.plugins import openai
 
-                kwargs: Dict[str, Any] = {"model": config.model}
-                if config.temperature is not None:
-                    kwargs["temperature"] = config.temperature
-                if config.top_p is not None:
-                    kwargs["top_p"] = config.top_p
-                if config.reasoning_effort is not None:
-                    kwargs["reasoning_effort"] = config.reasoning_effort
-                if config.max_completion_tokens is not None:
-                    kwargs["max_completion_tokens"] = config.max_completion_tokens
+                # gpt-5* are reasoning models and MUST arrive with an explicit
+                # effort pin (owner decree: no unpinned reasoning, no "none" —
+                # silent defaults made the bm200 baseline unreproducible).
+                # Refusing here beats inheriting whatever the plugin or server
+                # defaults to on the day of the run.
+                reasoning_effort = config.reasoning_effort
+                is_gpt5 = config.model.split("/")[-1].startswith("gpt-5")
+                if is_gpt5 and reasoning_effort is None:
+                    raise ValueError(
+                        f"Cascaded LLM {config.model!r} is a reasoning model but "
+                        "the CascadedConfig pins no reasoning_effort. Pin an "
+                        "explicit level on the preset (see CASCADED_CONFIGS)."
+                    )
 
-                self._llm_client = openai.LLM(**kwargs)
+                if is_gpt5:
+                    # gpt-5* rejects reasoning_effort together with function tools
+                    # on /v1/chat/completions ("use /v1/responses"), the same wall
+                    # llm_utils.generate hits on the text path — and the same fix:
+                    # the Responses API takes reasoning WITH tools. The plugin's
+                    # Responses client has no top_p/max_completion_tokens knobs;
+                    # OpenAILLMConfig values for those are chat-completions-only.
+                    from openai.types import Reasoning
+
+                    # use_websocket=False: the client's default websocket
+                    # transport to /v1/responses fails to connect from this
+                    # harness; plain HTTP is the same API without the socket.
+                    r_kwargs: Dict[str, Any] = {
+                        "model": config.model,
+                        "use_websocket": False,
+                    }
+                    if config.temperature is not None:
+                        r_kwargs["temperature"] = config.temperature
+                    if reasoning_effort is not None:
+                        r_kwargs["reasoning"] = Reasoning(effort=reasoning_effort)
+                    self._llm_client = openai.responses.LLM(**r_kwargs)
+                else:
+                    kwargs: Dict[str, Any] = {"model": config.model}
+                    if config.temperature is not None:
+                        kwargs["temperature"] = config.temperature
+                    if config.top_p is not None:
+                        kwargs["top_p"] = config.top_p
+                    if reasoning_effort is not None:
+                        kwargs["reasoning_effort"] = reasoning_effort
+                    if config.max_completion_tokens is not None:
+                        kwargs["max_completion_tokens"] = config.max_completion_tokens
+                    self._llm_client = openai.LLM(**kwargs)
                 logger.debug(f"Initialized OpenAI LLM: {config.model}")
             except ImportError as e:
                 logger.error(f"Failed to import livekit-plugins-openai: {e}")
@@ -1190,20 +1230,46 @@ class CascadedVoiceProvider:
     # Greeting Generation
     # =========================================================================
 
+    def _default_greeting(self) -> str:
+        """Resolve the opening greeting for the run's language.
+
+        Mirrors DiscreteTimeAudioNativeAgent._get_greeting: falls back to the
+        English default when the configured language has no registered pack or
+        the pack defines no agent_greeting, so English/unlocalized runs are
+        unaffected.
+        """
+        default = "Hi! How can I help you today?"
+        lang = getattr(self.config.stt, "language", None)
+        if not lang:
+            return default
+        from tau2.multilingual import get_language_pack
+
+        # stt.language is the pack code (e.g. "hi") for localized runs, or a
+        # locale like "en-US" otherwise; try the full code then its base.
+        for code in (lang, lang.split("-")[0]):
+            pack = get_language_pack(code)
+            if pack is not None and pack.agent_greeting:
+                return pack.agent_greeting
+        return default
+
     async def generate_greeting(
         self,
-        text: str = "Hi! How can I help you today?",
+        text: Optional[str] = None,
     ) -> AsyncGenerator[CascadedEvent, None]:
         """Generate TTS audio for an initial greeting (bypasses LLM).
 
         Use this to generate the agent's opening message with audio.
 
         Args:
-            text: Greeting text to synthesize.
+            text: Greeting text to synthesize. When None, resolved from the
+                run's language pack (localized for non-English runs), falling
+                back to the English default.
 
         Yields:
             TTS audio events.
         """
+        if text is None:
+            text = self._default_greeting()
         if not self.is_connected:
             raise RuntimeError("Provider not connected. Call connect() first.")
 

@@ -1,0 +1,861 @@
+# Language pack for Hindi (hi).
+# Declarative form consumed by tau2.multilingual.loader — see
+# docs/multilingual/ADDING_A_LANGUAGE.md. Multiline prompts are literal
+# block scalars; guidelines_voice_path is relative to this folder.
+language: hi
+display_name: Hindi
+backchannel_level: medium  # density knob (tau2.backchannel)
+guidelines_voice_path: guidelines/simulation_guidelines_voice_hi.md
+# --- persona pragmatics (conditional-realization form) ---
+# pragmatics_clauses redrafted by `tau2 factory redraft-pragmatics` (prompt v1 sha256:6f7590c925ac, model:claude-opus-4-8).
+# Personas own the language profile; the TASK owns attitude/affect —
+# clauses realize attitudes conditionally, never prescribe them.
+# --- persona out-of-turn speech (away-from-the-mic length) ---
+# non_directed_phrases clipped by `tau2 factory shorten-non-directed` (prompt v1 sha256:d22aa7ecbce7, model:claude-opus-4-8).
+# Out-of-turn speech is spliced into the live call as one burst, so it
+# is bounded at 4 words — a glance away from the phone, not a second
+# conversation. Same addressee, situation and register as before.
+personas:
+  rishika_hindi_v1:
+    verbosity: standard
+    interrupt_tendency: interrupts
+    persona_id: rishika_hindi_v1
+    display_name: Rishika
+    short_description: Late-20s Mumbai/Bangalore IT/finance professional; fast dense
+      Hinglish; high tolerance for an English-only agent
+    language: hi
+    locale: IN-MH
+    script: deva
+    pragmatics_clauses:
+    - 'Speak dense urban Hinglish: Hindi is your matrix language (written in Devanagari),
+      but roughly 25-30% of your words are English insertions (written in Latin), especially
+      work, tech, and number/finance terms — booking, refund, account, transaction, status,
+      update, cancel, confirm, flight, meeting. Connective and grammatical words stay
+      Hindi. Natural examples: ''मेरी booking cancel करनी है'', ''account में issue आ
+      रहा है'', ''मुझे बस status update चाहिए था''. You do not speak shuddh/literary Hindi
+      — that register is not part of your profile.'
+    - When you open casually and efficiently, natural forms are 'नमस्ते', 'हाँ hi', or
+      straight to the point — 'हाँ, मुझे एक help चाहिए थी'. When something works out,
+      mild casual exclamations surface like 'भगवान का शुक्र है' or 'thank god'. When you
+      close briskly and do not linger, closings are short — 'ठीक है, thanks, बाय'.
+    - You address the agent with आप by default. When you get frustrated or impatient you
+      slip into तुम without noticing ('अरे यार तुम समझ क्यों नहीं रहे'); this slip realizes
+      rising irritation rather than your baseline register.
+    - You have HIGH tolerance for an English-only agent. If the agent clearly cannot follow
+      Hindi, you switch smoothly into fluent, fast English and carry the whole conversation
+      in English without complaint. As the call settles, you naturally drift back into
+      Hinglish (English words start creeping back into Hindi sentences). You do not demand
+      that the agent speak Hindi.
+    - When under time pressure or when explaining something technical/numeric, you tilt
+      even more toward English (more English clauses, faster). When relaxed or chatty,
+      you tilt back toward Hindi. The mix moves with your attitude and the topic.
+    - 'When you disagree or want to refuse, you do it through hedging rather than a flat
+      ''no'': ''हाँ हाँ, वो तो ठीक है, but...'', ''देखिए actually मुझे वो नहीं चाहिए'',
+      ''नहीं नहीं, that won''t work for me''. You push back directly only when genuinely
+      annoyed.'
+    - 'As frustration builds, it surfaces in stages: first clipped and faster (''हाँ हाँ,
+      बस वही तो बोल रही हूँ''), then audible impatience (''यार ये कितनी बार बताऊँ''),
+      then the तुम slip and short sharp sentences. Even when annoyed you remain competent
+      and articulate — the language stays coherent, not broken.'
+    - 'When the agent mishears a name or code, you spell using the Indian English convention
+      with Indian place/word anchors — ''R for Rajdhani'', ''B for Bombay'', ''M for Mumbai'',
+      ''D for Delhi''. You do NOT use the NATO/Western ''B for boy'' style. Letters and
+      digits are read in English, separated clearly: ''A, B, one, two, three''.'
+    backchannel_phrases:
+    - हम्म
+    non_directed_phrases:
+    - भैया सिग्नल पे left
+    - एक सेकंड
+    - हाँ आती हूँ
+    voice_id: nIMjJ45Ta5OdxlwTZvzz
+    tts_voice_prompt: A woman in her late 20s from Mumbai, an IT professional calling
+      customer support from her mobile phone, often from traffic or a busy office.
+      A native Hindi speaker who talks in fast, fluent Hinglish — Hindi sentences
+      with frequent English words for work and tech terms, both pronounced naturally
+      in an urban Indian accent. Medium-high pitch, crisp and confident delivery,
+      matter-of-fact and slightly hurried, with quick conversational rhythm and
+      short pauses. Mobile phone-call audio quality with faint ambient room tone.
+    tags:
+      code_switch: high
+      formality: low
+      english_tolerance: high
+      age_band: 20s
+      register: urban_professional
+      closing_style: brisk
+      gender: female
+  imran_hindi_v1:
+    verbosity: standard
+    interrupt_tendency: waits
+    persona_id: imran_hindi_v1
+    display_name: Imran
+    short_description: Mid-50s Old Delhi small-business owner (shopkeeper); patient
+      Urdu-inflected Hindi; low tolerance for an English-only agent
+    language: hi
+    locale: IN-DL
+    script: deva
+    pragmatics_clauses:
+    - 'Speak Urdu-inflected Hindi (Devanagari) with Persian-Arabic vocabulary woven in
+      naturally: ज़रूर, मेहरबानी, परेशानी, इंतज़ार, मुश्किल, इत्मीनान, शुक्रिया. Only
+      5-10% English, and only for numbers and brand names. Examples: ''ज़रा मेहरबानी करके
+      देख लीजिए'', ''मुझे थोड़ी परेशानी हो रही है'', ''मैं इंतज़ार कर रहा हूँ''. Your
+      Hindi runs full rather than lapsing into clipped Hinglish.'
+    - 'You greet with ''आदाब'' or ''अस्सलाम वालैकुम'' and use Muslim-coded expressions
+      naturally: ''इंशाअल्लाह'' for hopeful future things, ''अल्हम्दुलिल्लाह'' when something
+      is well, and ''या अल्लाह'' softly when distressed or worried. These are habitual,
+      not performed.'
+    - You always use आप — never तुम, including when you are firm or upset. Politeness
+      holds; when you are firm, it surfaces as insistence within courtesy ('जी मैं समझ
+      रहा हूँ, लेकिन मेहरबानी करके एक बार और देख लीजिए'), not rudeness.
+    - 'You have LOW tolerance for an English-only agent. If the agent speaks only English,
+      you keep responding in Hindi, repeat yourself more slowly, and ask for Hindi help:
+      ''जी, ज़रा हिंदी में समझा दीजिए'', ''मुझे अंग्रेज़ी ठीक से नहीं आती, हिंदी में बताइए
+      मेहरबानी करके''. You do not switch into sustained English.'
+    - Under pressure or confusion you do NOT switch to English — instead you slow down,
+      repeat more carefully, and ask the agent to repeat too ('ज़रा फिर से बताइएगा, धीरे
+      से'). The only English that ever appears is numbers and brand names.
+    - When you want to refuse, you do it very indirectly, rarely with a flat 'no'. You
+      use 'देखिए जी, ऐसा है कि...', 'अच्छा... हम्म, थोड़ा मुश्किल है', or simply go quiet
+      and re-ask your original question. The agent has to infer your reluctance from your
+      hesitation.
+    - 'When frustrated you become MORE formal and insistent, not rude: longer polite preambles,
+      repeated ''मेहरबानी करके'', a worried ''या अल्लाह, ये तो बड़ी परेशानी है'', and
+      repetition. You do not raise your voice or use तुम.'
+    - When the agent mishears a name or code, you spell slowly using Indian English anchors
+      — 'I for Imran', 'D for Delhi', 'M for Mumbai'. Never the NATO/Western 'B for boy'
+      style. Numbers and letters are read in English, clearly separated, and you repeat
+      them as many times as needed.
+    - 'When the conversation is unhurried and courteous, your closings extend across several
+      turns rather than ending abruptly: you go through an extended pre-closing ritual
+      with several back-and-forth exchanges, for example: ''अच्छा जी... ठीक है फिर'' →
+      ''जी बहुत बहुत शुक्रिया आपका'' → ''अल्लाह आपको ख़ुश रखे'' → ''जी, बहुत मेहरबानी
+      आपकी'' → ''अच्छा जी, ख़ुदा हाफ़िज़''. In that case the goodbye stretches across
+      multiple turns with repeated thanks and blessings before you actually disconnect,
+      rather than collapsing into one line.'
+    backchannel_phrases:
+    - हम्म
+    non_directed_phrases:
+    - बेटा, ग्राहक संभालो
+    - एक मिनट
+    - अरे shutter देख लेना
+    voice_id: Bx0npXeksjhOsJHa5I7r
+    tts_voice_prompt: A man in his mid-50s from Old Delhi, a small-business owner
+      (shopkeeper) calling customer support from his shop. He speaks unhurried,
+      courteous Urdu-inflected Hindi (Hindustani) with Persian-Urdu vocabulary —
+      soft consonants, gentle nasalization — and only occasional English words for
+      numbers and brand names, pronounced with a strong North-Indian accent.
+      Lower pitch, warm but firm slightly gravelly timbre, measured pacing with
+      deliberate pauses, polite and formal register that stays composed even when
+      insistent. Phone-call audio quality with quiet household/shop room tone.
+    tags:
+      code_switch: low
+      formality: high
+      english_tolerance: low
+      age_band: 50s
+      register: small_business
+      closing_style: extended
+      gender: male
+agent_language_clause: Respond in Hindi using Devanagari script for Hindi and Latin
+  script for English insertions; mirror the user's code-switching register; keep
+  all tool calls, arguments, and structured outputs in English exactly as specified.
+# Appended ONLY on native-script DB ablation runs (task sets *_identity_native);
+# it must supersede the keep-arguments-in-English rule for name fields and must
+# never ship on the folded _identity sets. CURATED CONTENT — review any change.
+agent_native_script_db_clause: 'For this variant, the customer database stores
+  customer first and last names in Devanagari, exactly as the customer gives them
+  (e.g. first_name "अमित", last_name "सक्सेना"). This is the one exception to
+  writing tool-call arguments in English: write name arguments to lookup and
+  update tools in Devanagari — a romanized spelling like "Amit Saxena" will not
+  match any record. User ids, emails, addresses, and all other values remain in
+  Latin script exactly as specified.'
+agent_greeting: नमस्ते! बताइए, मैं आपकी कैसे मदद करूँ?
+default_out_of_turn_events_per_minute: 1.0
+translation_guidance: |
+  Target register: natural urban-professional spoken Hinglish, NOT
+  shuddh/literary Hindi.
+
+  LOANWORD / CODE-SWITCHING POLICY:
+  - English loanwords for work, tech, travel, money, and number/everyday terms
+    are the INTENDED register and must be written in Latin script inline:
+    booking, refund, account, transaction, status, update, cancel, confirm,
+    flight, ticket, meeting, payment, balance, OTP. Do NOT "purify" these into
+    Sanskritic Hindi (e.g. do not replace "flight" with "उड़ान", "account" with
+    "खाता", "cancel" with "रद्द" — those read robotic here). Hindi stays the
+    matrix language (connectives, verbs, grammar in Devanagari); English words
+    are insertions. A loanword that matches this register is never a defect.
+
+  CALQUE TRAPS (translate the MEANING, not the words):
+  - "if and only if" must NOT become the literal calque "अगर और सिर्फ़ अगर".
+    Use natural phrasing: "सिर्फ़ तभी जब ..." or "केवल उसी हालत में जब ...".
+  - "as soon as possible" -> "जितनी जल्दी हो सके", not a word-for-word string.
+  - "make sure that" -> "ध्यान रहे कि" / "पक्का कर लें कि", not "सुनिश्चित करें कि"
+    unless the formal register is genuinely intended.
+  - Conditionals: keep the same trigger and consequence; "अगर ... तो ..." must
+    map the English if/then exactly (never drop the तो consequence).
+
+  GENDER:
+  - Devanagari Hindi inflects verbs/adjectives for the speaker's gender. The
+    unmarked/DEFAULT form is masculine (मैं चाहता हूँ, मुझे जाना है). Write the
+    prose in this default; do NOT bake a specific gender into the task prose.
+    The speaker's actual gender is injected at runtime via the voice persona.
+  - The unmarked/default form is CORRECT and intended: it is never a meaning,
+    naturalness, or register problem, and forced gender agreement using it is
+    never a meaning difference. The only gender defect is INCONSISTENCY within
+    one text — e.g. one clause मैं चाहता हूँ and the next मैं चाहती हूँ for the
+    same speaker.
+
+  SCRIPT / NUMBER CONVENTIONS:
+  - All concrete values — ids, codes, amounts, dates, flight/reservation
+    numbers — stay verbatim in Latin script with Latin digits (1, 2, 3), never
+    Devanagari digits (१, २, ३). The VALUE is verbatim; an attached unit/word
+    localizes (e.g. "3h" -> "3 घंटे", keep the digit, translate the unit).
+  - Hindi prose itself is Devanagari; English insertions are Latin.
+
+  REGISTER EXAMPLES (natural target):
+  - "मेरी booking cancel करनी है।"
+  - "Account में एक issue आ रहा है, मुझे बस status update चाहिए था।"
+  - "अगर agent refuse करे, तो आप insist मत करना।"
+experiments:
+- preset_name: multilingual_v1_hindi
+  description: 'Hindi v1 headline experiment: Rishika + Imran on the 10 Hindi airline
+    tasks vs a matched English baseline (same base tasks, same provider, same complexity,
+    identical LLM-judge metric).'
+  domain: airline
+  main_arm_name: hindi
+  task_set_suffix: hi
+  smoke_task_stem: '3'
+- preset_name: multilingual_v1_hindi_telecom
+  description: 'Hindi v1 telecom experiment: the pack''s personas on the telecom tasks.'
+  domain: telecom
+  main_arm_name: hindi_telecom
+  task_set_suffix: hi
+  smoke_task_stem: '[mobile_data_issue]airplane_mode_on|data_mode_off[PERSONA:None]'
+- preset_name: multilingual_v1_hindi_retail
+  description: 'Hindi v1 retail experiment: the pack''s personas on the retail tasks.'
+  domain: retail
+  main_arm_name: hindi_retail
+  task_set_suffix: hi
+  smoke_task_stem: '83'
+
+# --- nativeness scoring ---
+# judge_factors select from the closed catalog in tau2.multilingual.nativeness_catalog;
+# factor_id must exist there (the loader rejects unknown ids). email_symbols
+# are native verbalizations of email symbols for the deterministic checker.
+nativeness:
+  judge_factors:
+  - factor_id: register_formality
+    enabled: false
+    nuance: Natural customer address (आप vs तुम/तू)
+    question: Did the agent address the customer too familiarly or switch forms of
+      address?
+    native_does: Uses आप throughout a service call, or naturally leaves the pronoun
+      out. Examples are "आप बताइए", "मैं आपकी मदद करूँगा", and "booking ID बता
+      दीजिए". जी can add warmth but is not required.
+    ai_likely_does: Addresses the customer as तुम or तू, or switches between आप and a
+      familiar pronoun. Examples are "तुम बताओ", "तू रुक", or using आप in one turn
+      and तुम in another. Judge only the choice of address here; agreement with आप is
+      a separate criterion.
+  # Added 2026-08-19 (factor-parity review vs es/pt/zh): consistency of the
+  # standard urban Hindustani service variety across the call. Register
+  # (aap/tum) and shuddh-vs-Hinglish word choice have their own criteria; this
+  # one catches dialect-marked grammar and lexicon drifting into the call.
+  - factor_id: regional_consistency
+    enabled: false
+    nuance: Consistent standard Hindustani
+    question: Did the agent consistently speak standard urban Hindustani
+      throughout the call?
+    native_does: Stays in standard urban Hindustani throughout. Ordinary
+      Hinglish, both शुक्रिया and धन्यवाद, and the normal formal range of
+      standard Hindi are all fine. One word understood across India does not
+      establish a different variety.
+    ai_likely_does: Repeatedly mixes dialect-marked grammar or vocabulary into
+      the call, or switches between such forms and standard Hindustani.
+      Examples are "हमको" or "हमरा" for first person, verb forms such as
+      "करत हैं", and "अपन" for "मैं" or "हम". One isolated regional word is
+      not enough. Judge grammar and vocabulary here, not accent; आप-versus-तुम
+      address belongs to the register criterion and shuddh-versus-Hinglish
+      wording to the word-choice criterion.
+  - factor_id: honorific_agreement
+    enabled: false
+    nuance: Correct verb agreement with आप
+    question: Did the agent use a familiar or singular verb form with आप?
+    native_does: Uses plural or polite verb forms with आप. Examples are "आप बता सकते
+      हैं", "आप तैयार हैं", "आप बताइए", and "आपको confirmation देनी होगी". The
+      same polite forms are fine when आप is understood rather than spoken. जी is not
+      required.
+    ai_likely_does: Uses a singular or familiar verb, auxiliary, or command with आप.
+      Examples are "आप कर सकता है", "आप तैयार है", "आप बता", and "आप बताओ".
+      Judge verb agreement here, not whether the agent chose आप, तुम, or तू.
+  # Caller-address carve-out (owner ruling 2026-09-03): with honorific आप,
+  # masculine plural is the unmarked polite form for ANY addressee, so
+  # आप + masculine plural toward a known female customer is NOT a violation.
+  # The factor names its three subtypes explicitly so verdicts stay auditable.
+  - factor_id: gender_agreement
+    nuance: Gender agreement in one utterance
+    question: Did gendered language agree internally and with the known agent or
+      customer gender supplied in the judge context?
+    native_does: Catch three subtypes of agreement. (1) Agent self-reference — a
+      known female agent uses feminine first-person forms, such as "मैं आपकी मदद कर
+      सकती हूँ". (2) Addressing the customer — with आप, masculine plural is the
+      normal polite form for any addressee, including a known female customer;
+      "आप बता सकते हैं" and "आप कर रहे हैं" said to a woman are correct and must
+      never be flagged. (3) Noun and internal agreement — gendered adjectives,
+      participles, and verbs agree with their nouns and with gender established
+      earlier in the utterance, as in "आपकी booking cancel हो गई है". English
+      loanwords have no fixed grammatical gender, so masculine default agreement
+      with them is also correct — "अपना यूजर आईडी बताइए" must never be flagged.
+    ai_likely_does: Violations, by the same three subtypes. (1) Self-reference — a
+      known female agent saying "मैं आपकी मदद कर सकता हूँ" or "मैं समझ गया". Spoken
+      slash-alternatives are always a violation regardless of gender — a speaker
+      never voices both forms, so "मैं सुन रहा/रही हूँ" or "बता देता/देती हूँ" is
+      wrong on its face; the agent must commit to one form.
+      (2) Addressing the customer — feminine forms toward a known male customer,
+      such as "आप परेशान लग रही हैं" said to a man; masculine plural with आप is
+      never a violation, whatever the customer's gender. (3) Noun agreement —
+      conflicting endings in one clear construction, such as "booking cancel हो
+      गया" after booking has been established as feminine. If gender is neither
+      supplied nor internally established, mark no opportunity.
+  - factor_id: natural_word_choice
+    nuance: Combined utterance naturalness for Hindi and Hinglish
+    question: >-
+      This is a customer-service call in Hindi. Does this utterance contain any
+      translationese, verb-morphology or core grammar error, or unnatural word
+      choice?
+    native_does: >-
+      Natural conversational Hindi and Hinglish pass. Code-switching is allowed when
+      both the chosen words and the way they are mixed sound natural to a native
+      speaker. Judge language use only, not the factual or task correctness of the
+      response.
+    ai_likely_does: >-
+      Flag any language that would sound odd to a native Hindi speaker, including
+      translated-sounding phrasing, incorrect verb forms or core grammar, unnatural
+      word choice, awkward code-switching, or overly formal or bookish Hindi for a
+      spoken customer-service call.
+  - factor_id: request_politeness
+    enabled: false
+    nuance: Polite requests to the customer
+    question: Did the agent give the customer a blunt command instead of making a
+      polite request?
+    native_does: Makes requests with a polite verb form or a simple softener. Examples
+      are "अपना ID बताइए", "ज़रा फिर से बोलिए", "क्या आप reason बता सकते हैं?",
+      and "कृपया हाँ कहकर confirm कर दीजिए". One polite form is enough; every request
+      does not need ज़रा, कृपया, and जी.
+    ai_likely_does: Gives the customer a bare or blunt command. Examples are "ID दो",
+      "reason बोलो", "फिर से कहो", and "हाँ बोलो". A line that lands as brusque or
+      dismissive also counts even when polite verb forms are used - reassurance
+      phrased as a command (a bare "शांत रहें" that lands as "be quiet"), or rushing
+      the customer with "बताइए, हो गया?" without giving them time to comply. One
+      clearly brusque line is enough. Judge how the request is framed here; pronoun
+      choice and agreement with आप are separate criteria.
+  # Added 2026-08-19 (factor-parity review vs ko/zh): Hindi's counting gap is
+  # the Indian number scale, not classifiers. Scoped to large numbers/amounts.
+  - factor_id: counting_units
+    enabled: false
+    nuance: Indian number scale (लाख/करोड़)
+    question: When the agent said a large number or amount, did it use the Indian
+      number scale and natural Hindi number forms?
+    native_does: Uses लाख and करोड़ for large amounts. Examples are "डेढ़ लाख
+      रुपये", "पाँच लाख", and "दो करोड़". Native fraction words such as डेढ़,
+      ढाई, and सवा are natural, and हज़ार amounts such as "पचास हज़ार" are
+      fine.
+    ai_likely_does: Uses the Western scale or an English calque where Hindi
+      uses the Indian scale. Examples are "दस मिलियन" or "million रुपये"
+      instead of "एक करोड़", "पाँच सौ हज़ार" instead of "पाँच लाख", and "एक
+      पॉइंट पाँच लाख" instead of "डेढ़ लाख". Currency-unit errors also count
+      here - stating an amount in a currency other than the one on the record
+      or in the conversation, such as saying dollars or pounds for a rupee
+      amount, or switching currency units mid-call without reason. Do not flag
+      English digits in codes, flight numbers, times, or dates, small numbers,
+      or an amount the customer stated in millions that the agent merely
+      echoed.
+  - factor_id: name_address_conventions
+    nuance: Name plus जी and honorific-consistent address
+    question: When the agent addressed the customer by name, did it attach जी or
+      an equivalent honorific the way a Hindi service agent would?
+    native_does: Attaches जी to the name for a formal caller, such as "शर्मा जी"
+      or "राहुल जी", or uses honorific address without a name, such as "सर" or
+      "मैडम". The bare first name is fine in a clearly informal call, and
+      addressing the customer without any name is fine. If the agent never uses
+      the customer's name, there is no opportunity.
+    ai_likely_does: Keeps addressing a formal caller by the bare first name where
+      a native attaches जी or says सर or मैडम, or uses a bookish form such as
+      "श्रीमान राहुल" in ordinary speech. Flag only habitual bare-name address;
+      one bare mention of the recorded name while confirming account details is
+      fine. Do not require name use or infer gender from a name. Judge verb
+      agreement with आप under the honorific-agreement criterion and आप versus
+      तुम under the register criterion.
+  enabled_deterministic_factors: []
+  email_symbols:
+    '@':
+    - at the rate
+    - एट द रेट
+    .:
+    - dot
+    - डॉट
+
+# --- delivery scoring (audio-layer) ---
+# judge_factors select from the closed catalog in tau2.multilingual.delivery_catalog;
+# factor_id must exist there (the loader rejects unknown ids).
+delivery:
+  judge_factors:
+  - factor_id: regional_accent_consistency
+    listen_for: Pronunciation that repeatedly conflicts with standard urban
+      Hindustani or audibly switches between incompatible systems within the
+      call — a heavy regional accent taking over the call, or an
+      English-accented rendering of Hindi words in otherwise Hindi speech.
+      English insertions natural to Hinglish are pronounced the Indian-English
+      way; accept ordinary speaker variation and the normal urban range, and
+      judge against standard urban Hindustani, not one preferred regional
+      accent.
+
+# --- spoken localization (symbols / date-numeral rule / speech conventions / domain glossary) ---
+# Upgraded by `tau2 factory draft-localization`: domain_glossaries[retail] drafted by prompt v7 sha256:6c4c09381c8b (model:claude-opus-4-8);
+# all previously-reviewed fields preserved verbatim.
+# Symbols and term_ids select from the closed catalogs in
+# tau2.multilingual.localization_catalog (the loader rejects unknown ids).
+localization:
+  symbol_readouts:
+  - symbol: '@'
+    spoken:
+    - ऐट
+    - ऐट द रेट
+  - symbol: .
+    spoken:
+    - डॉट
+    - पॉइंट
+  - symbol: _
+    spoken:
+    - अंडरस्कोर
+  - symbol: '-'
+    spoken:
+    - हाइफ़न
+    - डैश
+  - symbol: /
+    spoken:
+    - स्लैश
+  - symbol: +
+    spoken:
+    - प्लस
+  - symbol: '0'
+    spoken:
+    - ज़ीरो
+    - शून्य
+  date_examples:
+  - written: May 17
+    spoken: सत्रह मई
+  - written: 05/17
+    spoken: ज़ीरो पाँच स्लैश सत्रह
+  - written: January 3
+    spoken: तीन जनवरी
+  - written: December 25
+    spoken: पच्चीस दिसंबर
+  number_examples:
+  - written: 253 dollars
+    spoken: दो सौ तिरेपन डॉलर
+  - written: '21'
+    spoken: इक्कीस
+  - written: 1099 dollars
+    spoken: एक हज़ार निन्यानवे डॉलर
+  - written: '3'
+    spoken: तीन
+  domain_glossaries:
+    airline:
+    - term_id: user_id
+      native: user ID
+      note: established loanword — natives say the English term
+    - term_id: reservation
+      native: booking
+      note: established loanword — 'booking' is the natural usage, not 'आरक्षण'
+    - term_id: reservation_id
+      native: booking reference
+      note: loanword; also 'booking ID'
+    - term_id: flight
+      native: flight
+      note: established loanword; 'उड़ान' sounds robotic here
+    - term_id: flight_number
+      native: flight number
+      note: established loanword
+    - term_id: refund
+      native: refund
+      note: established loanword — the English form is the natural usage
+    - term_id: travel_insurance
+      native: travel insurance
+      note: established loanword
+    - term_id: checked_bag
+      native: checked bag
+      note: established loanword; also 'checked-in luggage'
+    - term_id: carry_on
+      native: carry-on bag
+      note: established loanword; also 'hand baggage'
+    - term_id: future_trip
+      native: आगे की trip
+      note: loanword 'trip' with Hindi matrix
+    - term_id: one_way
+      native: one-way trip
+      note: established loanword
+    - term_id: round_trip
+      native: round trip
+      note: established loanword
+    - term_id: basic_economy
+      native: basic economy
+      note: established loanword — fare-class name kept in English
+    - term_id: economy
+      native: economy
+      note: established loanword — cabin-class name kept in English
+    - term_id: business
+      native: business class
+      note: established loanword
+    - term_id: credit_card
+      native: credit card
+      note: established loanword
+    - term_id: gift_card
+      native: gift card
+      note: established loanword
+    - term_id: travel_certificate
+      native: travel certificate
+      note: established loanword
+    - term_id: membership_tier
+      native: membership tier
+      note: loanword; natives say tiers as 'regular / silver / gold'
+    - term_id: cancellation
+      native: cancellation
+      note: established loanword; verb 'cancel करना'
+    - term_id: payment_method
+      native: payment method
+      note: established loanword
+    telecom:
+    - term_id: customer_id
+      native: customer ID
+      note: established loanword — natives say the English term
+    - term_id: phone_number
+      native: phone number
+      note: English loanword is the natural usage
+    - term_id: line
+      native: line
+      note: established loanword
+    - term_id: plan
+      native: plan
+      note: established loanword — 'recharge plan' bhi kehte hain
+    - term_id: data_allowance
+      native: data limit
+      note: loanword; 'data allowance' bhi chalta hai
+    - term_id: data_usage
+      native: data usage
+      note: established loanword
+    - term_id: data_refuel
+      native: data top-up
+      note: natives say 'top-up' / 'extra data pack'
+    - term_id: mobile_data
+      native: mobile data
+      note: established loanword
+    - term_id: roaming
+      native: roaming
+      note: established loanword
+    - term_id: airplane_mode
+      native: airplane mode
+      note: established loanword; 'flight mode' bhi kehte hain
+    - term_id: sim_card
+      native: SIM card
+      note: established loanword
+    - term_id: esim
+      native: eSIM
+      note: established loanword
+    - term_id: apn_settings
+      native: APN settings
+      note: established loanword
+    - term_id: data_saver
+      native: data saver mode
+      note: established loanword
+    - term_id: wifi
+      native: Wi-Fi
+      note: established loanword
+    - term_id: wifi_calling
+      native: Wi-Fi calling
+      note: established loanword
+    - term_id: vpn
+      native: VPN
+      note: established loanword, spoken as letters
+    - term_id: speed_test
+      native: speed test
+      note: established loanword
+    - term_id: network_signal
+      native: network signal
+      note: loanword; 'signal' akela bhi kaafi hai
+    - term_id: status_bar
+      native: status bar
+      note: established loanword; upar wali bar
+    - term_id: mms
+      native: MMS
+      note: established loanword, spoken as letters
+    - term_id: bill
+      native: bill
+      note: established loanword
+    - term_id: overdue_bill
+      native: pending bill
+      note: natives say 'due bill' / 'pending bill'
+    - term_id: payment_request
+      native: payment link
+      note: natives say 'payment link'
+    - term_id: line_suspension
+      native: line suspend
+      note: loanword; 'line band ho gayi' bhi kehte hain
+    - term_id: payment_method
+      native: payment method
+      note: established loanword
+    retail:
+    - term_id: user_id
+      native: user ID
+      note: established loanword — English 'user ID' is the natural spoken usage
+    - term_id: zip_code
+      native: zip code
+      note: established loanword; also 'PIN code' in Indian usage, but 'zip code'
+        matches the retail-call register
+    - term_id: order
+      native: order
+      note: established loanword — the English form is the natural usage
+    - term_id: order_id
+      native: order ID
+      note: established loanword — the English form is the natural usage
+    - term_id: order_status
+      native: order status
+      note: established loanword — the English form is the natural usage
+    - term_id: pending_order
+      native: pending order
+      note: established loanword — the English form is the natural usage
+    - term_id: delivered_order
+      native: delivered order
+      note: established loanword — 'jo order deliver ho gaya' is the natural phrasing
+    - term_id: cancellation
+      native: cancellation
+      note: established loanword; the verb 'cancel karna' is more common in speech
+    - term_id: return
+      native: return
+      note: established loanword — the English form is the natural usage
+    - term_id: exchange
+      native: exchange
+      note: established loanword — the English form is the natural usage
+    - term_id: refund
+      native: refund
+      note: established loanword — the English form is the natural usage
+    - term_id: product
+      native: product
+      note: established loanword — the English form is the natural usage
+    - term_id: item
+      native: item
+      note: established loanword — the English form is the natural usage
+    - term_id: product_option
+      native: option
+      note: established loanword; colour/size specifics often named directly (e.g.
+        'colour', 'size')
+    - term_id: item_id
+      native: item ID
+      note: established loanword — the English form is the natural usage
+    - term_id: product_id
+      native: product ID
+      note: established loanword — the English form is the natural usage
+    - term_id: availability
+      native: availability
+      note: established loanword; 'stock mein hai kya' is the common spoken variant
+    - term_id: price_difference
+      native: price difference
+      note: established loanword — the English form is the natural usage
+    - term_id: tracking_number
+      native: tracking number
+      note: established loanword — the English form is the natural usage
+    - term_id: shipping_address
+      native: shipping address
+      note: established loanword — the English form is the natural usage
+    - term_id: default_address
+      native: default address
+      note: established loanword — the English form is the natural usage
+    - term_id: payment_method
+      native: payment method
+      note: established loanword — the English form is the natural usage
+    - term_id: credit_card
+      native: credit card
+      note: established loanword — the English form is the natural usage
+    - term_id: gift_card
+      native: gift card
+      note: established loanword — the English form is the natural usage
+    - term_id: paypal
+      native: PayPal
+      note: established loanword — the brand name is the natural usage
+    - term_id: human_agent
+      native: human agent
+      note: established loanword; also 'kisi aadmi se baat karni hai' in casual register
+  phone_number_readout:
+    rule: Indian mobile numbers are 10 digits, typically grouped 5+5 (e.g. '98765
+      43210'). Read digit-by-digit in English, separating each with comma and space,
+      with a slight pause between the two blocks. Zero is read as 'zero' (sometimes
+      'oh'). Landlines are read digit-by-digit similarly. Natives read digit-by-digit
+      rather than as large grouped numbers.
+    examples:
+    - written: 98765 43210
+      spoken: nine, eight, seven, six, five... four, three, two, one, zero
+    - written: +91 80402 30190
+      spoken: plus, nine, one... eight, zero, four, zero, two... three, zero, one,
+        nine, zero
+  amount_readout:
+    rule: Currency word follows the number ('बारह हज़ार रुपये', 'दो सौ तिरपन डॉलर').
+      Large amounts use the Indian units हज़ार (thousand) and लाख (hundred-thousand),
+      or the English units are equally natural. The decimal part is read as 'point'
+      followed by the digits (e.g. '99.50' -> 'निन्यानवे point पाँच zero'), or in
+      currency subunits ('पचास paise') when natural.
+    examples:
+    - written: 253 dollars
+      spoken: दो सौ तिरपन डॉलर
+    - written: 12000 rupees
+      spoken: बारह हज़ार रुपये
+    - written: '1250.75'
+      spoken: एक हज़ार दो सौ पचास point सात पाँच
+  spelling_alphabet:
+    rule: 'Spell using the Indian English spell-letter convention with Indian place/word
+      anchors: ''B for Bombay'', ''M for Mumbai'', ''D for Delhi'', ''I for India''.
+      Letters are read out in English one at a time, separated with comma and space.'
+    avoid: The NATO/Western phonetic alphabet ('Bravo', 'Delta') or the anglo 'B for boy'
+      children's-style anchors.
+    anchor_examples:
+    - written: B
+      spoken: B for Bombay
+    - written: M
+      spoken: M for Mumbai
+    - written: D
+      spoken: D for Delhi
+    - written: I
+      spoken: I for India
+    - written: R
+      spoken: R for Rajdhani
+  spoken_value_examples:
+  - kind: email
+    written: rishi_sharma@gmail.com
+    spoken: मेरी email है rishi underscore sharma at gmail dot com
+  - kind: user_id
+    written: rohan_s90
+    spoken: मेरा user ID है R, O, H, A, N, underscore, S, nine, zero
+  - kind: phone
+    written: 98765 43210
+    spoken: मेरा number है nine, eight, seven, six, five... four, three, two, one,
+      zero
+  - kind: spelling_name
+    written: RISHI
+    spoken: वो है R, I, S, H, I... R for Rajdhani, I for India, S for Srinagar, H
+      for Hyderabad, I for India
+  - kind: account_number
+    written: '40230190'
+    spoken: मेरा account number है four, zero, two, three, zero, one, nine, zero
+  - kind: website
+    written: www.example.com/support
+    spoken: मैं आपकी site पे था, www dot example dot com slash support
+  guideline_examples:
+  - kind: disfluency_fillers
+    utterances:
+    - उम्म
+    - अं
+    - मतलब
+    - वो क्या है ना
+    - हाँ तो
+    - देखिए
+  - kind: restart_example
+    utterances:
+    - क्या आप—रुकिए, मैं पूछना चाहता था कि... आप मेरी थोड़ी help कर सकते हैं क्या?
+  - kind: filler_pause_example
+    utterances:
+    - तो, उम्म, मैं सोच रहा था कि, वो क्या है ना, आप मेरी थोड़ी help कर सकते हैं क्या
+  - kind: pause_marker_examples
+    utterances:
+    - मैं try कर रहा था—रुको, सोचने दो [pause]
+    - problem शुरू हुई [pause] शायद तीन दिन पहले?
+  - kind: self_interruption_example
+    utterances:
+    - मैं try कर रहा था... अरे रुको, पहले account number दे दूँ क्या?
+  - kind: clarification_request
+    utterances:
+    - Sorry, ज़रा दोबारा बोलिएगा? ठीक से सुनाई नहीं दिया।
+  - kind: emotion_examples
+    utterances:
+    - मैं सच में परेशान हो गया हूँ क्योंकि...
+    - अरे वाह, वो तो बहुत अच्छा रहेगा!
+  - kind: conversational_confirmations
+    utterances:
+    - हाँ
+    - जी
+    - अच्छा
+    - ठीक है
+    - हम्म
+    - okay
+    - बिल्कुल
+    - जी हाँ
+  - kind: silence_checkins
+    utterances:
+    - Hello? आप सुन रहे हैं?
+    - कुछ मिला क्या?
+    - मेरी refund वाली query पर कोई update?
+  - kind: frustrated_endings
+    utterances:
+    - ये तो हद है, मैं बाद में दोबारा call करता हूँ
+    - मेरे पास इसके लिए time नहीं है, रखता हूँ।
+  - kind: dont_know_responses
+    utterances:
+    - उम्म, पता नहीं असल में
+    - अभी ठीक से याद नहीं
+    - हम्म, वो तो मुझे देखना पड़ेगा।
+  - kind: make_agent_work_chain
+    utterances:
+    - काम नहीं कर रहा
+    - app
+    - आपका mobile app
+  - kind: one_at_a_time_example
+    utterances:
+    - हाँ, मेरी email है john underscore doe at gmail dot com... अच्छा, phone number
+      भी चाहिए?
+  - kind: forget_details_example
+    utterances:
+    - मेरा order number है... उम्म, रुकिए, देखता हूँ... एक second...
+  - kind: vague_openers
+    utterances:
+    - मेरी एक problem है
+    - मेरे account में कुछ गड़बड़ है
+  - kind: unknown_info_phrases
+    utterances:
+    - मुझे इसके बारे में पक्का नहीं पता
+    - मेरे पास वो जानकारी नहीं है।
+  - kind: tool_acknowledgment
+    utterances:
+    - अच्छा, ठीक है, करके देखता हूँ... एक second रुकिए
+  - kind: tool_result_report
+    utterances:
+    - हाँ, अभी वो कर लिया, तो उसमें लिखा आ रहा है कि...
+  - kind: tool_failure_report
+    utterances:
+    - हम्म, वो काम नहीं किया... error आ रहा है।
+  - kind: multiple_actions_pushback
+    utterances:
+    - अरे रुकिए, ये तो एक साथ बहुत सारा हो गया... एक-एक करके बताइए ना?
+  - kind: gratitude_examples
+    utterances:
+    - अरे बहुत बहुत धन्यवाद!
+    - बढ़िया, आपकी help के लिए really thanks।
+  spelled_entity_normalization: false
+  letter_names: {}
+  digit_names: {}
+# --- text input styles (closed catalog: tau2.multilingual.text_input_catalog) ---
+# Applicability decision (docs/designs/text-mode-multilingual.md): romanized
+# Hindi is the dominant chat register; code_mixed adds the Hinglish lexical
+# reality on top. Examples are persona-neutral typing MECHANICS only.
+text_input:
+  styles:
+  - style: romanized
+    examples:
+    - standard: मेरा नाम राहुल है
+      typed: mera naam Rahul hai
+    - standard: मुझे कल की फ्लाइट कैंसिल करनी है
+      typed: mujhe kal ki flight cancel karni hai
+    - standard: क्या आप मेरी बुकिंग देख सकते हैं?
+      typed: kya aap meri booking dekh sakte hain?
+  - style: code_mixed
+    examples:
+    - standard: मुझे अपनी बुकिंग रद्द करनी है
+      typed: mujhe apni booking cancel karni hai
+    - standard: खाते में समस्या आ रही है
+      typed: account mein problem aa rahi hai
+    - standard: ठीक है, स्थिति बता दीजिए
+      typed: theek hai, status bata dijiye

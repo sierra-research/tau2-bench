@@ -1,0 +1,81 @@
+# Language pack for Toylang (tl) — a synthetic Latin-script test language.
+# Complete and VALID: this file passes LanguagePack.model_validate after the
+# loader-style normalization in tau2.multilingual.loader._load_yaml_pack.
+# Used only by tests (tests/test_multilingual/factory_testing/).
+#
+# TODO(factory tags PR): persona tag dimensions currently live in the sidecar
+# TOY_PERSONA_TAGS dict in toy_language.py because MultilingualPersonaConfig
+# has no `tags` field yet. write_toy_pack_dir() injects them into the YAML it
+# writes once the field exists; inline them here when the schema PR merges.
+language: tl
+display_name: Toylang
+backchannel_level: medium  # density knob (tau2.backchannel)
+guidelines_voice_path: simulation_guidelines_voice_tl.md
+personas:
+  tessa_tl_v1:
+    verbosity: standard
+    interrupt_tendency: interrupts
+    persona_id: tessa_tl_v1
+    display_name: Tessa
+    short_description: Fast casual Toylang speaker; high tolerance for an
+      English-only agent
+    language: tl
+    locale: TL-NORD
+    script: latn
+    pragmatics_clauses:
+    - 'Speak fast casual Toylang: short clauses, frequent English insertions
+      for tech and money terms — booking, refund, account, status.'
+    - You open with 'Halo zo!' and close briskly with 'Oke, danke, bai'.
+    backchannel_phrases:
+    - ja ja
+    - zo
+    non_directed_phrases:
+    - een momento zo
+    voice_id: fake_voice_id_tessa
+    tts_voice_prompt: A woman in her 20s speaking quick, clipped Toylang with
+      English loanwords, medium-high pitch, confident delivery.
+    acoustic_preset_id: toy_quiet_room
+  orin_tl_v1:
+    verbosity: standard
+    interrupt_tendency: waits
+    persona_id: orin_tl_v1
+    display_name: Orin
+    short_description: Slow formal Toylang speaker; low tolerance for an
+      English-only agent
+    language: tl
+    locale: TL-ZUID
+    script: latn
+    pragmatics_clauses:
+    - 'Speak slow, courteous Toylang: full sentences, almost no English, only
+      numbers and brand names stay English.'
+    - You greet with 'Goedan dag zo' and your goodbyes are long and warm.
+    backchannel_phrases:
+    - ja
+    - mmm zo
+    non_directed_phrases:
+    - een minuut, zo
+    voice_id: fake_voice_id_orin
+    tts_voice_prompt: A man in his 50s speaking measured, formal Toylang with a
+      low warm timbre and deliberate pauses.
+    acoustic_preset_id: toy_quiet_room
+acoustic_presets:
+  toy_quiet_room:
+    id: toy_quiet_room
+    display_name: Toy Quiet Room
+    background_noise_files:
+    - people_talking.wav
+    burst_noise_files:
+    - dog_bark.wav
+agent_language_clause: >-
+  Respond in Toylang using Latin script; mirror the user's register; keep all
+  tool calls, arguments, and structured outputs in English exactly as
+  specified.
+default_out_of_turn_events_per_minute: 0.5
+experiments:
+- preset_name: multilingual_v1_toylang
+  description: 'Toylang synthetic experiment: both toy personas on the 4
+    Toylang toyair tasks vs a matched English baseline.'
+  domain: toyair
+  main_arm_name: toylang
+  task_set_suffix: tl
+  smoke_task_stem: '1'

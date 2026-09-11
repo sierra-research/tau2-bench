@@ -16,6 +16,7 @@ from tau2.domains.retail.data_model import (
 )
 from tau2.domains.retail.utils import RETAIL_DB_PATH
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.utils.text_match import fold_for_match
 
 
 class RetailTools(ToolKitBase):  # Tools
@@ -302,10 +303,19 @@ class RetailTools(ToolKitBase):  # Tools
         Raises:
             ValueError: If the user is not found.
         """
+        # The name is matched case- AND diacritic-insensitively, exactly as
+        # telecom's name+DOB lookup is: in voice runs the caller SAYS their
+        # name, and a spelled-out Spanish surname ("uve, a, zeta, cu, u, e,
+        # zeta") carries no way to pronounce the accent at all — so requiring
+        # 'Vázquez' over 'Vazquez' makes the task unsolvable rather than hard.
+        # The zip, which the caller dictates digit by digit, still has to match
+        # exactly: it is the actual verification factor.
+        wanted_first = fold_for_match(first_name)
+        wanted_last = fold_for_match(last_name)
         for user_id, user in self.db.users.items():
             if (
-                user.name.first_name.lower() == first_name.lower()
-                and user.name.last_name.lower() == last_name.lower()
+                fold_for_match(user.name.first_name) == wanted_first
+                and fold_for_match(user.name.last_name) == wanted_last
                 and user.address.zip == zip
             ):
                 return user_id
@@ -324,8 +334,12 @@ class RetailTools(ToolKitBase):  # Tools
         Raises:
             ValueError: If the user is not found.
         """
+        # Folded like the name half of find_user_id_by_name_zip: a swapped-in
+        # locale identity may carry an accented local part, and an email read
+        # aloud carries no diacritics either.
+        wanted = fold_for_match(email)
         for user_id, user in self.db.users.items():
-            if user.email.lower() == email.lower():
+            if fold_for_match(user.email) == wanted:
                 return user_id
         raise ValueError("User not found")
 

@@ -45,6 +45,13 @@ class DomainResults(BaseModelNoExtra):
         ge=0,
         description="Average cost in USD to run one trajectory in this domain (optional)",
     )
+    nativeness: Optional[float] = Field(
+        None,
+        ge=0,
+        le=1,
+        description="Average deterministic nativeness score [0,1] for non-English "
+        "multilingual runs (optional; decoupled from pass^k).",
+    )
     retrieval_config: Optional[str] = Field(
         None,
         description="Retrieval method used for knowledge base access (banking_knowledge domain only)",

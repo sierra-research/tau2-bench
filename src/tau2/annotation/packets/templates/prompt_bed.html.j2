@@ -1,0 +1,121 @@
+{% extends "base.html.j2" %}
+{% block title %}{{ batch_name }} - {{ task_label }}{% endblock %}
+{% block body %}
+    <div class="header">
+        <h1>{{ batch_name }} <span style="font-size: 14px; color: #666; font-weight: normal;">({{ task_label }} — {{ display_name }})</span> <span class="rater-badge" id="raterDisplay"></span></h1>
+    </div>
+
+    <div class="export-section">
+        <div class="stats">
+            <span id="reviewedCount">0</span> of <span id="totalCount">0</span> items reviewed
+        </div>
+        <div>
+            <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="importFromCSV(event)">
+            <button class="btn btn-tertiary" onclick="document.getElementById('csvFileInput').click()">📤 Import CSV</button>
+            <button class="btn btn-secondary" onclick="clearAnnotations()">Clear All</button>
+            <button class="btn" onclick="exportToCSV()">📥 Export All to CSV</button>
+        </div>
+    </div>
+
+    <div id="importStatus" class="import-status"></div>
+
+    <h2 class="pb-section-heading">1. Prompts ({{ display_name }})</h2>
+    <p class="pb-intro">
+        Each block below is the <strong>exact text</strong> a real benchmark
+        run (or the pack factory) uses for your language — nothing is
+        paraphrased or truncated, and only language-specific prompts are
+        shown. Bracketed [&hellip;] stand-ins and <code>{...}</code> slots
+        mark inputs filled at runtime; their captions say what fills them.
+        Read each one, then mark it OK or flag issues (wrong meaning,
+        unnatural phrasing, wrong register, broken formatting). Quote the
+        exact problematic text in the notes.
+    </p>
+
+    {% for g in groups %}
+    <section class="pb-prompt-group" id="group-{{ g.key }}">
+        <h3 class="pb-group-heading">1.{{ loop.index }} {{ g.title }}</h3>
+        <p class="pb-intro">{{ g.blurb }}</p>
+        {% set group_index = loop.index %}
+        {% for s in g.sections %}
+        <section class="pb-prompt-section" id="section-{{ s.item_id }}">
+            <h4>1.{{ group_index }}.{{ loop.index }} {{ s.title }}</h4>
+            <p class="pb-caption">{{ s.caption }}</p>
+            <pre class="pb-prompt-text">{{ s.text }}</pre>
+            <div class="pb-verdict-row" data-item="{{ s.item_id }}">
+                <span class="pb-verdict-choice">
+                    <label><input type="radio" name="verdict_{{ s.item_id }}" value="ok"> OK</label>
+                    <label><input type="radio" name="verdict_{{ s.item_id }}" value="issue"> Issues found</label>
+                </span>
+                <textarea class="pb-notes" rows="2" placeholder="Issue notes — quote the exact text and say what's wrong"></textarea>
+            </div>
+        </section>
+        {% endfor %}
+    </section>
+    {% endfor %}
+
+    {% if voices %}
+    <h2 class="pb-section-heading">2. Persona voices ({{ display_name }})</h2>
+    <p class="pb-intro">
+        Each pack persona's pinned voice, rendered on the audition script.
+        Listen to each one: it should sound like a plausible native speaker
+        of your language matching the persona described (right gender,
+        accent, age range; clear, natural delivery — no mumbling, no foreign
+        accent, no synthetic artifacts). Mark OK or "Sounds off" and
+        describe what's wrong.
+    </p>
+
+    <table class="pb-bed-table">
+        <thead>
+            <tr><th>Persona</th><th>Who this should sound like</th><th>Listen</th><th>Verdict</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+            {% for v in voices %}
+            <tr class="pb-verdict-row" data-item="{{ v.item_id }}">
+                <td class="pb-locale">{{ v.persona_id }} ({{ v.gender }})</td>
+                <td>{{ v.description }}</td>
+                <td><audio controls preload="none" src="{{ v.rel_href }}"></audio></td>
+                <td class="pb-verdict-choice">
+                    <label><input type="radio" name="verdict_{{ v.item_id }}" value="ok"> OK</label>
+                    <label><input type="radio" name="verdict_{{ v.item_id }}" value="issue"> Sounds off</label>
+                </td>
+                <td><textarea class="pb-notes" rows="1" placeholder="What sounds off?"></textarea></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <h2 class="pb-section-heading">{{ 3 if voices else 2 }}. Background beds (all languages)</h2>
+    <p class="pb-intro">
+        Every locale's two continuous background beds, plus the shared office
+        bed. Listen to each one: it should sound like a plausible, unobtrusive
+        background for a phone call from that place (no jarring loop point, no
+        content louder than a caller would tolerate, TV/speech in the right
+        language). Mark OK or "Sounds off" and describe what's wrong.
+    </p>
+
+    <table class="pb-bed-table">
+        <thead>
+            <tr><th>Locale</th><th>Bed</th><th>Listen</th><th>Verdict</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+            {% for b in beds %}
+            <tr class="pb-verdict-row" data-item="{{ b.item_id }}">
+                <td class="pb-locale">{{ b.locale }}</td>
+                <td>{{ b.label }}</td>
+                <td><audio controls preload="none" src="{{ b.rel_href }}"></audio></td>
+                <td class="pb-verdict-choice">
+                    <label><input type="radio" name="verdict_{{ b.item_id }}" value="ok"> OK</label>
+                    <label><input type="radio" name="verdict_{{ b.item_id }}" value="issue"> Sounds off</label>
+                </td>
+                <td><textarea class="pb-notes" rows="1" placeholder="What sounds off?"></textarea></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="pb-complete-row">
+        <label><input type="checkbox" id="completeCheckbox"> Mark this packet as complete</label>
+        <span class="pb-complete-hint">Check this once every prompt section, every voice, and every bed has a verdict, then export the CSV.</span>
+    </div>
+{% endblock %}

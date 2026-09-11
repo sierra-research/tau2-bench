@@ -38,6 +38,7 @@ def _make_config(**overrides) -> TextRunConfig:
         save_to=None,
         max_concurrency=2,
         auto_resume=True,
+        communicate_judge_mode="llm",
     )
     defaults.update(overrides)
     return TextRunConfig(**defaults)
@@ -99,6 +100,7 @@ class TestControllerHttpContract:
             run = body["run"]
             assert run["config_kind"] == "text"
             assert run["config"]["domain"] == "mock"
+            assert run["config"]["communicate_judge_mode"] == "llm"
             assert run["task"]["id"] == unit["task_id"]
             # The CLI's --llm-log-mode only reaches worker processes through
             # the lease payload ("latest" is the ContextVar default).

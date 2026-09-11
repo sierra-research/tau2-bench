@@ -62,7 +62,7 @@ config = VoiceRunConfig(
         provider="openai",
         model="gpt-4o-realtime-preview",
     ),
-    llm_user="openai/gpt-4.1",
+    llm_user="openai/gpt-5.4-mini",
     speech_complexity="regular",
 )
 

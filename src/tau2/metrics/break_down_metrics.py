@@ -122,6 +122,9 @@ def result_reward_analysis(results: Results):
         )
         reward_analysis["task_id"] = simulation.task_id
         reward_analysis["trial"] = simulation.trial
+        reward_analysis["nativeness"] = (
+            simulation.nativeness_info.score if simulation.nativeness_info else None
+        )
         rows.append(reward_analysis)
     return pd.DataFrame(rows)
 

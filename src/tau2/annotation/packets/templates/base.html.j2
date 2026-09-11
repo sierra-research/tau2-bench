@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% endblock %}</title>
+    <style>{{ css | safe }}</style>
+</head>
+<body>
+    <script>window.PACKET_CONFIG = {{ packet_config | safe }};</script>
+
+    <!-- Rater Name Modal -->
+    <div class="modal-overlay" id="raterModal">
+        <div class="rater-modal-content">
+            <h2>Enter Your Name</h2>
+            <p>Your annotations will be saved separately under your name.</p>
+            <input type="text" id="raterNameInput" placeholder="e.g. Alice"
+                   onkeydown="if(event.key==='Enter') submitRaterName()">
+            <button onclick="submitRaterName()">Start Annotating</button>
+        </div>
+    </div>
+
+{% block body %}{% endblock %}
+
+    <script>
+{{ js | safe }}
+    </script>
+</body>
+</html>

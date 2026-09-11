@@ -36,6 +36,18 @@ if not DATA_DIR.exists():
     logger.warning("Or ensure the data directory exists in the expected location")
 
 
+def prompt_sha256(*parts: str) -> str:
+    """sha256 over fixed prompt material — THE prompt-provenance helper.
+
+    Every pillar that stamps a prompt hash into provenance (factory drafting,
+    translation verifier, judges, annotation candidate generation) hashes its
+    fixed templates + version string through this one function. Parts are
+    concatenated without a separator (the historical convention of the factory
+    sha sites, so their recorded values stay stable).
+    """
+    return hashlib.sha256("".join(parts).encode("utf-8")).hexdigest()
+
+
 def get_dict_hash(obj: dict) -> str:
     """
     Generate a unique hash for dict.

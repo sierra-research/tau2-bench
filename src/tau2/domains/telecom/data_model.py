@@ -226,6 +226,10 @@ class TelecomDB(DB):
     devices: List[Device] = Field(
         default_factory=list, description="All devices in the system"
     )
+    phone_number_aliases: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Localized scenario phone number -> canonical line number",
+    )
 
     def get_statistics(self) -> Dict[str, Any]:
         """Get the statistics of the database."""

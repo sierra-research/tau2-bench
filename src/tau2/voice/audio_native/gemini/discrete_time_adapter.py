@@ -99,6 +99,7 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
         send_audio_instant: bool = True,
         model: Optional[str] = None,
         reasoning_effort: Optional[str] = None,
+        language: Optional[str] = None,
         provider: Optional[GeminiLiveProvider] = None,
         max_resumptions: int = 3,
         resume_only_on_timeout: bool = True,
@@ -109,6 +110,11 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
             tick_duration_ms: Duration of each tick in milliseconds. Must be > 0.
             send_audio_instant: If True, send audio in one call (discrete-time mode).
             model: Optional model to use. Defaults to None. If provider is also provided, this is ignored.
+            language: ISO 639-1 code of the run's active language-pack persona,
+                or None (English/provider default). Passed through connect() to
+                the provider, which maps it to a Gemini Live BCP-47
+                ``SpeechConfig.language_code`` (see
+                ``tau2.voice.audio_native.gemini.provider.GEMINI_LIVE_LANGUAGE_CODES``).
             provider: Optional provider instance. Created lazily if not provided.
                 If not provided, auto-detects auth from env vars (GEMINI_API_KEY
                 or GOOGLE_APPLICATION_CREDENTIALS).
@@ -136,6 +142,7 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
 
         self.model = model
         self.reasoning_effort = reasoning_effort
+        self.language = language
         self._max_resumptions = max_resumptions
         self._resume_only_on_timeout = resume_only_on_timeout
 
@@ -229,6 +236,7 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
             tools=tools,
             vad_config=vad_config,
             modality=modality,
+            language=self.language,
         )
 
     def disconnect(self) -> None:

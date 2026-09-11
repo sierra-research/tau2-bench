@@ -1,0 +1,251 @@
+{% extends "base.html.j2" %}
+{% block title %}{{ batch_name }} — Combined rubric{% endblock %}
+{% block body %}
+{% if banner %}
+<div class="rp-page-banner">{{ banner }}</div>
+{% endif %}
+<header class="rp-header">
+    <div>
+        <div class="rp-kicker">Combined call review · {{ language | upper }}</div>
+        <h1>{{ batch_name }}</h1>
+        <p>{{ calls | length }} calls · {{ question_count }} questions per call</p>
+    </div>
+    <div class="rp-header-actions">
+        <span class="rp-rater" id="raterDisplay"></span>
+        <strong><span id="completedCount">0</span> / {{ calls | length }} complete</strong>
+        <button class="rp-button secondary" type="button" onclick="downloadBackup()">Download backup</button>
+        <button class="rp-button secondary" type="button" onclick="exportRubricCSV()">Overall + interaction + audio CSV</button>
+        {% if sections | selectattr('id', 'equalto', 'nativeness') | list %}
+        <button class="rp-button secondary" type="button" onclick="exportNativenessCSV()">Nativeness CSV</button>
+        {% endif %}
+        <button class="rp-button" type="button" onclick="exportAll()">Export all</button>
+    </div>
+</header>
+
+<main class="rp-shell">
+    <section class="rp-intro">
+        <strong>Review one call across interaction, nativeness, and audio quality.</strong>
+        <span>Overall interaction and nativeness use 1–4. <b>Yes</b> means a factor issue occurred. Audio uses 0–3 severity or NA.</span>
+        {% if judge_annotations %}
+        <span><b>Two phases per call.</b> Phase 1: answer every question with judge findings hidden, then press <b>Lock blind answers</b> — your answers are recorded and frozen as the blind layer. Phase 2: the judge findings reveal beneath each question; revise any answer you want (revisions are recorded separately) and confirm to complete the call. Both layers are exported.</span>
+        {% endif %}
+    </section>
+
+    <nav class="rp-call-nav" aria-label="Call navigation">
+        {% for call in calls %}
+        <button type="button" class="rp-call-pill{% if loop.first %} active{% endif %}" data-go="{{ call.clip_id }}">{{ loop.index }}</button>
+        {% endfor %}
+    </nav>
+
+    {% for call in calls %}
+    <article class="rp-call{% if loop.first %} active{% endif %}{% if judge_annotations %} judge-phased{% endif %}" id="{{ call.clip_id }}" data-clip-id="{{ call.clip_id }}">
+        <div class="rp-call-heading">
+            <div>
+                <div class="rp-kicker">Call {{ loop.index }} of {{ calls | length }}</div>
+                <h2>{{ call.clip_id | replace('_', ' ') | title }}</h2>
+            </div>
+            <span class="rp-status" data-status>Not started</span>
+        </div>
+
+        <section class="rp-audio-panel">
+            <div class="rp-audio-heading">
+                <strong>Audio</strong>
+                <span class="rp-audio-rule">Required for the audio judge section only — optional for the rest.</span>
+                <small data-audio-description>Full conversation · {{ call.full_duration }}</small>
+            </div>
+            <div class="rp-mode-toggle" role="group" aria-label="Evidence mode">
+                <button type="button" data-mode="full_conversation" aria-pressed="true">Full conversation</button>
+                <button type="button" data-mode="agent_only" aria-pressed="false">Agent only</button>
+            </div>
+            <audio controls preload="metadata"
+                   data-full-src="{{ call.full_audio_file }}"
+                   data-agent-src="{{ call.agent_audio_file }}"
+                   data-full-duration="{{ call.full_duration }}"
+                   data-agent-duration="{{ call.agent_duration }}"
+                   src="{{ call.full_audio_file }}"></audio>
+        </section>
+
+        <div class="rp-workspace">
+            <section class="rp-evidence-pane">
+                <div class="rp-pane-heading">
+                    <div>
+                        <div class="rp-kicker">Evidence</div>
+                        <h3 data-evidence-title>Full conversation trace</h3>
+                    </div>
+                    <span class="rp-mode-badge" data-mode-badge>Full conversation</span>
+                </div>
+
+                <div class="rp-genders">
+                    <div><span>Agent gender</span><strong>{{ call.agent_gender | title }}</strong></div>
+                    <div><span>Caller gender</span><strong>{{ call.caller_gender | title }}</strong></div>
+                </div>
+
+                <div class="rp-evidence-view active" data-evidence-view="full_conversation">
+                    <div class="rp-trace-scroll">
+                        <table class="rp-transcript">
+                            <thead>
+                                <tr><th>Time</th><th>Agent speech</th><th>Agent tools</th><th>Caller speech</th><th>Caller tools</th></tr>
+                            </thead>
+                            <tbody>{{ call.transcript_rows | safe }}</tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="rp-evidence-view" data-evidence-view="agent_only">
+                    <div class="rp-agent-note">Complete ordered agent transcript. For an utterance-level violation, select the question and click every offending agent turn.</div>
+                    <div class="rp-agent-transcript">
+                        {% for turn in call.agent_turns %}
+                        <button type="button" class="rp-agent-turn" data-agent-turn data-turn-index="{{ turn.index }}" data-turn-id="{{ turn.turn_id }}">
+                            {% if turn.preceding_customer_text %}<span class="rp-customer-context">Customer: {{ turn.preceding_customer_text }}</span>{% endif %}
+                            <span class="rp-agent-text"><b>Agent {{ turn.index }}:</b> {{ turn.text }}{% if turn.interrupted %} <span class="rp-truncation-badge" title="The caller interrupted the agent here. The transcript is an estimate that can stop mid-word; the audio may finish the word or say slightly more. That mismatch is NOT a delivery defect.">[truncated]</span>{% endif %}</span>
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+
+            <aside class="rp-annotations">
+                {% for section in sections %}
+                {% set section_number = loop.index %}
+                <details class="rp-section" data-section="{{ section.id }}"{% if loop.first %} open{% endif %}>
+                    <summary>
+                        <span>{{ section_number }}. {{ section.title }}</span>
+                        <small><b data-section-answered>0</b> / {{ section.questions | length }}</small>
+                    </summary>
+                    <div class="rp-section-body">
+                        <p class="rp-section-note">{{ section.note }}</p>
+                        {% for question in section.questions %}
+                        <div class="rp-question"
+                             data-factor-id="{{ question.id }}"
+                             data-section-id="{{ section.id }}"
+                             data-answer-kind="{{ question.answer_kind }}"
+                             data-evaluation-level="{{ question.evaluation_level }}">
+                            <strong>{{ section_number }}.{{ loop.index }} {{ question.question }}</strong>
+                            {% if question.answer_kind == "nativeness" or question.evaluation_level == "utterance" %}<span class="rp-level-badge">{{ question.evaluation_level }}</span>{% endif %}
+                            <p>{{ question.guidance }}</p>
+                            {% if judge_annotations %}
+                            {# Uniform block on EVERY question — including a fixed no-findings
+                               row — so the phase-2 reveal leaks nothing by presence or shape.
+                               Phase 1 hides ALL of it via the phase CSS gate; the reveal
+                               paints every finding open inline, with no disclosure to click. #}
+                            {% set annotations = judge_annotations.get(call.clip_id, {}).get(section.id ~ ':' ~ question.id, []) %}
+                            <div class="rp-judge-details">
+                                {% if not annotations %}
+                                <div class="rp-judge-finding">
+                                    <p class="rp-judge-evidence">No judge annotations for this question.</p>
+                                </div>
+                                {% endif %}
+                                {% for annotation in annotations %}
+                                <div class="rp-judge-finding{% if annotation.flagged %} flag{% endif %}">
+                                    <div class="rp-judge-meta">
+                                        <span class="rp-judge-chip{% if annotation.flagged %} flag{% endif %}">{{ annotation.verdict }}</span>
+                                        <strong>{{ annotation.judge }} · {{ annotation.factor_id }}</strong>
+                                    </div>
+                                    {% if annotation.evidence %}<p class="rp-judge-evidence">{{ annotation.evidence }}</p>{% endif %}
+                                    {% if annotation.quote %}<p class="rp-judge-quote">“{{ annotation.quote }}”</p>{% endif %}
+                                    {% if annotation.turn_html %}
+                                    <div class="rp-judge-turn">
+                                        <div><span>Caller context</span><p>{{ annotation.context_text or "No immediately preceding caller turn." }}</p></div>
+                                        <div><span>Flagged agent utterance{% if annotation.turn_index is not none %} · turn {{ annotation.turn_index }}{% endif %}</span><strong>{{ annotation.turn_html | safe }}</strong></div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            <div class="rp-options" role="group" aria-label="Answer">
+                                {% if question.answer_kind == "binary" %}
+                                <button type="button" data-answer="yes" aria-pressed="false">Yes</button>
+                                <button type="button" data-answer="no" aria-pressed="false">No</button>
+                                <button type="button" data-answer="no_opportunity" aria-pressed="false">N/A</button>
+                                {% elif question.answer_kind == "likert4" %}
+                                {% for anchor in question.score_anchors %}
+                                <button type="button" class="rp-score-option" data-answer="{{ anchor.value }}" aria-pressed="false">
+                                    <span class="rp-score-value">{{ anchor.value }}</span>
+                                    <span class="rp-score-copy">
+                                        <b>{{ anchor.label }}</b>
+                                        <small>{{ anchor.description }}</small>
+                                    </span>
+                                </button>
+                                {% endfor %}
+                                {% elif question.answer_kind == "nativeness" %}
+                                <button type="button" data-native-label="pass" aria-pressed="false">Pass</button>
+                                <button type="button" data-native-label="violation" aria-pressed="false">Violation</button>
+                                <button type="button" data-native-label="not_applicable" aria-pressed="false">N/A</button>
+                                {% else %}
+                                <button type="button" data-answer="0" aria-pressed="false" title="No issue">0</button>
+                                <button type="button" data-answer="1" aria-pressed="false" title="Minor">1</button>
+                                <button type="button" data-answer="2" aria-pressed="false" title="Clear">2</button>
+                                <button type="button" data-answer="3" aria-pressed="false" title="Severe">3</button>
+                                <button type="button" data-answer="NA" aria-pressed="false" title="No opportunity">NA</button>
+                                {% endif %}
+                            </div>
+                            {% if question.answer_kind == "nativeness" %}
+                            <div class="rp-native-detail{% if question.evaluation_level == 'utterance' %} utterance-detail{% endif %}" data-native-detail>
+                                {% if question.evaluation_level == "call" %}<label>Severity <select data-native-severity><option value="">Select 1–4</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>{% endif %}
+                                <label>Note <input data-native-note type="text" placeholder="Brief explanation (optional)"></label>
+                                <input type="hidden" data-selected-turn-indices value="[]">
+                                {% if question.evaluation_level == "utterance" %}<div class="rp-selected-turns" data-selected-turns>No turns selected.</div>{% endif %}
+                            </div>
+                            {% else %}
+                            <input class="rp-evidence" data-evidence type="text" placeholder="Evidence or timestamp (optional)">
+                            {% if question.severity_scale == "minor_major" or question.evaluation_level == "utterance" %}
+                            <div class="rp-violation-detail" data-violation-detail>
+                                {% if question.severity_scale == "minor_major" %}
+                                <div class="rp-severity-options" role="group" aria-label="Severity">
+                                    <span>Severity</span>
+                                    <button type="button" data-severity="minor" aria-pressed="false">Minor</button>
+                                    <button type="button" data-severity="major" aria-pressed="false">Major</button>
+                                </div>
+                                {% endif %}
+                                {% if question.evaluation_level == "utterance" %}
+                                <input type="hidden" data-selected-turn-indices value="[]">
+                                <div class="rp-selected-turns" data-selected-turns>No turns selected.</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endfor %}
+            </aside>
+        </div>
+
+        <section class="rp-notes">
+            <label for="{{ call.clip_id }}_notes">Anything the metrics missed?</label>
+            <p>If you notice an issue that is not captured by the current metrics, note it here—especially a nativeness issue.</p>
+            <textarea id="{{ call.clip_id }}_notes" data-notes rows="3" placeholder="Optional notes"></textarea>
+        </section>
+
+        <div class="rp-completion">
+            {% if judge_annotations %}
+            {# Two-phase flow: phase 1 is answered fully blind, then locked as
+               the pre-reveal record; only then do the judge findings reveal
+               and the completion checkbox (phase-2 confirm) becomes usable. #}
+            <button class="rp-button" type="button" data-lock-blind disabled>Lock blind answers &amp; reveal judge findings</button>
+            <span class="rp-phase-badge" data-phase-badge>Phase 1 of 2 — blind</span>
+            {% endif %}
+            <label{% if judge_annotations %} data-confirm-label hidden{% endif %}><input type="checkbox" data-field="completed">{% if judge_annotations %} Confirm final answers (phase 2){% else %} Mark this call complete{% endif %}</label>
+            <span data-blocker>Answer all questions. Audio is required only for the audio-quality section.</span>
+        </div>
+
+        <div class="rp-footer-nav">
+            <button class="rp-button secondary" type="button" data-previous{% if loop.first %} disabled{% endif %}>← Previous</button>
+            <span><b data-answered>0</b> / {{ question_count }} answered</span>
+            <button class="rp-button" type="button" data-next{% if loop.last %} disabled{% endif %}>Next call →</button>
+        </div>
+    </article>
+    {% endfor %}
+</main>
+
+<div class="rp-float-audio" data-float-audio>
+    <button type="button" data-float-back title="Back 10 seconds">−10s</button>
+    <button type="button" data-float-toggle aria-pressed="false">Play</button>
+    <span class="rp-float-meta">
+        <b data-float-mode>Full conversation</b>
+        <span data-float-time>0:00</span>
+    </span>
+</div>
+{% endblock %}

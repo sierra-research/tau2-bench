@@ -1,0 +1,39 @@
+language: zh
+generator: tau2.multilingual.factory.acoustic_generation
+format: 16 kHz mono PCM16 (matches verified-noise format)
+burst_policy: Bursts stay constant across locales — the presets reference the shared
+  English burst files, not locale copies.
+files:
+  zh_CN/busy_street_iphone_mic.wav:
+    preset_id: zh_outdoor_traffic
+    duration_seconds: 180.0
+    kind: sfx
+    sfx_prompt: Close-mic, chaotic Beijing/Shanghai street with dense car traffic,
+      scooter and e-bike motors, city bus rumble, frequent Chinese car horns, delivery
+      tricycle whirr, vendor shouting in Mandarin, pedestrian chatter, and a high
+      noise floor of engine idle, tire hiss, construction clatter, yelling, wind,
+      and occasional barking dogs.
+    prompt_influence: 0.3
+    rationale: 'LLM-authored outdoor-SFX prompt (OUTDOOR_SFX_PROMPT_GUIDANCE style)
+      for locale: Mandarin (zh), locales: CN-BJ, CN-SH (busy/loud street).'
+    target_seconds: 180.0
+    sound_effects_model: eleven_text_to_sound_v2
+  zh_CN/medium_size_room_tv_news_iphone_mic.wav:
+    preset_id: zh_household_multi_gen
+    duration_seconds: 180.0
+    broadcaster_voice_id: FgP8vOXzpmIBnsy8m6tc
+    broadcaster_model: eleven_v3
+    broadcaster_seconds: 107.6
+    broadcaster_volume: 0.55
+    broadcaster_lowpass_hz: 2000.0
+    kind: tv_kitchen
+    broadcaster_voice_prompt: 女声，标准普通话，中国电视新闻播音腔，语速平稳克制，权威清晰，干净明亮的演播室音色。
+    broadcaster_script: 各位观众晚上好，欢迎收看本时段新闻简报。今天首先关注天气情况，未来一段时间本市大部地区以晴到多云为主，白天气温较为舒适，早晚风力温和，出行条件总体良好。财经方面，主要市场指数全天窄幅整理，消费、制造与公共服务板块表现平稳，市场成交保持常态。体育消息，在昨晚结束的一场本地联赛中，主队凭借稳健防守和高效配合取得胜利，整场节奏有序，观众反响热烈。城市运行方面，中心城区一条道路微更新工程已进入收尾阶段，步行空间与夜间照明将进一步改善，周边通行效率预计稳步提升。交通服务方面，部分公交站点已完成信息屏升级，车辆到站提示和无障碍指引更加清晰，方便市民换乘出行。文化资讯方面，本周多家公共文化场馆将推出书法、摄影与传统手工体验活动，面向家庭和青少年开放预约。教育与社区方面，多个街道持续开展阅读分享和邻里服务日活动，社区公共空间使用率有所提升。以上就是本时段新闻简报，感谢您的收看，祝您今晚愉快。
+    rationale: 'LLM-authored indoor TV-over-kitchen bed (KITCHEN_TV_PROMPT_GUIDANCE
+      style) for locale: Mandarin (zh), locales: CN-BJ, CN-SH — a localized newscast
+      read by a designed broadcaster voice, mixed low over the locale''s home-kitchen
+      ambience.'
+    target_seconds: 180.0
+    sound_effects_model: eleven_text_to_sound_v2
+    kitchen_source: shared/kitchen_ambience.wav
+    broadcaster_highpass_hz: 0.0

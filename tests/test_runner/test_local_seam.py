@@ -34,6 +34,10 @@ def _make_config(**overrides) -> TextRunConfig:
         save_to=None,
         max_concurrency=2,
         auto_resume=True,
+        # Pinned: TextRunConfig defaults to workers=8 (the controller path),
+        # and this file is about the in-process seam — worker processes would
+        # never see the monkeypatched run_single_task.
+        workers=0,
     )
     defaults.update(overrides)
     return TextRunConfig(**defaults)
@@ -49,6 +53,22 @@ def _install_fake_run_single_task(monkeypatch, calls: list):
             end_time="2026-01-01T00:01:00",
             duration=1.0,
             termination_reason=TerminationReason.USER_STOP,
+            messages=[],
+            seed=seed,
+        )
+
+    monkeypatch.setattr(batch_mod, "run_single_task", fake_run_single_task)
+
+
+def _install_infrastructure_failure(monkeypatch):
+    def fake_run_single_task(config, task, *, seed=None, **kwargs):
+        return SimulationRun(
+            id=str(uuid.uuid4()),
+            task_id=task.id,
+            start_time="2026-01-01T00:00:00",
+            end_time="2026-01-01T00:01:00",
+            duration=1.0,
+            termination_reason=TerminationReason.INFRASTRUCTURE_ERROR,
             messages=[],
             seed=seed,
         )
@@ -100,3 +120,26 @@ def test_resume_runs_nothing_when_complete(tmp_path, monkeypatch):
 
     assert len(calls) == first_run_calls  # nothing re-ran
     assert len(results.simulations) == 4
+
+
+def test_infrastructure_failure_is_not_reported_as_success(
+    tmp_path, monkeypatch, capsys
+):
+    _install_infrastructure_failure(monkeypatch)
+    config = _make_config(task_ids=["create_task_1"], num_trials=1)
+    tasks = get_tasks("mock", task_ids=config.task_ids)
+
+    results = run_tasks(
+        config,
+        tasks,
+        save_path=tmp_path / "results.json",
+        save_dir=tmp_path,
+        console_display=False,
+    )
+
+    assert results.simulations[0].termination_reason == (
+        TerminationReason.INFRASTRUCTURE_ERROR
+    )
+    output = capsys.readouterr().out
+    assert "Completed with 1 infrastructure error" in output
+    assert "Successfully completed all simulations" not in output

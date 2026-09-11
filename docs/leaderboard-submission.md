@@ -108,9 +108,9 @@ Custom submissions **must** include detailed methodology documentation:
 Run your agent on all domains with consistent settings:
 
 ```bash
-tau2 run --domain retail --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4 --save-to my_model_retail
-tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4 --save-to my_model_airline
-tau2 run --domain telecom --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4 --save-to my_model_telecom
+tau2 run --domain retail --agent-llm gpt-5.4-mini --user-llm gpt-5.4-mini --num-trials 4 --save-to my_model_retail
+tau2 run --domain airline --agent-llm gpt-5.4-mini --user-llm gpt-5.4-mini --num-trials 4 --save-to my_model_airline
+tau2 run --domain telecom --agent-llm gpt-5.4-mini --user-llm gpt-5.4-mini --num-trials 4 --save-to my_model_telecom
 ```
 
 **Important**: Use identical `--agent-llm`, `--user-llm`, and their arguments across all runs. You can use any LLM as the user simulator, but this choice will be reported on the leaderboard. We recommend using `gpt-5.2` as the user simulator for the most accurate results.
@@ -123,10 +123,10 @@ The banking domain requires a retrieval configuration for the knowledge base. Yo
 
 ```bash
 # Banking domain with AllTools retrieval
-tau2 run --domain banking_knowledge --retrieval-config alltools --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4
+tau2 run --domain banking_knowledge --retrieval-config alltools --agent-llm gpt-5.4-mini --user-llm gpt-5.4-mini --num-trials 4
 
 # Banking domain with AllTools retrieval using OpenRouter/Qwen embeddings
-tau2 run --domain banking_knowledge --retrieval-config alltools-qwen --agent-llm gpt-4.1 --user-llm gpt-4.1 --num-trials 4
+tau2 run --domain banking_knowledge --retrieval-config alltools-qwen --agent-llm gpt-5.4-mini --user-llm gpt-5.4-mini --num-trials 4
 ```
 
 Common `retrieval_config` values:
@@ -339,7 +339,7 @@ tau2 submit verify-trajs \
 1. Create a directory under `web/leaderboard/public/submissions/`
 2. Name your directory using the format: `{model_name}_{model_organization}_{submission_date}`
    - Use lowercase letters, numbers, hyphens, and underscores only
-   - Examples: `gpt-4.1_openai_2025-01-15`, `custom-model-v1_mycompany_2025-01-20`
+   - Examples: `gpt-5.4-mini_openai_2025-01-15`, `custom-model-v1_mycompany_2025-01-20`
 3. Add only the `submission.json` file to the directory
 
 Directory structure in the repo:
@@ -582,7 +582,7 @@ Include a `verification` section in the `methodology` object:
   "methodology": {
     "evaluation_date": "2025-01-10",
     "tau2_bench_version": "v1.0",
-    "user_simulator": "gpt-4.1-2025-04-14",
+    "user_simulator": "gpt-5.4-mini-2026-03-17",
     "notes": "Evaluated using default settings with 4 trials per task.",
     "verification": {
       "modified_prompts": false,

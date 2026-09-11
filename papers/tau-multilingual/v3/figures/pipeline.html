@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=720, initial-scale=1">
+  <title>tau-Multilingual evaluation pipeline</title>
+  <style>
+    @page { size: 720px 700px; margin: 0; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 720px; height: 700px; overflow: hidden; }
+    body {
+      color: #202124;
+      background: #fff;
+      font-family: Arial, Helvetica, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .canvas { width: 720px; height: 700px; padding: 24px 48px; }
+    .step { height: auto; }
+    .step + .step {
+      margin-top: 18px;
+      padding-top: 22px;
+      border-top: 1.5px solid #dededb;
+    }
+    .step-head { display: flex; align-items: baseline; gap: 12px; height: 48px; }
+    .eyebrow {
+      margin: 0;
+      color: #285f4b;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    h2 {
+      margin: 0;
+      color: #171717;
+      font-size: 24px;
+      line-height: 1.08;
+      letter-spacing: -0.015em;
+    }
+    .flow {
+      display: grid;
+      align-items: center;
+      height: 250px;
+    }
+    .step:first-child .flow { grid-template-columns: 152px 48px 170px 48px 206px; }
+    .step:last-child .flow { grid-template-columns: 152px 48px 190px 48px 186px; }
+    .node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 220px;
+      padding: 24px 16px;
+      border: 1.5px solid #dededb;
+      border-radius: 12px;
+      background: #f4f4f2;
+      text-align: center;
+    }
+    .node.output {
+      padding: 16px 12px;
+      border: 1.5px solid #dededb;
+      background: #f4f4f2;
+      color: #202124;
+    }
+    .node-title { margin-top: 18px; font-size: 21px; font-weight: 700; line-height: 1.08; }
+    .node-copy { margin-top: 14px; color: #555b62; font-size: 18px; line-height: 1.28; }
+    .output .node-copy { color: #555b62; }
+    .factory { padding-right: 10px; padding-left: 10px; }
+    .factory .node-title {
+      white-space: nowrap;
+      font-size: 20px;
+      letter-spacing: -0.025em;
+      transform: scaleX(.92);
+    }
+    .coauthor { padding-right: 12px; padding-left: 12px; }
+    .coauthor .node-title { letter-spacing: -0.02em; }
+    .arrow {
+      position: relative;
+      width: 34px;
+      height: 2px;
+      margin: 0 auto;
+      background: #91979f;
+    }
+    .arrow::after {
+      position: absolute;
+      top: -5px;
+      right: -1px;
+      width: 0;
+      height: 0;
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+      border-left: 9px solid #91979f;
+      content: "";
+    }
+    .icon { width: 64px; height: 64px; color: #34383d; }
+    .icon.new {
+      padding: 7px;
+      border-radius: 50%;
+      background: #285f4b;
+      color: #fff;
+    }
+    .author-icons {
+      position: relative;
+      width: 72px;
+      height: 54px;
+      color: #707782;
+    }
+    .author-icons .person { position: absolute; left: 2px; top: 3px; width: 50px; height: 50px; }
+    .author-icons .globe { position: absolute; right: 0; top: 0; width: 28px; height: 28px; }
+    .outputs {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0;
+      width: 100%;
+    }
+    .output-item {
+      display: flex;
+      min-height: 104px;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+      padding: 10px 4px;
+      border: 0;
+      border-radius: 0;
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.05;
+      text-align: center;
+    }
+    .output-item + .output-item { border-top: 1px solid #dededb; }
+    .output-item .icon { width: 36px; height: 36px; flex: 0 0 36px; }
+    .chat {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      width: 128px;
+    }
+    .party {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      border: 1.5px solid #c9d9df;
+      border-radius: 50%;
+      background: #fff;
+    }
+    .party:first-child { border-color: #285f4b; background: #285f4b; color: #fff; }
+    .party svg { width: 27px; height: 27px; }
+    .waves { display: flex; flex-direction: column; gap: 8px; width: 40px; }
+    .wave {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 22px;
+      border: 1px solid #cadde4;
+      border-radius: 7px;
+      background: #fff;
+      color: #6b727a;
+      font-size: 16px;
+      line-height: 1;
+    }
+    .scores { display: grid; grid-template-columns: 1fr; gap: 0; width: 100%; }
+    .score {
+      display: flex;
+      min-height: 76px;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 14px;
+      padding: 12px 8px;
+      border: 0;
+      border-radius: 0;
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.06;
+      text-align: left;
+    }
+    .score + .score { border-top: 1px solid #dededb; }
+    .score .icon { width: 38px; height: 38px; flex: 0 0 38px; }
+    .benchmark {
+      display: flex;
+      width: 100%;
+      height: 188px;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .benchmark-icons { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+    .benchmark .icon { width: 54px; height: 54px; }
+  </style>
+</head>
+<body>
+  <main class="canvas">
+    <section class="step">
+      <header class="step-head">
+        <p class="eyebrow">Step 1</p>
+        <h2>Build reviewed language components.</h2>
+      </header>
+      <div class="flow">
+        <div class="node coauthor">
+          <div class="author-icons">
+            <svg class="person" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+              <circle cx="32" cy="20" r="10" stroke="currentColor" stroke-width="3"/>
+              <path d="M15 55c2-12 8-19 17-19s15 7 17 19" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            <svg class="globe" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+              <circle cx="18" cy="18" r="15" fill="#fff" stroke="currentColor" stroke-width="2"/>
+              <path d="M3.8 18h28.4M18 3c4.1 4.1 6.2 9.1 6.2 15S22.1 28.9 18 33M18 3c-4.1 4.1-6.2 9.1-6.2 15S13.9 28.9 18 33M6.6 10.2h22.8M6.6 25.8h22.8" stroke="currentColor" stroke-width="1.7"/>
+            </svg>
+          </div>
+          <div class="node-title">Native-speaker<br>coauthoring</div>
+          <div class="node-copy">Language, locale, voice</div>
+        </div>
+        <div class="arrow"></div>
+        <div class="node factory">
+          <svg class="icon new" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+            <path d="M8 54V28l14 7V23l14 7V11h17v43H8Z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+            <path d="M15 54V42h9v12M29 39h5M29 46h5M43 19h10M43 27h10" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>
+          </svg>
+          <div class="node-title">LanguageFactory</div>
+          <div class="node-copy">Draft, verify, freeze</div>
+        </div>
+        <div class="arrow"></div>
+        <div class="node output">
+          <div class="outputs">
+            <div class="output-item">
+              <svg class="icon new" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+                <path d="M17 10h18a7 7 0 0 1 7 7v16a7 7 0 0 1-7 7H17a7 7 0 0 1-7-7V17a7 7 0 0 1 7-7Z" stroke="currentColor" stroke-width="2.4"/>
+                <path d="M26 10V5m-4 0h8M18 23h2m4-4v8m5-6v4m5-7v10M20 46h12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+              </svg>
+              Reviewed<br>simulator
+            </div>
+            <div class="output-item">
+              <svg class="icon new" viewBox="0 0 64 64" fill="none" aria-label="Judge">
+                <path d="M12 17 25 4l20 20-13 13L12 17Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+                <path d="m20 10 18 18M35 31l18 18" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+                <path d="M14 47h24v7H14zM10 55h32" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Experience<br>judges
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="step">
+      <header class="step-head">
+        <p class="eyebrow">Step 2</p>
+        <h2>Benchmark agents across languages.</h2>
+      </header>
+      <div class="flow">
+        <div class="node">
+          <div class="chat" aria-label="Two-way voice conversation">
+            <span class="party">
+              <svg viewBox="0 0 52 52" fill="none" aria-hidden="true"><path d="M17 10h18a7 7 0 0 1 7 7v16a7 7 0 0 1-7 7H17a7 7 0 0 1-7-7V17a7 7 0 0 1 7-7Z" stroke="currentColor" stroke-width="2.4"/><path d="M26 10V5m-4 0h8M18 23h2m4-4v8m5-6v4m5-7v10M20 46h12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+            </span>
+            <span class="waves"><span class="wave">|||</span><span class="wave">||||</span></span>
+            <span class="party">
+              <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect x="7" y="8" width="18" height="16" rx="5" stroke="currentColor" stroke-width="1.8"/><path d="M12 14h.1M20 14h.1M12 20h8M16 5v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </span>
+          </div>
+          <div class="node-title">Run shared tasks</div>
+          <div class="node-copy">Reviewed simulator + agent</div>
+        </div>
+        <div class="arrow"></div>
+        <div class="node output">
+          <div class="scores">
+            <div class="score">
+              <svg class="icon new" viewBox="0 0 64 64" fill="none" aria-label="Judge"><path d="M12 17 25 4l20 20-13 13L12 17Z" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="m20 10 18 18M35 31l18 18" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><path d="M14 47h24v7H14zM10 55h32" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Experience
+            </div>
+            <div class="score">
+              <svg class="icon" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="18" stroke="currentColor" stroke-width="2.5"/><path d="m15 24 6 6 12-13" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Pass@1
+            </div>
+          </div>
+        </div>
+        <div class="arrow"></div>
+        <div class="node output">
+          <div class="benchmark">
+            <div class="benchmark-icons">
+              <svg class="icon new" viewBox="0 0 64 64" fill="none" aria-label="Text benchmark">
+                <rect x="13" y="9" width="38" height="46" rx="4" stroke="currentColor" stroke-width="3"/>
+                <path d="M21 22h22M21 31h22M21 40h14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+              <svg class="icon new" viewBox="0 0 64 64" fill="none" aria-label="Voice benchmark">
+                <rect x="24" y="8" width="16" height="30" rx="8" stroke="currentColor" stroke-width="3"/>
+                <path d="M17 29c0 9 6 15 15 15s15-6 15-15M32 44v11M23 55h18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                <path d="M10 24c-2 5-2 11 0 16M54 24c2 5 2 11 0 16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            Benchmark
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

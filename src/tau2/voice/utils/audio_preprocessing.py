@@ -229,19 +229,37 @@ def merge_audio_datas(
     """Merge a list of AudioData objects into a single AudioData with silence gaps."""
     # Convert all audio datas to 16-bit PCM.
     audio_datas = [convert_to_pcm16(audio_data) for audio_data in audio_datas]
-    # Generate silence audio between each audio data.
+    if not audio_datas:
+        raise ValueError("audio_datas must contain at least one audio segment")
+
+    output_format = audio_datas[0].format
+    for audio_data in audio_datas[1:]:
+        if (
+            audio_data.format.sample_rate != output_format.sample_rate
+            or audio_data.format.channels != output_format.channels
+        ):
+            raise ValueError(
+                "all merged audio segments must have the same sample rate and "
+                "channel count"
+            )
+
+    # Generate silence in the output format. A fixed-rate silence buffer changes
+    # its played duration when merged into audio with a different sample rate.
     if silence_duration_ms is not None:
-        silence_audio = generate_silence_audio(silence_duration_ms)
+        silence_samples = round(output_format.sample_rate * silence_duration_ms / 1000)
+        silence_data = b"\0" * (
+            silence_samples * output_format.bytes_per_sample * output_format.channels
+        )
     else:
-        silence_audio = None
+        silence_data = None
     merged_audio_data = b""
     for i, audio_data in enumerate(audio_datas):
         merged_audio_data += audio_data.data
-        if silence_audio is not None and i < len(audio_datas) - 1:
-            merged_audio_data += silence_audio.data
+        if silence_data is not None and i < len(audio_datas) - 1:
+            merged_audio_data += silence_data
     return AudioData(
         data=merged_audio_data,
-        format=deepcopy(audio_datas[0].format),
+        format=deepcopy(output_format),
         audio_path=None,
     )
 

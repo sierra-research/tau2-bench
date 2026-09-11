@@ -1,0 +1,151 @@
+{% extends "base.html.j2" %}
+{% block title %}{{ batch_name | e }} — Judge calibration adjudication{% endblock %}
+{% block body %}
+{% if watermark %}
+<div class="ca-watermark">{{ watermark | e }}</div>
+{% endif %}
+<header class="rp-header">
+    <div>
+        <div class="rp-kicker">Judge calibration adjudication · {{ language | upper | e }}</div>
+        <h1>{{ batch_name | e }}</h1>
+        {% if judge_only %}
+        <p>{{ calls | length }} calls · no rater returns yet — judge verdicts only</p>
+        {% else %}
+        <p>{{ calls | length }} calls · raters: {{ raters | join(', ') | e }} ·
+            <span class="ca-badge-disagree">{{ n_disagreements }} disagreement(s)</span></p>
+        {% endif %}
+    </div>
+    <div class="rp-header-actions">
+        <span class="rp-rater" id="raterDisplay"></span>
+        <strong><span id="completedCount">0</span> / {{ n_candidates }} decided</strong>
+        <button class="rp-button" type="button" onclick="exportCSV()">Export decisions CSV</button>
+    </div>
+</header>
+<div class="ca-shell">
+    <section class="rp-intro">
+        {% if judge_only %}
+        <strong>Judge verdicts, before any rater returns.</strong>
+        <span>Rows show the stored judge verdicts for the calibration draw; rater columns and disagreement highlighting appear once returned CSVs are supplied. Confirm or reject every judge positive below each call. Owner-facing — never distribute to raters.</span>
+        {% else %}
+        <strong>Judge vs raters, side by side.</strong>
+        <span>Rows compare the stored judge verdict with each rater's label; highlighted rows split on issue / clean / n-a. Confirm or reject every judge positive below each call. Owner-facing — never distribute to raters.</span>
+        {% endif %}
+    </section>
+
+    {% for call in calls %}
+    <article class="ca-call" id="{{ call.clip_id | e }}">
+        <div class="ca-call-head">
+            <h2>{{ call.ordinal }}. {{ call.clip_id | e }}</h2>
+            <span class="ca-meta">task {{ call.task_id | e }} · sim {{ call.sim_id | e }}</span>
+            <span class="ca-meta">{{ call.experiment | e }}{% if call.provider %} · {{ call.provider | e }}{% endif %}</span>
+            <span class="ca-strata">sampled for: {{ call.strata | join(', ') | e }}</span>
+            {% if call.n_disagreements %}<span class="ca-badge-disagree">{{ call.n_disagreements }} disagreement(s)</span>{% endif %}
+            {% if call.candidates %}<span class="rp-status" data-call-status data-clip="{{ call.clip_id | e }}">0 / {{ call.candidates | length }} decided</span>{% endif %}
+        </div>
+        <section class="rp-audio-panel">
+            <div class="rp-audio-heading">
+                <strong>Audio</strong>
+                <span class="rp-audio-rule">Required for audio-judge (fidelity / accent) candidates — the transcript alone cannot confirm them.</span>
+                <small data-audio-description>Full conversation · {{ call.full_duration | e }}</small>
+            </div>
+            <div class="rp-mode-toggle" role="group" aria-label="Audio mode">
+                <button type="button" data-mode="full_conversation" aria-pressed="true">Full conversation</button>
+                <button type="button" data-mode="agent_only" aria-pressed="false">Agent only</button>
+            </div>
+            <audio controls preload="none"
+                   data-full-src="{{ call.full_audio_file | e }}"
+                   data-agent-src="{{ call.agent_audio_file | e }}"
+                   data-full-duration="{{ call.full_duration | e }}"
+                   data-agent-duration="{{ call.agent_duration | e }}"
+                   src="{{ call.full_audio_file | e }}"></audio>
+        </section>
+        <table class="ca-table">
+            <thead>
+                <tr>
+                    <th>Judge</th>
+                    <th>Factor</th>
+                    <th>Judge verdict</th>
+                    {% for rater in raters %}
+                    <th>{{ rater | e }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in call.rows %}
+                <tr{% if row.disagree %} class="ca-row-disagree"{% endif %}>
+                    <td>{{ row.judge | e }}</td>
+                    <td>{{ row.factor_id | e }}</td>
+                    <td>
+                        <span class="ca-state ca-state-{{ row.judge_state | replace(' ', '_') | e }}">{{ row.judge_state | e }}</span>
+                        {% if row.judge_evidence %}<div class="ca-evidence">{{ row.judge_evidence | e }}</div>{% endif %}
+                        {% if row.judge_quote %}<div class="ca-quote">“{{ row.judge_quote | e }}”</div>{% endif %}
+                    </td>
+                    {% for rater in raters %}
+                    <td><span class="ca-state ca-state-{{ row.rater_states[rater] | replace(' ', '_') | e }}">{{ row.rater_states[rater] | e }}</span></td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <details class="ca-transcript">
+            <summary>Full conversation trace</summary>
+            <div class="rp-trace-scroll">
+                <table class="rp-transcript">
+                    <thead>
+                        <tr><th>Time</th><th>Agent speech</th><th>Agent tools</th><th>Caller speech</th><th>Caller tools</th></tr>
+                    </thead>
+                    <tbody>{{ call.transcript_rows | safe }}</tbody>
+                </table>
+            </div>
+        </details>
+        {% if call.candidates %}
+        <section class="ca-decisions" data-clip="{{ call.clip_id | e }}">
+            <div class="ca-decisions-head">
+                <h3>Judge positives — confirm or reject</h3>
+                <span class="ca-meta">{{ call.candidates | length }} candidate(s). Non-positive rows above stay read-only.</span>
+            </div>
+            {% for card in call.candidates %}
+            <article class="na-candidate ca-candidate" data-candidate-id="{{ card.entry.candidate_id | e }}">
+                <div class="na-factor-heading">
+                    <div>
+                        <div class="rp-kicker">Candidate {{ card.ordinal }} · {{ card.entry.judge | e }} · {{ card.entry.evaluation_level | e }}-level</div>
+                        <h3>{{ card.entry.factor_id | e }}</h3>
+                    </div>
+                    <span class="rp-status" data-status>Not started</span>
+                </div>
+                <section class="na-judge-candidate">
+                    <div><b>Machine reason</b><p>{{ (card.entry.judge_evidence or "No reasoning supplied") | e }}</p></div>
+                    <div><b>Machine quote</b><p>{{ (card.entry.judge_quote or "No quote supplied") | e }}</p></div>
+                </section>
+                {% if card.entry.evaluation_level == "utterance" and card.entry.agent_turn %}
+                <section class="na-flagged-turn">
+                    <div><span>Caller context</span><p>{{ (card.entry.agent_turn.preceding_customer_text or "No immediately preceding caller turn.") | e }}</p></div>
+                    <div><span>Flagged agent utterance · turn {{ card.entry.agent_turn.index }}</span><strong>{{ card.agent_text_html | safe }}</strong></div>
+                </section>
+                {% endif %}
+                <section class="na-decision">
+                    <div class="rp-options" role="group" aria-label="Decision">
+                        <button type="button" data-decision="confirmed" aria-pressed="false">Confirmed</button>
+                        <button type="button" data-decision="rejected" aria-pressed="false">Rejected</button>
+                    </div>
+                    <div class="na-fields note-only">
+                        <label>Real issue, wrong category?
+                            <select data-reclassify title="Rejecting because the finding is real but belongs to a different factor? Pick which — this also sets the decision to Rejected.">
+                                <option value="">—</option>
+                                {% for option in reclassify_options %}{% if option.value != card.entry.judge ~ ":" ~ card.entry.factor_id %}
+                                <option value="{{ option.value | e }}">{{ option.label | e }}</option>
+                                {% endif %}{% endfor %}
+                            </select>
+                        </label>
+                        <label>Note <input type="text" data-note placeholder="Optional note"></label>
+                    </div>
+                    <label class="na-complete"><input type="checkbox" data-completed> Complete <span data-blocker>Select a decision.</span></label>
+                </section>
+            </article>
+            {% endfor %}
+        </section>
+        {% endif %}
+    </article>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -79,9 +79,10 @@ class TestCommunicationModes:
     def test_full_duplex_requires_streaming_user(self, mock_agent_setup):
         """FullDuplexOrchestrator requires streaming-capable user.
 
-        Note: The full version of this test (using TextStreamingLLMAgent) is in
-        src/experiments/tau_voice/tests/test_streaming_integration.py.
-        Here we verify the validation using a minimal mock with get_next_chunk.
+        Note: The full version of this test used TextStreamingLLMAgent, which
+        was removed with the experimental streaming agents (see
+        tests/test_streaming/README.md). Here we verify the validation using a
+        minimal mock with get_next_chunk.
         """
         from tau2.registry import registry
         from tau2.run import get_tasks

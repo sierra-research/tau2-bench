@@ -171,6 +171,51 @@ def test_book_reservation(environment: Environment, reservation_call: ToolCall):
     assert response.error
 
 
+def test_book_reservation_miscased_user_id(
+    environment: Environment, reservation_call: ToolCall
+):
+    """Regression: a mis-cased user id (as a voice agent often transcribes a
+    name-derived id) must book successfully and be recorded under the canonical
+    user — not pass the case-insensitive lookup and then KeyError on the write
+    after payment/seat changes were already applied."""
+    before = set(environment.tools.get_user_details("mia_li_3668").reservations)
+    reservation_call.arguments["user_id"] = "MIA_LI_3668"  # canonical is lowercase
+    response = environment.get_response(reservation_call)
+    assert not response.error, response.content
+    after = set(environment.tools.get_user_details("mia_li_3668").reservations)
+    new_ids = after - before
+    assert len(new_ids) == 1  # booking recorded under the canonical user
+    new_reservation = environment.tools.get_reservation_details(new_ids.pop())
+    # The stored reservation keeps the canonical user id, not the mis-cased input.
+    assert new_reservation.user_id == "mia_li_3668"
+
+
+def test_get_user_details_accented_user_id(environment: Environment):
+    """Regression: DB user ids are romanized ASCII, but a localized caller's id
+    is derived from an accented display name ('Álvaro Rodríguez' ->
+    ``alvaro_rodriguez_7015``), so a voice agent routinely transcribes the
+    spoken id back with its accents. The lookup folds diacritics as well as
+    case, and returns the canonical record."""
+    user = environment.tools.get_user_details("míä_lí_3668")
+    assert user.user_id == "mia_li_3668"  # the canonical record, not the input
+
+
+def test_book_reservation_miscased_flight_number(
+    environment: Environment, reservation_call: ToolCall
+):
+    """Regression: a mis-cased flight number must be stored canonical (uppercase)
+    on the booked reservation, not the caller's mis-cased input."""
+    before = set(environment.tools.get_user_details("mia_li_3668").reservations)
+    reservation_call.arguments["flights"] = [
+        FlightInfo(flight_number="hat001", date="2024-05-16")  # canonical is HAT001
+    ]
+    response = environment.get_response(reservation_call)
+    assert not response.error, response.content
+    after = set(environment.tools.get_user_details("mia_li_3668").reservations)
+    new_reservation = environment.tools.get_reservation_details((after - before).pop())
+    assert all(f.flight_number == "HAT001" for f in new_reservation.flights)
+
+
 @pytest.fixture
 def cancel_reservation_call():
     return ToolCall(
@@ -385,6 +430,20 @@ def test_update_reservation_flights(
     assert reservation.cabin == "basic_economy"
     # Check that payment was updated successfully
     assert reservation.payment_history[-1].amount == -70
+
+
+def test_update_reservation_flights_miscased_flight_number(
+    environment: Environment, update_reservation_flights_call: ToolCall
+):
+    """Regression: a mis-cased flight number must resolve and be stored as the
+    canonical id (uppercase), not the caller's mis-cased input."""
+    update_reservation_flights_call.arguments["flights"] = [
+        FlightInfo(flight_number="hat001", date="2024-05-16")  # canonical is HAT001
+    ]
+    response = environment.get_response(update_reservation_flights_call)
+    assert not response.error, response.content
+    reservation = environment.tools.get_reservation_details("4WQ150")
+    assert all(f.flight_number == "HAT001" for f in reservation.flights)
 
 
 @pytest.fixture

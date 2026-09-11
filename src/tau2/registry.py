@@ -319,6 +319,11 @@ try:
         "airline",
         get_task_splits=airline_domain_get_tasks_split,
     )
+    # Localized task sets (airline_hi, ...) register by filename
+    # convention from data/tau2/multilingual/<lang>/ — no per-language code.
+    from tau2.multilingual.task_sets import register_localized_task_sets
+
+    register_localized_task_sets(registry)
 
     registry.register_domain(retail_domain_get_environment, "retail")
     registry.register_tasks(

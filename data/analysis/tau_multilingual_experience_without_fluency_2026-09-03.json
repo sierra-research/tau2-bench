@@ -1,0 +1,1927 @@
+{
+  "instrument": "tau-multilingual-utterance-experience",
+  "instrument_version": "2.2.0",
+  "formulas": {
+    "interaction": "descriptive equal-weight mean of five call-level component failure rates: non-response, interruption, selectivity, monologue, and validated tool use",
+    "fluency_failure": "aligned utterance fails the frozen combined naturalness judge; natural word choice, translationese, and verb morphology are one binary verdict",
+    "speech_fidelity_failure": "aligned utterance has any retained fidelity finding with severity >=2 or a tone-meaning-flip failure",
+    "standalone_fidelity_cleanliness": "100 * (1 - delivery utterances with any retained severity >=2 fidelity finding or tone-meaning-flip failure / completed delivery utterances); does not require a Fluency verdict",
+    "experience": "100 * (1 - unique utterances failing fluency OR speech fidelity / utterances successfully evaluated by both)",
+    "gating": "only pass/fail verdicts aligned across both judges enter Experience; no-opportunity, deferred, error, and unmatched utterances do not"
+  },
+  "seed": 42,
+  "num_permutations": 100000,
+  "analysis_unit": "150 canonical domain-task clusters; Experience uses the five localized trial-0 calls for one system because English has no validated fluency judge; Interaction pools five systems per language within each cluster",
+  "test": "Two-sided paired label-swap permutation; the same swap is applied to the five localized calls in a domain-task cluster, then deduplicated utterance counts are reaggregated into Experience; +1 Monte Carlo correction; Interaction reaggregates component-specific failure and opportunity counts after the same cluster swap; Holm correction is applied separately across ten provider pairs and five language contrasts",
+  "cohort": {
+    "calls": 4500,
+    "calls_per_system": 900,
+    "languages": [
+      "en",
+      "es",
+      "pt",
+      "hi",
+      "ko",
+      "zh"
+    ],
+    "domains": [
+      "airline",
+      "retail",
+      "telecom"
+    ],
+    "systems": [
+      "OpenAI minimal",
+      "OpenAI xhigh",
+      "Gemini minimal",
+      "Gemini high",
+      "xAI"
+    ],
+    "trial": 0
+  },
+  "reporting_rules": {
+    "complete_cohort": "All 150 calls per language-system cell are retained. Interaction is a descriptive component average over all six languages; utterance Experience uses ES/PT/HI/KO/ZH. Provider and language summaries macro-average language cells. Standalone Speech fidelity uses completed delivery utterances in all six languages.",
+    "utterance_alignment": "The structurally injected delivery greeting is excluded, then naturalness and delivery utterances are joined monotonically by strong normalized text prefix. The join must achieve the maximum possible inventory overlap or analysis fails.",
+    "deduplication": "Any number of fluency or fidelity findings on one aligned utterance contribute at most one Experience failure."
+  },
+  "provenance": {
+    "cohort_fingerprint_sha256": "79da0f0731ce1fbe12379581e5eb46d82abd6458042da2baf9b3ddd6d5dc29ff",
+    "results_files": [
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_en_v1/en_airline_openai_minimal/results.json",
+        "sha256": "c27b8654f512f78bd142d3583b910c84e3f057fa768e93790c57a6f1df05cf80",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_en_v1/en_airline_openai_xhigh/results.json",
+        "sha256": "380c07a5f826e58bec44cd0451476856142fd0746704e3cc8b5b0a8e4f5cbef6",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_en_v1/en_airline_gemini_minimal/results.json",
+        "sha256": "abba83ba63fb60ef9efee265fe7a15988e71914c14c3236c09adb96d665cca51",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_en_v1/en_airline_gemini_high/results.json",
+        "sha256": "5345523dda371f79979a4168b52f1fdbcf44c3d77a805405e8d4d2a1d2089739",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_xai_v2_english_airline/en_airline_xai_provider_default/results.json",
+        "sha256": "2457a596a94615bf13ebcdb1e253631c4fb6a6934a2d282376b0660f02aa2041",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_english_retail/en_retail_openai_minimal/results.json",
+        "sha256": "5229494b6891059dd4e54a52da47366cc4f3627a0663bbf78b74cef1dd0cc440",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_english_retail/en_retail_openai_xhigh/results.json",
+        "sha256": "5204204f8ff4eb988132435bcc4e5605dfd41559abc3bc8a73ef5ef3d76ca4c3",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_english_retail/en_retail_gemini_minimal/results.json",
+        "sha256": "19848a8772621f6c125c263a56b396ce659fc718b072d9173b454dd7dfe3196a",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_english_retail/en_retail_gemini_high/results.json",
+        "sha256": "52fc2d61f75651699b519f08e79db20066c8022ce857a27128b6bcc65b510115",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_xai_v2_english_retail/en_retail_xai_provider_default/results.json",
+        "sha256": "61f5522dfdf62c728e43daa92bb829dd7ebd3fa721c290edab6750130c0e2b9c",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_strat50_english_telecom/en_telecom_openai_minimal/results.json",
+        "sha256": "b0f41e98a1f43fae2f1849a522d13068a712c46520b583435c5c9071d21542dd",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_strat50_english_telecom/en_telecom_openai_xhigh/results.json",
+        "sha256": "dfb92764a9664958b8c7d02ffae03cb84d3f535a83c40853e207d2336054e90f",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_strat50_english_telecom/en_telecom_gemini_minimal/results.json",
+        "sha256": "30fba0a4202155775f0c7a6be0f8665ce52ff2910422407eb355d0f16f30ecbc",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_strat50_english_telecom/en_telecom_gemini_high/results.json",
+        "sha256": "14fcc7639c210e78f8ee6247520321348d37ff9db14e79b57c30582b4ab1d63e",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/telecom_xai_v2_english_telecom/en_telecom_xai_provider_default/results.json",
+        "sha256": "0914b2bf8fe9ac07453c762919fa9394fe3f43122d7ee6294e8166a3e3fd018c",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_spanish_airline/es_airline_openai_minimal/results.json",
+        "sha256": "150ce2d6bc55418bc566d62d8dccbda03e3869a0121efce4a381998ca9b70f55",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_spanish_airline/es_airline_openai_xhigh/results.json",
+        "sha256": "94ccff15c7a48169edb559057d6e1bd86f0a2bf22451a3ca403fa4ffa1020ca2",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_spanish_airline/es_airline_gemini_minimal/results.json",
+        "sha256": "7a31587848a1bd68368648664b8ddc1f0b84eff5c8df8be7992b325a6f37aa50",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_spanish_airline/es_airline_gemini_high/results.json",
+        "sha256": "cc906fcc5192aba6ff074a1606d3bc3f97354e4d0d1629f2610beb1edeee167b",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_xai_v2_spanish_airline/es_airline_xai_provider_default/results.json",
+        "sha256": "26bd6d2891c72ad94cf89a3a91fc306cfa1f38a3f712e60707784ede15bcba2f",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_spanish_retail/es_retail_openai_minimal/results.json",
+        "sha256": "76a27b7dc82cd927acb639365aa1327cd826ad54a064c15c822913950888d598",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_spanish_retail/es_retail_openai_xhigh/results.json",
+        "sha256": "9af855cbf0aa00ddbca3f0d9a6de2cb7e4ac31b54faf14af4910e6732a745fab",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_spanish_retail/es_retail_gemini_minimal/results.json",
+        "sha256": "a609ad6abef745b4b84727004890405d2ba817c971ec0a54668fa6c9c94209e6",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_spanish_retail/es_retail_gemini_high/results.json",
+        "sha256": "9d525e583086c57f5b8a58989e7e2fbbd47ca9a2827e5278b5d860f395d18c23",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_xai_v2_spanish_retail/es_retail_xai_provider_default/results.json",
+        "sha256": "7b14fbdbbb9c0561b399b7e96f674d0504009f69ccbe015ededb8a141a7cb027",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_strat50_spanish_telecom/es_telecom_openai_minimal/results.json",
+        "sha256": "243c09ed95f327b558422ac67fc8fc0aa9e36bcc4b2ac6514fdd69a9334e64c2",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_strat50_spanish_telecom/es_telecom_openai_xhigh/results.json",
+        "sha256": "916f90632cc067972a84fbdd209b88ac378eb862905402223c41149140779f69",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_strat50_spanish_telecom/es_telecom_gemini_minimal/results.json",
+        "sha256": "9161e4d4ae0e0fc357fb170fde5a47c98cab2ae8920569122fc6c53733860851",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_strat50_spanish_telecom/es_telecom_gemini_high/results.json",
+        "sha256": "aff92379714f2515fa18f7cd0d3e6ea38dcb994d9de5fd4d226e470d49f01eb0",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/telecom_xai_v2_spanish_telecom/es_telecom_xai_provider_default/results.json",
+        "sha256": "783023c4d2cf7e21df5e33751cb7b43cb4e95a8fd53534c60eaee93422ac91fc",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_portuguese_airline/pt_airline_openai_minimal/results.json",
+        "sha256": "c47464a1a8ea031def47afd3c8027d54b3fb9b4d169fe59d08aa374833cff33a",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_portuguese_airline/pt_airline_openai_xhigh/results.json",
+        "sha256": "71536c93b32125e0ad911fc780faad07741541caf6765e897756b3cb9ad48bb5",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_portuguese_airline/pt_airline_gemini_minimal/results.json",
+        "sha256": "d473d3dcb3b42565a154a1e225994250372df6dcc49195fe0117c1ac91b93582",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_portuguese_airline/pt_airline_gemini_high/results.json",
+        "sha256": "59f5e3f1cb769d04c50799aa609a8a8ccc6bdc8f6b26b0675de95f58ad7e2f12",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_xai_v2_portuguese_airline/pt_airline_xai_provider_default/results.json",
+        "sha256": "e775222c60dfefe3b8b12b7d7f51d52d8f9f1a9cd76d95c53cf1811f85b933bf",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_portuguese_retail/pt_retail_openai_minimal/results.json",
+        "sha256": "db4044ca701c82547d45aa6beee3d9d6256c1e27bc3b0996a8d8f8e392aeacee",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_portuguese_retail/pt_retail_openai_xhigh/results.json",
+        "sha256": "4f8dbb47163c1df68e41b475e71cba5a12a1bd69b963de3ab5cac3e394384811",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_portuguese_retail/pt_retail_gemini_minimal/results.json",
+        "sha256": "bc070224782c9391450fffb16d6e32e25c174911fd5b77be78f5d7ac41622fe1",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_portuguese_retail/pt_retail_gemini_high/results.json",
+        "sha256": "34544ade4a95d1dec88fdb4b396ba1e50f684e3d154822f7d2c115ab0424dc61",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_xai_v2_portuguese_retail/pt_retail_xai_provider_default/results.json",
+        "sha256": "f332992de69f1a9a6e6dc85eb87c899859d0e7c14fc39133cb6d2e044dd9597c",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_strat50_portuguese_telecom/pt_telecom_openai_minimal/results.json",
+        "sha256": "5a627e8f418dfa1914d1d6310dfbdbe845baa731a475f4507ae9e669940cfb4f",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_strat50_portuguese_telecom/pt_telecom_openai_xhigh/results.json",
+        "sha256": "5d6d985ead783a193548b32f9095bfb0795c2d18dd452b53ea8fe088aa30934f",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_strat50_portuguese_telecom/pt_telecom_gemini_minimal/results.json",
+        "sha256": "f92fa2260f1814a8cffb416b3dfa231ffcf2e7cfbd0479f5fa4f0c2e3cd36c46",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_strat50_portuguese_telecom/pt_telecom_gemini_high/results.json",
+        "sha256": "2b9e93d49c7e1c582c63bcc3382d0d2c52d680bb0495a09b29d2b82e3c11bf83",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/telecom_xai_v2_portuguese_telecom/pt_telecom_xai_provider_default/results.json",
+        "sha256": "ed6c1a3f11a0fd244a787881acd3a14cbd5f6b99e54f1d1779c95cc3ccdfc136",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_hindi_airline/hi_airline_openai_minimal/results.json",
+        "sha256": "012cc701dadb1c93d92ec7069c308b10d4d64294978d587576ce1c3e3eabbe56",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_hindi_airline/hi_airline_openai_xhigh/results.json",
+        "sha256": "36021bf675ab3578ad6804cc01d0d198b9b98d6ab1ad21226d55bed4a96b03f6",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_hindi_airline/hi_airline_gemini_minimal/results.json",
+        "sha256": "8baca94cb140aa21972bf6c07edd8ae97ab0f270b39d5a579300a2b979c22c67",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_hindi_airline/hi_airline_gemini_high/results.json",
+        "sha256": "8e23b367d28772298ae23e617fd4ec0773705d081b05bfff5b0c7afd1fcff1dc",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_xai_v2_hindi_airline/hi_airline_xai_provider_default/results.json",
+        "sha256": "ca7d5755e03f4c7138bf03f077adfc8bb03cef63ffd61841df24234fc4c53ebe",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_hindi_retail/hi_retail_openai_minimal/results.json",
+        "sha256": "4e5873865addadf548b1ecde9d30888cb3d82b84424a537b25552d3f1a830a6c",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_hindi_retail/hi_retail_openai_xhigh/results.json",
+        "sha256": "df9dccfc52f22f82bfb9e70af2b76ffc441d640e01f7a8c4921cbde6aa673401",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_hindi_retail/hi_retail_gemini_minimal/results.json",
+        "sha256": "5e00ff6b3e0068f6d7a0f855b41b0b72e0888b2db10e5954283c2020b18d8bda",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_hindi_retail/hi_retail_gemini_high/results.json",
+        "sha256": "6f3810e140aebd474a134c22e59129320c8be2c441bfe579e08bc1aa592d415b",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_xai_v2_hindi_retail/hi_retail_xai_provider_default/results.json",
+        "sha256": "813e0d683ca0eea7583503fb30fec222a3fb80d7e68e775f465a019fcb77b10d",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_runs_v1_hindi_telecom/hi_telecom_openai_minimal/results.json",
+        "sha256": "a15e7c9d3324e4846a0b5146c2d45f55f73b1b4807232c1283551acb17fded90",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_runs_v1_hindi_telecom/hi_telecom_openai_xhigh/results.json",
+        "sha256": "a4fd655fe0eb5749105973f3196e7d53729a265bc9d258091a55d94ac993bf6c",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_runs_v1_hindi_telecom/hi_telecom_gemini_minimal/results.json",
+        "sha256": "f5f10f5f382f69282222b27dbfedd0f3853bde39c63e8a871ad6cda464db17b3",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_runs_v1_hindi_telecom/hi_telecom_gemini_high/results.json",
+        "sha256": "9e42520efdfd8bc1e32c83bb42df04437f9530c37a2e8c1990e9ff670a4ca52c",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/telecom_xai_v2_hindi_telecom/hi_telecom_xai_provider_default/results.json",
+        "sha256": "8db7168ba5027b2410d55c9a978da87a437be013c5a98fd1cd884fd2ff7411b7",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_korean_airline/ko_airline_openai_minimal/results.json",
+        "sha256": "104a33c173f691cd5934c85a8fb3e25b866e94c20584ae1276450ad46b2cab8a",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_korean_airline/ko_airline_openai_xhigh/results.json",
+        "sha256": "8dd11e13fe875125833f62ddb64ab8872cf7e47540fd13e8925dfcf58705e8cf",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_korean_airline/ko_airline_gemini_minimal/results.json",
+        "sha256": "e8ce24e480bd749c6ccdefb1b01e472543aeafd709e06047cca5eda13ab0d435",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_korean_airline/ko_airline_gemini_high/results.json",
+        "sha256": "74d8069c764a23cfd70127bc04beaeb35f5ca139cbe17820c5fb8aa534d733a9",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_xai_v2_korean_airline/ko_airline_xai_provider_default/results.json",
+        "sha256": "a02bde118957e6cb81940cb66a9a2c8a3017ddc5ad05140e48298fdf2e988225",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_korean_retail/ko_retail_openai_minimal/results.json",
+        "sha256": "5dbd8476af2d06e10f78e586a5aaf2d906026ed78948c437c26b243bf811d44f",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_korean_retail/ko_retail_openai_xhigh/results.json",
+        "sha256": "f811e0a2dd67501a9f4e951ad5d6b84403617bd00221805af319edd125383079",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_korean_retail/ko_retail_gemini_minimal/results.json",
+        "sha256": "5a08b6dac80332e3fd00018df44caa6b8c37433c697c5afffa68d60df2d39830",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_korean_retail/ko_retail_gemini_high/results.json",
+        "sha256": "b957992ac9c02a4d896ef8dbae88caa64f60f41a0744b735a6e045de5883a27e",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_xai_v2_korean_retail/ko_retail_xai_provider_default/results.json",
+        "sha256": "5b270e4ccc2d528aa8f1633b3400c0c756c7c3c4e09b3e53133fb193a2bf5b1b",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_runs_v1_korean_telecom/ko_telecom_openai_minimal/results.json",
+        "sha256": "6387b96c241c9198b28b064a600c973de741d776ebb0a6762206b1440c03e786",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_runs_v1_korean_telecom/ko_telecom_openai_xhigh/results.json",
+        "sha256": "9d5faee93ae846df386d8509db4a85e2097e1457bb0df72a272a20844107dc3e",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_runs_v1_korean_telecom/ko_telecom_gemini_minimal/results.json",
+        "sha256": "194a9c978228a74b79da96a573dbbca267f9f35207e435c4ab2a9be72db227ad",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_runs_v1_korean_telecom/ko_telecom_gemini_high/results.json",
+        "sha256": "c9e08e8897735578fdc7ba7ef7190f47a7bc3cdbd42a6edee7e7386e2cba84ff",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/telecom_xai_v2_korean_telecom/ko_telecom_xai_provider_default/results.json",
+        "sha256": "6b59f251352fb8e73ef5b4f6748df82cf212fa4a7a2e5cb792ae0bea07b75ed8",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_mandarin_airline/zh_airline_openai_minimal/results.json",
+        "sha256": "e6bcf33303d8600c14b53306ce38eb946721bb85010a14a86a74b574c0de762c",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_mandarin_airline/zh_airline_openai_xhigh/results.json",
+        "sha256": "bc4df602378043356617383e0c929fa59b34cb378c066cd28fc446c5508f3872",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_mandarin_airline/zh_airline_gemini_minimal/results.json",
+        "sha256": "555fa809beea419754399368ccde84823485da09c42d744893b86179bc1ec00f",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_v1_mandarin_airline/zh_airline_gemini_high/results.json",
+        "sha256": "8b78d674c07120920681f8b9143d47fb73a75e91a313fd09317506773d2dcc9e",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/airline_xai_v2_mandarin_airline/zh_airline_xai_provider_default/results.json",
+        "sha256": "775bb62181b2bf91868e3ddc120be118bc9fc1b75708f03d7536b865f8fcac75",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_mandarin_retail/zh_retail_openai_minimal/results.json",
+        "sha256": "0a8ce2829ae7f8604ac5e65e3d2cf5e6858f890b85c004e54326359ecfa35ed4",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_mandarin_retail/zh_retail_openai_xhigh/results.json",
+        "sha256": "dab7ec78d2657043da7f63996d34cffff901587fdca9408ef0e0b218b07d85fb",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_mandarin_retail/zh_retail_gemini_minimal/results.json",
+        "sha256": "308e912f1034b531564dd4161aada3695e9c643e08df1e639875331c0ee7eb04",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_v1_mandarin_retail/zh_retail_gemini_high/results.json",
+        "sha256": "5333f88c60c27c9863d9c4bb1b61c8aa88b4eb4ead0745ebca1fff7fb763cf60",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/retail_xai_v2_mandarin_retail/zh_retail_xai_provider_default/results.json",
+        "sha256": "fcfb88afe02b3abd3cf388a3646b1bf0b15be681f25b94d584223276289f095a",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_runs_v1_mandarin_telecom/zh_telecom_openai_minimal/results.json",
+        "sha256": "df67428c0311531e0a94f4c3f8535da28e99f3fcb235087f0d30c7c2d153f41b",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_runs_v1_mandarin_telecom/zh_telecom_openai_xhigh/results.json",
+        "sha256": "c7d8741b845c0620da09a187f43276f4e8d85dd255118b28ffacc2fb141ba88e",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_runs_v1_mandarin_telecom/zh_telecom_gemini_minimal/results.json",
+        "sha256": "640c261e02860f54b16ecc756a5f58d07802d34bb6815513eb884ff213c70e66",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/preference_runs_v1_mandarin_telecom/zh_telecom_gemini_high/results.json",
+        "sha256": "051eaf023fe097210acd2cdf06daa03336f1e930de2e3e184ad308cb21ea9223",
+        "trial_0_calls": 50
+      },
+      {
+        "path": "data/simulations/paper_runs/tau-multi/main_runs/telecom_xai_v2_mandarin_telecom/zh_telecom_xai_provider_default/results.json",
+        "sha256": "cdc12fc567e86fd563fdaae07c17d253562bd7ad0c718755e27cdbd36b089aaf",
+        "trial_0_calls": 50
+      }
+    ],
+    "gender_overrides": {
+      "pt": {
+        "path": "data/analysis/pt_gender_v3_male_full_2026-09-03.csv",
+        "sha256": "4f34d069d2bf97247f9e5e993ddad9a5d3748679fae93817264434d8460e0e67",
+        "rows": 750,
+        "factor": "gender_agreement",
+        "judge_spec": "v3",
+        "operative_agent_gender": "male"
+      },
+      "hi": {
+        "path": "data/analysis/hi_gender_v3_male_full_2026-09-03.csv",
+        "sha256": "ea1419ff7dd343f2d896f2b3580d1063181bfd4abee5b92146cfb286d605c3ce",
+        "rows": 750,
+        "factor": "gender_agreement",
+        "judge_spec": "v3",
+        "operative_agent_gender": "male"
+      }
+    },
+    "fidelity_end_exclusions": {
+      "path": "data/analysis/tau_multilingual_fidelity_final_second_exclusions_2026-09-03.csv",
+      "sha256": "94575b3f52af53c7471cb3fa044c5cf05fef694541a7e798294c274c26ace591",
+      "manifest_path": "data/analysis/tau_multilingual_fidelity_final_second_exclusions_2026-09-03.json",
+      "manifest_sha256": "f372056904e20990a0038a038501482484ee6bd10535a7f25c1a01d4cdd7179b",
+      "artifact": "tau_multilingual_fidelity_final_second_exclusions_2026-09-03.csv",
+      "filter_version": "v1",
+      "window_seconds": 1.0,
+      "cohort": "tau-multilingual frozen paper trial-0 calls",
+      "excluded_findings": 7436,
+      "excluded_severity_2plus_findings": 4252,
+      "by_language": {
+        "en": 1358,
+        "es": 1171,
+        "hi": 1564,
+        "ko": 834,
+        "pt": 1295,
+        "zh": 1214
+      },
+      "by_system": {
+        "Gemini high": 546,
+        "Gemini minimal": 528,
+        "OpenAI minimal": 1747,
+        "OpenAI xhigh": 1856,
+        "xAI": 2759
+      },
+      "results_files_sha256": "83535358789406ac1200e69b827570ddadfcee8cf8ef4bca2fd80d2a2b599bdc"
+    },
+    "retired_nativeness_exclusions": {
+      "rule": "Only the enabled combined-naturalness factor enters utterance Experience. Other enabled localization factors remain separate diagnostics; retired rubrics and deterministic checkers remain available but are not scored.",
+      "experience_fluency_factor_id": "natural_word_choice",
+      "active_factors_by_language": {
+        "es": [
+          "counting_units",
+          "email_symbol_verbalization",
+          "natural_word_choice"
+        ],
+        "pt": [
+          "counting_units",
+          "email_symbol_verbalization",
+          "gender_agreement",
+          "natural_word_choice",
+          "regional_consistency",
+          "register_formality"
+        ],
+        "hi": [
+          "gender_agreement",
+          "name_address_conventions",
+          "natural_word_choice"
+        ],
+        "ko": [
+          "email_symbol_verbalization",
+          "name_address_conventions",
+          "natural_word_choice"
+        ],
+        "zh": [
+          "counting_units",
+          "email_symbol_verbalization",
+          "modal_particles",
+          "name_address_conventions",
+          "natural_word_choice"
+        ]
+      },
+      "selection_sha256": "ab6c971a7e665bab06e4b0d4d3a3b2cc0047a92b97f8397693d9ee917af75a97",
+      "checks_removed": 9000,
+      "failed_checks_removed": 557,
+      "checks_removed_by_language": {
+        "es": 3000,
+        "pt": 750,
+        "hi": 3000,
+        "ko": 750,
+        "zh": 1500
+      },
+      "failed_checks_removed_by_language": {
+        "es": 279,
+        "pt": 0,
+        "hi": 16,
+        "ko": 24,
+        "zh": 238
+      },
+      "checks_removed_by_factor": {
+        "counting_units": 1500,
+        "email_symbol_verbalization": 750,
+        "gender_agreement": 750,
+        "name_address_conventions": 1500,
+        "regional_consistency": 2250,
+        "register_formality": 2250
+      },
+      "failed_checks_removed_by_factor": {
+        "counting_units": 25,
+        "email_symbol_verbalization": 11,
+        "gender_agreement": 216,
+        "name_address_conventions": 6,
+        "regional_consistency": 48,
+        "register_formality": 251
+      }
+    },
+    "benchmark_transfer_exclusions": {
+      "rule": "The policy-mandated English transfer line is benchmark-authored and not scored as model language.",
+      "message": "YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON.",
+      "findings_removed": 58,
+      "by_language": {
+        "English": 0,
+        "Spanish": 7,
+        "Portuguese": 8,
+        "Hindi": 4,
+        "Korean": 17,
+        "Mandarin": 22
+      },
+      "by_factor": {
+        "natural_word_choice": 57,
+        "translationese": 1
+      }
+    },
+    "naturalness_sidecar": {
+      "path": "data/simulations/paper_runs/tau-multi/judge_outputs/utterance_naturalness_v16_trial0",
+      "manifest_sha256": "3514d2936769d9cda4bce66f6e66f6e4941b8aa5e0dc97e61966e147eba24809",
+      "identity_sha256": "0eb9695a0fd995fb8264f6e7dccec9ec6e95a9c84f49ba42fd25768b68ba6a15",
+      "work_fingerprint_sha256": "1cf1258a9f8e624c0334059b62f5e3fd7e9b2b1bc29fc3feef6235d523347e59",
+      "calls": 3750,
+      "factor_id": "natural_word_choice",
+      "prompt_version": "v16",
+      "rubric_version": "nativeness-rubric-v20"
+    }
+  },
+  "descriptive_complete_cohort": {
+    "language_system": {
+      "English": {
+        "Gemini high": {
+          "n_calls": 150,
+          "interaction_failure": 55.47877871254372,
+          "interaction_components": {
+            "nonresponse": 72.0,
+            "interruption": 76.66666666666667,
+            "selectivity": 83.09859154929578,
+            "monologue": 1.3333333333333335,
+            "tool_use": 44.29530201342282
+          },
+          "experience": null,
+          "experience_failure": null,
+          "fluency_failure": null,
+          "speech_fidelity_failure": null,
+          "standalone_fidelity_cleanliness": 94.76891823260539,
+          "overlapping_failure": null,
+          "localization_diagnostics": {
+            "email_symbol_verbalization": null
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 0,
+            "fluency_failures": 0,
+            "speech_fidelity_failures": 0,
+            "overlapping_failures": 0,
+            "experience_failures": 0,
+            "standalone_fidelity_utterances": 1969,
+            "standalone_fidelity_failures": 103
+          }
+        },
+        "Gemini minimal": {
+          "n_calls": 150,
+          "interaction_failure": 51.362434494805555,
+          "interaction_components": {
+            "nonresponse": 32.666666666666664,
+            "interruption": 63.33333333333333,
+            "selectivity": 87.67123287671232,
+            "monologue": 2.0,
+            "tool_use": 71.14093959731544
+          },
+          "experience": null,
+          "experience_failure": null,
+          "fluency_failure": null,
+          "speech_fidelity_failure": null,
+          "standalone_fidelity_cleanliness": 93.59823399558499,
+          "overlapping_failure": null,
+          "localization_diagnostics": {
+            "email_symbol_verbalization": null
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 0,
+            "fluency_failures": 0,
+            "speech_fidelity_failures": 0,
+            "overlapping_failures": 0,
+            "experience_failures": 0,
+            "standalone_fidelity_utterances": 1812,
+            "standalone_fidelity_failures": 116
+          }
+        },
+        "OpenAI minimal": {
+          "n_calls": 150,
+          "interaction_failure": 47.53084934043046,
+          "interaction_components": {
+            "nonresponse": 2.0,
+            "interruption": 72.0,
+            "selectivity": 98.62068965517241,
+            "monologue": 10.0,
+            "tool_use": 55.033557046979865
+          },
+          "experience": null,
+          "experience_failure": null,
+          "fluency_failure": null,
+          "speech_fidelity_failure": null,
+          "standalone_fidelity_cleanliness": 95.72446555819477,
+          "overlapping_failure": null,
+          "localization_diagnostics": {
+            "email_symbol_verbalization": null
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 0,
+            "fluency_failures": 0,
+            "speech_fidelity_failures": 0,
+            "overlapping_failures": 0,
+            "experience_failures": 0,
+            "standalone_fidelity_utterances": 2105,
+            "standalone_fidelity_failures": 90
+          }
+        },
+        "OpenAI xhigh": {
+          "n_calls": 150,
+          "interaction_failure": 52.98076062639821,
+          "interaction_components": {
+            "nonresponse": 28.187919463087248,
+            "interruption": 87.33333333333333,
+            "selectivity": 100.0,
+            "monologue": 7.38255033557047,
+            "tool_use": 42.0
+          },
+          "experience": null,
+          "experience_failure": null,
+          "fluency_failure": null,
+          "speech_fidelity_failure": null,
+          "standalone_fidelity_cleanliness": 96.57299520219328,
+          "overlapping_failure": null,
+          "localization_diagnostics": {
+            "email_symbol_verbalization": null
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 0,
+            "fluency_failures": 0,
+            "speech_fidelity_failures": 0,
+            "overlapping_failures": 0,
+            "experience_failures": 0,
+            "standalone_fidelity_utterances": 2918,
+            "standalone_fidelity_failures": 100
+          }
+        },
+        "xAI": {
+          "n_calls": 150,
+          "interaction_failure": 49.96396396396396,
+          "interaction_components": {
+            "nonresponse": 4.0,
+            "interruption": 90.66666666666666,
+            "selectivity": 98.0,
+            "monologue": 20.666666666666668,
+            "tool_use": 36.486486486486484
+          },
+          "experience": null,
+          "experience_failure": null,
+          "fluency_failure": null,
+          "speech_fidelity_failure": null,
+          "standalone_fidelity_cleanliness": 83.46813329019734,
+          "overlapping_failure": null,
+          "localization_diagnostics": {
+            "email_symbol_verbalization": null
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 0,
+            "fluency_failures": 0,
+            "speech_fidelity_failures": 0,
+            "overlapping_failures": 0,
+            "experience_failures": 0,
+            "standalone_fidelity_utterances": 3091,
+            "standalone_fidelity_failures": 511
+          }
+        }
+      },
+      "Spanish": {
+        "Gemini high": {
+          "n_calls": 150,
+          "interaction_failure": 57.54553990610328,
+          "interaction_components": {
+            "nonresponse": 72.0,
+            "interruption": 70.66666666666667,
+            "selectivity": 82.3943661971831,
+            "monologue": 15.333333333333332,
+            "tool_use": 47.333333333333336
+          },
+          "experience": 61.126920887877056,
+          "experience_failure": 38.87307911212294,
+          "fluency_failure": 35.45816733067729,
+          "speech_fidelity_failure": 7.285145133750712,
+          "standalone_fidelity_cleanliness": 92.71485486624928,
+          "overlapping_failure": 3.870233352305066,
+          "localization_diagnostics": {
+            "counting_units": 28.57142857142857,
+            "email_symbol_verbalization": 0.0
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 1757,
+            "fluency_failures": 623,
+            "speech_fidelity_failures": 128,
+            "overlapping_failures": 68,
+            "experience_failures": 683,
+            "standalone_fidelity_utterances": 1757,
+            "standalone_fidelity_failures": 128
+          }
+        },
+        "Gemini minimal": {
+          "n_calls": 150,
+          "interaction_failure": 56.258580051739,
+          "interaction_components": {
+            "nonresponse": 48.66666666666667,
+            "interruption": 66.0,
+            "selectivity": 85.2112676056338,
+            "monologue": 10.666666666666668,
+            "tool_use": 70.74829931972789
+          },
+          "experience": 57.997762863534675,
+          "experience_failure": 42.002237136465325,
+          "fluency_failure": 38.3668903803132,
+          "speech_fidelity_failure": 6.599552572706935,
+          "standalone_fidelity_cleanliness": 93.40044742729306,
+          "overlapping_failure": 2.9642058165548097,
+          "localization_diagnostics": {
+            "counting_units": 9.375,
+            "email_symbol_verbalization": null
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 1788,
+            "fluency_failures": 686,
+            "speech_fidelity_failures": 118,
+            "overlapping_failures": 53,
+            "experience_failures": 751,
+            "standalone_fidelity_utterances": 1788,
+            "standalone_fidelity_failures": 118
+          }
+        },
+        "OpenAI minimal": {
+          "n_calls": 150,
+          "interaction_failure": 54.08057553956834,
+          "interaction_components": {
+            "nonresponse": 2.666666666666667,
+            "interruption": 80.0,
+            "selectivity": 96.40287769784173,
+            "monologue": 28.000000000000004,
+            "tool_use": 63.33333333333333
+          },
+          "experience": 64.0810929925077,
+          "experience_failure": 35.91890700749229,
+          "fluency_failure": 33.71529308065227,
+          "speech_fidelity_failure": 5.597179374173645,
+          "standalone_fidelity_cleanliness": 94.40528634361233,
+          "overlapping_failure": 3.3935654473336268,
+          "localization_diagnostics": {
+            "counting_units": 2.631578947368421,
+            "email_symbol_verbalization": 0.0
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 2269,
+            "fluency_failures": 765,
+            "speech_fidelity_failures": 127,
+            "overlapping_failures": 77,
+            "experience_failures": 815,
+            "standalone_fidelity_utterances": 2270,
+            "standalone_fidelity_failures": 127
+          }
+        },
+        "OpenAI xhigh": {
+          "n_calls": 150,
+          "interaction_failure": 59.5238139319602,
+          "interaction_components": {
+            "nonresponse": 18.120805369127517,
+            "interruption": 88.66666666666667,
+            "selectivity": 99.3103448275862,
+            "monologue": 28.187919463087248,
+            "tool_use": 63.33333333333333
+          },
+          "experience": 67.93673616103523,
+          "experience_failure": 32.06326383896477,
+          "fluency_failure": 29.690869877785765,
+          "speech_fidelity_failure": 5.823148813803019,
+          "standalone_fidelity_cleanliness": 94.17685118619698,
+          "overlapping_failure": 3.4507548526240113,
+          "localization_diagnostics": {
+            "counting_units": 15.789473684210526,
+            "email_symbol_verbalization": 0.0
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 2782,
+            "fluency_failures": 826,
+            "speech_fidelity_failures": 162,
+            "overlapping_failures": 96,
+            "experience_failures": 892,
+            "standalone_fidelity_utterances": 2782,
+            "standalone_fidelity_failures": 162
+          }
+        },
+        "xAI": {
+          "n_calls": 150,
+          "interaction_failure": 52.925170068027214,
+          "interaction_components": {
+            "nonresponse": 3.3333333333333335,
+            "interruption": 86.0,
+            "selectivity": 99.31972789115646,
+            "monologue": 44.0,
+            "tool_use": 31.97278911564626
+          },
+          "experience": 49.546406140963015,
+          "experience_failure": 50.453593859036985,
+          "fluency_failure": 46.894626657362174,
+          "speech_fidelity_failure": 17.236566643405443,
+          "standalone_fidelity_cleanliness": 82.76343335659455,
+          "overlapping_failure": 13.677599441730633,
+          "localization_diagnostics": {
+            "counting_units": 25.190839694656486,
+            "email_symbol_verbalization": 0.0
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 2866,
+            "fluency_failures": 1344,
+            "speech_fidelity_failures": 494,
+            "overlapping_failures": 392,
+            "experience_failures": 1446,
+            "standalone_fidelity_utterances": 2866,
+            "standalone_fidelity_failures": 494
+          }
+        }
+      },
+      "Hindi": {
+        "Gemini high": {
+          "n_calls": 150,
+          "interaction_failure": 58.05106382978724,
+          "interaction_components": {
+            "nonresponse": 88.0,
+            "interruption": 82.0,
+            "selectivity": 70.92198581560284,
+            "monologue": 6.666666666666667,
+            "tool_use": 42.66666666666667
+          },
+          "experience": 48.562467328802924,
+          "experience_failure": 51.437532671197076,
+          "fluency_failure": 49.71249346576059,
+          "speech_fidelity_failure": 6.1683220073183485,
+          "standalone_fidelity_cleanliness": 93.83167799268165,
+          "overlapping_failure": 4.44328280188186,
+          "localization_diagnostics": {
+            "gender_agreement": 16.0,
+            "name_address_conventions": 28.31858407079646
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 1913,
+            "fluency_failures": 951,
+            "speech_fidelity_failures": 118,
+            "overlapping_failures": 85,
+            "experience_failures": 984,
+            "standalone_fidelity_utterances": 1913,
+            "standalone_fidelity_failures": 118
+          }
+        },
+        "Gemini minimal": {
+          "n_calls": 150,
+          "interaction_failure": 51.874474474474475,
+          "interaction_components": {
+            "nonresponse": 43.333333333333336,
+            "interruption": 61.33333333333333,
+            "selectivity": 77.77777777777779,
+            "monologue": 7.333333333333333,
+            "tool_use": 69.5945945945946
+          },
+          "experience": 46.75803900896152,
+          "experience_failure": 53.24196099103848,
+          "fluency_failure": 51.76594623089088,
+          "speech_fidelity_failure": 5.535055350553505,
+          "standalone_fidelity_cleanliness": 94.4649446494465,
+          "overlapping_failure": 4.059040590405904,
+          "localization_diagnostics": {
+            "gender_agreement": 20.0,
+            "name_address_conventions": 22.22222222222222
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 1897,
+            "fluency_failures": 982,
+            "speech_fidelity_failures": 105,
+            "overlapping_failures": 77,
+            "experience_failures": 1010,
+            "standalone_fidelity_utterances": 1897,
+            "standalone_fidelity_failures": 105
+          }
+        },
+        "OpenAI minimal": {
+          "n_calls": 150,
+          "interaction_failure": 52.25815602836879,
+          "interaction_components": {
+            "nonresponse": 0.6666666666666667,
+            "interruption": 78.66666666666666,
+            "selectivity": 99.29078014184397,
+            "monologue": 16.0,
+            "tool_use": 66.66666666666666
+          },
+          "experience": 57.83289817232375,
+          "experience_failure": 42.16710182767624,
+          "fluency_failure": 40.60052219321149,
+          "speech_fidelity_failure": 10.879025239338555,
+          "standalone_fidelity_cleanliness": 89.12097476066144,
+          "overlapping_failure": 9.312445604873803,
+          "localization_diagnostics": {
+            "gender_agreement": 49.333333333333336,
+            "name_address_conventions": 60.0
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 2298,
+            "fluency_failures": 933,
+            "speech_fidelity_failures": 250,
+            "overlapping_failures": 214,
+            "experience_failures": 969,
+            "standalone_fidelity_utterances": 2298,
+            "standalone_fidelity_failures": 250
+          }
+        },
+        "OpenAI xhigh": {
+          "n_calls": 150,
+          "interaction_failure": 55.00598908767923,
+          "interaction_components": {
+            "nonresponse": 22.972972972972975,
+            "interruption": 88.66666666666667,
+            "selectivity": 97.1830985915493,
+            "monologue": 15.54054054054054,
+            "tool_use": 50.66666666666667
+          },
+          "experience": 62.361155188828945,
+          "experience_failure": 37.638844811171055,
+          "fluency_failure": 35.06823230720406,
+          "speech_fidelity_failure": 8.219612821326564,
+          "standalone_fidelity_cleanliness": 91.78038717867344,
+          "overlapping_failure": 5.649000317359568,
+          "localization_diagnostics": {
+            "gender_agreement": 31.292517006802722,
+            "name_address_conventions": 36.36363636363637
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 3151,
+            "fluency_failures": 1105,
+            "speech_fidelity_failures": 259,
+            "overlapping_failures": 178,
+            "experience_failures": 1186,
+            "standalone_fidelity_utterances": 3151,
+            "standalone_fidelity_failures": 259
+          }
+        },
+        "xAI": {
+          "n_calls": 150,
+          "interaction_failure": 55.664429530201346,
+          "interaction_components": {
+            "nonresponse": 10.666666666666668,
+            "interruption": 86.0,
+            "selectivity": 97.98657718120806,
+            "monologue": 33.33333333333333,
+            "tool_use": 50.33557046979866
+          },
+          "experience": 39.85480943738657,
+          "experience_failure": 60.14519056261343,
+          "fluency_failure": 55.53539019963702,
+          "speech_fidelity_failure": 26.932849364791288,
+          "standalone_fidelity_cleanliness": 73.0671506352087,
+          "overlapping_failure": 22.323049001814883,
+          "localization_diagnostics": {
+            "gender_agreement": 20.0,
+            "name_address_conventions": 13.043478260869565
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 2755,
+            "fluency_failures": 1530,
+            "speech_fidelity_failures": 742,
+            "overlapping_failures": 615,
+            "experience_failures": 1657,
+            "standalone_fidelity_utterances": 2755,
+            "standalone_fidelity_failures": 742
+          }
+        }
+      },
+      "Korean": {
+        "Gemini high": {
+          "n_calls": 150,
+          "interaction_failure": 63.94560684125901,
+          "interaction_components": {
+            "nonresponse": 72.0,
+            "interruption": 82.0,
+            "selectivity": 75.36231884057972,
+            "monologue": 15.54054054054054,
+            "tool_use": 74.82517482517483
+          },
+          "experience": 56.61605206073752,
+          "experience_failure": 43.38394793926248,
+          "fluency_failure": 38.937093275488074,
+          "speech_fidelity_failure": 11.062906724511931,
+          "standalone_fidelity_cleanliness": 88.93709327548807,
+          "overlapping_failure": 6.616052060737528,
+          "localization_diagnostics": {
+            "email_symbol_verbalization": 0.0,
+            "name_address_conventions": 12.030075187969924
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 1844,
+            "fluency_failures": 718,
+            "speech_fidelity_failures": 204,
+            "overlapping_failures": 122,
+            "experience_failures": 800,
+            "standalone_fidelity_utterances": 1844,
+            "standalone_fidelity_failures": 204
+          }
+        },
+        "Gemini minimal": {
+          "n_calls": 150,
+          "interaction_failure": 64.40385911068293,
+          "interaction_components": {
+            "nonresponse": 58.666666666666664,
+            "interruption": 84.66666666666667,
+            "selectivity": 83.80281690140845,
+            "monologue": 2.684563758389262,
+            "tool_use": 92.19858156028369
+          },
+          "experience": 66.13657623947616,
+          "experience_failure": 33.86342376052385,
+          "fluency_failure": 29.653882132834426,
+          "speech_fidelity_failure": 7.811038353601497,
+          "standalone_fidelity_cleanliness": 92.18896164639851,
+          "overlapping_failure": 3.601496725912067,
+          "localization_diagnostics": {
+            "email_symbol_verbalization": 20.0,
+            "name_address_conventions": 12.5
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 2138,
+            "fluency_failures": 634,
+            "speech_fidelity_failures": 167,
+            "overlapping_failures": 77,
+            "experience_failures": 724,
+            "standalone_fidelity_utterances": 2138,
+            "standalone_fidelity_failures": 167
+          }
+        },
+        "OpenAI minimal": {
+          "n_calls": 150,
+          "interaction_failure": 62.4818791664038,
+          "interaction_components": {
+            "nonresponse": 41.333333333333336,
+            "interruption": 86.0,
+            "selectivity": 89.31297709923665,
+            "monologue": 7.333333333333333,
+            "tool_use": 88.42975206611571
+          },
+          "experience": 61.100066269052355,
+          "experience_failure": 38.89993373094765,
+          "fluency_failure": 36.249171636845595,
+          "speech_fidelity_failure": 7.5546719681908545,
+          "standalone_fidelity_cleanliness": 92.44532803180915,
+          "overlapping_failure": 4.903909874088801,
+          "localization_diagnostics": {
+            "email_symbol_verbalization": 0.0,
+            "name_address_conventions": 3.614457831325301
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 1509,
+            "fluency_failures": 547,
+            "speech_fidelity_failures": 114,
+            "overlapping_failures": 74,
+            "experience_failures": 587,
+            "standalone_fidelity_utterances": 1509,
+            "standalone_fidelity_failures": 114
+          }
+        },
+        "OpenAI xhigh": {
+          "n_calls": 150,
+          "interaction_failure": 66.77976251935983,
+          "interaction_components": {
+            "nonresponse": 53.691275167785236,
+            "interruption": 96.0,
+            "selectivity": 86.15384615384616,
+            "monologue": 8.053691275167784,
+            "tool_use": 90.0
+          },
+          "experience": 61.852861035422336,
+          "experience_failure": 38.14713896457766,
+          "fluency_failure": 35.367847411444146,
+          "speech_fidelity_failure": 6.321525885558583,
+          "standalone_fidelity_cleanliness": 93.67847411444141,
+          "overlapping_failure": 3.5422343324250685,
+          "localization_diagnostics": {
+            "email_symbol_verbalization": 20.0,
+            "name_address_conventions": 2.7027027027027026
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 1835,
+            "fluency_failures": 649,
+            "speech_fidelity_failures": 116,
+            "overlapping_failures": 65,
+            "experience_failures": 700,
+            "standalone_fidelity_utterances": 1835,
+            "standalone_fidelity_failures": 116
+          }
+        },
+        "xAI": {
+          "n_calls": 150,
+          "interaction_failure": 61.28650302130647,
+          "interaction_components": {
+            "nonresponse": 4.666666666666667,
+            "interruption": 91.33333333333333,
+            "selectivity": 96.62162162162163,
+            "monologue": 34.899328859060404,
+            "tool_use": 78.91156462585033
+          },
+          "experience": 46.86085972850679,
+          "experience_failure": 53.13914027149321,
+          "fluency_failure": 49.6606334841629,
+          "speech_fidelity_failure": 28.167420814479637,
+          "standalone_fidelity_cleanliness": 71.83257918552036,
+          "overlapping_failure": 24.688914027149323,
+          "localization_diagnostics": {
+            "email_symbol_verbalization": 28.57142857142857,
+            "name_address_conventions": 13.970588235294118
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 3536,
+            "fluency_failures": 1756,
+            "speech_fidelity_failures": 996,
+            "overlapping_failures": 873,
+            "experience_failures": 1879,
+            "standalone_fidelity_utterances": 3536,
+            "standalone_fidelity_failures": 996
+          }
+        }
+      },
+      "Portuguese": {
+        "Gemini high": {
+          "n_calls": 150,
+          "interaction_failure": 54.74127989412988,
+          "interaction_components": {
+            "nonresponse": 72.66666666666667,
+            "interruption": 75.33333333333333,
+            "selectivity": 77.46478873239437,
+            "monologue": 12.0,
+            "tool_use": 36.241610738255034
+          },
+          "experience": 70.86864406779661,
+          "experience_failure": 29.13135593220339,
+          "fluency_failure": 26.27118644067797,
+          "speech_fidelity_failure": 5.773305084745763,
+          "standalone_fidelity_cleanliness": 94.22669491525424,
+          "overlapping_failure": 2.9131355932203387,
+          "localization_diagnostics": {
+            "counting_units": 6.0606060606060606,
+            "email_symbol_verbalization": 0.0,
+            "gender_agreement": 22.666666666666664,
+            "regional_consistency": 2.0,
+            "register_formality": 16.666666666666664
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 1888,
+            "fluency_failures": 496,
+            "speech_fidelity_failures": 109,
+            "overlapping_failures": 55,
+            "experience_failures": 550,
+            "standalone_fidelity_utterances": 1888,
+            "standalone_fidelity_failures": 109
+          }
+        },
+        "Gemini minimal": {
+          "n_calls": 150,
+          "interaction_failure": 57.1290780141844,
+          "interaction_components": {
+            "nonresponse": 46.0,
+            "interruption": 72.0,
+            "selectivity": 82.97872340425532,
+            "monologue": 11.333333333333332,
+            "tool_use": 73.33333333333333
+          },
+          "experience": 67.1609006040637,
+          "experience_failure": 32.8390993959363,
+          "fluency_failure": 30.093355299286106,
+          "speech_fidelity_failure": 5.326743547501374,
+          "standalone_fidelity_cleanliness": 94.67325645249862,
+          "overlapping_failure": 2.5809994508511807,
+          "localization_diagnostics": {
+            "counting_units": 4.716981132075472,
+            "email_symbol_verbalization": null,
+            "gender_agreement": 28.666666666666668,
+            "regional_consistency": 2.666666666666667,
+            "register_formality": 13.333333333333334
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 1821,
+            "fluency_failures": 548,
+            "speech_fidelity_failures": 97,
+            "overlapping_failures": 47,
+            "experience_failures": 598,
+            "standalone_fidelity_utterances": 1821,
+            "standalone_fidelity_failures": 97
+          }
+        },
+        "OpenAI minimal": {
+          "n_calls": 150,
+          "interaction_failure": 53.5924882629108,
+          "interaction_components": {
+            "nonresponse": 2.0,
+            "interruption": 80.66666666666666,
+            "selectivity": 99.29577464788733,
+            "monologue": 24.666666666666668,
+            "tool_use": 61.33333333333333
+          },
+          "experience": 69.3069306930693,
+          "experience_failure": 30.693069306930692,
+          "fluency_failure": 27.507533362031854,
+          "speech_fidelity_failure": 6.758501937150236,
+          "standalone_fidelity_cleanliness": 93.24440619621342,
+          "overlapping_failure": 3.572965992251399,
+          "localization_diagnostics": {
+            "counting_units": 8.411214953271028,
+            "email_symbol_verbalization": 0.0,
+            "gender_agreement": 45.33333333333333,
+            "regional_consistency": 0.6666666666666667,
+            "register_formality": 2.666666666666667
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 2323,
+            "fluency_failures": 639,
+            "speech_fidelity_failures": 157,
+            "overlapping_failures": 83,
+            "experience_failures": 713,
+            "standalone_fidelity_utterances": 2324,
+            "standalone_fidelity_failures": 157
+          }
+        },
+        "OpenAI xhigh": {
+          "n_calls": 150,
+          "interaction_failure": 57.455782312925166,
+          "interaction_components": {
+            "nonresponse": 28.000000000000004,
+            "interruption": 90.66666666666666,
+            "selectivity": 97.27891156462584,
+            "monologue": 24.666666666666668,
+            "tool_use": 46.666666666666664
+          },
+          "experience": 74.13099158433955,
+          "experience_failure": 25.869008415660446,
+          "fluency_failure": 22.466154409074278,
+          "speech_fidelity_failure": 5.817782656421515,
+          "standalone_fidelity_cleanliness": 94.18434528163863,
+          "overlapping_failure": 2.4149286498353457,
+          "localization_diagnostics": {
+            "counting_units": 12.871287128712872,
+            "email_symbol_verbalization": 0.0,
+            "gender_agreement": 22.14765100671141,
+            "regional_consistency": 0.0,
+            "register_formality": 4.026845637583892
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 2733,
+            "fluency_failures": 614,
+            "speech_fidelity_failures": 159,
+            "overlapping_failures": 66,
+            "experience_failures": 707,
+            "standalone_fidelity_utterances": 2734,
+            "standalone_fidelity_failures": 159
+          }
+        },
+        "xAI": {
+          "n_calls": 150,
+          "interaction_failure": 52.95707762557078,
+          "interaction_components": {
+            "nonresponse": 8.666666666666668,
+            "interruption": 88.66666666666667,
+            "selectivity": 93.33333333333333,
+            "monologue": 44.666666666666664,
+            "tool_use": 29.45205479452055
+          },
+          "experience": 59.735283873214904,
+          "experience_failure": 40.264716126785096,
+          "fluency_failure": 33.646812957157785,
+          "speech_fidelity_failure": 16.440264716126784,
+          "standalone_fidelity_cleanliness": 83.53064066852367,
+          "overlapping_failure": 9.822361546499478,
+          "localization_diagnostics": {
+            "counting_units": 8.955223880597014,
+            "email_symbol_verbalization": 0.0,
+            "gender_agreement": 29.333333333333332,
+            "regional_consistency": 0.0,
+            "register_formality": 4.666666666666667
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 2871,
+            "fluency_failures": 966,
+            "speech_fidelity_failures": 472,
+            "overlapping_failures": 282,
+            "experience_failures": 1156,
+            "standalone_fidelity_utterances": 2872,
+            "standalone_fidelity_failures": 473
+          }
+        }
+      },
+      "Mandarin": {
+        "Gemini high": {
+          "n_calls": 150,
+          "interaction_failure": 66.25343228200371,
+          "interaction_components": {
+            "nonresponse": 82.66666666666667,
+            "interruption": 89.33333333333333,
+            "selectivity": 73.48484848484848,
+            "monologue": 12.925170068027212,
+            "tool_use": 72.85714285714285
+          },
+          "experience": 52.23880597014925,
+          "experience_failure": 47.76119402985074,
+          "fluency_failure": 41.09808102345416,
+          "speech_fidelity_failure": 16.098081023454156,
+          "standalone_fidelity_cleanliness": 83.90191897654584,
+          "overlapping_failure": 9.43496801705757,
+          "localization_diagnostics": {
+            "counting_units": 10.9375,
+            "email_symbol_verbalization": 0.0,
+            "modal_particles": 0.6802721088435374,
+            "name_address_conventions": 11.450381679389313
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 1876,
+            "fluency_failures": 771,
+            "speech_fidelity_failures": 302,
+            "overlapping_failures": 177,
+            "experience_failures": 896,
+            "standalone_fidelity_utterances": 1876,
+            "standalone_fidelity_failures": 302
+          }
+        },
+        "Gemini minimal": {
+          "n_calls": 150,
+          "interaction_failure": 64.4837942749989,
+          "interaction_components": {
+            "nonresponse": 54.0,
+            "interruption": 96.0,
+            "selectivity": 84.9624060150376,
+            "monologue": 5.442176870748299,
+            "tool_use": 82.01438848920863
+          },
+          "experience": 60.0,
+          "experience_failure": 40.0,
+          "fluency_failure": 33.829787234042556,
+          "speech_fidelity_failure": 14.085106382978724,
+          "standalone_fidelity_cleanliness": 85.91489361702128,
+          "overlapping_failure": 7.914893617021276,
+          "localization_diagnostics": {
+            "counting_units": 9.090909090909092,
+            "email_symbol_verbalization": 0.0,
+            "modal_particles": 2.0408163265306123,
+            "name_address_conventions": 21.705426356589147
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 2350,
+            "fluency_failures": 795,
+            "speech_fidelity_failures": 331,
+            "overlapping_failures": 186,
+            "experience_failures": 940,
+            "standalone_fidelity_utterances": 2350,
+            "standalone_fidelity_failures": 331
+          }
+        },
+        "OpenAI minimal": {
+          "n_calls": 150,
+          "interaction_failure": 57.97142857142856,
+          "interaction_components": {
+            "nonresponse": 2.666666666666667,
+            "interruption": 84.66666666666667,
+            "selectivity": 97.85714285714285,
+            "monologue": 20.666666666666668,
+            "tool_use": 84.0
+          },
+          "experience": 74.52402538531277,
+          "experience_failure": 25.475974614687217,
+          "fluency_failure": 21.441523118767,
+          "speech_fidelity_failure": 6.57298277425204,
+          "standalone_fidelity_cleanliness": 93.42701722574796,
+          "overlapping_failure": 2.5385312783318223,
+          "localization_diagnostics": {
+            "counting_units": 14.482758620689657,
+            "email_symbol_verbalization": 0.0,
+            "modal_particles": 40.0,
+            "name_address_conventions": 3.5294117647058822
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 2206,
+            "fluency_failures": 473,
+            "speech_fidelity_failures": 145,
+            "overlapping_failures": 56,
+            "experience_failures": 562,
+            "standalone_fidelity_utterances": 2206,
+            "standalone_fidelity_failures": 145
+          }
+        },
+        "OpenAI xhigh": {
+          "n_calls": 150,
+          "interaction_failure": 60.90617480953051,
+          "interaction_components": {
+            "nonresponse": 16.778523489932887,
+            "interruption": 91.33333333333333,
+            "selectivity": 94.4055944055944,
+            "monologue": 24.161073825503358,
+            "tool_use": 77.85234899328859
+          },
+          "experience": 70.80168776371308,
+          "experience_failure": 29.19831223628692,
+          "fluency_failure": 26.329113924050635,
+          "speech_fidelity_failure": 7.172995780590717,
+          "standalone_fidelity_cleanliness": 92.82700421940928,
+          "overlapping_failure": 4.30379746835443,
+          "localization_diagnostics": {
+            "counting_units": 16.43835616438356,
+            "email_symbol_verbalization": 0.0,
+            "modal_particles": 59.06040268456376,
+            "name_address_conventions": 1.3333333333333335
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 2370,
+            "fluency_failures": 624,
+            "speech_fidelity_failures": 170,
+            "overlapping_failures": 102,
+            "experience_failures": 692,
+            "standalone_fidelity_utterances": 2370,
+            "standalone_fidelity_failures": 170
+          }
+        },
+        "xAI": {
+          "n_calls": 150,
+          "interaction_failure": 68.22535725699676,
+          "interaction_components": {
+            "nonresponse": 27.333333333333332,
+            "interruption": 97.33333333333334,
+            "selectivity": 97.27891156462584,
+            "monologue": 42.0,
+            "tool_use": 77.18120805369128
+          },
+          "experience": 63.212325875897,
+          "experience_failure": 36.787674124103,
+          "fluency_failure": 33.93837062051499,
+          "speech_fidelity_failure": 16.52596032081047,
+          "standalone_fidelity_cleanliness": 83.47403967918953,
+          "overlapping_failure": 13.676656817222458,
+          "localization_diagnostics": {
+            "counting_units": 20.945945945945947,
+            "email_symbol_verbalization": 0.0,
+            "modal_particles": 0.0,
+            "name_address_conventions": 12.5
+          },
+          "denominators": {
+            "interaction_calls": 150,
+            "experience_utterances": 4738,
+            "fluency_failures": 1608,
+            "speech_fidelity_failures": 783,
+            "overlapping_failures": 648,
+            "experience_failures": 1743,
+            "standalone_fidelity_utterances": 4738,
+            "standalone_fidelity_failures": 783
+          }
+        }
+      }
+    },
+    "language": {
+      "English": {
+        "interaction_failure": 51.46335742762839,
+        "experience": null,
+        "experience_failure": null,
+        "fluency_failure": null,
+        "speech_fidelity_failure": null,
+        "standalone_fidelity_cleanliness": 92.82654925575517,
+        "overlapping_failure": null
+      },
+      "Spanish": {
+        "interaction_failure": 56.06673589947961,
+        "experience": 60.13778380918353,
+        "experience_failure": 39.862216190816454,
+        "fluency_failure": 36.825169465358144,
+        "speech_fidelity_failure": 8.50831850756795,
+        "standalone_fidelity_cleanliness": 91.49217463598923,
+        "overlapping_failure": 5.471271782109629
+      },
+      "Portuguese": {
+        "interaction_failure": 55.1751412219442,
+        "experience": 68.24055016449681,
+        "experience_failure": 31.759449835503187,
+        "fluency_failure": 27.9970084936456,
+        "speech_fidelity_failure": 8.023319588389134,
+        "standalone_fidelity_cleanliness": 91.97186870282573,
+        "overlapping_failure": 4.260878246531549
+      },
+      "Hindi": {
+        "interaction_failure": 54.57082259010222,
+        "experience": 51.07387382726074,
+        "experience_failure": 48.92612617273926,
+        "fluency_failure": 46.53651687934081,
+        "speech_fidelity_failure": 11.546972956665652,
+        "standalone_fidelity_cleanliness": 88.45302704333434,
+        "overlapping_failure": 9.157363663267203
+      },
+      "Korean": {
+        "interaction_failure": 63.77952213180241,
+        "experience": 58.51328306663903,
+        "experience_failure": 41.48671693336097,
+        "fluency_failure": 37.97372558815503,
+        "speech_fidelity_failure": 12.183512749268502,
+        "standalone_fidelity_cleanliness": 87.81648725073151,
+        "overlapping_failure": 8.670521404062558
+      },
+      "Mandarin": {
+        "interaction_failure": 63.56803743899169,
+        "experience": 64.15536899901443,
+        "experience_failure": 35.84463100098558,
+        "fluency_failure": 31.327375184165867,
+        "speech_fidelity_failure": 12.091025256417222,
+        "standalone_fidelity_cleanliness": 87.90897474358277,
+        "overlapping_failure": 7.573769439597511
+      }
+    },
+    "provider": {
+      "OpenAI minimal": {
+        "n_calls": 900,
+        "mean_call_duration_minutes": 11.279296435441314,
+        "interaction_failure": 54.652562818185125,
+        "interaction_components": {
+          "nonresponse": 8.555555555555555,
+          "interruption": 80.33333333333333,
+          "selectivity": 96.79670701652083,
+          "monologue": 17.777777777777782,
+          "tool_use": 69.79944040773815
+        },
+        "experience": 65.36900270245319,
+        "experience_failure": 34.63099729754682,
+        "fluency_failure": 31.902808678301643,
+        "speech_fidelity_failure": 7.4724722586210675,
+        "standalone_fidelity_cleanliness": 93.0612463527065,
+        "overlapping_failure": 4.744283639375892
+      },
+      "OpenAI xhigh": {
+        "n_calls": 900,
+        "mean_call_duration_minutes": 13.500510728148287,
+        "interaction_failure": 58.77538054797552,
+        "interaction_components": {
+          "nonresponse": 27.958582743817644,
+          "interruption": 90.44444444444444,
+          "selectivity": 95.721965923867,
+          "monologue": 17.998740351089346,
+          "tool_use": 61.753169276659214
+        },
+        "experience": 67.41668634666784,
+        "experience_failure": 32.58331365333217,
+        "fluency_failure": 29.78444358591178,
+        "speech_fidelity_failure": 6.671013191540079,
+        "standalone_fidelity_cleanliness": 93.8700095304255,
+        "overlapping_failure": 3.8721431241196846
+      },
+      "Gemini minimal": {
+        "n_calls": 900,
+        "mean_call_duration_minutes": 13.77367233160377,
+        "interaction_failure": 57.58537007014755,
+        "interaction_components": {
+          "nonresponse": 47.22222222222223,
+          "interruption": 73.88888888888889,
+          "selectivity": 83.73403743013753,
+          "monologue": 6.5766789937451495,
+          "tool_use": 76.50502281574393
+        },
+        "experience": 59.61065574320721,
+        "experience_failure": 40.38934425679279,
+        "fluency_failure": 36.741972255473435,
+        "speech_fidelity_failure": 7.871499241468408,
+        "standalone_fidelity_cleanliness": 92.37345629804051,
+        "overlapping_failure": 4.2241272401490475
+      },
+      "Gemini high": {
+        "n_calls": 900,
+        "mean_call_duration_minutes": 13.840424840922969,
+        "interaction_failure": 59.33595024430448,
+        "interaction_components": {
+          "nonresponse": 76.55555555555557,
+          "interruption": 79.33333333333333,
+          "selectivity": 77.1211499366507,
+          "monologue": 10.633173990316847,
+          "tool_use": 53.03653840566592
+        },
+        "experience": 57.882578063072664,
+        "experience_failure": 42.11742193692732,
+        "fluency_failure": 38.29540430721162,
+        "speech_fidelity_failure": 9.277551994756184,
+        "standalone_fidelity_cleanliness": 91.39685970980406,
+        "overlapping_failure": 5.455534365040473
+      },
+      "xAI": {
+        "n_calls": 900,
+        "mean_call_duration_minutes": 25.616173891232073,
+        "interaction_failure": 56.83708357767776,
+        "interaction_components": {
+          "nonresponse": 9.777777777777779,
+          "interruption": 90.0,
+          "selectivity": 97.09002859865757,
+          "monologue": 36.594332587621174,
+          "tool_use": 50.72327892433227
+        },
+        "experience": 51.841937011193664,
+        "experience_failure": 48.15806298880634,
+        "fluency_failure": 43.935166783766974,
+        "speech_fidelity_failure": 21.060612371922723,
+        "standalone_fidelity_cleanliness": 79.68932946920569,
+        "overlapping_failure": 16.837716166883354
+      }
+    },
+    "overall": {
+      "interaction_failure": 57.43726945165808,
+      "experience": 60.42417197331891,
+      "experience_failure": 39.57582802668109,
+      "fluency_failure": 36.1319591221331,
+      "speech_fidelity_failure": 10.470629811661691,
+      "standalone_fidelity_cleanliness": 90.07818027203645,
+      "overlapping_failure": 7.02676090711369
+    }
+  },
+  "significance_complete_matched_cohort": {
+    "provider_point_estimates": {
+      "OpenAI minimal": 65.61999057048563,
+      "OpenAI xhigh": 67.54719912982674,
+      "Gemini minimal": 59.7458475085051,
+      "Gemini high": 57.824962276352665,
+      "xAI": 52.99415483717047
+    },
+    "pairs": [
+      {
+        "system_a": "OpenAI minimal",
+        "system_b": "OpenAI xhigh",
+        "delta_a_minus_b_points": -1.9272085593411106,
+        "raw_p": 0.0022599774002259976,
+        "holm_p": 0.004519954800451995,
+        "significant_0_05": true
+      },
+      {
+        "system_a": "OpenAI minimal",
+        "system_b": "Gemini minimal",
+        "delta_a_minus_b_points": 5.874143061980526,
+        "raw_p": 9.99990000099999e-6,
+        "holm_p": 0.00009999900000999991,
+        "significant_0_05": true
+      },
+      {
+        "system_a": "OpenAI minimal",
+        "system_b": "Gemini high",
+        "delta_a_minus_b_points": 7.795028294132962,
+        "raw_p": 9.99990000099999e-6,
+        "holm_p": 0.00009999900000999991,
+        "significant_0_05": true
+      },
+      {
+        "system_a": "OpenAI minimal",
+        "system_b": "xAI",
+        "delta_a_minus_b_points": 12.625835733315157,
+        "raw_p": 9.99990000099999e-6,
+        "holm_p": 0.00009999900000999991,
+        "significant_0_05": true
+      },
+      {
+        "system_a": "OpenAI xhigh",
+        "system_b": "Gemini minimal",
+        "delta_a_minus_b_points": 7.801351621321636,
+        "raw_p": 9.99990000099999e-6,
+        "holm_p": 0.00009999900000999991,
+        "significant_0_05": true
+      },
+      {
+        "system_a": "OpenAI xhigh",
+        "system_b": "Gemini high",
+        "delta_a_minus_b_points": 9.722236853474072,
+        "raw_p": 9.99990000099999e-6,
+        "holm_p": 0.00009999900000999991,
+        "significant_0_05": true
+      },
+      {
+        "system_a": "OpenAI xhigh",
+        "system_b": "xAI",
+        "delta_a_minus_b_points": 14.553044292656267,
+        "raw_p": 9.99990000099999e-6,
+        "holm_p": 0.00009999900000999991,
+        "significant_0_05": true
+      },
+      {
+        "system_a": "Gemini minimal",
+        "system_b": "Gemini high",
+        "delta_a_minus_b_points": 1.9208852321524361,
+        "raw_p": 0.018439815601843983,
+        "holm_p": 0.018439815601843983,
+        "significant_0_05": true
+      },
+      {
+        "system_a": "Gemini minimal",
+        "system_b": "xAI",
+        "delta_a_minus_b_points": 6.751692671334631,
+        "raw_p": 9.99990000099999e-6,
+        "holm_p": 0.00009999900000999991,
+        "significant_0_05": true
+      },
+      {
+        "system_a": "Gemini high",
+        "system_b": "xAI",
+        "delta_a_minus_b_points": 4.830807439182195,
+        "raw_p": 0.0002999970000299997,
+        "holm_p": 0.0008999910000899991,
+        "significant_0_05": true
+      }
+    ]
+  },
+  "interaction_language_significance": {
+    "systems": [
+      "OpenAI minimal",
+      "OpenAI xhigh",
+      "Gemini minimal",
+      "Gemini high",
+      "xAI"
+    ],
+    "comparisons": [
+      {
+        "language": "Spanish",
+        "english_score": 48.523640508612374,
+        "language_score": 43.91279383665274,
+        "delta_vs_english_points": -4.610846671959635,
+        "raw_p": 0.00003999960000399996,
+        "holm_p": 0.00011999880001199988,
+        "significant_0_05": true
+      },
+      {
+        "language": "Portuguese",
+        "english_score": 48.523640508612374,
+        "language_score": 44.780718734313716,
+        "delta_vs_english_points": -3.742921774298658,
+        "raw_p": 0.0000999990000099999,
+        "holm_p": 0.0001999980000199998,
+        "significant_0_05": true
+      },
+      {
+        "language": "Hindi",
+        "english_score": 48.523640508612374,
+        "language_score": 45.38744309847627,
+        "delta_vs_english_points": -3.1361974101361056,
+        "raw_p": 0.0005499945000549994,
+        "holm_p": 0.0005499945000549994,
+        "significant_0_05": true
+      },
+      {
+        "language": "Korean",
+        "english_score": 48.523640508612374,
+        "language_score": 36.25723297056912,
+        "delta_vs_english_points": -12.266407538043254,
+        "raw_p": 9.99990000099999e-6,
+        "holm_p": 0.000049999500004999955,
+        "significant_0_05": true
+      },
+      {
+        "language": "Mandarin",
+        "english_score": 48.523640508612374,
+        "language_score": 36.33507601436653,
+        "delta_vs_english_points": -12.188564494245846,
+        "raw_p": 9.99990000099999e-6,
+        "holm_p": 0.000049999500004999955,
+        "significant_0_05": true
+      }
+    ]
+  },
+  "utterance_alignment": {
+    "eligible_utterances": 59514,
+    "fluency_failures": 21583,
+    "speech_fidelity_failures": 6825,
+    "overlapping_failures": 4768,
+    "experience_failures": 23640,
+    "pinned_greetings_excluded": 3750,
+    "unmatched_naturalness_utterances": 76,
+    "unmatched_delivery_utterances": 0,
+    "fidelity_findings_excluded": 6078,
+    "standalone_fidelity_utterances": 71413,
+    "standalone_fidelity_failures": 7746,
+    "standalone_fidelity_findings_excluded": 7436
+  }
+}

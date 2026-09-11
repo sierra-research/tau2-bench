@@ -5,8 +5,8 @@ This module tests AudioChunkingMixin to ensure:
 1. Chunking is done correctly (right number of chunks, proper chunk properties)
 2. Chunking and merging are inverse operations
 
-Note: TextChunkingMixin tests have been moved to
-src/experiments/tau_voice/tests/test_text_chunking.py
+Note: TextChunkingMixin and its tests were removed along with the
+experimental text-streaming agents (see tests/test_streaming/README.md).
 """
 
 import base64

@@ -184,6 +184,7 @@ def execute_lease(payload: dict) -> SimulationRun:
         info=info,
         console_display=False,
         llm_log_mode_value=run.get("llm_log_mode"),
+        llm_communicate_judge=config.llm_communicate_judge_override,
     )
     return run_unit(ctx, task, unit.trial, unit.seed, unit.progress_str)
 

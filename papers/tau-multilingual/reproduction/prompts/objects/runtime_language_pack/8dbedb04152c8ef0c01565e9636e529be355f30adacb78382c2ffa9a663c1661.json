@@ -1,0 +1,831 @@
+{
+  "acoustic_presets": null,
+  "agent_greeting": "नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?",
+  "agent_language_clause": "Respond in Hindi using Devanagari script for Hindi and Latin script for English insertions; mirror the user's code-switching register; keep all tool calls, arguments, and structured outputs in English exactly as specified.",
+  "agent_native_script_db_clause": "For this variant, the customer database stores customer first and last names in Devanagari, exactly as the customer gives them (e.g. first_name \"अमित\", last_name \"सक्सेना\"). This is the one exception to writing tool-call arguments in English: write name arguments to lookup and update tools in Devanagari — a romanized spelling like \"Amit Saxena\" will not match any record. User ids, emails, addresses, and all other values remain in Latin script exactly as specified.",
+  "backchannel_level": "medium",
+  "default_out_of_turn_events_per_minute": 1.0,
+  "display_name": "Hindi",
+  "language": "hi",
+  "localization": {
+    "amount_readout": {
+      "examples": [
+        {
+          "spoken": "दो सौ तिरपन डॉलर",
+          "written": "253 dollars"
+        },
+        {
+          "spoken": "बारह हज़ार रुपये",
+          "written": "12000 rupees"
+        },
+        {
+          "spoken": "एक हज़ार दो सौ पचास point सात पाँच",
+          "written": "1250.75"
+        }
+      ],
+      "rule": "Currency word follows the number ('बारह हज़ार रुपये', 'दो सौ तिरपन डॉलर'). Large amounts use the Indian units हज़ार (thousand) and लाख (hundred-thousand), or the English units are equally natural. The decimal part is read as 'point' followed by the digits (e.g. '99.50' -> 'निन्यानवे point पाँच zero'), or in currency subunits ('पचास paise') when natural."
+    },
+    "date_examples": [
+      {
+        "spoken": "सत्रह मई",
+        "written": "May 17"
+      },
+      {
+        "spoken": "ज़ीरो पाँच स्लैश सत्रह",
+        "written": "05/17"
+      },
+      {
+        "spoken": "तीन जनवरी",
+        "written": "January 3"
+      },
+      {
+        "spoken": "पच्चीस दिसंबर",
+        "written": "December 25"
+      }
+    ],
+    "digit_names": {},
+    "domain_glossaries": {
+      "airline": [
+        {
+          "native": "user ID",
+          "note": "established loanword — natives say the English term",
+          "term_id": "user_id"
+        },
+        {
+          "native": "booking",
+          "note": "established loanword — 'booking' is the natural usage, not 'आरक्षण'",
+          "term_id": "reservation"
+        },
+        {
+          "native": "booking reference",
+          "note": "loanword; also 'booking ID'",
+          "term_id": "reservation_id"
+        },
+        {
+          "native": "flight",
+          "note": "established loanword; 'उड़ान' sounds robotic here",
+          "term_id": "flight"
+        },
+        {
+          "native": "flight number",
+          "note": "established loanword",
+          "term_id": "flight_number"
+        },
+        {
+          "native": "refund",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "refund"
+        },
+        {
+          "native": "travel insurance",
+          "note": "established loanword",
+          "term_id": "travel_insurance"
+        },
+        {
+          "native": "checked bag",
+          "note": "established loanword; also 'checked-in luggage'",
+          "term_id": "checked_bag"
+        },
+        {
+          "native": "carry-on bag",
+          "note": "established loanword; also 'hand baggage'",
+          "term_id": "carry_on"
+        },
+        {
+          "native": "आगे की trip",
+          "note": "loanword 'trip' with Hindi matrix",
+          "term_id": "future_trip"
+        },
+        {
+          "native": "one-way trip",
+          "note": "established loanword",
+          "term_id": "one_way"
+        },
+        {
+          "native": "round trip",
+          "note": "established loanword",
+          "term_id": "round_trip"
+        },
+        {
+          "native": "basic economy",
+          "note": "established loanword — fare-class name kept in English",
+          "term_id": "basic_economy"
+        },
+        {
+          "native": "economy",
+          "note": "established loanword — cabin-class name kept in English",
+          "term_id": "economy"
+        },
+        {
+          "native": "business class",
+          "note": "established loanword",
+          "term_id": "business"
+        },
+        {
+          "native": "credit card",
+          "note": "established loanword",
+          "term_id": "credit_card"
+        },
+        {
+          "native": "gift card",
+          "note": "established loanword",
+          "term_id": "gift_card"
+        },
+        {
+          "native": "travel certificate",
+          "note": "established loanword",
+          "term_id": "travel_certificate"
+        },
+        {
+          "native": "membership tier",
+          "note": "loanword; natives say tiers as 'regular / silver / gold'",
+          "term_id": "membership_tier"
+        },
+        {
+          "native": "cancellation",
+          "note": "established loanword; verb 'cancel करना'",
+          "term_id": "cancellation"
+        },
+        {
+          "native": "payment method",
+          "note": "established loanword",
+          "term_id": "payment_method"
+        }
+      ],
+      "retail": [
+        {
+          "native": "user ID",
+          "note": "established loanword — English 'user ID' is the natural spoken usage",
+          "term_id": "user_id"
+        },
+        {
+          "native": "zip code",
+          "note": "established loanword; also 'PIN code' in Indian usage, but 'zip code' matches the retail-call register",
+          "term_id": "zip_code"
+        },
+        {
+          "native": "order",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "order"
+        },
+        {
+          "native": "order ID",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "order_id"
+        },
+        {
+          "native": "order status",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "order_status"
+        },
+        {
+          "native": "pending order",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "pending_order"
+        },
+        {
+          "native": "delivered order",
+          "note": "established loanword — 'jo order deliver ho gaya' is the natural phrasing",
+          "term_id": "delivered_order"
+        },
+        {
+          "native": "cancellation",
+          "note": "established loanword; the verb 'cancel karna' is more common in speech",
+          "term_id": "cancellation"
+        },
+        {
+          "native": "return",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "return"
+        },
+        {
+          "native": "exchange",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "exchange"
+        },
+        {
+          "native": "refund",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "refund"
+        },
+        {
+          "native": "product",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "product"
+        },
+        {
+          "native": "item",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "item"
+        },
+        {
+          "native": "option",
+          "note": "established loanword; colour/size specifics often named directly (e.g. 'colour', 'size')",
+          "term_id": "product_option"
+        },
+        {
+          "native": "item ID",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "item_id"
+        },
+        {
+          "native": "product ID",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "product_id"
+        },
+        {
+          "native": "availability",
+          "note": "established loanword; 'stock mein hai kya' is the common spoken variant",
+          "term_id": "availability"
+        },
+        {
+          "native": "price difference",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "price_difference"
+        },
+        {
+          "native": "tracking number",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "tracking_number"
+        },
+        {
+          "native": "shipping address",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "shipping_address"
+        },
+        {
+          "native": "default address",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "default_address"
+        },
+        {
+          "native": "payment method",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "payment_method"
+        },
+        {
+          "native": "credit card",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "credit_card"
+        },
+        {
+          "native": "gift card",
+          "note": "established loanword — the English form is the natural usage",
+          "term_id": "gift_card"
+        },
+        {
+          "native": "PayPal",
+          "note": "established loanword — the brand name is the natural usage",
+          "term_id": "paypal"
+        },
+        {
+          "native": "human agent",
+          "note": "established loanword; also 'kisi aadmi se baat karni hai' in casual register",
+          "term_id": "human_agent"
+        }
+      ],
+      "telecom": [
+        {
+          "native": "customer ID",
+          "note": "established loanword — natives say the English term",
+          "term_id": "customer_id"
+        },
+        {
+          "native": "phone number",
+          "note": "English loanword is the natural usage",
+          "term_id": "phone_number"
+        },
+        {
+          "native": "line",
+          "note": "established loanword",
+          "term_id": "line"
+        },
+        {
+          "native": "plan",
+          "note": "established loanword — 'recharge plan' bhi kehte hain",
+          "term_id": "plan"
+        },
+        {
+          "native": "data limit",
+          "note": "loanword; 'data allowance' bhi chalta hai",
+          "term_id": "data_allowance"
+        },
+        {
+          "native": "data usage",
+          "note": "established loanword",
+          "term_id": "data_usage"
+        },
+        {
+          "native": "data top-up",
+          "note": "natives say 'top-up' / 'extra data pack'",
+          "term_id": "data_refuel"
+        },
+        {
+          "native": "mobile data",
+          "note": "established loanword",
+          "term_id": "mobile_data"
+        },
+        {
+          "native": "roaming",
+          "note": "established loanword",
+          "term_id": "roaming"
+        },
+        {
+          "native": "airplane mode",
+          "note": "established loanword; 'flight mode' bhi kehte hain",
+          "term_id": "airplane_mode"
+        },
+        {
+          "native": "SIM card",
+          "note": "established loanword",
+          "term_id": "sim_card"
+        },
+        {
+          "native": "eSIM",
+          "note": "established loanword",
+          "term_id": "esim"
+        },
+        {
+          "native": "APN settings",
+          "note": "established loanword",
+          "term_id": "apn_settings"
+        },
+        {
+          "native": "data saver mode",
+          "note": "established loanword",
+          "term_id": "data_saver"
+        },
+        {
+          "native": "Wi-Fi",
+          "note": "established loanword",
+          "term_id": "wifi"
+        },
+        {
+          "native": "Wi-Fi calling",
+          "note": "established loanword",
+          "term_id": "wifi_calling"
+        },
+        {
+          "native": "VPN",
+          "note": "established loanword, spoken as letters",
+          "term_id": "vpn"
+        },
+        {
+          "native": "speed test",
+          "note": "established loanword",
+          "term_id": "speed_test"
+        },
+        {
+          "native": "network signal",
+          "note": "loanword; 'signal' akela bhi kaafi hai",
+          "term_id": "network_signal"
+        },
+        {
+          "native": "status bar",
+          "note": "established loanword; upar wali bar",
+          "term_id": "status_bar"
+        },
+        {
+          "native": "MMS",
+          "note": "established loanword, spoken as letters",
+          "term_id": "mms"
+        },
+        {
+          "native": "bill",
+          "note": "established loanword",
+          "term_id": "bill"
+        },
+        {
+          "native": "pending bill",
+          "note": "natives say 'due bill' / 'pending bill'",
+          "term_id": "overdue_bill"
+        },
+        {
+          "native": "payment link",
+          "note": "natives say 'payment link'",
+          "term_id": "payment_request"
+        },
+        {
+          "native": "line suspend",
+          "note": "loanword; 'line band ho gayi' bhi kehte hain",
+          "term_id": "line_suspension"
+        },
+        {
+          "native": "payment method",
+          "note": "established loanword",
+          "term_id": "payment_method"
+        }
+      ]
+    },
+    "guideline_examples": [
+      {
+        "kind": "disfluency_fillers",
+        "utterances": [
+          "उम्म",
+          "अं",
+          "मतलब",
+          "वो क्या है ना",
+          "हाँ तो",
+          "देखिए"
+        ]
+      },
+      {
+        "kind": "restart_example",
+        "utterances": [
+          "क्या आप—रुकिए, मैं पूछना चाहता था कि... आप मेरी थोड़ी help कर सकते हैं क्या?"
+        ]
+      },
+      {
+        "kind": "filler_pause_example",
+        "utterances": [
+          "तो, उम्म, मैं सोच रहा था कि, वो क्या है ना, आप मेरी थोड़ी help कर सकते हैं क्या"
+        ]
+      },
+      {
+        "kind": "pause_marker_examples",
+        "utterances": [
+          "मैं try कर रहा था—रुको, सोचने दो [pause]",
+          "problem शुरू हुई [pause] शायद तीन दिन पहले?"
+        ]
+      },
+      {
+        "kind": "self_interruption_example",
+        "utterances": [
+          "मैं try कर रहा था... अरे रुको, पहले account number दे दूँ क्या?"
+        ]
+      },
+      {
+        "kind": "clarification_request",
+        "utterances": [
+          "Sorry, ज़रा दोबारा बोलिएगा? ठीक से सुनाई नहीं दिया।"
+        ]
+      },
+      {
+        "kind": "emotion_examples",
+        "utterances": [
+          "मैं सच में परेशान हो गया हूँ क्योंकि...",
+          "अरे वाह, वो तो बहुत अच्छा रहेगा!"
+        ]
+      },
+      {
+        "kind": "conversational_confirmations",
+        "utterances": [
+          "हाँ",
+          "जी",
+          "अच्छा",
+          "ठीक है",
+          "हम्म",
+          "okay",
+          "बिल्कुल",
+          "जी हाँ"
+        ]
+      },
+      {
+        "kind": "silence_checkins",
+        "utterances": [
+          "Hello? आप सुन रहे हैं?",
+          "कुछ मिला क्या?",
+          "मेरी refund वाली query पर कोई update?"
+        ]
+      },
+      {
+        "kind": "frustrated_endings",
+        "utterances": [
+          "ये तो हद है, मैं बाद में दोबारा call करता हूँ",
+          "मेरे पास इसके लिए time नहीं है, रखता हूँ।"
+        ]
+      },
+      {
+        "kind": "dont_know_responses",
+        "utterances": [
+          "उम्म, पता नहीं असल में",
+          "अभी ठीक से याद नहीं",
+          "हम्म, वो तो मुझे देखना पड़ेगा।"
+        ]
+      },
+      {
+        "kind": "make_agent_work_chain",
+        "utterances": [
+          "काम नहीं कर रहा",
+          "app",
+          "आपका mobile app"
+        ]
+      },
+      {
+        "kind": "one_at_a_time_example",
+        "utterances": [
+          "हाँ, मेरी email है john underscore doe at gmail dot com... अच्छा, phone number भी चाहिए?"
+        ]
+      },
+      {
+        "kind": "forget_details_example",
+        "utterances": [
+          "मेरा order number है... उम्म, रुकिए, देखता हूँ... एक second..."
+        ]
+      },
+      {
+        "kind": "vague_openers",
+        "utterances": [
+          "मेरी एक problem है",
+          "मेरे account में कुछ गड़बड़ है"
+        ]
+      },
+      {
+        "kind": "unknown_info_phrases",
+        "utterances": [
+          "मुझे इसके बारे में पक्का नहीं पता",
+          "मेरे पास वो जानकारी नहीं है।"
+        ]
+      },
+      {
+        "kind": "tool_acknowledgment",
+        "utterances": [
+          "अच्छा, ठीक है, करके देखता हूँ... एक second रुकिए"
+        ]
+      },
+      {
+        "kind": "tool_result_report",
+        "utterances": [
+          "हाँ, अभी वो कर लिया, तो उसमें लिखा आ रहा है कि..."
+        ]
+      },
+      {
+        "kind": "tool_failure_report",
+        "utterances": [
+          "हम्म, वो काम नहीं किया... error आ रहा है।"
+        ]
+      },
+      {
+        "kind": "multiple_actions_pushback",
+        "utterances": [
+          "अरे रुकिए, ये तो एक साथ बहुत सारा हो गया... एक-एक करके बताइए ना?"
+        ]
+      },
+      {
+        "kind": "gratitude_examples",
+        "utterances": [
+          "अरे बहुत बहुत धन्यवाद!",
+          "बढ़िया, आपकी help के लिए really thanks।"
+        ]
+      }
+    ],
+    "letter_names": {},
+    "number_examples": [
+      {
+        "spoken": "दो सौ तिरेपन डॉलर",
+        "written": "253 dollars"
+      },
+      {
+        "spoken": "इक्कीस",
+        "written": "21"
+      },
+      {
+        "spoken": "एक हज़ार निन्यानवे डॉलर",
+        "written": "1099 dollars"
+      },
+      {
+        "spoken": "तीन",
+        "written": "3"
+      }
+    ],
+    "phone_number_readout": {
+      "examples": [
+        {
+          "spoken": "nine, eight, seven, six, five... four, three, two, one, zero",
+          "written": "98765 43210"
+        },
+        {
+          "spoken": "plus, nine, one... eight, zero, four, zero, two... three, zero, one, nine, zero",
+          "written": "+91 80402 30190"
+        }
+      ],
+      "rule": "Indian mobile numbers are 10 digits, typically grouped 5+5 (e.g. '98765 43210'). Read digit-by-digit in English, separating each with comma and space, with a slight pause between the two blocks. Zero is read as 'zero' (sometimes 'oh'). Landlines are read digit-by-digit similarly. Natives read digit-by-digit rather than as large grouped numbers."
+    },
+    "spelled_entity_normalization": false,
+    "spelling_alphabet": {
+      "anchor_examples": [
+        {
+          "spoken": "B for Bombay",
+          "written": "B"
+        },
+        {
+          "spoken": "M for Mumbai",
+          "written": "M"
+        },
+        {
+          "spoken": "D for Delhi",
+          "written": "D"
+        },
+        {
+          "spoken": "I for India",
+          "written": "I"
+        },
+        {
+          "spoken": "R for Rajdhani",
+          "written": "R"
+        }
+      ],
+      "avoid": "The NATO/Western phonetic alphabet ('Bravo', 'Delta') or the anglo 'B for boy' children's-style anchors.",
+      "rule": "Spell using the Indian English spell-letter convention with Indian place/word anchors: 'B for Bombay', 'M for Mumbai', 'D for Delhi', 'I for India'. Letters are read out in English one at a time, separated with comma and space."
+    },
+    "spoken_value_examples": [
+      {
+        "kind": "email",
+        "spoken": "मेरी email है rishi underscore sharma at gmail dot com",
+        "written": "rishi_sharma@gmail.com"
+      },
+      {
+        "kind": "user_id",
+        "spoken": "मेरा user ID है R, O, H, A, N, underscore, S, nine, zero",
+        "written": "rohan_s90"
+      },
+      {
+        "kind": "phone",
+        "spoken": "मेरा number है nine, eight, seven, six, five... four, three, two, one, zero",
+        "written": "98765 43210"
+      },
+      {
+        "kind": "spelling_name",
+        "spoken": "वो है R, I, S, H, I... R for Rajdhani, I for India, S for Srinagar, H for Hyderabad, I for India",
+        "written": "RISHI"
+      },
+      {
+        "kind": "account_number",
+        "spoken": "मेरा account number है four, zero, two, three, zero, one, nine, zero",
+        "written": "40230190"
+      },
+      {
+        "kind": "website",
+        "spoken": "मैं आपकी site पे था, www dot example dot com slash support",
+        "written": "www.example.com/support"
+      }
+    ],
+    "symbol_readouts": [
+      {
+        "spoken": [
+          "ऐट",
+          "ऐट द रेट"
+        ],
+        "symbol": "@"
+      },
+      {
+        "spoken": [
+          "डॉट",
+          "पॉइंट"
+        ],
+        "symbol": "."
+      },
+      {
+        "spoken": [
+          "अंडरस्कोर"
+        ],
+        "symbol": "_"
+      },
+      {
+        "spoken": [
+          "हाइफ़न",
+          "डैश"
+        ],
+        "symbol": "-"
+      },
+      {
+        "spoken": [
+          "स्लैश"
+        ],
+        "symbol": "/"
+      },
+      {
+        "spoken": [
+          "प्लस"
+        ],
+        "symbol": "+"
+      },
+      {
+        "spoken": [
+          "ज़ीरो",
+          "शून्य"
+        ],
+        "symbol": "0"
+      }
+    ]
+  },
+  "personas": {
+    "imran_hindi_v1": {
+      "backchannel_phrases": [
+        "हम्म"
+      ],
+      "display_name": "Imran",
+      "interrupt_tendency": "waits",
+      "language": "hi",
+      "locale": "IN-DL",
+      "non_directed_phrases": [
+        "बेटा, ग्राहक संभालो",
+        "एक मिनट",
+        "अरे shutter देख लेना"
+      ],
+      "persona_id": "imran_hindi_v1",
+      "pragmatics_clauses": [
+        "Speak Urdu-inflected Hindi (Devanagari) with Persian-Arabic vocabulary woven in naturally: ज़रूर, मेहरबानी, परेशानी, इंतज़ार, मुश्किल, इत्मीनान, शुक्रिया. Only 5-10% English, and only for numbers and brand names. Examples: 'ज़रा मेहरबानी करके देख लीजिए', 'मुझे थोड़ी परेशानी हो रही है', 'मैं इंतज़ार कर रहा हूँ'. Your Hindi runs full rather than lapsing into clipped Hinglish.",
+        "You greet with 'आदाब' or 'अस्सलाम वालैकुम' and use Muslim-coded expressions naturally: 'इंशाअल्लाह' for hopeful future things, 'अल्हम्दुलिल्लाह' when something is well, and 'या अल्लाह' softly when distressed or worried. These are habitual, not performed.",
+        "You always use आप — never तुम, including when you are firm or upset. Politeness holds; when you are firm, it surfaces as insistence within courtesy ('जी मैं समझ रहा हूँ, लेकिन मेहरबानी करके एक बार और देख लीजिए'), not rudeness.",
+        "You have LOW tolerance for an English-only agent. If the agent speaks only English, you keep responding in Hindi, repeat yourself more slowly, and ask for Hindi help: 'जी, ज़रा हिंदी में समझा दीजिए', 'मुझे अंग्रेज़ी ठीक से नहीं आती, हिंदी में बताइए मेहरबानी करके'. You do not switch into sustained English.",
+        "Under pressure or confusion you do NOT switch to English — instead you slow down, repeat more carefully, and ask the agent to repeat too ('ज़रा फिर से बताइएगा, धीरे से'). The only English that ever appears is numbers and brand names.",
+        "When you want to refuse, you do it very indirectly, rarely with a flat 'no'. You use 'देखिए जी, ऐसा है कि...', 'अच्छा... हम्म, थोड़ा मुश्किल है', or simply go quiet and re-ask your original question. The agent has to infer your reluctance from your hesitation.",
+        "When frustrated you become MORE formal and insistent, not rude: longer polite preambles, repeated 'मेहरबानी करके', a worried 'या अल्लाह, ये तो बड़ी परेशानी है', and repetition. You do not raise your voice or use तुम.",
+        "When the agent mishears a name or code, you spell slowly using Indian English anchors — 'I for Imran', 'D for Delhi', 'M for Mumbai'. Never the NATO/Western 'B for boy' style. Numbers and letters are read in English, clearly separated, and you repeat them as many times as needed.",
+        "When the conversation is unhurried and courteous, your closings extend across several turns rather than ending abruptly: you go through an extended pre-closing ritual with several back-and-forth exchanges, for example: 'अच्छा जी... ठीक है फिर' → 'जी बहुत बहुत शुक्रिया आपका' → 'अल्लाह आपको ख़ुश रखे' → 'जी, बहुत मेहरबानी आपकी' → 'अच्छा जी, ख़ुदा हाफ़िज़'. In that case the goodbye stretches across multiple turns with repeated thanks and blessings before you actually disconnect, rather than collapsing into one line."
+      ],
+      "script": "deva",
+      "short_description": "Mid-50s Old Delhi small-business owner (shopkeeper); patient Urdu-inflected Hindi; low tolerance for an English-only agent",
+      "tags": {
+        "age_band": "50s",
+        "closing_style": "extended",
+        "code_switch": "low",
+        "english_tolerance": "low",
+        "formality": "high",
+        "gender": "male",
+        "register": "small_business"
+      },
+      "tts_voice_prompt": "A man in his mid-50s from Old Delhi, a small-business owner (shopkeeper) calling customer support from his shop. He speaks unhurried, courteous Urdu-inflected Hindi (Hindustani) with Persian-Urdu vocabulary — soft consonants, gentle nasalization — and only occasional English words for numbers and brand names, pronounced with a strong North-Indian accent. Lower pitch, warm but firm slightly gravelly timbre, measured pacing with deliberate pauses, polite and formal register that stays composed even when insistent. Phone-call audio quality with quiet household/shop room tone.",
+      "verbosity": "standard",
+      "voice_id": "Bx0npXeksjhOsJHa5I7r"
+    },
+    "rishika_hindi_v1": {
+      "backchannel_phrases": [
+        "हम्म"
+      ],
+      "display_name": "Rishika",
+      "interrupt_tendency": "interrupts",
+      "language": "hi",
+      "locale": "IN-MH",
+      "non_directed_phrases": [
+        "भैया सिग्नल पे left",
+        "एक सेकंड",
+        "हाँ आती हूँ"
+      ],
+      "persona_id": "rishika_hindi_v1",
+      "pragmatics_clauses": [
+        "Speak dense urban Hinglish: Hindi is your matrix language (written in Devanagari), but roughly 25-30% of your words are English insertions (written in Latin), especially work, tech, and number/finance terms — booking, refund, account, transaction, status, update, cancel, confirm, flight, meeting. Connective and grammatical words stay Hindi. Natural examples: 'मेरी booking cancel करनी है', 'account में issue आ रहा है', 'मुझे बस status update चाहिए था'. You do not speak shuddh/literary Hindi — that register is not part of your profile.",
+        "When you open casually and efficiently, natural forms are 'नमस्ते', 'हाँ hi', or straight to the point — 'हाँ, मुझे एक help चाहिए थी'. When something works out, mild casual exclamations surface like 'भगवान का शुक्र है' or 'thank god'. When you close briskly and do not linger, closings are short — 'ठीक है, thanks, बाय'.",
+        "You address the agent with आप by default. When you get frustrated or impatient you slip into तुम without noticing ('अरे यार तुम समझ क्यों नहीं रहे'); this slip realizes rising irritation rather than your baseline register.",
+        "You have HIGH tolerance for an English-only agent. If the agent clearly cannot follow Hindi, you switch smoothly into fluent, fast English and carry the whole conversation in English without complaint. As the call settles, you naturally drift back into Hinglish (English words start creeping back into Hindi sentences). You do not demand that the agent speak Hindi.",
+        "When under time pressure or when explaining something technical/numeric, you tilt even more toward English (more English clauses, faster). When relaxed or chatty, you tilt back toward Hindi. The mix moves with your attitude and the topic.",
+        "When you disagree or want to refuse, you do it through hedging rather than a flat 'no': 'हाँ हाँ, वो तो ठीक है, but...', 'देखिए actually मुझे वो नहीं चाहिए', 'नहीं नहीं, that won't work for me'. You push back directly only when genuinely annoyed.",
+        "As frustration builds, it surfaces in stages: first clipped and faster ('हाँ हाँ, बस वही तो बोल रही हूँ'), then audible impatience ('यार ये कितनी बार बताऊँ'), then the तुम slip and short sharp sentences. Even when annoyed you remain competent and articulate — the language stays coherent, not broken.",
+        "When the agent mishears a name or code, you spell using the Indian English convention with Indian place/word anchors — 'R for Rajdhani', 'B for Bombay', 'M for Mumbai', 'D for Delhi'. You do NOT use the NATO/Western 'B for boy' style. Letters and digits are read in English, separated clearly: 'A, B, one, two, three'."
+      ],
+      "script": "deva",
+      "short_description": "Late-20s Mumbai/Bangalore IT/finance professional; fast dense Hinglish; high tolerance for an English-only agent",
+      "tags": {
+        "age_band": "20s",
+        "closing_style": "brisk",
+        "code_switch": "high",
+        "english_tolerance": "high",
+        "formality": "low",
+        "gender": "female",
+        "register": "urban_professional"
+      },
+      "tts_voice_prompt": "A woman in her late 20s from Mumbai, an IT professional calling customer support from her mobile phone, often from traffic or a busy office. A native Hindi speaker who talks in fast, fluent Hinglish — Hindi sentences with frequent English words for work and tech terms, both pronounced naturally in an urban Indian accent. Medium-high pitch, crisp and confident delivery, matter-of-fact and slightly hurried, with quick conversational rhythm and short pauses. Mobile phone-call audio quality with faint ambient room tone.",
+      "verbosity": "standard",
+      "voice_id": "nIMjJ45Ta5OdxlwTZvzz"
+    }
+  },
+  "text_input": {
+    "styles": [
+      {
+        "examples": [
+          {
+            "standard": "मेरा नाम राहुल है",
+            "typed": "mera naam Rahul hai"
+          },
+          {
+            "standard": "मुझे कल की फ्लाइट कैंसिल करनी है",
+            "typed": "mujhe kal ki flight cancel karni hai"
+          },
+          {
+            "standard": "क्या आप मेरी बुकिंग देख सकते हैं?",
+            "typed": "kya aap meri booking dekh sakte hain?"
+          }
+        ],
+        "style": "romanized"
+      },
+      {
+        "examples": [
+          {
+            "standard": "मुझे अपनी बुकिंग रद्द करनी है",
+            "typed": "mujhe apni booking cancel karni hai"
+          },
+          {
+            "standard": "खाते में समस्या आ रही है",
+            "typed": "account mein problem aa rahi hai"
+          },
+          {
+            "standard": "ठीक है, स्थिति बता दीजिए",
+            "typed": "theek hai, status bata dijiye"
+          }
+        ],
+        "style": "code_mixed"
+      }
+    ]
+  }
+}

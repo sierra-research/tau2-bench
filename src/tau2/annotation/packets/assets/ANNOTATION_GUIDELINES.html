@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Annotation Guidelines</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 { color: #1565c0; border-bottom: 3px solid #1565c0; padding-bottom: 10px; }
+        h2 { color: #1976d2; margin-top: 30px; border-bottom: 1px solid #e0e0e0; padding-bottom: 8px; }
+        h3 { color: #1e88e5; margin-top: 20px; }
+        h4 { color: #42a5f5; margin-top: 15px; }
+
+        .version { color: #666; font-size: 14px; margin-bottom: 20px; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px 12px;
+            text-align: left;
+        }
+        th { background: #e3f2fd; color: #1565c0; font-weight: 600; }
+        tr:nth-child(even) { background: #fafafa; }
+
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+        }
+        pre {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+        pre code { background: none; color: inherit; padding: 0; }
+
+        blockquote {
+            border-left: 4px solid #1976d2;
+            margin: 15px 0;
+            padding: 10px 20px;
+            background: #e3f2fd;
+            font-style: italic;
+        }
+
+        ul, ol { margin: 10px 0; padding-left: 25px; }
+        li { margin: 6px 0; }
+
+        .toc {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .toc ol { margin: 0; }
+        .toc a { color: #1976d2; text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+
+        .example {
+            background: #fff8e1;
+            border: 1px solid #ffcc02;
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin: 20px 0;
+        }
+        .example h4 { margin-top: 0; color: #f57c00; }
+
+        .key-point {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 10px 15px;
+            margin: 15px 0;
+        }
+
+        .warning {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 10px 15px;
+            margin: 15px 0;
+        }
+
+        hr { border: none; border-top: 1px solid #e0e0e0; margin: 30px 0; }
+    </style>
+</head>
+<body>
+
+<h1>Tau-Voice Qualitative Error Analysis: Annotation Guidelines</h1>
+<p class="version"><strong>Version:</strong> 1.1 &nbsp;|&nbsp; <strong>Last Updated:</strong> February 2026</p>
+
+<div class="toc">
+    <strong>Table of Contents</strong>
+    <ol>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#benchmark">Understanding the Benchmark</a></li>
+        <li><a href="#tasks">How Tasks Are Defined</a></li>
+        <li><a href="#success">How Success Is Determined</a></li>
+        <li><a href="#annotation-task">Annotation Task</a></li>
+        <li><a href="#error-source">Error Source Attribution</a></li>
+        <li><a href="#error-types">Error Type Taxonomy</a></li>
+        <li><a href="#workflow">Annotation Workflow</a></li>
+        <li><a href="#edge-cases">Edge Cases and Disambiguation</a></li>
+        <li><a href="#output">Output Format</a></li>
+        <li><a href="#examples">Examples</a></li>
+    </ol>
+</div>
+
+<hr>
+
+<h2 id="overview">1. Overview</h2>
+
+<h3>Purpose</h3>
+<p>This document provides guidelines for annotating failed voice agent simulations to identify the <strong>first critical error</strong> that caused task failure. The goal is to characterize failure modes in voice-based customer service agents and distinguish between agent errors and user simulator artifacts.</p>
+
+<h3>Scope</h3>
+<p>Annotators will review failed simulations from the Tau-Voice benchmark, where a voice agent interacted with a simulated user to complete customer service tasks (e.g., returns, order modifications, account lookups).</p>
+
+<h3>Key Objective</h3>
+<p>For each failed simulation, identify:</p>
+<ol>
+    <li><strong>Error Source</strong>: Who caused the first critical error (Agent or User Simulator)?</li>
+    <li><strong>Error Type</strong>: What category of error occurred?</li>
+    <li><strong>Notes</strong>: Brief description of what went wrong.</li>
+</ol>
+
+<hr>
+
+<h2 id="benchmark">2. Understanding the Benchmark</h2>
+
+<h3>The Two Participants</h3>
+<p>Each simulation involves two AI participants:</p>
+
+<h4>The Agent (What We're Evaluating)</h4>
+<p>The <strong>Agent</strong> is a voice-based AI customer service representative from providers like OpenAI, Google, or xAI. The agent:</p>
+<ul>
+    <li><strong>Receives audio input</strong> from the user (speech)</li>
+    <li><strong>Produces audio output</strong> to the user (speech)</li>
+    <li><strong>Has access to tools</strong> to look up and modify data (orders, products, user accounts)</li>
+    <li><strong>Must follow a policy</strong> that defines what actions are allowed and required</li>
+</ul>
+<p>The agent's job is complex: it must understand spoken language (including accents, noise, disfluencies), reason about the user's needs, and execute the correct tool calls to fulfill the request—all while following strict policy guidelines.</p>
+
+<h4>The User Simulator (Simulated Customer)</h4>
+<p>The <strong>User Simulator</strong> is an LLM that plays the role of a customer calling the agent. The user simulator:</p>
+<ul>
+    <li><strong>Follows specific task instructions</strong> that define what they want to accomplish</li>
+    <li><strong>Speaks naturally</strong> with disfluencies ("um", "uh"), restarts, and natural pauses</li>
+    <li><strong>Only knows what's in their instructions</strong> (cannot make up information)</li>
+    <li><strong>Must complete their goal</strong> and then end the conversation with <code>###STOP###</code></li>
+</ul>
+<p>The user's job is intentionally simpler (by design). They just need to communicate their request clearly and follow their instructions. <strong>The burden of work is on the agent.</strong></p>
+
+<h3>Why This Asymmetry Matters for Annotation</h3>
+<p>Because the agent has the complex job (policy, tools, reasoning), <strong>agent errors are more common</strong>; user-simulator errors are rarer but occur when the LLM:</p>
+<ul>
+    <li>Makes up information not in its instructions (hallucination)</li>
+    <li>Forgets part of its task</li>
+    <li>Ends the call prematurely</li>
+</ul>
+
+<div class="key-point">
+    <strong>Key Insight:</strong> If the user clearly communicated their need and the task failed, the agent likely made the error.
+</div>
+
+<hr>
+
+<h2 id="tasks">3. How Tasks Are Defined</h2>
+<p>Each task has three main components that you'll see when reviewing simulations:</p>
+
+<h3>3.1 User Instructions (What the User Wants)</h3>
+<p>The user simulator receives structured instructions with:</p>
+
+<table>
+    <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+    <tr><td><strong>domain</strong></td><td>The domain (retail, airline, telecom)</td><td>"retail"</td></tr>
+    <tr><td><strong>reason_for_call</strong></td><td>The specific goal</td><td>"You received order #W2378156 and wish to exchange the keyboard..."</td></tr>
+    <tr><td><strong>known_info</strong></td><td>Information the user knows</td><td>"You are Yusuf Rossi in zip code 19122"</td></tr>
+    <tr><td><strong>unknown_info</strong></td><td>Information the user doesn't know</td><td>"You do not remember your email address"</td></tr>
+    <tr><td><strong>task_instructions</strong></td><td>Behavioral guidance</td><td>"You are detail-oriented and want to address everything in one go"</td></tr>
+</table>
+
+<h3>3.2 Agent Policy (Rules the Agent Must Follow)</h3>
+<p>The agent has a detailed policy document that defines:</p>
+
+<p><strong>Authentication Requirements:</strong></p>
+<ul>
+    <li>Must authenticate user by email OR name + zip code</li>
+    <li>Must authenticate before providing any account information</li>
+</ul>
+
+<p><strong>Allowed Actions:</strong></p>
+<ul>
+    <li>Cancel or modify pending orders</li>
+    <li>Return or exchange delivered orders</li>
+    <li>Modify user's default address</li>
+    <li>Provide information about profile, orders, products</li>
+</ul>
+
+<p><strong>Required Confirmations:</strong></p>
+<ul>
+    <li>Before any action that updates the database, must list details and get explicit "yes" confirmation</li>
+</ul>
+
+<blockquote>
+    "Before taking any action that updates the database, you must list the action details and obtain explicit user confirmation (yes) to proceed."
+</blockquote>
+
+<h3>3.3 User Simulator Guidelines (How to Act Natural)</h3>
+<p>The user simulator follows voice call guidelines that instruct it to:</p>
+
+<p><strong>Speak Naturally:</strong></p>
+<ul>
+    <li>Use disfluencies: "um", "uh", "you know"</li>
+    <li>Spell out special characters: "john underscore doe at gmail dot com"</li>
+    <li>Separate letters/numbers: "J, O, H, N" not "JOHN"</li>
+</ul>
+
+<p><strong>End Appropriately:</strong></p>
+<ul>
+    <li>Generate <code>###STOP###</code> when task is complete</li>
+    <li>Never make up information not in instructions</li>
+</ul>
+
+<hr>
+
+<h2 id="success">4. How Success Is Determined</h2>
+
+<div class="key-point">
+    <strong>The Key Insight:</strong> Unlike subjective evaluations, <strong>Tau-Voice success is objectively verifiable</strong>. This is what makes the benchmark reliable—and what makes your annotation job easier.
+</div>
+
+<h3>4.1 Evaluation Criteria</h3>
+<p>Each task defines exactly what must happen for success:</p>
+
+<p><strong>Expected Actions (Tool Calls):</strong> The benchmark specifies the exact tool calls the agent should make with specific arguments.</p>
+
+<p><strong>Database Checks:</strong> The benchmark verifies that the database state is correct after the conversation.</p>
+
+<h3>4.2 What This Means for Annotators</h3>
+<p><strong>You don't need to understand the policy in full detail.</strong> The benchmark already determined the task failed—your job is to find <em>why</em> it failed.</p>
+
+<p><strong>The user's task is always simple to verify:</strong></p>
+<ul>
+    <li>Did they communicate their known information correctly?</li>
+    <li>Did they follow their task instructions?</li>
+    <li>Did they end the call appropriately?</li>
+</ul>
+
+<p><strong>The agent's task is complex but you can focus on:</strong></p>
+<ul>
+    <li>Did it understand what the user said (transcription)?</li>
+    <li>Did it respond at all (VAD/unresponsive)?</li>
+    <li>Did it make the right tool calls?</li>
+    <li>Did it reason correctly about the request?</li>
+</ul>
+
+<hr>
+
+<h2 id="annotation-task">5. Annotation Task</h2>
+
+<h3>What You're Annotating</h3>
+<p>Each annotation item is a <strong>failed simulation</strong>—a conversation where the agent did not successfully complete the required task(s).</p>
+
+<h3>Your Goal</h3>
+<p>Identify the <strong>first critical error</strong>: the earliest point in the conversation where an error occurred that made task completion impossible or significantly more difficult.</p>
+
+<h3>What "Critical" Means</h3>
+<p>A critical error is one that:</p>
+<ul>
+    <li>Directly caused task failure, OR</li>
+    <li>Made subsequent task completion impossible/improbable, OR</li>
+    <li>Violated important policy/security requirements</li>
+</ul>
+
+<div class="warning">
+    Minor errors that don't affect the outcome should be noted but are NOT the primary focus.
+</div>
+
+<hr>
+
+<h2 id="error-source">6. Error Source Attribution</h2>
+<p>For each failed simulation, attribute the first critical error to one of:</p>
+
+<h3>Agent</h3>
+<p>The voice AI agent caused the error. Examples:</p>
+<ul>
+    <li>Agent misunderstood user speech (transcription error)</li>
+    <li>Agent made a reasoning/logical error</li>
+    <li>Agent failed to respond (VAD/unresponsive)</li>
+    <li>Agent called tools with wrong arguments</li>
+    <li>Agent violated policy (e.g., disclosed info without authentication)</li>
+</ul>
+
+<h3>User Simulator</h3>
+<p>The simulated user caused the error. Examples:</p>
+<ul>
+    <li>User hallucinated information not in their instructions</li>
+    <li>User didn't follow their task instructions</li>
+    <li>User ended the call prematurely without confirmation</li>
+    <li>User provided contradictory information</li>
+</ul>
+
+<h3>Mixed/Unclear</h3>
+<p>Use sparingly when:</p>
+<ul>
+    <li>Both parties contributed to the failure</li>
+    <li>The cause is genuinely ambiguous</li>
+</ul>
+
+<div class="key-point">
+    Even if multiple errors occurred, focus on the <strong>first</strong> critical error that initiated the failure cascade.
+</div>
+
+<hr>
+
+<h2 id="error-types">7. Error Type Taxonomy</h2>
+
+<h3>Agent Error Types</h3>
+<table>
+    <tr><th>Error Type</th><th>Description</th><th>Example</th></tr>
+    <tr><td><strong>logical</strong></td><td>Agent made a reasoning error, misinterpreted information, or made incorrect decisions</td><td>Agent cancelled wrong order; Agent said there are 2 orders when there are 3</td></tr>
+    <tr><td><strong>transcription</strong></td><td>Agent misheard/mistranscribed user speech</td><td>User said "19122" but agent heard "19112"</td></tr>
+    <tr><td><strong>VAD/unresponsive</strong></td><td>Agent failed to detect user speech or stopped responding</td><td>Agent went silent for 25 seconds after user finished speaking</td></tr>
+    <tr><td><strong>tool_call</strong></td><td>Agent made tool call with wrong schema or arguments</td><td>Agent called find_user with "N-A-M-E" instead of "NAME"</td></tr>
+    <tr><td><strong>input_collection</strong></td><td>Agent failed to properly collect required information</td><td>Agent gave up after first authentication attempt</td></tr>
+    <tr><td><strong>hallucination</strong></td><td>Agent made up information not from tools or conversation</td><td>Agent claimed order had 2 items when tool showed 3</td></tr>
+    <tr><td><strong>early_termination</strong></td><td>Agent ended conversation before task was complete</td><td>Agent said "All done!" while order was still pending</td></tr>
+    <tr><td><strong>policy_violation</strong></td><td>Agent violated customer service policy</td><td>Agent shared order details before authenticating user</td></tr>
+</table>
+
+<h3>User Simulator Error Types</h3>
+<table>
+    <tr><th>Error Type</th><th>Description</th><th>Example</th></tr>
+    <tr><td><strong>hallucination</strong></td><td>User provided information not in their task instructions</td><td>User gave specific zip code when instructions only said "authenticate"</td></tr>
+    <tr><td><strong>instruction_following</strong></td><td>User didn't follow their assigned task instructions</td><td>User chose product model when instructions said to choose size</td></tr>
+    <tr><td><strong>early_termination</strong></td><td>User ended call before confirming task completion</td><td>User hung up assuming agent understood</td></tr>
+    <tr><td><strong>inconsistent</strong></td><td>User contradicted their earlier statements</td><td>User gave different names in same conversation</td></tr>
+</table>
+
+<hr>
+
+<h2 id="workflow">8. Annotation Workflow</h2>
+<p>Follow these steps for each simulation:</p>
+
+<ol>
+    <li><strong>Review the Conversation Summary</strong> — Start with the LLM judge's summary (if available) to get an overview. <em>Caution: The LLM judge makes mistakes—use it as a starting point only.</em></li>
+    <li><strong>Understand the User's Goal</strong> — Read the User Instructions to understand what they were trying to accomplish. Focus on: reason_for_call, known_info, unknown_info.</li>
+    <li><strong>Check the Evaluation Criteria</strong> — Look at the Expected Actions to see what tool calls should have happened. Check which actions succeeded vs failed.</li>
+    <li><strong>Locate the Failure Point</strong> — Review the conversation chronologically. Ask: "At what point did the task become impossible to complete?"</li>
+    <li><strong>Examine the Tick/Turn View</strong> — For voice (full-duplex) simulations, use the tick view which shows timestamps, user speech, agent speech, tool calls, and silence periods.</li>
+    <li><strong>Verify the Error</strong> — Confirm the identified error actually prevented success. If unclear from transcription, <strong>listen to the audio</strong>.</li>
+    <li><strong>Assign Attribution and Type</strong> — Determine if Agent or User caused the first critical error, select the error type, and write a brief note.</li>
+</ol>
+
+<hr>
+
+<h2 id="edge-cases">9. Edge Cases and Disambiguation</h2>
+
+<h3>Transcription vs. Logical Error</h3>
+<ul>
+    <li><strong>Transcription</strong>: Agent's speech-to-text produced wrong text → Agent acted on wrong text</li>
+    <li><strong>Logical</strong>: Agent received correct text → Agent made wrong decision</li>
+</ul>
+<p><em>How to tell the difference:</em> Check if the agent's transcription matches what the user actually said. If wrong, it's transcription error. If correct but agent did wrong thing, it's logical error.</p>
+
+<h3>VAD vs. Unresponsive vs. Input Collection</h3>
+<ul>
+    <li><strong>VAD</strong>: Agent failed to detect that user was speaking</li>
+    <li><strong>Unresponsive</strong>: Agent detected speech but didn't respond</li>
+    <li><strong>Input Collection</strong>: Agent heard and responded, but failed to properly gather information</li>
+</ul>
+
+<h3>User Hung Up vs. Agent Error</h3>
+<p>If the user ends the call prematurely, ask:</p>
+<ol>
+    <li>Did the agent give any indication the task was complete?</li>
+    <li>Was the agent unresponsive, forcing the user to give up?</li>
+    <li>Did the user reasonably believe the task was done?</li>
+</ol>
+<p>If the agent's behavior caused the user to reasonably conclude the task was complete → <strong>Agent Error</strong></p>
+
+<h3>Multiple Errors</h3>
+<p>If multiple errors occurred:</p>
+<ul>
+    <li>Focus on the <strong>first critical error</strong></li>
+    <li>Note subsequent errors in the Notes field if relevant</li>
+    <li>Ask: "If the first error hadn't happened, would the task have succeeded?"</li>
+</ul>
+
+<hr>
+
+<h2 id="output">10. Output Format</h2>
+<p>For each simulation, record:</p>
+
+<table>
+    <tr><th>Field</th><th>Description</th><th>Values</th></tr>
+    <tr><td><strong>Task ID</strong></td><td>Unique identifier for the task</td><td>Integer</td></tr>
+    <tr><td><strong>Provider</strong></td><td>Voice provider being evaluated</td><td>openai, gemini, xai</td></tr>
+    <tr><td><strong>Reviewer</strong></td><td>Your name/identifier</td><td>String</td></tr>
+    <tr><td><strong>Error Source</strong></td><td>Who made the first critical error</td><td>agent, user, mixed</td></tr>
+    <tr><td><strong>Error Type</strong></td><td>Category of the error</td><td>See taxonomy above</td></tr>
+    <tr><td><strong>Notes</strong></td><td>Brief explanation of what happened</td><td>Free text</td></tr>
+</table>
+
+<h3>Notes Field Guidelines</h3>
+<ul>
+    <li>Keep notes concise (1-3 sentences)</li>
+    <li>Include specific details: tick ranges, tool names, exact phrases when relevant</li>
+    <li>Mention if the LLM judge's assessment was correct/incorrect</li>
+    <li>Flag any uncertainty or ambiguity</li>
+</ul>
+
+<hr>
+
+<h2 id="examples">11. Examples</h2>
+
+<div class="example">
+    <h4>Example 1: Agent Transcription Error</h4>
+    <p><strong>User Instructions:</strong> Exchange keyboard for one with clicky switches. Known: "Yusuf Rossi, zip 19122"</p>
+    <p><strong>What happened:</strong> User spelled out their zip code as "one, nine, one, two, two". Agent transcribed as "19112" instead of "19122". Authentication failed repeatedly.</p>
+    <p><strong>Error Source:</strong> Agent<br>
+    <strong>Error Type:</strong> transcription<br>
+    <strong>Notes:</strong> Agent mistranscribed zip code despite user spelling it out clearly.</p>
+</div>
+
+<div class="example">
+    <h4>Example 2: Agent Logical Error</h4>
+    <p><strong>User Instructions:</strong> Cancel all pending orders.</p>
+    <p><strong>What happened:</strong> Agent correctly identified 3 pending orders via tool call, then said "I see you have 2 pending orders" and only cancelled 2.</p>
+    <p><strong>Error Source:</strong> Agent<br>
+    <strong>Error Type:</strong> logical<br>
+    <strong>Notes:</strong> Agent tool result showed 3 pending orders but agent claimed only 2 exist.</p>
+</div>
+
+<div class="example">
+    <h4>Example 3: Agent VAD/Unresponsive</h4>
+    <p><strong>User Instructions:</strong> Exchange an item in a delivered order.</p>
+    <p><strong>What happened:</strong> User provided all exchange details and confirmed "yes". Agent went silent for 25 seconds. User checked in twice, no response. User hung up frustrated.</p>
+    <p><strong>Error Source:</strong> Agent<br>
+    <strong>Error Type:</strong> VAD/unresponsive<br>
+    <strong>Notes:</strong> Ticks 1:45-2:10. Agent disappeared after user spelled info.</p>
+</div>
+
+<div class="example">
+    <h4>Example 4: User Hallucination</h4>
+    <p><strong>User Instructions:</strong> "Return the jacket." (no size specified in instructions)</p>
+    <p><strong>What happened:</strong> User told agent "I want to return my size L jacket" when the actual order was size M.</p>
+    <p><strong>Error Source:</strong> User<br>
+    <strong>Error Type:</strong> hallucination<br>
+    <strong>Notes:</strong> User hallucinated jacket size (L) not in instructions.</p>
+</div>
+
+<div class="example">
+    <h4>Example 5: User Instruction Following Error</h4>
+    <p><strong>User Instructions:</strong> "Cancel pending orders AND ask about return policy."</p>
+    <p><strong>What happened:</strong> User successfully cancelled orders, then said goodbye without asking about return policy.</p>
+    <p><strong>Error Source:</strong> User<br>
+    <strong>Error Type:</strong> instruction_following<br>
+    <strong>Notes:</strong> User completed first task but forgot second part of instructions.</p>
+</div>
+
+<div class="example">
+    <h4>Example 6: Agent Tool Call Error</h4>
+    <p><strong>User Instructions:</strong> Look up order status. Known: "Name: Sofia Chen"</p>
+    <p><strong>What happened:</strong> Agent collected name correctly but called find_user_by_name with argument "first_name": "S-O-F-I-A" including the hyphens.</p>
+    <p><strong>Error Source:</strong> Agent<br>
+    <strong>Error Type:</strong> tool_call<br>
+    <strong>Notes:</strong> Agent included literal hyphens in tool call argument. Should have parsed spelled-out letters into "Sofia".</p>
+</div>
+
+<hr>
+
+<h2>Quick Reference Card</h2>
+
+<h3>When Attributing to Agent:</h3>
+<ul>
+    <li>Transcription was wrong (check logs)</li>
+    <li>Agent went silent / stopped responding</li>
+    <li>Tool call had wrong arguments</li>
+    <li>Agent made incorrect logical inference</li>
+    <li>Agent violated policy</li>
+</ul>
+
+<h3>When Attributing to User:</h3>
+<ul>
+    <li>User said information NOT in their instructions</li>
+    <li>User forgot part of their task</li>
+    <li>User ended call without confirmation when agent was still working</li>
+</ul>
+
+<div class="key-point">
+    <strong>Default Assumption:</strong> If user clearly communicated their goal and the task failed → <strong>likely agent error</strong>
+</div>
+
+<hr>
+
+<h2>Questions?</h2>
+<p>If you encounter cases not covered by these guidelines, document them and flag for discussion. Edge cases will be addressed through team calibration sessions.</p>
+
+</body>
+</html>

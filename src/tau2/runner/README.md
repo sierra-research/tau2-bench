@@ -12,6 +12,10 @@ runner/
 ├── batch.py           # Layer 3: run_domain(), run_tasks(), run_single_task()
 ├── helpers.py         # Task loading, run metadata, utilities
 ├── checkpoint.py      # Save/resume logic for batch runs
+├── controller.py      # Multi-run HTTP controller and checkpoint writer
+├── worker.py          # Multiprocess simulation worker
+├── work.py            # Work units, retry queue, and provider caps
+├── run_lock.py        # Exclusive result-directory claims
 ├── progress.py        # Retry logic and status monitoring
 └── README.md          # This file
 ```
@@ -51,7 +55,7 @@ Turns names and configuration into live instances using the registry for name re
 from tau2.runner import build_text_orchestrator, run_simulation
 from tau2 import TextRunConfig
 
-config = TextRunConfig(domain="airline", agent="llm_agent", llm_agent="openai/gpt-4.1")
+config = TextRunConfig(domain="airline", agent="llm_agent", llm_agent="openai/gpt-5.4-mini")
 orchestrator = build_text_orchestrator(config, task, seed=42)
 result = run_simulation(orchestrator)
 ```
@@ -61,6 +65,10 @@ result = run_simulation(orchestrator)
 High-level batch execution with all operational concerns:
 
 - **Concurrency**: Thread pool with configurable `max_concurrency`.
+- **Multiprocess grids**: `run_domains()` interleaves typed configs across one
+  controller and worker fleet with shared provider limits.
+- **Single writer**: Result-directory claims reject overlapping controllers;
+  the active controller is the only checkpoint writer.
 - **Checkpointing**: Atomic save/resume via `checkpoint.py`.
 - **Retries**: Configurable retry with delay via `progress.py`.
 - **Hallucination retries**: When `hallucination_retries > 0` (full-duplex only), re-runs simulations where the user simulator hallucinates, using feedback from `check_hallucination()` in `evaluator.reviewer`.
@@ -77,7 +85,7 @@ Entry points:
 from tau2.runner import run_domain
 from tau2 import TextRunConfig
 
-config = TextRunConfig(domain="airline", agent="llm_agent", llm_agent="openai/gpt-4.1")
+config = TextRunConfig(domain="airline", agent="llm_agent", llm_agent="openai/gpt-5.4-mini")
 results = run_domain(config)
 ```
 

@@ -8,6 +8,9 @@
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?logo=linkedin&logoColor=white)](https://www.linkedin.com/posts/sierra_last-year-we-introduced-%F0%9D%9C%8F-bench-a-benchmark-activity-7338229693898231809-F8L4?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAdc8goBmhEsiEo1_t_XSJbAnY4_zMfAWcE)
 [![Leaderboard](https://img.shields.io/badge/🏆_Live_Leaderboard-taubench.com-brightgreen?style=flat)](https://taubench.com)
 
+> **τ-Multilingual ICASSP 2027 reviewer release:** Start with the
+> [reviewer evidence and reproduction guide](papers/tau-multilingual/README.md).
+
 <div align="center">
 <img src="figs/traj.png" width="95%" alt="Trajectory">
 </div>
@@ -85,7 +88,7 @@ cp .env.example .env
 ### 3. Run an evaluation
 
 ```bash
-tau2 run --domain airline --agent-llm gpt-4.1 --user-llm gpt-4.1 \
+tau2 run --domain airline --agent-llm gpt-5.4-mini --user-llm gpt-5.4-mini \
   --num-trials 1 --num-tasks 5
 ```
 

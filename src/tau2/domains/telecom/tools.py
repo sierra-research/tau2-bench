@@ -20,8 +20,19 @@ from tau2.domains.telecom.data_model import (
 )
 from tau2.domains.telecom.utils import get_today
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.utils.text_match import fold_for_match
 
 # TODO: Add an abstract base class for the tools
+
+
+def _phone_digits(phone_number: str) -> str:
+    """Digits-only form of a phone number, for format-insensitive matching.
+
+    Voice runs cannot control which written format the agent model passes
+    ('555-123-2002' vs '5551232002' vs '555 123 2002'); matching on the digit
+    sequence keeps the lookup about the NUMBER, not its punctuation.
+    """
+    return "".join(ch for ch in phone_number if ch.isdigit())
 
 
 class IDGenerator:
@@ -56,15 +67,19 @@ class TelecomTools(ToolKitBase):
         Returns:
             Customer object if found, None otherwise.
         """
-        # Check primary contact number
+        # Check primary contact number (digit-sequence match: the written
+        # format of a spoken number is not part of the task).
+        wanted = _phone_digits(phone_number)
+        if not wanted:
+            raise ValueError(f"Customer with phone number {phone_number} not found")
         for customer in self.db.customers:
-            if customer.phone_number == phone_number:
+            if _phone_digits(customer.phone_number) == wanted:
                 return customer
 
             # Check lines
             for line_id in customer.line_ids:
                 line = self._get_line_by_id(line_id)
-                if line and line.phone_number == phone_number:
+                if line and _phone_digits(line.phone_number) == wanted:
                     return customer
 
         raise ValueError(f"Customer with phone number {phone_number} not found")
@@ -99,11 +114,20 @@ class TelecomTools(ToolKitBase):
         Returns:
             List of matching Customer objects.
         """
+        # The name is matched case- AND diacritic-insensitively: in voice runs
+        # the caller SAYS their name, and whether the agent's transcription
+        # carries the accents ('Álvaro Fernández') or not ('Alvaro Fernandez')
+        # is an orthography coin-flip, not a comprehension failure. Matching on
+        # the folded form keeps the lookup about the NAME. The DOB, which the
+        # caller dictates digit by digit, still has to match exactly — it is
+        # the actual verification factor.
+        wanted_name = fold_for_match(full_name)
+
         matching_customers = []
 
         for customer in self.db.customers:
             if (
-                customer.full_name.lower() == full_name.lower()
+                fold_for_match(customer.full_name) == wanted_name
                 and customer.date_of_birth == dob
             ):
                 matching_customers.append(customer)
@@ -124,8 +148,17 @@ class TelecomTools(ToolKitBase):
         Raises:
             ValueError: If the line with the specified phone number is not found.
         """
+        wanted = _phone_digits(phone_number)
+        wanted = next(
+            (
+                _phone_digits(canonical)
+                for alias, canonical in self.db.phone_number_aliases.items()
+                if _phone_digits(alias) == wanted
+            ),
+            wanted,
+        )
         for line in self.db.lines:
-            if line.phone_number == phone_number:
+            if wanted and _phone_digits(line.phone_number) == wanted:
                 return line
         raise ValueError(f"Line with phone number {phone_number} not found")
 

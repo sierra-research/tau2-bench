@@ -26,7 +26,10 @@ class DeepgramSTTConfig(BaseModel):
     Attributes:
         provider: Provider identifier (always "deepgram").
         model: Deepgram model to use. "nova-3" is the latest and most accurate.
-        language: Language code (e.g., "en-US", "es", "fr").
+        language: Language code (e.g., "en-US", "es", "fr"). Defaults to
+            "en-US"; overridden with the run's language-pack code when a
+            multilingual persona is active (see create_adapter in
+            tau2.voice.audio_native.adapter).
         interim_results: Whether to return interim (partial) transcripts.
         vad_events: Whether to emit VAD events (speech start/end).
         endpointing_ms: Silence duration (ms) before considering speech ended.
@@ -63,25 +66,29 @@ class OpenAILLMConfig(BaseModel):
 
     Provides full control over OpenAI model parameters, including:
     - Thinking models (o1, o3) via reasoning_effort
-    - Standard models (gpt-4.1, gpt-4.1-mini) via temperature
+    - Standard models (gpt-5.4-mini, gpt-4.1-mini) via temperature
 
     Attributes:
         provider: Provider identifier (always "openai").
-        model: Model name (e.g., "gpt-4.1", "o3-mini", "gpt-4.1-mini").
+        model: Model name (e.g., "gpt-5.4-mini", "o3-mini", "gpt-4.1-mini").
         temperature: Sampling temperature (0.0-2.0). Not used for thinking models.
         top_p: Nucleus sampling parameter.
-        reasoning_effort: For thinking models (o1, o3): "minimal", "low", "medium", "high".
-            Controls how much "thinking" the model does before responding.
+        reasoning_effort: For reasoning models: "none", "minimal", "low", "medium",
+            "high". Controls how much "thinking" the model does before responding.
+            Left unset, gpt-5* models default to the codebase-wide
+            DEFAULT_GPT5_REASONING_EFFORT (fast, low-latency) in the provider.
         max_completion_tokens: Maximum tokens in the response.
         timeout_seconds: Request timeout in seconds.
         parallel_tool_calls: Whether to allow parallel tool calls.
     """
 
     provider: Literal["openai"] = "openai"
-    model: str = "gpt-4.1"
+    model: str = "gpt-5.4-mini"
     temperature: Optional[float] = None
     top_p: Optional[float] = None
-    reasoning_effort: Optional[Literal["minimal", "low", "medium", "high"]] = None
+    reasoning_effort: Optional[
+        Literal["none", "minimal", "low", "medium", "high", "xhigh"]
+    ] = None
     max_completion_tokens: Optional[int] = None
     timeout_seconds: Optional[float] = None
     parallel_tool_calls: Optional[bool] = None
@@ -188,10 +195,11 @@ class CascadedConfig(BaseModel):
 # =============================================================================
 
 CASCADED_CONFIGS: Dict[str, CascadedConfig] = {
-    # Default: Balanced speed and quality
+    # Default: Balanced speed and quality. Effort pinned explicitly — every
+    # reasoning model in this catalog carries a pin (no silent defaults).
     "default": CascadedConfig(
         stt=DeepgramSTTConfig(model="nova-3"),
-        llm=OpenAILLMConfig(model="gpt-4.1"),
+        llm=OpenAILLMConfig(model="gpt-5.4-mini", reasoning_effort="low"),
         tts=DeepgramTTSConfig(model="aura-asteria-en"),
     ),
     # OpenAI thinking: Uses OpenAI's thinking models with high reasoning effort

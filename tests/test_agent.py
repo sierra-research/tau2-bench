@@ -64,3 +64,45 @@ def test_solo_agent(solo_agent: LLMSoloAgent):
     assert isinstance(agent_msg, AssistantMessage)
     assert agent_state is not None
     assert len(agent_state.messages) == 1
+
+
+def test_end_call_toolcall_marks_agent_stop(agent: LLMAgent):
+    """An end_call tool call is a call terminator for both agent classes."""
+    from types import SimpleNamespace
+
+    from tau2.agent.discrete_time_audio_native_agent import (
+        DiscreteTimeAudioNativeAgent,
+    )
+    from tau2.data_model.message import ToolCall
+
+    hangup = AssistantMessage(
+        role="assistant",
+        content=None,
+        tool_calls=[ToolCall(id="1", name="end_call", arguments={})],
+    )
+    marked = agent._check_if_stop_toolcall(hangup.model_copy(deep=True))
+    assert LLMAgent.is_stop(marked)
+
+    voice_self = SimpleNamespace(
+        STOP_TOOL_NAMES=DiscreteTimeAudioNativeAgent.STOP_TOOL_NAMES,
+        STOP_TOKEN=DiscreteTimeAudioNativeAgent.STOP_TOKEN,
+    )
+    voice_marked = DiscreteTimeAudioNativeAgent._check_if_stop_toolcall(
+        voice_self, hangup.model_copy(deep=True)
+    )
+    assert DiscreteTimeAudioNativeAgent.is_stop(voice_marked)
+
+    # A transfer in TEXT mode still ends via the user's ###TRANSFER###, not
+    # an agent stop; in VOICE it remains a call terminator.
+    transfer = AssistantMessage(
+        role="assistant",
+        content=None,
+        tool_calls=[ToolCall(id="1", name="transfer_to_human_agents", arguments={})],
+    )
+    assert not LLMAgent.is_stop(agent._check_if_stop_toolcall(transfer))
+    assert "transfer_to_human_agents" in DiscreteTimeAudioNativeAgent.STOP_TOOL_NAMES
+
+
+def test_plain_agent_reply_is_not_stop(agent: LLMAgent):
+    reply = AssistantMessage(role="assistant", content="One moment please.")
+    assert not LLMAgent.is_stop(agent._check_if_stop_toolcall(reply))

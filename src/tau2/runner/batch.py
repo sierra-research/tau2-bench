@@ -13,7 +13,6 @@ import asyncio.base_events
 import json
 import multiprocessing
 import os
-import random
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -27,10 +26,12 @@ from loguru import logger
 from tau2.data_model.persona import InterruptTendency, PersonaConfig, Verbosity
 from tau2.data_model.simulation import (
     AudioNativeConfig,
+    HallucinationCheck,
     Info,
     Results,
     RunConfig,
     SimulationRun,
+    TerminationReason,
     TextRunConfig,
     UserInfo,
     VoiceRunConfig,
@@ -41,21 +42,27 @@ from tau2.data_model.voice_personas import warn_if_non_official_voices
 from tau2.evaluator.evaluator import EvaluationType
 from tau2.evaluator.reviewer import check_hallucination, format_hallucination_feedback
 from tau2.metrics.agent_metrics import compute_metrics
-from tau2.registry import registry
+from tau2.multilingual.registry import require_caller_persona
 from tau2.runner.build import _build_env_kwargs, build_orchestrator
 from tau2.runner.checkpoint import (
     create_checkpoint_fns,
     try_resume,
 )
-from tau2.runner.helpers import get_info, get_tasks, make_run_name
+from tau2.runner.discard_archive import archive_discarded_simulation
+from tau2.runner.helpers import get_info, make_run_name, resolve_tasks, trial_seeds
 from tau2.runner.progress import StatusMonitor, run_with_retry
 from tau2.runner.simulation import run_simulation
 from tau2.runner.work import WorkQueue, WorkUnit, make_unit_id
+from tau2.task_subsets import TaskSubset
 from tau2.user.user_simulator import (
     get_global_user_sim_guidelines,
     get_global_user_sim_guidelines_voice,
 )
-from tau2.user_simulation_voice_presets import COMPLEXITY_CONFIGS
+from tau2.user_simulation_voice_presets import (
+    CHANNEL_EFFECTS_MODES,
+    COMPLEXITY_CONFIGS,
+    SPEECH_EFFECTS_MODES,
+)
 from tau2.utils.display import ConsoleDisplay, Text
 from tau2.utils.llm_utils import llm_log_mode, set_llm_log_dir, set_llm_log_mode
 from tau2.utils.utils import DATA_DIR
@@ -67,6 +74,30 @@ _current_simulation_id: ContextVar[Optional[str]] = ContextVar(
 )
 
 
+def infrastructure_error_count(results: Results) -> int:
+    """Count simulations that exhausted retries due to infrastructure."""
+    return sum(
+        simulation.termination_reason == TerminationReason.INFRASTRUCTURE_ERROR
+        for simulation in results.simulations
+    )
+
+
+def _display_batch_completion(results: Results) -> None:
+    error_count = infrastructure_error_count(results)
+    if error_count:
+        ConsoleDisplay.console.print(
+            f"\n[bold red]Completed with {error_count} infrastructure "
+            f"error{'s' if error_count != 1 else ''}.[/bold red]\n"
+            "The failed simulations remain checkpointed; rerun with "
+            "[bold blue]--auto-resume[/bold blue] to retry them."
+        )
+        return
+    ConsoleDisplay.console.print(
+        "\n[bold green]Successfully completed all simulations![/bold green]\n"
+        "To review the simulations, run: [bold blue]tau2 view[/bold blue]"
+    )
+
+
 # =============================================================================
 # Asyncio event loop management for worker threads
 # =============================================================================
@@ -74,9 +105,9 @@ _current_simulation_id: ContextVar[Optional[str]] = ContextVar(
 _original_del = asyncio.base_events.BaseEventLoop.__del__
 
 
-def _patched_del(self):
+def _patched_del(self, _delegate=_original_del):
     try:
-        _original_del(self)
+        _delegate(self)
     except AttributeError:
         pass
 
@@ -357,6 +388,7 @@ def run_single_task(
     review_mode: str = "full",
     review_model: Optional[str] = None,
     hallucination_feedback: Optional[str] = None,
+    llm_communicate_judge: Optional[bool] = None,
 ) -> SimulationRun:
     """Run a single task simulation with logging and optional side effects.
 
@@ -379,6 +411,9 @@ def run_single_task(
         audio_debug: Enable audio debug analysis.
         auto_review: Run LLM conversation review after simulation.
         review_mode: Review mode ("full" or "user").
+        llm_communicate_judge: Force (True) or disable (False) the LLM judge
+            for communicate_info checks. None (default) auto-activates the
+            judge only for non-English runs.
         review_model: LLM model to use for review and auth classification.
 
     Returns:
@@ -420,7 +455,14 @@ def run_single_task(
         # Layer 1: Run the simulation
         env_kwargs = _build_env_kwargs(config, task) or None
         simulation = run_simulation(
-            orchestrator, evaluation_type=evaluation_type, env_kwargs=env_kwargs
+            orchestrator,
+            evaluation_type=evaluation_type,
+            scores=config.scores,
+            nativeness_judge=config.nativeness_judge,
+            quality_judge=config.quality_judge,
+            delivery_judge=config.delivery_judge if is_voice else None,
+            env_kwargs=env_kwargs,
+            llm_communicate_judge=llm_communicate_judge,
         )
 
         # Side effects
@@ -463,6 +505,37 @@ def run_single_task(
 # =============================================================================
 
 
+def run_level_user_persona_config(config: VoiceRunConfig) -> Optional[PersonaConfig]:
+    """Run-level persona config for voice runs, or None to defer to per-task sampling.
+
+    With a persona override (--user-persona-id) this returns None: the persona
+    config must come from the per-task sampled voice config, which for
+    language-pack personas is the MultilingualPersonaConfig carrying the
+    localized guidelines/backchannel overrides, with author-owned verbosity and
+    interrupt tendency. Pre-computing a plain PersonaConfig here would shadow
+    it in build_voice_user (see the persona_config fallback there).
+
+    Without an override, the persona behavior knobs come from the
+    speech-complexity preset with the run's effects-mode overlays applied —
+    the same overlay sample_voice_config performs, so the run-level config
+    can never shadow a mode-adjusted interrupt tendency (bugbot finding on
+    #895: --speech-effects-mode light must actually produce a waiting
+    caller, since interrupt_tendency is what gates interruptions in the
+    streaming simulator).
+    """
+    if config.user_persona_id is not None:
+        return None
+    complexity_config = {
+        **COMPLEXITY_CONFIGS[config.speech_complexity],
+        **CHANNEL_EFFECTS_MODES[config.channel_effects_mode],
+        **SPEECH_EFFECTS_MODES[config.speech_effects_mode],
+    }
+    return PersonaConfig(
+        verbosity=Verbosity(complexity_config["verbosity"]),
+        interrupt_tendency=InterruptTendency(complexity_config["interrupt_tendency"]),
+    )
+
+
 @dataclass
 class _BatchContext:
     """Everything run_unit() needs besides the unit itself.
@@ -483,6 +556,7 @@ class _BatchContext:
     monitor: Optional[StatusMonitor] = None
     shutdown_event: Optional[threading.Event] = None
     llm_log_mode_value: Optional[str] = None
+    llm_communicate_judge: Optional[bool] = None
 
 
 def make_voice_run_settings(
@@ -496,11 +570,7 @@ def make_voice_run_settings(
         transcription_config=None,
         synthesis_config=SynthesisConfig(),
     )
-    complexity_config = COMPLEXITY_CONFIGS[config.speech_complexity]
-    user_persona_config = PersonaConfig(
-        verbosity=Verbosity(complexity_config["verbosity"]),
-        interrupt_tendency=InterruptTendency(complexity_config["interrupt_tendency"]),
-    )
+    user_persona_config = run_level_user_persona_config(config)
     return user_voice_settings, user_persona_config
 
 
@@ -567,6 +637,7 @@ def run_unit(
             review_mode=config.review_mode,
             review_model=config.review_model,
             hallucination_feedback=hallucination_feedback,
+            llm_communicate_judge=ctx.llm_communicate_judge,
         )
 
     try:
@@ -587,9 +658,23 @@ def run_unit(
         if hallucination_retries > 0 and is_full_duplex:
             hallucination_retry_count = 0
             while True:
-                h_check = check_hallucination(
-                    result, task, review_model=config.review_model
-                )
+                # The simulation itself already completed (and is
+                # checkpointed); a reviewer failure must not kill the batch.
+                try:
+                    h_check = check_hallucination(
+                        result, task, review_model=config.review_model
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Hallucination check failed for task {task.id} "
+                        f"(trial {trial + 1}): {e}. Recording simulation "
+                        "with hallucination check marked as errored."
+                    )
+                    result.hallucination_check = HallucinationCheck(
+                        summary="Hallucination check errored; conversation was not checked.",
+                        check_error=str(e),
+                    )
+                    break
                 result.hallucination_check = h_check
 
                 if (
@@ -608,26 +693,19 @@ def run_unit(
                 )
                 ConsoleDisplay.console.print(retry_text)
 
-                # Save discarded run
+                # Archive discarded run (diagnostics only; never fails the unit)
                 if save_dir is not None:
-                    discarded_dir = save_dir / "hallucination_discarded"
-                    discarded_dir.mkdir(parents=True, exist_ok=True)
-                    # One owner per file: retry workers must not rewrite a
-                    # shared archive concurrently.
-                    discarded_path = discarded_dir / f"{result.id}.json"
-                    discarded_results = Results(
+                    discarded_path = archive_discarded_simulation(
+                        save_dir=save_dir,
                         info=ctx.info,
-                        tasks=[task],
-                        simulations=[result],
+                        task=task,
+                        simulation=result,
                     )
-                    discarded_path.write_text(
-                        discarded_results.model_dump_json(indent=2)
-                    )
-
-                    logger.info(
-                        f"Saved discarded hallucination run to {discarded_path} "
-                        f"(task {task.id}, retry {hallucination_retry_count})"
-                    )
+                    if discarded_path is not None:
+                        logger.info(
+                            f"Saved discarded hallucination run to {discarded_path} "
+                            f"(task {task.id}, retry {hallucination_retry_count})"
+                        )
 
                 # Mark the discarded sim directory
                 if save_dir is not None:
@@ -719,14 +797,35 @@ def prepare_batch(
     console_display: bool = True,
     results_format: str = "json",
     run_id: Optional[str] = None,
+    task_subset: Optional["TaskSubset"] = None,
 ) -> BatchPrep:
     """Validate a run, resume its checkpoint, and compute the units still owed.
 
     Shared by run_tasks (local execution) and the controller (which registers
     the prep and hands its units to worker processes).
+
+    Args:
+        task_subset: The resolved subset `tasks` was filtered to, if any.
+            Recorded in the results' Info; the caller does the filtering, so
+            passing a subset here that was not applied would be a lie in the
+            provenance rather than a second filter.
+
+    Raises:
+        ValueError: If no tasks are provided, or trial/step/error counts are invalid.
+        PersonaResolutionError: If the run cannot speak as the caller its
+            configuration and tasks require (see ``require_caller_persona``).
     """
     if isinstance(save_path, str):
         save_path = Path(save_path)
+
+    # Before anything else: a run that cannot honour its caller persona must
+    # die here, not write calls in the wrong voice. This is the batch prep
+    # path shared by local and controller execution, so it is the last place
+    # to catch a localized task set launched without its --user-persona-id
+    # (which the samplers would otherwise service with a stock English voice).
+    require_caller_persona(
+        config.user_persona_id, [task.id for task in tasks], config.domain
+    )
 
     if len(tasks) == 0:
         raise ValueError("No tasks to run")
@@ -739,8 +838,7 @@ def prepare_batch(
         raise ValueError("Max errors must be greater than 0")
 
     # Seed management
-    random.seed(config.seed)
-    seeds = [random.randint(0, 1000000) for _ in range(config.num_trials)]
+    seeds = trial_seeds(config.seed, config.num_trials)
     if (
         isinstance(config, TextRunConfig)
         and config.llm_args_agent
@@ -786,6 +884,8 @@ def prepare_batch(
         user_persona_config=user_persona_config,
         user_voice_settings=user_voice_settings,
         policy_override=policy_override,
+        task_subset=task_subset,
+        tasks_scored=len(tasks),
     )
     simulation_results = Results(
         info=info,
@@ -803,6 +903,7 @@ def prepare_batch(
             num_trials=config.num_trials,
             auto_resume=config.auto_resume,
             results_format=results_format,
+            redo_stale_tasks=config.redo_stale_tasks,
         )
 
     # Create checkpoint saver and replacer (shared state for dir format)
@@ -878,6 +979,9 @@ def run_tasks(
     evaluation_type: EvaluationType = EvaluationType.ALL,
     console_display: bool = True,
     results_format: str = "json",
+    llm_communicate_judge: Optional[bool] = None,
+    task_subset: Optional["TaskSubset"] = None,
+    _claim_directory: bool = True,
 ) -> Results:
     """Run simulations for a list of tasks with concurrency, checkpointing, and retries.
 
@@ -897,15 +1001,47 @@ def run_tasks(
         save_dir: Directory for saving logs, audio, etc. If None, derived from save_path.
         evaluation_type: Evaluation type to use for all simulations.
         console_display: Whether to show console output for each simulation.
+        llm_communicate_judge: Force (True) or disable (False) the LLM judge
+            for communicate_info checks. None (default) auto-activates the
+            judge only for non-English runs. Prefer the recorded RunConfig
+            field; this parameter remains as a compatibility override.
+        task_subset: The resolved subset `tasks` was filtered to, if any.
+            Recorded in the results' Info; the caller does the filtering, so
+            passing a subset here that was not applied would be a lie in the
+            provenance rather than a second filter.
 
     Returns:
         Results object with all simulation runs.
 
     Raises:
         ValueError: If no tasks are provided, or trial/step/error counts are invalid.
+        PersonaResolutionError: If the run cannot speak as the caller its
+            configuration and tasks require (see ``require_caller_persona``).
     """
     if isinstance(save_path, str):
         save_path = Path(save_path)
+    if _claim_directory and save_path is not None:
+        from tau2.runner.run_lock import claim_run_directories
+
+        with claim_run_directories([save_path.parent]):
+            return run_tasks(
+                config,
+                tasks,
+                save_path=save_path,
+                save_dir=save_dir,
+                evaluation_type=evaluation_type,
+                console_display=console_display,
+                results_format=results_format,
+                llm_communicate_judge=llm_communicate_judge,
+                task_subset=task_subset,
+                _claim_directory=False,
+            )
+    if llm_communicate_judge is not None:
+        config = config.model_copy(
+            update={
+                "communicate_judge_mode": ("llm" if llm_communicate_judge else "exact")
+            }
+        )
 
     # Set log level from config
     logger.remove()
@@ -919,6 +1055,7 @@ def run_tasks(
         evaluation_type=evaluation_type,
         console_display=console_display,
         results_format=results_format,
+        task_subset=task_subset,
     )
     tasks = prep.tasks
     simulation_results = prep.simulation_results
@@ -945,10 +1082,7 @@ def run_tasks(
             )
         finally:
             monitor.stop()
-        ConsoleDisplay.console.print(
-            "\n[bold green]Successfully completed all simulations![/bold green]\n"
-            "To review the simulations, run: [bold blue]tau2 view[/bold blue]"
-        )
+        _display_batch_completion(simulation_results)
         return simulation_results
 
     # Pre-register LiveKit plugins on main thread before sim threads spawn
@@ -970,6 +1104,11 @@ def run_tasks(
         # Capture ContextVar values from the main thread so worker threads
         # (which get a fresh default context) can re-apply them.
         llm_log_mode_value=llm_log_mode.get(),
+        llm_communicate_judge=(
+            config.llm_communicate_judge_override
+            if llm_communicate_judge is None
+            else llm_communicate_judge
+        ),
     )
 
     # Local execution: max_concurrency consumer threads pull from the queue.
@@ -1002,6 +1141,15 @@ def run_tasks(
             with results_lock:
                 simulation_results.simulations.append(result)
 
+    # Eagerly complete language-pack discovery on the main thread before any
+    # worker starts. The loader is thread-safe on its own, but doing it here
+    # also avoids the first wave of workers paying lazy-load latency under
+    # contention. Voice-only: multilingual packs are not used by text runs.
+    if isinstance(config, VoiceRunConfig):
+        from tau2.multilingual.loader import load_language_packs
+
+        load_language_packs()
+
     executor = ThreadPoolExecutor(max_workers=config.max_concurrency)
     futures: dict = {}
     try:
@@ -1033,10 +1181,7 @@ def run_tasks(
         if not shutdown_event.is_set():
             executor.shutdown(wait=True)
 
-    ConsoleDisplay.console.print(
-        "\n[bold green]Successfully completed all simulations![/bold green]\n"
-        "To review the simulations, run: [bold blue]tau2 view[/bold blue]"
-    )
+    _display_batch_completion(simulation_results)
     return simulation_results
 
 
@@ -1045,40 +1190,35 @@ def run_tasks(
 # =============================================================================
 
 
-def _load_run_tasks(config: RunConfig) -> list[Task]:
-    """Load a config's tasks and apply the agent's registered task filter."""
-    task_set_name = config.task_set_name or config.domain
-    tasks = get_tasks(
-        task_set_name=task_set_name,
-        task_split_name=config.task_split_name,
-        task_ids=config.task_ids,
-        num_tasks=config.num_tasks,
-    )
+def _load_run_tasks(config: RunConfig) -> tuple[list[Task], Optional["TaskSubset"]]:
+    """Resolve a config's tasks and print selection warnings/notices.
 
-    effective_agent = config.effective_agent
-    task_filter = registry.get_agent_task_filter(effective_agent)
-    if task_filter is not None:
-        total_num_tasks = len(tasks)
-        tasks = [task for task in tasks if task_filter(task)]
-        num_tasks = len(tasks)
-        console_text = Text(
-            text=f"Running {num_tasks} out of {total_num_tasks} tasks for {effective_agent} (filtered).",
-            style="bold green",
-        )
-        ConsoleDisplay.console.print(console_text)
-    return tasks
+    Selection lives in resolve_tasks so `tau2 run refill` can ask what a
+    config resolves to before it deletes anything. Returns the tasks and the
+    recorded subset (if any) so callers can record it in the results' Info.
+    """
+    resolved = resolve_tasks(config)
+    for warning in resolved.warnings:
+        ConsoleDisplay.console.print(Text(text=warning, style="bold yellow"))
+    for notice in resolved.notices:
+        ConsoleDisplay.console.print(Text(text=notice, style="bold green"))
+    return resolved.tasks, resolved.recorded_subset
 
 
 def _run_save_paths(config: RunConfig) -> tuple[str, Path, Path, str]:
     """(run_name, save_dir, save_path, results_format) for a config.
 
     Voice runs use directory format (individual sim files) because voice
-    simulations with tick data are very large; text runs use monolithic JSON.
+    simulations with tick data are very large; text runs use monolithic JSON
+    unless the config pins a format (pool cells pin "dir" so the census and
+    packet builders read one format regardless of modality).
     """
     run_name = config.save_to or make_run_name(config)
     save_dir = DATA_DIR / "simulations" / run_name
     save_path = save_dir / "results.json"
-    results_format = "dir" if isinstance(config, VoiceRunConfig) else "json"
+    results_format = config.results_format or (
+        "dir" if isinstance(config, VoiceRunConfig) else "json"
+    )
     return run_name, save_dir, save_path, results_format
 
 
@@ -1104,7 +1244,7 @@ def run_domain(config: RunConfig) -> Results:
     if isinstance(config, VoiceRunConfig):
         warn_if_non_official_voices()
 
-    tasks = _load_run_tasks(config)
+    tasks, recorded_subset = _load_run_tasks(config)
     _, save_dir, save_path, results_format = _run_save_paths(config)
 
     # Run batch
@@ -1114,6 +1254,7 @@ def run_domain(config: RunConfig) -> Results:
         save_path=save_path,
         save_dir=save_dir,
         results_format=results_format,
+        task_subset=recorded_subset,
     )
 
     # Compute and display metrics
@@ -1137,12 +1278,33 @@ def run_domains(
     controller interleaves their units across one worker fleet under shared
     provider caps. Returns {run_name: Results}.
     """
-    from tau2.runner.controller import drive_batches
+    from tau2.runner.run_lock import claim_run_directories
 
     if workers <= 0:
         raise ValueError("run_domains requires workers >= 1")
     if not configs:
         raise ValueError("No configs to run")
+    run_dirs = [_run_save_paths(config)[1] for config in configs]
+    if len(set(run_dirs)) != len(run_dirs):
+        raise ValueError("Every run_domains config must use a distinct results dir")
+    with claim_run_directories(run_dirs):
+        return _run_domains_claimed(
+            configs,
+            workers=workers,
+            provider_limits=provider_limits,
+            global_limit=global_limit,
+        )
+
+
+def _run_domains_claimed(
+    configs: list[RunConfig],
+    *,
+    workers: int,
+    provider_limits: Optional[dict[str, int]] = None,
+    global_limit: Optional[int] = None,
+) -> dict[str, Results]:
+    """Implementation of :func:`run_domains` under result-directory claims."""
+    from tau2.runner.controller import drive_batches
 
     logger.remove()
     logger.add(lambda msg: print(msg), level=configs[0].log_level)
@@ -1153,7 +1315,7 @@ def run_domains(
         ConsoleDisplay.display_run_config(config)
         if isinstance(config, VoiceRunConfig):
             warn_if_non_official_voices()
-        tasks = _load_run_tasks(config)
+        tasks, recorded_subset = _load_run_tasks(config)
         run_name, save_dir, save_path, results_format = _run_save_paths(config)
         preps.append(
             prepare_batch(
@@ -1163,6 +1325,7 @@ def run_domains(
                 save_dir=save_dir,
                 results_format=results_format,
                 run_id=run_name,
+                task_subset=recorded_subset,
             )
         )
 

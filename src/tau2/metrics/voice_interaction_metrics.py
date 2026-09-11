@@ -34,9 +34,11 @@ for the parity test. Full definitions live in ``docs/interaction-metrics.md``.
 """
 
 from dataclasses import asdict, dataclass, field
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from statistics import fmean
+from typing import TYPE_CHECKING, Annotated, List, Optional, Tuple
 
 from loguru import logger
+from pydantic import BaseModel, Field
 
 from tau2.data_model.message import Tick
 
@@ -45,7 +47,7 @@ if TYPE_CHECKING:
 
     from tau2.data_model.simulation import Results
 
-INTERACTION_METRICS_VERSION = "1.0"
+INTERACTION_METRICS_VERSION = "1.1"
 
 
 @dataclass
@@ -65,6 +67,66 @@ class InteractionMetricsConfig:
 
     def as_dict(self) -> dict:
         return asdict(self)
+
+
+class VoiceInteractionMetricCounts(BaseModel):
+    """Event denominators backing one voice interaction-metric panel."""
+
+    n_simulations: Annotated[
+        int, Field(description="Tick-bearing simulations summarized.", ge=0)
+    ]
+    response_total: Annotated[
+        int, Field(description="Response-eligible caller turns.", ge=0)
+    ]
+    yield_total: Annotated[
+        int, Field(description="Real caller interruptions scored for yielding.", ge=0)
+    ]
+    backchannel_total: Annotated[
+        int, Field(description="Caller backchannels scored for selectivity.", ge=0)
+    ]
+    vocal_tic_total: Annotated[
+        int, Field(description="Caller vocal tics scored for selectivity.", ge=0)
+    ]
+    non_directed_total: Annotated[
+        int, Field(description="Non-directed speech events scored.", ge=0)
+    ]
+    agent_interrupts_count: Annotated[
+        int, Field(description="Agent speech onsets during caller speech.", ge=0)
+    ]
+
+
+class VoiceInteractionMetrics(BaseModel):
+    """The complete per-call or per-experiment τ-voice metric panel."""
+
+    response_latency_mean: Annotated[
+        Optional[float], Field(description="Mean caller-to-agent response latency.")
+    ] = None
+    yield_latency_mean: Annotated[
+        Optional[float], Field(description="Mean latency to yield after interruption.")
+    ] = None
+    response_rate: Annotated[
+        Optional[float], Field(description="Fraction of caller turns answered.")
+    ] = None
+    yield_rate: Annotated[
+        Optional[float], Field(description="Fraction of interruptions yielded to.")
+    ] = None
+    agent_interruption_rate: Annotated[
+        Optional[float], Field(description="Agent interruptions per caller turn.")
+    ] = None
+    selectivity_backchannel: Annotated[
+        Optional[float], Field(description="Correct handling rate for backchannels.")
+    ] = None
+    selectivity_vocal_tic: Annotated[
+        Optional[float], Field(description="Correct handling rate for vocal tics.")
+    ] = None
+    selectivity_non_directed: Annotated[
+        Optional[float],
+        Field(description="Correct handling rate for non-directed speech."),
+    ] = None
+    counts: Annotated[
+        VoiceInteractionMetricCounts,
+        Field(description="Event counts backing every rate and opportunity check."),
+    ]
 
 
 # =============================================================================
@@ -1954,13 +2016,99 @@ def extract_voice_quality_events_from_simulation(
                 )
             )
 
-        # Note: "agent_interrupts_user" events are tracked but not used in metrics
-        # since we focus on agent errors, not user behavior
+        elif ie.event_type == "agent_interrupts_user":
+            events.append(
+                VoiceQualityEvent(
+                    event_category="agent_interruption",
+                    event_type="agent_interrupts_user",
+                    is_error=True,
+                    latency_sec=None,
+                    event_time_sec=ie.interrupter_start_time_sec,
+                    event_tick=ie.interrupter_start_tick,
+                    transcript=ie.interrupter_transcript,
+                    **base_metadata,
+                )
+            )
 
     # Sort by event time
     events.sort(key=lambda e: e.event_time_sec)
 
     return events
+
+
+def summarize_voice_quality_events(
+    events: List[VoiceQualityEvent], *, n_simulations: int
+) -> VoiceInteractionMetrics:
+    """Summarize extracted events into the canonical eight-metric panel."""
+
+    def count(event_type: str) -> int:
+        return sum(event.event_type == event_type for event in events)
+
+    def mean_latency(event_type: str) -> Optional[float]:
+        values = [
+            event.latency_sec
+            for event in events
+            if event.event_type == event_type and event.latency_sec is not None
+        ]
+        return fmean(values) if values else None
+
+    def rate(numerator: int, denominator: int) -> Optional[float]:
+        return numerator / denominator if denominator else None
+
+    response_count = count("response")
+    no_response_count = count("no_response")
+    response_total = response_count + no_response_count
+    yield_count = count("yield")
+    no_yield_count = count("no_yield")
+    yield_total = yield_count + no_yield_count
+    backchannel_correct = count("backchannel_correct")
+    backchannel_error = count("backchannel_error")
+    backchannel_total = backchannel_correct + backchannel_error
+    vocal_tic_correct = count("vocal_tic_correct")
+    vocal_tic_error = count("vocal_tic_error")
+    vocal_tic_total = vocal_tic_correct + vocal_tic_error
+    non_directed_correct = count("non_directed_correct")
+    non_directed_error = count("non_directed_error")
+    non_directed_total = non_directed_correct + non_directed_error
+    agent_interrupts_count = count("agent_interrupts_user")
+
+    return VoiceInteractionMetrics(
+        response_latency_mean=mean_latency("response"),
+        yield_latency_mean=mean_latency("yield"),
+        response_rate=rate(response_count, response_total),
+        yield_rate=rate(yield_count, yield_total),
+        agent_interruption_rate=rate(agent_interrupts_count, response_total),
+        selectivity_backchannel=rate(backchannel_correct, backchannel_total),
+        selectivity_vocal_tic=rate(vocal_tic_correct, vocal_tic_total),
+        selectivity_non_directed=rate(non_directed_correct, non_directed_total),
+        counts=VoiceInteractionMetricCounts(
+            n_simulations=n_simulations,
+            response_total=response_total,
+            yield_total=yield_total,
+            backchannel_total=backchannel_total,
+            vocal_tic_total=vocal_tic_total,
+            non_directed_total=non_directed_total,
+            agent_interrupts_count=agent_interrupts_count,
+        ),
+    )
+
+
+def compute_interaction_metrics_for_ticks(
+    ticks: List[Tick], config: Optional[InteractionMetricsConfig] = None
+) -> VoiceInteractionMetrics:
+    """Compute the canonical interaction panel for one tick-bearing call."""
+    config = config or InteractionMetricsConfig()
+    events = extract_voice_quality_events_from_simulation(
+        ticks,
+        tick_duration_sec=config.tick_duration_sec,
+        no_yield_window_sec=config.no_yield_window_sec,
+        backchannel_yield_window_sec=config.backchannel_yield_window_sec,
+        vocal_tic_yield_window_sec=config.vocal_tic_yield_window_sec,
+        non_directed_yield_window_sec=config.non_directed_yield_window_sec,
+        vocal_tic_response_window_sec=config.vocal_tic_response_window_sec,
+        non_directed_response_window_sec=config.non_directed_response_window_sec,
+    )
+    return summarize_voice_quality_events(events, n_simulations=1)
 
 
 def voice_quality_events_to_dataframe(
@@ -2159,52 +2307,6 @@ class NoVoiceTicksError(ValueError):
     """Raised when an input contains no full-duplex (tick-bearing) simulations."""
 
 
-def _count_agent_interruptions(
-    results: "Results", config: InteractionMetricsConfig
-) -> int:
-    """
-    Count agent-interrupts-user events across all simulations.
-
-    Mirrors the paper pipeline's interruption-handling analysis
-    (``extract_interruptions_from_results``): segments are extracted with the
-    end-of-conversation filter, but the raw (unfiltered) tick list is passed
-    for yield-window lookups. Only the event count is consumed here.
-    """
-    count = 0
-    for sim in results.simulations:
-        if not sim.ticks:
-            continue
-        user_segs, agent_segs = extract_all_segments(
-            sim.ticks, config.tick_duration_sec
-        )
-        events = extract_interruption_events(
-            user_segs,
-            agent_segs,
-            sim.ticks,
-            tick_duration_sec=config.tick_duration_sec,
-            no_yield_window_sec=config.no_yield_window_sec,
-            backchannel_yield_window_sec=config.backchannel_yield_window_sec,
-            vocal_tic_yield_window_sec=config.vocal_tic_yield_window_sec,
-            non_directed_yield_window_sec=config.non_directed_yield_window_sec,
-            vocal_tic_response_window_sec=config.vocal_tic_response_window_sec,
-            non_directed_response_window_sec=config.non_directed_response_window_sec,
-        )
-        count += sum(1 for e in events if e.event_type == "agent_interrupts_user")
-    return count
-
-
-def _nan_to_none(value) -> Optional[float]:
-    """Convert NaN to None for JSON-friendly output."""
-    import math
-
-    if value is None:
-        return None
-    value = float(value)
-    if math.isnan(value):
-        return None
-    return value
-
-
 def compute_interaction_metrics_for_experiment(
     results: "Results",
     config: Optional[InteractionMetricsConfig] = None,
@@ -2252,44 +2354,9 @@ def compute_interaction_metrics_for_experiment(
             )
         )
 
-    raw_df = voice_quality_events_to_dataframe(all_events)
-    analysis_df = compute_voice_quality_metrics(raw_df)
-    if len(analysis_df) != 1:
-        # Metadata fields are constant (all empty) so grouping yields one row.
-        raise RuntimeError(
-            f"Expected a single metrics row for one experiment, got {len(analysis_df)}"
-        )
-    row = analysis_df.iloc[0]
-
-    agent_interrupts_count = _count_agent_interruptions(results, config)
-    response_total = int(row["response_total"])
-    agent_interruption_rate = (
-        agent_interrupts_count / response_total if response_total > 0 else None
-    )
-
-    def correct_rate(error_rate) -> Optional[float]:
-        error_rate = _nan_to_none(error_rate)
-        return None if error_rate is None else 1.0 - error_rate
-
-    return {
-        "response_latency_mean": _nan_to_none(row["response_latency_mean"]),
-        "yield_latency_mean": _nan_to_none(row["yield_latency_mean"]),
-        "response_rate": _nan_to_none(row["response_rate"]),
-        "yield_rate": _nan_to_none(row["yield_rate"]),
-        "agent_interruption_rate": agent_interruption_rate,
-        "selectivity_backchannel": correct_rate(row["backchannel_error_rate"]),
-        "selectivity_vocal_tic": correct_rate(row["vocal_tic_error_rate"]),
-        "selectivity_non_directed": correct_rate(row["non_directed_error_rate"]),
-        "counts": {
-            "n_simulations": len(tick_sims),
-            "response_total": response_total,
-            "yield_total": int(row["yield_total"]),
-            "backchannel_total": int(row["backchannel_total"]),
-            "vocal_tic_total": int(row["vocal_tic_total"]),
-            "non_directed_total": int(row["non_directed_total"]),
-            "agent_interrupts_count": agent_interrupts_count,
-        },
-    }
+    return summarize_voice_quality_events(
+        all_events, n_simulations=len(tick_sims)
+    ).model_dump()
 
 
 # Panel metric field names, in display order (L_R, L_Y, R_R, R_Y, I_A, S_BC, S_VT, S_ND).

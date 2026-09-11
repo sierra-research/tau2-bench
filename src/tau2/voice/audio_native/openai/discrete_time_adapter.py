@@ -72,6 +72,7 @@ class DiscreteTimeOpenAIAdapter(DiscreteTimeAdapter):
         reasoning_effort: Optional[str] = None,
         provider: Optional[OpenAIRealtimeProvider] = None,
         audio_format: Optional[AudioFormat] = None,
+        language: Optional[str] = None,
     ):
         super().__init__(
             tick_duration_ms,
@@ -88,6 +89,7 @@ class DiscreteTimeOpenAIAdapter(DiscreteTimeAdapter):
 
         self.model = model
         self.reasoning_effort = reasoning_effort
+        self.language = language
         self._provider = provider
         self._owns_provider = provider is None
 
@@ -100,6 +102,7 @@ class DiscreteTimeOpenAIAdapter(DiscreteTimeAdapter):
             self._provider = OpenAIRealtimeProvider(
                 model=self.model,
                 reasoning_effort=self.reasoning_effort,
+                language=self.language,
             )
         return self._provider
 

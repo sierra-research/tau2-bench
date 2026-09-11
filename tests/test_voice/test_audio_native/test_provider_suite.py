@@ -55,7 +55,11 @@ from typing import List, Optional
 
 import pytest
 
-from tau2.config import DEFAULT_OPENAI_LIVE_MODEL, TELEPHONY_ULAW_SILENCE
+from tau2.config import (
+    DEFAULT_OPENAI_LIVE_MODEL,
+    TELEPHONY_ULAW_SILENCE,
+    resolve_audio_native_reasoning_effort,
+)
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter, create_adapter
 from tau2.voice.audio_native.openai.live_config import LiveConfig
@@ -376,6 +380,8 @@ def adapter(provider_name: str):
     adapter, _model = create_adapter(
         real_provider,
         tick_duration_ms=TICK_DURATION_MS,
+        # The suite exercises each provider as a run would configure it.
+        reasoning_effort=resolve_audio_native_reasoning_effort(real_provider, None),
         cascaded_config=cascaded_config,
         model=model,
         live_config=live_config,

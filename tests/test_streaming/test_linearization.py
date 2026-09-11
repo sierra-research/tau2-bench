@@ -18,7 +18,8 @@ Algorithm Summary (CONTAINMENT_AWARE):
    - If same start time, other comes first (tie-breaker)
 4. Non-overlapping segments are placed chronologically
 
-See: src/experiments/tau_voice/linearization/cases.md
+See linearization_fixtures.py for the full case taxonomy (originally derived
+from the since-removed experimental tau_voice linearization notes).
 """
 
 from tau2.agent.base.streaming import (

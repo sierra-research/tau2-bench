@@ -356,16 +356,6 @@ class ConsoleDisplay:
         # Build audio-native config panel if applicable
         if isinstance(config, VoiceRunConfig):
             anc = config.audio_native_config
-            bc_min = (
-                f"{anc.backchannel_min_threshold_seconds}s"
-                if anc.backchannel_min_threshold_seconds is not None
-                else "disabled"
-            )
-            bc_max = (
-                f"{anc.backchannel_max_threshold_seconds}s"
-                if anc.backchannel_max_threshold_seconds is not None
-                else "N/A"
-            )
 
             # Use a table for cleaner display of audio params
             audio_table = Table(
@@ -448,35 +438,17 @@ class ConsoleDisplay:
                 f"[{c.section_header}]── Backchannel ──[/]",
                 "",
             )
-            # Determine backchannel policy
-            bc_policy = "LLM" if anc.use_llm_backchannel else "Poisson"
             audio_table.add_row(
                 "Integration Duration:",
                 f"{anc.integration_duration_seconds}s",
-                "Policy:",
-                bc_policy,
+                "Enabled:",
+                "Yes" if anc.use_llm_backchannel else "No",
             )
             audio_table.add_row(
                 "Silence Annotation:",
                 f"{anc.silence_annotation_threshold_seconds}s",
-                "Min Threshold:",
-                bc_min if not anc.use_llm_backchannel else "N/A (LLM)",
-            )
-            audio_table.add_row(
                 "",
                 "",
-                "Max Threshold:",
-                bc_max if not anc.use_llm_backchannel else "N/A (LLM)",
-            )
-            audio_table.add_row(
-                "",
-                "",
-                "Poisson Rate:",
-                (
-                    f"{anc.backchannel_poisson_rate}/s"
-                    if not anc.use_llm_backchannel
-                    else "N/A (LLM)"
-                ),
             )
 
             audio_content = Panel(
@@ -1422,16 +1394,6 @@ class ConsoleDisplay:
         # Build audio-native config panel if applicable
         if info.audio_native_config:
             anc = info.audio_native_config
-            bc_min = (
-                f"{anc.backchannel_min_threshold_seconds}s"
-                if anc.backchannel_min_threshold_seconds is not None
-                else "disabled"
-            )
-            bc_max = (
-                f"{anc.backchannel_max_threshold_seconds}s"
-                if anc.backchannel_max_threshold_seconds is not None
-                else "N/A"
-            )
 
             # Use a table for cleaner display of audio params
             audio_table = Table(
@@ -1514,35 +1476,17 @@ class ConsoleDisplay:
                 f"[{c.section_header}]── Backchannel ──[/]",
                 "",
             )
-            # Determine backchannel policy
-            bc_policy = "LLM" if anc.use_llm_backchannel else "Poisson"
             audio_table.add_row(
                 "Integration Duration:",
                 f"{anc.integration_duration_seconds}s",
-                "Policy:",
-                bc_policy,
+                "Enabled:",
+                "Yes" if anc.use_llm_backchannel else "No",
             )
             audio_table.add_row(
                 "Silence Annotation:",
                 f"{anc.silence_annotation_threshold_seconds}s",
-                "Min Threshold:",
-                bc_min if not anc.use_llm_backchannel else "N/A (LLM)",
-            )
-            audio_table.add_row(
                 "",
                 "",
-                "Max Threshold:",
-                bc_max if not anc.use_llm_backchannel else "N/A (LLM)",
-            )
-            audio_table.add_row(
-                "",
-                "",
-                "Poisson Rate:",
-                (
-                    f"{anc.backchannel_poisson_rate}/s"
-                    if not anc.use_llm_backchannel
-                    else "N/A (LLM)"
-                ),
             )
 
             audio_content = Panel(

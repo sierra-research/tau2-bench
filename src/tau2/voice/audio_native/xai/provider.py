@@ -41,6 +41,32 @@ from tau2.voice.audio_native.xai.events import (
 
 load_dotenv()
 
+# Language pack code -> BCP-47 ASR bias for audio.input.transcription
+# .language_hint. The xai analogue of GEMINI_LIVE_LANGUAGE_CODES: OpenAI and
+# Gemini sessions already carry a language prior, so multilingual xai runs
+# must too, or the provider comparison confounds ASR language detection with
+# agent capability. Regional pins follow the language packs' variety pins —
+# and xai REJECTS bare "es"/"pt" (regional variant required); the other codes
+# are plain. en is deliberately absent (auto-detect, matching the other
+# providers); a language missing from this map simply omits the field.
+XAI_LANGUAGE_HINTS: dict[str, str] = {
+    "ar": "ar",
+    "de": "de",
+    "es": "es-ES",
+    "fr": "fr",
+    "hi": "hi",
+    "it": "it",
+    "ja": "ja",
+    "ko": "ko",
+    "nl": "nl",
+    "pl": "pl",
+    "pt": "pt-BR",
+    "ru": "ru",
+    "tr": "tr",
+    "vi": "vi",
+    "zh": "zh",
+}
+
 
 class XAIAudioFormat(str, Enum):
     """Audio formats supported by xAI Grok Voice Agent API."""
@@ -82,7 +108,9 @@ class XAIRealtimeProvider:
 
     Attributes:
         BASE_URL: The WebSocket endpoint for xAI's Realtime API.
+        DEFAULT_MODEL: The default model to pin the session to.
         api_key: The xAI API key for authentication.
+        model: The model identifier the session is pinned to.
         voice: The voice to use (Ara, Rex, Sal, Eve, Leo).
         ws: The active WebSocket connection, or None if disconnected.
 
@@ -102,6 +130,7 @@ class XAIRealtimeProvider:
     """
 
     BASE_URL = DEFAULT_XAI_REALTIME_BASE_URL
+    DEFAULT_MODEL = DEFAULT_XAI_MODEL
     DEFAULT_VOICE = DEFAULT_XAI_VOICE
 
     def __init__(
@@ -111,6 +140,7 @@ class XAIRealtimeProvider:
         voice: Optional[str] = None,
         audio_format: XAIAudioFormat = XAIAudioFormat.PCMU,
         sample_rate: int = DEFAULT_TELEPHONY_RATE,
+        language_hint: Optional[str] = None,
     ):
         """Initialize the xAI Realtime provider.
 
@@ -118,13 +148,19 @@ class XAIRealtimeProvider:
             api_key: xAI API key. If not provided, reads from XAI_API_KEY
                 environment variable.
             model: Model to use, passed as ?model= on the WebSocket URL
-                (e.g. grok-voice-think-fast-2.0). Defaults to DEFAULT_XAI_MODEL.
-            voice: Voice to use (lowercase voice ID, e.g. ara, rex, sal, eve,
-                leo). Defaults to ara.
+                (e.g. grok-voice-think-fast-1.0). Defaults to DEFAULT_XAI_MODEL.
+            voice: Voice to use. One of: Ara, Rex, Sal, Eve, Leo. Defaults to Ara.
             audio_format: Audio format for input/output. Defaults to PCMU (G.711 μ-law)
                 which is optimal for telephony (no conversion needed).
             sample_rate: Sample rate for PCM format (ignored for PCMU/PCMA).
                 Supported: 8000, 16000, 24000, 32000, 44100, 48000. Default: 8000.
+            language_hint: BCP-47 code sent as
+                ``audio.input.transcription.language_hint`` to bias ASR toward
+                the call's language (the xai analogue of OpenAI's
+                ``transcription.language`` and Gemini's ``language_code``).
+                None omits the field: the model auto-detects. Speech OUTPUT
+                language has no session field — it follows the input language
+                and the instructions.
 
         Raises:
             ValueError: If no API key is provided or found in environment.
@@ -133,10 +169,11 @@ class XAIRealtimeProvider:
         if not self.api_key:
             raise ValueError("xAI API key not provided. Set XAI_API_KEY env var.")
 
-        self.model = model or DEFAULT_XAI_MODEL
+        self.model = model or self.DEFAULT_MODEL
         self.voice = voice or self.DEFAULT_VOICE
         self.audio_format = audio_format
         self.sample_rate = sample_rate
+        self.language_hint = language_hint
         self.ws: Optional[websockets.WebSocketClientProtocol] = None
         self._current_vad_config: Optional[XAIVADConfig] = None
         self.session_id: Optional[str] = None
@@ -172,21 +209,30 @@ class XAIRealtimeProvider:
         logger.info(f"xAI Realtime API: Connecting to {url}")
         self.ws = await websockets.connect(url, additional_headers=headers)
 
-        # Wait for the connection-established event. Older xAI endpoints sent
-        # conversation.created; newer ones send session.created (OpenAI-style).
-        response = await self.ws.recv()
-        data = json.loads(response)
-        event_type = data.get("type")
-        if event_type not in ("conversation.created", "session.created"):
-            raise RuntimeError(
-                f"Expected conversation.created or session.created, got {event_type}"
-            )
-
-        # Store conversation/session ID for debugging
-        conv_data = data.get("conversation") or data.get("session") or {}
-        self.session_id = conv_data.get("id") or data.get("event_id")
-        logger.info(
-            f"xAI Realtime API: Connected successfully (session_id={self.session_id})"
+        # Wait for the initial handshake event. xAI's Realtime API (tracking
+        # the OpenAI Realtime GA protocol) now opens with `session.created`;
+        # older builds opened with `conversation.created`. Accept either, and
+        # skip any other early frames until one arrives.
+        handshake_types = ("session.created", "conversation.created")
+        for _ in range(10):
+            response = await self.ws.recv()
+            data = json.loads(response)
+            evt_type = data.get("type")
+            logger.debug(f"xAI Realtime API: handshake frame '{evt_type}'")
+            if evt_type in handshake_types:
+                # Store conversation/session ID for debugging.
+                ctx = data.get("conversation") or data.get("session") or {}
+                self.session_id = ctx.get("id") or data.get("event_id")
+                logger.info(
+                    f"xAI Realtime API: Connected successfully "
+                    f"(handshake={evt_type}, session_id={self.session_id})"
+                )
+                return
+            if evt_type == "error":
+                raise RuntimeError(f"xAI handshake error: {data}")
+        raise RuntimeError(
+            "xAI handshake: no session.created/conversation.created received "
+            "within the first 10 frames"
         )
 
     async def disconnect(self) -> None:
@@ -201,22 +247,25 @@ class XAIRealtimeProvider:
         """Build the audio configuration for the session."""
         if self.audio_format == XAIAudioFormat.PCMU:
             # G.711 μ-law at 8kHz (telephony)
-            return {
+            config = {
                 "input": {"format": {"type": "audio/pcmu"}},
                 "output": {"format": {"type": "audio/pcmu"}},
             }
         elif self.audio_format == XAIAudioFormat.PCMA:
             # G.711 A-law at 8kHz
-            return {
+            config = {
                 "input": {"format": {"type": "audio/pcma"}},
                 "output": {"format": {"type": "audio/pcma"}},
             }
         else:
             # PCM with configurable sample rate
-            return {
+            config = {
                 "input": {"format": {"type": "audio/pcm", "rate": self.sample_rate}},
                 "output": {"format": {"type": "audio/pcm", "rate": self.sample_rate}},
             }
+        if self.language_hint:
+            config["input"]["transcription"] = {"language_hint": self.language_hint}
+        return config
 
     def _build_turn_detection_config(self, vad_config: XAIVADConfig) -> Optional[Dict]:
         """Build the turn detection configuration."""

@@ -1,0 +1,147 @@
+[
+  {
+    "id": "1_tl",
+    "description": {
+      "purpose": "Toy-test: de agent verwerkt een refund voor een vertraagde toy flight.",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Als de agent verifikat vraagt, geef je email pat.lee1234@example.com.\nVu wil een refund van $250 naar je originel betaalmethode.",
+        "domain": "toyair",
+        "reason_for_call": "Vu wil een refund voor reservation AB12CD omdat flight TF100 vertraagd was.",
+        "known_info": "Vu bent Pat Lee.\nJe user id is pat_lee_1234.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "1_0",
+          "requestor": "assistant",
+          "name": "process_refund",
+          "arguments": {
+            "reservation_id": "AB12CD",
+            "amount": 250,
+            "user_id": "pat_lee_1234"
+          }
+        }
+      ],
+      "communicate_info": [
+        "$250 refund to the original payment method"
+      ],
+      "nl_assertions": [
+        "Agent confirms the refund amount before processing."
+      ],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "2_tl",
+    "description": {
+      "purpose": "Toy-test: de agent weigert een niet-toegestane datumwijziging.",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Dring een keer beleefd aan, akseptiir dan de weigering en eindig de call.",
+        "domain": "toyair",
+        "reason_for_call": "Vu wil reservation XY77ZQ verzetten naar 2024-05-01.",
+        "known_info": "Vu bent Sam Chen.\nJe user id is sam_chen_5678.",
+        "unknown_info": "Vu weet niet met welk email de booking gemaakt is."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent refuses to change the reservation date."
+      ],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "3_tl",
+    "description": {
+      "purpose": "Toy-test: de agent leest de loyalty punten balans voor.",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Vraag naar je loyalty punten balans, zeg dan gedag.",
+        "domain": "toyair",
+        "reason_for_call": "Vu wil je loyalty punten balans weten.",
+        "known_info": "Vu bent Pat Lee.\nJe user id is pat_lee_1234.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [
+        "980 loyalty points"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "4_tl",
+    "description": {
+      "purpose": "Toy-test: de agent verzamelt een ontbrekende stoelvoorkeur.",
+      "relevant_policies": null,
+      "notes": "Toy-taak die de unknown_info en notes velden test."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Beantwoord vragen een voor een.\nJe stoelvoorkeur is aisle.",
+        "domain": "toyair",
+        "reason_for_call": "Vu wil een stoelvoorkeur toevoegen aan reservation AB12CD.",
+        "known_info": "Vu bent Pat Lee.\nJe user id is pat_lee_1234.\nJe reservation is AB12CD.",
+        "unknown_info": "Vu herinnert het flight nummer niet."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "4_0",
+          "requestor": "assistant",
+          "name": "update_reservation",
+          "arguments": {
+            "reservation_id": "AB12CD",
+            "seat": "aisle"
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  }
+]
