@@ -16,8 +16,12 @@
 - **PASS — strategy_difficulty_and_duration**: easy/hard success and 21-28 second scaffold costs reproduce exactly
 - **PASS — entity_robust_results**: all ten entity-bank robust-success rows reproduce exactly
 - **PASS — realism_assignment_ledger**: clean=253/498; assigned=674/1302
+- **PASS — realism_assignment_effects_both_arms**: 12 cells per arm; overall effects=-3.59/-4.16 points; no Holm-significant contrast
 - **PASS — realism_observed_event_counts**: event ledger=2400 calls; spelling variation=301/524; falter/restart spelling=221/488 with 101 observed restarts
 - **PASS — mispronunciation_repair_cost**: mispronunciation raises spelling-request probability by 24.05 points and weighted duration by 26.32 seconds
 - **PASS — provider_stratified_caller_voice**: Mildred exceeds Priya, Mamadou, and Arjun after Holm correction, but not Wei
-- **PASS — strict_speech_validation**: P/R/F1=0.7317/1.0000/0.8451
-- **PASS — lenient_speech_validation**: P/R/F1=0.8537/0.7297/0.7868
+- **PASS — human_failure_validation**: calls=90; sources=agent 81, user 2, system 0, no-error 3, unresolved 4
+- **PASS — human_failure_subtypes**: agent subtypes=42 transcription, 16 logical, 6 VAD, 2 hallucination, 15 unresolved
+- **PASS — fidelity_validation_severity_ge_2**: TP/FP/FN/TN=12/3/4/41; P/R/F1=0.8000/0.7500/0.7742
+- **PASS — fidelity_validation_any_finding**: TP/FP/FN/TN=13/4/3/40; P/R/F1=0.7647/0.8125/0.7879
+- **PASS — human_validation_release_safety**: validation bundles contain final labels only and no raw review material

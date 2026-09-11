@@ -26,13 +26,10 @@ def add_paper_args(parser: argparse.ArgumentParser) -> None:
         "--validation-root",
         type=Path,
         required=True,
-        help="Directory containing the four final human-validation CSV files",
-    )
-    export.add_argument(
-        "--validation-run-root",
-        type=Path,
-        required=True,
-        help="Frozen source run used by the 100-call human validation",
+        help=(
+            "Directory containing human_failure_validation_90/ and "
+            "fidelity_validation_60/"
+        ),
     )
     export.add_argument(
         "--analysis-root",
@@ -63,7 +60,6 @@ def run_elicitation_release(args: argparse.Namespace) -> None:
     manifest = build_release(
         evidence_root=args.evidence_root,
         validation_root=args.validation_root,
-        validation_run_root=args.validation_run_root,
         analysis_root=args.analysis_root,
         out=args.out,
     )
