@@ -1,0 +1,60 @@
+{
+  "model_name": "DeepSeek-V4-Flash-0731",
+  "model_organization": "DeepSeek",
+  "submitting_organization": "Fireworks AI",
+  "submission_date": "2026-08-10",
+  "submission_type": "standard",
+  "modality": "text",
+  "contact_info": {
+    "email": "barrosoluque.roberto@fireworks.ai"
+  },
+  "results": {
+    "retail": {
+      "pass_1": 79.16666666666666,
+      "pass_2": 67.69005847953215,
+      "pass_3": 59.86842105263158,
+      "pass_4": 53.50877192982456,
+      "cost": 0.008951498377192984
+    },
+    "airline": {
+      "pass_1": 83.5,
+      "pass_2": 79.0,
+      "pass_3": 76.0,
+      "pass_4": 74.0,
+      "cost": 0.008692132400000002
+    },
+    "telecom": {
+      "pass_1": 96.71052631578947,
+      "pass_2": 93.85964912280701,
+      "pass_3": 91.44736842105263,
+      "pass_4": 89.47368421052632,
+      "cost": 0.01630245811403509
+    },
+    "banking_knowledge": {
+      "pass_1": 39.43298969072165,
+      "pass_2": 30.240549828178693,
+      "pass_3": 25.51546391752577,
+      "cost": 0.5192142843927648,
+      "retrieval_config": "alltools"
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "airline_results.json",
+    "banking_knowledge": "banking_knowledge_results.json",
+    "retail": "retail_results.json",
+    "telecom": "telecom_results.json"
+  },
+  "methodology": {
+    "evaluation_date": "2026-08-10",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "gpt-5.2",
+    "notes": "Agent served on Fireworks AI (accounts/fireworks/models/deepseek-v4-flash-0731), temperature 0.0, no max_tokens override; user simulator gpt-5.2 at temperature 0.0. Identical agent/user configuration across all four domains. Cost is agent-side cost per conversation as computed by tau2 from LiteLLM token accounting, using Fireworks list pricing registered locally via litellm.register_model ($0.14/M input, $0.028/M cached input, $0.28/M output); this affects reported cost only, not prompts, tools or model behaviour. banking_knowledge used retrieval_config=alltools. Disclosure on banking_knowledge trial coverage: all 97 tasks were run with 4 trials and no task filtering; 96 tasks have 4 scored trials and task_092 has 3. One trial of task_092 repeatedly returned a response with no content and no tool calls (completion_tokens pinned at the 32768 output cap), which tau2 classifies as INFRASTRUCTURE_ERROR and excludes from metrics; it did not clear after ~28 retries. pass_4 is therefore reported as null for banking_knowledge, while pass_1 through pass_3 cover all 97 tasks. airline, retail and telecom are complete: 4 scored trials on every task with zero infrastructure errors.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false
+    }
+  },
+  "reasoning_effort": "enabled"
+}
