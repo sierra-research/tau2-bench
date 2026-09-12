@@ -1571,6 +1571,38 @@ class TestCloseBankAccount:
         assert "Error" in resp.content
         assert "not found" in resp.content
 
+    def test_close_free_form_reason_rejected(self, environment: Environment):
+        environment.tools.db.accounts.data["chk_closed"]["status"] = "OPEN"
+        resp = call_discoverable_agent(
+            environment,
+            "close_bank_account_7392",
+            {
+                "account_id": "chk_closed",
+                "reason": "Customer requested Evergreen closure after splitting balance",
+            },
+        )
+        assert "Error" in resp.content
+        assert "Invalid reason" in resp.content
+        # account must stay untouched after a rejected call
+        assert environment.tools.db.accounts.data["chk_closed"]["status"] == "OPEN"
+
+    def test_close_enum_reason_accepted(self, environment: Environment):
+        environment.tools.db.accounts.data["chk_closed"]["status"] = "OPEN"
+        resp = call_discoverable_agent(
+            environment,
+            "close_bank_account_7392",
+            {
+                "account_id": "chk_closed",
+                "reason": "fraud_suspected",
+            },
+        )
+        assert not resp.error
+        assert "closed successfully" in resp.content
+        assert (
+            environment.tools.db.accounts.data["chk_closed"]["closure_reason"]
+            == "fraud_suspected"
+        )
+
 
 class TestTransferFundsBetweenAccounts:
     """Tests for transfer_funds_between_bank_accounts_7291."""
