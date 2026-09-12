@@ -1,0 +1,72 @@
+{
+  "model_name": "CloudSurf-4B-FC",
+  "model_organization": "CloudSurf Software",
+  "submitting_organization": "CloudSurf Software",
+  "submission_date": "2026-08-17",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "brady@cloudsurf.com",
+    "name": "K. Brady Davis",
+    "github": "worldMachine"
+  },
+  "results": {
+    "retail": {
+      "pass_1": 46.92982456140351,
+      "pass_2": 29.093567251461987,
+      "pass_3": 20.394736842105264,
+      "pass_4": 14.912280701754385,
+      "cost": 0.042
+    },
+    "airline": {
+      "pass_1": 40.0,
+      "pass_2": 26.333333333333336,
+      "pass_3": 18.5,
+      "pass_4": 14.000000000000002,
+      "cost": 0.049
+    },
+    "telecom": {
+      "pass_1": 15.350877192982457,
+      "pass_2": 11.988304093567253,
+      "pass_3": 10.087719298245613,
+      "pass_4": 8.771929824561402,
+      "cost": 0.128
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "airline_results.json",
+    "retail": "retail_results.json",
+    "telecom": "telecom_results.json"
+  },
+  "methodology": {
+    "evaluation_date": "2026-08-18",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "gpt-5.2",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "Serving bridge appends a function-calling instruction block to the system message; details in notes."
+    },
+    "notes": "CloudSurf-4B-FC is a function-calling fine-tune of google/gemma-4-E4B-it (weights and adapters public on Hugging Face; base revision pinned in the model card). Not trained on any tau-bench data: an 8-gram normalized-overlap decontamination check of the full training mix against all four tau2-bench domains (tasks, policies, schemas; tau2 @ c339866) found 0 collisions (2026-08-17). Zero-shot on tau2 — no domain-specific prompting, tuning, or task filtering. Scaffold: the standard tau2 llm_agent against a local OpenAI-compatible sglang endpoint, with a thin serving-layer bridge for the model's function-calling format. Marked custom for two bridge behaviors, disclosed fully: (1) the bridge appends a fixed function-calling instruction block (BFCL prompt-mode style, including behavioral instructions) to each domain's policy system message — hence modified_prompts: true; (2) when a generation terminates inside the model's thought channel with an empty answer, the bridge attempts to recover a bracket-format tool-call list from the raw/thought text instead of returning the empty answer (an empty-answer salvage path that goes beyond wire-format parsing). The bridge script is published unabridged in the model repo (serving/fc_tau2_bridge.py) with serving instructions in the model card. The trajectory model string 'openai/cloudsurf-4b-fc' is the litellm route for the local endpoint and refers to this model, not an OpenAI model. Config: agent temperature 0.0; user simulator gpt-5.2 with reasoning_effort=low (the leaderboard reference configuration; temperature not set — the gpt-5 family rejects it outside reasoning_effort=none); 4 trials per task; base split, all tasks per domain (banking_knowledge not attempted); evaluation and submission tooling both at tau2-bench commit c339866. Results were stable across user-simulator reasoning configurations: an earlier full run with reasoning_effort=none scored retail 45.2 / airline 41.0 (within trial noise of the reference-config 46.9 / 40.0 reported here). Cost fields are average per-trajectory estimates: measured gpt-5.2 user-simulator API spend from the trajectories plus amortized single-H100 serving time (~$0.007/trajectory); agent-side inference ran locally."
+  },
+  "model_release": {
+    "release_date": "2026-08-17",
+    "announcement_url": "https://huggingface.co/cloudsurf-software/CloudSurf-4B-FC",
+    "announcement_title": "CloudSurf-4B-FC on Hugging Face"
+  },
+  "reasoning_effort": "enabled",
+  "references": [
+    {
+      "title": "CloudSurf-4B-FC model card",
+      "url": "https://huggingface.co/cloudsurf-software/CloudSurf-4B-FC",
+      "type": "model_card"
+    },
+    {
+      "title": "Evaluation trajectories (full tau2 simulation files)",
+      "url": "https://huggingface.co/datasets/cloudsurf-software/tau2-trajectories-cloudsurf-4b-fc",
+      "type": "huggingface"
+    }
+  ]
+}
