@@ -4,12 +4,35 @@ import json
 import textwrap
 import uuid
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
 from tau2.data_model.message import Message, ToolCall, ToolRequestor
+
+
+def _normalize_action_arg_value(value: Any) -> Any:
+    """
+    Normalize nested JSON argument strings for action comparison.
+
+    Some tools accept an `arguments` parameter that is itself a JSON string.
+    Compare those semantically so formatting differences such as whitespace or
+    object key order do not affect grader results.
+    """
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.startswith(("{", "[")):
+            try:
+                return _normalize_action_arg_value(json.loads(stripped))
+            except json.JSONDecodeError:
+                return value
+        return value
+    if isinstance(value, dict):
+        return {k: _normalize_action_arg_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_normalize_action_arg_value(v) for v in value]
+    return value
 
 
 class StructuredUserInstructions(BaseModel):
@@ -190,8 +213,16 @@ class Action(BaseModel):
             compare_args = self.compare_args
         if len(compare_args) == 0:
             return True
-        tool_args = {k: v for k, v in tool_call.arguments.items() if k in compare_args}
-        action_args = {k: v for k, v in self.arguments.items() if k in compare_args}
+        tool_args = {
+            k: _normalize_action_arg_value(v)
+            for k, v in tool_call.arguments.items()
+            if k in compare_args
+        }
+        action_args = {
+            k: _normalize_action_arg_value(v)
+            for k, v in self.arguments.items()
+            if k in compare_args
+        }
         return tool_args == action_args
 
 
