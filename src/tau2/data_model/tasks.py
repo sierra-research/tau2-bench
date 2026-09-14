@@ -4,7 +4,7 @@ import json
 import textwrap
 import uuid
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
@@ -175,6 +175,25 @@ class Action(BaseModel):
             f"{self.name}({', '.join([f'{k}={v}' for k, v in self.arguments.items()])})"
         )
 
+    @staticmethod
+    def _normalize_compare_value(value: Any) -> Any:
+        """Normalize a value for comparison.
+
+        Some tool calls (e.g. call_discoverable_agent_tool) carry a nested
+        JSON-encoded string in their 'arguments' field. A raw string
+        comparison there is brittle to whitespace/key-order differences that
+        don't change the actual argument values, so if a value is a string
+        that parses as a JSON object/array, compare the parsed form instead.
+        """
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped[:1] in ("{", "["):
+                try:
+                    return json.loads(stripped)
+                except (json.JSONDecodeError, ValueError):
+                    return value
+        return value
+
     def compare_with_tool_call(self, tool_call: ToolCall) -> bool:
         """
         Compare the action with a tool call.
@@ -190,8 +209,16 @@ class Action(BaseModel):
             compare_args = self.compare_args
         if len(compare_args) == 0:
             return True
-        tool_args = {k: v for k, v in tool_call.arguments.items() if k in compare_args}
-        action_args = {k: v for k, v in self.arguments.items() if k in compare_args}
+        tool_args = {
+            k: self._normalize_compare_value(v)
+            for k, v in tool_call.arguments.items()
+            if k in compare_args
+        }
+        action_args = {
+            k: self._normalize_compare_value(v)
+            for k, v in self.arguments.items()
+            if k in compare_args
+        }
         return tool_args == action_args
 
 

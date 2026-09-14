@@ -129,6 +129,33 @@ class ToolKitBase(metaclass=ToolKitType):
 
     def __init__(self, db: Optional[T] = None):
         self.db: Optional[T] = db
+        # Recent conversation context (assistant/tool messages), threaded in
+        # generically by the Environment before a tool call is dispatched, so
+        # any tool implementation can access what evidence/policy has already
+        # been surfaced this conversation (e.g. for a generic write-action
+        # critic). Not tool-specific -- just a place to stash it.
+        self._conversation_context: list = []
+        # Generic flag, set by the Environment during replay, telling any
+        # tool's internal write-gating logic (e.g. a second-agent critic) to
+        # bypass itself and just apply the state mutation directly. See
+        # Environment.get_response(skip_write_critic=...).
+        self._skip_write_critic: bool = False
+
+    def set_conversation_context(self, messages: Optional[list]) -> None:
+        """Set the recent conversation history, for tools that need it."""
+        self._conversation_context = list(messages) if messages else []
+
+    def get_conversation_context(self) -> list:
+        """Get the recent conversation history set via set_conversation_context."""
+        return self._conversation_context
+
+    def set_skip_write_critic(self, skip: bool) -> None:
+        """Tell internal write-gating logic (e.g. a write-action critic) to bypass itself."""
+        self._skip_write_critic = skip
+
+    def get_skip_write_critic(self) -> bool:
+        """Whether internal write-gating logic should bypass itself right now."""
+        return self._skip_write_critic
 
     @property
     def tools(self) -> Dict[str, Callable]:
