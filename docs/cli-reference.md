@@ -28,6 +28,8 @@ tau2 run \
 | `--user-llm` | LLM model for the user simulator |
 | `--agent-llm-args` | JSON dict of extra args for agent LLM (e.g. `'{"temperature": 0.5}'`) |
 | `--user-llm-args` | JSON dict of extra args for user LLM |
+| `--judge-llm` | LLM model for the natural-language assertions judge (default: `gpt-4.1-2025-04-14`) |
+| `--judge-llm-args` | JSON dict of extra args for the judge LLM |
 | `--agent` | Agent implementation to use (default: `llm_agent`) |
 | `--user` | User simulator implementation to use (default: `user_simulator`) |
 | `--num-trials` | Number of evaluation trials (default: `1`) |
@@ -196,6 +198,8 @@ tau2 evaluate-trajs <paths...>
 |--------|-------------|
 | `<paths>` | Paths to trajectory files, directories, or glob patterns |
 | `-o`, `--output-dir` | Directory to save updated trajectories. If omitted, only displays metrics |
+| `--fresh-tasks` | Re-grade against the current task definitions instead of the ones embedded in the results |
+| `--judge-llm` | LLM model for the natural-language assertions judge (default: `gpt-4.1-2025-04-14`) |
 
 ---
 
