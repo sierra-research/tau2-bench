@@ -1,11 +1,9 @@
 """Render model and language summaries for the tau-multilingual manuscript.
 
 Task completion is read from the frozen trial-0 benchmark summaries;
-Interaction, Experience, and model-level latency are read from the portable
-reproduction artifact. The supplemental source-analysis artifact supplies only
-standalone Speech-fidelity fields that are absent from the portable copy. The
-primary heatmaps use higher-is-better scores, while the diagnostic tables report
-lower-is-better failure rates.
+Interaction, Generation, and model-level latency are read from the portable
+reproduction artifact. The primary heatmaps use higher-is-better scores, while
+the metric breakdowns report lower-is-better failure rates.
 """
 
 from __future__ import annotations
@@ -13,7 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 from subprocess import run
 
-from pydantic import BaseModel, ConfigDict
 from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.pdfmetrics import stringWidth
@@ -29,40 +26,12 @@ HEATMAP_OUTPUT = FIGURE_DIR / "language_system_heatmaps.pdf"
 METRIC_OUTPUT = FIGURE_DIR / "model_metric_heatmap.pdf"
 REPO_ROOT = Path(__file__).resolve().parents[4]
 EXPERIENCE_PATH = REPO_ROOT / "papers/tau-multilingual/reproduction/experience.json"
-FIDELITY_PATH = (
-    REPO_ROOT
-    / "data/analysis/tau_multilingual_experience_without_fluency_2026-09-03.json"
-)
 
 FONT = "FigureRoman"
 BOLD_FONT = "FigureRoman-Bold"
 INK = colors.HexColor("#20252B")
 GRID = colors.HexColor("#D9DEE5")
 HEAT_COLOR = colors.HexColor("#197052")
-
-
-class StandaloneFidelityCell(BaseModel):
-    """Supplemental standalone-fidelity fields used by one diagnostic row."""
-
-    model_config = ConfigDict(extra="ignore")
-
-    standalone_fidelity_cleanliness: float
-
-
-class StandaloneFidelityCohort(BaseModel):
-    """Language-system fidelity slice of the supplemental analysis artifact."""
-
-    model_config = ConfigDict(extra="ignore")
-
-    language_system: dict[str, dict[str, StandaloneFidelityCell]]
-
-
-class StandaloneFidelityArtifact(BaseModel):
-    """Minimal validated contract for supplemental fidelity rendering."""
-
-    model_config = ConfigDict(extra="ignore")
-
-    descriptive_complete_cohort: StandaloneFidelityCohort
 
 
 def _tex_font_path(filename: str) -> Path:
@@ -96,13 +65,13 @@ _register_type1_font(BOLD_FONT, "utmb8a")
 # surrounding 10-point body text.
 MODEL_WIDTH = 244
 MODEL_HEIGHT = 124
-MODEL_FONT_SIZE = 9.0
-HEATMAP_FONT_SIZE = 9.0
-HEATMAP_HEIGHT = 123
-HEATMAP_TITLE_Y = 114
-HEATMAP_LANGUAGE_Y = 99
-HEATMAP_TOP = 95
-HEATMAP_CELL_HEIGHT = 15
+MODEL_FONT_SIZE = 9.2
+HEATMAP_FONT_SIZE = 9.2
+HEATMAP_HEIGHT = 117
+HEATMAP_TITLE_Y = 108
+HEATMAP_LANGUAGE_Y = 93
+HEATMAP_TOP = 89
+HEATMAP_CELL_HEIGHT = 14
 
 LANGUAGES = ("English", "Spanish", "Portuguese", "Hindi", "Korean", "Mandarin")
 LOCALIZED_LANGUAGES = LANGUAGES[1:]
@@ -179,61 +148,10 @@ PASS_PROVIDER = {
     "Gemini high": 52.9,
     "xAI": 75.6,
 }
-# Trial-0, all-domain event-weighted response/yield latency means from the
-# frozen primary trajectories. These language cells retain every system with
-# scoreable response and yield opportunities.
-LATENCY_LANGUAGE_SYSTEM = {
-    "English": {
-        "OpenAI minimal": 1.0989,
-        "OpenAI xhigh": 1.3748,
-        "Gemini minimal": 1.3295,
-        "Gemini high": 1.8316,
-        "xAI": 1.3105,
-    },
-    "Spanish": {
-        "OpenAI minimal": 1.0107,
-        "OpenAI xhigh": 1.3077,
-        "Gemini minimal": 1.5568,
-        "Gemini high": 1.8068,
-        "xAI": 1.1859,
-    },
-    "Portuguese": {
-        "OpenAI minimal": 1.0821,
-        "OpenAI xhigh": 1.4063,
-        "Gemini minimal": 1.3078,
-        "Gemini high": 1.7468,
-        "xAI": 1.1509,
-    },
-    "Hindi": {
-        "OpenAI minimal": 1.1008,
-        "OpenAI xhigh": 1.4168,
-        "Gemini minimal": 1.5728,
-        "Gemini high": 2.0639,
-        "xAI": 1.2894,
-    },
-    "Korean": {
-        "OpenAI minimal": 1.4076,
-        "OpenAI xhigh": 1.6056,
-        "Gemini minimal": 1.3414,
-        "Gemini high": 1.8164,
-        "xAI": 1.0004,
-    },
-    "Mandarin": {
-        "OpenAI minimal": 1.1190,
-        "OpenAI xhigh": 1.4098,
-        "Gemini minimal": 1.2721,
-        "Gemini high": 1.9142,
-        "xAI": 1.2458,
-    },
-}
 
 
 def _artifact(path: Path) -> UtteranceExperienceArtifact:
     return UtteranceExperienceArtifact.model_validate_json(path.read_text())
-
-
-def _fidelity_artifact() -> StandaloneFidelityArtifact:
-    return StandaloneFidelityArtifact.model_validate_json(FIDELITY_PATH.read_text())
 
 
 def _draw_mean_marker(
@@ -344,11 +262,11 @@ def render_model_summary(artifact: UtteranceExperienceArtifact) -> None:
         initialFontName=FONT,
         invariant=1,
     )
-    pdf.setTitle("Model-level task, interaction, and experience summary")
+    pdf.setTitle("Model-level task, interaction, and generation summary")
     metric_markers = {
         "Task completion": "circle",
         "Interaction": "square",
-        "Experience": "diamond",
+        "Generation": "diamond",
     }
     _write_marker_legend(
         pdf,
@@ -396,7 +314,7 @@ def render_model_summary(artifact: UtteranceExperienceArtifact) -> None:
             interaction_by_language,
         ),
         (
-            "Experience",
+            "Generation",
             {
                 system: artifact.descriptive_complete_cohort.provider[system].experience
                 for system in SYSTEMS
@@ -442,10 +360,10 @@ def render_model_summary(artifact: UtteranceExperienceArtifact) -> None:
         pdf.setFillColor(INK)
         label_parts = SYSTEM_LABELS[system].split(" ", maxsplit=1)
         pdf.setFont(BOLD_FONT, MODEL_FONT_SIZE)
-        pdf.drawCentredString(center, 11, label_parts[0])
+        pdf.drawCentredString(center, 11.5, label_parts[0])
         if len(label_parts) == 2:
             pdf.setFont(FONT, MODEL_FONT_SIZE)
-            pdf.drawCentredString(center, 2, label_parts[1])
+            pdf.drawCentredString(center, 2.5, label_parts[1])
 
     pdf.save()
 
@@ -459,11 +377,8 @@ def _heat_fill(value: float) -> colors.Color:
     )
 
 
-def render_model_metric_heatmap(
-    artifact: UtteranceExperienceArtifact,
-    fidelity_artifact: StandaloneFidelityArtifact,
-) -> None:
-    """Render model and language diagnostic tables with a shared row axis."""
+def render_model_metric_heatmap(artifact: UtteranceExperienceArtifact) -> None:
+    """Render the metric breakdown at its final, one-column print size."""
     provider = artifact.descriptive_complete_cohort.provider
     latency_provider: dict[str, float] = {}
     for system in SYSTEMS:
@@ -487,20 +402,20 @@ def render_model_metric_heatmap(
     model_rows = (
         (
             "Task failure",
-            "Conv.",
+            "Call",
             {system: 100.0 - PASS_PROVIDER[system] for system in SYSTEMS},
             False,
         ),
-        ("Non-response", "Conv.", interaction_component["nonresponse"], False),
-        ("Interruption", "Conv.", interaction_component["interruption"], False),
+        ("Non-response", "Call", interaction_component["nonresponse"], False),
+        ("Interruption", "Call", interaction_component["interruption"], False),
         (
             "Selectivity error",
-            "Conv.",
+            "Call",
             interaction_component["selectivity"],
             False,
         ),
-        ("Monologue", "Conv.", interaction_component["monologue"], False),
-        ("Tool misuse", "Conv.", interaction_component["tool_use"], False),
+        ("Monologue", "Call", interaction_component["monologue"], False),
+        ("Tool misuse", "Call", interaction_component["tool_use"], False),
         (
             "Naturalness failure",
             "Utt.",
@@ -516,67 +431,12 @@ def render_model_metric_heatmap(
         ("Latency", "Resp.", latency_provider, True),
     )
 
-    language_system = artifact.descriptive_complete_cohort.language_system
-    fidelity_language_system = (
-        fidelity_artifact.descriptive_complete_cohort.language_system
-    )
-    component_rows = (
-        ("Non-response", "nonresponse"),
-        ("Interruption", "interruption"),
-        ("Selectivity error", "selectivity"),
-        ("Monologue", "monologue"),
-        ("Tool misuse", "tool_use"),
-    )
-    task_failure = {
-        language: {system: 100.0 - PASS_AT_1[language][system] for system in SYSTEMS}
-        for language in LANGUAGES
-    }
-    language_rows: list[dict[str, dict[str, float | None]] | None] = [task_failure]
-    language_rows.extend(
-        {
-            language: {
-                system: getattr(
-                    language_system[language][system].interaction_components,
-                    component,
-                )
-                for system in SYSTEMS
-            }
-            for language in LANGUAGES
-        }
-        for _, component in component_rows
-    )
-    language_rows.extend(
-        (
-            {
-                language: {
-                    system: language_system[language][system].fluency_failure
-                    for system in SYSTEMS
-                }
-                for language in LANGUAGES
-            },
-            {
-                language: {
-                    system: 100.0
-                    - fidelity_language_system[language][
-                        system
-                    ].standalone_fidelity_cleanliness
-                    for system in SYSTEMS
-                }
-                for language in LANGUAGES
-            },
-            LATENCY_LANGUAGE_SYSTEM,
-        )
-    )
-
-    width = 500
-    height = 176
-    model_cell_width = 24.5
-    language_cell_width = 23.0
-    cell_height = HEATMAP_CELL_HEIGHT
-    top = 142
-    model_x = 142
-    language_x = 295
-    legend_x = 439
+    width = 244
+    model_x = 110
+    model_cell_width = 22
+    row_heights = [14] * len(model_rows)
+    height = sum(row_heights) + 27
+    top = height - 25
     pdf = canvas.Canvas(
         str(METRIC_OUTPUT),
         pagesize=(width, height),
@@ -584,51 +444,35 @@ def render_model_metric_heatmap(
         initialFontName=FONT,
         invariant=1,
     )
-    pdf.setTitle("Model- and language-level diagnostic tables")
+    pdf.setTitle("Main-metric breakdown by system")
 
     pdf.setFillColor(INK)
     pdf.setFont(BOLD_FONT, HEATMAP_FONT_SIZE)
-    pdf.drawCentredString(
-        model_x + 3 * model_cell_width,
-        169,
-        "(d) By model",
+    header_lines = (
+        ("GPT", "min."),
+        ("GPT", "xhigh"),
+        ("Gem", "min."),
+        ("Gem", "high"),
+        ("Grok",),
     )
-    pdf.drawCentredString(
-        language_x + 3 * language_cell_width,
-        169,
-        "(e) Best by language",
-    )
-
-    for system_index, system in enumerate(SYSTEMS):
+    for system_index, lines in enumerate(header_lines):
         center_x = model_x + (system_index + 0.5) * model_cell_width
-        label_parts = SYSTEM_LABELS[system].split(" ", maxsplit=1)
-        family = label_parts[0]
-        setting = label_parts[1] if len(label_parts) == 2 else ""
-        pdf.setFillColor(INK)
-        pdf.setFont(BOLD_FONT, HEATMAP_FONT_SIZE)
-        pdf.drawCentredString(center_x, 157 if setting else 151.5, family)
-        if setting:
-            pdf.drawCentredString(center_x, 147, setting)
+        if len(lines) == 1:
+            pdf.drawCentredString(center_x, height - 15, lines[0])
+        else:
+            for line_index, line in enumerate(lines):
+                pdf.drawCentredString(center_x, height - 9 - line_index * 11, line)
     all_x = model_x + len(SYSTEMS) * model_cell_width
-    pdf.setFillColor(INK)
-    pdf.setFont(BOLD_FONT, HEATMAP_FONT_SIZE)
-    pdf.drawCentredString(all_x + model_cell_width / 2, 151.5, "Avg.")
+    pdf.drawCentredString(all_x + model_cell_width / 2, height - 15, "Avg.")
 
-    for language_index, language in enumerate(LANGUAGES):
-        center_x = language_x + (language_index + 0.5) * language_cell_width
-        pdf.drawCentredString(center_x, 151.5, LANGUAGE_LABELS[language])
-
-    pdf.drawString(1, 151.5, "Metric")
-    level_x = 105
-    unit_x = 130
-    pdf.drawCentredString(level_x, 151.5, "Level")
-    pdf.drawCentredString(unit_x, 151.5, "Unit")
+    pdf.drawString(1, height - 15, "Metric")
 
     pdf.saveState()
     pdf.setStrokeColor(GRID)
     pdf.setLineWidth(0.35)
-    for row_index in range(len(model_rows)):
-        row_y = top - (row_index + 1) * cell_height
+    row_y = top
+    for cell_height in row_heights:
+        row_y -= cell_height
         for column_index in range(len(SYSTEMS) + 1):
             pdf.rect(
                 model_x + column_index * model_cell_width,
@@ -638,26 +482,29 @@ def render_model_metric_heatmap(
                 fill=0,
                 stroke=1,
             )
-        for language_index in range(len(LANGUAGES)):
-            pdf.rect(
-                language_x + language_index * language_cell_width,
-                row_y,
-                language_cell_width,
-                cell_height,
-                fill=0,
-                stroke=1,
-            )
     pdf.restoreState()
 
-    for row_index, (label, level, values, is_latency) in enumerate(model_rows):
-        row_y = top - (row_index + 1) * cell_height
-        text_y = row_y + 4.7
+    row_y = top
+    for (label, level, values, is_latency), cell_height in zip(
+        model_rows, row_heights, strict=True
+    ):
+        row_y -= cell_height
+        text_y = row_y + (cell_height - HEATMAP_FONT_SIZE) / 2 + 1.7
         pdf.setFillColor(INK)
         pdf.setFont(FONT, HEATMAP_FONT_SIZE)
-        pdf.drawString(1, text_y, label)
-        pdf.drawCentredString(level_x, text_y, level)
-        unit = "secs" if is_latency else "%"
-        pdf.drawCentredString(unit_x, text_y, unit)
+        label_x = 1
+        pdf.drawString(label_x, text_y, label)
+        label_x += stringWidth(label, FONT, HEATMAP_FONT_SIZE)
+        # A lowered baseline makes the level a subscript without reducing the
+        # type below the ICASSP figure-label minimum. Units stay on the baseline.
+        level_label = {"Call": "c", "Utt.": "u", "Resp.": "r"}[level]
+        level_x = label_x + 0.9
+        pdf.drawString(level_x, text_y - 2.2, level_label)
+        unit_x = level_x + stringWidth(level_label, FONT, HEATMAP_FONT_SIZE) + 2
+        unit = "(s)" if is_latency else "(%)"
+        pdf.drawString(unit_x, text_y, unit)
+        if unit_x + stringWidth(unit, FONT, HEATMAP_FONT_SIZE) > model_x - 2:
+            raise ValueError(f"Metric label exceeds the one-column layout: {label}")
 
         row_min = min(values.values())
         for system_index, system in enumerate(SYSTEMS):
@@ -677,97 +524,17 @@ def render_model_metric_heatmap(
         display = f"{mean_value:.2f}" if is_latency else f"{mean_value:.0f}"
         pdf.drawCentredString(all_x + model_cell_width / 2, text_y, display)
 
-        language_values = language_rows[row_index]
-        language_row_min = (
-            min(
-                value
-                for language in LANGUAGES
-                for value in language_values[language].values()
-                if value is not None
-            )
-            if language_values is not None
-            else None
-        )
-        for language_index, language in enumerate(LANGUAGES):
-            cell_x = language_x + language_index * language_cell_width
-            if language_values is None:
-                pdf.setFillColor(INK)
-                pdf.setFont(FONT, HEATMAP_FONT_SIZE)
-                pdf.drawCentredString(
-                    cell_x + language_cell_width / 2,
-                    text_y,
-                    "--",
-                )
-                continue
-
-            available = {
-                system: value
-                for system, value in language_values[language].items()
-                if value is not None
-            }
-            if not available:
-                pdf.setFillColor(INK)
-                pdf.setFont(FONT, HEATMAP_FONT_SIZE)
-                pdf.drawCentredString(
-                    cell_x + language_cell_width / 2,
-                    text_y,
-                    "--",
-                )
-                continue
-
-            best_value = min(available.values())
-            best_systems = [
-                system for system, value in available.items() if value == best_value
-            ]
-            pdf.setFillColor(INK)
-            display = f"{best_value:.1f}" if is_latency else f"{best_value:.0f}"
-            model_key = ",".join(
-                str(SYSTEMS.index(system) + 1) for system in best_systems
-            )
-            value_width = stringWidth(display, FONT, HEATMAP_FONT_SIZE)
-            key_font_size = 6.0
-            key_width = stringWidth(model_key, BOLD_FONT, key_font_size)
-            gap = 0.8
-            text_x = (
-                cell_x + language_cell_width / 2 - (value_width + gap + key_width) / 2
-            )
-            pdf.setFont(
-                BOLD_FONT if best_value == language_row_min else FONT,
-                HEATMAP_FONT_SIZE,
-            )
-            pdf.drawString(text_x, text_y, display)
-            pdf.setFont(BOLD_FONT, key_font_size)
-            pdf.drawString(text_x + value_width + gap, text_y + 3.0, model_key)
-
     pdf.setStrokeColor(INK)
     pdf.setLineWidth(0.65)
-    pdf.line(all_x, top - len(model_rows) * cell_height, all_x, top)
+    pdf.line(all_x, top - sum(row_heights), all_x, top)
 
     pdf.saveState()
     pdf.setStrokeColor(colors.HexColor("#AEB6BF"))
     pdf.setLineWidth(0.6)
     for boundary_after in (1, 6, 8):
-        boundary_y = top - boundary_after * cell_height
+        boundary_y = top - sum(row_heights[:boundary_after])
         pdf.line(1, boundary_y, all_x + model_cell_width, boundary_y)
-        pdf.line(
-            language_x,
-            boundary_y,
-            language_x + len(LANGUAGES) * language_cell_width,
-            boundary_y,
-        )
     pdf.restoreState()
-
-    pdf.setFillColor(INK)
-    pdf.setFont(BOLD_FONT, HEATMAP_FONT_SIZE)
-    pdf.drawString(legend_x, 157, "Models")
-    for legend_index, system in enumerate(SYSTEMS):
-        legend_y = 140 - legend_index * 18
-        pdf.setFont(FONT, HEATMAP_FONT_SIZE)
-        pdf.drawString(
-            legend_x,
-            legend_y,
-            f"{legend_index + 1}  {SYSTEM_LABELS[system]}",
-        )
 
     pdf.save()
 
@@ -861,7 +628,7 @@ def render_heatmaps(artifact: UtteranceExperienceArtifact) -> None:
         initialFontName=FONT,
         invariant=1,
     )
-    pdf.setTitle("System-language task, interaction, and experience heatmaps")
+    pdf.setTitle("System-language task, interaction, and generation heatmaps")
     pdf.setFillColor(INK)
     pdf.setFont(FONT, HEATMAP_FONT_SIZE)
     for system_index, system in enumerate(SYSTEMS):
@@ -911,7 +678,7 @@ def render_heatmaps(artifact: UtteranceExperienceArtifact) -> None:
         pdf,
         x=358,
         width=137,
-        title="(c) Experience",
+        title="(c) Generation",
         languages=LOCALIZED_LANGUAGES,
         values=experience,
     )
@@ -921,9 +688,8 @@ def render_heatmaps(artifact: UtteranceExperienceArtifact) -> None:
 def main() -> None:
     """Write the publication-ready vector figures."""
     artifact = _artifact(EXPERIENCE_PATH)
-    fidelity_artifact = _fidelity_artifact()
     render_model_summary(artifact)
-    render_model_metric_heatmap(artifact, fidelity_artifact)
+    render_model_metric_heatmap(artifact)
     render_heatmaps(artifact)
 
 

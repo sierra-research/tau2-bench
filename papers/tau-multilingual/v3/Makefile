@@ -10,13 +10,12 @@ FIGURE_SCRIPT := figures/render_language_system_metrics.py
 FIGURES := figures/model_summary.pdf figures/model_metric_heatmap.pdf \
 	figures/language_system_heatmaps.pdf
 EXPERIENCE_ARTIFACT := $(REPO_ROOT)/papers/tau-multilingual/reproduction/experience.json
-SOURCE_ANALYSIS_ARTIFACT := $(REPO_ROOT)/data/analysis/tau_multilingual_experience_without_fluency_2026-09-03.json
 
 all: $(OUTPUT)
 
 figure: $(FIGURES)
 
-$(FIGURES): $(FIGURE_SCRIPT) $(EXPERIENCE_ARTIFACT) $(SOURCE_ANALYSIS_ARTIFACT) $(REPO_ROOT)/pyproject.toml $(REPO_ROOT)/uv.lock
+$(FIGURES): $(FIGURE_SCRIPT) $(EXPERIENCE_ARTIFACT) $(REPO_ROOT)/pyproject.toml $(REPO_ROOT)/uv.lock
 	cd $(REPO_ROOT) && uv run --frozen --extra experiments python \
 		papers/tau-multilingual/v3/$(FIGURE_SCRIPT)
 
