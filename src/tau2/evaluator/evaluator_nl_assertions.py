@@ -1,4 +1,8 @@
 import json
+import re
+import time
+
+#from loguru import logger
 
 from tau2.agent.base.streaming import (
     LinearizationStrategy,
@@ -10,7 +14,11 @@ from tau2.data_model.message import Message, SystemMessage, Tick, UserMessage
 from tau2.data_model.simulation import NLAssertionCheck, RewardInfo
 from tau2.data_model.tasks import RewardType, Task
 from tau2.evaluator.evaluator_base import EvaluatorBase
-from tau2.utils.llm_utils import generate
+from tau2.utils.llm_utils import extract_json_from_llm_response, generate
+
+# Retry config for NL assertion evaluation LLM calls
+_NL_EVAL_MAX_RETRIES = 3
+_NL_EVAL_RETRY_DELAY = 2.0
 
 
 class NLAssertionsEvaluator(EvaluatorBase[Message]):
@@ -118,6 +126,7 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             UserMessage(role="user", content=user_prompt),
         ]
 
+        '''
         assistant_message = generate(
             model=DEFAULT_LLM_NL_ASSERTIONS,
             messages=messages,
@@ -132,6 +141,58 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
                 justification=result["reasoning"],
             )
             for result in result_data.get("results", [])
+        ]
+        '''
+        
+        last_exception = None
+        for attempt in range(_NL_EVAL_MAX_RETRIES):
+            try:
+                assistant_message = generate(
+                    model=DEFAULT_LLM_NL_ASSERTIONS,
+                    messages=messages,
+                    call_name="nl_assertions_eval",
+                    response_format={"type": "json_object"},
+                    **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
+                )
+                raw_content = assistant_message.content or ""
+                # Strip <think>...</think> blocks if present (e.g. DeepSeek reasoning)
+                raw_content = re.sub(
+                    r"<think>[\s\S]*?</think>", "", raw_content
+                ).strip()
+                # Extract JSON from markdown code blocks or raw text
+                json_str = extract_json_from_llm_response(raw_content)
+                result_data = json.loads(json_str)
+                return [
+                    NLAssertionCheck(
+                        nl_assertion=result["expectedOutcome"],
+                        met=result["metExpectation"],
+                        justification=result["reasoning"],
+                    )
+                    for result in result_data.get("results", [])
+                ]
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                last_exception = e
+                #logger.warning(
+                #    f"NL assertions eval attempt {attempt + 1}/{_NL_EVAL_MAX_RETRIES} "
+                #    f"failed to parse response: {e.__class__.__name__}: {e}. "
+                #    f"Raw content (first 500 chars): {(assistant_message.content or '')[:500]}"
+                #)
+                if attempt < _NL_EVAL_MAX_RETRIES - 1:
+                    time.sleep(_NL_EVAL_RETRY_DELAY)
+
+        # All retries exhausted – return a conservative "not met" for each assertion
+        # instead of crashing the entire simulation
+        #logger.error(
+        #    f"NL assertions eval failed after {_NL_EVAL_MAX_RETRIES} attempts. "
+        #    f"Returning all assertions as not met. Last error: {last_exception}"
+        #)
+        return [
+            NLAssertionCheck(
+                nl_assertion=assertion,
+                met=False,
+                justification=f"Evaluation failed: could not parse LLM response after {_NL_EVAL_MAX_RETRIES} attempts. Error: {last_exception}",
+            )
+            for assertion in nl_assertions
         ]
 
 
@@ -241,3 +302,4 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
         Delegates to NLAssertionsEvaluator.evaluate_nl_assertions.
         """
         return NLAssertionsEvaluator.evaluate_nl_assertions(trajectory, nl_assertions)
+        
