@@ -16,7 +16,7 @@ from tau2.config import (
 )
 from tau2.data_model.audio import AudioData, AudioEncoding, AudioFormat
 from tau2.data_model.voice import TranscriptionConfig, TranscriptionResult
-from tau2.utils.retry import api_retry
+from tau2.utils.retry import api_retry, is_retryable_api_error
 from tau2.voice.utils.audio_preprocessing import (
     convert_to_mono,
     convert_to_pcm16,
@@ -52,6 +52,8 @@ def transcribe_audio(
             )
 
     except Exception as e:
+        if is_retryable_api_error(e):
+            raise
         return TranscriptionResult(
             transcript="", error=f"Transcription failed: {str(e)}"
         )
@@ -142,6 +144,8 @@ def transcribe_deepgram(
         return TranscriptionResult(transcript=transcript, confidence=confidence)
 
     except Exception as e:
+        if is_retryable_api_error(e):
+            raise
         return TranscriptionResult(
             transcript="", error=f"Deepgram transcription failed: {str(e)}"
         )
@@ -187,6 +191,8 @@ def transcribe_whisper(
 
         response = requests.post(url, headers=headers, files=files, data=data)
 
+        if response.status_code == 429 or response.status_code >= 500:
+            response.raise_for_status()
         if response.status_code != 200:
             return TranscriptionResult(
                 transcript="",
@@ -197,6 +203,8 @@ def transcribe_whisper(
         return TranscriptionResult(transcript=result.get("text", ""))
 
     except Exception as e:
+        if is_retryable_api_error(e):
+            raise
         return TranscriptionResult(
             transcript="", error=f"OpenAI transcription failed: {str(e)}"
         )
@@ -258,7 +266,7 @@ async def transcribe_gpt4o_realtime(
                         error_msg = f"OpenAI API error: {event}"
                         break
                 except asyncio.TimeoutError:
-                    break
+                    raise
 
             if error_msg:
                 return TranscriptionResult(transcript="", error=error_msg)
@@ -266,6 +274,8 @@ async def transcribe_gpt4o_realtime(
             return TranscriptionResult(transcript=transcript)
 
     except Exception as e:
+        if is_retryable_api_error(e):
+            raise
         return TranscriptionResult(
             transcript="", error=f"OpenAI Realtime transcription failed: {str(e)}"
         )
