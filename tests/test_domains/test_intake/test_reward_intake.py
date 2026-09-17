@@ -165,6 +165,33 @@ def test_surface_form_variants_still_score_full_reward(tasks):
         assert replay_reward(task, actions) == 1.0, task.id
 
 
+@pytest.mark.parametrize(
+    ("task_id", "submitted_value"),
+    [
+        ("intake_medications_easy_03", "Tramadol, 50 milligram tablet"),
+        ("intake_medications_easy_04", "Azithromycin, 250 milligram tablet"),
+        ("intake_medications_hard_06", "Valsartan 80 milligram tablet"),
+    ],
+)
+def test_spoken_milligram_unit_scores_full_reward(tasks, task_id, submitted_value):
+    """Natural spoken units and their written abbreviations are equivalent."""
+    task = next(task for task in tasks if task.id == task_id)
+    record_id, fields = _submission(task)
+    fields["current_medication"] = submitted_value
+    actions = [
+        (
+            "assistant",
+            "submit_fields",
+            {
+                "record_id": record_id,
+                "fields": fields,
+                "confirmed_with_user": True,
+            },
+        )
+    ]
+    assert replay_reward(task, actions) == 1.0
+
+
 # ---------------------------------------------------------------------------
 # Real errors
 # ---------------------------------------------------------------------------

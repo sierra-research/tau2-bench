@@ -37,15 +37,15 @@ all-fields-correct task accuracy; the n=1-to-n=3 slope is descriptive.
 | n=2 | 1 | 44/60 | .733 | 100/120 | .833 |
 | n=2 | 2 | 45/60 | .750 | 101/120 | .842 |
 | **n=2 pooled** | **0--2** | **125/180** | **.694** | **290/360** | **.806** |
-| n=3 | 0 | 19/30 | .633 | 73/90 | .811 |
+| n=3 | 0 | 20/30 | .667 | 74/90 | .822 |
 | n=3 | 1 | 18/30 | .600 | 71/90 | .789 |
 | n=3 | 2 | 11/30 | .367 | 58/90 | .644 |
-| **n=3 pooled** | **0--2** | **48/90** | **.533** | **202/270** | **.748** |
+| **n=3 pooled** | **0--2** | **49/90** | **.544** | **203/270** | **.752** |
 
 Field outcomes were reconstructed from the actual `submit_fields` payloads in
-each simulation and fold-compared with the seeded gold values. Whether all
-fields were correct agreed with the stored task reward for every included
-call.
+each simulation and fold-compared with the seeded gold values. The corrected
+fold changes one trial-0 medication call from zero to one; the immutable stored
+reward and the derived correction are both retained in the scoring ledger.
 
 ## Quality checks
 
@@ -67,10 +67,10 @@ call.
 ## Excluded fourth n=3 trial and sensitivity
 
 Trial 3 has 21/30 task passes (.700) and 78/90 correct fields (.867). Pooling
-all four n=3 trials would produce 69/120 task passes (.575) and 280/360 correct
-fields (.778). The balanced first-three rule lowers the point estimates but
-does not change the finding that whole-task accuracy degrades faster than
-per-field accuracy as fields are composed.
+all four n=3 trials under corrected grading would produce 70/120 task passes
+(.583) and 281/360 correct fields (.781). The balanced first-three rule lowers
+the point estimates but does not change the finding that whole-task accuracy
+degrades faster than per-field accuracy as fields are composed.
 
 ## Run and PR history
 

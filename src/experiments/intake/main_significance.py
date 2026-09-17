@@ -18,27 +18,31 @@ from typing import Any
 import numpy as np
 from scipy.stats import chi2, norm
 
-CROSSED_INPUT = "papers/tau-intake/v1/reproduction/analysis_inputs/modeb_crossed.json"
-SYSTEM_KEYS = {
+from tau2.paper.elicitation_scoring import (
+    DEFAULT_ARTIFACT,
+    corrected_reward,
+    load_correction_map,
+)
+
+RELEASE_ROOT = Path("papers/tau-intake/v1/reproduction")
+REALIZATIONS = ("regular", "chanheavy", "speechheavy")
+SYSTEM_TOKENS = {
+    "GPT minimal": "openai_minimal",
     "GPT xhigh": "openai_xhigh",
     "Gemini high": "gemini_high",
     "Grok": "xai_10",
 }
-GPT_MINIMAL_INPUTS = {
-    "regular": (
-        "papers/tau-intake/v1/reproduction/transcripts/"
-        "main_runs__modeb_openai_minimal_regular_2026-09-02.jsonl"
-    ),
-    "chanheavy": (
-        "papers/tau-intake/v1/reproduction/transcripts/"
-        "main_runs__modeb_openai_minimal_chanheavy_2026-09-05.jsonl"
-    ),
-    "speechheavy": (
-        "papers/tau-intake/v1/reproduction/transcripts/"
-        "main_runs__modeb_openai_minimal_speechheavy_2026-09-05.jsonl"
-    ),
-}
-REALIZATIONS = ("regular", "chanheavy", "speechheavy")
+
+
+def _transcript_input(system_token: str, realization: str) -> str:
+    date = "2026-09-02"
+    if system_token == "openai_minimal" and realization != "regular":
+        date = "2026-09-05"
+    return str(
+        RELEASE_ROOT
+        / "transcripts"
+        / f"main_runs__modeb_{system_token}_{realization}_{date}.jsonl"
+    )
 
 
 def _sha256(path: Path) -> str:
@@ -128,58 +132,42 @@ def _cochran_q(outcomes: np.ndarray) -> tuple[float, float]:
 
 
 def _load_inputs(repo_root: Path) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
-    path = repo_root / CROSSED_INPUT
-    document = json.loads(path.read_text())
     arrays: dict[str, np.ndarray] = {}
     provenance: dict[str, Any] = {}
     task_order: tuple[str, ...] | None = None
-    minimal_by_realization: dict[str, dict[str, float]] = {}
-    minimal_provenance: dict[str, Any] = {}
-    for realization, relative_path in GPT_MINIMAL_INPUTS.items():
-        result_path = repo_root / relative_path
-        with result_path.open(encoding="utf-8") as handle:
-            rewards = {
-                row["task_id"]: float(row["reward"])
-                for row in (json.loads(line) for line in handle)
-            }
-        minimal_by_realization[realization] = rewards
-        minimal_provenance[realization] = {
-            "path": relative_path,
-            "sha256": _sha256(result_path),
-        }
-
-    task_order = tuple(sorted(minimal_by_realization["regular"]))
-    minimal_outcomes = np.asarray(
-        [
-            [
-                minimal_by_realization[realization][task_id]
-                for realization in REALIZATIONS
+    release_root = repo_root / RELEASE_ROOT
+    corrections = load_correction_map(release_root)
+    for system, token in SYSTEM_TOKENS.items():
+        by_realization: dict[str, dict[str, float]] = {}
+        sources: dict[str, Any] = {}
+        for realization in REALIZATIONS:
+            relative_path = _transcript_input(token, realization)
+            result_path = repo_root / relative_path
+            rows = [
+                json.loads(line)
+                for line in result_path.read_text().splitlines()
+                if line
             ]
-            for task_id in task_order
-        ],
-        dtype=float,
-    )
-    if minimal_outcomes.shape != (200, 3):
-        raise ValueError(
-            f"Expected a 200 x 3 matrix for GPT minimal, got {minimal_outcomes.shape}"
-        )
-    arrays["GPT minimal"] = minimal_outcomes
-    provenance["GPT minimal"] = {
-        "realizations": list(REALIZATIONS),
-        "sources": minimal_provenance,
-    }
-
-    for system, key in SYSTEM_KEYS.items():
-        current_order = tuple(sorted(document[key]["regular"]))
-        if current_order != task_order:
+            rewards = {
+                str(row["task_id"]): corrected_reward(row, corrections) for row in rows
+            }
+            if len(rows) != 200 or len(rewards) != 200:
+                raise ValueError(f"Expected 200 unique tasks in {relative_path}")
+            by_realization[realization] = rewards
+            sources[realization] = {
+                "path": relative_path,
+                "sha256": _sha256(result_path),
+            }
+        current_order = tuple(sorted(by_realization["regular"]))
+        if task_order is None:
+            task_order = current_order
+        elif current_order != task_order:
             raise ValueError(f"Task alignment differs for {system}")
+        assert task_order is not None
         outcomes = np.asarray(
             [
-                [
-                    float(document[key][realization][task_id]["ok"])
-                    for realization in REALIZATIONS
-                ]
-                for task_id in current_order
+                [by_realization[realization][task_id] for realization in REALIZATIONS]
+                for task_id in task_order
             ],
             dtype=float,
         )
@@ -191,10 +179,8 @@ def _load_inputs(repo_root: Path) -> tuple[dict[str, np.ndarray], dict[str, Any]
             raise ValueError(f"Non-binary or null reward for {system}")
         arrays[system] = outcomes
         provenance[system] = {
-            "path": CROSSED_INPUT,
-            "sha256": _sha256(path),
-            "system_key": key,
             "realizations": list(REALIZATIONS),
+            "sources": sources,
         }
     return arrays, provenance
 
@@ -203,6 +189,9 @@ def analyze(repo_root: Path, *, seed: int = 42) -> dict[str, Any]:
     num_permutations = 100_000
     num_resamples = 10_000
     arrays, provenance = _load_inputs(repo_root)
+    release_root = repo_root / RELEASE_ROOT
+    correction_path = release_root / DEFAULT_ARTIFACT
+    corrections = load_correction_map(release_root)
 
     systems: dict[str, Any] = {}
     realization_p_values: list[float] = []
@@ -285,7 +274,7 @@ def analyze(repo_root: Path, *, seed: int = 42) -> dict[str, Any]:
 
     return {
         "instrument": "tau-elicit-main-significance",
-        "instrument_version": "1.2.0",
+        "instrument_version": "1.3.0",
         "seed": seed,
         "num_permutations": num_permutations,
         "num_bootstrap_resamples": num_resamples,
@@ -302,6 +291,11 @@ def analyze(repo_root: Path, *, seed: int = 42) -> dict[str, Any]:
             "Cochran Q across three paired binary realization outcomes within "
             "each system; Holm correction across four systems."
         ),
+        "scoring_correction": {
+            "path": str(DEFAULT_ARTIFACT),
+            "sha256": _sha256(correction_path),
+            "corrected_calls": len(corrections),
+        },
         "inputs": provenance,
         "systems": systems,
         "provider_pairs": provider_pairs,

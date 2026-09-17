@@ -36,6 +36,8 @@ Fold rules per entity type:
   hyphens / commas / slashes / parentheses folded to spaces, periods
   dropped, a space inserted at every digit<->letter boundary (``K9-Plus`` ==
   ``K9 Plus`` == ``K9Plus`` -> ``k 9 plus``), whitespace collapsed.
+  The spoken medication-unit forms "milligram" / "milligrams" fold to
+  ``mg``.
   Title-casing is deliberately NOT restored ("van der / de la" makes it
   unsafe), so the stored form is the folded lowercase form:
   ``Ana de la Vega-Marchetti`` -> ``ana de la vega marchetti``.
@@ -152,6 +154,10 @@ def fold_name(value: str) -> str:
     # 'K9Plus', 'K9 Plus', and 'K9-Plus' are the same spoken name; a digit
     # next to a letter is a boundary the writer may or may not mark.
     folded = re.sub(r"(?<=\d)(?=[^\W\d_])|(?<=[^\W\d_])(?=\d)", " ", folded)
+    # Medication values share the NAME fold. The caller naturally says the
+    # unit in full, while an agent may submit either that form or the written
+    # abbreviation; this surface choice must not decide reward.
+    folded = re.sub(r"\bmilligrams?\b", "mg", folded)
     return re.sub(r"\s+", " ", folded).strip()
 
 

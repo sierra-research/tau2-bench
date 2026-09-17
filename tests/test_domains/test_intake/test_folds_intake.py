@@ -116,6 +116,12 @@ def test_fold_name_ampersand_and_digit_boundaries_agree():
     assert fold_name("nGauge X2 Systems") != fold_name("nGauge X3 Systems")
 
 
+def test_fold_name_normalizes_spoken_milligram_unit():
+    expected = fold_name("Tramadol 50 mg tablet")
+    assert fold_name("Tramadol, 50 milligram tablet") == expected
+    assert fold_name("Tramadol 50 milligrams tablet") == expected
+
+
 def test_fold_email_folds_case_only():
     assert fold_email(" Anna.Baker@VeltaMail.com ") == "anna.baker@veltamail.com"
     # Separators in a local part are identity-bearing (§4 hard emails):

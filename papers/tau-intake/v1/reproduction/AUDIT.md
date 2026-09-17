@@ -2,25 +2,27 @@
 
 - **PASS — paper_cell_roster**: found 12 agent-directed and 12 scaffolded paper cells
 - **PASS — paper_call_count**: agent-directed=2400; scaffolded=2400; total=4800
+- **PASS — medication_unit_scoring_correction**: 80/5,970 derived rewards corrected; all 29 transcript-file hashes verified
 - **PASS — paper_regular_pass_at_1**: all eight regular-realization rates match Figure 2
 - **PASS — paper_agent_directed_pass3**: all four crossed-realization scores match Figure 2
 - **PASS — paper_scaffolded_pass3**: all four crossed-realization scores match Figure 2
-- **PASS — same_vs_crossed_pass3**: same regular realizations=103/200 (0.515); crossed regular, noise-heavy, and speech-heavy realizations=77/200 (0.385)
+- **PASS — same_vs_crossed_pass3**: same regular realizations=103/200 (0.515); crossed regular, noise-heavy, and speech-heavy realizations=78/200 (0.390)
 - **PASS — text_control**: cells=1; rows=200; passes=200
 - **PASS — paper_speech_judgments**: all four utterance-level speech-fidelity rows reproduce from exported judgments
 - **PASS — deterministic_complication_assignments**: checked=3200; mismatches=0
 - **PASS — recoverable_composition_and_protocol_results**: matched one-field, two/three-field, joint-submission, and validation/retry rows reproduce exactly
 - **PASS — behavioral_capture_verification_repair**: initial capture, verification, and repair numerators reproduce exactly
-- **PASS — pooled_repair_pathways**: 10/98, 32/123, 7/29, and 34/97 reproduce from transcript events
+- **PASS — pooled_repair_pathways**: 10/96, 36/118, 7/29, and 37/94 reproduce from transcript events
 - **PASS — noise_adaptivity_effort**: only Grok increases verification effort under noise
 - **PASS — strategy_difficulty_and_duration**: easy/hard success and 21-28 second scaffold costs reproduce exactly
 - **PASS — entity_robust_results**: all ten entity-bank robust-success rows reproduce exactly
-- **PASS — realism_assignment_ledger**: clean=253/498; assigned=674/1302
-- **PASS — realism_assignment_effects_both_arms**: 12 cells per arm; overall effects=-3.59/-4.16 points; no Holm-significant contrast
+- **PASS — realism_assignment_ledger**: clean=262/498; assigned=714/1302
+- **PASS — realism_assignment_effects_both_arms**: 12 cells per arm; overall effects=-2.07/-4.18 points; no Holm-significant contrast
 - **PASS — realism_observed_event_counts**: event ledger=2400 calls; spelling variation=301/524; falter/restart spelling=221/488 with 101 observed restarts
 - **PASS — mispronunciation_repair_cost**: mispronunciation raises spelling-request probability by 24.05 points and weighted duration by 26.32 seconds
-- **PASS — provider_stratified_caller_voice**: Mildred exceeds Priya, Mamadou, and Arjun after Holm correction, but not Wei
-- **PASS — human_failure_validation**: calls=90; sources=agent 81, user 2, system 0, no-error 3, unresolved 4
+- **PASS — provider_stratified_caller_voice**: Mildred exceeds Mamadou and Arjun after Holm correction, but not Priya or Wei
+- **PASS — human_failure_validation**: calls=90; sources=agent 81, user 1, system 4, no-error 0, unresolved 4
+- **PASS — human_failure_scoring_normalization**: system subtypes=4 scoring-normalization; user subtype=1 logical
 - **PASS — human_failure_subtypes**: agent subtypes=42 transcription, 16 logical, 6 VAD, 2 hallucination, 15 unresolved
 - **PASS — fidelity_validation_severity_ge_2**: TP/FP/FN/TN=12/3/4/41; P/R/F1=0.8000/0.7500/0.7742
 - **PASS — fidelity_validation_any_finding**: TP/FP/FN/TN=13/4/3/40; P/R/F1=0.7647/0.8125/0.7879

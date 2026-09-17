@@ -29,7 +29,13 @@ import numpy as np
 from pydantic import BaseModel, Field
 from scipy.stats import MonteCarloMethod, chi2, fisher_exact
 
-ANALYSIS_VERSION = "1.1.0"
+from tau2.paper.elicitation_scoring import (
+    DEFAULT_ARTIFACT,
+    corrected_reward,
+    load_correction_map,
+)
+
+ANALYSIS_VERSION = "1.2.0"
 DEFAULT_MONTE_CARLO_RESAMPLES = 100_000
 DEFAULT_SEED = 42
 DEFAULT_RELEASE_ROOT = Path("papers/tau-intake/v1/reproduction")
@@ -72,6 +78,14 @@ class SourceRun(BaseModel):
     ]
     sha256: Annotated[str, Field(description="SHA-256 of the compact transcript.")]
     calls: Annotated[int, Field(gt=0, description="Validated call rows.")]
+
+
+class CorrectionSource(BaseModel):
+    """Provenance for the immutable reward-correction layer."""
+
+    path: str
+    sha256: str
+    corrected_calls: Annotated[int, Field(ge=0)]
 
 
 class VoiceOutcome(BaseModel):
@@ -177,6 +191,7 @@ class CallerVoiceArtifact(BaseModel):
     inputs: Annotated[
         list[SourceRun], Field(description="Hashed compact-transcript inputs.")
     ]
+    scoring_correction: CorrectionSource
     omnibus: Annotated[
         list[OmnibusResult], Field(description="Three system-level omnibus tests.")
     ]
@@ -206,9 +221,14 @@ def _holm(p_values: list[float]) -> list[float]:
 
 def _load_counts(
     release_root: Path,
-) -> tuple[dict[System, dict[str, tuple[int, int]]], list[SourceRun]]:
+) -> tuple[
+    dict[System, dict[str, tuple[int, int]]],
+    list[SourceRun],
+    CorrectionSource,
+]:
     by_system: dict[System, dict[str, tuple[int, int]]] = {}
     sources: list[SourceRun] = []
+    corrections = load_correction_map(release_root)
     for system, relative_path in TRANSCRIPT_PATHS.items():
         path = release_root / relative_path
         counts: defaultdict[str, list[int]] = defaultdict(lambda: [0, 0])
@@ -217,7 +237,7 @@ def _load_counts(
         with path.open(encoding="utf-8") as handle:
             for line_number, line in enumerate(handle, start=1):
                 row = json.loads(line)
-                reward = row.get("reward")
+                reward = corrected_reward(row, corrections)
                 if reward not in (0, 0.0, 1, 1.0):
                     raise ValueError(
                         f"Non-binary reward in {relative_path}:{line_number}"
@@ -253,7 +273,16 @@ def _load_counts(
                 calls=calls,
             )
         )
-    return by_system, sources
+    correction_path = release_root / DEFAULT_ARTIFACT
+    return (
+        by_system,
+        sources,
+        CorrectionSource(
+            path=str(DEFAULT_ARTIFACT),
+            sha256=_sha256(correction_path),
+            corrected_calls=len(corrections),
+        ),
+    )
 
 
 def _ordered_table(counts: dict[str, tuple[int, int]]) -> list[VoiceOutcome]:
@@ -376,7 +405,7 @@ def analyze(
     resolved_release_root = (
         release_root if release_root.is_absolute() else repo_root / release_root
     )
-    counts, sources = _load_counts(resolved_release_root)
+    counts, sources, correction_source = _load_counts(resolved_release_root)
     omnibus = [
         _omnibus(system, counts[system], resamples=resamples, seed=seed)
         for system in System
@@ -412,6 +441,7 @@ def analyze(
             "comparisons."
         ),
         inputs=sources,
+        scoring_correction=correction_source,
         omnibus=omnibus,
         gemini_pairwise=_gemini_pairwise(counts[System.GEMINI_HIGH]),
         provider_stratified_pairwise=_provider_stratified_pairwise(counts),

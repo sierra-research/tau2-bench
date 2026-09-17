@@ -11,7 +11,7 @@ FIGURE_DIR = Path(__file__).resolve().parent
 
 def render() -> None:
     fields = np.asarray([1, 2, 3])
-    task_success = np.asarray([0.77, 0.69, 0.53])
+    task_success = np.asarray([0.77, 0.69, 0.54])
     task_error = np.asarray([0.03, 0.07, 0.10])
     field_success = np.asarray([0.77, 0.81, 0.75])
     field_error = np.asarray([0.03, 0.04, 0.05])
@@ -72,7 +72,7 @@ def render() -> None:
     labels = (
         (1, 0.77, "77%", (0, 10)),
         (2, 0.69, "69%", (-14, -10)),
-        (3, 0.53, "53%", (-14, -10)),
+        (3, 0.54, "54%", (-14, -10)),
         (2, 0.81, "81%", (16, 0)),
         (3, 0.75, "75%", (0, 12)),
     )

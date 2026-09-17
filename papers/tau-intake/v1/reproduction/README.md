@@ -10,9 +10,9 @@ This directory is the compact, reviewer-facing evidence archive for the tau-Elic
 - `transcripts/`: one compact JSONL file per results root, including agent tools and silent caller-side spelling/read-back events.
 - `examples/`: deterministic calls spanning both strategies and three systems.
 - `speech_judgments/`: all 6,422 automated LLM utterance judgments: 4,948 from the paper's main speech cohort and 1,474 supplemental judgments, including retained/excluded findings and errors.
-- `judge_validation/human_failure_validation_90/`: structured source and subtype labels for 90 failed calls, with no notes or fidelity fields.
+- `judge_validation/human_failure_validation_90/`: structured source and subtype labels for 90 calls sampled with original reward zero, with no notes or fidelity fields.
 - `judge_validation/fidelity_validation_60/`: isolated labels and judge predictions for the frozen 60-utterance fidelity cohort.
-- `analysis_inputs/`: crossed outcomes, rollups, deterministic complication draws, caller-effort ledger, the 2,400-call realism-event ledger, deterministic behavioral recomputation, the 210-row matched one-field composition ledger, the 200-task same-versus-crossed Pass3 ledger, caller-voice and main significance results, and speech rollup.
+- `analysis_inputs/`: the deterministic 80-call reward-correction ledger, crossed outcomes, rollups, deterministic complication draws, caller-effort ledger, the 2,400-call realism-event ledger, deterministic behavioral recomputation, the 210-row matched one-field composition ledger, the 200-task same-versus-crossed Pass3 ledger, caller-voice and main significance results, and speech rollup. The correction ledger leaves every archived transcript and source reward unchanged while normalizing `milligram(s)` to `mg` in derived grading.
 - `audit.json`: executable claim checks.
 
 `SOURCE_GAPS.md` records any remaining source or statistical-analysis re-execution gaps; both workflows in the release comparison have frozen sources.
@@ -27,6 +27,7 @@ The approximately 41 GB frozen source corpus is available in the [tau-elicit Goo
 
 ```bash
 tau2 paper elicitation-verify --root papers/tau-intake/v1/reproduction
+tau2 paper elicitation-rescore --root papers/tau-intake/v1/reproduction --check
 # With the detached 41 GB source corpus:
 tau2 paper elicitation-verify --root papers/tau-intake/v1/reproduction --evidence-root /path/to/tau-elicit
 ```

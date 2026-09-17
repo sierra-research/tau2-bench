@@ -1,12 +1,17 @@
 {
   "instrument": "tau-elicit-main-significance",
-  "instrument_version": "1.2.0",
+  "instrument_version": "1.3.0",
   "seed": 42,
   "num_permutations": 100000,
   "num_bootstrap_resamples": 10000,
   "analysis_unit": "200 aligned agent-directed tasks with regular, noise-heavy, and speech-heavy realizations",
   "provider_method": "Two-sided paired sign-permutation test on regular-realization Pass@1 or all-realization pass; Holm correction across six provider pairs; +1 Monte Carlo correction; paired BCa 95% intervals.",
   "realization_method": "Cochran Q across three paired binary realization outcomes within each system; Holm correction across four systems.",
+  "scoring_correction": {
+    "path": "analysis_inputs/intake_scoring_correction_2026-09-16.json",
+    "sha256": "43d1fbec82d4cfbb84cdc7318030d8b5775c0ab27d5495c391d5566124dd926d",
+    "corrected_calls": 80
+  },
   "inputs": {
     "GPT minimal": {
       "realizations": [
@@ -30,109 +35,142 @@
       }
     },
     "GPT xhigh": {
-      "path": "papers/tau-intake/v1/reproduction/analysis_inputs/modeb_crossed.json",
-      "sha256": "9989d4cf1311c4080ce778860e816756151080ae9c468621b81acb83e3b69a2e",
-      "system_key": "openai_xhigh",
       "realizations": [
         "regular",
         "chanheavy",
         "speechheavy"
-      ]
+      ],
+      "sources": {
+        "regular": {
+          "path": "papers/tau-intake/v1/reproduction/transcripts/main_runs__modeb_openai_xhigh_regular_2026-09-02.jsonl",
+          "sha256": "a1ebcff5c9ed25337145e25bd685225d3c1d5680aa472348bc52f94aed6dab8c"
+        },
+        "chanheavy": {
+          "path": "papers/tau-intake/v1/reproduction/transcripts/main_runs__modeb_openai_xhigh_chanheavy_2026-09-02.jsonl",
+          "sha256": "5fc6bc2414b10bed85762dea4fe39317e3afeee0477c02f8ac517bd471c15fb0"
+        },
+        "speechheavy": {
+          "path": "papers/tau-intake/v1/reproduction/transcripts/main_runs__modeb_openai_xhigh_speechheavy_2026-09-02.jsonl",
+          "sha256": "fe7a2eb51a07042983939c72c2ee01761413aa0ca7c4ff9c57a46bde98938a07"
+        }
+      }
     },
     "Gemini high": {
-      "path": "papers/tau-intake/v1/reproduction/analysis_inputs/modeb_crossed.json",
-      "sha256": "9989d4cf1311c4080ce778860e816756151080ae9c468621b81acb83e3b69a2e",
-      "system_key": "gemini_high",
       "realizations": [
         "regular",
         "chanheavy",
         "speechheavy"
-      ]
+      ],
+      "sources": {
+        "regular": {
+          "path": "papers/tau-intake/v1/reproduction/transcripts/main_runs__modeb_gemini_high_regular_2026-09-02.jsonl",
+          "sha256": "0e0b999abe9ef2c1bad2329a64aa34113cb2c14dc7befc4245b53a3cdf2fd00e"
+        },
+        "chanheavy": {
+          "path": "papers/tau-intake/v1/reproduction/transcripts/main_runs__modeb_gemini_high_chanheavy_2026-09-02.jsonl",
+          "sha256": "5ce1c232ac73bdbda2ce450bcd4bb5769e03578ed93adb1a6d0a9b5d7c54d57a"
+        },
+        "speechheavy": {
+          "path": "papers/tau-intake/v1/reproduction/transcripts/main_runs__modeb_gemini_high_speechheavy_2026-09-02.jsonl",
+          "sha256": "b3b569c5eecfb968258e359425fcf31ee49f8a0fd689691fd7784de4abf1e557"
+        }
+      }
     },
     "Grok": {
-      "path": "papers/tau-intake/v1/reproduction/analysis_inputs/modeb_crossed.json",
-      "sha256": "9989d4cf1311c4080ce778860e816756151080ae9c468621b81acb83e3b69a2e",
-      "system_key": "xai_10",
       "realizations": [
         "regular",
         "chanheavy",
         "speechheavy"
-      ]
+      ],
+      "sources": {
+        "regular": {
+          "path": "papers/tau-intake/v1/reproduction/transcripts/main_runs__modeb_xai_10_regular_2026-09-02.jsonl",
+          "sha256": "2cb8736ef466db2205cf464499f0720b4768f3d0aacccf54fa3d76e1f3a3fc69"
+        },
+        "chanheavy": {
+          "path": "papers/tau-intake/v1/reproduction/transcripts/main_runs__modeb_xai_10_chanheavy_2026-09-02.jsonl",
+          "sha256": "0a17513ad19eb3b176e793527af15a776e2aaa741a178a9d47029069b4ffacc5"
+        },
+        "speechheavy": {
+          "path": "papers/tau-intake/v1/reproduction/transcripts/main_runs__modeb_xai_10_speechheavy_2026-09-02.jsonl",
+          "sha256": "824cfd683e501d8cf8f856f8b55aa5c8d470fdf72595ba4211a541e80a87c89b"
+        }
+      }
     }
   },
   "systems": {
     "GPT minimal": {
       "per_realization_passes": [
-        83,
-        73,
-        86
+        87,
+        75,
+        91
       ],
       "per_realization_rates": [
-        0.415,
-        0.365,
-        0.43
+        0.435,
+        0.375,
+        0.455
       ],
-      "pass_at_1": 0.415,
+      "pass_at_1": 0.435,
       "pass_at_1_bca_95": [
-        0.345,
-        0.48
+        0.365,
+        0.5
       ],
-      "pass_robust_3": 0.15,
+      "pass_robust_3": 0.165,
       "pass_robust_3_bca_95": [
-        0.1,
-        0.2
+        0.115,
+        0.215
       ],
-      "pass_at_1_minus_robust": 0.265,
+      "pass_at_1_minus_robust": 0.27,
+      "gap_bca_95": [
+        0.205,
+        0.33
+      ],
+      "tasks_changing_outcome": 102,
+      "cochran_q": 4.078431372549019,
+      "cochran_p": 0.13013073418498555,
+      "cochran_p_holm": 0.2602614683699711
+    },
+    "GPT xhigh": {
+      "per_realization_passes": [
+        96,
+        83,
+        107
+      ],
+      "per_realization_rates": [
+        0.48,
+        0.415,
+        0.535
+      ],
+      "pass_at_1": 0.48,
+      "pass_at_1_bca_95": [
+        0.405,
+        0.545
+      ],
+      "pass_robust_3": 0.22,
+      "pass_robust_3_bca_95": [
+        0.16,
+        0.275
+      ],
+      "pass_at_1_minus_robust": 0.26,
       "gap_bca_95": [
         0.2,
         0.32
       ],
       "tasks_changing_outcome": 102,
-      "cochran_q": 2.7254901960784315,
-      "cochran_p": 0.2559571841154878,
-      "cochran_p_holm": 0.5119143682309756
-    },
-    "GPT xhigh": {
-      "per_realization_passes": [
-        89,
-        78,
-        104
-      ],
-      "per_realization_rates": [
-        0.445,
-        0.39,
-        0.52
-      ],
-      "pass_at_1": 0.445,
-      "pass_at_1_bca_95": [
-        0.37,
-        0.51
-      ],
-      "pass_robust_3": 0.2,
-      "pass_robust_3_bca_95": [
-        0.145,
-        0.255
-      ],
-      "pass_at_1_minus_robust": 0.245,
-      "gap_bca_95": [
-        0.185,
-        0.305
-      ],
-      "tasks_changing_outcome": 100,
-      "cochran_q": 10.22,
-      "cochran_p": 0.006036082923599563,
-      "cochran_p_holm": 0.024144331694398252
+      "cochran_q": 8.490196078431373,
+      "cochran_p": 0.014334328283818363,
+      "cochran_p_holm": 0.04300298485145509
     },
     "Gemini high": {
       "per_realization_passes": [
         103,
         74,
-        89
+        90
       ],
       "per_realization_rates": [
         0.515,
         0.37,
-        0.445
+        0.45
       ],
       "pass_at_1": 0.515,
       "pass_at_1_bca_95": [
@@ -149,93 +187,93 @@
         0.31,
         0.445
       ],
-      "tasks_changing_outcome": 126,
-      "cochran_q": 10.015873015873016,
-      "cochran_p": 0.006684682874409367,
-      "cochran_p_holm": 0.024144331694398252
+      "tasks_changing_outcome": 127,
+      "cochran_q": 9.968503937007874,
+      "cochran_p": 0.006844896310930515,
+      "cochran_p_holm": 0.02737958524372206
     },
     "Grok": {
       "per_realization_passes": [
-        133,
-        125,
-        132
+        144,
+        135,
+        144
       ],
       "per_realization_rates": [
-        0.665,
-        0.625,
-        0.66
+        0.72,
+        0.675,
+        0.72
       ],
-      "pass_at_1": 0.665,
+      "pass_at_1": 0.72,
       "pass_at_1_bca_95": [
-        0.59,
-        0.725
+        0.6490439119498734,
+        0.775
       ],
-      "pass_robust_3": 0.405,
+      "pass_robust_3": 0.45,
       "pass_robust_3_bca_95": [
-        0.335,
-        0.47
+        0.38,
+        0.515
       ],
-      "pass_at_1_minus_robust": 0.26,
+      "pass_at_1_minus_robust": 0.27,
       "gap_bca_95": [
-        0.195,
-        0.32
+        0.21,
+        0.33
       ],
-      "tasks_changing_outcome": 90,
-      "cochran_q": 1.2666666666666666,
-      "cochran_p": 0.5308194505620139,
-      "cochran_p_holm": 0.5308194505620139
+      "tasks_changing_outcome": 91,
+      "cochran_q": 1.7802197802197801,
+      "cochran_p": 0.4106106282259635,
+      "cochran_p_holm": 0.4106106282259635
     }
   },
   "provider_pairs": [
     {
       "system_a": "GPT minimal",
       "system_b": "GPT xhigh",
-      "delta_pass_at_1_a_minus_b": -0.03,
+      "delta_pass_at_1_a_minus_b": -0.045,
       "delta_pass_at_1_bca_95": [
-        -0.11,
-        0.04
+        -0.125,
+        0.025
       ],
-      "pass_permutation_p": 0.5121548784512154,
-      "delta_robust_a_minus_b": -0.05,
+      "pass_permutation_p": 0.2979570204297957,
+      "delta_robust_a_minus_b": -0.055,
       "delta_robust_bca_95": [
-        -0.115,
+        -0.125,
         0.0
       ],
-      "robust_permutation_p": 0.13377866221337786,
-      "pass_permutation_p_holm": 0.5121548784512154,
-      "robust_permutation_p_holm": 0.2675573244267557
+      "robust_permutation_p": 0.11849881501184988,
+      "pass_permutation_p_holm": 0.5959140408595914,
+      "robust_permutation_p_holm": 0.23699763002369975
     },
     {
       "system_a": "GPT minimal",
       "system_b": "Gemini high",
-      "delta_pass_at_1_a_minus_b": -0.1,
+      "delta_pass_at_1_a_minus_b": -0.08,
       "delta_pass_at_1_bca_95": [
-        -0.19,
-        -0.015
+        -0.17,
+        0.005
       ],
-      "pass_permutation_p": 0.03952960470395296,
-      "delta_robust_a_minus_b": 0.015,
+      "pass_permutation_p": 0.10428895711042889,
+      "delta_robust_a_minus_b": 0.03,
       "delta_robust_bca_95": [
-        -0.045,
-        0.065
+        -0.03,
+        0.085
       ],
-      "robust_permutation_p": 0.7218127818721812,
-      "pass_permutation_p_holm": 0.11858881411185888,
-      "robust_permutation_p_holm": 0.7218127818721812
+      "robust_permutation_p": 0.39277607223927763,
+      "pass_permutation_p_holm": 0.31286687133128666,
+      "robust_permutation_p_holm": 0.39277607223927763
     },
     {
       "system_a": "GPT minimal",
       "system_b": "Grok",
-      "delta_pass_at_1_a_minus_b": -0.25,
+      "delta_pass_at_1_a_minus_b": -0.285,
       "delta_pass_at_1_bca_95": [
-        -0.33,
-        -0.18
+        -0.365,
+        -0.215
       ],
       "pass_permutation_p": 9.99990000099999e-06,
-      "delta_robust_a_minus_b": -0.255,
+      "delta_robust_a_minus_b": -0.285,
       "delta_robust_bca_95": [
-        -0.33,
-        -0.19
+        -0.365,
+        -0.215
       ],
       "robust_permutation_p": 9.99990000099999e-06,
       "pass_permutation_p_holm": 5.999940000599994e-05,
@@ -244,34 +282,34 @@
     {
       "system_a": "GPT xhigh",
       "system_b": "Gemini high",
-      "delta_pass_at_1_a_minus_b": -0.07,
+      "delta_pass_at_1_a_minus_b": -0.035,
       "delta_pass_at_1_bca_95": [
-        -0.155,
-        0.005
+        -0.12,
+        0.04
       ],
-      "pass_permutation_p": 0.11314886851131489,
-      "delta_robust_a_minus_b": 0.065,
+      "pass_permutation_p": 0.4568754312456875,
+      "delta_robust_a_minus_b": 0.085,
       "delta_robust_bca_95": [
-        -0.005,
-        0.125
+        0.01,
+        0.15
       ],
-      "robust_permutation_p": 0.07809921900780992,
-      "pass_permutation_p_holm": 0.22629773702262979,
-      "robust_permutation_p_holm": 0.23429765702342975
+      "robust_permutation_p": 0.023379766202337976,
+      "pass_permutation_p_holm": 0.5959140408595914,
+      "robust_permutation_p_holm": 0.07013929860701393
     },
     {
       "system_a": "GPT xhigh",
       "system_b": "Grok",
-      "delta_pass_at_1_a_minus_b": -0.22,
+      "delta_pass_at_1_a_minus_b": -0.24,
       "delta_pass_at_1_bca_95": [
-        -0.295,
-        -0.15
+        -0.32,
+        -0.175
       ],
       "pass_permutation_p": 9.99990000099999e-06,
-      "delta_robust_a_minus_b": -0.205,
+      "delta_robust_a_minus_b": -0.23,
       "delta_robust_bca_95": [
-        -0.285,
-        -0.1394311481795012
+        -0.31,
+        -0.16
       ],
       "robust_permutation_p": 9.99990000099999e-06,
       "pass_permutation_p_holm": 5.999940000599994e-05,
@@ -280,19 +318,19 @@
     {
       "system_a": "Gemini high",
       "system_b": "Grok",
-      "delta_pass_at_1_a_minus_b": -0.15,
+      "delta_pass_at_1_a_minus_b": -0.205,
       "delta_pass_at_1_bca_95": [
-        -0.24,
-        -0.07
+        -0.29,
+        -0.13
       ],
-      "pass_permutation_p": 0.0008099919000809992,
-      "delta_robust_a_minus_b": -0.27,
+      "pass_permutation_p": 9.99990000099999e-06,
+      "delta_robust_a_minus_b": -0.315,
       "delta_robust_bca_95": [
-        -0.35,
-        -0.205
+        -0.395,
+        -0.25
       ],
       "robust_permutation_p": 9.99990000099999e-06,
-      "pass_permutation_p_holm": 0.003239967600323997,
+      "pass_permutation_p_holm": 5.999940000599994e-05,
       "robust_permutation_p_holm": 5.999940000599994e-05
     }
   ]

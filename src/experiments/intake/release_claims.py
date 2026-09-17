@@ -8,6 +8,7 @@ included in ``reproduction/analysis_inputs/behavioral_recomputed.json``.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -15,6 +16,12 @@ from collections import defaultdict
 from pathlib import Path
 from statistics import mean
 from typing import Any, Iterable
+
+from tau2.paper.elicitation_scoring import (
+    DEFAULT_ARTIFACT,
+    corrected_reward,
+    load_correction_map,
+)
 
 SYSTEMS = {
     "gpt_xhigh": "openai_xhigh",
@@ -26,9 +33,12 @@ FAMILIAR_BANKS = {"dates", "times"}
 UNFAMILIAR_BANKS = {"coined", "medications"}
 
 
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+def _read_jsonl(path: Path, corrections: dict[str, float]) -> list[dict[str, Any]]:
     with path.open(encoding="utf-8") as handle:
-        return [json.loads(line) for line in handle]
+        rows = [json.loads(line) for line in handle]
+    for row in rows:
+        row["reward"] = corrected_reward(row, corrections)
+    return rows
 
 
 def _agent_path(root: Path, token: str, condition: str) -> Path:
@@ -56,7 +66,8 @@ def _bank_and_tier(task_id: str) -> tuple[str, str]:
 
 
 def _fold(value: object) -> str:
-    return re.sub(r"[^a-z0-9@.]+", " ", str(value).casefold()).strip()
+    folded = re.sub(r"\bmilligrams?\b", "mg", str(value).casefold())
+    return re.sub(r"[^a-z0-9@.]+", " ", folded).strip()
 
 
 def _gold_fields(root: Path, task_ids: set[str]) -> dict[str, dict[str, str]]:
@@ -342,8 +353,11 @@ def _realism_descriptive(
 
 
 def analyze(root: Path) -> dict[str, Any]:
+    corrections = load_correction_map(root)
     by_system_condition = {
-        (system, condition): _read_jsonl(_agent_path(root, token, condition))
+        (system, condition): _read_jsonl(
+            _agent_path(root, token, condition), corrections
+        )
         for system, token in SYSTEMS.items()
         for condition in CONDITIONS
     }
@@ -357,13 +371,22 @@ def analyze(root: Path) -> dict[str, Any]:
         },
     )
     scaffolded_regular = {
-        system: _read_jsonl(_scaffolded_path(root, token, "regular"))
+        system: _read_jsonl(_scaffolded_path(root, token, "regular"), corrections)
         for system, token in SYSTEMS.items()
     }
     regular = {system: by_system_condition[system, "regular"] for system in SYSTEMS}
+    correction_path = root / DEFAULT_ARTIFACT
     return {
-        "schema_version": "tau-elicit-behavioral-recomputation-v1",
-        "source": "checked-in compact transcripts and historical task snapshots",
+        "schema_version": "tau-elicit-behavioral-recomputation-v2",
+        "source": (
+            "checked-in compact transcripts, historical task snapshots, and the "
+            "post-hoc medication-unit scoring correction"
+        ),
+        "scoring_correction": {
+            "path": str(DEFAULT_ARTIFACT),
+            "sha256": hashlib.sha256(correction_path.read_bytes()).hexdigest(),
+            "corrected_calls": len(corrections),
+        },
         "behavior": {
             system: _behavior(calls, gold) for system, calls in regular.items()
         },

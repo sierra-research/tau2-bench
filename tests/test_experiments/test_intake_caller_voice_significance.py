@@ -25,11 +25,11 @@ def test_holm_adjustment_is_monotone_in_rank() -> None:
 def test_frozen_voice_tables_match_paper(artifact) -> None:
     expected = {
         System.GPT_XHIGH: {
-            "mildred_kaplan": (28, 19),
-            "wei_lin": (19, 20),
-            "priya_patil": (19, 28),
+            "mildred_kaplan": (29, 18),
+            "wei_lin": (20, 19),
+            "priya_patil": (22, 25),
             "mamadou_diallo": (11, 20),
-            "arjun_roy": (12, 24),
+            "arjun_roy": (14, 22),
         },
         System.GEMINI_HIGH: {
             "mildred_kaplan": (31, 17),
@@ -39,11 +39,11 @@ def test_frozen_voice_tables_match_paper(artifact) -> None:
             "arjun_roy": (16, 23),
         },
         System.GROK: {
-            "mildred_kaplan": (38, 13),
-            "wei_lin": (21, 14),
-            "priya_patil": (31, 16),
-            "mamadou_diallo": (20, 13),
-            "arjun_roy": (23, 11),
+            "mildred_kaplan": (40, 11),
+            "wei_lin": (25, 10),
+            "priya_patil": (33, 14),
+            "mamadou_diallo": (22, 11),
+            "arjun_roy": (24, 10),
         },
     }
     for result in artifact.omnibus:
@@ -54,10 +54,10 @@ def test_frozen_voice_tables_match_paper(artifact) -> None:
 def test_frozen_omnibus_values_match_paper_exactly(artifact) -> None:
     by_system = {result.system: result for result in artifact.omnibus}
     assert by_system[System.GPT_XHIGH].monte_carlo_p == pytest.approx(
-        0.1045589544104559, abs=1e-15
+        0.14339856601433987, abs=1e-15
     )
     assert by_system[System.GPT_XHIGH].holm_p == pytest.approx(
-        0.2091179088209118, abs=1e-15
+        0.28679713202867974, abs=1e-15
     )
     assert by_system[System.GEMINI_HIGH].monte_carlo_p == pytest.approx(
         0.013369866301336986, abs=1e-15
@@ -66,9 +66,9 @@ def test_frozen_omnibus_values_match_paper_exactly(artifact) -> None:
         0.04010959890401096, abs=1e-15
     )
     assert by_system[System.GROK].monte_carlo_p == pytest.approx(
-        0.6043639563604364, abs=1e-15
+        0.7919620803791962, abs=1e-15
     )
-    assert by_system[System.GROK].holm_p == pytest.approx(0.6043639563604364, abs=1e-15)
+    assert by_system[System.GROK].holm_p == pytest.approx(0.7919620803791962, abs=1e-15)
 
 
 def test_gemini_pairwise_values_match_paper(artifact) -> None:
@@ -86,10 +86,10 @@ def test_provider_stratified_pairwise_values_match_paper(artifact) -> None:
         for row in artifact.provider_stratified_pairwise
     }
     expected = {
-        "priya_patil": 0.02723989034446967,
-        "mamadou_diallo": 0.014416196464089436,
-        "arjun_roy": 0.018746161695259975,
-        "wei_lin": 0.9381870863384129,
+        "priya_patil": 0.05459828711421718,
+        "mamadou_diallo": 0.012549113954123853,
+        "arjun_roy": 0.02567843815449105,
+        "wei_lin": 1.0,
     }
     for voice, holm_p in expected.items():
         row = by_pair[frozenset(("mildred_kaplan", voice))]

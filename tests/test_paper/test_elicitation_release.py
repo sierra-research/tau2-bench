@@ -32,6 +32,11 @@ from tau2.paper.elicitation import (
     _task_source_paths,
     verify_release,
 )
+from tau2.paper.elicitation_scoring import (
+    SCORING_CORRECTION_VERSION,
+    ScoringCorrectionArtifact,
+    build_scoring_correction,
+)
 
 
 def test_release_includes_detached_evidence_and_realism_analysis() -> None:
@@ -209,8 +214,8 @@ def test_release_validation_projection_is_exact_and_sanitized() -> None:
     ]
     assert Counter(row.error_source for row in human_rows) == {
         "agent": 81,
-        "user": 2,
-        "no_error": 3,
+        "user": 1,
+        "system": 4,
         "unresolved": 4,
     }
     assert list(FidelityValidationRow.model_fields) == [
@@ -316,6 +321,54 @@ def test_checked_release_passes_offline_verification() -> None:
     assert report.ok, report.summary
 
 
+def test_scoring_correction_covers_only_manifest_calls() -> None:
+    root = Path(__file__).resolve().parents[2]
+    release = root / "papers/tau-intake/v1/reproduction"
+    artifact = build_scoring_correction(release)
+
+    assert artifact.schema_version == SCORING_CORRECTION_VERSION
+    assert artifact.checks.manifest_cells == 29
+    assert artifact.checks.transcript_rows == 5_970
+    assert artifact.checks.unique_simulation_ids == 5_970
+    assert artifact.corrected_calls == 80
+    assert artifact.corrected_calls_by_cohort == {
+        "entity_composition": 1,
+        "paper_agent_directed": 60,
+        "paper_scaffolded": 19,
+    }
+    assert all(row.original_reward == 0.0 for row in artifact.calls)
+    assert all(row.corrected_reward == 1.0 for row in artifact.calls)
+    assert all(
+        [field.field_name for field in row.fields] == ["current_medication"]
+        for row in artifact.calls
+    )
+    simulation_ids = {row.simulation_id for row in artifact.calls}
+    assert "c54d5a29-bcbb-4a2f-b531-41f1295c3832" not in simulation_ids
+    assert "bb01d1fe-ecb5-4089-b30e-19ba257f7010" not in simulation_ids
+
+    by_path = {row.results_path: row for row in artifact.cells}
+    assert (
+        by_path["main_runs/modeb_xai_10_regular_2026-09-02/results.json"].corrections
+        == 11
+    )
+    assert (
+        by_path["ablations/entity_composition/intake_ecomp_n3/results.json"].corrections
+        == 1
+    )
+    assert by_path["main_runs/intake_passk_xhigh_regular/results.json"].corrections == 0
+
+
+def test_checked_scoring_correction_artifact_reproduces() -> None:
+    root = Path(__file__).resolve().parents[2]
+    release = root / "papers/tau-intake/v1/reproduction"
+    checked = ScoringCorrectionArtifact.model_validate_json(
+        (
+            release / "analysis_inputs/intake_scoring_correction_2026-09-16.json"
+        ).read_text()
+    )
+    assert build_scoring_correction(release) == checked
+
+
 def test_runtime_caller_prompt_is_outbound_and_free_arm_removes_strategy_nudge() -> (
     None
 ):
@@ -409,8 +462,8 @@ def test_protocol_archive_contains_only_observed_workflows() -> None:
         "field_by_field_validation_and_retry",
     }
     joint = artifact["protocol"]["joint_submission_without_validation"]
-    assert (joint["task_passes"], joint["observations"]) == (173, 270)
-    assert (joint["field_passes"], joint["fields"]) == (492, 630)
+    assert (joint["task_passes"], joint["observations"]) == (174, 270)
+    assert (joint["field_passes"], joint["fields"]) == (493, 630)
     validated = artifact["protocol"]["field_by_field_validation_and_retry"]
     assert (validated["task_passes"], validated["observations"]) == (222, 270)
     assert (validated["field_passes"], validated["fields"]) == (544, 630)
@@ -432,11 +485,11 @@ def test_same_vs_crossed_pass3_ledger_reproduces_paper_claim() -> None:
         "rate": 0.515,
     }
     assert artifact["crossed_environment"] == {
-        "passes": 77,
+        "passes": 78,
         "total": 200,
-        "rate": 0.385,
+        "rate": 0.39,
     }
-    assert artifact["difference_points"] == -13.0
+    assert artifact["difference_points"] == -12.5
     assert len(artifact["rows"]) == 200
     assert sum(row["same_environment_pass3"] for row in artifact["rows"]) == 103
-    assert sum(row["crossed_environment_pass3"] for row in artifact["rows"]) == 77
+    assert sum(row["crossed_environment_pass3"] for row in artifact["rows"]) == 78

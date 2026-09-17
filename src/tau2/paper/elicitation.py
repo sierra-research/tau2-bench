@@ -22,6 +22,17 @@ from typing import Annotated, Any, Iterable, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from tau2.paper.elicitation_scoring import (
+    DEFAULT_ARTIFACT as SCORING_CORRECTION_ARTIFACT,
+)
+from tau2.paper.elicitation_scoring import (
+    ScoringCorrectionArtifact,
+    build_scoring_correction,
+    corrected_reward,
+    load_correction_map,
+    write_scoring_correction,
+)
+
 RELEASE_VERSION = "tau-elicit-review-release-v3"
 TRANSCRIPT_VERSION = "tau-elicit-compact-transcript-v1"
 EXAMPLE_SELECTION_VERSION = "tau-elicit-examples-v1"
@@ -238,6 +249,7 @@ class HumanFailureValidationRow(BaseModel):
             "logical_error",
             "vad",
             "hallucination",
+            "scoring_normalization",
             "unresolved",
         ],
         Field(description="Final human failure-subtype label."),
@@ -348,7 +360,9 @@ class HumanFailureMetrics(BaseModel):
     schema_version: Annotated[str, Field(description="Metrics schema version.")]
     validation_set_id: Annotated[str, Field(description="Frozen validation set.")]
     unit: Annotated[str, Field(description="Validation unit.")]
-    n_calls: Annotated[int, Field(gt=0, description="Number of failed calls.")]
+    n_calls: Annotated[
+        int, Field(gt=0, description="Number of original reward-zero calls.")
+    ]
     reward: Annotated[int, Field(description="Reward shared by the cohort.")]
     artifact: HumanFailureArtifactMetadata
     provider_counts: HumanFailureProviderCounts
@@ -1062,7 +1076,7 @@ def _read_validation_artifacts(
     if (
         human_metrics.schema_version != "tau-elicit-human-failure-metrics-v2"
         or human_metrics.validation_set_id != HUMAN_FAILURE_VALIDATION
-        or human_metrics.unit != "failed_call"
+        or human_metrics.unit != "original_reward_zero_call"
         or human_metrics.reward != 0
         or human_metrics.n_calls != len(human_rows)
         or human_metrics.artifact.calls_path != "calls.csv"
@@ -1078,6 +1092,9 @@ def _read_validation_artifacts(
     human_user_subtypes = Counter(
         row.error_subtype for row in human_rows if row.error_source == "user"
     )
+    human_system_subtypes = Counter(
+        row.error_subtype for row in human_rows if row.error_source == "system"
+    )
     if (
         len(human_rows) != 90
         or len({row.simulation_id for row in human_rows}) != 90
@@ -1091,11 +1108,14 @@ def _read_validation_artifacts(
             (row.error_source in {"no_error", "unresolved"} and row.error_subtype)
             or (row.error_source == "agent" and not row.error_subtype)
             or (row.error_source == "user" and row.error_subtype != "logical_error")
+            or (
+                row.error_source == "system"
+                and row.error_subtype != "scoring_normalization"
+            )
             for row in human_rows
         )
         or human_provider_counts != {"openai": 30, "gemini": 30, "xai": 30}
-        or human_source_counts
-        != {"agent": 81, "user": 2, "no_error": 3, "unresolved": 4}
+        or human_source_counts != {"agent": 81, "user": 1, "system": 4, "unresolved": 4}
         or human_agent_subtypes
         != {
             "transcription_error": 42,
@@ -1104,13 +1124,14 @@ def _read_validation_artifacts(
             "hallucination": 2,
             "unresolved": 15,
         }
-        or human_user_subtypes != {"logical_error": 2}
+        or human_user_subtypes != {"logical_error": 1}
+        or human_system_subtypes != {"scoring_normalization": 4}
         or human_metrics.provider_counts.model_dump() != human_provider_counts
         or human_metrics.error_source.denominator != 90
         or not _count_share_matches(human_metrics.error_source.agent, 81, 90)
-        or not _count_share_matches(human_metrics.error_source.user, 2, 90)
-        or not _count_share_matches(human_metrics.error_source.system, 0, 90)
-        or not _count_share_matches(human_metrics.error_source.no_error, 3, 90)
+        or not _count_share_matches(human_metrics.error_source.user, 1, 90)
+        or not _count_share_matches(human_metrics.error_source.system, 4, 90)
+        or not _count_share_matches(human_metrics.error_source.no_error, 0, 90)
         or not _count_share_matches(human_metrics.error_source.unresolved, 4, 90)
         or human_metrics.agent_error_subtype.denominator != 81
         or not _count_share_matches(
@@ -1126,12 +1147,14 @@ def _read_validation_artifacts(
         or not _count_share_matches(
             human_metrics.agent_error_subtype.unresolved, 15, 81
         )
-        or human_metrics.user_error_subtype.denominator != 2
+        or human_metrics.user_error_subtype.denominator != 1
         or not _count_share_matches(
-            human_metrics.user_error_subtype.logical_error, 2, 2
+            human_metrics.user_error_subtype.logical_error, 1, 1
         )
     ):
-        raise ValueError("Human-failure validation must contain 90 unique failed calls")
+        raise ValueError(
+            "Human-failure validation must contain 90 unique original reward-zero calls"
+        )
 
     fidelity_dir = validation_root / FIDELITY_VALIDATION
     fidelity_rows = _read_validation_rows(
@@ -1479,6 +1502,7 @@ def _compact_outcomes(
 ) -> dict[str, dict[str, dict[str, float]]]:
     """Load compact task outcomes as system -> condition -> task -> reward."""
     outcomes: dict[str, dict[str, dict[str, float]]] = {}
+    corrections = load_correction_map(out)
     for cell in cells:
         if cell.cohort != cohort:
             continue
@@ -1493,7 +1517,7 @@ def _compact_outcomes(
                     raise ValueError(
                         f"Duplicate task {task_id} in paper cell {cell.results_path}"
                     )
-                task_rows[task_id] = float(row["reward"])
+                task_rows[task_id] = corrected_reward(row, corrections)
         outcomes.setdefault(cell.system, {})[cell.condition] = task_rows
     return outcomes
 
@@ -1659,6 +1683,7 @@ def _score_ablation_cell(
     """Recompute final task and field outcomes for one workflow."""
     from tau2.domains.intake.folds import FoldKind, fold_value
 
+    corrections = load_correction_map(out)
     task_passes = 0
     field_passes = 0
     calls = 0
@@ -1686,7 +1711,7 @@ def _score_ablation_cell(
             calls += 1
             fields += len(ordered)
             task_ids.add(str(row["task_id"]))
-            task_passes += float(row["reward"]) == 1.0
+            task_passes += corrected_reward(row, corrections) == 1.0
             field_passes += sum(final)
     return {
         "unique_tasks": len(task_ids),
@@ -1704,6 +1729,7 @@ def _transcript_outcomes(
 ) -> dict[tuple[str, int], OneFieldSourceOutcome]:
     """Index one compact transcript by canonical task and trial."""
     result: dict[tuple[str, int], OneFieldSourceOutcome] = {}
+    corrections = load_correction_map(out)
     with (out / cell.transcript_file).open(encoding="utf-8") as handle:
         for line in handle:
             row = json.loads(line)
@@ -1717,7 +1743,7 @@ def _transcript_outcomes(
                 trial=key[1],
                 simulation_id=str(row["simulation_id"]),
                 source_simulation_sha256=str(row["source_simulation_sha256"]),
-                reward=float(row["reward"]),
+                reward=corrected_reward(row, corrections),
             )
     return result
 
@@ -2056,20 +2082,35 @@ def _audit_document(
         f"agent-directed={agent_calls}; scaffolded={scaffold_calls}; total={agent_calls + scaffold_calls}",
     )
 
+    scoring_correction = ScoringCorrectionArtifact.model_validate_json(
+        (out / SCORING_CORRECTION_ARTIFACT).read_text()
+    )
+    corrected_cell_rates = {
+        cell.results_path: cell.corrected_pass_rate for cell in scoring_correction.cells
+    }
+    check(
+        "medication_unit_scoring_correction",
+        scoring_correction.corrected_calls == 80
+        and scoring_correction.checks.manifest_cells == 29
+        and scoring_correction.checks.transcript_rows == 5_970
+        and scoring_correction.original_transcripts_unchanged,
+        "80/5,970 derived rewards corrected; all 29 transcript-file hashes verified",
+    )
     expected_rates = {
-        "main_runs/modeb_openai_minimal_regular_2026-09-02/results.json": 0.415,
-        "main_runs/modeb_openai_xhigh_regular_2026-09-02/results.json": 0.445,
+        "main_runs/modeb_openai_minimal_regular_2026-09-02/results.json": 0.435,
+        "main_runs/modeb_openai_xhigh_regular_2026-09-02/results.json": 0.480,
         "main_runs/modeb_gemini_high_regular_2026-09-02/results.json": 0.515,
-        "main_runs/modeb_xai_10_regular_2026-09-02/results.json": 0.665,
-        "main_runs/intake_m_openai_minimal_regular/results.json": 0.785,
+        "main_runs/modeb_xai_10_regular_2026-09-02/results.json": 0.720,
+        "main_runs/intake_m_openai_minimal_regular/results.json": 0.790,
         "main_runs/intake_m_openai_xhigh_regular/results.json": 0.770,
         "main_runs/intake_m_gemini_high_regular/results.json": 0.795,
-        "main_runs/intake_m_xai_10_regular/results.json": 0.815,
+        "main_runs/intake_m_xai_10_regular/results.json": 0.835,
     }
     mismatches = {
-        path: {"expected": expected, "observed": by_path[path].pass_rate}
+        path: {"expected": expected, "observed": corrected_cell_rates.get(path)}
         for path, expected in expected_rates.items()
-        if path not in by_path or abs(by_path[path].pass_rate - expected) > 1e-12
+        if path not in corrected_cell_rates
+        or abs(corrected_cell_rates[path] - expected) > 1e-12
     }
     check(
         "paper_regular_pass_at_1",
@@ -2079,10 +2120,10 @@ def _audit_document(
         else json.dumps(mismatches, sort_keys=True),
     )
     expected_pass3 = {
-        "gpt_minimal": 0.150,
-        "gpt_xhigh": 0.200,
+        "gpt_minimal": 0.165,
+        "gpt_xhigh": 0.220,
         "gemini_high": 0.135,
-        "grok": 0.405,
+        "grok": 0.450,
     }
     agent_pass3 = _pass3_by_system(
         _compact_outcomes(out, cells, "paper_agent_directed")
@@ -2100,10 +2141,10 @@ def _audit_document(
         else json.dumps(pass3_mismatches, sort_keys=True),
     )
     expected_scaffolded_pass3 = {
-        "gpt_minimal": 0.455,
-        "gpt_xhigh": 0.385,
+        "gpt_minimal": 0.465,
+        "gpt_xhigh": 0.390,
         "gemini_high": 0.365,
-        "grok": 0.540,
+        "grok": 0.580,
     }
     scaffolded_pass3 = _pass3_by_system(
         _compact_outcomes(out, cells, "paper_scaffolded")
@@ -2127,10 +2168,10 @@ def _audit_document(
         pass3_comparison.same_environment.passes == 103
         and pass3_comparison.same_environment.total == 200
         and pass3_comparison.same_environment.rate == 0.515
-        and pass3_comparison.crossed_environment.passes == 77
+        and pass3_comparison.crossed_environment.passes == 78
         and pass3_comparison.crossed_environment.total == 200
-        and pass3_comparison.crossed_environment.rate == 0.385
-        and pass3_comparison.difference_points == -13.0
+        and pass3_comparison.crossed_environment.rate == 0.390
+        and pass3_comparison.difference_points == -12.5
         and len(pass3_comparison.rows) == 200
     )
     check(
@@ -2138,7 +2179,7 @@ def _audit_document(
         pass3_comparison_ok,
         (
             "same regular realizations=103/200 (0.515); crossed regular, "
-            "noise-heavy, and speech-heavy realizations=77/200 (0.385)"
+            "noise-heavy, and speech-heavy realizations=78/200 (0.390)"
         )
         if pass3_comparison_ok
         else pass3_comparison.model_dump_json(),
@@ -2210,10 +2251,10 @@ def _audit_document(
         "one_field": 486 / 630,
         "two_task": 125 / 180,
         "two_field": 290 / 360,
-        "three_task": 48 / 90,
-        "three_field": 202 / 270,
-        "joint_task": 173 / 270,
-        "joint_field": 492 / 630,
+        "three_task": 49 / 90,
+        "three_field": 203 / 270,
+        "joint_task": 174 / 270,
+        "joint_field": 493 / 630,
         "retry_task": 222 / 270,
         "retry_field": 544 / 630,
     }
@@ -2233,9 +2274,9 @@ def _audit_document(
         (out / "analysis_inputs" / "behavioral_recomputed.json").read_text()
     )
     expected_capture = {
-        "gpt_xhigh": (200, 137, 56, 7, 90, 28, 24),
+        "gpt_xhigh": (200, 134, 59, 7, 89, 29, 27),
         "gemini_high": (199, 129, 48, 22, 83, 24, 31),
-        "grok": (193, 81, 98, 14, 76, 94, 18),
+        "grok": (193, 74, 105, 14, 69, 101, 22),
     }
     capture_mismatches: dict[str, Any] = {}
     for system, expected in expected_capture.items():
@@ -2262,10 +2303,10 @@ def _audit_document(
         else json.dumps(capture_mismatches, sort_keys=True),
     )
     expected_recovery = {
-        "neither": (10, 98),
-        "readback_only": (32, 123),
+        "neither": (10, 96),
+        "readback_only": (36, 118),
         "spelling_only": (7, 29),
-        "both": (34, 97),
+        "both": (37, 94),
     }
     recovery_observed = {
         key: (int(value["numerator"]), int(value["denominator"]))
@@ -2274,7 +2315,7 @@ def _audit_document(
     check(
         "pooled_repair_pathways",
         recovery_observed == expected_recovery,
-        "10/98, 32/123, 7/29, and 34/97 reproduce from transcript events"
+        "10/96, 36/118, 7/29, and 37/94 reproduce from transcript events"
         if recovery_observed == expected_recovery
         else json.dumps(recovery_observed, sort_keys=True),
     )
@@ -2301,9 +2342,9 @@ def _audit_document(
     )
     strategy = behavioral["strategy_comparison"]
     expected_strategy = {
-        "gpt_xhigh": (0.60, 0.29, 0.90, 0.64, 59.439, 87.421),
+        "gpt_xhigh": (0.63, 0.33, 0.90, 0.64, 59.439, 87.421),
         "gemini_high": (0.55, 0.48, 0.83, 0.76, 66.370, 86.942),
-        "grok": (0.77, 0.56, 0.89, 0.74, 87.086, 109.800),
+        "grok": (0.83, 0.61, 0.90, 0.77, 87.086, 109.800),
     }
     strategy_mismatches = {}
     for system, expected in expected_strategy.items():
@@ -2330,7 +2371,7 @@ def _audit_document(
         else json.dumps(strategy_mismatches, sort_keys=True),
     )
     expected_robust = {
-        "medications": 1 / 60,
+        "medications": 14 / 60,
         "coined": 2 / 60,
         "emails": 5 / 60,
         "addresses": 6 / 60,
@@ -2369,9 +2410,9 @@ def _audit_document(
     )
     check(
         "realism_assignment_ledger",
-        realism_observed == (253, 498, 674, 1302),
-        "clean=253/498; assigned=674/1302"
-        if realism_observed == (253, 498, 674, 1302)
+        realism_observed == (262, 498, 714, 1302),
+        "clean=262/498; assigned=714/1302"
+        if realism_observed == (262, 498, 714, 1302)
         else str(realism_observed),
     )
     arm_realism = {
@@ -2387,10 +2428,14 @@ def _audit_document(
     agent_any = arm_realism["agent_directed"]["effects"][0]
     scaffolded_any = arm_realism["scaffolded"]["effects"][0]
     both_arm_realism_ok = (
-        all(row["instrument_version"] == "2.0.0" for row in arm_realism.values())
+        all(row["instrument_version"] == "2.1.0" for row in arm_realism.values())
+        and all(
+            row["scoring_correction"]["total_corrected_calls"] == 80
+            for row in arm_realism.values()
+        )
         and all(len(row["inputs"]) == 12 for row in arm_realism.values())
-        and abs(agent_any["effect_points"] - -3.587977524956134) <= 1e-12
-        and abs(scaffolded_any["effect_points"] - -4.156965161774373) <= 1e-12
+        and round(agent_any["effect_points"], 3) == -2.068
+        and round(scaffolded_any["effect_points"], 3) == -4.184
         and all(
             effect["randomization_p_holm"] >= 0.05
             for row in arm_realism.values()
@@ -2400,7 +2445,7 @@ def _audit_document(
     check(
         "realism_assignment_effects_both_arms",
         both_arm_realism_ok,
-        "12 cells per arm; overall effects=-3.59/-4.16 points; no Holm-significant contrast"
+        "12 cells per arm; overall effects=-2.07/-4.18 points; no Holm-significant contrast"
         if both_arm_realism_ok
         else json.dumps(
             {
@@ -2422,7 +2467,8 @@ def _audit_document(
     spelling_style = spelling_rows.get("spelling_style", {})
     spell_correction = spelling_rows.get("spell_correction", {})
     spelling_event_counts_ok = (
-        realism_analysis["instrument_version"] == "1.1.0"
+        realism_analysis["instrument_version"] == "1.2.0"
+        and realism_analysis["scoring_correction"]["total_corrected_calls"] == 80
         and realism_analysis["event_ledger"]["calls"] == 2_400
         and realism_analysis["event_ledger"]["sha256"]
         == _sha256_file(out / "analysis_inputs" / "realism_event_ledger.jsonl")
@@ -2466,13 +2512,14 @@ def _audit_document(
         if "mildred_kaplan" in {row["voice_a"], row["voice_b"]}
     }
     expected_mildred = {
-        "priya_patil": 0.02723989034446967,
-        "mamadou_diallo": 0.014416196464089436,
-        "arjun_roy": 0.018746161695259975,
-        "wei_lin": 0.9381870863384129,
+        "priya_patil": 0.05459828711421718,
+        "mamadou_diallo": 0.012549113954123853,
+        "arjun_roy": 0.02567843815449105,
+        "wei_lin": 1.0,
     }
     caller_voice_ok = (
-        caller_voice["instrument_version"] == "1.1.0"
+        caller_voice["instrument_version"] == "1.2.0"
+        and caller_voice["scoring_correction"]["corrected_calls"] == 80
         and mildred_adjusted.keys() == expected_mildred.keys()
         and all(
             abs(mildred_adjusted[voice] - expected) <= 1e-15
@@ -2482,16 +2529,16 @@ def _audit_document(
     check(
         "provider_stratified_caller_voice",
         caller_voice_ok,
-        "Mildred exceeds Priya, Mamadou, and Arjun after Holm correction, but not Wei"
+        "Mildred exceeds Mamadou and Arjun after Holm correction, but not Priya or Wei"
         if caller_voice_ok
         else json.dumps(mildred_adjusted, sort_keys=True),
     )
     source_counts = Counter(row.error_source for row in human_rows)
     expected_source_counts = {
         "agent": 81,
-        "user": 2,
-        "system": 0,
-        "no_error": 3,
+        "user": 1,
+        "system": 4,
+        "no_error": 0,
         "unresolved": 4,
     }
     subtype_counts = Counter(
@@ -2510,11 +2557,21 @@ def _audit_document(
         and source_counts == Counter(expected_source_counts)
         and human_metrics.error_source.denominator == 90
         and human_metrics.error_source.agent.n == 81
-        and human_metrics.error_source.user.n == 2
-        and human_metrics.error_source.system.n == 0
-        and human_metrics.error_source.no_error.n == 3
+        and human_metrics.error_source.user.n == 1
+        and human_metrics.error_source.system.n == 4
+        and human_metrics.error_source.no_error.n == 0
         and human_metrics.error_source.unresolved.n == 4,
-        "calls=90; sources=agent 81, user 2, system 0, no-error 3, unresolved 4",
+        "calls=90; sources=agent 81, user 1, system 4, no-error 0, unresolved 4",
+    )
+    system_subtype_counts = Counter(
+        row.error_subtype for row in human_rows if row.error_source == "system"
+    )
+    check(
+        "human_failure_scoring_normalization",
+        system_subtype_counts == {"scoring_normalization": 4}
+        and human_metrics.user_error_subtype.denominator == 1
+        and human_metrics.user_error_subtype.logical_error.n == 1,
+        "system subtypes=4 scoring-normalization; user subtype=1 logical",
     )
     check(
         "human_failure_subtypes",
@@ -2600,15 +2657,19 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "from the paper's main speech cohort and 1,474 supplemental judgments, "
         "including retained/excluded findings and errors.\n"
         "- `judge_validation/human_failure_validation_90/`: structured source and "
-        "subtype labels for 90 failed calls, with no notes or fidelity fields.\n"
+        "subtype labels for 90 calls sampled with original reward zero, with no "
+        "notes or fidelity fields.\n"
         "- `judge_validation/fidelity_validation_60/`: isolated labels and judge "
         "predictions for the frozen 60-utterance fidelity cohort.\n"
-        "- `analysis_inputs/`: crossed outcomes, rollups, deterministic complication "
-        "draws, caller-effort ledger, the 2,400-call realism-event ledger, "
-        "deterministic behavioral recomputation, "
+        "- `analysis_inputs/`: the deterministic 80-call reward-correction ledger, "
+        "crossed outcomes, rollups, deterministic complication draws, caller-effort "
+        "ledger, the 2,400-call realism-event ledger, deterministic behavioral "
+        "recomputation, "
         "the 210-row matched one-field composition ledger, the 200-task same-versus-"
         "crossed Pass3 ledger, caller-voice and main significance results, and "
-        "speech rollup.\n"
+        "speech rollup. The correction ledger leaves every archived transcript and "
+        "source reward unchanged while normalizing `milligram(s)` to `mg` in "
+        "derived grading.\n"
         "- `audit.json`: executable claim checks.\n\n"
         "`SOURCE_GAPS.md` records any remaining source or statistical-analysis "
         "re-execution gaps; both workflows in the release comparison have frozen "
@@ -2629,6 +2690,8 @@ def _write_readmes(out: Path, audit: dict[str, Any]) -> None:
         "## Verify\n\n"
         "```bash\n"
         "tau2 paper elicitation-verify --root papers/tau-intake/v1/reproduction\n"
+        "tau2 paper elicitation-rescore --root papers/tau-intake/v1/reproduction "
+        "--check\n"
         "# With the detached 41 GB source corpus:\n"
         "tau2 paper elicitation-verify --root papers/tau-intake/v1/reproduction "
         "--evidence-root /path/to/tau-elicit\n"
@@ -2953,6 +3016,10 @@ def build_release(
             row["trials"] = json.dumps(row["trials"], separators=(",", ":"))
             writer.writerow(row)
 
+    # Keep frozen transcripts and source result summaries immutable. Derived
+    # analyses consume this separately hashed correction ledger.
+    write_scoring_correction(out)
+
     analysis_out = out / "analysis_inputs"
     analysis_out.mkdir(parents=True, exist_ok=True)
     realism_event_path = analysis_out / "realism_event_ledger.jsonl"
@@ -3096,6 +3163,27 @@ def verify_release(
                 detail=f"expected={artifact.sha256}; actual={actual}",
             )
         )
+    try:
+        recorded_correction = ScoringCorrectionArtifact.model_validate_json(
+            (root / SCORING_CORRECTION_ARTIFACT).read_text()
+        )
+        reproduced_correction = build_scoring_correction(root)
+        correction_ok = recorded_correction == reproduced_correction
+        correction_detail = (
+            f"corrected={recorded_correction.corrected_calls}; "
+            f"manifest_cells={recorded_correction.checks.manifest_cells}; "
+            f"transcripts={recorded_correction.checks.transcript_rows}"
+        )
+    except (OSError, ValueError) as exc:
+        correction_ok = False
+        correction_detail = str(exc)
+    checks.append(
+        VerificationCheck(
+            code="medication_unit_scoring_correction",
+            ok=correction_ok,
+            detail=correction_detail,
+        )
+    )
     checks.append(
         VerificationCheck(
             code="result_cell_count",

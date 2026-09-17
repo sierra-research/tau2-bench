@@ -1,9 +1,9 @@
 """Reproduce the tau-Intake caller-realism assignment analysis.
 
-The frozen agent-directed grid assigns at most one caller realism to each
-task/environment unit.  Assignment probabilities are known from the intake
-complication catalog and vary with the entity bank and value-level
-feasibility.  This module estimates assignment effects with normalized
+The frozen agent-directed and scaffolded grids assign at most one caller
+realism to each task/environment unit. Assignment probabilities are known from
+the intake complication catalog and vary with the entity bank and value-level
+feasibility. This module estimates assignment effects with normalized
 inverse-probability (Hajek) means within each acoustic environment, then
 averages the three environment-specific contrasts.
 
@@ -13,18 +13,21 @@ them never occurs.  ``spelling_opportunity`` reports that first-stage behavior
 for the two spelling-dependent realisms without changing the primary
 randomized estimand.
 
-The checked-in reviewer archive is the source of truth: compact transcripts
-provide outcomes and assignments, the compact realism-event ledger provides
-observed application and repair-cost inputs, and frozen expected-draw maps
-validate each environment's assignment. Run from the repository root::
+The checked-in reviewer archive is the source of truth. The result manifest,
+run configurations, prompt manifest, and content-addressed task snapshots
+validate each compact transcript before it enters the analysis. The immutable
+scoring-correction ledger is then applied by simulation id without modifying
+the transcripts. Run from the repository root::
 
     .venv/bin/python src/experiments/intake/realism_effects.py \
+        --arm scaffolded \
         --output papers/tau-intake/v1/reproduction/analysis_inputs/realism_effects.json
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import sys
@@ -33,7 +36,7 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from tau2.data_model.simulation import ComplicationProfile
 from tau2.data_model.tasks import Task
@@ -47,9 +50,13 @@ from tau2.domains.intake.complications import (
     effective_kind_rates,
 )
 from tau2.domains.intake.utils import spoken_form
+from tau2.paper.elicitation_scoring import (
+    DEFAULT_ARTIFACT,
+    ScoringCorrectionArtifact,
+)
 from tau2.utils.utils import get_now
 
-ANALYSIS_VERSION = "1.1.0"
+ANALYSIS_VERSION = "2.1.0"
 DEFAULT_BOOTSTRAP_RESAMPLES = 10_000
 DEFAULT_RANDOMIZATION_DRAWS = 100_000
 DEFAULT_SEED = 42
@@ -63,8 +70,15 @@ class Environment(str, Enum):
     SPEECH_HEAVY = "speechheavy"
 
 
+class Arm(str, Enum):
+    """Prompt strategy used by the frozen paper grid."""
+
+    AGENT_DIRECTED = "agent_directed"
+    SCAFFOLDED = "scaffolded"
+
+
 class System(str, Enum):
-    """Agent-directed systems included in the caller-realism analysis."""
+    """Systems included in the caller-realism analysis."""
 
     GPT_MINIMAL = "gpt_minimal"
     GPT_XHIGH = "gpt_xhigh"
@@ -72,63 +86,80 @@ class System(str, Enum):
     GROK = "grok"
 
 
-TRANSCRIPT_PATHS: dict[System, dict[Environment, str]] = {
+AGENT_DIRECTED_RESULT_PATHS: dict[System, dict[Environment, str]] = {
     System.GPT_MINIMAL: {
-        Environment.REGULAR: (
-            "papers/tau-intake/v1/reproduction/transcripts/"
-            "main_runs__modeb_openai_minimal_regular_2026-09-02.jsonl"
-        ),
-        Environment.CHANNEL_HEAVY: (
-            "papers/tau-intake/v1/reproduction/transcripts/"
-            "main_runs__modeb_openai_minimal_chanheavy_2026-09-05.jsonl"
-        ),
-        Environment.SPEECH_HEAVY: (
-            "papers/tau-intake/v1/reproduction/transcripts/"
-            "main_runs__modeb_openai_minimal_speechheavy_2026-09-05.jsonl"
-        ),
+        Environment.REGULAR: "main_runs/modeb_openai_minimal_regular_2026-09-02/results.json",
+        Environment.CHANNEL_HEAVY: "main_runs/modeb_openai_minimal_chanheavy_2026-09-05/results.json",
+        Environment.SPEECH_HEAVY: "main_runs/modeb_openai_minimal_speechheavy_2026-09-05/results.json",
     },
     System.GPT_XHIGH: {
-        environment: (
-            "papers/tau-intake/v1/reproduction/transcripts/"
-            f"main_runs__modeb_openai_xhigh_{environment.value}_2026-09-02.jsonl"
-        )
+        environment: f"main_runs/modeb_openai_xhigh_{environment.value}_2026-09-02/results.json"
         for environment in Environment
     },
     System.GEMINI_HIGH: {
-        environment: (
-            "papers/tau-intake/v1/reproduction/transcripts/"
-            f"main_runs__modeb_gemini_high_{environment.value}_2026-09-02.jsonl"
-        )
+        environment: f"main_runs/modeb_gemini_high_{environment.value}_2026-09-02/results.json"
         for environment in Environment
     },
     System.GROK: {
-        environment: (
-            "papers/tau-intake/v1/reproduction/transcripts/"
-            f"main_runs__modeb_xai_10_{environment.value}_2026-09-02.jsonl"
-        )
+        environment: f"main_runs/modeb_xai_10_{environment.value}_2026-09-02/results.json"
         for environment in Environment
     },
 }
 
-EXPECTED_DRAW_PATHS: dict[Environment, tuple[int, str]] = {
-    Environment.REGULAR: (
-        9401,
-        "papers/tau-intake/v1/reproduction/analysis_inputs/expected_draws_9401.json",
-    ),
-    Environment.CHANNEL_HEAVY: (
-        9402,
-        "papers/tau-intake/v1/reproduction/analysis_inputs/expected_draws_9402.json",
-    ),
-    Environment.SPEECH_HEAVY: (
-        9403,
-        "papers/tau-intake/v1/reproduction/analysis_inputs/expected_draws_9403.json",
-    ),
+SCAFFOLDED_RESULT_PATHS: dict[System, dict[Environment, str]] = {
+    System.GPT_MINIMAL: {
+        Environment.REGULAR: "main_runs/intake_m_openai_minimal_regular/results.json",
+        Environment.CHANNEL_HEAVY: "ablations/scaffolded/modea_openai_minimal_chanheavy_2026-09-02/results.json",
+        Environment.SPEECH_HEAVY: "main_runs/intake_m_openai_minimal_chanlight_speechheavy/results.json",
+    },
+    System.GPT_XHIGH: {
+        Environment.REGULAR: "main_runs/intake_m_openai_xhigh_regular/results.json",
+        Environment.CHANNEL_HEAVY: "ablations/scaffolded/modea_openai_xhigh_chanheavy_2026-09-02/results.json",
+        Environment.SPEECH_HEAVY: "main_runs/intake_m_openai_xhigh_chanlight_speechheavy/results.json",
+    },
+    System.GEMINI_HIGH: {
+        Environment.REGULAR: "main_runs/intake_m_gemini_high_regular/results.json",
+        Environment.CHANNEL_HEAVY: "ablations/scaffolded/modea_gemini_high_chanheavy_2026-09-02/results.json",
+        Environment.SPEECH_HEAVY: "main_runs/intake_m_gemini_high_chanlight_speechheavy/results.json",
+    },
+    System.GROK: {
+        Environment.REGULAR: "main_runs/intake_m_xai_10_regular/results.json",
+        Environment.CHANNEL_HEAVY: "ablations/scaffolded/modea_xai_10_chanheavy_2026-09-02/results.json",
+        Environment.SPEECH_HEAVY: "main_runs/intake_m_xai_10_chanlight_speechheavy/results.json",
+    },
 }
 
-TASK_SNAPSHOT_PATH = (
-    "papers/tau-intake/v1/reproduction/prompts/task_snapshots/"
-    "a0c6cd32dea7f871fd4f017c64a6769df1ea43c5b994183e25ef5a263fc45210.json"
-)
+RESULT_PATHS_BY_ARM = {
+    Arm.AGENT_DIRECTED: AGENT_DIRECTED_RESULT_PATHS,
+    Arm.SCAFFOLDED: SCAFFOLDED_RESULT_PATHS,
+}
+
+CATALOG_VERSION_BY_ARM_ENVIRONMENT: dict[Arm, dict[Environment, str]] = {
+    Arm.AGENT_DIRECTED: {
+        environment: COMPLICATION_CATALOG_VERSION for environment in Environment
+    },
+    Arm.SCAFFOLDED: {
+        Environment.REGULAR: "2.3.0",
+        Environment.CHANNEL_HEAVY: "2.4.0",
+        Environment.SPEECH_HEAVY: "2.3.0",
+    },
+}
+
+COHORT_BY_ARM = {
+    Arm.AGENT_DIRECTED: "paper_agent_directed",
+    Arm.SCAFFOLDED: "paper_scaffolded",
+}
+
+CONDITION_BY_ENVIRONMENT = {
+    Environment.REGULAR: "regular",
+    Environment.CHANNEL_HEAVY: "noise_heavy",
+    Environment.SPEECH_HEAVY: "speech_heavy",
+}
+
+RELEASE_ROOT_PATH = Path("papers/tau-intake/v1/reproduction")
+ARCHIVE_MANIFEST_PATH = Path("manifest.json")
+RESULT_MANIFEST_PATH = Path("results/manifest.csv")
+PROMPT_MANIFEST_PATH = Path("prompts/manifest.json")
 REALISM_EVENT_LEDGER_PATH = (
     "papers/tau-intake/v1/reproduction/analysis_inputs/realism_event_ledger.jsonl"
 )
@@ -142,18 +173,182 @@ REPORTED_KINDS: tuple[ComplicationKind, ...] = (
 )
 
 
+class ArchiveArtifact(BaseModel):
+    """One content-addressed file in the compact reviewer archive."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    path: str
+    sha256: str
+    rows: Optional[int] = None
+
+
+class ArchiveManifest(BaseModel):
+    """Projection of the compact archive manifest used for hash validation."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    artifacts: list[ArchiveArtifact]
+
+
+class ResultManifestCell(BaseModel):
+    """Frozen cell metadata required by the realism analysis."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    results_path: str
+    source_results_sha256: str
+    cohort: str
+    system: str
+    condition: str
+    rows: Annotated[int, Field(gt=0)]
+    tasks: Annotated[int, Field(gt=0)]
+    trials: list[int]
+    passes: Annotated[int, Field(ge=0)]
+    pass_rate: Annotated[float, Field(ge=0, le=1)]
+    git_commit: str
+    seed: int
+    complication_profile: ComplicationProfile
+    complication_rate: Optional[float] = None
+    channel_effects_mode: str
+    speech_effects_mode: str
+    config_file: str
+    transcript_file: str
+    transcript_sha256: str
+
+    @field_validator("trials", mode="before")
+    @classmethod
+    def _parse_trials(cls, value: object) -> object:
+        if isinstance(value, str):
+            return json.loads(value)
+        return value
+
+    @field_validator("complication_rate", mode="before")
+    @classmethod
+    def _parse_optional_float(cls, value: object) -> object:
+        return None if value in (None, "") else value
+
+
+class RunInfo(BaseModel):
+    """Fields cross-checked against one frozen run configuration."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    git_commit: str
+    seed: int
+    complication_profile: ComplicationProfile
+    complication_rate: Optional[float] = None
+    channel_effects_mode: str
+    speech_effects_mode: str
+    num_trials: Annotated[int, Field(gt=0)]
+
+
+class RunConfig(BaseModel):
+    """Validated wrapper for a frozen run configuration."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    info: RunInfo
+
+
+class TaskSnapshotRef(BaseModel):
+    """Content-addressed task snapshot used by one frozen cell."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    archive_path: str
+    sha256: str
+
+
+class PromptCell(BaseModel):
+    """Task-snapshot projection of one prompt-manifest entry."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    cell: str
+    task_snapshots: list[TaskSnapshotRef]
+
+
+class PromptManifest(BaseModel):
+    """Validated prompt manifest used to locate historical task contracts."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    cells: list[PromptCell]
+
+
+class CompactComplication(BaseModel):
+    """Assignment fields retained in a compact transcript."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    kind: ComplicationKind
+    catalog_version: str
+
+
+class CompactCall(BaseModel):
+    """Compact call fields required by the assignment analysis."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    cell: str
+    cohort: str
+    simulation_id: str
+    task_id: str
+    trial: int
+    reward: float
+    complication: Optional[CompactComplication] = None
+
+
 class SourceRun(BaseModel):
     """Provenance for one frozen input run."""
 
+    arm: Annotated[Arm, Field(description="Prompt-strategy arm.")]
     system: Annotated[System, Field(description="Paper system label.")]
     environment: Annotated[
         Environment, Field(description="Acoustic realization label.")
     ]
+    results_path: Annotated[
+        str, Field(description="Detached source-results path from the manifest.")
+    ]
+    source_results_sha256: Annotated[
+        str, Field(description="SHA-256 of the detached source results.json.")
+    ]
     transcript_path: Annotated[
         str, Field(description="Repository-relative compact-transcript path.")
     ]
-    sha256: Annotated[str, Field(description="SHA-256 of the compact transcript.")]
+    transcript_sha256: Annotated[
+        str, Field(description="SHA-256 of the compact transcript.")
+    ]
+    run_config_path: Annotated[
+        str, Field(description="Repository-relative frozen run configuration.")
+    ]
+    run_config_sha256: Annotated[
+        str, Field(description="SHA-256 of the frozen run configuration.")
+    ]
+    task_snapshots: Annotated[
+        list[TaskSnapshotRef],
+        Field(description="Validated task snapshots referenced by the cell."),
+    ]
+    git_commit: Annotated[str, Field(description="Commit recorded by the run.")]
     run_seed: Annotated[int, Field(description="Complication-assignment seed.")]
+    complication_catalog_version: Annotated[
+        str, Field(description="Complication catalog used by the frozen run.")
+    ]
+    complication_rate: Annotated[
+        Optional[float],
+        Field(description="Uniform trigger override; None uses catalog-native rates."),
+    ] = None
+
+
+class ArchiveSource(BaseModel):
+    """Provenance for the compact manifests that gate all source runs."""
+
+    archive_manifest_path: str
+    results_manifest_path: str
+    results_manifest_sha256: str
+    prompt_manifest_path: str
+    prompt_manifest_sha256: str
 
 
 class WeightedGroup(BaseModel):
@@ -262,6 +457,16 @@ class EventLedgerSource(BaseModel):
     calls: Annotated[int, Field(gt=0, description="Validated ledger rows.")]
 
 
+class CorrectionSource(BaseModel):
+    """Provenance for the immutable reward-correction layer."""
+
+    path: str
+    sha256: str
+    schema_version: str
+    total_corrected_calls: Annotated[int, Field(ge=0)]
+    applied_corrected_calls: Annotated[int, Field(ge=0)]
+
+
 class RepairCostDiagnostic(BaseModel):
     """Weighted descriptive repair-cost contrast for mispronunciation."""
 
@@ -288,9 +493,11 @@ class RealismEffectsArtifact(BaseModel):
 
     instrument: str = "tau-intake-realism-effects"
     instrument_version: str = ANALYSIS_VERSION
+    arm: Annotated[Arm, Field(description="Prompt-strategy arm analyzed.")]
     created_at: Annotated[str, Field(description="Artifact creation timestamp.")]
-    complication_catalog_version: Annotated[
-        str, Field(description="Assignment catalog used for propensity recovery.")
+    complication_catalog_versions: Annotated[
+        list[str],
+        Field(description="Assignment catalogs used for propensity recovery."),
     ]
     seed: Annotated[int, Field(description="Analysis RNG seed.")]
     bootstrap_resamples: Annotated[int, Field(gt=0)]
@@ -298,11 +505,13 @@ class RealismEffectsArtifact(BaseModel):
     estimand: Annotated[str, Field(description="Plain-language estimand definition.")]
     interval_method: Annotated[str, Field(description="Confidence-interval method.")]
     significance_method: Annotated[str, Field(description="Hypothesis-test method.")]
+    archive: ArchiveSource
     inputs: list[SourceRun]
-    event_ledger: EventLedgerSource
+    scoring_correction: CorrectionSource
+    event_ledger: Optional[EventLedgerSource] = None
     effects: list[EffectEstimate]
     spelling_opportunity: list[SpellingOpportunityRow]
-    repair_cost_diagnostic: RepairCostDiagnostic
+    repair_cost_diagnostic: Optional[RepairCostDiagnostic] = None
 
 
 class AnalysisMatrix(BaseModel):
@@ -317,13 +526,17 @@ class AnalysisMatrix(BaseModel):
     kind_probabilities: np.ndarray
     clean_probabilities: np.ndarray
     sources: list[SourceRun]
+    archive: ArchiveSource
+    scoring_correction: CorrectionSource
 
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _task_kind_probabilities(task: Task) -> tuple[np.ndarray, float]:
+def _task_kind_probabilities(
+    task: Task, *, catalog_version: str, complication_rate: Optional[float]
+) -> tuple[np.ndarray, float]:
     task_id = str(task.id)
     bank, tier = _parse_task_id(task_id)
     entities = _init_action_args(task, "set_entities")["entities"]
@@ -331,7 +544,11 @@ def _task_kind_probabilities(task: Task) -> tuple[np.ndarray, float]:
         raise ValueError(f"Expected one entity in {task_id}, got {len(entities)}")
     raw_value = next(iter(entities.values()))
     value = spoken_form(raw_value)
-    rates = effective_kind_rates(ComplicationProfile.DEFAULT, 1.0, bank)
+    rates = effective_kind_rates(ComplicationProfile.DEFAULT, complication_rate, bank)
+    if catalog_version == "2.3.0":
+        rates[ComplicationKind.SPELL_CORRECTION] = 0.0
+    elif catalog_version != "2.4.0":
+        raise ValueError(f"Unsupported complication catalog {catalog_version}")
     probabilities = np.asarray(
         [
             rates[kind]
@@ -348,12 +565,152 @@ def _task_kind_probabilities(task: Task) -> tuple[np.ndarray, float]:
     return probabilities, max(0.0, clean_probability)
 
 
-def _load_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text().splitlines() if line]
+def _archive_index(
+    release_root: Path,
+) -> tuple[Path, dict[str, ArchiveArtifact]]:
+    manifest_path = release_root / ARCHIVE_MANIFEST_PATH
+    manifest = ArchiveManifest.model_validate_json(manifest_path.read_text())
+    index = {artifact.path: artifact for artifact in manifest.artifacts}
+    if len(index) != len(manifest.artifacts):
+        raise ValueError("Compact archive manifest contains duplicate paths")
+    return manifest_path, index
 
 
-def load_matrix(repo_root: Path) -> AnalysisMatrix:
-    """Load and validate the archived four-system by three-environment grid."""
+def _validated_archive_file(
+    release_root: Path,
+    relative_path: str | Path,
+    archive_index: dict[str, ArchiveArtifact],
+) -> tuple[Path, str]:
+    key = Path(relative_path).as_posix()
+    artifact = archive_index.get(key)
+    if artifact is None:
+        raise ValueError(f"Compact archive manifest does not contain {key}")
+    path = release_root / key
+    digest = _sha256(path)
+    if digest != artifact.sha256:
+        raise ValueError(f"Compact archive hash mismatch: {key}")
+    return path, digest
+
+
+def _result_manifest_cells(path: Path) -> dict[str, ResultManifestCell]:
+    with path.open(newline="", encoding="utf-8") as handle:
+        rows = [
+            ResultManifestCell.model_validate(row) for row in csv.DictReader(handle)
+        ]
+    index = {row.results_path: row for row in rows}
+    if len(index) != len(rows):
+        raise ValueError("Result manifest contains duplicate results paths")
+    return index
+
+
+def _prompt_cells(path: Path) -> dict[str, PromptCell]:
+    manifest = PromptManifest.model_validate_json(path.read_text())
+    index = {cell.cell: cell for cell in manifest.cells}
+    if len(index) != len(manifest.cells):
+        raise ValueError("Prompt manifest contains duplicate cells")
+    return index
+
+
+def _tasks_for_cell(
+    release_root: Path,
+    prompt_cell: PromptCell,
+    archive_index: dict[str, ArchiveArtifact],
+) -> tuple[list[Task], list[TaskSnapshotRef]]:
+    tasks: dict[str, Task] = {}
+    if not prompt_cell.task_snapshots:
+        raise ValueError(f"Prompt cell has no task snapshot: {prompt_cell.cell}")
+    for reference in prompt_cell.task_snapshots:
+        path, digest = _validated_archive_file(
+            release_root, reference.archive_path, archive_index
+        )
+        if digest != reference.sha256:
+            raise ValueError(
+                f"Prompt-manifest task hash mismatch: {reference.archive_path}"
+            )
+        document = json.loads(path.read_text())
+        raw_tasks = document.get("tasks") if isinstance(document, dict) else document
+        if not isinstance(raw_tasks, list):
+            raise ValueError(
+                f"Task snapshot has no task list: {reference.archive_path}"
+            )
+        for raw_task in raw_tasks:
+            task = Task.model_validate(raw_task)
+            task_id = str(task.id)
+            previous = tasks.get(task_id)
+            if previous is not None and previous != task:
+                raise ValueError(f"Task snapshot conflict for {task_id}")
+            tasks[task_id] = task
+    return [tasks[task_id] for task_id in sorted(tasks)], prompt_cell.task_snapshots
+
+
+def _validate_run_config(
+    release_root: Path,
+    cell: ResultManifestCell,
+    archive_index: dict[str, ArchiveArtifact],
+) -> tuple[str, str]:
+    path, digest = _validated_archive_file(
+        release_root, cell.config_file, archive_index
+    )
+    config = RunConfig.model_validate_json(path.read_text())
+    expected = (
+        cell.git_commit,
+        cell.seed,
+        cell.complication_profile,
+        cell.complication_rate,
+        cell.channel_effects_mode,
+        cell.speech_effects_mode,
+        len(cell.trials),
+    )
+    observed = (
+        config.info.git_commit,
+        config.info.seed,
+        config.info.complication_profile,
+        config.info.complication_rate,
+        config.info.channel_effects_mode,
+        config.info.speech_effects_mode,
+        config.info.num_trials,
+    )
+    if observed != expected:
+        raise ValueError(
+            f"Run configuration disagrees with manifest: {cell.config_file}"
+        )
+    return str(RELEASE_ROOT_PATH / cell.config_file), digest
+
+
+def _load_compact_calls(path: Path) -> list[CompactCall]:
+    return [
+        CompactCall.model_validate_json(line)
+        for line in path.read_text().splitlines()
+        if line
+    ]
+
+
+def _load_corrections(
+    release_root: Path,
+    *,
+    results_manifest_sha256: str,
+    prompt_manifest_sha256: str,
+) -> tuple[ScoringCorrectionArtifact, dict[str, float], Path]:
+    path = release_root / DEFAULT_ARTIFACT
+    artifact = ScoringCorrectionArtifact.model_validate_json(path.read_text())
+    if artifact.corrected_calls != 80 or len(artifact.calls) != 80:
+        raise ValueError("Expected the immutable 80-call scoring-correction ledger")
+    if artifact.results_manifest_path != RESULT_MANIFEST_PATH.as_posix():
+        raise ValueError("Correction ledger references a different result manifest")
+    if artifact.results_manifest_sha256 != results_manifest_sha256:
+        raise ValueError("Correction ledger result-manifest hash mismatch")
+    if artifact.prompt_manifest_path != PROMPT_MANIFEST_PATH.as_posix():
+        raise ValueError("Correction ledger references a different prompt manifest")
+    if artifact.prompt_manifest_sha256 != prompt_manifest_sha256:
+        raise ValueError("Correction ledger prompt-manifest hash mismatch")
+    corrections = {row.simulation_id: row.corrected_reward for row in artifact.calls}
+    if len(corrections) != artifact.corrected_calls:
+        raise ValueError("Correction ledger contains duplicate simulation ids")
+    return artifact, corrections, path
+
+
+def load_matrix(repo_root: Path, *, arm: Arm = Arm.AGENT_DIRECTED) -> AnalysisMatrix:
+    """Load and validate one archived four-system by three-environment grid."""
     environments = list(Environment)
     systems = list(System)
     outcomes: Optional[np.ndarray] = None
@@ -361,27 +718,94 @@ def load_matrix(repo_root: Path) -> AnalysisMatrix:
     kind_probabilities: Optional[np.ndarray] = None
     clean_probabilities: Optional[np.ndarray] = None
     task_ids: Optional[list[str]] = None
-    snapshot = json.loads((repo_root / TASK_SNAPSHOT_PATH).read_text())
-    snapshot_tasks = sorted(
-        [Task.model_validate(task) for task in snapshot["tasks"]],
-        key=lambda task: str(task.id),
-    )
-    snapshot_ids = [str(task.id) for task in snapshot_tasks]
+    tasks: Optional[list[Task]] = None
     sources: list[SourceRun] = []
+    release_root = repo_root / RELEASE_ROOT_PATH
+    archive_manifest_path, archive_index = _archive_index(release_root)
+    results_manifest_path, results_manifest_sha256 = _validated_archive_file(
+        release_root, RESULT_MANIFEST_PATH, archive_index
+    )
+    prompt_manifest_path, prompt_manifest_sha256 = _validated_archive_file(
+        release_root, PROMPT_MANIFEST_PATH, archive_index
+    )
+    result_cells = _result_manifest_cells(results_manifest_path)
+    prompt_cells = _prompt_cells(prompt_manifest_path)
+    correction_artifact, corrections, correction_path = _load_corrections(
+        release_root,
+        results_manifest_sha256=results_manifest_sha256,
+        prompt_manifest_sha256=prompt_manifest_sha256,
+    )
+    all_simulation_ids: set[str] = set()
+    applied_corrections: set[str] = set()
+    result_paths = RESULT_PATHS_BY_ARM[arm]
+    cohort = COHORT_BY_ARM[arm]
 
     for environment_index, environment in enumerate(environments):
-        environment_seed, draw_path = EXPECTED_DRAW_PATHS[environment]
-        expected_draws = json.loads((repo_root / draw_path).read_text())
-        reference_rows: Optional[list[dict]] = None
+        reference_assignments: Optional[list[int]] = None
+        environment_seed: Optional[int] = None
+        environment_rate: Optional[float] = None
+        environment_tasks: Optional[list[Task]] = None
+        catalog_version = CATALOG_VERSION_BY_ARM_ENVIRONMENT[arm][environment]
         for system_index, system in enumerate(systems):
-            relative_path = TRANSCRIPT_PATHS[system][environment]
-            path = repo_root / relative_path
-            rows = sorted(_load_jsonl(path), key=lambda row: row["task_id"])
-            current_ids = [row["task_id"] for row in rows]
+            results_path = result_paths[system][environment]
+            cell = result_cells.get(results_path)
+            if cell is None:
+                raise ValueError(f"Result manifest does not contain {results_path}")
+            if (
+                cell.cohort != cohort
+                or cell.system != system.value
+                or cell.condition != CONDITION_BY_ENVIRONMENT[environment]
+            ):
+                raise ValueError(f"Unexpected cell labels for {results_path}")
+            transcript_path, transcript_sha256 = _validated_archive_file(
+                release_root, cell.transcript_file, archive_index
+            )
+            if transcript_sha256 != cell.transcript_sha256:
+                raise ValueError(
+                    f"Transcript hash disagrees with manifest: {results_path}"
+                )
+            rows = sorted(
+                _load_compact_calls(transcript_path), key=lambda row: row.task_id
+            )
+            current_ids = [row.task_id for row in rows]
+            current_trials = sorted({row.trial for row in rows})
+            current_simulation_ids = {row.simulation_id for row in rows}
+            if len(current_simulation_ids) != len(rows):
+                raise ValueError(f"Duplicate simulation ids in {cell.transcript_file}")
+            if all_simulation_ids & current_simulation_ids:
+                raise ValueError("Simulation ids overlap across selected cells")
+            all_simulation_ids.update(current_simulation_ids)
+            if len(rows) != cell.rows:
+                raise ValueError(f"Row count differs from manifest: {results_path}")
+            if len(set(current_ids)) != cell.tasks:
+                raise ValueError(f"Task count differs from manifest: {results_path}")
+            if current_trials != cell.trials:
+                raise ValueError(f"Trial set differs from manifest: {results_path}")
+            if sum(row.reward for row in rows) != cell.passes:
+                raise ValueError(
+                    f"Original pass count differs from manifest: {results_path}"
+                )
+            if not np.isclose(cell.pass_rate, cell.passes / cell.rows):
+                raise ValueError(f"Pass rate differs from manifest: {results_path}")
+            if any(row.cell != results_path or row.cohort != cohort for row in rows):
+                raise ValueError(
+                    f"Compact row identity differs from manifest: {results_path}"
+                )
+
+            prompt_cell = prompt_cells.get(results_path)
+            if prompt_cell is None:
+                raise ValueError(f"Prompt manifest does not contain {results_path}")
+            current_tasks, task_snapshots = _tasks_for_cell(
+                release_root, prompt_cell, archive_index
+            )
+            snapshot_ids = [str(task.id) for task in current_tasks]
+            if current_ids != snapshot_ids:
+                raise ValueError(
+                    f"Task snapshot differs from transcript: {results_path}"
+                )
             if task_ids is None:
                 task_ids = current_ids
-                if task_ids != snapshot_ids:
-                    raise ValueError("Task snapshot does not match compact transcripts")
+                tasks = current_tasks
                 outcomes = np.zeros(
                     (len(task_ids), len(environments), len(systems)), dtype=float
                 )
@@ -393,66 +817,149 @@ def load_matrix(repo_root: Path) -> AnalysisMatrix:
                 clean_probabilities = np.zeros(
                     (len(task_ids), len(environments)), dtype=float
                 )
-            elif current_ids != task_ids:
-                raise ValueError(f"Task alignment differs in {relative_path}")
+            elif current_ids != task_ids or current_tasks != tasks:
+                raise ValueError(f"Task alignment differs in {cell.transcript_file}")
             if len(current_ids) != 200:
-                raise ValueError(f"Expected 200 tasks in {relative_path}")
-            if reference_rows is None:
-                reference_rows = rows
+                raise ValueError(f"Expected 200 tasks in {cell.transcript_file}")
+
+            run_config_path, run_config_sha256 = _validate_run_config(
+                release_root, cell, archive_index
+            )
+            if environment_seed is None:
+                environment_seed = cell.seed
+                environment_rate = cell.complication_rate
+                environment_tasks = current_tasks
+            elif (
+                cell.seed != environment_seed
+                or cell.complication_rate != environment_rate
+            ):
+                raise ValueError(
+                    f"Assignment configuration differs within {environment.value}"
+                )
+
+            observed_assignments: list[int] = []
             for task_index, row in enumerate(rows):
-                reward = row["reward"]
+                if row.complication is None:
+                    observed_index = -1
+                else:
+                    if row.complication.catalog_version != catalog_version:
+                        raise ValueError(
+                            "Recorded complication catalog differs from frozen run: "
+                            f"{row.simulation_id}"
+                        )
+                    observed_index = list(ComplicationKind).index(row.complication.kind)
+                observed_assignments.append(observed_index)
+                reward = float(corrections.get(row.simulation_id, row.reward))
+                if row.simulation_id in corrections:
+                    if row.reward != 0.0 or reward != 1.0:
+                        raise ValueError(
+                            f"Invalid correction target: {row.simulation_id}"
+                        )
+                    applied_corrections.add(row.simulation_id)
                 if reward not in (0.0, 1.0):
                     raise ValueError(
-                        f"Non-binary reward for {row['task_id']} in {relative_path}"
+                        f"Non-binary reward for {row.task_id} in {cell.transcript_file}"
                     )
                 assert outcomes is not None
                 outcomes[task_index, environment_index, system_index] = reward
-                observed = (
-                    None if row["complication"] is None else row["complication"]["kind"]
-                )
-                if observed != expected_draws[row["task_id"]]:
-                    raise ValueError(
-                        "Recorded complication differs from frozen draw for "
-                        f"{row['task_id']} in {relative_path}"
+            if reference_assignments is None:
+                reference_assignments = observed_assignments
+                assert assignments is not None
+                assignments[:, environment_index] = observed_assignments
+            elif observed_assignments != reference_assignments:
+                differing_task = next(
+                    task_id
+                    for task_id, observed, expected in zip(
+                        current_ids,
+                        observed_assignments,
+                        reference_assignments,
+                        strict=True,
                     )
+                    if observed != expected
+                )
+                raise ValueError(
+                    "Recorded complication differs across systems for "
+                    f"{differing_task} in {environment.value}"
+                )
             sources.append(
                 SourceRun(
+                    arm=arm,
                     system=system,
                     environment=environment,
-                    transcript_path=relative_path,
-                    sha256=_sha256(path),
-                    run_seed=environment_seed,
+                    results_path=results_path,
+                    source_results_sha256=cell.source_results_sha256,
+                    transcript_path=str(RELEASE_ROOT_PATH / cell.transcript_file),
+                    transcript_sha256=transcript_sha256,
+                    run_config_path=run_config_path,
+                    run_config_sha256=run_config_sha256,
+                    task_snapshots=task_snapshots,
+                    git_commit=cell.git_commit,
+                    run_seed=cell.seed,
+                    complication_catalog_version=catalog_version,
+                    complication_rate=cell.complication_rate,
                 )
             )
-        assert reference_rows is not None
+
+        assert environment_seed is not None
+        assert environment_tasks is not None
         assert assignments is not None
         assert kind_probabilities is not None
         assert clean_probabilities is not None
-        for task_index, task in enumerate(snapshot_tasks):
-            probabilities, clean_probability = _task_kind_probabilities(task)
+        for task_index, task in enumerate(environment_tasks):
+            probabilities, clean_probability = _task_kind_probabilities(
+                task,
+                catalog_version=catalog_version,
+                complication_rate=environment_rate,
+            )
             kind_probabilities[task_index, environment_index] = probabilities
             clean_probabilities[task_index, environment_index] = clean_probability
-            expected = expected_draws[str(task.id)]
-            if expected is not None:
-                assignments[task_index, environment_index] = list(
-                    ComplicationKind
-                ).index(ComplicationKind(expected))
+
+    selected_corrections = {
+        row.simulation_id for row in correction_artifact.calls if row.cohort == cohort
+    }
+    if applied_corrections != selected_corrections:
+        missing = sorted(selected_corrections - applied_corrections)
+        extra = sorted(applied_corrections - selected_corrections)
+        raise ValueError(
+            "Correction coverage differs for selected arm; "
+            f"missing={missing}, extra={extra}"
+        )
+    expected_applied = correction_artifact.corrected_calls_by_cohort.get(cohort, 0)
+    if len(applied_corrections) != expected_applied:
+        raise ValueError(
+            f"Expected {expected_applied} corrections for {arm.value}, "
+            f"applied {len(applied_corrections)}"
+        )
 
     assert task_ids is not None
+    assert tasks is not None
     assert outcomes is not None
     assert assignments is not None
     assert kind_probabilities is not None
     assert clean_probabilities is not None
-    matrix = AnalysisMatrix(
+    return AnalysisMatrix(
         task_ids=task_ids,
-        tasks=snapshot_tasks,
+        tasks=tasks,
         outcomes=outcomes,
         assignments=assignments,
         kind_probabilities=kind_probabilities,
         clean_probabilities=clean_probabilities,
         sources=sources,
+        archive=ArchiveSource(
+            archive_manifest_path=str(RELEASE_ROOT_PATH / ARCHIVE_MANIFEST_PATH),
+            results_manifest_path=str(RELEASE_ROOT_PATH / RESULT_MANIFEST_PATH),
+            results_manifest_sha256=results_manifest_sha256,
+            prompt_manifest_path=str(RELEASE_ROOT_PATH / PROMPT_MANIFEST_PATH),
+            prompt_manifest_sha256=prompt_manifest_sha256,
+        ),
+        scoring_correction=CorrectionSource(
+            path=str(RELEASE_ROOT_PATH / DEFAULT_ARTIFACT),
+            sha256=_sha256(correction_path),
+            schema_version=correction_artifact.schema_version,
+            total_corrected_calls=correction_artifact.corrected_calls,
+            applied_corrected_calls=len(applied_corrections),
+        ),
     )
-    return matrix
 
 
 def _kish_effective_n(weights: np.ndarray) -> float:
@@ -774,13 +1281,24 @@ def _repair_cost_diagnostic(
 def analyze(
     repo_root: Path,
     *,
+    arm: Arm = Arm.AGENT_DIRECTED,
     bootstrap_resamples: int = DEFAULT_BOOTSTRAP_RESAMPLES,
     randomization_draws: int = DEFAULT_RANDOMIZATION_DRAWS,
     seed: int = DEFAULT_SEED,
+    include_spelling_opportunity: bool = True,
 ) -> RealismEffectsArtifact:
-    """Run the assignment analysis and observed-event diagnostics."""
-    matrix = load_matrix(repo_root)
-    reported = (None, *REPORTED_KINDS)
+    """Run one arm's assignment analysis and available event diagnostics."""
+    matrix = load_matrix(repo_root, arm=arm)
+    reported_kinds = (
+        REPORTED_KINDS
+        if arm is Arm.AGENT_DIRECTED
+        else tuple(
+            kind
+            for kind in REPORTED_KINDS
+            if kind is not ComplicationKind.SPELL_CORRECTION
+        )
+    )
+    reported = (None, *reported_kinds)
     effects = [
         _estimate(
             matrix,
@@ -794,19 +1312,33 @@ def analyze(
     adjusted = _holm([effect.randomization_p for effect in effects])
     for effect, p_value in zip(effects, adjusted, strict=True):
         effect.randomization_p_holm = p_value
-    event_rows, event_path = _load_event_ledger(repo_root)
+    event_rows: list[RealismEventRow] = []
+    event_source: Optional[EventLedgerSource] = None
+    repair_cost: Optional[RepairCostDiagnostic] = None
+    if arm is Arm.AGENT_DIRECTED and include_spelling_opportunity:
+        event_rows, event_path = _load_event_ledger(repo_root)
+        event_source = EventLedgerSource(
+            path=REALISM_EVENT_LEDGER_PATH,
+            sha256=_sha256(event_path),
+            calls=len(event_rows),
+        )
+        repair_cost = _repair_cost_diagnostic(matrix, event_rows)
     return RealismEffectsArtifact(
+        arm=arm,
         created_at=get_now(),
-        complication_catalog_version=COMPLICATION_CATALOG_VERSION,
+        complication_catalog_versions=sorted(
+            set(CATALOG_VERSION_BY_ARM_ENVIRONMENT[arm].values())
+        ),
         seed=seed,
         bootstrap_resamples=bootstrap_resamples,
         randomization_draws=randomization_draws,
         estimand=(
             "Intention-to-treat effect of assigning a caller realism versus a "
             "clean assignment among task/environment units with positive "
-            "probability of either assignment. Outcomes are averaged over four "
-            "systems; Hajek contrasts are computed within each of three acoustic "
-            "environments and then averaged."
+            "probability of either assignment under each frozen run's catalog. "
+            "Outcomes are averaged over four systems; Hajek contrasts are "
+            "computed within each of three acoustic environments and then "
+            "averaged."
         ),
         interval_method=(
             "Percentile bootstrap over task ids; all systems and the three "
@@ -816,18 +1348,16 @@ def analyze(
         significance_method=(
             "Two-sided sharp-null randomization test using the catalog's known "
             "categorical assignment probabilities; +1 correction; Holm across "
-            "the overall contrast and five estimable realism subtypes. Contrast "
+            "the overall contrast and the estimable displayed subtypes. Contrast "
             "seeds are the analysis seed plus the displayed row index."
         ),
+        archive=matrix.archive,
         inputs=matrix.sources,
-        event_ledger=EventLedgerSource(
-            path=REALISM_EVENT_LEDGER_PATH,
-            sha256=_sha256(event_path),
-            calls=len(event_rows),
-        ),
+        scoring_correction=matrix.scoring_correction,
+        event_ledger=event_source,
         effects=effects,
-        spelling_opportunity=_spelling_opportunity(event_rows),
-        repair_cost_diagnostic=_repair_cost_diagnostic(matrix, event_rows),
+        spelling_opportunity=(_spelling_opportunity(event_rows) if event_rows else []),
+        repair_cost_diagnostic=repair_cost,
     )
 
 
@@ -838,20 +1368,33 @@ def main() -> None:
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--output", type=Path)
     parser.add_argument(
+        "--arm", choices=[arm.value for arm in Arm], default=Arm.AGENT_DIRECTED.value
+    )
+    parser.add_argument(
         "--bootstrap-resamples", type=int, default=DEFAULT_BOOTSTRAP_RESAMPLES
     )
     parser.add_argument(
         "--randomization-draws", type=int, default=DEFAULT_RANDOMIZATION_DRAWS
     )
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    parser.add_argument(
+        "--skip-spelling-opportunity",
+        action="store_true",
+        help=(
+            "Skip the agent-directed observed-event diagnostic. The scaffolded "
+            "archive has no corresponding compact event ledger."
+        ),
+    )
     args = parser.parse_args()
     artifact = analyze(
         args.repo_root.resolve(),
+        arm=Arm(args.arm),
         bootstrap_resamples=args.bootstrap_resamples,
         randomization_draws=args.randomization_draws,
         seed=args.seed,
+        include_spelling_opportunity=not args.skip_spelling_opportunity,
     )
-    rendered = artifact.model_dump_json(indent=2) + "\n"
+    rendered = artifact.model_dump_json(indent=2, exclude_none=True) + "\n"
     if args.output is None:
         sys.stdout.write(rendered)
         return

@@ -22,16 +22,22 @@ every dir), with `text_channel/` and `ablations/{scaffolded,entity_composition,g
 - Integrity: 600/600 + 200 sims first-attempt, zero stubs; every sim's
   recorded complication kind matches the offline deterministic draw
   (`modeb_campaign_2026-09-02/expected_draws_{9401,9402,9403}.json`).
-- Per-cell pass@1 (passes/200): openai_minimal 83/73/86, openai_xhigh
-  89/78/104, gemini_high 103/74/89, and xai_10 133/125/132.
-- Figure 2 reports regular-realization Pass@1: .415 / .445 / .515 / .665. The pooled
-  three-realization means (.403 / .452 / .443 / .650) are diagnostic only and are not
+- The immutable source cells retain their original rewards. The separate
+  `analysis_inputs/intake_scoring_correction_2026-09-16.json` ledger verifies
+  the 29 transcript-file hashes covering all 5,970 manifest-listed calls and
+  changes 80 derived rewards from zero to one after normalizing
+  `milligram(s)` to `mg`; transcripts and stored results are unchanged.
+- Corrected per-cell pass@1 (passes/200): openai_minimal 87/75/91,
+  openai_xhigh 96/83/107, gemini_high 103/74/90, and xai_10 144/135/144.
+- Figure 2 reports corrected regular-realization Pass@1: .435 / .480 / .515 /
+  .720. The pooled three-realization means (.422 / .477 / .445 / .705) are
+  diagnostic only and are not
   labeled Pass@1 in the paper.
-- Pass^3 (crossed): .150 / .200 / .135 / .405 for GPT minimal, GPT xhigh,
+- Pass^3 (crossed): .165 / .220 / .135 / .450 for GPT minimal, GPT xhigh,
   Gemini high, and Grok. Independence checks from the three realization rates
-  are .065 / .090 / .085 / .274.
-- Paired counts (regular, same seed): xai>oai 54 vs 10; xai>gem 53 vs 23;
-  gem>oai 41 vs 27. The significance table uses two-sided paired sign permutations with
+  are .074 / .107 / .086 / .350 and are diagnostic only.
+- Paired counts (regular, same seed): xai>oai 57 vs 9; xai>gem 59 vs 18;
+  gem>oai 36 vs 29. The significance table uses two-sided paired sign permutations with
   100,000 draws, seed 42, a +1 Monte Carlo correction, and separate Holm
   correction across the six system pairs for Pass@1 and Pass^3. Full output:
   `analysis/intake_main_significance_2026-09-05.json`.
@@ -47,21 +53,22 @@ every dir), with `text_channel/` and `ablations/{scaffolded,entity_composition,g
   `intake_final/modea_{lane}_chanheavy_2026-09-02`, seed 401 (matches the og
   C seed). og legacy-C cells (frame-drops-only) are retired to
   `archive_intake_explorations/` and never pooled.
-- Per-cell success: R .785/.770/.795/.815; tuned-C .635/.595/.640/.720;
-  S .725/.735/.700/.780 (min/xh/gem/xai). Figure 2 uses R as Pass@1; pooled
-  three-realization means .715/.700/.712/.772 are diagnostic only.
-- Pass^3 (og R, new C, og S): .455/.385/.365/.540. Catalog-drift caveat is
-  recorded in Limitations.
+- Corrected per-cell success: R .790/.770/.795/.835; tuned-C
+  .635/.600/.640/.745; S .735/.740/.700/.805 (min/xh/gem/xai). Figure 2 uses R
+  as Pass@1; pooled three-realization means .720/.703/.712/.795 are diagnostic
+  only.
+- Pass^3 (og R, new C, og S): .465/.390/.365/.580. The catalog-version split
+  is retained in the reproduction metadata and assignment-effect analysis.
 
-## Same vs crossed Pass^3 — Table 4
+## Same vs crossed Pass^3 comparison
 
 - Same-environment trials combine the canonical scaffolded OpenAI xhigh regular
   cell (`intake_final/intake_m_openai_xhigh_regular`, .770) with two additional
   regular trials in `intake_final/intake_passk_xhigh_regular` (.745 and .755).
   The three-run Pass^3 is .515 (103/200); 59 tasks pass twice, 27 pass once, and
   11 never pass, so 86/200 tasks change outcome at least once.
-- Crossed = scaffolded OpenAI xhigh Pass^3 above = .385 (77/200), 13 points and
-  26 all-three task successes below the repeated-regular baseline.
+- Crossed = scaffolded OpenAI xhigh Pass^3 above = .390 (78/200), 12.5 points
+  and 25 all-three task successes below the repeated-regular baseline.
 
 ## Behavioral measures (agent-directed regular cells, seed 9401)
 
@@ -69,12 +76,12 @@ Computed by `modeb_campaign_2026-09-02/modeb_analysis.py` from agent
 `log_capture` calls, gold `submit_fields` action checks, and the caller
 simulator's silent `note_spell_request` / `note_readback` tools:
 
-- Attempt-1 wrong (of gold fields with a logged attempt): openai 137/200,
-  gemini 129/199, xai 81/193.
+- Attempt-1 wrong (of gold fields with a logged attempt): openai 134/200,
+  gemini 129/199, xai 74/193.
 - Verification discrimination P(verified | a1 wrong) vs P(verified | a1
-  right): .657/.500 (openai), .643/.500 (gemini), .938/.959 (xai).
-- Repair of verified wrong captures: .267 / .373 / .237; unverified wrong
-  captures recover .106 / .109 / .000.
+  right): .664/.492 (openai), .643/.500 (gemini), .932/.962 (xai).
+- Repair of verified wrong captures: .303 / .373 / .319; unverified wrong
+  captures recover .111 / .109 / .000.
 - Adaptivity delta (noise-heavy − regular, per call): readbacks −0.02 /
   −0.12 / +0.40; gemini call duration 126s → 110s.
 - Effort (regular, per call): readbacks .57/.815/1.665, letters spelled
@@ -82,20 +89,20 @@ simulator's silent `note_spell_request` / `note_readback` tools:
 - Agent-directed regular call-level verification associations, in OpenAI
   xhigh/Gemini high/xAI order:
   - Calls with at least one read-back: 102/200 (51.0%), 87/200 (43.5%), and
-    174/200 (87.0%). Pass@1 with a read-back is 45/102 (.441), 60/87 (.690),
-    and 126/174 (.724); without one it is 44/98 (.449), 43/113 (.381), and
+    174/200 (87.0%). Corrected Pass@1 with a read-back is 50/102 (.490), 60/87
+    (.690), and 137/174 (.787); without one it is 46/98 (.469), 43/113 (.381), and
     7/26 (.269).
   - Calls with at least one spelling request: 57/200 (28.5%), 52/200 (26.0%),
-    and 75/200 (37.5%). Pass@1 with a request is 22/57 (.386), 23/52 (.442),
-    and 47/75 (.627); without one it is 67/143 (.469), 80/148 (.541), and
-    86/125 (.688).
-  - Among 347 initially wrong captures pooled across systems, final recovery is
-    10/98 (.102) with neither step, 32/123 (.260) with read-back only, 7/29
-    (.241) with spelling only, and 34/97 (.351) with both. These are
+    and 75/200 (37.5%). Corrected Pass@1 with a request is 25/57 (.439), 23/52
+    (.442), and 51/75 (.680); without one it is 71/143 (.497), 80/148 (.541),
+    and 93/125 (.744).
+  - Among 337 initially wrong captures pooled across systems, final recovery is
+    10/96 (.104) with neither step, 36/118 (.305) with read-back only, 7/29
+    (.241) with spelling only, and 37/94 (.394) with both. These are
     observational associations because verification is agent-selected.
 - Figure `fig:main-results` combines the agent-directed and scaffolded Pass@1
   and Pass^3 values previously shown in the main results table. GPT minimal
-  Pass^3 is 30/200 (15.0%), using its regular 2026-09-02 run and the channel-
+  Pass^3 is 33/200 (16.5%), using its regular 2026-09-02 run and the channel-
   and speech-heavy 2026-09-05 runs frozen under `main_runs/`.
 - The effort comparison uses simulated conversation duration, not execution
   wall time. Agent-directed durations are 59.439/66.370/87.086 s and matched
@@ -104,26 +111,27 @@ simulator's silent `note_spell_request` / `note_readback` tools:
   `modeb_campaign_2026-09-02/caller_effort_agent_directed_vs_scaffolded.json`.
   The figure uses the regular `intake_free` and `intake` cells, respectively,
   and splits each 200-call cell evenly into 100 easy and 100 hard tasks.
-  Agent-directed/scaffolded Pass@1 is .60/.90, .55/.83, and .77/.89 on easy
-  tasks and .29/.64, .48/.76, and .56/.74 on hard tasks for OpenAI xhigh,
+  Corrected agent-directed/scaffolded Pass@1 is .63/.90, .55/.83, and .83/.90
+  on easy tasks and .33/.64, .48/.76, and .61/.77 on hard tasks for OpenAI xhigh,
   Gemini high, and xAI. Added mean simulated duration is 22/34, 19/22, and
   21/24 seconds for easy/hard tasks, respectively. Averaged across systems,
-  scaffolding raises Pass@1 by 23.3 points for easy entities and 27.0 points for
+  scaffolding raises Pass@1 by 20.7 points for easy entities and 25.0 points for
   hard entities. The older scaffolded runs do not contain the silent
   event logging needed for a direct read-back or spelling-count comparison.
 - Terbinafine vignette: task intake_medications_hard_04, cell
   modeb_openai_xhigh_regular_2026-09-02.
-- Reasoning ablation: minimal .415 vs xhigh .445 (26 vs 32 paired wins,
-  exact binomial p=.512); readback rate .38 vs .51; discrimination gap
-  +.31 vs +.16. Scaffolded null: .785 vs .770 (27 vs 24 paired wins).
+- Reasoning ablation: minimal .435 vs xhigh .480 (25 vs 34 paired wins,
+  paired permutation p=.298); readback rate .38 vs .51; discrimination gap
+  changes under corrected first-capture folding. Scaffolded: .790 vs .770
+  (28 vs 24 paired wins).
 
-## Combined value-bank and entity-results table (Table 3)
+## Value-bank and entity results
 
 - Pass@1 per bank pools the 9 agent-directed cells (180 calls/bank); bootstrap
   percentile CIs over the bank's 20 tasks (10k resamples, seed 42;
   replace with BCa when the significance verb reruns). Pass^3 pools the 60
   system-task pairs per bank.
-- Values: medications .222/.017, coined .267/.033, addresses .378/.100,
+- Values: medications .494/.233, coined .267/.033, addresses .378/.100,
   emails .389/.083, properties .472/.183, person names .533/.300,
   codes .578/.250, times .711/.433, phones .772/.467, dates .828/.600.
 
@@ -137,25 +145,25 @@ simulator's silent `note_spell_request` / `note_readback` tools:
     arjun_roy (39, .769), priya_patil (40, .725), mamadou_diallo (42, .714).
   - Gemini high: mildred_kaplan (39, .974), wei_lin (39, .897),
     priya_patil (39, .821), mamadou_diallo (42, .762), arjun_roy (41, .537).
-  - xAI: mildred_kaplan (40, .900), arjun_roy (41, .878), mamadou_diallo
-    (42, .786), priya_patil (39, .769), wei_lin (38, .737).
-- Agent-directed R spread: openai 27 pts (.33--.60), gemini 28 (.41--.69), xai 15
-  (.60--.75). Source: modeb_rollup.json per-voice blocks.
+  - xAI: mildred_kaplan (40, .925), arjun_roy (41, .902), wei_lin (38, .789),
+    mamadou_diallo (42, .786), priya_patil (39, .769).
+- Corrected agent-directed R spread: OpenAI 26 points (.35--.62), Gemini 28
+  (.41--.69), and xAI 12 (.67--.78).
 - Agent-directed regular Pass@1 rankings (voice, calls, score):
-  - OpenAI xhigh: mildred_kaplan (47, .596), wei_lin (39, .487),
-    priya_patil (47, .404), mamadou_diallo (31, .355), arjun_roy (36, .333).
+  - OpenAI xhigh: mildred_kaplan (47, .617), wei_lin (39, .513),
+    priya_patil (47, .468), arjun_roy (36, .389), mamadou_diallo (31, .355).
   - Gemini high: wei_lin (35, .686), mildred_kaplan (48, .646),
     mamadou_diallo (34, .412), arjun_roy (39, .410), priya_patil (44, .409).
-  - xAI: mildred_kaplan (51, .745), arjun_roy (34, .676), priya_patil
-    (47, .660), mamadou_diallo (33, .606), wei_lin (35, .600).
+  - xAI: mildred_kaplan (51, .784), wei_lin (35, .714), arjun_roy (34, .706),
+    priya_patil (47, .702), mamadou_diallo (33, .667).
 - Omnibus 5-voice x binary-outcome Fisher--Freeman--Halton Monte Carlo tests use
   100,000 samples with seed 42 and Holm correction across the three systems.
-  Raw/adjusted p-values are .1046/.2091 (OpenAI xhigh), .01337/.04011 (Gemini
-  high), and .6044/.6044 (xAI). Ten pairwise two-sided Fisher exact tests within
+  Raw/adjusted p-values are .1434/.2868 (OpenAI xhigh), .01337/.04011 (Gemini
+  high), and .7920/.7920 (xAI). Ten pairwise two-sided Fisher exact tests within
   Gemini, Holm-corrected, leave no significant pair (smallest adjusted p=.212).
-- In the provider-stratified agent-directed comparison, Mildred exceeds Priya,
-  Mamadou, and Arjun after Holm correction across ten voice pairs (adjusted
-  $p=.027$, $.014$, and $.019$), but not Wei ($p=.938$).
+- In the provider-stratified agent-directed comparison, Mildred exceeds Mamadou
+  and Arjun after Holm correction across ten voice pairs (adjusted $p=.013$
+  and $.026$), but not Priya ($p=.055$) or Wei ($p=1.0$).
 - Reproducer: `src/experiments/intake/caller_voice_significance.py`; versioned
   output: `analysis/intake_caller_voice_significance_2026-09-07.json`, copied
   into `reproduction/analysis_inputs/`. The provider-stratified comparisons are
@@ -182,19 +190,20 @@ simulator's silent `note_spell_request` / `note_readback` tools:
   with positive probability of either the target realism or a clean draw, uses
   normalized inverse-probability (Hajek) means within each environment, and
   averages the three environment-specific effects.
-- Agent-directed point estimates are -3.59 for any realism, -11.09 for a
-  wrong-field answer, -8.71 for spelling variation, -4.32 for self-correction,
-  and -0.50 for mispronunciation. Their 95% intervals are respectively
-  [-10.41, 3.01], [-22.13, 0.60], [-19.78, 2.50], [-14.34, 6.62], and
-  [-19.53, 15.01] points.
-- Scaffolded point estimates / assigned n and ESS / clean n and ESS: any realism
-  -4.16 / 195, 135.2 / 405, 369.5; wrong-field answer +2.42 / 19, 19.0 / 405,
-  369.5; spelling variation -7.41 / 70, 70.0 / 243, 223.6; self-correction
-  +0.33 / 30, 30.0 / 405, 369.5; and mispronunciation -1.31 / 39, 27.7 / 53,
-  45.4.
+- Corrected agent-directed point estimates are -2.07 for any realism, -3.46
+  for a wrong-field answer, -6.19 for spelling variation, -3.06 for
+  self-correction, and -3.04 for mispronunciation. Their 95% intervals are
+  respectively [-8.60, 4.31], [-17.11, 8.18], [-17.28, 4.73],
+  [-13.77, 8.35], and [-19.40, 11.87] points.
+- Corrected scaffolded point estimates / assigned n and ESS / clean n and ESS:
+  any realism -4.18 / 195, 135.2 / 405, 369.5; wrong-field answer +1.71 / 19,
+  19.0 / 405, 369.5; spelling variation -7.21 / 70, 70.0 / 243, 223.6;
+  self-correction -0.37 / 30, 30.0 / 405, 369.5; and mispronunciation +0.47 /
+  39, 27.7 / 53, 45.4.
 - Two-sided randomization tests redraw the catalog's categorical assignment
-  100,000 times. Holm correction across the five displayed rows gives a minimum
-  adjusted p-value of .3569 (reported as .36).
+  100,000 times. Holm correction is applied separately within each prompting
+  arm; the minimum adjusted p-value is .3848 (reported as .38), for scaffolded
+  spelling variation.
 - Assignment is the intention-to-treat exposure and does not guarantee that a
   conditional realism is expressed. Across the four systems, spelling
   variation was assigned in 524 calls and 301 (57.4%) contained a spelling
@@ -232,7 +241,7 @@ simulator's silent `note_spell_request` / `note_readback` tools:
 - Reproducible rollup and full run provenance:
   `analysis/intake_speech_fidelity_2026-09-04.json`.
 
-## Composition and submission workflow (Tables 3--4)
+## Composition and submission workflow
 
 - Composition roots:
   `ablations/entity_composition/intake_ecomp_n2` and
@@ -248,14 +257,14 @@ simulator's silent `note_spell_request` / `note_readback` tools:
   within-arm gap between field and whole-task accuracy, not a causal
   n=1-to-n=3 contrast.
 - The paper pools trials 0--2 in both multi-field arms. This gives 125/180
-  two-field task passes and 290/360 correct fields, and 48/90 three-field task
-  passes and 202/270 correct fields. Thus task/field Pass@1 is .694/.806 for
-  two fields and .533/.748 for three fields; the table reports two decimals
+  two-field task passes and 290/360 correct fields, and 49/90 three-field task
+  passes and 203/270 correct fields. Thus task/field Pass@1 is .694/.806 for
+  two fields and .544/.752 for three fields; the table reports two decimals
   with Wald 95% margins (.07/.04 and .10/.05).
 - The three-field root contains a fourth trial (21/30 task passes, 78/90 correct
   fields), which is excluded solely to balance the trial count. Pooling all
-  four would give task Pass@1 = 69/120 = .575 and field Pass@1 = 280/360 =
-  .778; neither changes the qualitative conclusion.
+  four under corrected grading would give task Pass@1 = 70/120 = .583 and
+  field Pass@1 = 281/360 = .781; neither changes the qualitative conclusion.
 - Run audit: every included trial contains its complete task set, with no null
   rewards or infrastructure-error terminations. The low three-field trial 2
   (11/30) is a broad hard-task decline, not a failed worker. The roots share
@@ -267,10 +276,11 @@ simulator's silent `note_spell_request` / `note_readback` tools:
   catalog-2.4 redraw changed one current-manifest n=2 slot from `vin` to
   `license_plate`; it does not describe these frozen runs. Full audit and
   per-trial counts: `analysis/intake_composition_first3_audit.md`.
-- Protocol ablation: scaffolded-era protocol study cells (flat / first-strike
-  / oracle), unchanged numbers. Table 3 presents the decision-relevant flat
-  and oracle conditions; the first-strike arm remains in the source analysis
-  but is omitted from the compact paper table.
+- Protocol ablation: the corrected flat arm is 174/270 tasks and 493/630
+  fields; its printed two-decimal rates remain .64/.78. The validation/retry
+  arm remains 222/270 tasks and 544/630 fields (.82/.86). Table 3 presents
+  these decision-relevant conditions; the first-strike arm remains in the
+  source analysis but is omitted from the compact paper table.
 
 ## Text control
 
@@ -280,7 +290,8 @@ simulator's silent `note_spell_request` / `note_readback` tools:
 
 - Frozen release-safe artifact:
   `data/simulations/paper_runs/tau-elicit/judge_validation/human_failure_validation_90/`.
-- Unit and sample: 90 reward-zero calls, with 30 calls per provider.
+- Unit and sample: 90 calls sampled with original reward zero, with 30 calls per
+  provider.
 - `calls.csv` contains stable identifiers and final structured source and
   subtype labels only. It excludes call-level notes and all speech-fidelity
   fields or findings.
@@ -290,9 +301,9 @@ Resolved call-level source attribution is:
 | Attribution | n | Share |
 | --- | ---: | ---: |
 | Agent | 81 | 90.0% |
-| User simulator | 2 | 2.2% |
-| Infrastructure/system | 0 | 0.0% |
-| No labeled failure | 3 | 3.3% |
+| User simulator | 1 | 1.1% |
+| Infrastructure/system | 4 | 4.4% |
+| No labeled failure | 0 | 0.0% |
 | Unresolved | 4 | 4.4% |
 
 Within the 81 calls resolved as agent failures, the fine-grained labels are:
@@ -305,7 +316,9 @@ Within the 81 calls resolved as agent failures, the fine-grained labels are:
 | Hallucination | 2 | 2.5% |
 | Unresolved | 15 | 18.5% |
 
-Both user-simulator failures are logical errors.
+The user-simulator failure is a logical error. All four system errors arise from
+the same medication-unit scoring-normalization mismatch; the original
+reward-zero source records remain preserved.
 
 ## Speech-fidelity judge validation
 

@@ -1,7 +1,8 @@
 # Human failure validation: final 90-call set
 
 This directory contains final structured human failure labels for exactly 90
-reward-zero calls: 30 each from OpenAI, Gemini, and xAI systems. It contains no
+calls whose original recorded reward was zero: 30 each from OpenAI, Gemini, and
+xAI systems. It contains no
 free-text notes, speech-fidelity fields, transcript text, audio, or intermediate
 review state.
 
@@ -11,9 +12,11 @@ review state.
   failure-subtype labels.
 - `metrics.json` records aggregate counts and the SHA-256 digest of `calls.csv`.
 
-Four calls have `error_source=unresolved`. Within the 81 agent-attributed calls,
-15 have `error_subtype=unresolved`. No additional source or subtype is inferred
-for those rows.
+Four calls are evaluator infrastructure errors caused by medication-unit
+normalization and are labeled `system/scoring_normalization`. Four calls have
+`error_source=unresolved`. Within the 81 agent-attributed calls, 15 have
+`error_subtype=unresolved`. No additional source or subtype is inferred for
+those rows.
 
 ## CSV schema
 
@@ -26,6 +29,6 @@ for those rows.
 | `task_id` | Stable benchmark task identifier. |
 | `bank` | Entity-bank family. |
 | `tier` | `easy` or `hard`. |
-| `reward` | Always `0`. |
+| `reward` | Original recorded reward; always `0` for this review cohort. |
 | `error_source` | Final `agent`, `user`, `system`, `no_error`, or `unresolved` label. |
 | `error_subtype` | Final subtype, `unresolved`, or empty when no subtype applies. |
