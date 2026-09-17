@@ -1,0 +1,36 @@
+{
+  "model_name": "cascade-governed-sonnet-4-6",
+  "model_organization": "Cascade Dynamics",
+  "submitting_organization": "Cascade Dynamics",
+  "submission_date": "2026-08-22",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "info@cascadedynamics.ai",
+    "github": "dancinglumberjack"
+  },
+  "results": {
+    "airline": {
+      "pass_1": 87.0,
+      "pass_2": 85.0,
+      "pass_3": 83.5,
+      "pass_4": 82.0,
+      "cost": 0.23787799499999998
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "airline_results.json"
+  },
+  "methodology": {
+    "evaluation_date": "2026-08-22",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "claude-sonnet-4-6",
+    "notes": "Custom scaffold: Cascade Dynamics governance layer wrapping the stock llm_agent loop with the same underlying model (Anthropic claude-sonnet-4-6) as our companion standard submission. The wrapper deterministically checks each proposed write tool call against rules compiled from the domain's written policy; a violating call is intercepted BEFORE execution and the model receives the violated rule as policy feedback, then re-decides (bounded retries, fail-open on unverifiable facts). No benchmark prompts, tools, tasks, user simulator, or evaluator were modified; no training on tau-bench data. Audit log of all gate decisions retained. Purpose: same-model A/B of governed vs standard scaffold (Pass^4 0.820 vs 0.760). Implementation details available to maintainers on request. Avg cost per conversation USD 0.2379 from provider usage metadata at list pricing. Reference: https://cascadedynamics.ai/benchmarks.html",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false
+    }
+  }
+}
