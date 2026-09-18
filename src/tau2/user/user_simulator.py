@@ -65,6 +65,33 @@ def get_global_user_sim_guidelines(use_tools: bool = False) -> str:
     return user_sim_guidelines
 
 
+EMPTY_COMPLETION_REMINDER = (
+    "Important: your previous reply was empty. Every reply must contain either a "
+    "message for the agent or a tool call. If you have nothing further to say, "
+    f"either continue the conversation naturally or end it with '{STOP}' per the "
+    "guidelines above."
+)
+
+
+def _is_empty_completion(message: AssistantMessage) -> bool:
+    """No text content and no tool calls: cannot become a valid user message."""
+    return not (message.has_content() or message.is_tool_call())
+
+
+def _with_empty_completion_reminder(
+    system_messages: list[SystemMessage],
+) -> list[SystemMessage]:
+    """The system messages with the non-empty reminder appended to the last one."""
+    if not system_messages:
+        return [SystemMessage(role="system", content=EMPTY_COMPLETION_REMINDER)]
+    reminded = list(system_messages)
+    last = reminded[-1]
+    reminded[-1] = SystemMessage(
+        role="system", content=f"{last.content or ''}\n\n{EMPTY_COMPLETION_REMINDER}"
+    )
+    return reminded
+
+
 def get_global_user_sim_guidelines_voice(use_tools: bool = False) -> str:
     """
     Get the global user simulator guidelines for voice mode.
@@ -239,6 +266,31 @@ class UserSimulator(
             call_name="user_simulator_response",
             **self.llm_args,
         )
+
+        if _is_empty_completion(assistant_message):
+            # An empty completion (no content, no tool calls) cannot become a valid
+            # user message: the orchestrator's validation would fail the episode as
+            # an infrastructure error. This occurs e.g. right after the user's own
+            # tool call returns, when the scenario leaves the simulator nothing
+            # further to say (#470). Retry once with an explicit reminder — the
+            # text-mode sibling of the voice simulator's empty-turn handling (#440).
+            logger.warning(
+                "User simulator returned an empty completion (no content, no tool "
+                "calls); retrying once with an explicit reminder."
+            )
+            assistant_message = generate(
+                model=self.llm,
+                messages=_with_empty_completion_reminder(state.system_messages)
+                + state.flip_roles(),
+                tools=self.tools,
+                call_name="user_simulator_response",
+                **self.llm_args,
+            )
+            if _is_empty_completion(assistant_message):
+                raise ValueError(
+                    "User simulator returned an empty completion twice in a row; "
+                    "cannot produce a valid user message."
+                )
 
         user_response = assistant_message.content
         logger.debug(f"Response: {user_response}")
