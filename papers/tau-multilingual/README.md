@@ -31,8 +31,8 @@ tau2 paper multilingual-listening-sample \
 
 tau2 paper multilingual-experience \
   --repo-root /path/to/reviewer-repository \
-  --naturalness-sidecar /path/to/utterance_naturalness_v16_trial0 \
-  --out papers/tau-multilingual/reproduction/experience.json
+  --naturalness-sidecar data/simulations/paper_runs/tau-multi/judge_outputs/utterance_naturalness_v16_trial0 \
+  --out data/analysis/tau_multilingual_experience_without_fluency_2026-09-18.json
 
 tau2 paper multilingual-ablation-transcripts \
   --evidence-root /path/to/tau-multi \
@@ -63,9 +63,12 @@ stronger source-to-archive verification using the frozen result bundle.
 
 ## Human annotation archive
 
-The archive stores each retained validation measure once, under
-`human_annotations/validations/<call|utterance>_level/<measure>/<language>/`.
-Its index records each retained measure's evidence-gate result. The
+The complete evidence archive stores each retained validation measure once,
+under `human_annotations/validations/<call|utterance>_level/<measure>/<language>/`.
+Its index records each retained measure's evidence-gate result. The public,
+versioned validation projection is preserved separately under
+`validation_runs/pre-retail-name-role-v1/human_annotations/validations/`; it
+omits private provenance and free-text fields without changing public rows. The
 first-critical-error review covers English and the five localized languages;
 the supporting miscellaneous language review remains localized-language only.
 Verify schemas, hashes, metrics, factor coverage, and the FCE summary offline
@@ -78,10 +81,10 @@ tau2 judges tau-multi-validation \
 
 ## Combined naturalness replay
 
-The canonical human-annotation command above verifies the combined-naturalness
+The complete human-annotation command above verifies the combined-naturalness
 labels, predictions, metrics, and prompt provenance. Before a paper replay,
-preflight the exact non-English trial-0 cohort selected
-by `reproduction/experience.json`:
+preflight the exact non-English trial-0 cohort selected by the historical
+bootstrap `reproduction/experience.json`:
 
 ```bash
 tau2 judges tau-multi-naturalness prepare \
@@ -98,6 +101,11 @@ tau2 judges tau-multi-naturalness run \
   --out /path/to/utterance-naturalness-v16-trial0 \
   --max-concurrency 100
 ```
+
+The active canonical replay is rooted at
+`data/simulations/paper_runs/tau-multi/judge_outputs/utterance_naturalness_v16_trial0/`;
+its portable manifest, rebind receipt, and hybrid summary are mirrored under
+`reproduction/judges/utterance_naturalness_v16_trial0/`.
 
 The audit is offline and never modifies frozen results. Benchmark and judge
 reruns are separate, explicit operations.

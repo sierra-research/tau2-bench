@@ -1,16 +1,21 @@
 """Render model and language summaries for the tau-multilingual manuscript.
 
 Task completion is read from the frozen trial-0 benchmark summaries;
-Interaction, Generation, and model-level latency are read from the portable
-reproduction artifact. The primary heatmaps use higher-is-better scores, while
-the metric breakdowns report lower-is-better failure rates.
+Interaction and Generation are read from the typed frozen analysis artifact.
+Turn-taking latency is read from the frozen reproduction artifact.
+The primary heatmaps use higher-is-better scores, while the metric breakdowns
+report lower-is-better failure rates.
 """
 
 from __future__ import annotations
 
+import argparse
+import math
 from pathlib import Path
 from subprocess import run
+from typing import Annotated, Sequence
 
+from pydantic import BaseModel, ConfigDict, Field
 from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.pdfmetrics import stringWidth
@@ -19,13 +24,48 @@ from reportlab.pdfgen import canvas
 from experiments.tau_multilingual.experience_without_fluency import (
     UtteranceExperienceArtifact,
 )
+from experiments.tau_multilingual.task_success_significance import (
+    TaskSuccessAnalysisArtifact,
+)
 
 FIGURE_DIR = Path(__file__).parent
 MODEL_OUTPUT = FIGURE_DIR / "model_summary.pdf"
 HEATMAP_OUTPUT = FIGURE_DIR / "language_system_heatmaps.pdf"
 METRIC_OUTPUT = FIGURE_DIR / "model_metric_heatmap.pdf"
 REPO_ROOT = Path(__file__).resolve().parents[4]
-EXPERIENCE_PATH = REPO_ROOT / "papers/tau-multilingual/reproduction/experience.json"
+TASK_SUCCESS_PATH = (
+    REPO_ROOT
+    / "data/analysis/tau_multilingual_task_success_significance_2026-09-18.json"
+)
+ANALYSIS_PATH = (
+    REPO_ROOT
+    / "data/analysis/tau_multilingual_experience_without_fluency_2026-09-18.json"
+)
+LATENCY_PATH = REPO_ROOT / "papers/tau-multilingual/reproduction/experience.json"
+
+
+class RenderConfig(BaseModel):
+    """Validated input and output paths for one figure render."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    task_success_artifact: Annotated[
+        Path,
+        Field(description="Typed task-success analysis artifact."),
+    ] = TASK_SUCCESS_PATH
+    experience_artifact: Annotated[
+        Path,
+        Field(description="Typed interaction/generation analysis artifact."),
+    ] = ANALYSIS_PATH
+    latency_artifact: Annotated[
+        Path,
+        Field(description="Typed turn-taking latency analysis artifact."),
+    ] = LATENCY_PATH
+    output_dir: Annotated[
+        Path,
+        Field(description="Directory receiving the three fixed figure filenames."),
+    ] = FIGURE_DIR
+
 
 FONT = "FigureRoman"
 BOLD_FONT = "FigureRoman-Bold"
@@ -58,11 +98,21 @@ def _register_type1_font(name: str, stem: str) -> None:
     pdfmetrics.registerFont(pdfmetrics.Font(name, face.name, "WinAnsiEncoding"))
 
 
-_register_type1_font(FONT, "utmr8a")
-_register_type1_font(BOLD_FONT, "utmb8a")
+_FONTS_REGISTERED = False
+
+
+def _ensure_fonts_registered() -> None:
+    """Register publication fonts lazily so input validation needs no TeX install."""
+    global _FONTS_REGISTERED
+    if _FONTS_REGISTERED:
+        return
+    _register_type1_font(FONT, "utmr8a")
+    _register_type1_font(BOLD_FONT, "utmb8a")
+    _FONTS_REGISTERED = True
+
 
 # Use the ICASSP minimum figure-label size without visually overpowering the
-# surrounding 10-point body text.
+# surrounding 9.5-point body text.
 MODEL_WIDTH = 244
 MODEL_HEIGHT = 124
 MODEL_FONT_SIZE = 9.2
@@ -97,61 +147,135 @@ SYSTEM_LABELS = {
     "Gemini high": "Gem high",
     "xAI": "Grok",
 }
-PASS_AT_1: dict[str, dict[str, float]] = {
-    "English": {
-        "OpenAI minimal": 45.3,
-        "OpenAI xhigh": 64.7,
-        "Gemini minimal": 40.7,
-        "Gemini high": 51.3,
-        "xAI": 76.0,
-    },
-    "Spanish": {
-        "OpenAI minimal": 46.0,
-        "OpenAI xhigh": 58.0,
-        "Gemini minimal": 37.3,
-        "Gemini high": 60.0,
-        "xAI": 78.0,
-    },
-    "Portuguese": {
-        "OpenAI minimal": 49.3,
-        "OpenAI xhigh": 69.3,
-        "Gemini minimal": 38.0,
-        "Gemini high": 58.7,
-        "xAI": 78.7,
-    },
-    "Hindi": {
-        "OpenAI minimal": 43.3,
-        "OpenAI xhigh": 61.3,
-        "Gemini minimal": 38.7,
-        "Gemini high": 60.0,
-        "xAI": 76.0,
-    },
-    "Korean": {
-        "OpenAI minimal": 26.0,
-        "OpenAI xhigh": 29.3,
-        "Gemini minimal": 26.0,
-        "Gemini high": 37.3,
-        "xAI": 75.3,
-    },
-    "Mandarin": {
-        "OpenAI minimal": 30.0,
-        "OpenAI xhigh": 44.0,
-        "Gemini minimal": 28.0,
-        "Gemini high": 50.0,
-        "xAI": 69.3,
-    },
+TASK_LANGUAGE_KEYS = {
+    "English": "en",
+    "Spanish": "es",
+    "Portuguese": "pt",
+    "Hindi": "hi",
+    "Korean": "ko",
+    "Mandarin": "zh",
 }
-PASS_PROVIDER = {
-    "OpenAI minimal": 40.0,
-    "OpenAI xhigh": 54.4,
-    "Gemini minimal": 34.8,
-    "Gemini high": 52.9,
-    "xAI": 75.6,
+TASK_SYSTEM_KEYS = {
+    "OpenAI minimal": "openai_minimal",
+    "OpenAI xhigh": "openai_xhigh",
+    "Gemini minimal": "gemini_minimal",
+    "Gemini high": "gemini_high",
+    "xAI": "xai_provider_default",
 }
 
 
-def _artifact(path: Path) -> UtteranceExperienceArtifact:
-    return UtteranceExperienceArtifact.model_validate_json(path.read_text())
+def _load_experience_artifact(path: Path) -> UtteranceExperienceArtifact:
+    resolved = path.expanduser().resolve()
+    if not resolved.is_file():
+        raise FileNotFoundError(f"experience artifact not found: {resolved}")
+    return UtteranceExperienceArtifact.model_validate_json(resolved.read_text())
+
+
+class _LatencyCell(BaseModel):
+    """One provider's validated turn-taking latency."""
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+    latency_seconds: Annotated[
+        float,
+        Field(ge=0, description="Mean turn-taking latency in seconds."),
+    ]
+
+
+class _LatencyCohort(BaseModel):
+    """Provider cells in the frozen complete cohort."""
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+    provider: Annotated[
+        dict[str, _LatencyCell],
+        Field(description="Turn-taking latency keyed by displayed system."),
+    ]
+
+
+class _LatencyArtifact(BaseModel):
+    """Minimal typed projection of the frozen latency artifact."""
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+    descriptive_complete_cohort: Annotated[
+        _LatencyCohort,
+        Field(description="Complete-cohort provider summaries."),
+    ]
+
+
+def _load_latency_scores(path: Path) -> dict[str, float]:
+    """Load the exact displayed systems from the typed latency artifact."""
+    resolved = path.expanduser().resolve()
+    if not resolved.is_file():
+        raise FileNotFoundError(f"latency artifact not found: {resolved}")
+    artifact = _LatencyArtifact.model_validate_json(resolved.read_text())
+    provider = artifact.descriptive_complete_cohort.provider
+    _require_exact_keys(set(provider), set(SYSTEMS), label="latency provider")
+    return {system: provider[system].latency_seconds for system in SYSTEMS}
+
+
+def _require_exact_keys(actual: set[str], expected: set[str], *, label: str) -> None:
+    if actual == expected:
+        return
+    missing = sorted(expected - actual)
+    unexpected = sorted(actual - expected)
+    raise ValueError(
+        f"{label} keys drifted: missing={missing}, unexpected={unexpected}"
+    )
+
+
+def _percentage(value: float, *, label: str) -> float:
+    if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+        raise ValueError(f"{label} must be a finite proportion in [0, 1]: {value}")
+    return 100.0 * value
+
+
+def _load_task_scores(
+    path: Path,
+) -> tuple[dict[str, dict[str, float]], dict[str, float]]:
+    """Load task-success scores from the frozen typed artifact."""
+    resolved = path.expanduser().resolve()
+    if not resolved.is_file():
+        raise FileNotFoundError(f"task-success artifact not found: {resolved}")
+    artifact = TaskSuccessAnalysisArtifact.model_validate_json(resolved.read_text())
+    descriptive = artifact.descriptive_trial_0
+    expected_languages = set(TASK_LANGUAGE_KEYS.values())
+    expected_systems = set(TASK_SYSTEM_KEYS.values())
+    _require_exact_keys(
+        set(descriptive.voice_language_system),
+        expected_languages,
+        label="task-success language",
+    )
+    _require_exact_keys(
+        set(descriptive.voice_system_mean),
+        expected_systems,
+        label="task-success provider",
+    )
+
+    language_system: dict[str, dict[str, float]] = {}
+    for language, language_key in TASK_LANGUAGE_KEYS.items():
+        raw_scores = descriptive.voice_language_system[language_key]
+        _require_exact_keys(
+            set(raw_scores),
+            expected_systems,
+            label=f"task-success {language_key} system",
+        )
+        language_system[language] = {
+            system: _percentage(
+                raw_scores[system_key],
+                label=f"task-success {language_key}/{system_key}",
+            )
+            for system, system_key in TASK_SYSTEM_KEYS.items()
+        }
+    provider = {
+        system: _percentage(
+            descriptive.voice_system_mean[system_key],
+            label=f"task-success provider/{system_key}",
+        )
+        for system, system_key in TASK_SYSTEM_KEYS.items()
+    }
+    return language_system, provider
 
 
 def _draw_mean_marker(
@@ -251,12 +375,19 @@ def _draw_patterned_rect(
     pdf.rect(x, y, width, height, fill=0, stroke=1)
 
 
-def render_model_summary(artifact: UtteranceExperienceArtifact) -> None:
+def render_model_summary(
+    artifact: UtteranceExperienceArtifact,
+    *,
+    pass_at_1: dict[str, dict[str, float]],
+    pass_provider: dict[str, float],
+    output: Path = MODEL_OUTPUT,
+) -> None:
     """Render the transposed model overview with across-language ranges."""
+    _ensure_fonts_registered()
     width = MODEL_WIDTH
     height = MODEL_HEIGHT
     pdf = canvas.Canvas(
-        str(MODEL_OUTPUT),
+        str(output),
         pagesize=(width, height),
         pageCompression=1,
         initialFontName=FONT,
@@ -301,7 +432,7 @@ def render_model_summary(artifact: UtteranceExperienceArtifact) -> None:
         for language in LOCALIZED_LANGUAGES
     }
     metrics = (
-        ("Task completion", PASS_PROVIDER, PASS_AT_1),
+        ("Task completion", pass_provider, pass_at_1),
         (
             "Interaction",
             {
@@ -377,15 +508,16 @@ def _heat_fill(value: float) -> colors.Color:
     )
 
 
-def render_model_metric_heatmap(artifact: UtteranceExperienceArtifact) -> None:
+def render_model_metric_heatmap(
+    artifact: UtteranceExperienceArtifact,
+    *,
+    pass_provider: dict[str, float],
+    latency_provider: dict[str, float],
+    output: Path = METRIC_OUTPUT,
+) -> None:
     """Render the metric breakdown at its final, one-column print size."""
+    _ensure_fonts_registered()
     provider = artifact.descriptive_complete_cohort.provider
-    latency_provider: dict[str, float] = {}
-    for system in SYSTEMS:
-        latency = provider[system].latency_seconds
-        if latency is None:
-            raise ValueError(f"Portable artifact lacks latency for {system}")
-        latency_provider[system] = latency
     interaction_component = {
         component: {
             system: getattr(provider[system].interaction_components, component)
@@ -403,7 +535,7 @@ def render_model_metric_heatmap(artifact: UtteranceExperienceArtifact) -> None:
         (
             "Task failure",
             "Call",
-            {system: 100.0 - PASS_PROVIDER[system] for system in SYSTEMS},
+            {system: 100.0 - pass_provider[system] for system in SYSTEMS},
             False,
         ),
         ("Non-response", "Call", interaction_component["nonresponse"], False),
@@ -428,17 +560,17 @@ def render_model_metric_heatmap(artifact: UtteranceExperienceArtifact) -> None:
             {system: provider[system].speech_fidelity_failure for system in SYSTEMS},
             False,
         ),
-        ("Latency", "Resp.", latency_provider, True),
+        ("Turn-taking latency", "Turn", latency_provider, True),
     )
 
     width = 244
     model_x = 110
-    model_cell_width = 22
+    model_cell_width = (width - model_x) / len(SYSTEMS)
     row_heights = [14] * len(model_rows)
     height = sum(row_heights) + 27
     top = height - 25
     pdf = canvas.Canvas(
-        str(METRIC_OUTPUT),
+        str(output),
         pagesize=(width, height),
         pageCompression=1,
         initialFontName=FONT,
@@ -462,8 +594,7 @@ def render_model_metric_heatmap(artifact: UtteranceExperienceArtifact) -> None:
         else:
             for line_index, line in enumerate(lines):
                 pdf.drawCentredString(center_x, height - 9 - line_index * 11, line)
-    all_x = model_x + len(SYSTEMS) * model_cell_width
-    pdf.drawCentredString(all_x + model_cell_width / 2, height - 15, "Avg.")
+    grid_right_x = model_x + len(SYSTEMS) * model_cell_width
 
     pdf.drawString(1, height - 15, "Metric")
 
@@ -473,7 +604,7 @@ def render_model_metric_heatmap(artifact: UtteranceExperienceArtifact) -> None:
     row_y = top
     for cell_height in row_heights:
         row_y -= cell_height
-        for column_index in range(len(SYSTEMS) + 1):
+        for column_index in range(len(SYSTEMS)):
             pdf.rect(
                 model_x + column_index * model_cell_width,
                 row_y,
@@ -497,7 +628,7 @@ def render_model_metric_heatmap(artifact: UtteranceExperienceArtifact) -> None:
         label_x += stringWidth(label, FONT, HEATMAP_FONT_SIZE)
         # A lowered baseline makes the level a subscript without reducing the
         # type below the ICASSP figure-label minimum. Units stay on the baseline.
-        level_label = {"Call": "c", "Utt.": "u", "Resp.": "r"}[level]
+        level_label = {"Call": "c", "Utt.": "u", "Turn": "t"}[level]
         level_x = label_x + 0.9
         pdf.drawString(level_x, text_y - 2.2, level_label)
         unit_x = level_x + stringWidth(level_label, FONT, HEATMAP_FONT_SIZE) + 2
@@ -518,22 +649,12 @@ def render_model_metric_heatmap(artifact: UtteranceExperienceArtifact) -> None:
             display = f"{value:.2f}" if is_latency else f"{value:.0f}"
             pdf.drawCentredString(cell_x + model_cell_width / 2, text_y, display)
 
-        mean_value = sum(values.values()) / len(SYSTEMS)
-        pdf.setFillColor(INK)
-        pdf.setFont(FONT, HEATMAP_FONT_SIZE)
-        display = f"{mean_value:.2f}" if is_latency else f"{mean_value:.0f}"
-        pdf.drawCentredString(all_x + model_cell_width / 2, text_y, display)
-
-    pdf.setStrokeColor(INK)
-    pdf.setLineWidth(0.65)
-    pdf.line(all_x, top - sum(row_heights), all_x, top)
-
     pdf.saveState()
     pdf.setStrokeColor(colors.HexColor("#AEB6BF"))
     pdf.setLineWidth(0.6)
     for boundary_after in (1, 6, 8):
         boundary_y = top - sum(row_heights[:boundary_after])
-        pdf.line(1, boundary_y, all_x + model_cell_width, boundary_y)
+        pdf.line(1, boundary_y, grid_right_x, boundary_y)
     pdf.restoreState()
 
     pdf.save()
@@ -617,12 +738,18 @@ def _draw_heatmap_panel(
     pdf.line(x, overall_y + cell_height, x + width, overall_y + cell_height)
 
 
-def render_heatmaps(artifact: UtteranceExperienceArtifact) -> None:
+def render_heatmaps(
+    artifact: UtteranceExperienceArtifact,
+    *,
+    pass_at_1: dict[str, dict[str, float]],
+    output: Path = HEATMAP_OUTPUT,
+) -> None:
     """Render three higher-is-better system-language heatmaps."""
+    _ensure_fonts_registered()
     width = 500
     height = HEATMAP_HEIGHT
     pdf = canvas.Canvas(
-        str(HEATMAP_OUTPUT),
+        str(output),
         pagesize=(width, height),
         pageCompression=1,
         initialFontName=FONT,
@@ -664,7 +791,7 @@ def render_heatmaps(artifact: UtteranceExperienceArtifact) -> None:
         width=139,
         title="(a) Task completion",
         languages=LANGUAGES,
-        values=PASS_AT_1,
+        values=pass_at_1,
     )
     _draw_heatmap_panel(
         pdf,
@@ -685,12 +812,60 @@ def render_heatmaps(artifact: UtteranceExperienceArtifact) -> None:
     pdf.save()
 
 
-def main() -> None:
+def _parse_args(argv: Sequence[str] | None = None) -> RenderConfig:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--task-success-artifact",
+        type=Path,
+        default=TASK_SUCCESS_PATH,
+        help=f"Typed task-success JSON artifact (default: {TASK_SUCCESS_PATH}).",
+    )
+    parser.add_argument(
+        "--experience-artifact",
+        type=Path,
+        default=ANALYSIS_PATH,
+        help=f"Typed experience JSON artifact (default: {ANALYSIS_PATH}).",
+    )
+    parser.add_argument(
+        "--latency-artifact",
+        type=Path,
+        default=LATENCY_PATH,
+        help=f"Typed latency JSON artifact (default: {LATENCY_PATH}).",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=FIGURE_DIR,
+        help=f"Output directory for all three PDFs (default: {FIGURE_DIR}).",
+    )
+    return RenderConfig.model_validate(vars(parser.parse_args(argv)))
+
+
+def main(argv: Sequence[str] | None = None) -> None:
     """Write the publication-ready vector figures."""
-    artifact = _artifact(EXPERIENCE_PATH)
-    render_model_summary(artifact)
-    render_model_metric_heatmap(artifact)
-    render_heatmaps(artifact)
+    config = _parse_args(argv)
+    artifact = _load_experience_artifact(config.experience_artifact)
+    pass_at_1, pass_provider = _load_task_scores(config.task_success_artifact)
+    latency_provider = _load_latency_scores(config.latency_artifact)
+    output_dir = config.output_dir.expanduser().resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    render_model_summary(
+        artifact,
+        pass_at_1=pass_at_1,
+        pass_provider=pass_provider,
+        output=output_dir / MODEL_OUTPUT.name,
+    )
+    render_model_metric_heatmap(
+        artifact,
+        pass_provider=pass_provider,
+        latency_provider=latency_provider,
+        output=output_dir / METRIC_OUTPUT.name,
+    )
+    render_heatmaps(
+        artifact,
+        pass_at_1=pass_at_1,
+        output=output_dir / HEATMAP_OUTPUT.name,
+    )
 
 
 if __name__ == "__main__":
