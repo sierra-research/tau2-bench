@@ -23,6 +23,8 @@ You have some tools to perform the actions on your end that might be requested b
 
 ## Task Completion
 - The goal is to continue the conversation until the task is complete.
+- Do not end the conversation prematurely. Agreeing to an action is not the same as the action being completed. If the agent offers to do something (e.g., cancel an order, process a refund), wait for the agent to confirm it is done before ending the conversation.
+- Before ending the conversation, verify that all items in your scenario instructions have been addressed. If your instructions include multiple requests, questions, or tasks, make sure every single one has been completed; do not stop after only some of them are resolved.
 - If the instruction goal is satisified, generate the '###STOP###' token to end the conversation.
 - If you have been transferred to another agent, generate the '###TRANSFER###' token to indicate the transfer. Only do this after the agent has clearly indicated that you are being transferred.
 - If you find yourself in a situation in which the scenario does not provide enough information for you to continue the conversation, generate the '###OUT-OF-SCOPE###' token to end the conversation.
