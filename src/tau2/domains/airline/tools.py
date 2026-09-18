@@ -364,7 +364,15 @@ class AirlineTools(ToolKitBase):  # Tools
         reservation.status = "cancelled"
         logger.debug(self._get_reservation(reservation_id).model_dump_json(indent=4))
         # Release seats
-        logger.warning("Seats release not implemented for cancellation!!!")
+        for flight in reservation.flights:
+            flight_date_data = self._get_flight_instance(
+                flight_number=flight.flight_number,
+                date=flight.date,
+            )
+            if isinstance(flight_date_data, FlightDateStatusAvailable):
+                flight_date_data.available_seats[reservation.cabin] += len(
+                    reservation.passengers
+                )
         return reservation
 
     @is_tool(ToolType.READ)
