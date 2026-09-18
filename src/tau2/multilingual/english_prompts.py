@@ -10,7 +10,7 @@ stays native. The alternative — the pack's localized guidelines plus translate
 task instructions — is the retired native arm, quarantined in
 deleted 2026-08-03; nothing selects it at runtime.
 
-Two pieces live here:
+Three pieces live here:
 
 - :func:`render_target_language_directive` — the fixed, versioned directive
   block appended to the English guidelines (prompt text is calibrated material;
@@ -22,28 +22,146 @@ Two pieces live here:
   English source prose so the sim still presents the locale name/user_id/email.
   Everything else on the task (id, initial_state, evaluation_criteria) is
   untouched — only the user-sim scenario changes.
+- the fixed retail name-role line — for family-first languages, explicitly
+  tells the caller which structured name is their first/last name and how to
+  present the full name. Every task in the selected Korean/Mandarin retail
+  arms receives the line, independent of which authentication path is used.
 """
 
 from functools import lru_cache
-from typing import Optional
+from typing import Literal, Optional
 
+from tau2.config import DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION
 from tau2.data_model.tasks import Task, UserScenario
 from tau2.multilingual.domain_profiles import CallerIdentityKind, get_domain_profile
 from tau2.multilingual.invariants import (
     AddressProseFormat,
     IdentityRename,
     identity_rename,
+    resolve_caller_user_id,
 )
-from tau2.multilingual.names import NameOrder, name_order_for_language
+from tau2.multilingual.names import (
+    NameOrder,
+    compose_full_name,
+    name_order_for_language,
+)
 from tau2.multilingual.native_script import is_identity_task_id
 from tau2.multilingual.registry import get_language_pack
 from tau2.multilingual.task_sets import discover_localized_task_files
 
 # ---------------------------------------------------------------------------
+# Retail family-first name roles (fixed, versioned task-prompt line)
+# ---------------------------------------------------------------------------
+
+RETAIL_NAME_ROLES_PROMPT_VERSION = "v1"
+RetailNameRolesPromptVersion = Literal["v1"]
+RETAIL_NAME_ROLES_TASK_SETS_BY_LANGUAGE = {
+    "ko": frozenset({"retail_ko_identity"}),
+    "zh": frozenset({"retail_zh_identity", "retail_zh_identity_native", "retail_zh"}),
+}
+RETAIL_NAME_ROLES_LANGUAGES = frozenset(RETAIL_NAME_ROLES_TASK_SETS_BY_LANGUAGE)
+RETAIL_NAME_ROLES_TASK_SETS = frozenset(
+    task_set
+    for task_sets in RETAIL_NAME_ROLES_TASK_SETS_BY_LANGUAGE.values()
+    for task_set in task_sets
+)
+
+# A compliant simulator is told not to infer facts absent from its scenario,
+# yet Korean/Mandarin callers need stable first/last-name roles whenever a name
+# comes up. Every task in these retail arms therefore receives the associated
+# customer record's roles, whether its reference path authenticates by name,
+# email, or not at all. Calibrated prompt material: bump
+# RETAIL_NAME_ROLES_PROMPT_VERSION on any wording change.
+RETAIL_NAME_ROLES_PROMPT_TEMPLATE_V1 = (
+    "Your first name is {first_name}, and your last name is {last_name}. "
+    "When asked for your full name, give your last name first and your first "
+    "name second: {full_name}."
+)
+
+
+def retail_name_roles_prompt_line(
+    task: Task,
+    *,
+    language: Optional[str],
+    domain: str,
+    task_set_name: Optional[str],
+    version: Optional[RetailNameRolesPromptVersion] = None,
+) -> Optional[str]:
+    """Render the associated caller's name roles for a target retail task.
+
+    Identity variants use the task's localized caller patch. The unlocalized
+    Mandarin ablation uses the canonical source customer record. Resolution is
+    required for every in-scope task and fails loudly rather than guessing.
+    """
+    if version is None:
+        return None
+    if version != RETAIL_NAME_ROLES_PROMPT_VERSION:
+        raise ValueError(f"Unknown retail name-role prompt version: {version!r}")
+    resolved_task_set = task_set_name or _infer_localized_task_set(task.id, domain)
+    if (
+        domain != "retail"
+        or language not in RETAIL_NAME_ROLES_LANGUAGES
+        or resolved_task_set not in RETAIL_NAME_ROLES_TASK_SETS
+        or name_order_for_language(language) is not NameOrder.FAMILY_FIRST
+    ):
+        raise ValueError(
+            "retail name-role prompt treatment v1 cannot render for "
+            f"domain={domain!r}, language={language!r}, "
+            f"task_set_name={resolved_task_set!r}"
+        )
+    if resolved_task_set not in RETAIL_NAME_ROLES_TASK_SETS_BY_LANGUAGE[language]:
+        raise ValueError(
+            f"retail name-role prompt language={language!r} does not match "
+            f"task_set_name={resolved_task_set!r}"
+        )
+
+    source_task = _source_task_for_localized(task, domain, resolved_task_set)
+    domain_db = _load_domain_db(domain)
+    if not domain_db or not domain_db.get("users"):
+        raise ValueError(
+            f"Retail name-role prompt: task '{task.id}' has no retail users DB."
+        )
+
+    if is_identity_task_id(task.id):
+        rename = identity_rename(
+            source_task.model_dump(),
+            task.model_dump(),
+            domain_db,
+            NameOrder.FAMILY_FIRST,
+        )
+        if rename is None:
+            raise ValueError(
+                f"Retail name-role prompt: identity task '{task.id}' has no "
+                "resolvable localized caller."
+            )
+        first_name, last_name = rename.new_name
+    else:
+        caller_id = resolve_caller_user_id(source_task.model_dump(), domain_db["users"])
+        caller = domain_db["users"].get(caller_id or "")
+        name = (caller or {}).get("name") or {}
+        first_name, last_name = name.get("first_name"), name.get("last_name")
+        if not first_name or not last_name:
+            raise ValueError(
+                f"Retail name-role prompt: task '{task.id}' has no resolvable "
+                "canonical caller name."
+            )
+
+    full_name = compose_full_name(first_name, last_name, NameOrder.FAMILY_FIRST)
+    return RETAIL_NAME_ROLES_PROMPT_TEMPLATE_V1.format(
+        first_name=first_name,
+        last_name=last_name,
+        full_name=full_name,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Target-language directive (fixed, versioned prompt block)
 # ---------------------------------------------------------------------------
 
-TARGET_LANGUAGE_DIRECTIVE_VERSION = "v3"
+TargetLanguageDirectiveVersion = Literal["v1", "v2", "v3"]
+TARGET_LANGUAGE_DIRECTIVE_VERSION: TargetLanguageDirectiveVersion = (
+    DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION
+)
 
 # Appended to the English guidelines for every multilingual persona.
 # Calibrated prompt material: never edit in place without
@@ -97,21 +215,25 @@ You are a native {language_name} speaker from {origin}, and your {language_name}
 """.strip()
 
 
-def render_target_language_directive(language: str, locale: Optional[str]) -> str:
-    """The directive block for one target language + resolved persona locale.
+def render_target_language_directive(
+    language: str,
+    locale: Optional[str],
+    *,
+    version: TargetLanguageDirectiveVersion = TARGET_LANGUAGE_DIRECTIVE_VERSION,
+) -> str:
+    """Render one historical target-language directive version.
 
     ``language`` is an ISO 639-1 code with a registered pack; the pack's
     ``display_name`` (e.g. 'German') parameterizes the fixed template.
-    ``locale`` is the RESOLVED persona's locale code (e.g. 'ES-MD'): the v3
-    template names the speaker's origin and the language's pinned variety, so
-    it renders from the run's concrete caller, not a pack-wide guess.
+    For v3, ``locale`` is the RESOLVED persona's locale code (e.g. 'ES-MD'):
+    that template names the speaker's origin and the language's pinned variety,
+    so it renders from the run's concrete caller, not a pack-wide guess. The
+    retained v1/v2 templates predate locale context and therefore do not
+    require it.
 
     Raises:
-        ValueError: If the language has no registered pack, the locale is
-            missing, or either code is absent from the variety catalogs
-            (``tau2.multilingual.varieties``). Rendering a directive without
-            the location/variety pin would silently ship an under-specified
-            arm — a run that cannot state who its caller is must die instead.
+        ValueError: If the language has no registered pack, the version is
+            unknown, or v3 cannot resolve the locale/variety catalogs.
     """
     from tau2.multilingual.varieties import language_variety_name, locale_display_name
 
@@ -119,8 +241,20 @@ def render_target_language_directive(language: str, locale: Optional[str]) -> st
     if pack is None:
         raise ValueError(
             f"Target-language directive: '{language}' has no registered "
-            "language pack, so the directive cannot name the speaker's "
-            "variety and origin."
+            "language pack, so the directive cannot name the target language."
+        )
+    if version == "v1":
+        return TARGET_LANGUAGE_DIRECTIVE_TEMPLATE_V1.format(
+            language_name=pack.display_name
+        )
+    if version == "v2":
+        return TARGET_LANGUAGE_DIRECTIVE_TEMPLATE_V2.format(
+            language_name=pack.display_name
+        )
+    if version != "v3":
+        raise ValueError(
+            f"Target-language directive: unsupported version {version!r}; "
+            "expected one of v1, v2, v3."
         )
     if not locale:
         raise ValueError(
@@ -309,29 +443,22 @@ def english_user_task_variant(
         return task
     if task_set_name not in discover_localized_task_files():
         return task
-    suffix = task_set_name.removeprefix(f"{domain}_")
-    source_id = task.id.removesuffix(f"_{suffix}")
-    source_task = next(
-        (t for t in _load_source_tasks(domain) if t.id == source_id), None
-    )
-    if source_id == task.id or source_task is None:
-        raise ValueError(
-            f"English prompts: localized task '{task.id}' (task set "
-            f"'{task_set_name}') has no English source task '{source_id}' in "
-            f"domain '{domain}' — cannot build English task instructions."
-        )
+    source_task = _source_task_for_localized(task, domain, task_set_name)
     language = task_language(task.id, domain)
     address_format = None
     if language and is_identity_task_id(task.id):
         from tau2.multilingual.factory.entity_localization import load_corpus
 
         address_format = load_corpus(language).address_format
+    domain_db = _load_domain_db(domain)
+    caller_identity = _caller_identity_kind(domain)
+    name_order = name_order_for_language(language)
     english_scenario = _english_scenario(
         task,
         source_task,
-        _load_domain_db(domain),
-        _caller_identity_kind(domain),
-        name_order_for_language(language),
+        domain_db,
+        caller_identity,
+        name_order,
         address_format,
     )
     _check_scenario_consistency(task, english_scenario, domain)
@@ -402,6 +529,27 @@ def _load_source_tasks(domain: str) -> tuple[Task, ...]:
     if isinstance(tasks, dict) and "tasks" in tasks:
         tasks = tasks["tasks"]
     return tuple(Task.model_validate(task) for task in tasks)
+
+
+def _source_task_for_localized(task: Task, domain: str, task_set_name: str) -> Task:
+    """Resolve one localized task to the English source task it derives from."""
+    suffix = task_set_name.removeprefix(f"{domain}_")
+    source_id = task.id.removesuffix(f"_{suffix}")
+    source_task = next(
+        (
+            candidate
+            for candidate in _load_source_tasks(domain)
+            if candidate.id == source_id
+        ),
+        None,
+    )
+    if source_id == task.id or source_task is None:
+        raise ValueError(
+            f"English prompts: localized task '{task.id}' (task set "
+            f"'{task_set_name}') has no English source task '{source_id}' in "
+            f"domain '{domain}' — cannot build English task instructions."
+        )
+    return source_task
 
 
 def _check_scenario_consistency(

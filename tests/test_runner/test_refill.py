@@ -192,6 +192,10 @@ def _voice_config(**overrides) -> VoiceRunConfig:
         scores={Score.REWARD},
         max_errors=7,
         hallucination_retries=0,
+        target_language_directive_version="v2",
+        agent_caller_locale_context=False,
+        retail_name_roles_prompt_version=None,
+        gemini_live_explicit_language_code=False,
     )
     kwargs.update(overrides)
     return VoiceRunConfig(**kwargs)
@@ -213,6 +217,8 @@ def _text_config(**overrides) -> TextRunConfig:
         auto_review=True,
         review_mode="user",
         review_model="gpt-5.4-mini",
+        target_language_directive_version="v1",
+        agent_caller_locale_context=False,
     )
     kwargs.update(overrides)
     return TextRunConfig(**kwargs)
@@ -251,7 +257,12 @@ class TestConfigRoundTrip:
         assert UNRECONSTRUCTED_FIELDS <= fields
 
     def test_voice_config_survives_the_round_trip(self):
-        original = _voice_config()
+        original = _voice_config(
+            domain="retail",
+            task_set_name="retail_ko_identity",
+            user_persona_id="ko",
+            retail_name_roles_prompt_version="v1",
+        )
 
         rebuilt = reconstruct_config(
             get_info(original), run_dir="/tmp/run", task_ids=[T0]
@@ -260,11 +271,15 @@ class TestConfigRoundTrip:
         assert _differing_fields(original, rebuilt.config) <= UNRECONSTRUCTED_FIELDS
         assert rebuilt.unrecorded == []
         assert rebuilt.config.audio_native_config.max_steps_seconds == 420
-        assert rebuilt.config.user_persona_id == "hi"
+        assert rebuilt.config.user_persona_id == "ko"
         assert rebuilt.config.speech_complexity == "control"
         assert rebuilt.config.timeout == 1200.0
         assert rebuilt.config.seed == 17
         assert rebuilt.config.num_trials == 2
+        assert rebuilt.config.target_language_directive_version == "v2"
+        assert rebuilt.config.agent_caller_locale_context is False
+        assert rebuilt.config.retail_name_roles_prompt_version == "v1"
+        assert rebuilt.config.gemini_live_explicit_language_code is False
 
     def test_text_config_survives_the_round_trip(self):
         original = _text_config()
@@ -280,6 +295,26 @@ class TestConfigRoundTrip:
         assert rebuilt.config.max_steps == 42
         assert rebuilt.config.enforce_communication_protocol is True
         assert rebuilt.config.review_mode == "user"
+        assert rebuilt.config.target_language_directive_version == "v1"
+        assert rebuilt.config.agent_caller_locale_context is False
+        assert rebuilt.config.retail_name_roles_prompt_version is None
+
+    def test_in_scope_absent_or_explicit_null_treatment_is_unknown(self):
+        raw = get_info(_voice_config(retail_name_roles_prompt_version=None)).model_dump(
+            mode="json"
+        )
+        raw.pop("retail_name_roles_prompt_version")
+        raw["environment_info"]["domain_name"] = "retail"
+        raw["task_set_name"] = "retail_ko_identity"
+        legacy = Info.model_validate(raw)
+
+        with pytest.raises(RefillError, match="predates explicit.*provenance"):
+            reconstruct_config(legacy, run_dir="/tmp/run", task_ids=[T0])
+
+        raw["retail_name_roles_prompt_version"] = None
+        explicit_off = Info.model_validate(raw)
+        with pytest.raises(RefillError, match="explicit null.*prompt-off"):
+            reconstruct_config(explicit_off, run_dir="/tmp/run", task_ids=[T0])
 
     def test_the_rebuilt_config_targets_the_run_directory_and_resumes(self):
         rebuilt = reconstruct_config(
@@ -359,6 +394,8 @@ class TestUnrecordedFields:
 
         assert set(rebuilt.unrecorded) == {
             "user_persona_id",
+            "target_language_directive_version",
+            "agent_caller_locale_context",
             "timeout",
             "scores",
             "nativeness_judge",

@@ -31,6 +31,7 @@ from typing import Annotated, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from tau2.config import (
+    DEFAULT_DELIVERY_FIDELITY_END_EXCLUSION_SECONDS,
     DEFAULT_LLM_DELIVERY_JUDGE,
     DEFAULT_LLM_DELIVERY_JUDGE_ARGS,
 )
@@ -39,11 +40,17 @@ from tau2.data_model.simulation import (
     DeliveryAxis,
     DeliveryFactorCheck,
     DeliveryFinding,
+    DeliveryFindingExclusion,
     DeliveryUtteranceResult,
     JudgeOutcome,
 )
 from tau2.judges.base import VerdictReplyBase, judge_structured, verdict_outcome
+from tau2.judges.delivery.audio import wav_b64_duration_seconds
 from tau2.judges.delivery.factors import DeliveryFactorConfig, DeliveryRubric
+from tau2.judges.delivery.postprocess import (
+    is_in_final_utterance_window,
+    time_range_bounds_seconds,
+)
 
 _FIDELITY_CATEGORIES = {
     "mispronunciation",
@@ -489,6 +496,9 @@ def run_delivery_judge(
     was_interrupted: bool = False,
     model: str = DEFAULT_LLM_DELIVERY_JUDGE,
     model_args: Optional[dict] = None,
+    fidelity_end_exclusion_seconds: float = (
+        DEFAULT_DELIVERY_FIDELITY_END_EXCLUSION_SECONDS
+    ),
 ) -> DeliveryUtteranceResult:
     """Judge one agent utterance's audio: fidelity + intonation + rubric factors.
 
@@ -529,7 +539,35 @@ def run_delivery_judge(
     # are all derived. Factor checks are a decoupled sibling channel (scored
     # into DeliveryInfo.factor_score, mirroring nativeness) and never alter the
     # axis verdict.
-    findings = [DeliveryFinding(**f.model_dump()) for f in reply.findings]
+    raw_findings = [DeliveryFinding(**f.model_dump()) for f in reply.findings]
+    clip_duration = wav_b64_duration_seconds(audio_wav_b64)
+    findings: list[DeliveryFinding] = []
+    excluded_findings: list[DeliveryFindingExclusion] = []
+    for finding in raw_findings:
+        should_exclude = (
+            finding.axis == "fidelity"
+            and clip_duration is not None
+            and is_in_final_utterance_window(
+                finding.time_range,
+                clip_duration,
+                window_seconds=fidelity_end_exclusion_seconds,
+            )
+        )
+        if not should_exclude:
+            findings.append(finding)
+            continue
+        bounds = time_range_bounds_seconds(finding.time_range)
+        assert bounds is not None  # is_in_final_utterance_window parsed it
+        excluded_findings.append(
+            DeliveryFindingExclusion(
+                finding=finding,
+                reason="final_utterance_window",
+                clip_duration_seconds=clip_duration,
+                exclusion_window_seconds=fidelity_end_exclusion_seconds,
+                span_start_seconds=bounds[0],
+                span_end_seconds=bounds[1],
+            )
+        )
     severity = max((f.severity for f in findings), default=0)
     flag_for_review = any(f.severity >= 2 for f in findings)
     factor_checks = (
@@ -547,5 +585,6 @@ def run_delivery_judge(
         confidence=reply.confidence,
         summary=reply.summary or None,
         findings=findings,
+        excluded_findings=excluded_findings,
         factor_checks=factor_checks,
     )

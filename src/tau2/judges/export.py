@@ -15,6 +15,9 @@ from here + ``tau2.data_model``:
   preserving its storage format (dir stays dir, json stays json).
 """
 
+import json
+import os
+import tempfile
 import threading
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from itertools import islice
@@ -510,7 +513,12 @@ def iter_judged_sims_detailed(
         from tau2.judges.attach import attach_delivery_from_disk
 
         try:
-            attach_delivery_from_disk(sim, results_root, settings=delivery_settings)
+            attach_delivery_from_disk(
+                sim,
+                results_root,
+                settings=delivery_settings,
+                resume_from=sim.delivery_info if reuse_existing else None,
+            )
         except Exception as exc:  # noqa: BLE001 - never abort the batch
             logger.warning(f"delivery-from-disk unavailable for sim {sim.id}: {exc}")
             with stats_lock:
@@ -610,15 +618,38 @@ def save_judged_results(
     """
     path = Path(path)
     fmt = Results.detect_format(path)
+    target = Path(output) if output is not None else path
+    same_target = target.resolve() == path.resolve()
+    if same_target and not judged_sims:
+        return target
     results = Results.load(path)
     results.simulations = [judged_sims.get(s.id, s) for s in results.simulations]
-    target = Path(output) if output is not None else path
-    if fmt == "dir" and target.suffix != ".json":
-        # A fresh dir-format target must exist as a directory before save()
-        # resolves it (otherwise it is treated as a metadata FILE path and the
-        # simulations/ dir lands next to it in the parent).
+    if fmt == "json":
+        _atomic_write_text(target, results.model_dump_json(indent=2))
+        return target
+
+    if target.suffix != ".json":
+        # A fresh dir-format target must exist as a directory before path
+        # resolution (otherwise it is treated as a metadata file path).
         target.mkdir(parents=True, exist_ok=True)
-    results.save(target, format=fmt)
+    meta_path, sims_dir = Results._resolve_paths(target)
+    meta_path.parent.mkdir(parents=True, exist_ok=True)
+    sims_dir.mkdir(parents=True, exist_ok=True)
+
+    # In-place gap repair writes only changed simulations. A new output root
+    # receives the complete run. Each payload is replaced atomically, and the
+    # refreshed index is committed last so readers never observe a partial JSON
+    # file or an index that precedes its simulations.
+    to_write = (
+        [sim for sim in results.simulations if sim.id in judged_sims]
+        if same_target
+        else results.simulations
+    )
+    for sim in to_write:
+        _atomic_write_text(sims_dir / f"{sim.id}.json", sim.model_dump_json(indent=2))
+    results.simulation_index = results._build_simulation_index()
+    meta = results.model_dump(mode="json", exclude={"simulations"})
+    _atomic_write_text(meta_path, json.dumps(meta, indent=2))
     return target
 
 
@@ -692,6 +723,25 @@ def adopt_stored_verdicts(src_root: Path, dst_path: Path) -> AdoptVerdictStats:
     if changed:
         results.save(dst_path, format=fmt)
     return stats
+
+
+def _atomic_write_text(path: Path, payload: str) -> None:
+    """Durably replace one JSON payload without exposing a partial write."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_path, path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 def factor_rubrics_for(language: str) -> list[NativenessAnnotationRubric]:

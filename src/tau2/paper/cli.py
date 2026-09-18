@@ -114,6 +114,31 @@ def add_paper_args(parser: argparse.ArgumentParser) -> None:
     experience.add_argument("--out", type=Path, required=True)
     experience.set_defaults(func=run_multilingual_experience)
 
+    latency = commands.add_parser(
+        "multilingual-latency",
+        help="Recompute corrected trial-zero turn-taking latency",
+    )
+    latency.add_argument(
+        "--evidence-root",
+        type=Path,
+        required=True,
+        help="Frozen tau-multi root containing main_runs/ and validation_runs/",
+    )
+    latency.add_argument(
+        "--audit",
+        type=Path,
+        required=True,
+        help="Active corrected multilingual audit JSON",
+    )
+    latency.add_argument(
+        "--previous-experience",
+        type=Path,
+        required=True,
+        help="Frozen pre-replacement experience artifact used as the comparison",
+    )
+    latency.add_argument("--out", type=Path, required=True)
+    latency.set_defaults(func=run_multilingual_latency)
+
     ablation_transcripts = commands.add_parser(
         "multilingual-ablation-transcripts",
         help="Export compact transcripts for the retail localization ablation",
@@ -226,6 +251,23 @@ def run_multilingual_experience(args) -> None:
         naturalness_sidecar=args.naturalness_sidecar,
     )
     logger.info("Wrote Interaction and utterance Experience analysis to {}", args.out)
+
+
+def run_multilingual_latency(args) -> None:
+    """Recompute the corrected trial-zero voice latency artifact."""
+    from tau2.paper.latency import write_multilingual_latency_artifact
+
+    artifact = write_multilingual_latency_artifact(
+        args.evidence_root,
+        args.audit,
+        args.previous_experience,
+        args.out,
+    )
+    logger.info(
+        "Wrote latency for {} calls; {} source cells changed",
+        artifact.cohort.calls,
+        artifact.comparison.changed_input_cells,
+    )
 
 
 def run_multilingual_ablation_transcripts(args) -> None:

@@ -8,8 +8,11 @@ import json
 
 import pytest
 
-from tau2.config import DEFAULT_AUDIO_NATIVE_MODELS
-from tau2.data_model.simulation import TextRunConfig, VoiceRunConfig
+from tau2.config import (
+    DEFAULT_AUDIO_NATIVE_MODELS,
+    DEFAULT_MULTILINGUAL_RUN_CONCURRENCY,
+)
+from tau2.data_model.simulation import Score, TextRunConfig, VoiceRunConfig
 from tau2.runner.cli import add_pool_args
 from tau2.runner.pool_driver import format_matrix, run_pool
 from tau2.runner.pools import (
@@ -23,6 +26,14 @@ from tau2.runner.pools import (
     get_pool,
     list_pools,
 )
+
+NAME_ROLE_POOLS = {
+    "retail_name_roles_v1",
+    "retail_name_roles_xai_v1",
+    "multilingual_text_retail_name_roles_v1",
+    "retail_dbscript_name_roles_v1",
+    "retail_unlocalized_name_roles_v1",
+}
 
 TINY = PoolSpec(
     name="tiny",
@@ -81,13 +92,18 @@ class TestRegisteredPools:
             "airline_v1",
             "airline_xai_v2",
             "banking_text_en_v1",
+            "multilingual_text_retail_name_roles_v1",
             "multilingual_text_airline_v1",
             "multilingual_text_retail_v1",
             "multilingual_text_telecom_v1",
             "preference_v1",
             "preference_v1_prefix",
             "retail_dbscript_v1",
+            "retail_dbscript_name_roles_v1",
+            "retail_name_roles_v1",
+            "retail_name_roles_xai_v1",
             "retail_unlocalized_v1",
+            "retail_unlocalized_name_roles_v1",
             "retail_v1",
             "retail_xai_v1",
             "retail_xai_v2",
@@ -131,6 +147,169 @@ class TestRegisteredPools:
             "hi": "retail_hi",
             "zh": "retail_zh",
         }
+
+    def test_name_role_rerun_matrix_is_exactly_1220(self):
+        expected = {
+            "retail_name_roles_v1": (2, 800),
+            "retail_name_roles_xai_v1": (1, 100),
+            "multilingual_text_retail_name_roles_v1": (1, 200),
+            "retail_dbscript_name_roles_v1": (1, 60),
+            "retail_unlocalized_name_roles_v1": (1, 60),
+        }
+
+        assert sum(total for _, total in expected.values()) == 1220
+        for name, (trials, total) in expected.items():
+            spec = get_pool(name)
+            assert spec.num_trials == trials
+            assert spec.total_target == total
+            assert spec.max_concurrency == DEFAULT_MULTILINGUAL_RUN_CONCURRENCY == 10
+
+    def test_only_the_five_corrected_pools_enable_the_name_role_treatment(self):
+        assert {
+            name
+            for name, spec in POOLS.items()
+            if spec.retail_name_roles_prompt_version == "v1"
+        } == NAME_ROLE_POOLS
+        for name, spec in POOLS.items():
+            expected = "v1" if name in NAME_ROLE_POOLS else None
+            assert spec.retail_name_roles_prompt_version == expected
+            for language, arm in spec.cells():
+                assert (
+                    spec.cell_config(language, arm).retail_name_roles_prompt_version
+                    == expected
+                )
+
+    @pytest.mark.parametrize(
+        "pool_name,language",
+        [
+            ("retail_v1", "ko"),
+            ("multilingual_text_retail_v1", "ko"),
+            ("retail_dbscript_v1", "zh"),
+            ("retail_unlocalized_v1", "zh"),
+        ],
+    )
+    def test_historical_retail_pools_render_no_name_role_line(
+        self, pool_name, language
+    ):
+        from tau2.registry import registry
+        from tau2.runner.build import user_prompt_task
+
+        spec = get_pool(pool_name)
+        task = registry.get_tasks_loader(spec.task_sets[language])()[0]
+        config = spec.cell_config(language, spec.arms[0])
+        runtime_task = user_prompt_task(config, task, language)
+        assert "Your first name is " not in str(runtime_task.user_scenario)
+
+    def test_new_pool_boundary_fields_are_documented(self):
+        for field in (
+            "disclose_voice_gender",
+            "target_language_directive_version",
+            "agent_caller_locale_context",
+            "retail_name_roles_prompt_version",
+            "gemini_live_explicit_language_code",
+            "scores",
+        ):
+            assert PoolSpec.model_fields[field].description
+
+    def test_name_role_reruns_match_their_paper_frames(self):
+        pairs = (
+            ("retail_name_roles_v1", "retail_v1"),
+            ("retail_name_roles_xai_v1", "retail_xai_v2"),
+            (
+                "multilingual_text_retail_name_roles_v1",
+                "multilingual_text_retail_v1",
+            ),
+            ("retail_dbscript_name_roles_v1", "retail_dbscript_v1"),
+            ("retail_unlocalized_name_roles_v1", "retail_unlocalized_v1"),
+        )
+        for rerun_name, paper_name in pairs:
+            rerun, paper = get_pool(rerun_name), get_pool(paper_name)
+            assert rerun.domain == paper.domain
+            assert rerun.modality == paper.modality
+            assert rerun.arms == paper.arms
+            assert rerun.tasks == paper.tasks
+            assert rerun.seed == paper.seed
+            assert rerun.max_concurrency == paper.max_concurrency
+            assert rerun.max_steps_seconds == paper.max_steps_seconds
+            assert rerun.timeout_seconds == paper.timeout_seconds
+            assert rerun.speech_complexity == paper.speech_complexity
+            assert rerun.communicate_judge_mode == paper.communicate_judge_mode
+            assert rerun.use_personas == paper.use_personas
+            expected_languages = (
+                {"zh"}
+                if "dbscript" in rerun_name or "unlocalized" in rerun_name
+                else {"ko", "zh"}
+            )
+            assert set(rerun.languages) == expected_languages
+            assert rerun.task_sets == {
+                language: paper.task_sets[language] for language in rerun.languages
+            }
+
+    def test_name_role_voice_reruns_preserve_paper_gender_prompt_condition(self):
+        voice_names = (
+            "retail_name_roles_v1",
+            "retail_name_roles_xai_v1",
+            "retail_dbscript_name_roles_v1",
+            "retail_unlocalized_name_roles_v1",
+        )
+        for name in voice_names:
+            spec = get_pool(name)
+            assert spec.disclose_voice_gender is False
+            config = spec.cell_config(spec.languages[0], spec.arms[0])
+            assert isinstance(config, VoiceRunConfig)
+            assert config.audio_native_config.disclose_voice_gender is False
+
+        assert all(
+            spec.disclose_voice_gender is None
+            for name, spec in POOLS.items()
+            if spec.modality == "voice" and name not in voice_names
+        )
+
+        text = get_pool("multilingual_text_retail_name_roles_v1")
+        assert text.disclose_voice_gender is None
+        assert isinstance(text.cell_config("ko", text.arms[0]), TextRunConfig)
+
+    def test_name_role_main_pins_exact_paper_prompt_provider_and_scores(self):
+        main = get_pool("retail_name_roles_v1")
+        assert main.target_language_directive_version == "v2"
+        assert main.agent_caller_locale_context is False
+        assert main.gemini_live_explicit_language_code is False
+        assert main.scores == frozenset({Score.REWARD, Score.NATIVENESS})
+
+        gemini = next(arm for arm in main.arms if arm.provider == "gemini")
+        config = main.cell_config("ko", gemini)
+        assert isinstance(config, VoiceRunConfig)
+        assert config.target_language_directive_version == "v2"
+        assert config.agent_caller_locale_context is False
+        assert config.gemini_live_explicit_language_code is False
+        assert config.scores == {Score.REWARD, Score.NATIVENESS}
+
+    def test_later_name_role_pools_keep_their_current_prompt_and_score_defaults(self):
+        names = (
+            "retail_name_roles_xai_v1",
+            "multilingual_text_retail_name_roles_v1",
+            "retail_dbscript_name_roles_v1",
+            "retail_unlocalized_name_roles_v1",
+        )
+        for name in names:
+            spec = get_pool(name)
+            assert spec.target_language_directive_version == "v3"
+            assert spec.agent_caller_locale_context is True
+            assert spec.gemini_live_explicit_language_code is True
+            assert spec.scores is None
+
+            config = spec.cell_config(spec.languages[0], spec.arms[0])
+            assert config.target_language_directive_version == "v3"
+            assert config.agent_caller_locale_context is True
+            if isinstance(config, VoiceRunConfig):
+                assert config.gemini_live_explicit_language_code is True
+                assert config.scores == {
+                    Score.REWARD,
+                    Score.QUALITY,
+                    Score.NATIVENESS,
+                }
+            else:
+                assert config.scores == {Score.REWARD}
 
     def test_xai_v2_matches_its_sibling_frame_conditions(self):
         # The provider contrast only reads if the xai_v2 cells run the SAME
@@ -413,8 +592,9 @@ class TestCliSurface:
         assert args.dry_run
 
     def test_default_worker_count_matches_collected_pool_envelope(self):
-        args = self._parser().parse_args(["run", "preference_v1"])
-        assert args.workers == DEFAULT_POOL_WORKERS
+        args = self._parser().parse_args(["run", "retail_name_roles_v1"])
+        assert args.workers == DEFAULT_POOL_WORKERS == 8
+        assert get_pool(args.pool).max_concurrency == 10
 
     @pytest.mark.parametrize(
         "removed",
@@ -444,6 +624,22 @@ class TestCliSurface:
             self._parser().parse_args(["repair-ceiling", "--save-to", "x"])
         with pytest.raises(SystemExit):
             self._parser().parse_args(["repair-ceiling", "--max-steps-seconds", "1"])
+
+    def test_name_role_stamp_is_dry_by_default_and_accepts_a_cohort(self):
+        args = self._parser().parse_args(
+            [
+                "stamp-retail-name-roles-v1",
+                "--pool",
+                "retail_name_roles_v1",
+                "--pool",
+                "retail_name_roles_xai_v1",
+                "--evidence-out",
+                "/tmp/name-role-evidence.json",
+            ]
+        )
+        assert args.pool == ["retail_name_roles_v1", "retail_name_roles_xai_v1"]
+        assert args.write is False
+        assert args.evidence_out == "/tmp/name-role-evidence.json"
 
     def test_status_list_and_required_subcommand(self):
         assert self._parser().parse_args(["status", "preference_v1"]).pool

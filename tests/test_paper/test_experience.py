@@ -9,6 +9,19 @@ from tau2.judges.nativeness.paper_trial import CANONICAL_EXPERIENCE_SHA256
 
 REPO = Path(__file__).resolve().parents[2]
 EXPERIENCE = REPO / "papers/tau-multilingual/reproduction/experience.json"
+LATENCY = REPO / "papers/tau-multilingual/reproduction/latency.json"
+ARCHIVED_EXPERIENCE = (
+    REPO / "papers/tau-multilingual/reproduction/validation_runs/"
+    "pre-retail-name-role-v1/experience.json"
+)
+ARCHIVED_ANALYSIS = (
+    REPO / "papers/tau-multilingual/reproduction/validation_runs/"
+    "pre-retail-name-role-v1/"
+    "tau_multilingual_experience_without_fluency_2026-09-03.json"
+)
+ARCHIVED_ANALYSIS_SHA256 = (
+    "cfb20fa514b6639841475d41436e71294cb76bf34510922c5d6a57c1872b7978"
+)
 SYSTEMS = (
     "OpenAI minimal",
     "OpenAI xhigh",
@@ -26,13 +39,26 @@ def test_canonical_experience_hash_matches_artifact():
     assert hashlib.sha256(EXPERIENCE.read_bytes()).hexdigest() == (
         CANONICAL_EXPERIENCE_SHA256
     )
+    assert ARCHIVED_EXPERIENCE.read_bytes() == EXPERIENCE.read_bytes()
+    assert (
+        hashlib.sha256(ARCHIVED_ANALYSIS.read_bytes()).hexdigest()
+        == ARCHIVED_ANALYSIS_SHA256
+    )
+    assert not (
+        REPO / "data/analysis/"
+        "tau_multilingual_experience_without_fluency_2026-09-03.json"
+    ).exists()
 
 
 def test_task_and_experience_reproduction_artifact():
-    payload = json.loads(EXPERIENCE.read_text())["descriptive_complete_cohort"]
-    providers = payload["provider"]
+    experience_payload = json.loads(EXPERIENCE.read_text())[
+        "descriptive_complete_cohort"
+    ]
+    latency_payload = json.loads(LATENCY.read_text())["descriptive_complete_cohort"]
 
-    def values(path: tuple[str, ...]) -> list[float]:
+    def values(path: tuple[str, ...], *, latency: bool = False) -> list[float]:
+        payload = latency_payload if latency else experience_payload
+        providers = payload["provider"]
         rows = []
         for system in SYSTEMS:
             value = providers[system]
@@ -42,7 +68,7 @@ def test_task_and_experience_reproduction_artifact():
         return rows
 
     expected = {
-        "latency": [1.1, 1.4, 1.4, 1.8, 1.2, 1.4],
+        "latency": [1.1, 1.4, 1.3, 1.8, 1.2, 1.4],
         "interaction": [55, 59, 58, 59, 57, 57],
         "nonresponse": [9, 28, 47, 77, 10, 34],
         "interruption": [80, 90, 74, 79, 90, 83],
@@ -67,7 +93,7 @@ def test_task_and_experience_reproduction_artifact():
         "fluency": ("fluency_failure",),
         "speech_fidelity": ("speech_fidelity_failure",),
     }.items():
-        row = values(path)
+        row = values(path, latency=label == "latency")
         digits = 1 if label == "latency" else 0
         observed[label] = _display([*row, sum(row) / len(row)], digits=digits)
 

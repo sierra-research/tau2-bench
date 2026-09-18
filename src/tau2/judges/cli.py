@@ -36,6 +36,7 @@ Half-duplex runs have no tick-aligned timeline and are unsupported loudly.
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from tau2.config import (
@@ -315,6 +316,500 @@ def add_judges_args(parser: argparse.ArgumentParser) -> None:
     )
     paper_run.set_defaults(func=run_tau_multi_naturalness_trial)
 
+    corrected_lock = paper_naturalness_sub.add_parser(
+        "corrected-lock",
+        help="Build the typed 75-root corrected cohort lock and transcript evidence",
+    )
+    corrected_lock.add_argument(
+        "--canonical-experience",
+        type=Path,
+        required=False,
+        help="Frozen canonical paper Experience JSON",
+    )
+    corrected_lock.add_argument(
+        "--canonical-evidence-root",
+        type=Path,
+        required=False,
+        help="Read-only root resolving canonical Experience source paths",
+    )
+    corrected_lock.add_argument(
+        "--replacement-results",
+        type=Path,
+        action="append",
+        required=True,
+        help="Corrected results.json path; repeat exactly once for each of 10 cells",
+    )
+    corrected_lock.add_argument(
+        "--evidence-root",
+        type=Path,
+        required=True,
+        help="New staged root for locked results headers and trial-0 transcripts",
+    )
+    corrected_lock.add_argument(
+        "--experience-manifest",
+        type=Path,
+        required=True,
+        help="New typed corrected Experience manifest",
+    )
+    corrected_lock.add_argument(
+        "--replacement-only",
+        action="store_true",
+        help="Lock only the ten corrected roots; do not require canonical inputs",
+    )
+    corrected_lock.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate and print the complete lock without writing either output",
+    )
+    corrected_lock.set_defaults(func=build_corrected_tau_multi_naturalness_lock)
+
+    corrected_prepare = paper_naturalness_sub.add_parser(
+        "corrected-prepare",
+        help="Offline preflight for the explicitly locked corrected trial-0 cohort",
+    )
+    _add_corrected_naturalness_inputs(corrected_prepare)
+    corrected_prepare.set_defaults(func=prepare_corrected_tau_multi_naturalness_trial)
+
+    corrected_run = paper_naturalness_sub.add_parser(
+        "corrected-run",
+        help="Bootstrap unchanged calls and run/resume only the locked corrected calls",
+    )
+    _add_corrected_naturalness_inputs(corrected_run)
+    corrected_run.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="New standalone output root for corrected utterance/call artifacts",
+    )
+    corrected_run.add_argument(
+        "--max-concurrency",
+        type=int,
+        default=DEFAULT_TAU_MULTI_NATURALNESS_CONCURRENCY,
+        help="Maximum in-flight text judge calls (default: "
+        f"{DEFAULT_TAU_MULTI_NATURALNESS_CONCURRENCY})",
+    )
+    corrected_run.add_argument(
+        "--processes",
+        type=int,
+        default=1,
+        help="Isolated scoring worker processes (use 8 for the paper replay)",
+    )
+    corrected_run.set_defaults(func=run_corrected_tau_multi_naturalness_trial)
+
+    corrected_promote = paper_naturalness_sub.add_parser(
+        "corrected-promote",
+        help="Compose a full sidecar from canonical and corrected artifacts; no APIs",
+    )
+    corrected_promote.add_argument(
+        "--repo-root",
+        type=Path,
+        default=Path.cwd(),
+        help="Repository supplying the canonical Experience",
+    )
+    corrected_promote.add_argument(
+        "--validation-repo-root",
+        type=Path,
+        default=None,
+        help="Repository supplying current validation evidence (defaults to "
+        "--repo-root)",
+    )
+    corrected_promote.add_argument(
+        "--experience-manifest",
+        type=Path,
+        required=True,
+        help="Full 75-root corrected cohort lock",
+    )
+    corrected_promote.add_argument(
+        "--evidence-root",
+        type=Path,
+        required=True,
+        help="Read-only staged hybrid transcript evidence root",
+    )
+    corrected_promote.add_argument(
+        "--bootstrap-from",
+        type=Path,
+        required=True,
+        help="Completed canonical 3,750-call naturalness sidecar",
+    )
+    corrected_promote.add_argument(
+        "--bootstrap-experience",
+        type=Path,
+        required=True,
+        help="Exact original Experience artifact named by the bootstrap manifest",
+    )
+    corrected_promote.add_argument(
+        "--replacement-from",
+        type=Path,
+        required=True,
+        help="Completed replacement-only 500-call naturalness sidecar",
+    )
+    corrected_promote.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="New full canonical-consumable naturalness sidecar root",
+    )
+    corrected_promote.set_defaults(func=promote_corrected_tau_multi_naturalness)
+
+    corrected_rebind = paper_naturalness_sub.add_parser(
+        "corrected-rebind",
+        help="Rebind a promoted sidecar to canonical active result headers; no APIs",
+    )
+    corrected_rebind.add_argument(
+        "--repo-root",
+        type=Path,
+        default=Path.cwd(),
+        help="Release repository containing the audit and replacement receipt",
+    )
+    corrected_rebind.add_argument(
+        "--active-audit",
+        type=Path,
+        default=Path("papers/tau-multilingual/reproduction/audit.json"),
+        help="Strict audit containing current active result hashes",
+    )
+    corrected_rebind.add_argument(
+        "--replacement-manifest",
+        type=Path,
+        default=Path(
+            "papers/tau-multilingual/reproduction/retail_name_role_replacement.json"
+        ),
+        help="Typed Korean/Mandarin retail replacement receipt",
+    )
+    corrected_rebind.add_argument(
+        "--active-results-root",
+        type=Path,
+        required=True,
+        help="Read-only root resolving data/simulations/... canonical paths",
+    )
+    corrected_rebind.add_argument(
+        "--sidecar-from",
+        type=Path,
+        required=True,
+        help="Completed promoted naturalness sidecar to rebind",
+    )
+    corrected_rebind.add_argument(
+        "--validation-repo-root",
+        type=Path,
+        help=(
+            "Repository root used for the sanitized evidence identity path; defaults "
+            "to --repo-root"
+        ),
+    )
+    corrected_rebind.add_argument(
+        "--source-validation-evidence-root",
+        type=Path,
+        help="Archived private v1 validation-evidence root inherited by the sidecar",
+    )
+    corrected_rebind.add_argument(
+        "--sanitized-validation-evidence-root",
+        type=Path,
+        help="Approved public v2 projection to bind into the rebound sidecar",
+    )
+    corrected_rebind.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="New canonical-bound naturalness sidecar root",
+    )
+    corrected_rebind.set_defaults(func=rebind_corrected_tau_multi_naturalness)
+
+    corrected_suite = judges_sub.add_parser(
+        "corrected-paper-suite",
+        help="Safely replay the frozen generic paper judges on corrected trial-0 calls",
+    )
+    corrected_suite_sub = corrected_suite.add_subparsers(
+        dest="corrected_paper_suite_command", required=True
+    )
+    generic_prepare = corrected_suite_sub.add_parser(
+        "prepare",
+        help="Lock and copy the exact 500-call cohort into an isolated workspace",
+    )
+    generic_prepare.add_argument(
+        "--source-root",
+        type=Path,
+        required=True,
+        help="Read-only simulations root containing the ten corrected cells",
+    )
+    generic_prepare.add_argument(
+        "--workspace",
+        type=Path,
+        required=True,
+        help="New isolated workspace for mutable legacy copies and merged output",
+    )
+    generic_prepare.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Hash and validate the cohort without copying or writing",
+    )
+    generic_prepare.set_defaults(func=prepare_corrected_paper_suite)
+
+    generic_run = corrected_suite_sub.add_parser(
+        "run",
+        help="Run/resume the exact frozen v15/v7/v5 suite on isolated copies",
+    )
+    generic_run.add_argument(
+        "--workspace",
+        type=Path,
+        required=True,
+        help="Prepared corrected-paper-suite workspace",
+    )
+    generic_run.add_argument(
+        "--frozen-worktree",
+        type=Path,
+        required=True,
+        help="Clean worktree pinned to the frozen generic-suite commit",
+    )
+    generic_run.add_argument(
+        "--python-executable",
+        type=Path,
+        default=Path(sys.executable),
+        help="Python environment used to launch the frozen tau2 CLI",
+    )
+    generic_run.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Run the API-free frozen-schema probe and print the exact paid command",
+    )
+    generic_run.set_defaults(func=run_corrected_paper_suite)
+
+    generic_merge = corrected_suite_sub.add_parser(
+        "merge",
+        help="Import only three judged siblings into a current-schema output",
+    )
+    generic_merge.add_argument(
+        "--workspace", type=Path, required=True, help="Prepared suite workspace"
+    )
+    generic_merge.set_defaults(func=merge_corrected_paper_suite)
+
+    generic_compose = corrected_suite_sub.add_parser(
+        "compose",
+        help="Atomically promote exact fields from separate judge workspaces",
+    )
+    generic_compose.add_argument(
+        "--quality-workspace",
+        type=Path,
+        required=True,
+        help="Workspace containing the exact 7+3 quality replay",
+    )
+    generic_compose.add_argument(
+        "--delivery-workspace",
+        type=Path,
+        required=True,
+        help="Workspace containing the exact frozen delivery replay",
+    )
+    generic_compose.add_argument(
+        "--modal-workspace",
+        type=Path,
+        required=True,
+        help="Workspace containing the Mandarin modal-particles replay",
+    )
+    generic_compose.add_argument(
+        "--output-workspace",
+        type=Path,
+        required=True,
+        help="New isolated destination; existing verified output is rechecked",
+    )
+    generic_compose.set_defaults(func=compose_corrected_paper_suite)
+
+    composed_filter = corrected_suite_sub.add_parser(
+        "composed-final-window",
+        help="Verify the split composition and build its v1 exclusion sidecar",
+    )
+    composed_filter.add_argument(
+        "--quality-workspace",
+        type=Path,
+        required=True,
+        help="Workspace containing the exact 7+3 quality replay",
+    )
+    composed_filter.add_argument(
+        "--delivery-workspace",
+        type=Path,
+        required=True,
+        help="Workspace containing the exact frozen delivery replay",
+    )
+    composed_filter.add_argument(
+        "--modal-workspace",
+        type=Path,
+        required=True,
+        help="Workspace containing the Mandarin modal-particles replay",
+    )
+    composed_filter.add_argument(
+        "--composed-workspace",
+        type=Path,
+        required=True,
+        help="Existing, verified cross-workspace composition",
+    )
+    composed_filter.add_argument(
+        "--output", type=Path, required=True, help="Destination exclusion CSV"
+    )
+    composed_filter.add_argument(
+        "--canonical-sidecar",
+        type=Path,
+        default=None,
+        help="Original full-paper exclusion CSV; when supplied, replace its "
+        "Korean/Mandarin retail slice and emit a directly consumable hybrid",
+    )
+    composed_filter.set_defaults(func=build_composed_final_window_sidecar)
+
+    identity_lookup = corrected_suite_sub.add_parser(
+        "identity-lookup",
+        help="Build the task-grounded corrected retail lookup artifact; no APIs",
+    )
+    identity_lookup.add_argument(
+        "--repo-root",
+        type=Path,
+        required=True,
+        help="Repository containing the localized Korean/Mandarin identity tasks",
+    )
+    identity_lookup.add_argument("--quality-workspace", type=Path, required=True)
+    identity_lookup.add_argument("--delivery-workspace", type=Path, required=True)
+    identity_lookup.add_argument("--modal-workspace", type=Path, required=True)
+    identity_lookup.add_argument("--composed-workspace", type=Path, required=True)
+    identity_lookup.add_argument(
+        "--output", type=Path, required=True, help="New immutable JSON artifact"
+    )
+    identity_lookup.set_defaults(func=build_corrected_retail_identity_artifact)
+
+    delivery_errors = corrected_suite_sub.add_parser(
+        "delivery-error-exclusions",
+        help="Build the complete source-bound delivery ERROR ledger; no APIs",
+    )
+    delivery_errors.add_argument(
+        "--canonical-repo-root",
+        type=Path,
+        required=True,
+        help="Repository containing the unchanged 80 canonical result cells",
+    )
+    delivery_errors.add_argument("--quality-workspace", type=Path, required=True)
+    delivery_errors.add_argument("--delivery-workspace", type=Path, required=True)
+    delivery_errors.add_argument("--modal-workspace", type=Path, required=True)
+    delivery_errors.add_argument("--composed-workspace", type=Path, required=True)
+    delivery_errors.add_argument(
+        "--retry-evidence",
+        type=Path,
+        default=None,
+        help="Optional typed JSON evidence for normalized retry reasons",
+    )
+    delivery_errors.add_argument(
+        "--retry-log",
+        action="append",
+        type=Path,
+        default=[],
+        help="Completed delivery retry log; repeat to prove retry counts",
+    )
+    delivery_errors.add_argument(
+        "--output", type=Path, required=True, help="New immutable JSON ledger"
+    )
+    delivery_errors.set_defaults(func=build_corrected_delivery_error_ledger)
+
+    fidelity_census = corrected_suite_sub.add_parser(
+        "fidelity-census",
+        help="Build the corrected full-paper fidelity-category census; no APIs",
+    )
+    fidelity_census.add_argument(
+        "--canonical-repo-root",
+        type=Path,
+        required=True,
+        help="Repository containing the unchanged 80 canonical result cells",
+    )
+    fidelity_census.add_argument("--quality-workspace", type=Path, required=True)
+    fidelity_census.add_argument("--delivery-workspace", type=Path, required=True)
+    fidelity_census.add_argument("--modal-workspace", type=Path, required=True)
+    fidelity_census.add_argument("--composed-workspace", type=Path, required=True)
+    fidelity_census.add_argument(
+        "--final-window-sidecar",
+        type=Path,
+        required=True,
+        help="Hybrid v1 final-window exclusion CSV (adjacent JSON required)",
+    )
+    fidelity_census.add_argument(
+        "--delivery-error-ledger",
+        type=Path,
+        required=True,
+        help="Complete source-bound delivery ERROR ledger JSON",
+    )
+    fidelity_census.add_argument(
+        "--output", type=Path, required=True, help="New immutable JSON artifact"
+    )
+    fidelity_census.set_defaults(func=build_corrected_fidelity_census)
+
+    analysis_overlay = corrected_suite_sub.add_parser(
+        "analysis-overlay",
+        help="Build the verified sparse 90-cell corrected analysis repository",
+    )
+    analysis_overlay.add_argument(
+        "--canonical-repo-root",
+        type=Path,
+        required=True,
+        help="Repository containing the unchanged canonical paper corpus",
+    )
+    analysis_overlay.add_argument("--quality-workspace", type=Path, required=True)
+    analysis_overlay.add_argument("--delivery-workspace", type=Path, required=True)
+    analysis_overlay.add_argument("--modal-workspace", type=Path, required=True)
+    analysis_overlay.add_argument("--composed-workspace", type=Path, required=True)
+    analysis_overlay.add_argument(
+        "--final-window-sidecar",
+        type=Path,
+        required=True,
+        help="Hybrid final-window CSV (adjacent typed JSON required)",
+    )
+    analysis_overlay.add_argument(
+        "--output-repo-root",
+        type=Path,
+        required=True,
+        help="New sparse repository overlay; verified in place on rerun",
+    )
+    analysis_overlay.set_defaults(func=build_corrected_analysis_overlay)
+
+    generic_filter = corrected_suite_sub.add_parser(
+        "final-window",
+        help="Build the v1 one-second delivery-finding exclusion sidecar",
+    )
+    generic_filter.add_argument(
+        "--workspace", type=Path, required=True, help="Merged suite workspace"
+    )
+    generic_filter.add_argument(
+        "--output", type=Path, required=True, help="Destination exclusion CSV"
+    )
+    generic_filter.add_argument(
+        "--canonical-sidecar",
+        type=Path,
+        default=None,
+        help="Original full-paper exclusion CSV; when supplied, replace its "
+        "Korean/Mandarin retail slice and emit a directly consumable hybrid",
+    )
+    generic_filter.set_defaults(func=build_corrected_final_window_sidecar)
+
+    final_window_rebind = corrected_suite_sub.add_parser(
+        "final-window-rebind",
+        help="Bind a generated final-window CSV to active canonical headers; no APIs",
+    )
+    final_window_rebind.add_argument(
+        "--repo-root",
+        type=Path,
+        default=Path.cwd(),
+        help="Release repository containing the active audit and paper runs",
+    )
+    final_window_rebind.add_argument(
+        "--active-audit",
+        type=Path,
+        default=Path("papers/tau-multilingual/reproduction/audit.json"),
+        help="Strict audit containing all current active result hashes",
+    )
+    final_window_rebind.add_argument(
+        "--sidecar-from",
+        type=Path,
+        required=True,
+        help="Generated corrected final-window CSV with adjacent JSON manifest",
+    )
+    final_window_rebind.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="New directory for the byte-identical CSV and rebound manifest",
+    )
+    final_window_rebind.set_defaults(func=rebind_corrected_final_window_sidecar)
+
     validation_archive = judges_sub.add_parser(
         "tau-multi-validation",
         help="Offline verification of the canonical human-annotation archive",
@@ -466,6 +961,404 @@ def run_tau_multi_naturalness_trial(args) -> None:
     print(manifest.model_dump_json(indent=2))
 
 
+def _add_corrected_naturalness_inputs(parser: argparse.ArgumentParser) -> None:
+    """Attach the explicit, read-only corrected-cohort inputs."""
+    parser.add_argument(
+        "--repo-root",
+        type=Path,
+        default=Path.cwd(),
+        help="Repository supplying the frozen judge and validation evidence",
+    )
+    parser.add_argument(
+        "--experience-manifest",
+        type=Path,
+        required=True,
+        help="Typed manifest locking every corrected-cohort source and call",
+    )
+    parser.add_argument(
+        "--evidence-root",
+        type=Path,
+        required=True,
+        help="Read-only root against which manifest source paths resolve",
+    )
+    parser.add_argument(
+        "--bootstrap-from",
+        type=Path,
+        required=False,
+        help="Completed canonical v16/rubric-v20 trial-0 sidecar root",
+    )
+    parser.add_argument(
+        "--replacement-only",
+        action="store_true",
+        help="Judge only the ten locked corrected roots without bootstrapping",
+    )
+
+
+def build_corrected_tau_multi_naturalness_lock(args) -> None:
+    """Build or dry-run the closed corrected cohort lock without model calls."""
+    from tau2.judges.nativeness.corrected_paper_trial import (
+        build_corrected_cohort_lock,
+        build_replacement_only_cohort_lock,
+        plan_corrected_cohort_lock,
+        plan_replacement_only_cohort_lock,
+    )
+
+    if args.replacement_only:
+        replacement_kwargs = {"replacement_results": args.replacement_results}
+        if args.dry_run:
+            manifest, _sources = plan_replacement_only_cohort_lock(**replacement_kwargs)
+        else:
+            manifest = build_replacement_only_cohort_lock(
+                **replacement_kwargs,
+                evidence_root=args.evidence_root,
+                experience_manifest=args.experience_manifest,
+            )
+        print(manifest.model_dump_json(indent=2))
+        return
+    if args.canonical_experience is None or args.canonical_evidence_root is None:
+        raise ValueError(
+            "hybrid corrected lock requires --canonical-experience and "
+            "--canonical-evidence-root"
+        )
+    kwargs = {
+        "canonical_experience": args.canonical_experience,
+        "canonical_evidence_root": args.canonical_evidence_root,
+        "replacement_results": args.replacement_results,
+    }
+    if args.dry_run:
+        manifest, _sources = plan_corrected_cohort_lock(**kwargs)
+    else:
+        manifest = build_corrected_cohort_lock(
+            **kwargs,
+            evidence_root=args.evidence_root,
+            experience_manifest=args.experience_manifest,
+        )
+    print(manifest.model_dump_json(indent=2))
+
+
+def prepare_corrected_tau_multi_naturalness_trial(args) -> None:
+    """Verify corrected sources and exact canonical reuse without LLM calls."""
+    from tau2.judges.nativeness.corrected_paper_trial import (
+        prepare_corrected_trial0_naturalness,
+        prepare_replacement_only_trial0_naturalness,
+    )
+
+    kwargs = {
+        "repo_root": args.repo_root,
+        "experience_manifest": args.experience_manifest,
+        "evidence_root": args.evidence_root,
+    }
+    if args.replacement_only:
+        if args.bootstrap_from is not None:
+            raise ValueError(
+                "replacement-only preflight does not accept --bootstrap-from"
+            )
+        report = prepare_replacement_only_trial0_naturalness(**kwargs)
+    else:
+        if args.bootstrap_from is None:
+            raise ValueError("hybrid corrected preflight requires --bootstrap-from")
+        report = prepare_corrected_trial0_naturalness(
+            **kwargs, bootstrap_from=args.bootstrap_from
+        )
+    print(report.model_dump_json(indent=2))
+
+
+def run_corrected_tau_multi_naturalness_trial(args) -> None:
+    """Run/resume only calls in the explicitly corrected cohort slice."""
+    from tau2.judges.nativeness.corrected_paper_trial import (
+        CorrectedTrialRunConfig,
+        ReplacementOnlyTrialRunConfig,
+        run_corrected_trial0_naturalness,
+        run_replacement_only_trial0_naturalness,
+    )
+
+    common = {
+        "repo_root": args.repo_root,
+        "experience_manifest": args.experience_manifest,
+        "evidence_root": args.evidence_root,
+        "output_root": args.out,
+        "max_concurrency": args.max_concurrency,
+        "processes": args.processes,
+    }
+    if args.replacement_only:
+        if args.bootstrap_from is not None:
+            raise ValueError("replacement-only replay does not accept --bootstrap-from")
+        manifest = run_replacement_only_trial0_naturalness(
+            ReplacementOnlyTrialRunConfig(**common)
+        )
+    else:
+        if args.bootstrap_from is None:
+            raise ValueError("hybrid corrected replay requires --bootstrap-from")
+        manifest = run_corrected_trial0_naturalness(
+            CorrectedTrialRunConfig(
+                **common,
+                bootstrap_from=args.bootstrap_from,
+            )
+        )
+    print(manifest.model_dump_json(indent=2))
+
+
+def promote_corrected_tau_multi_naturalness(args) -> None:
+    """Compose canonical and corrected naturalness artifacts without model calls."""
+    from tau2.judges.nativeness.corrected_paper_promotion import (
+        NaturalnessPromotionConfig,
+        promote_replacement_only_trial0_naturalness,
+    )
+
+    report = promote_replacement_only_trial0_naturalness(
+        NaturalnessPromotionConfig(
+            repo_root=args.repo_root,
+            validation_repo_root=args.validation_repo_root,
+            experience_manifest=args.experience_manifest,
+            evidence_root=args.evidence_root,
+            bootstrap_experience=args.bootstrap_experience,
+            bootstrap_from=args.bootstrap_from,
+            replacement_from=args.replacement_from,
+            output_root=args.out,
+        )
+    )
+    print(report.model_dump_json(indent=2))
+
+
+def rebind_corrected_tau_multi_naturalness(args) -> None:
+    """Re-key promoted verdicts to current canonical source headers."""
+    from tau2.judges.nativeness.corrected_paper_rebind import (
+        NaturalnessRebindConfig,
+        ValidationEvidenceProjectionConfig,
+        rebind_promoted_trial0_naturalness,
+    )
+
+    source_validation = args.source_validation_evidence_root
+    sanitized_validation = args.sanitized_validation_evidence_root
+    if (source_validation is None) != (sanitized_validation is None):
+        raise ValueError(
+            "source and sanitized validation-evidence roots are required together"
+        )
+    validation_projection = None
+    if source_validation is not None and sanitized_validation is not None:
+        validation_projection = ValidationEvidenceProjectionConfig(
+            validation_repo_root=args.validation_repo_root or args.repo_root,
+            source_root=source_validation,
+            sanitized_root=sanitized_validation,
+        )
+    report = rebind_promoted_trial0_naturalness(
+        NaturalnessRebindConfig(
+            repo_root=args.repo_root,
+            active_audit=args.active_audit,
+            replacement_manifest=args.replacement_manifest,
+            active_results_root=args.active_results_root,
+            sidecar_from=args.sidecar_from,
+            output_root=args.out,
+            validation_evidence_projection=validation_projection,
+        )
+    )
+    print(report.model_dump_json(indent=2))
+
+
+def prepare_corrected_paper_suite(args) -> None:
+    """Lock or materialize the exact generic-judge replacement cohort."""
+    from tau2.judges.corrected_paper_suite import (
+        plan_frozen_judge_workspace,
+        prepare_frozen_judge_workspace,
+    )
+
+    function = (
+        plan_frozen_judge_workspace if args.dry_run else prepare_frozen_judge_workspace
+    )
+    manifest = function(source_root=args.source_root, workspace=args.workspace)
+    print(manifest.model_dump_json(indent=2))
+
+
+def run_corrected_paper_suite(args) -> None:
+    """Print or execute the frozen suite against isolated mutable copies."""
+    from tau2.judges.corrected_paper_suite import (
+        load_generic_judge_manifest,
+        preflight_frozen_judge_suite,
+        run_frozen_judge_suite,
+    )
+
+    manifest = load_generic_judge_manifest(args.workspace)
+    if args.dry_run:
+        preflight = preflight_frozen_judge_suite(
+            manifest=manifest,
+            frozen_worktree=args.frozen_worktree,
+            python_executable=args.python_executable,
+        )
+        print(preflight.model_dump_json(indent=2))
+        return
+    receipt = run_frozen_judge_suite(
+        manifest=manifest,
+        frozen_worktree=args.frozen_worktree,
+        python_executable=args.python_executable,
+    )
+    print(receipt.model_dump_json(indent=2))
+
+
+def merge_corrected_paper_suite(args) -> None:
+    """Merge exact frozen verdict fields into a current-schema copy."""
+    from tau2.judges.corrected_paper_suite import (
+        load_generic_judge_manifest,
+        merge_frozen_judgments,
+    )
+
+    manifest = load_generic_judge_manifest(args.workspace)
+    report = merge_frozen_judgments(manifest=manifest)
+    print(report.model_dump_json(indent=2))
+
+
+def compose_corrected_paper_suite(args) -> None:
+    """Promote exact judge fields from three roots into an isolated corpus."""
+    from tau2.judges.corrected_paper_suite import (
+        compose_cross_workspace_judgments,
+    )
+
+    report = compose_cross_workspace_judgments(
+        quality_workspace=args.quality_workspace,
+        delivery_workspace=args.delivery_workspace,
+        modal_workspace=args.modal_workspace,
+        output_workspace=args.output_workspace,
+    )
+    print(report.model_dump_json(indent=2))
+
+
+def build_composed_final_window_sidecar(args) -> None:
+    """Verify the split composition and build its final-window sidecar."""
+    from tau2.judges.corrected_paper_suite import (
+        build_composed_final_window_exclusions,
+    )
+
+    report = build_composed_final_window_exclusions(
+        quality_workspace=args.quality_workspace,
+        delivery_workspace=args.delivery_workspace,
+        modal_workspace=args.modal_workspace,
+        composed_workspace=args.composed_workspace,
+        output=args.output,
+        canonical_sidecar=args.canonical_sidecar,
+    )
+    print(report.model_dump_json(indent=2))
+
+
+def build_corrected_retail_identity_artifact(args) -> None:
+    """Build the API-free task-grounded identity lookup artifact."""
+    from tau2.judges.corrected_paper_analysis import (
+        RetailIdentityAnalysisConfig,
+        build_retail_identity_analysis,
+    )
+
+    artifact = build_retail_identity_analysis(
+        RetailIdentityAnalysisConfig(
+            repo_root=args.repo_root,
+            quality_workspace=args.quality_workspace,
+            delivery_workspace=args.delivery_workspace,
+            modal_workspace=args.modal_workspace,
+            composed_workspace=args.composed_workspace,
+            output=args.output,
+        )
+    )
+    print(artifact.model_dump_json(indent=2))
+
+
+def build_corrected_fidelity_census(args) -> None:
+    """Build the API-free corrected full-paper fidelity category census."""
+    from tau2.judges.corrected_paper_analysis import (
+        FidelityCensusConfig,
+        build_fidelity_category_census,
+    )
+
+    artifact = build_fidelity_category_census(
+        FidelityCensusConfig(
+            canonical_repo_root=args.canonical_repo_root,
+            quality_workspace=args.quality_workspace,
+            delivery_workspace=args.delivery_workspace,
+            modal_workspace=args.modal_workspace,
+            composed_workspace=args.composed_workspace,
+            final_window_sidecar=args.final_window_sidecar,
+            delivery_error_ledger=args.delivery_error_ledger,
+            output=args.output,
+        )
+    )
+    print(artifact.model_dump_json(indent=2))
+
+
+def build_corrected_delivery_error_ledger(args) -> None:
+    """Build the API-free complete delivery ERROR exclusion ledger."""
+    from tau2.judges.corrected_paper_analysis import (
+        DeliveryErrorLedgerConfig,
+        build_delivery_error_ledger,
+    )
+
+    artifact = build_delivery_error_ledger(
+        DeliveryErrorLedgerConfig(
+            canonical_repo_root=args.canonical_repo_root,
+            quality_workspace=args.quality_workspace,
+            delivery_workspace=args.delivery_workspace,
+            modal_workspace=args.modal_workspace,
+            composed_workspace=args.composed_workspace,
+            retry_evidence=args.retry_evidence,
+            retry_logs=tuple(args.retry_log),
+            output=args.output,
+        )
+    )
+    print(artifact.model_dump_json(indent=2))
+
+
+def build_corrected_analysis_overlay(args) -> None:
+    """Build the immutable 90-cell corrected analysis repository overlay."""
+    from tau2.judges.corrected_paper_overlay import (
+        CorrectedAnalysisOverlayConfig,
+    )
+    from tau2.judges.corrected_paper_overlay import (
+        build_corrected_analysis_overlay as build_overlay,
+    )
+
+    manifest = build_overlay(
+        CorrectedAnalysisOverlayConfig(
+            canonical_repo_root=args.canonical_repo_root,
+            quality_workspace=args.quality_workspace,
+            delivery_workspace=args.delivery_workspace,
+            modal_workspace=args.modal_workspace,
+            composed_workspace=args.composed_workspace,
+            final_window_sidecar=args.final_window_sidecar,
+            output_repo_root=args.output_repo_root,
+        )
+    )
+    print(manifest.model_dump_json(indent=2))
+
+
+def build_corrected_final_window_sidecar(args) -> None:
+    """Build the corrected calls' deterministic final-window sidecar."""
+    from tau2.judges.corrected_paper_suite import (
+        build_final_window_exclusions,
+        load_generic_judge_manifest,
+    )
+
+    manifest = load_generic_judge_manifest(args.workspace)
+    report = build_final_window_exclusions(
+        manifest=manifest,
+        output=args.output,
+        canonical_sidecar=args.canonical_sidecar,
+    )
+    print(report.model_dump_json(indent=2))
+
+
+def rebind_corrected_final_window_sidecar(args) -> None:
+    """Bind the generated final-window artifact to active canonical headers."""
+    from tau2.judges.corrected_paper_final_window_rebind import (
+        FinalWindowRebindConfig,
+        rebind_final_window_manifest,
+    )
+
+    report = rebind_final_window_manifest(
+        FinalWindowRebindConfig(
+            repo_root=args.repo_root,
+            active_audit=args.active_audit,
+            sidecar_from=args.sidecar_from,
+            output_root=args.out,
+        )
+    )
+    print(report.model_dump_json(indent=2))
+
+
 def prepare_tau_multi_naturalness_trial(args) -> None:
     """Verify and size the canonical trial-0 replay without LLM calls."""
     from tau2.judges.nativeness.paper_trial import prepare_trial0_naturalness
@@ -563,7 +1456,8 @@ def run_judges_rejudge(args) -> None:
             judge_nativeness=not delivery_only,
             stats=stats,
         ):
-            judged[item.sim.id] = item.sim
+            if item.was_judged:
+                judged[item.sim.id] = item.sim
         out = save_judged_results(path, judged, output=args.output)
         logger.info(
             f"rejudge {path}: {stats.judged} judged, {stats.reused} reused, "

@@ -41,6 +41,7 @@ def _make_info() -> Info:
         user_info=UserInfo(implementation="user_simulator"),
         agent_info={"implementation": "llm_agent"},
         environment_info=EnvironmentInfo(domain_name="mock", policy="test policy"),
+        retail_name_roles_prompt_version=None,
     )
 
 
@@ -59,7 +60,45 @@ def _make_voice_info(max_steps_seconds: int) -> Info:
         environment_info=EnvironmentInfo(domain_name="mock", policy="test policy"),
         timeout=max_steps_seconds * VOICE_TIMEOUT_SAFETY_FACTOR,
         audio_native_config=audio_cfg,
+        retail_name_roles_prompt_version=None,
     )
+
+
+def test_resume_refuses_name_role_treatment_drift_even_with_auto_resume(tmp_path):
+    tasks = [_make_task("t0")]
+    prior = _make_info()
+    Results(info=prior, tasks=tasks, simulations=[_make_sim("t0")]).save(
+        tmp_path / "results.json"
+    )
+    requested = prior.model_copy(update={"retail_name_roles_prompt_version": "v1"})
+
+    with pytest.raises(ValueError, match="name-role prompt treatment changed"):
+        try_resume(
+            tmp_path / "results.json",
+            Results(info=requested, tasks=tasks, simulations=[]),
+            tasks,
+            num_trials=1,
+            auto_resume=True,
+        )
+
+
+def test_resume_refuses_in_scope_serialized_null_treatment(tmp_path):
+    tasks = [_make_task("t0")]
+    prior = _make_info().model_copy(deep=True)
+    prior.environment_info.domain_name = "retail"
+    prior.task_set_name = "retail_ko_identity"
+    Results(info=prior, tasks=tasks, simulations=[_make_sim("t0")]).save(
+        tmp_path / "results.json"
+    )
+
+    with pytest.raises(ValueError, match="explicit null.*prompt-off"):
+        try_resume(
+            tmp_path / "results.json",
+            Results(info=prior, tasks=tasks, simulations=[]),
+            tasks,
+            num_trials=1,
+            auto_resume=True,
+        )
 
 
 def _make_task(task_id: str, instructions: str = "test instruction") -> Task:

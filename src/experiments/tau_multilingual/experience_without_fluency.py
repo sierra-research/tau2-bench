@@ -14,7 +14,7 @@ import csv
 import hashlib
 import json
 import unicodedata
-from collections import defaultdict
+from collections import Counter, defaultdict
 from itertools import combinations
 from pathlib import Path
 from typing import Annotated, Any, Iterable, Literal
@@ -23,6 +23,14 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tau2.data_model.simulation import JudgeOutcome
+from tau2.judges.corrected_paper_suite import (
+    canonical_cohort_fingerprint_sha256,
+    canonical_results_files_sha256,
+)
+from tau2.judges.delivery.postprocess import (
+    is_in_final_utterance_window,
+    time_range_bounds_seconds,
+)
 from tau2.judges.nativeness.exclusions import (
     BENCHMARK_TRANSFER_MESSAGE,
     is_benchmark_transfer_fragment,
@@ -131,15 +139,29 @@ class FidelityEndExclusionRow(BaseModel):
 class FidelityEndExclusionManifest(BaseModel):
     """Provenance and counts for the frozen-paper exclusion sidecar."""
 
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     artifact: str
-    filter_version: str
-    window_seconds: float
+    filter_version: Literal["v1"]
+    window_seconds: Literal[1.0]
     cohort: str
     excluded_findings: int
     excluded_severity_2plus_findings: int
     by_language: dict[str, int]
     by_system: dict[str, int]
-    results_files_sha256: str
+    final_window_csv_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    generation_results_files_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    replacement_cohort_fingerprint_sha256: Annotated[
+        str, Field(pattern=r"^[0-9a-f]{64}$")
+    ]
+    replacement_calls: Annotated[int, Field(ge=1)]
+    canonical_sidecar_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    canonical_results_files_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    canonical_cohort_fingerprint_sha256: Annotated[
+        str, Field(pattern=r"^[0-9a-f]{64}$")
+    ]
+    canonical_results_files: Annotated[int, Field(ge=1)]
+    canonical_trial0_calls: Annotated[int, Field(ge=1)]
 
 
 class NaturalnessUtteranceVerdict(BaseModel):
@@ -259,6 +281,31 @@ class UtteranceExperienceCounts(BaseModel):
         return self
 
 
+class StandaloneFidelityCounts(BaseModel):
+    """Delivery-only fidelity counts for one call, independent of Fluency."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    eligible_utterances: Annotated[
+        int, Field(ge=0, description="Delivery utterances with a completed verdict.")
+    ]
+    failures: Annotated[
+        int, Field(ge=0, description="Eligible utterances with material fidelity loss.")
+    ]
+    pinned_greetings_excluded: Annotated[
+        int, Field(ge=0, description="Injected delivery greetings removed.")
+    ]
+    findings_excluded: Annotated[
+        int, Field(ge=0, description="Frozen final-window findings removed.")
+    ]
+
+    @model_validator(mode="after")
+    def _failures_do_not_exceed_eligibility(self) -> "StandaloneFidelityCounts":
+        if self.failures > self.eligible_utterances:
+            raise ValueError("Standalone fidelity failures exceed eligible utterances")
+        return self
+
+
 class NaturalnessSidecarInput(BaseModel):
     """Typed, internally consistent completed replay consumed by this analysis."""
 
@@ -351,6 +398,12 @@ class ExperienceDenominators(BaseModel):
     experience_failures: Annotated[
         int, Field(ge=0, description="Unique utterances failing either component.")
     ]
+    standalone_fidelity_utterances: Annotated[
+        int, Field(ge=0, description="Delivery-only fidelity denominator.")
+    ]
+    standalone_fidelity_failures: Annotated[
+        int, Field(ge=0, description="Delivery-only material fidelity failures.")
+    ]
 
 
 class LanguageSystemSummary(BaseModel):
@@ -359,15 +412,6 @@ class LanguageSystemSummary(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     n_calls: Annotated[int, Field(ge=0, description="Calls in the cell.")]
-    latency_seconds: Annotated[
-        float | None,
-        Field(
-            ge=0,
-            description=(
-                "Equal-weight mean of event-weighted response and yield latency."
-            ),
-        ),
-    ]
     interaction_failure: Annotated[
         float | None,
         Field(
@@ -399,6 +443,14 @@ class LanguageSystemSummary(BaseModel):
         float | None,
         Field(ge=0, le=100, description="Utterance Speech-fidelity failure percent."),
     ]
+    standalone_fidelity_cleanliness: Annotated[
+        float | None,
+        Field(
+            ge=0,
+            le=100,
+            description="Delivery-only fidelity pass percent, including English.",
+        ),
+    ]
     overlapping_failure: Annotated[
         float | None,
         Field(ge=0, le=100, description="Cross-component overlap percent."),
@@ -419,13 +471,6 @@ class ProviderSummary(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     n_calls: Annotated[int, Field(ge=0, description="Calls for the provider.")]
-    latency_seconds: Annotated[
-        float,
-        Field(
-            ge=0,
-            description="Six-language macro mean response/yield latency.",
-        ),
-    ]
     mean_call_duration_minutes: Annotated[
         float, Field(ge=0, description="Mean complete-cohort call duration.")
     ]
@@ -452,6 +497,14 @@ class ProviderSummary(BaseModel):
     ]
     speech_fidelity_failure: Annotated[
         float, Field(ge=0, le=100, description="Five-language fidelity percent.")
+    ]
+    standalone_fidelity_cleanliness: Annotated[
+        float,
+        Field(
+            ge=0,
+            le=100,
+            description="Six-language delivery-only fidelity pass percent.",
+        ),
     ]
     overlapping_failure: Annotated[
         float, Field(ge=0, le=100, description="Five-language overlap percent.")
@@ -484,6 +537,14 @@ class LanguageSummary(BaseModel):
         float | None,
         Field(ge=0, le=100, description="Speech-fidelity failure percent."),
     ]
+    standalone_fidelity_cleanliness: Annotated[
+        float | None,
+        Field(
+            ge=0,
+            le=100,
+            description="Delivery-only fidelity pass percent.",
+        ),
+    ]
     overlapping_failure: Annotated[
         float | None, Field(ge=0, le=100, description="Failure overlap percent.")
     ]
@@ -494,9 +555,6 @@ class OverallSummary(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    latency_seconds: Annotated[
-        float, Field(ge=0, description="Five-provider mean latency in seconds.")
-    ]
     interaction_failure: Annotated[
         float,
         Field(
@@ -517,6 +575,14 @@ class OverallSummary(BaseModel):
     speech_fidelity_failure: Annotated[
         float,
         Field(ge=0, le=100, description="Grand Speech-fidelity failure percent."),
+    ]
+    standalone_fidelity_cleanliness: Annotated[
+        float,
+        Field(
+            ge=0,
+            le=100,
+            description="Grand delivery-only fidelity pass percent.",
+        ),
     ]
     overlapping_failure: Annotated[
         float, Field(ge=0, le=100, description="Grand failure overlap percent.")
@@ -573,6 +639,44 @@ class SignificanceSummary(BaseModel):
     ]
 
 
+class InteractionLanguageComparison(BaseModel):
+    """One corrected trial-0 Interaction comparison with English."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    language: Annotated[str, Field(description="Localized language name.")]
+    english_score: Annotated[
+        float, Field(ge=0, le=100, description="English Interaction pass score.")
+    ]
+    language_score: Annotated[
+        float, Field(ge=0, le=100, description="Localized Interaction pass score.")
+    ]
+    delta_vs_english_points: Annotated[
+        float, Field(description="Localized score minus English in points.")
+    ]
+    raw_p: Annotated[float, Field(ge=0, le=1, description="Raw permutation p.")]
+    holm_p: Annotated[
+        float, Field(ge=0, le=1, description="Holm-adjusted permutation p.")
+    ]
+    significant_0_05: Annotated[
+        bool, Field(description="Whether adjusted p is below 0.05.")
+    ]
+
+
+class InteractionSignificanceSummary(BaseModel):
+    """Corrected language-versus-English Interaction comparisons."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    systems: Annotated[
+        list[str], Field(description="Systems pooled within each task cluster.")
+    ]
+    comparisons: Annotated[
+        list[InteractionLanguageComparison],
+        Field(description="Five localized language comparisons with English."),
+    ]
+
+
 class ExperienceCohort(BaseModel):
     """Frozen cohort dimensions used by the analysis."""
 
@@ -593,13 +697,15 @@ class ExperienceFormulas(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    latency: Annotated[str, Field(description="Latency summary definition.")]
     interaction: Annotated[
         str, Field(description="Descriptive Interaction composite definition.")
     ]
     fluency_failure: Annotated[str, Field(description="Fluency failure definition.")]
     speech_fidelity_failure: Annotated[
         str, Field(description="Speech-fidelity failure definition.")
+    ]
+    standalone_fidelity_cleanliness: Annotated[
+        str, Field(description="Delivery-only fidelity pass definition.")
     ]
     experience: Annotated[str, Field(description="Experience score definition.")]
     gating: Annotated[str, Field(description="Denominator gating definition.")]
@@ -647,6 +753,15 @@ class UtteranceAlignmentSummary(BaseModel):
     fidelity_findings_excluded: Annotated[
         int, Field(ge=0, description="Matched final-window findings excluded.")
     ]
+    standalone_fidelity_utterances: Annotated[
+        int, Field(ge=0, description="All-language delivery-only denominator.")
+    ]
+    standalone_fidelity_failures: Annotated[
+        int, Field(ge=0, description="All-language delivery-only failures.")
+    ]
+    standalone_fidelity_findings_excluded: Annotated[
+        int, Field(ge=0, description="All-language final-window exclusions.")
+    ]
 
 
 class UtteranceExperienceArtifact(BaseModel):
@@ -681,6 +796,10 @@ class UtteranceExperienceArtifact(BaseModel):
     significance_complete_matched_cohort: Annotated[
         SignificanceSummary, Field(description="Corrected provider comparisons.")
     ]
+    interaction_language_significance: Annotated[
+        InteractionSignificanceSummary,
+        Field(description="Corrected trial-0 Interaction language comparisons."),
+    ]
     utterance_alignment: Annotated[
         UtteranceAlignmentSummary,
         Field(description="Global alignment and deduplicated failure counts."),
@@ -688,6 +807,11 @@ class UtteranceExperienceArtifact(BaseModel):
 
 
 STAT_FIELDS = ("experience_failed", "experience_total")
+INTERACTION_STAT_FIELDS = tuple(
+    field
+    for component in INTERACTION_COMPONENT_FACTORS
+    for field in (f"{component}_failed", f"{component}_total")
+)
 
 
 def _mean(values: Iterable[float | None]) -> float | None:
@@ -719,24 +843,6 @@ def _call_level_interaction_components(
         component: _bucket_failure(checks_list, factor_ids)
         for component, factor_ids in INTERACTION_COMPONENT_FACTORS.items()
     }
-
-
-def _call_level_latency_counts(checks_list: list[dict[str, Any]]) -> dict[str, float]:
-    """Return sufficient counts for event-weighted response and yield latency."""
-    checks = {check["id"]: check for check in checks_list}
-    result: dict[str, float] = defaultdict(float)
-    for factor, total_field, prefix in (
-        ("responsiveness", "response_total", "response"),
-        ("yielding", "yield_total", "yield"),
-    ):
-        metrics = (checks.get(factor) or {}).get("metrics", {})
-        total = metrics.get(total_field)
-        latency = metrics.get(f"{prefix}_latency_mean")
-        if total is None or latency is None:
-            continue
-        result[f"{prefix}_latency_seconds_sum"] += float(total) * float(latency)
-        result[f"{prefix}_latency_total"] += float(total)
-    return dict(result)
 
 
 def _normalized_utterance_text(text: str) -> str:
@@ -842,6 +948,36 @@ def _speech_fidelity_failure(
         for check in result.get("factor_checks", [])
     )
     return material_failure or tone_failure, excluded
+
+
+def _standalone_fidelity_counts(
+    delivery: dict[str, Any] | None,
+    exclusions: set[tuple[int, int]],
+) -> StandaloneFidelityCounts:
+    """Count delivery fidelity without requiring a matching Fluency verdict."""
+    delivery_results = list((delivery or {}).get("utterance_results", []))
+    pinned_greetings = int(bool(delivery_results))
+    if delivery_results:
+        if int(delivery_results[0]["utterance_idx"]) != 0:
+            raise ValueError("Delivery inventory does not start with pinned greeting")
+        delivery_results = delivery_results[1:]
+
+    eligible = 0
+    failures = 0
+    excluded_findings = 0
+    for result in delivery_results:
+        if result.get("outcome") not in {"pass", "fail"}:
+            continue
+        failure, excluded = _speech_fidelity_failure(result, exclusions)
+        eligible += 1
+        failures += failure
+        excluded_findings += excluded
+    return StandaloneFidelityCounts(
+        eligible_utterances=eligible,
+        failures=failures,
+        pinned_greetings_excluded=pinned_greetings,
+        findings_excluded=excluded_findings,
+    )
 
 
 def _utterance_experience_counts(
@@ -966,23 +1102,6 @@ def _without_benchmark_transfer_findings(
 
 
 def _aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    latency_seconds = _mean(
-        (
-            sum(
-                row["latency_counts"].get(f"{prefix}_latency_seconds_sum", 0.0)
-                for row in rows
-            )
-            / latency_total
-            if (
-                latency_total := sum(
-                    row["latency_counts"].get(f"{prefix}_latency_total", 0.0)
-                    for row in rows
-                )
-            )
-            else None
-        )
-        for prefix in ("response", "yield")
-    )
     interaction_components = {
         component: _mean(row["interaction_components"][component] for row in rows)
         for component in INTERACTION_COMPONENT_FACTORS
@@ -992,13 +1111,18 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
     experience_failed = sum(row["experience_failures"] for row in rows)
     fluency_failed = sum(row["fluency_failures"] for row in rows)
     fidelity_failed = sum(row["speech_fidelity_failures"] for row in rows)
+    standalone_fidelity_total = sum(
+        row.get("standalone_fidelity_utterances", 0) for row in rows
+    )
+    standalone_fidelity_failed = sum(
+        row.get("standalone_fidelity_failures", 0) for row in rows
+    )
     overlap_failed = sum(row["overlapping_failures"] for row in rows)
     experience_failure = (
         experience_failed / experience_total if experience_total else None
     )
     return {
         "n_calls": len(rows),
-        "latency_seconds": latency_seconds,
         "interaction_failure": interaction,
         "interaction_components": interaction_components,
         "experience": (
@@ -1010,6 +1134,11 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
         ),
         "speech_fidelity_failure": (
             fidelity_failed / experience_total if experience_total else None
+        ),
+        "standalone_fidelity_cleanliness": (
+            1.0 - standalone_fidelity_failed / standalone_fidelity_total
+            if standalone_fidelity_total
+            else None
         ),
         "overlapping_failure": (
             overlap_failed / experience_total if experience_total else None
@@ -1027,6 +1156,8 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "speech_fidelity_failures": fidelity_failed,
             "overlapping_failures": overlap_failed,
             "experience_failures": experience_failed,
+            "standalone_fidelity_utterances": standalone_fidelity_total,
+            "standalone_fidelity_failures": standalone_fidelity_failed,
         },
     }
 
@@ -1045,6 +1176,61 @@ def _scores_from_stats(stats: np.ndarray) -> np.ndarray:
     failed = stats[..., STAT_FIELDS.index("experience_failed")]
     total = stats[..., STAT_FIELDS.index("experience_total")]
     return 100.0 * (1.0 - failed / total)
+
+
+def _interaction_sufficient_stats(rows: list[dict[str, Any]]) -> np.ndarray:
+    """Return failure/denominator pairs for all Interaction components."""
+    values: list[float] = []
+    for component in INTERACTION_COMPONENT_FACTORS:
+        observed = [
+            row["interaction_components"][component]
+            for row in rows
+            if row["interaction_components"][component] is not None
+        ]
+        values.extend((sum(observed), len(observed)))
+    return np.asarray(values, dtype=float)
+
+
+def _interaction_pass_from_stats(stats: np.ndarray) -> np.ndarray:
+    """Reaggregate Interaction sufficient statistics into a pass score."""
+    component_rates = []
+    for component in INTERACTION_COMPONENT_FACTORS:
+        failures = stats[..., INTERACTION_STAT_FIELDS.index(f"{component}_failed")]
+        totals = stats[..., INTERACTION_STAT_FIELDS.index(f"{component}_total")]
+        component_rates.append(np.divide(failures, totals))
+    return 100.0 * (1.0 - np.mean(np.stack(component_rates, axis=-1), axis=-1))
+
+
+def _reaggregated_interaction_permutation_p(
+    stats_a: np.ndarray,
+    stats_b: np.ndarray,
+    *,
+    num_permutations: int,
+    seed: int,
+) -> tuple[float, float, float]:
+    """Paired cluster permutation for Interaction pass."""
+    total_a = stats_a.sum(axis=0)
+    total_b = stats_b.sum(axis=0)
+    score_a = float(_interaction_pass_from_stats(total_a))
+    score_b = float(_interaction_pass_from_stats(total_b))
+    observed = abs(score_a - score_b)
+    combined = total_a + total_b
+    delta = stats_a - stats_b
+    rng = np.random.default_rng(seed)
+    exceedances = 0
+    completed = 0
+    while completed < num_permutations:
+        batch = min(5_000, num_permutations - completed)
+        signs = rng.choice((-1.0, 1.0), size=(batch, len(stats_a)))
+        pseudo_a = (combined + signs @ delta) / 2.0
+        pseudo_b = combined - pseudo_a
+        differences = np.abs(
+            _interaction_pass_from_stats(pseudo_a)
+            - _interaction_pass_from_stats(pseudo_b)
+        )
+        exceedances += int((differences >= observed - 1e-15).sum())
+        completed += batch
+    return score_a, score_b, (exceedances + 1) / (num_permutations + 1)
 
 
 def _reaggregated_permutation_p(
@@ -1444,8 +1630,22 @@ def _load_gender_overrides(
 
 def _load_fidelity_end_exclusions(
     repo_root: Path,
-) -> tuple[dict[str, set[tuple[int, int]]], dict[str, Any], set[tuple[str, int, int]]]:
+) -> tuple[
+    dict[str, list[FidelityEndExclusionRow]],
+    dict[str, Any],
+    set[tuple[str, int, int]],
+    FidelityEndExclusionManifest,
+]:
     path = repo_root / FIDELITY_END_EXCLUSIONS_PATH
+    manifest_path = path.with_suffix(".json")
+    manifest = FidelityEndExclusionManifest.model_validate_json(
+        manifest_path.read_text()
+    )
+    if manifest.artifact != path.name:
+        raise ValueError("Fidelity exclusion manifest names another artifact")
+    observed_csv_sha256 = _sha256(path)
+    if observed_csv_sha256 != manifest.final_window_csv_sha256:
+        raise ValueError("Fidelity exclusion CSV hash drifted")
     with path.open(newline="") as handle:
         rows = [
             FidelityEndExclusionRow.model_validate(row)
@@ -1454,26 +1654,107 @@ def _load_fidelity_end_exclusions(
     keys = {(row.sim_id, row.utterance_idx, row.finding_index) for row in rows}
     if len(keys) != len(rows):
         raise ValueError(f"Duplicate fidelity exclusion rows in {path}")
-    manifest_path = path.with_suffix(".json")
-    manifest = FidelityEndExclusionManifest.model_validate_json(
-        manifest_path.read_text()
-    )
     if manifest.excluded_findings != len(rows):
         raise ValueError(
             f"Fidelity exclusion manifest says {manifest.excluded_findings} rows, "
             f"but {path} has {len(rows)}"
         )
-    by_sim: dict[str, set[tuple[int, int]]] = defaultdict(set)
+    if manifest.excluded_severity_2plus_findings != sum(
+        row.severity >= 2 for row in rows
+    ):
+        raise ValueError("Fidelity exclusion severity count drifted")
+    if manifest.by_language != dict(
+        sorted(Counter(row.language for row in rows).items())
+    ):
+        raise ValueError("Fidelity exclusion language counts drifted")
+    if manifest.by_system != dict(sorted(Counter(row.system for row in rows).items())):
+        raise ValueError("Fidelity exclusion system counts drifted")
     for row in rows:
-        by_sim[row.sim_id].add((row.utterance_idx, row.finding_index))
+        bounds = time_range_bounds_seconds(row.time_range)
+        if bounds is None or not (
+            np.isclose(bounds[0], row.span_start_seconds)
+            and np.isclose(bounds[1], row.span_end_seconds)
+        ):
+            raise ValueError("Fidelity exclusion span metadata drifted")
+        if row.clip_duration_seconds <= 0 or not is_in_final_utterance_window(
+            row.time_range, row.clip_duration_seconds
+        ):
+            raise ValueError("Fidelity exclusion row does not satisfy its rule")
+    by_sim: dict[str, list[FidelityEndExclusionRow]] = defaultdict(list)
+    for row in rows:
+        by_sim[row.sim_id].append(row)
     provenance = {
         "path": str(path.relative_to(repo_root)),
-        "sha256": _sha256(path),
+        "sha256": observed_csv_sha256,
         "manifest_path": str(manifest_path.relative_to(repo_root)),
         "manifest_sha256": _sha256(manifest_path),
         **manifest.model_dump(mode="json"),
     }
-    return dict(by_sim), provenance, keys
+    return dict(by_sim), provenance, keys, manifest
+
+
+def _validate_fidelity_rows_for_call(
+    rows: list[FidelityEndExclusionRow],
+    *,
+    simulation_id: str,
+    language: str,
+    domain: str,
+    system: str,
+    delivery: dict[str, Any] | None,
+) -> set[tuple[int, int]]:
+    """Revalidate every exclusion against the delivery finding it removes."""
+    utterances = {
+        int(result["utterance_idx"]): result
+        for result in (delivery or {}).get("utterance_results", [])
+    }
+    if len(utterances) != len((delivery or {}).get("utterance_results", [])):
+        raise ValueError(f"Duplicate delivery utterance indices for {simulation_id}")
+    exclusions: set[tuple[int, int]] = set()
+    for row in rows:
+        if (
+            row.sim_id != simulation_id
+            or row.language != language
+            or row.domain != domain
+            or row.system != system
+        ):
+            raise ValueError(
+                f"Fidelity exclusion dimensions drifted for {simulation_id}"
+            )
+        utterance = utterances.get(row.utterance_idx)
+        findings = [] if utterance is None else utterance.get("findings", [])
+        if utterance is None or not 0 <= row.finding_index < len(findings):
+            raise ValueError(
+                f"Fidelity exclusion finding is missing for {simulation_id}"
+            )
+        finding = findings[row.finding_index]
+        if (
+            finding.get("axis") != "fidelity"
+            or int(finding.get("severity") or 0) != row.severity
+            or finding.get("time_range") != row.time_range
+        ):
+            raise ValueError(f"Fidelity exclusion metadata drifted for {simulation_id}")
+        exclusions.add((row.utterance_idx, row.finding_index))
+    if len(exclusions) != len(rows):
+        raise ValueError(f"Duplicate fidelity exclusions for {simulation_id}")
+    return exclusions
+
+
+def _validate_fidelity_manifest_cohort(
+    manifest: FidelityEndExclusionManifest,
+    sources: list[dict[str, Any]],
+) -> None:
+    """Require the sidecar's canonical binding after all 90 headers are read."""
+    observed_results_hash = canonical_results_files_sha256(sources)
+    if manifest.canonical_results_files_sha256 != observed_results_hash:
+        raise ValueError("Fidelity exclusion canonical results hash drifted")
+    observed_cohort_hash = canonical_cohort_fingerprint_sha256(sources)
+    if manifest.canonical_cohort_fingerprint_sha256 != observed_cohort_hash:
+        raise ValueError("Fidelity exclusion canonical cohort fingerprint drifted")
+    if manifest.canonical_results_files != len(sources):
+        raise ValueError("Fidelity exclusion canonical results-file count drifted")
+    trial0_calls = sum(int(source["trial_0_calls"]) for source in sources)
+    if manifest.canonical_trial0_calls != trial0_calls:
+        raise ValueError("Fidelity exclusion canonical trial-zero count drifted")
 
 
 def _load_calls(
@@ -1491,9 +1772,12 @@ def _load_calls(
     sidecar_work_utterances: list[str] = []
     expected_sidecar_sources: list[TrialSourceIdentity] = []
     gender_overrides, gender_override_provenance = _load_gender_overrides(repo_root)
-    fidelity_exclusions, fidelity_exclusion_provenance, all_exclusion_keys = (
-        _load_fidelity_end_exclusions(repo_root)
-    )
+    (
+        fidelity_exclusions,
+        fidelity_exclusion_provenance,
+        all_exclusion_keys,
+        fidelity_manifest,
+    ) = _load_fidelity_end_exclusions(repo_root)
     used_exclusion_keys: set[tuple[str, int, int]] = set()
     used_gender_overrides: dict[str, set[str]] = {
         language: set() for language in gender_overrides
@@ -1623,7 +1907,6 @@ def _load_calls(
                     interaction_components = _call_level_interaction_components(
                         quality_checks
                     )
-                    latency_counts = _call_level_latency_counts(quality_checks)
                     localization_diagnostics = {
                         factor_id: _bucket_failure(nativeness_checks, {factor_id})
                         for factor_id in sorted(
@@ -1631,10 +1914,21 @@ def _load_calls(
                         )
                     }
                     delivery = sim.get("delivery_info")
-                    call_exclusions = fidelity_exclusions.get(row["id"], set())
+                    call_exclusions = _validate_fidelity_rows_for_call(
+                        fidelity_exclusions.get(row["id"], []),
+                        simulation_id=row["id"],
+                        language=language,
+                        domain=domain,
+                        system=system,
+                        delivery=delivery,
+                    )
                     used_exclusion_keys.update(
                         (row["id"], utterance_idx, finding_index)
                         for utterance_idx, finding_index in call_exclusions
+                    )
+                    standalone_fidelity = _standalone_fidelity_counts(
+                        delivery,
+                        call_exclusions,
                     )
                     experience_counts = (
                         _utterance_experience_counts(
@@ -1665,7 +1959,6 @@ def _load_calls(
                             "duration_seconds": float(
                                 row.get("duration") or sim.get("duration") or 0.0
                             ),
-                            "latency_counts": latency_counts,
                             "interaction_components": interaction_components,
                             "localization_diagnostics": localization_diagnostics,
                             "experience_utterances": (
@@ -1681,6 +1974,15 @@ def _load_calls(
                             "experience_failures": (
                                 experience_counts.experience_failures
                             ),
+                            "standalone_fidelity_utterances": (
+                                standalone_fidelity.eligible_utterances
+                            ),
+                            "standalone_fidelity_failures": (
+                                standalone_fidelity.failures
+                            ),
+                            "standalone_fidelity_findings_excluded": (
+                                standalone_fidelity.findings_excluded
+                            ),
                             "pinned_greetings_excluded": (
                                 experience_counts.pinned_greetings_excluded
                             ),
@@ -1695,6 +1997,7 @@ def _load_calls(
                             ),
                         }
                     )
+    _validate_fidelity_manifest_cohort(fidelity_manifest, sources)
     for language, overrides in gender_overrides.items():
         if used_gender_overrides[language] != set(overrides):
             unused = sorted(set(overrides) - used_gender_overrides[language])
@@ -1852,7 +2155,6 @@ def _summaries(calls: list[dict[str, Any]]) -> dict[str, Any]:
         aggregate = _aggregate(cell)
         language_system.setdefault(LANGUAGE_NAMES[language], {})[system] = {
             "n_calls": len(cell),
-            "latency_seconds": aggregate["latency_seconds"],
             "interaction_failure": _percentage(aggregate["interaction_failure"]),
             "interaction_components": {
                 key: _percentage(value)
@@ -1863,6 +2165,9 @@ def _summaries(calls: list[dict[str, Any]]) -> dict[str, Any]:
             "fluency_failure": _percentage(aggregate["fluency_failure"]),
             "speech_fidelity_failure": _percentage(
                 aggregate["speech_fidelity_failure"]
+            ),
+            "standalone_fidelity_cleanliness": _percentage(
+                aggregate["standalone_fidelity_cleanliness"]
             ),
             "overlapping_failure": _percentage(aggregate["overlapping_failure"]),
             "localization_diagnostics": {
@@ -1879,9 +2184,6 @@ def _summaries(calls: list[dict[str, Any]]) -> dict[str, Any]:
         localized_cells = all_cells[1:]
         provider[system] = {
             "n_calls": len(rows),
-            "latency_seconds": float(
-                np.mean([cell["latency_seconds"] for cell in all_cells])
-            ),
             "mean_call_duration_minutes": float(
                 np.mean([row["duration_seconds"] for row in rows]) / 60.0
             ),
@@ -1904,6 +2206,10 @@ def _summaries(calls: list[dict[str, Any]]) -> dict[str, Any]:
             * float(
                 np.mean([cell["speech_fidelity_failure"] for cell in localized_cells])
             ),
+            "standalone_fidelity_cleanliness": 100.0
+            * float(
+                np.mean([cell["standalone_fidelity_cleanliness"] for cell in all_cells])
+            ),
             "overlapping_failure": 100.0
             * float(np.mean([cell["overlapping_failure"] for cell in localized_cells])),
         }
@@ -1920,6 +2226,7 @@ def _summaries(calls: list[dict[str, Any]]) -> dict[str, Any]:
                 "experience_failure",
                 "fluency_failure",
                 "speech_fidelity_failure",
+                "standalone_fidelity_cleanliness",
                 "overlapping_failure",
             )
         }
@@ -1931,12 +2238,12 @@ def _summaries(calls: list[dict[str, Any]]) -> dict[str, Any]:
         "overall": {
             metric: float(np.mean([value[metric] for value in provider.values()]))
             for metric in (
-                "latency_seconds",
                 "interaction_failure",
                 "experience",
                 "experience_failure",
                 "fluency_failure",
                 "speech_fidelity_failure",
+                "standalone_fidelity_cleanliness",
                 "overlapping_failure",
             )
         },
@@ -1991,16 +2298,60 @@ def analyze(
         row["holm_p"] = adjusted
         row["significant_0_05"] = adjusted < 0.05
 
+    by_cluster_language: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(
+        list
+    )
+    for call in calls:
+        by_cluster_language[
+            (call["domain"], call["canonical_task"], call["language"])
+        ].append(call)
+    interaction_cluster_stats: dict[str, np.ndarray] = {}
+    for language in LANGUAGES:
+        values = []
+        for domain, task in cluster_order:
+            cluster_calls = by_cluster_language[(domain, task, language)]
+            if len(cluster_calls) != len(SYSTEMS):
+                raise ValueError(
+                    f"Unbalanced Interaction cluster {domain}/{task}/{language}"
+                )
+            values.append(_interaction_sufficient_stats(cluster_calls))
+        interaction_cluster_stats[language] = np.stack(values)
+
+    interaction_comparisons = []
+    interaction_raw_p = []
+    for language in LANGUAGES[1:]:
+        language_score, english_score, p_value = (
+            _reaggregated_interaction_permutation_p(
+                interaction_cluster_stats[language],
+                interaction_cluster_stats["en"],
+                num_permutations=num_permutations,
+                seed=seed,
+            )
+        )
+        interaction_raw_p.append(p_value)
+        interaction_comparisons.append(
+            {
+                "language": LANGUAGE_NAMES[language],
+                "english_score": english_score,
+                "language_score": language_score,
+                "delta_vs_english_points": language_score - english_score,
+                "raw_p": p_value,
+            }
+        )
+    for row, adjusted in zip(
+        interaction_comparisons,
+        _holm(interaction_raw_p),
+        strict=True,
+    ):
+        row["holm_p"] = adjusted
+        row["significant_0_05"] = adjusted < 0.05
+
     descriptive = _summaries(calls)
     return UtteranceExperienceArtifact.model_validate(
         {
             "instrument": "tau-multilingual-utterance-experience",
             "instrument_version": "2.2.0",
             "formulas": {
-                "latency": (
-                    "six-language macro mean of the equal-weight mean of "
-                    "event-weighted response and yield latency"
-                ),
                 "interaction": (
                     "descriptive equal-weight mean of five call-level component failure "
                     "rates: non-response, interruption, selectivity, monologue, and "
@@ -2015,6 +2366,11 @@ def analyze(
                     "aligned utterance has any retained fidelity finding with severity "
                     ">=2 or a tone-meaning-flip failure"
                 ),
+                "standalone_fidelity_cleanliness": (
+                    "100 * (1 - delivery utterances with any retained severity >=2 "
+                    "fidelity finding or tone-meaning-flip failure / completed "
+                    "delivery utterances); does not require a Fluency verdict"
+                ),
                 "experience": (
                     "100 * (1 - unique utterances failing fluency OR speech fidelity / "
                     "utterances successfully evaluated by both)"
@@ -2028,13 +2384,16 @@ def analyze(
             "num_permutations": num_permutations,
             "analysis_unit": (
                 "150 canonical domain-task clusters; Experience uses the five localized "
-                "trial-0 calls for one system because English has no validated fluency judge"
+                "trial-0 calls for one system because English has no validated fluency "
+                "judge; Interaction pools five systems per language within each cluster"
             ),
             "test": (
                 "Two-sided paired label-swap permutation; the same swap is applied "
                 "to the five localized calls in a domain-task cluster, then deduplicated "
                 "utterance counts are reaggregated into Experience; +1 Monte Carlo "
-                "correction; Holm correction across ten provider pairs"
+                "correction; Interaction reaggregates component-specific failure and "
+                "opportunity counts after the same cluster swap; Holm correction is "
+                "applied separately across ten provider pairs and five language contrasts"
             ),
             "cohort": {
                 "calls": len(calls),
@@ -2049,7 +2408,8 @@ def analyze(
                     "All 150 calls per language-system cell are retained. Interaction "
                     "is a descriptive component average over all six languages; utterance "
                     "Experience uses ES/PT/HI/KO/ZH. Provider and language summaries "
-                    "macro-average language cells."
+                    "macro-average language cells. Standalone Speech fidelity uses "
+                    "completed delivery utterances in all six languages."
                 ),
                 "utterance_alignment": (
                     "The structurally injected delivery greeting is excluded, then "
@@ -2070,6 +2430,10 @@ def analyze(
                     for system, stats in cluster_stats.items()
                 },
                 "pairs": pairs,
+            },
+            "interaction_language_significance": {
+                "systems": list(SYSTEMS),
+                "comparisons": interaction_comparisons,
             },
             "utterance_alignment": {
                 "eligible_utterances": sum(
@@ -2097,6 +2461,15 @@ def analyze(
                 "fidelity_findings_excluded": sum(
                     call["fidelity_findings_excluded"] for call in calls
                 ),
+                "standalone_fidelity_utterances": sum(
+                    call["standalone_fidelity_utterances"] for call in calls
+                ),
+                "standalone_fidelity_failures": sum(
+                    call["standalone_fidelity_failures"] for call in calls
+                ),
+                "standalone_fidelity_findings_excluded": sum(
+                    call["standalone_fidelity_findings_excluded"] for call in calls
+                ),
             },
         }
     )
@@ -2107,20 +2480,13 @@ def write_analysis(
     output: Path,
     *,
     naturalness_sidecar: Path,
-    seed: int = 42,
 ) -> UtteranceExperienceArtifact:
-    """Recompute and write the typed paper artifact."""
-    repo_root = repo_root.expanduser().resolve()
-    destination = output.expanduser()
-    if not destination.is_absolute():
-        destination = repo_root / destination
-    result = analyze(
-        repo_root,
-        seed=seed,
-        naturalness_sidecar=naturalness_sidecar.expanduser().resolve(),
-    )
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(result.model_dump_json(indent=2) + "\n")
+    """Recompute and write the typed Experience artifact."""
+    resolved_root = repo_root.resolve()
+    result = analyze(resolved_root, naturalness_sidecar=naturalness_sidecar)
+    target = output if output.is_absolute() else resolved_root / output
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(result.model_dump_json(indent=2) + "\n")
     return result
 
 
@@ -2139,18 +2505,18 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
+    result = analyze(
+        args.repo_root.resolve(), naturalness_sidecar=args.naturalness_sidecar
+    )
+    rendered = result.model_dump_json(indent=2) + "\n"
     if args.output:
-        write_analysis(
-            args.repo_root,
-            args.output,
-            naturalness_sidecar=args.naturalness_sidecar,
-        )
+        output = args.output
+        if not output.is_absolute():
+            output = args.repo_root / output
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(rendered)
     else:
-        result = analyze(
-            args.repo_root.resolve(),
-            naturalness_sidecar=args.naturalness_sidecar,
-        )
-        print(result.model_dump_json(indent=2))
+        print(rendered, end="")
 
 
 if __name__ == "__main__":

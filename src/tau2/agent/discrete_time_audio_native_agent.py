@@ -60,6 +60,7 @@ from tau2.config import (
     AUDIO_NATIVE_PROVIDER_TYPES,
     DEFAULT_AUDIO_NATIVE_MAX_INACTIVE_SECONDS,
     DEFAULT_AUDIO_NATIVE_PROVIDER,
+    DEFAULT_GEMINI_LIVE_EXPLICIT_LANGUAGE_CODE,
     DEFAULT_OPENAI_VAD_THRESHOLD,
     DEFAULT_SEND_AUDIO_INSTANT,
     ReasoningEffort,
@@ -240,6 +241,9 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         locale: Optional[str] = None,
         native_script_db: bool = False,
         disclose_voice_gender: bool = True,
+        gemini_live_explicit_language_code: bool = (
+            DEFAULT_GEMINI_LIVE_EXPLICIT_LANGUAGE_CODE
+        ),
     ):
         """Initialize the discrete-time audio native agent.
 
@@ -302,6 +306,9 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
                 ablation arm. Raises at prompt build when
                 the catalog has no gender for the provider's default voice
                 (livekit) — auto-disabled with a warning there.
+            gemini_live_explicit_language_code: Whether Gemini Live receives
+                the mapped explicit speech language code. False retains the
+                language prompt while relying on provider auto-detection.
         """
         self.tools = tools
         self.domain_policy = domain_policy
@@ -323,6 +330,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         self.language = language
         self.locale = locale
         self.native_script_db = native_script_db
+        self.gemini_live_explicit_language_code = gemini_live_explicit_language_code
         # Auto-off when the catalog cannot honor a disclosure (mirrors
         # AudioNativeConfig._resolve_disclosure_feasibility for direct
         # constructions that bypass the config).
@@ -490,6 +498,12 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
     def adapter(self) -> DiscreteTimeAdapter:
         """Get the adapter, creating it if needed based on provider."""
         if self._adapter is None:
+            provider_language = self.language
+            if (
+                self.provider == "gemini"
+                and not self.gemini_live_explicit_language_code
+            ):
+                provider_language = None
             self._adapter, self.model = create_adapter(
                 provider=self.provider,
                 tick_duration_ms=self.tick_duration_ms,
@@ -500,7 +514,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
                 cascaded_config=self.cascaded_config,
                 live_config=self.live_config,
                 trace_path=self._live_trace_path,
-                language=self.language,
+                language=provider_language,
             )
         return self._adapter
 
@@ -995,6 +1009,12 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
     language = kwargs.get("language")
     locale = kwargs.get("locale")
     native_script_db = bool(kwargs.get("native_script_db"))
+    gemini_live_explicit_language_code = bool(
+        kwargs.get(
+            "gemini_live_explicit_language_code",
+            DEFAULT_GEMINI_LIVE_EXPLICIT_LANGUAGE_CODE,
+        )
+    )
     if audio_native_config is not None:
         return DiscreteTimeAudioNativeAgent(
             tools=tools,
@@ -1013,6 +1033,7 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
             locale=locale,
             native_script_db=native_script_db,
             disclose_voice_gender=audio_native_config.disclose_voice_gender,
+            gemini_live_explicit_language_code=(gemini_live_explicit_language_code),
         )
     else:
         # Fallback: use individual kwargs or defaults
@@ -1028,4 +1049,5 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
             language=language,
             locale=locale,
             native_script_db=native_script_db,
+            gemini_live_explicit_language_code=(gemini_live_explicit_language_code),
         )

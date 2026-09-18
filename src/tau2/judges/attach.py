@@ -15,6 +15,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 from tau2.data_model.simulation import (
+    DeliveryInfo,
     DeliveryJudgeSettings,
     NativenessJudgeSettings,
     QualityJudgeSettings,
@@ -210,6 +211,7 @@ def attach_delivery_from_disk(
     results_dir: Path,
     *,
     settings: Optional[DeliveryJudgeSettings] = None,
+    resume_from: Optional[DeliveryInfo] = None,
 ) -> None:
     """Compute and attach delivery scores for a STORED run, from disk audio.
 
@@ -239,4 +241,5 @@ def attach_delivery_from_disk(
         settings=settings,
         seed=simulation.seed or 0,
         wav_source=source.wav_b64_for,
+        resume_from=resume_from,
     )

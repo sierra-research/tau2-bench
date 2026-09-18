@@ -47,18 +47,22 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tau2.config import (
+    DEFAULT_AGENT_CALLER_LOCALE_CONTEXT,
     DEFAULT_AUDIO_NATIVE_MODELS,
+    DEFAULT_GEMINI_LIVE_EXPLICIT_LANGUAGE_CODE,
     DEFAULT_MATRIX_MAX_STEPS_SECONDS,
     DEFAULT_MATRIX_SEED,
     DEFAULT_MATRIX_SPEECH_COMPLEXITY,
     DEFAULT_MAX_STEPS,
     DEFAULT_MULTILINGUAL_RUN_CONCURRENCY,
     DEFAULT_MULTILINGUAL_VOICE_TIMEOUT_SECONDS,
+    DEFAULT_RETAIL_NAME_ROLES_PROMPT_VERSION,
+    DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION,
     DEFAULT_TIMEOUT_SECONDS,
     VOICE_TIMEOUT_SAFETY_FACTOR,
 )
@@ -66,6 +70,7 @@ from tau2.data_model.simulation import (
     AudioNativeConfig,
     NativenessJudgeSettings,
     RunConfig,
+    Score,
     TextRunConfig,
     VoiceRunConfig,
 )
@@ -204,6 +209,62 @@ class PoolSpec(BaseModel):
     max_steps_seconds: int = DEFAULT_MATRIX_MAX_STEPS_SECONDS
     timeout_seconds: int = DEFAULT_MULTILINGUAL_VOICE_TIMEOUT_SECONDS
     speech_complexity: str = DEFAULT_MATRIX_SPEECH_COMPLEXITY
+    # Agent-prompt treatment. None preserves the current AudioNativeConfig
+    # default for legacy pools; reproduction pools pin the paper-era condition
+    # explicitly so a later default cannot silently enter the comparison.
+    disclose_voice_gender: Annotated[
+        Optional[bool],
+        Field(
+            description="Agent-prompt voice-gender disclosure treatment. None "
+            "preserves the modality's current AudioNativeConfig default.",
+            default=None,
+        ),
+    ]
+    # User/agent prompt treatments. Defaults follow the current prompt; an
+    # exact-reproduction pool pins historical values explicitly.
+    target_language_directive_version: Annotated[
+        Literal["v1", "v2", "v3"],
+        Field(
+            description="Versioned target-language directive rendered into "
+            "the multilingual caller prompt.",
+            default=DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION,
+        ),
+    ]
+    agent_caller_locale_context: Annotated[
+        bool,
+        Field(
+            description="Whether the agent prompt names the resolved caller locale.",
+            default=DEFAULT_AGENT_CALLER_LOCALE_CONTEXT,
+        ),
+    ]
+    retail_name_roles_prompt_version: Annotated[
+        Literal["v1"] | None,
+        Field(
+            description="Optional fixed retail caller name-role prompt treatment. "
+            "Only the isolated corrected-name pools select v1.",
+            default=DEFAULT_RETAIL_NAME_ROLES_PROMPT_VERSION,
+        ),
+    ]
+    # Gemini-only provider session treatment: True sends the mapped BCP-47
+    # SpeechConfig.language_code; False relies on Live auto-detection.
+    gemini_live_explicit_language_code: Annotated[
+        bool,
+        Field(
+            description="Whether Gemini Live receives the mapped explicit "
+            "speech language code.",
+            default=DEFAULT_GEMINI_LIVE_EXPLICIT_LANGUAGE_CODE,
+        ),
+    ]
+    # None preserves each modality's own scoring defaults. A reproduction pool
+    # can pin the exact paper-era axes without changing sibling pools.
+    scores: Annotated[
+        Optional[frozenset[Score]],
+        Field(
+            description="Inline scoring axes pinned for the pool; None uses the "
+            "modality's RunConfig defaults.",
+            default=None,
+        ),
+    ]
     # Text cells only: the half-duplex turn cap, pinned per pool for the same
     # reason max_steps_seconds is pinned for voice — the default moves.
     max_steps: Optional[int] = None
@@ -308,15 +369,33 @@ class PoolSpec(BaseModel):
                 llm_judge=self.nativeness_llm_judge
             ),
             communicate_judge_mode=self.communicate_judge_mode,
+            target_language_directive_version=(self.target_language_directive_version),
+            agent_caller_locale_context=self.agent_caller_locale_context,
+            retail_name_roles_prompt_version=(self.retail_name_roles_prompt_version),
         )
+        if self.scores is not None:
+            shared["scores"] = set(self.scores)
         if self.modality == "voice":
+            audio_native_kwargs = dict(
+                provider=arm.provider,
+                model=DEFAULT_AUDIO_NATIVE_MODELS[arm.provider],
+                reasoning_effort=arm.reasoning_effort,
+                max_steps_seconds=self.max_steps_seconds,
+            )
+            if self.disclose_voice_gender is not None:
+                audio_native_kwargs["disclose_voice_gender"] = (
+                    self.disclose_voice_gender
+                )
             return VoiceRunConfig(
                 **shared,
                 audio_native_config=AudioNativeConfig(
-                    provider=arm.provider,
-                    model=arm.model or DEFAULT_AUDIO_NATIVE_MODELS[arm.provider],
-                    reasoning_effort=arm.reasoning_effort,
-                    max_steps_seconds=self.max_steps_seconds,
+                    **{
+                        **audio_native_kwargs,
+                        "model": arm.model or DEFAULT_AUDIO_NATIVE_MODELS[arm.provider],
+                    }
+                ),
+                gemini_live_explicit_language_code=(
+                    self.gemini_live_explicit_language_code
                 ),
                 speech_complexity=self.speech_complexity,
             )
@@ -907,6 +986,122 @@ POOLS: dict[str, PoolSpec] = {
         num_trials=1,
         timeout_seconds=int(DEFAULT_TIMEOUT_SECONDS),
         max_steps=DEFAULT_MAX_STEPS,
+        communicate_judge_mode=PREFERENCE_COMMUNICATE_JUDGE_MODE,
+    ),
+    # ------------------------------------------------------------------
+    # Retail name-role correction (prompt v1). These pools deliberately use
+    # new roots: the caller prompt changed, so resuming into the paper's
+    # original roots would mix prompt vintages. Runtime conditions are pinned
+    # to the corresponding paper arms; task artifacts use the owner-approved
+    # latest corrected cohort.
+    # ------------------------------------------------------------------
+    "retail_name_roles_v1": PoolSpec(
+        name="retail_name_roles_v1",
+        description=(
+            "Korean/Mandarin retail main rerun with the versioned name-role "
+            "caller line: 2 languages x 4 paper arms x 50 retail_50 tasks x "
+            "2 trials (800 total)."
+        ),
+        domain="retail",
+        task_sets={
+            "ko": "retail_ko_identity",
+            "zh": "retail_zh_identity",
+        },
+        roots={
+            "ko": "retail_name_roles_v1_korean_retail",
+            "zh": "retail_name_roles_v1_mandarin_retail",
+        },
+        arms=PREFERENCE_ARMS,
+        tasks=TaskSelection(kind="subset", subset="retail_50"),
+        num_trials=2,
+        disclose_voice_gender=False,
+        target_language_directive_version="v2",
+        agent_caller_locale_context=False,
+        gemini_live_explicit_language_code=False,
+        retail_name_roles_prompt_version="v1",
+        scores=frozenset({Score.REWARD, Score.NATIVENESS}),
+        communicate_judge_mode=PREFERENCE_COMMUNICATE_JUDGE_MODE,
+    ),
+    "retail_name_roles_xai_v1": PoolSpec(
+        name="retail_name_roles_xai_v1",
+        description=(
+            "Pinned xAI provider contrast for the Korean/Mandarin retail "
+            "name-role rerun: 2 languages x 50 retail_50 tasks x 1 trial "
+            "(100 total), matching retail_xai_v2."
+        ),
+        domain="retail",
+        task_sets={
+            "ko": "retail_ko_identity",
+            "zh": "retail_zh_identity",
+        },
+        roots={
+            "ko": "retail_name_roles_xai_v1_korean_retail",
+            "zh": "retail_name_roles_xai_v1_mandarin_retail",
+        },
+        arms=XAI_ARMS,
+        tasks=TaskSelection(kind="subset", subset="retail_50"),
+        num_trials=1,
+        disclose_voice_gender=False,
+        retail_name_roles_prompt_version="v1",
+        communicate_judge_mode=PREFERENCE_COMMUNICATE_JUDGE_MODE,
+    ),
+    "multilingual_text_retail_name_roles_v1": PoolSpec(
+        name="multilingual_text_retail_name_roles_v1",
+        description=(
+            "Matched text control for the Korean/Mandarin retail name-role "
+            "rerun: 2 languages x 2 paper text arms x 50 retail_50 tasks x "
+            "1 trial (200 total)."
+        ),
+        domain="retail",
+        modality="text",
+        task_sets={
+            "ko": "retail_ko_identity",
+            "zh": "retail_zh_identity",
+        },
+        roots={
+            "ko": "multilingual_text_retail_name_roles_v1_korean_retail",
+            "zh": "multilingual_text_retail_name_roles_v1_mandarin_retail",
+        },
+        arms=MULTILINGUAL_TEXT_ARMS,
+        tasks=TaskSelection(kind="subset", subset="retail_50"),
+        num_trials=1,
+        timeout_seconds=int(DEFAULT_TIMEOUT_SECONDS),
+        max_steps=DEFAULT_MAX_STEPS,
+        retail_name_roles_prompt_version="v1",
+        communicate_judge_mode=PREFERENCE_COMMUNICATE_JUDGE_MODE,
+    ),
+    "retail_dbscript_name_roles_v1": PoolSpec(
+        name="retail_dbscript_name_roles_v1",
+        description=(
+            "Mandarin native-script DB name-role rerun: 2 strong paper arms "
+            "x 30 retail_30 tasks x 1 trial (60 total), matching "
+            "retail_dbscript_v1."
+        ),
+        domain="retail",
+        task_sets={"zh": "retail_zh_identity_native"},
+        roots={"zh": "retail_dbscript_name_roles_v1_mandarin_retail"},
+        arms=DBSCRIPT_ARMS,
+        tasks=TaskSelection(kind="subset", subset="retail_30"),
+        num_trials=1,
+        disclose_voice_gender=False,
+        retail_name_roles_prompt_version="v1",
+        communicate_judge_mode=PREFERENCE_COMMUNICATE_JUDGE_MODE,
+    ),
+    "retail_unlocalized_name_roles_v1": PoolSpec(
+        name="retail_unlocalized_name_roles_v1",
+        description=(
+            "Mandarin unlocalized-entity name-role rerun: 2 strong paper "
+            "arms x 30 retail_30 tasks x 1 trial (60 total), matching "
+            "retail_unlocalized_v1."
+        ),
+        domain="retail",
+        task_sets={"zh": "retail_zh"},
+        roots={"zh": "retail_unlocalized_name_roles_v1_mandarin_retail"},
+        arms=DBSCRIPT_ARMS,
+        tasks=TaskSelection(kind="subset", subset="retail_30"),
+        num_trials=1,
+        disclose_voice_gender=False,
+        retail_name_roles_prompt_version="v1",
         communicate_judge_mode=PREFERENCE_COMMUNICATE_JUDGE_MODE,
     ),
 }

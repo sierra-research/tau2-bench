@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import random
 from pathlib import Path
-from typing import Annotated, Optional, Union
+from typing import Annotated, Literal, Optional, Union
 
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -280,6 +280,35 @@ def _config_default(field: str):
     return fields[field].get_default(call_default_factory=True)
 
 
+def _recorded_name_roles_treatment(info: Info) -> Optional[Literal["v1"]]:
+    """Return an explicit treatment and reject an ambiguous in-scope header."""
+    from tau2.multilingual.english_prompts import RETAIL_NAME_ROLES_TASK_SETS
+
+    in_scope = (
+        info.environment_info.domain_name == "retail"
+        and info.task_set_name in RETAIL_NAME_ROLES_TASK_SETS
+    )
+    field_recorded = "retail_name_roles_prompt_version" in info.model_fields_set
+    if in_scope and not field_recorded:
+        raise RefillError(
+            "the checkpoint predates explicit retail name-role prompt "
+            "provenance for an in-scope Korean/Mandarin retail task set. "
+            "Refusing to guess whether the line was present; verify and stamp "
+            "the corrected-name root before refilling it."
+        )
+    if in_scope and info.retail_name_roles_prompt_version is None:
+        raise RefillError(
+            "the checkpoint records an explicit null retail name-role prompt "
+            "treatment. That is a prompt-off value, not corrected-v1 "
+            "provenance, so this in-scope root cannot be refilled."
+        )
+    if field_recorded:
+        return info.retail_name_roles_prompt_version
+    # The treatment cannot render outside its fixed retail task-set catalog,
+    # so an old out-of-scope artifact is unambiguously prompt-off.
+    return None
+
+
 def reconstruct_config(
     info: Info,
     *,
@@ -397,6 +426,22 @@ def reconstruct_config(
             None,
             overrides.user_persona_id,
         ),
+        target_language_directive_version=_fill(
+            unrecorded,
+            "target_language_directive_version",
+            info.target_language_directive_version,
+            _config_default("target_language_directive_version"),
+        ),
+        agent_caller_locale_context=_fill(
+            unrecorded,
+            "agent_caller_locale_context",
+            info.agent_caller_locale_context,
+            _config_default("agent_caller_locale_context"),
+        ),
+        # An explicit null is the real prompt-off treatment.  An absent field
+        # is unknown, not off: the first corrected-name runs predated the
+        # field while still rendering v1 and must be verified/stamped first.
+        retail_name_roles_prompt_version=_recorded_name_roles_treatment(info),
         communicate_judge_mode=_fill(
             unrecorded,
             "communicate_judge_mode",
@@ -463,6 +508,12 @@ def reconstruct_config(
         config: RunConfig = VoiceRunConfig(
             **shared,
             audio_native_config=info.audio_native_config.model_copy(deep=True),
+            gemini_live_explicit_language_code=_fill(
+                unrecorded,
+                "gemini_live_explicit_language_code",
+                info.gemini_live_explicit_language_code,
+                _config_default("gemini_live_explicit_language_code"),
+            ),
             speech_complexity=_fill(
                 unrecorded,
                 "speech_complexity",

@@ -535,6 +535,23 @@ class TestApplyToProse:
         # sentence never ends up half-localized ("Murcia, Pennsylvania").
         assert "Pennsylvania" not in text
 
+    def test_new_family_name_matching_old_given_name_keeps_full_name(self):
+        """A later bare-given-name swap must not rewrite the new full name."""
+        rename = self.RENAME.model_copy(
+            update={
+                "old_name": ("Chen", "Johnson"),
+                "new_name": ("Xinyi", "Chen"),
+                "old_full_name": "Chen Johnson",
+                "new_full_name": "Chen Xinyi",
+            }
+        )
+        text = rename.apply_to_prose(
+            "You are Chen Johnson. Chen needs help.",
+            CallerIdentityKind.PROSE_NAME_ZIP,
+        )
+        assert text == "You are Chen Xinyi. Xinyi needs help."
+        assert "Xinyi Xinyi" not in text
+
     def test_handle_shape_swaps_only_the_literal_pairs(self):
         """Airline's caller is not anchored by address, and its prose names
         places the caller does not own (a Houston-based caller flies to

@@ -106,6 +106,31 @@ def test_voice_agent_gets_the_same_resolved_locale_as_the_user():
     )
 
 
+def test_historical_prompt_treatments_reach_both_voice_participants():
+    """The reproduction knobs reach the live builders, not just metadata."""
+    from tau2.multilingual.english_prompts import (
+        TARGET_LANGUAGE_DIRECTIVE_TEMPLATE_V2,
+    )
+    from tau2.registry import registry
+    from tau2.runner.build import build_voice_orchestrator
+
+    config = make_voice_config(
+        user_persona_id="ko",
+        target_language_directive_version="v2",
+        agent_caller_locale_context=False,
+        gemini_live_explicit_language_code=False,
+    )
+    task = registry.get_tasks_loader("airline_ko_identity")()[0]
+    orchestrator = build_voice_orchestrator(config, task, seed=42)
+
+    expected = TARGET_LANGUAGE_DIRECTIVE_TEMPLATE_V2.format(language_name="Korean")
+    assert expected in orchestrator.user.system_prompt
+    assert orchestrator.user.target_language_directive_version == "v2"
+    assert orchestrator.agent.language == "ko"
+    assert orchestrator.agent.locale is None
+    assert "The customer is originally from" not in orchestrator.agent.system_prompt
+
+
 def test_flip_roles_drops_whitespace_only_agent_chunks():
     """Regression for the stage-2 smoke retries: streamed agent transcript
     chunks can be whitespace-only (observed with Devanagari transcript

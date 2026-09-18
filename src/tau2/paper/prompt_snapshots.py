@@ -230,8 +230,12 @@ class _HistoricalPromptRequest(BaseModel):
     policy: str
     user_guidelines: str
     task: dict[str, object]
+    task_set_name: str | None
     persona_override: str
     run_seed: int
+    target_language_directive_version: str | None
+    agent_caller_locale_context: bool
+    disclose_voice_gender: bool | None
 
 
 class _HistoricalPromptPair(BaseModel):
@@ -271,6 +275,12 @@ from tau2.multilingual.registry import (  # noqa: E402
     get_multilingual_persona,
     resolve_task_persona,
 )
+try:  # Added by the corrected Korean/Mandarin retail run revision.
+    from tau2.multilingual.english_prompts import (  # noqa: E402
+        retail_name_roles_prompt_line,
+    )
+except ImportError:  # pragma: no cover - executed only by historical source
+    retail_name_roles_prompt_line = None
 from tau2.user import user_simulator as user_simulator_module  # noqa: E402
 from tau2.user import user_simulator_streaming as streaming_module  # noqa: E402
 from tau2.user.user_simulator import UserSimulator  # noqa: E402
@@ -286,6 +296,24 @@ requests = json.loads(input_path.read_text())
 rendered = {}
 for request in requests:
     task = Task.model_validate(request["task"])
+    if retail_name_roles_prompt_line is not None:
+        name_roles_line = retail_name_roles_prompt_line(
+            task,
+            language=request["language"],
+            domain=request["domain"],
+            task_set_name=request["task_set_name"],
+        )
+        if name_roles_line:
+            task = task.model_copy(deep=True)
+            instructions = task.user_scenario.instructions
+            if isinstance(instructions, str):
+                task.user_scenario.instructions = (
+                    f"{instructions}\n\n{name_roles_line}"
+                )
+            else:
+                instructions.task_instructions = (
+                    f"{instructions.task_instructions or ''}\n\n{name_roles_line}"
+                ).strip()
     persona_id = resolve_task_persona(
         request["persona_override"],
         task_id=task.id,
@@ -331,13 +359,25 @@ for request in requests:
     user.prompt_language = "english"
     if CallDirection is not None:
         user.call_direction = CallDirection.INBOUND
+    if request["target_language_directive_version"] is not None:
+        user.target_language_directive_version = request[
+            "target_language_directive_version"
+        ]
 
     agent.domain_policy = request["policy"]
     agent.language = request["language"]
-    agent.locale = persona.locale
+    agent.locale = (
+        persona.locale if request["agent_caller_locale_context"] else None
+    )
     # Harmless on revisions predating the native-script arm; required on the
     # two frozen retail-ablation revisions that read this attribute.
     agent.native_script_db = request["task"]["id"].endswith("_identity_native")
+    # These fields were introduced after the original snapshot exporter. They
+    # are harmless attributes on older revisions and required by the corrected
+    # retail revisions' prompt builder.
+    agent.spell_protocol_guidance = True
+    if request["disclose_voice_gender"] is not None:
+        agent.disclose_voice_gender = request["disclose_voice_gender"]
     agent_prompt = (
         agent.system_prompt
         if request["cohort"] == "text"
@@ -383,6 +423,7 @@ def _render_historical_prompts(
                 f"--output={archive}",
                 commit,
                 "src/tau2",
+                "data/tau2/domains/retail",
                 "data/tau2/multilingual",
                 "data/tau2/user_simulator",
             ],
@@ -468,12 +509,31 @@ def _prompt_requests_for_cell(
             policy=str(info["environment_info"]["policy"]),
             user_guidelines=str(info["user_info"]["global_simulation_guidelines"]),
             task=task_by_id[task_id],
+            task_set_name=(
+                str(info["task_set_name"])
+                if info.get("task_set_name") is not None
+                else None
+            ),
             # Early result schemas did not record this field even though the
             # task set and task logs show the language override. Every paper
             # cell is a registered language-pack run, so its cell language is
             # the exact runtime fallback for those files.
             persona_override=str(info.get("user_persona_id") or spec.language),
             run_seed=int(info["seed"]),
+            target_language_directive_version=(
+                str(info["target_language_directive_version"])
+                if info.get("target_language_directive_version") is not None
+                else None
+            ),
+            agent_caller_locale_context=bool(
+                info.get("agent_caller_locale_context", True)
+            ),
+            disclose_voice_gender=(
+                bool(audio_config["disclose_voice_gender"])
+                if isinstance(audio_config, dict)
+                and audio_config.get("disclose_voice_gender") is not None
+                else None
+            ),
         )
         key = _historical_request_key(request)
         request = request.model_copy(update={"key": key})

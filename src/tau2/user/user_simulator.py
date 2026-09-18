@@ -1,9 +1,10 @@
 import re
-from typing import Generic, Optional, Tuple, TypeVar
+from typing import Generic, Literal, Optional, Tuple, TypeVar
 
 from loguru import logger
 
 from tau2.agent.base.llm_config import LLMConfigMixin
+from tau2.config import DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION
 from tau2.data_model.message import (
     AssistantMessage,
     Message,
@@ -280,6 +281,8 @@ def get_target_language(persona_config: Optional[PersonaConfig]) -> Optional[str
 
 def get_target_language_directive(
     persona_config: Optional[PersonaConfig],
+    *,
+    version: Literal["v1", "v2", "v3"] = DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION,
 ) -> Optional[str]:
     """The speak-the-target-language directive for this sim, or None.
 
@@ -291,9 +294,9 @@ def get_target_language_directive(
     including the English language pack's — get None: their prompts need no
     directive.
 
-    The directive (template v3+) names the speaker's origin and variety, so
-    the persona's own ``locale`` parameterizes the render — the same resolved
-    persona whose clauses elaborate that variety further down the prompt.
+    The current directive (template v3) names the speaker's origin and variety,
+    so the persona's own ``locale`` parameterizes the render. Reproduction
+    runs can select the retained historical v1/v2 text explicitly.
     """
     language = get_target_language(persona_config)
     if language is None:
@@ -301,7 +304,9 @@ def get_target_language_directive(
     from tau2.multilingual.english_prompts import render_target_language_directive
 
     return render_target_language_directive(
-        language, getattr(persona_config, "locale", None)
+        language,
+        getattr(persona_config, "locale", None),
+        version=version,
     )
 
 
@@ -333,6 +338,9 @@ class UserSimulator(
         domain: Optional[str] = None,
         input_style_directive: Optional[str] = None,
         entity_noise=None,
+        target_language_directive_version: Literal[
+            "v1", "v2", "v3"
+        ] = DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION,
     ):
         super().__init__(
             instructions=instructions,
@@ -341,6 +349,7 @@ class UserSimulator(
             llm_args=llm_args,
         )
         self.persona_config = persona_config or PersonaConfig()
+        self.target_language_directive_version = target_language_directive_version
         # The run's benchmark domain; selects which of a language pack's
         # per-domain glossaries renders into the localization section. None
         # (non-multilingual runs) renders no glossary.
@@ -392,7 +401,10 @@ class UserSimulator(
         # language) rides directly below it, because it supersedes the
         # directive's native-orthography bullet and must be read with it.
         directive_blocks = [
-            get_target_language_directive(self.persona_config),
+            get_target_language_directive(
+                self.persona_config,
+                version=self.target_language_directive_version,
+            ),
             self.input_style_directive,
         ]
         if self.entity_noise is not None:

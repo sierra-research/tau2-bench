@@ -378,6 +378,9 @@ def get_info(config: RunConfig, **overrides) -> Info:
         environment_info=environment_info,
         task_set_name=config.task_set_name,
         user_persona_id=config.user_persona_id,
+        target_language_directive_version=config.target_language_directive_version,
+        agent_caller_locale_context=config.agent_caller_locale_context,
+        retail_name_roles_prompt_version=config.retail_name_roles_prompt_version,
         text_input_style=getattr(config, "text_input_style", None),
         text_noise=getattr(config, "text_noise", None),
         communicate_judge_mode=config.communicate_judge_mode,
@@ -386,6 +389,9 @@ def get_info(config: RunConfig, **overrides) -> Info:
         channel_effects_mode=getattr(config, "channel_effects_mode", None),
         speech_effects_mode=getattr(config, "speech_effects_mode", None),
         audio_native_config=getattr(config, "audio_native_config", None),
+        gemini_live_explicit_language_code=getattr(
+            config, "gemini_live_explicit_language_code", None
+        ),
         retrieval_config=getattr(config, "retrieval_config", None),
         retrieval_config_kwargs=getattr(config, "retrieval_config_kwargs", None),
         task_subset=subset_info,

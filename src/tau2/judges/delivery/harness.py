@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Callable, Optional
 
 from loguru import logger
 
+from tau2.config import DELIVERY_FIDELITY_FINDING_FILTER_VERSION
 from tau2.data_model.simulation import (
     DeliveryAxis,
     DeliveryFactorCheck,
@@ -47,6 +48,10 @@ from tau2.metrics.interaction_quality import (
 
 if TYPE_CHECKING:
     from tau2.data_model.message import Message
+
+
+class DeliveryResumeMismatch(RuntimeError):
+    """Stored delivery slots cannot be safely reused for the current judge run."""
 
 
 def _sample_value(key: str) -> float:
@@ -148,6 +153,79 @@ def _aggregate_factor_checks(
     return checks
 
 
+def _reusable_delivery_results(
+    previous: DeliveryInfo,
+    selected: list[tuple[int, str, str, bool]],
+    *,
+    rubric_source: str,
+    language: Optional[str],
+    locale: Optional[str],
+    settings: DeliveryJudgeSettings,
+    seed: int,
+) -> dict[int, DeliveryUtteranceResult]:
+    """Validate a stored partial result and return its usable utterance slots.
+
+    A partial delivery result is resumable only when both the judge provenance
+    and the deterministic utterance selection are byte-for-byte equivalent to
+    the current run. Any drift fails closed: silently mixing verdicts from
+    different prompts, rubrics, audio selections, or interruption labels would
+    make the recomputed aggregate uninterpretable.
+    """
+    expected_provenance = {
+        "rubric_source": rubric_source,
+        "language": language.lower() if language else None,
+        "locale": locale,
+        "judge_model": settings.model,
+        "judge_args": dict(settings.model_args),
+        "judge_prompt_version": DELIVERY_JUDGE_PROMPT_VERSION,
+        "finding_filter_version": DELIVERY_FIDELITY_FINDING_FILTER_VERSION,
+        "fidelity_end_exclusion_seconds": settings.fidelity_end_exclusion_seconds,
+        "sample_rate": settings.sample_rate,
+        "max_segments": settings.max_segments,
+        "seed": seed,
+    }
+    mismatched = [
+        name
+        for name, expected in expected_provenance.items()
+        if getattr(previous, name) != expected
+    ]
+    if mismatched:
+        raise DeliveryResumeMismatch(
+            "stored delivery provenance differs for: " + ", ".join(mismatched)
+        )
+
+    if previous.num_judged != len(previous.utterance_results):
+        raise DeliveryResumeMismatch(
+            "stored delivery num_judged does not match utterance_results"
+        )
+    stored_errors = sum(
+        result.outcome == JudgeOutcome.ERROR for result in previous.utterance_results
+    )
+    if previous.num_errors != stored_errors:
+        raise DeliveryResumeMismatch(
+            "stored delivery num_errors does not match ERROR utterance_results"
+        )
+
+    expected_identity = [
+        (idx, reference[:200] or None, interrupted)
+        for idx, _wav_b64, reference, interrupted in selected
+    ]
+    stored_identity = [
+        (result.utterance_idx, result.expected_text, result.was_interrupted)
+        for result in previous.utterance_results
+    ]
+    if stored_identity != expected_identity:
+        raise DeliveryResumeMismatch(
+            "stored delivery utterance selection differs from current audio/text"
+        )
+
+    return {
+        result.utterance_idx: result
+        for result in previous.utterance_results
+        if result.outcome != JudgeOutcome.ERROR
+    }
+
+
 # Control token the full-duplex agent appends on transfer_to_human — part of
 # the stored message content but never synthesized, so it must not reach the
 # judge as expected speech.
@@ -209,6 +287,7 @@ def evaluate_delivery(
     settings: Optional[DeliveryJudgeSettings] = None,
     seed: int = 0,
     wav_source: Optional[Callable[[int, "Message"], Optional[str]]] = None,
+    resume_from: Optional[DeliveryInfo] = None,
 ) -> Optional[DeliveryInfo]:
     """Score one voice simulation's audio delivery, or None if not applicable.
 
@@ -304,6 +383,18 @@ def evaluate_delivery(
     # the same rubric; its source is stamped onto DeliveryInfo as provenance.
     rubric = build_delivery_rubric(language, locale)
 
+    reusable: dict[int, DeliveryUtteranceResult] = {}
+    if resume_from is not None:
+        reusable = _reusable_delivery_results(
+            resume_from,
+            selected,
+            rubric_source=rubric.source,
+            language=language,
+            locale=locale,
+            settings=settings,
+            seed=seed,
+        )
+
     def _judge_one(item: tuple[int, str, str, bool]) -> DeliveryUtteranceResult:
         idx, wav_b64, reference, interrupted = item
         try:
@@ -315,6 +406,9 @@ def evaluate_delivery(
                 was_interrupted=interrupted,
                 model=settings.model,
                 model_args=settings.model_args,
+                fidelity_end_exclusion_seconds=(
+                    settings.fidelity_end_exclusion_seconds
+                ),
             )
         except Exception as exc:  # noqa: BLE001 - record, never abort the batch
             logger.warning(
@@ -329,8 +423,18 @@ def evaluate_delivery(
                 summary=str(exc),
             )
 
-    # ordered_map preserves input order → results stay sorted by utterance idx.
-    results = ordered_map(_judge_one, selected, settings.concurrency)
+    # Judge only ERROR gaps from a provenance-identical prior result. Reused
+    # results remain the original typed objects; the final list is rebuilt in
+    # the current deterministic selection order before aggregates are recomputed.
+    pending = [item for item in selected if item[0] not in reusable]
+    fresh = ordered_map(_judge_one, pending, settings.concurrency)
+    by_idx = {**reusable, **{result.utterance_idx: result for result in fresh}}
+    results = [by_idx[item[0]] for item in selected]
+    if resume_from is not None:
+        logger.info(
+            f"delivery: sim {simulation.id} resumed {len(reusable)} stored "
+            f"utterances and judged {len(pending)} ERROR gaps"
+        )
 
     if n_capped:
         logger.info(
@@ -370,6 +474,13 @@ def evaluate_delivery(
         judge_model=settings.model if judge_ran else None,
         judge_args=dict(settings.model_args) if judge_ran else None,
         judge_prompt_version=DELIVERY_JUDGE_PROMPT_VERSION if judge_ran else None,
+        finding_filter_version=(
+            DELIVERY_FIDELITY_FINDING_FILTER_VERSION if judge_ran else None
+        ),
+        fidelity_end_exclusion_seconds=(
+            settings.fidelity_end_exclusion_seconds if judge_ran else None
+        ),
+        num_findings_excluded=sum(len(result.excluded_findings) for result in results),
         sample_rate=sample_rate,
         max_segments=settings.max_segments,
         seed=seed,
