@@ -359,6 +359,53 @@ class TestCheckpointDirFormat:
         assert len(sim_files) == 1
         assert sim_files[0].name == "sim-replacement.json"
 
+    @pytest.mark.parametrize("failure_stage", ["mkstemp", "serialize", "replace"])
+    @pytest.mark.parametrize("reuse_id", [False, True])
+    def test_failed_replacement_preserves_checkpoint(
+        self, tmp_path, monkeypatch, failure_stage, reuse_id
+    ):
+        """A failed trajectory write must preserve the previous checkpoint."""
+        save_path = tmp_path / "results.json"
+        results = Results(info=_make_info(), tasks=[_make_task("t0")], simulations=[])
+        results.save(save_path, format="dir")
+        save_fn, replace_fn = create_checkpoint_fns(save_path, multiprocessing.Lock())
+        original = _make_sim("t0")
+        save_fn(original)
+        replacement = original.model_copy(
+            update={"id": original.id if reuse_id else "replacement", "duration": 120.0}
+        )
+        original_metadata = save_path.read_bytes()
+        sims_dir = tmp_path / SIMULATIONS_DIR
+        original_path = sims_dir / f"{original.id}.json"
+        original_bytes = original_path.read_bytes()
+
+        def fail(*args, **kwargs):
+            raise OSError("injected checkpoint write failure")
+
+        targets = {
+            "mkstemp": "tau2.runner.checkpoint.tempfile.mkstemp",
+            "serialize": "tau2.data_model.simulation.SimulationRun.model_dump_json",
+            "replace": "tau2.runner.checkpoint.os.replace",
+        }
+        with monkeypatch.context() as patch:
+            patch.setattr(targets[failure_stage], fail)
+            with pytest.raises(OSError, match="injected checkpoint write failure"):
+                replace_fn((0, "t0", 42), replacement)
+
+        assert original_path.read_bytes() == original_bytes
+        assert save_path.read_bytes() == original_metadata
+        assert list(sims_dir.iterdir()) == [original_path]
+        assert Results.load(save_path).simulations == [original]
+
+        # A later retry must still replace the original, without duplicate files.
+        replace_fn((0, "t0", 42), replacement)
+        assert Results.load(save_path).simulations == [replacement]
+        assert len(list(sims_dir.iterdir())) == 1
+        metadata = json.loads(save_path.read_text())
+        assert [entry["id"] for entry in metadata["simulation_index"]] == [
+            replacement.id
+        ]
+
     def test_try_resume_dir_format_removes_infra_errors(self, tmp_path):
         save_path = tmp_path / "results.json"
         tasks = [_make_task("t0"), _make_task("t1")]
