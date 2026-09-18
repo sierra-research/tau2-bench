@@ -1,0 +1,46 @@
+{
+  "model_name": "Qwen3.8-27B",
+  "model_organization": "Alibaba",
+  "submitting_organization": "Hopper",
+  "submission_date": "2026-08-16",
+  "submission_type": "standard",
+  "modality": "text",
+  "reasoning_effort": "none",
+  "contact_info": {
+    "email": "pavan@withhopper.com",
+    "name": "Pavan Katta",
+    "github": "pavanyellow"
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "telecom": "qwen3.8-27b_none_telecom_gpt-5.2_4trials.json"
+  },
+  "references": [
+    {
+      "title": "Hopper — fast inference for voice agents",
+      "url": "https://withhopper.com",
+      "type": "other"
+    }
+  ],
+  "results": {
+    "telecom": {
+      "pass_1": 72.58771929824562,
+      "pass_2": 55.84795321637427,
+      "pass_3": 45.83333333333333,
+      "pass_4": 39.473684210526315,
+      "cost": null
+    }
+  },
+  "methodology": {
+    "evaluation_date": "2026-08-16",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "gpt-5.2",
+    "notes": "Non-thinking condition: agent reasoning DISABLED (reasoning: {enabled: false}, i.e. enable_thinking=false) and verified per-request. Agent: qwen/qwen3.8-27b served via OpenRouter pinned to AkashML (bf16) with allow_fallbacks: false and require_parameters: true; temperature 0. User simulator: gpt-5.2 with reasoning_effort: low. 4 trials, seed 300, max-steps 200, max-errors 10 (defaults). All 456 simulations completed; zero infrastructure errors. Transparency note: in 1 of 456 simulations the model spontaneously produced <think> content despite disabled thinking (hybrid-model soft-switch leak); reported metrics here are computed natively over ALL 456 trajectories for verifiability. Excluding that one simulation changes pass^1 to 72.44 and pass^4 to 39.82. We evaluate the non-thinking condition because our focus is voice agents, where reasoning latency is not viable in production.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "Standard tau2-bench scaffold, default prompts, all tasks on the base split. One infrastructure-only local change: raised the hardcoded httpx connection-pool limit in llm_utils.py to support high --max-concurrency (no effect on prompts, tasks, or scoring)."
+    }
+  }
+}
