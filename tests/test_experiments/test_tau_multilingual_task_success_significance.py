@@ -135,3 +135,24 @@ def test_task_success_cli_owns_the_typed_reproduction_verb():
     assert args.func.__name__ == "run_multilingual_task_success"
     assert args.permutations == 100_000
     assert args.bootstrap_resamples == 10_000
+
+
+def test_experience_cli_accepts_a_detached_evidence_root():
+    parser = ArgumentParser()
+    add_paper_args(parser)
+    args = parser.parse_args(
+        [
+            "multilingual-experience",
+            "--repo-root",
+            "/tmp/reviewer-repository",
+            "--evidence-root",
+            "/tmp/tau-multi",
+            "--naturalness-sidecar",
+            "/tmp/tau-multi/judge_outputs/utterance_naturalness_v16_trial0",
+            "--out",
+            "/tmp/experience.json",
+        ]
+    )
+
+    assert args.func.__name__ == "run_multilingual_experience"
+    assert args.evidence_root == Path("/tmp/tau-multi")

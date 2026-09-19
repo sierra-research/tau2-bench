@@ -31,7 +31,8 @@ tau2 paper multilingual-listening-sample \
 
 tau2 paper multilingual-experience \
   --repo-root /path/to/reviewer-repository \
-  --naturalness-sidecar data/simulations/paper_runs/tau-multi/judge_outputs/utterance_naturalness_v16_trial0 \
+  --evidence-root /path/to/tau-multi \
+  --naturalness-sidecar /path/to/tau-multi/judge_outputs/utterance_naturalness_v16_trial0 \
   --out data/analysis/tau_multilingual_experience_without_fluency_2026-09-18.json
 
 tau2 paper multilingual-task-success \

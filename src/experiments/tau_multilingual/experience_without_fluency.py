@@ -40,6 +40,7 @@ from tau2.judges.nativeness.factors import (
     judge_factors_for,
 )
 from tau2.judges.nativeness.paper_trial import (
+    CANONICAL_EVIDENCE_PREFIX,
     CANONICAL_EXPERIENCE_PATH,
     ExperienceSource,
     TrialRunManifest,
@@ -1522,18 +1523,23 @@ def _load_naturalness_sidecar(path: Path) -> NaturalnessSidecarInput:
     )
 
 
-def _sidecar_provenance_path(root: Path, repo_root: Path) -> str:
-    """Prefer a portable repository-relative path when the sidecar is local."""
+def _evidence_provenance_path(path: Path, evidence_root: Path) -> str:
+    """Map a detached evidence path into the canonical logical namespace."""
+    resolved_root = evidence_root.expanduser().resolve()
+    resolved_path = path.expanduser().resolve()
     try:
-        return root.relative_to(repo_root.resolve()).as_posix()
-    except ValueError:
-        return str(root)
+        relative = resolved_path.relative_to(resolved_root)
+    except ValueError as exc:
+        raise ValueError(
+            f"Evidence path is outside the tau-multi root: {resolved_path}"
+        ) from exc
+    return (CANONICAL_EVIDENCE_PREFIX / relative).as_posix()
 
 
 def _validate_sidecar_cohort(
     sidecar: NaturalnessSidecarInput,
     *,
-    repo_root: Path,
+    evidence_root: Path,
     sources: list[dict[str, Any]],
     selected_sources: list[TrialSourceIdentity],
     used_calls: set[tuple[str, str]],
@@ -1591,7 +1597,7 @@ def _validate_sidecar_cohort(
     if len(prompt_versions) != 1 or len(rubric_versions) != 1:
         raise ValueError("naturalness sidecar judge versions differ across languages")
     return NaturalnessSidecarProvenance(
-        path=_sidecar_provenance_path(sidecar.root, repo_root),
+        path=_evidence_provenance_path(sidecar.root, evidence_root),
         manifest_sha256=sidecar.manifest_sha256,
         identity_sha256=sidecar.manifest.identity_sha256,
         work_fingerprint_sha256=identity.work_fingerprint_sha256,
@@ -1759,10 +1765,11 @@ def _validate_fidelity_manifest_cohort(
 
 def _load_calls(
     repo_root: Path,
+    evidence_root: Path,
     *,
     naturalness_sidecar: Path,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    root = repo_root / "data/simulations/paper_runs/tau-multi/main_runs"
+    root = evidence_root / "main_runs"
     sidecar = _load_naturalness_sidecar(naturalness_sidecar)
     sidecar_calls = {
         (call.source_results_path, call.simulation_id): call for call in sidecar.calls
@@ -1794,7 +1801,7 @@ def _load_calls(
                 rows = [row for row in results["simulation_index"] if row["trial"] == 0]
                 if len(rows) != 50:
                     raise ValueError(f"Expected 50 trial-0 rows in {results_path}")
-                source_path = results_path.relative_to(repo_root).as_posix()
+                source_path = _evidence_provenance_path(results_path, evidence_root)
                 source_sha256 = _sha256(results_path)
                 sources.append(
                     {
@@ -2106,7 +2113,7 @@ def _load_calls(
     }
     provenance["naturalness_sidecar"] = _validate_sidecar_cohort(
         sidecar,
-        repo_root=repo_root,
+        evidence_root=evidence_root,
         sources=sources,
         selected_sources=expected_sidecar_sources,
         used_calls=used_sidecar_calls,
@@ -2252,11 +2259,16 @@ def _summaries(calls: list[dict[str, Any]]) -> dict[str, Any]:
 
 def analyze(
     repo_root: Path,
+    evidence_root: Path,
     *,
     seed: int = 42,
     naturalness_sidecar: Path,
 ) -> UtteranceExperienceArtifact:
-    calls, provenance = _load_calls(repo_root, naturalness_sidecar=naturalness_sidecar)
+    calls, provenance = _load_calls(
+        repo_root,
+        evidence_root,
+        naturalness_sidecar=naturalness_sidecar,
+    )
     num_permutations = 100_000
     by_cluster_system: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(
         list
@@ -2477,13 +2489,18 @@ def analyze(
 
 def write_analysis(
     repo_root: Path,
+    evidence_root: Path,
     output: Path,
     *,
     naturalness_sidecar: Path,
 ) -> UtteranceExperienceArtifact:
     """Recompute and write the typed Experience artifact."""
     resolved_root = repo_root.resolve()
-    result = analyze(resolved_root, naturalness_sidecar=naturalness_sidecar)
+    result = analyze(
+        resolved_root,
+        evidence_root.expanduser().resolve(),
+        naturalness_sidecar=naturalness_sidecar,
+    )
     target = output if output.is_absolute() else resolved_root / output
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(result.model_dump_json(indent=2) + "\n")
@@ -2493,6 +2510,7 @@ def write_analysis(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    parser.add_argument("--evidence-root", type=Path, required=True)
     parser.add_argument("--output", type=Path)
     parser.add_argument(
         "--naturalness-sidecar",
@@ -2506,7 +2524,9 @@ def main() -> None:
     )
     args = parser.parse_args()
     result = analyze(
-        args.repo_root.resolve(), naturalness_sidecar=args.naturalness_sidecar
+        args.repo_root.resolve(),
+        args.evidence_root.expanduser().resolve(),
+        naturalness_sidecar=args.naturalness_sidecar,
     )
     rendered = result.model_dump_json(indent=2) + "\n"
     if args.output:

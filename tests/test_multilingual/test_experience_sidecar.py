@@ -16,6 +16,7 @@ from experiments.tau_multilingual.experience_without_fluency import (
     NaturalnessUtteranceVerdict,
     _aggregate,
     _call_level_interaction_components,
+    _evidence_provenance_path,
     _interaction_pass_from_stats,
     _interaction_sufficient_stats,
     _load_naturalness_sidecar,
@@ -493,7 +494,7 @@ def test_sidecar_loads_and_matches_exact_cohort(tmp_path):
     sidecar = _load_naturalness_sidecar(root)
     provenance = _validate_sidecar_cohort(
         sidecar,
-        repo_root=tmp_path,
+        evidence_root=tmp_path,
         sources=[experience_source.model_dump(mode="json")],
         selected_sources=[source],
         used_calls={(source.results_path, "sim-1")},
@@ -547,7 +548,7 @@ def test_sidecar_rejects_extra_or_missing_call(tmp_path, used_calls):
     with pytest.raises(ValueError, match="call inventory drifted"):
         _validate_sidecar_cohort(
             sidecar,
-            repo_root=tmp_path,
+            evidence_root=tmp_path,
             sources=[experience_source.model_dump(mode="json")],
             selected_sources=[source],
             used_calls=used_calls,
@@ -582,7 +583,7 @@ def test_sidecar_rejects_source_drift_and_error_status(tmp_path):
     with pytest.raises(ValueError, match="all-source identity drifted"):
         _validate_sidecar_cohort(
             sidecar,
-            repo_root=tmp_path,
+            evidence_root=tmp_path,
             sources=[drifted_source.model_dump(mode="json")],
             selected_sources=[source],
             used_calls={(source.results_path, "sim-1")},
@@ -608,7 +609,7 @@ def test_sidecar_rejects_nonfrozen_judge_and_work_identity(tmp_path):
     root, experience_source, source, _simulation = _write_sidecar(tmp_path)
     sidecar = _load_naturalness_sidecar(root)
     common = {
-        "repo_root": tmp_path,
+        "evidence_root": tmp_path,
         "sources": [experience_source.model_dump(mode="json")],
         "selected_sources": [source],
         "used_calls": {(source.results_path, "sim-1")},
@@ -645,3 +646,22 @@ def test_sidecar_rejects_nonfrozen_judge_and_work_identity(tmp_path):
     )
     with pytest.raises(ValueError, match="work fingerprint drifted"):
         _validate_sidecar_cohort(wrong_sidecar, **common)
+
+
+def test_detached_evidence_paths_use_the_canonical_namespace(tmp_path):
+    evidence_root = tmp_path / "mounted-anywhere"
+    results = evidence_root / "main_runs/example/results.json"
+    sidecar = evidence_root / "judge_outputs/utterance_naturalness_v16_trial0"
+
+    assert _evidence_provenance_path(results, evidence_root) == (
+        "data/simulations/paper_runs/tau-multi/main_runs/example/results.json"
+    )
+    assert _evidence_provenance_path(sidecar, evidence_root) == (
+        "data/simulations/paper_runs/tau-multi/judge_outputs/"
+        "utterance_naturalness_v16_trial0"
+    )
+
+
+def test_detached_evidence_paths_reject_files_outside_root(tmp_path):
+    with pytest.raises(ValueError, match="outside the tau-multi root"):
+        _evidence_provenance_path(tmp_path / "outside", tmp_path / "evidence")

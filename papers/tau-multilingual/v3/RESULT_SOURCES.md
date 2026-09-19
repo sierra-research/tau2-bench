@@ -68,7 +68,8 @@ tau2 judges tau-multi-validation \
 # Rebuild Interaction, call duration, utterance Experience, and significance.
 tau2 paper multilingual-experience \
   --repo-root /path/to/tau2-bench \
-  --naturalness-sidecar data/simulations/paper_runs/tau-multi/judge_outputs/utterance_naturalness_v16_trial0 \
+  --evidence-root /path/to/tau-multi \
+  --naturalness-sidecar /path/to/tau-multi/judge_outputs/utterance_naturalness_v16_trial0 \
   --out data/analysis/tau_multilingual_experience_without_fluency_2026-09-18.json
 
 # Rebuild task-success significance and trial stability from the active cohort.

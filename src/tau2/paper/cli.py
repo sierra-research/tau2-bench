@@ -103,7 +103,13 @@ def add_paper_args(parser: argparse.ArgumentParser) -> None:
         "--repo-root",
         type=Path,
         default=Path.cwd(),
-        help="Repository containing the frozen cohort and final analysis inputs",
+        help="Repository containing code-owned final analysis inputs",
+    )
+    experience.add_argument(
+        "--evidence-root",
+        type=Path,
+        required=True,
+        help="Detached tau-multi evidence root containing main_runs",
     )
     experience.add_argument(
         "--naturalness-sidecar",
@@ -274,6 +280,7 @@ def run_multilingual_experience(args) -> None:
 
     write_analysis(
         args.repo_root,
+        args.evidence_root,
         args.out,
         naturalness_sidecar=args.naturalness_sidecar,
     )

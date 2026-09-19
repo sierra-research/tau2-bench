@@ -36,6 +36,8 @@ margins, and column geometry remain those of the author kit.
 
 ## Build
 
+Requires a TeX installation that provides `pdflatex` and BibTeX.
+
 Run:
 
 ```bash
