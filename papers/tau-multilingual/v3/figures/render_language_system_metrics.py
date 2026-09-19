@@ -41,7 +41,7 @@ ANALYSIS_PATH = (
     REPO_ROOT
     / "data/analysis/tau_multilingual_experience_without_fluency_2026-09-18.json"
 )
-LATENCY_PATH = REPO_ROOT / "papers/tau-multilingual/reproduction/experience.json"
+LATENCY_PATH = REPO_ROOT / "papers/tau-multilingual/reproduction/latency.json"
 
 
 class RenderConfig(BaseModel):

@@ -178,6 +178,7 @@ def test_default_config_uses_checked_in_frozen_artifacts(renderer: ModuleType) -
     assert config.task_success_artifact == renderer.TASK_SUCCESS_PATH
     assert config.experience_artifact == renderer.ANALYSIS_PATH
     assert config.latency_artifact == renderer.LATENCY_PATH
+    assert config.latency_artifact.name == "latency.json"
 
 
 def test_main_routes_explicit_inputs_to_selected_output_dir(
