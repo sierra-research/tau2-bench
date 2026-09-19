@@ -1,14 +1,17 @@
+import json
+
 import pytest
 
 from tau2.data_model.message import (
     AssistantMessage,
     Message,
     SystemMessage,
+    ToolCall,
     ToolMessage,
     UserMessage,
 )
 from tau2.environment.tool import Tool, as_tool
-from tau2.utils.llm_utils import generate
+from tau2.utils.llm_utils import generate, to_litellm_messages
 
 
 @pytest.fixture
@@ -49,6 +52,36 @@ def tool_call_messages() -> list[Message]:
         ),
     ]
     return messages
+
+
+def test_to_litellm_messages_tool_call_is_openai_compliant():
+    """Assistant tool_calls must match the OpenAI chat-completion schema.
+
+    A tool_call object only allows ``id``, ``type`` and ``function`` (which holds
+    ``name`` and ``arguments``). The previous conversion also emitted a top-level
+    ``name`` key, which is not part of the spec and trips strict validators in
+    downstream consumers that parse these messages with the OpenAI SDK.
+    """
+    message = AssistantMessage(
+        role="assistant",
+        content=None,
+        tool_calls=[
+            ToolCall(id="call_1", name="get_weather", arguments={"city": "Paris"})
+        ],
+    )
+
+    litellm_messages = to_litellm_messages([message])
+
+    tool_calls = litellm_messages[0]["tool_calls"]
+    assert len(tool_calls) == 1
+    tool_call = tool_calls[0]
+    assert set(tool_call.keys()) == {"id", "function", "type"}
+    assert tool_call["id"] == "call_1"
+    assert tool_call["type"] == "function"
+    assert tool_call["function"] == {
+        "name": "get_weather",
+        "arguments": json.dumps({"city": "Paris"}),
+    }
 
 
 def test_generate_no_tool_call(model: str, messages: list[Message]):
