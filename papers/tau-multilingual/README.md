@@ -122,9 +122,11 @@ tau2 judges tau-multi-naturalness run \
   --max-concurrency 100
 ```
 
-The active canonical replay is rooted at
-`data/simulations/paper_runs/tau-multi/judge_outputs/utterance_naturalness_v16_trial0/`;
-its portable manifest, rebind receipt, and hybrid summary are mirrored under
+Within the detached evidence bundle, the active canonical replay is rooted at
+`judge_outputs/utterance_naturalness_v16_trial0/` and is recorded under the
+logical repository namespace
+`data/simulations/paper_runs/tau-multi/judge_outputs/utterance_naturalness_v16_trial0/`.
+Its portable manifest, rebind receipt, and hybrid summary are mirrored under
 `reproduction/judges/utterance_naturalness_v16_trial0/`.
 
 The human-validation cohort intentionally remains the frozen original
