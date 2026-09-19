@@ -283,6 +283,17 @@ def add_judges_args(parser: argparse.ArgumentParser) -> None:
         type=Path,
         help="Detached frozen tau-multi result bundle (contains main_runs/)",
     )
+    paper_prepare.add_argument(
+        "--experience",
+        type=Path,
+        default=Path(
+            "data/analysis/tau_multilingual_experience_without_fluency_2026-09-18.json"
+        ),
+        help=(
+            "Repository-relative Experience cohort artifact (defaults to the "
+            "corrected active analysis)"
+        ),
+    )
     paper_prepare.set_defaults(func=prepare_tau_multi_naturalness_trial)
 
     paper_run = paper_naturalness_sub.add_parser(
@@ -300,6 +311,17 @@ def add_judges_args(parser: argparse.ArgumentParser) -> None:
         "--evidence-root",
         type=Path,
         help="Detached frozen tau-multi result bundle (contains main_runs/)",
+    )
+    paper_run.add_argument(
+        "--experience",
+        type=Path,
+        default=Path(
+            "data/analysis/tau_multilingual_experience_without_fluency_2026-09-18.json"
+        ),
+        help=(
+            "Repository-relative Experience cohort artifact (defaults to the "
+            "corrected active analysis)"
+        ),
     )
     paper_run.add_argument(
         "--out",
@@ -953,6 +975,7 @@ def run_tau_multi_naturalness_trial(args) -> None:
     manifest = run_trial0_naturalness(
         TrialRunConfig(
             repo_root=args.repo_root,
+            experience_path=args.experience,
             evidence_root=args.evidence_root,
             output_root=args.out,
             max_concurrency=args.max_concurrency,
@@ -1364,7 +1387,9 @@ def prepare_tau_multi_naturalness_trial(args) -> None:
     from tau2.judges.nativeness.paper_trial import prepare_trial0_naturalness
 
     report = prepare_trial0_naturalness(
-        args.repo_root, evidence_root=args.evidence_root
+        args.repo_root,
+        evidence_root=args.evidence_root,
+        experience_path=args.experience,
     )
     print(report.model_dump_json(indent=2))
 

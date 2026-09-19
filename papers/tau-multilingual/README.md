@@ -34,10 +34,27 @@ tau2 paper multilingual-experience \
   --naturalness-sidecar data/simulations/paper_runs/tau-multi/judge_outputs/utterance_naturalness_v16_trial0 \
   --out data/analysis/tau_multilingual_experience_without_fluency_2026-09-18.json
 
+tau2 paper multilingual-task-success \
+  --evidence-root /path/to/tau-multi \
+  --out data/analysis/tau_multilingual_task_success_significance_2026-09-18.json
+
+tau2 paper multilingual-latency \
+  --evidence-root /path/to/tau-multi \
+  --audit papers/tau-multilingual/reproduction/audit.json \
+  --previous-experience papers/tau-multilingual/reproduction/validation_runs/pre-retail-name-role-v1/experience.json \
+  --out papers/tau-multilingual/reproduction/latency.json
+
 tau2 paper multilingual-ablation-transcripts \
   --evidence-root /path/to/tau-multi \
   --out papers/tau-multilingual/reproduction/retail_ablation_transcripts
 ```
+
+Task-success provenance uses the canonical logical
+`data/simulations/paper_runs/tau-multi/` namespace, so the JSON and its source
+fingerprint are identical regardless of where the detached bundle is mounted.
+The latency replay additionally requires the bundle's archived pre-correction
+results under `validation_runs/ko/` and `validation_runs/zh/`; these are inputs
+to the historical comparison, not active benchmark cells.
 
 The ablation export contains the delivered caller/agent transcript and task
 outcome for all 360 unique calls supporting the Hindi and Mandarin retail
@@ -83,13 +100,14 @@ tau2 judges tau-multi-validation \
 
 The complete human-annotation command above verifies the combined-naturalness
 labels, predictions, metrics, and prompt provenance. Before a paper replay,
-preflight the exact non-English trial-0 cohort selected by the historical
-bootstrap `reproduction/experience.json`:
+preflight the corrected active non-English trial-0 cohort recorded by the
+current Experience analysis:
 
 ```bash
 tau2 judges tau-multi-naturalness prepare \
   --repo-root /path/to/reviewer-repository \
-  --evidence-root /path/to/tau-multi
+  --evidence-root /path/to/tau-multi \
+  --experience data/analysis/tau_multilingual_experience_without_fluency_2026-09-18.json
 ```
 
 Then run or resume the frozen combined judge into a separate sidecar directory:
@@ -98,6 +116,7 @@ Then run or resume the frozen combined judge into a separate sidecar directory:
 tau2 judges tau-multi-naturalness run \
   --repo-root /path/to/reviewer-repository \
   --evidence-root /path/to/tau-multi \
+  --experience data/analysis/tau_multilingual_experience_without_fluency_2026-09-18.json \
   --out /path/to/utterance-naturalness-v16-trial0 \
   --max-concurrency 100
 ```
@@ -106,6 +125,11 @@ The active canonical replay is rooted at
 `data/simulations/paper_runs/tau-multi/judge_outputs/utterance_naturalness_v16_trial0/`;
 its portable manifest, rebind receipt, and hybrid summary are mirrored under
 `reproduction/judges/utterance_naturalness_v16_trial0/`.
+
+The human-validation cohort intentionally remains the frozen original
+pre-correction cohort under
+`validation_runs/pre-retail-name-role-v1/human_annotations/validations/`; it
+validates the judge and is not substituted for the corrected execution cohort.
 
 The audit is offline and never modifies frozen results. Benchmark and judge
 reruns are separate, explicit operations.
@@ -134,3 +158,12 @@ tau2 run \
 See `v3/README.md` for manuscript build instructions and
 `v3/RESULT_SOURCES.md` for the evidence ledger. The completed release checks and
 their documented warnings are summarized in `reproduction/VERIFICATION.md`.
+
+The checked-in `uv.lock` is generated through Sierra's package mirror. Reviewers
+without mirror access can install the public dependencies from PyPI and override
+the manuscript Makefile's Python launcher:
+
+```bash
+python -m pip install -e '.[experiments]'
+make -C papers/tau-multilingual/v3 repro PYTHON=python
+```

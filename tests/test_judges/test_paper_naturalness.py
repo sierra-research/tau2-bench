@@ -16,6 +16,7 @@ from tau2.data_model.simulation import (
 )
 from tau2.data_model.voice import SpeechEnvironment
 from tau2.judges.nativeness.paper_trial import (
+    ACTIVE_EXPERIENCE_PATH,
     CANONICAL_EXPERIENCE_PATH,
     CANONICAL_VALIDATION_PATH,
     CohortContract,
@@ -309,6 +310,41 @@ def test_trial0_preflight_reads_detached_evidence_bundle(tmp_path):
     assert plan.selected_sources[0].language == "hi"
 
 
+def test_trial0_preflight_accepts_explicit_active_experience(tmp_path):
+    contract, _sources = _write_mini_cohort(tmp_path)
+    legacy_plan = prepare_trial_plan(tmp_path, contract=contract)
+    active = json.loads((tmp_path / CANONICAL_EXPERIENCE_PATH).read_text())
+    active["provenance"]["naturalness_sidecar"] = {
+        "path": "data/simulations/paper_runs/tau-multi/judge_outputs/sidecar",
+        "manifest_sha256": "a" * 64,
+        "identity_sha256": "b" * 64,
+        "work_fingerprint_sha256": _work_fingerprint(legacy_plan),
+        "calls": 1,
+        "factor_id": "natural_word_choice",
+        "prompt_version": "v16",
+        "rubric_version": "nativeness-rubric-v20",
+    }
+    active_path = tmp_path / ACTIVE_EXPERIENCE_PATH
+    active_path.parent.mkdir(parents=True)
+    active_path.write_text(json.dumps(active, indent=2))
+
+    plan = prepare_trial_plan(
+        tmp_path,
+        contract=contract,
+        experience_path=ACTIVE_EXPERIENCE_PATH,
+    )
+
+    assert plan.experience_path == ACTIVE_EXPERIENCE_PATH.as_posix()
+    active["provenance"]["naturalness_sidecar"]["work_fingerprint_sha256"] = "c" * 64
+    active_path.write_text(json.dumps(active, indent=2))
+    with pytest.raises(ValueError, match="naturalness work identity drifted"):
+        prepare_trial_plan(
+            tmp_path,
+            contract=contract,
+            experience_path=ACTIVE_EXPERIENCE_PATH,
+        )
+
+
 def test_trial0_replay_rejects_concurrent_writer(tmp_path, monkeypatch):
     from tau2.judges.nativeness import paper_trial
 
@@ -412,6 +448,7 @@ def test_tau_multi_naturalness_cli_has_prepare_and_fixed_defaults():
     add_judges_args(parser)
     prepare = parser.parse_args(["tau-multi-naturalness", "prepare"])
     assert prepare.func.__name__ == "prepare_tau_multi_naturalness_trial"
+    assert prepare.experience == ACTIVE_EXPERIENCE_PATH
     run = parser.parse_args(
         ["tau-multi-naturalness", "run", "--out", "/tmp/paper-output"]
     )

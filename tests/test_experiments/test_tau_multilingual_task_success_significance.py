@@ -2,6 +2,7 @@
 """Deterministic τ-Multilingual task-success inference helpers."""
 
 import json
+from argparse import ArgumentParser
 from pathlib import Path
 
 import numpy as np
@@ -10,10 +11,13 @@ from experiments.tau_multilingual.task_success_significance import (
     TaskSuccessAnalysisArtifact,
     _canonical_task_id,
     _sources_fingerprint,
+    _text_path,
+    _voice_path,
     bootstrap_delta_ci,
     holm_bonferroni,
     paired_permutation_test,
 )
+from tau2.paper.cli import add_paper_args
 
 
 def test_task_ids_are_canonicalized_without_truncating_unrelated_suffixes():
@@ -78,3 +82,56 @@ def test_frozen_task_and_experience_artifacts_share_voice_sources():
     assert task_success.sources_fingerprint_sha256 == _sources_fingerprint(
         task_success.sources
     )
+
+
+def test_task_success_paths_have_move_stable_canonical_identities(tmp_path):
+    physical, logical, replacement = _voice_path(
+        tmp_path / "active",
+        None,
+        "ko",
+        "retail",
+        "openai_xhigh",
+    )
+    assert physical == (
+        tmp_path
+        / "active/main_runs/retail_v1_korean_retail/ko_retail_openai_xhigh/results.json"
+    )
+    assert logical.as_posix() == (
+        "main_runs/retail_v1_korean_retail/ko_retail_openai_xhigh/results.json"
+    )
+    assert replacement is True
+
+    staged, logical, replacement = _text_path(
+        tmp_path / "old",
+        tmp_path / "replacement",
+        "zh",
+        "retail",
+        "gemini31pro_high",
+    )
+    assert staged == (
+        tmp_path / "replacement/multilingual_text_retail_name_roles_v1_mandarin_retail/"
+        "zh_retail_gemini31pro_high/results.json"
+    )
+    assert logical.as_posix() == (
+        "text_channel/multilingual_text_v1_mandarin_retail/"
+        "zh_retail_gemini31pro_high/results.json"
+    )
+    assert replacement is True
+
+
+def test_task_success_cli_owns_the_typed_reproduction_verb():
+    parser = ArgumentParser()
+    add_paper_args(parser)
+    args = parser.parse_args(
+        [
+            "multilingual-task-success",
+            "--evidence-root",
+            "/tmp/evidence",
+            "--out",
+            "/tmp/task-success.json",
+        ]
+    )
+
+    assert args.func.__name__ == "run_multilingual_task_success"
+    assert args.permutations == 100_000
+    assert args.bootstrap_resamples == 10_000

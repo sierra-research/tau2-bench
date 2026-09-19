@@ -71,7 +71,14 @@ tau2 paper multilingual-experience \
   --naturalness-sidecar data/simulations/paper_runs/tau-multi/judge_outputs/utterance_naturalness_v16_trial0 \
   --out data/analysis/tau_multilingual_experience_without_fluency_2026-09-18.json
 
+# Rebuild task-success significance and trial stability from the active cohort.
+tau2 paper multilingual-task-success \
+  --evidence-root /path/to/tau-multi \
+  --out data/analysis/tau_multilingual_task_success_significance_2026-09-18.json
+
 # Rebuild active trial-0 latency and compare it with the archived cohort.
+# The evidence root must include validation_runs/{ko,zh}/ with the archived
+# pre-correction retail result directories.
 tau2 paper multilingual-latency \
   --evidence-root /path/to/tau-multi \
   --audit papers/tau-multilingual/reproduction/audit.json \
@@ -81,7 +88,8 @@ tau2 paper multilingual-latency \
 # Preflight the exact trial-0 naturalness replay against a detached result bundle.
 tau2 judges tau-multi-naturalness prepare \
   --repo-root /path/to/tau2-bench \
-  --evidence-root /path/to/tau-multi
+  --evidence-root /path/to/tau-multi \
+  --experience data/analysis/tau_multilingual_experience_without_fluency_2026-09-18.json
 
 # Rebuild and verify the compact 360-call localization-ablation transcripts.
 tau2 paper multilingual-ablation-transcripts \
@@ -90,12 +98,15 @@ tau2 paper multilingual-ablation-transcripts \
 tau2 paper multilingual-verify-ablation-transcripts \
   --root papers/tau-multilingual/reproduction/retail_ablation_transcripts
 
-# Rebuild the manuscript and figures.
-make -C papers/tau-multilingual/v3 clean all
+# Rebuild the figures unconditionally, then the manuscript.
+make -C papers/tau-multilingual/v3 repro
 ```
 
 All audit and validation commands are read-only with respect to frozen results.
 Benchmark and hosted-judge reruns write to new output directories.
+The frozen human-validation projection remains tied to the explicitly archived
+pre-correction cohort; the naturalness preflight above uses the corrected active
+execution cohort.
 
 ## Claim-to-artifact map
 
@@ -257,7 +268,7 @@ figures. It records all 30 language--system cells, Interaction components,
 Experience denominators, call duration, gender overrides, utterance alignment,
 standalone Speech fidelity, five English-relative Interaction tests, and all
 ten provider-pair Experience tests. It supports the reported model tradeoffs,
-including Grok's 24.7-minute mean call duration, the 11.8--14.2-minute range
+including Grok's 24.7-minute mean call duration, the 11.7--14.2-minute range
 for the other systems, and the weakest provider contrast, Gemini minimal
 versus high (1.900 points; Holm-adjusted $p=.02378$).
 

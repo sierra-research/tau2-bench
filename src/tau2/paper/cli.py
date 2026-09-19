@@ -122,7 +122,10 @@ def add_paper_args(parser: argparse.ArgumentParser) -> None:
         "--evidence-root",
         type=Path,
         required=True,
-        help="Frozen tau-multi root containing main_runs/ and validation_runs/",
+        help=(
+            "Frozen tau-multi root containing active main_runs/ and archived "
+            "validation_runs/{ko,zh}/ retail inputs"
+        ),
     )
     latency.add_argument(
         "--audit",
@@ -138,6 +141,30 @@ def add_paper_args(parser: argparse.ArgumentParser) -> None:
     )
     latency.add_argument("--out", type=Path, required=True)
     latency.set_defaults(func=run_multilingual_latency)
+
+    task_success = commands.add_parser(
+        "multilingual-task-success",
+        help="Recompute corrected task-success significance and stability",
+    )
+    task_success.add_argument(
+        "--evidence-root",
+        type=Path,
+        required=True,
+        help="Active tau-multi root containing main_runs/ and text_channel/",
+    )
+    task_success.add_argument(
+        "--replacement-root",
+        type=Path,
+        help=(
+            "Optional pre-install root for the 14 Korean/Mandarin retail cells; "
+            "omit when corrected results are installed under --evidence-root"
+        ),
+    )
+    task_success.add_argument("--out", type=Path, required=True)
+    task_success.add_argument("--seed", type=int, default=42)
+    task_success.add_argument("--permutations", type=int, default=100_000)
+    task_success.add_argument("--bootstrap-resamples", type=int, default=10_000)
+    task_success.set_defaults(func=run_multilingual_task_success)
 
     ablation_transcripts = commands.add_parser(
         "multilingual-ablation-transcripts",
@@ -267,6 +294,30 @@ def run_multilingual_latency(args) -> None:
         "Wrote latency for {} calls; {} source cells changed",
         artifact.cohort.calls,
         artifact.comparison.changed_input_cells,
+    )
+
+
+def run_multilingual_task_success(args) -> None:
+    """Recompute the corrected task-success inference artifact."""
+    from experiments.tau_multilingual.task_success_significance import (
+        TaskSuccessAnalysisConfig,
+        write_task_success_analysis,
+    )
+
+    artifact = write_task_success_analysis(
+        TaskSuccessAnalysisConfig(
+            canonical_root=args.evidence_root,
+            replacement_root=args.replacement_root,
+            output=args.out,
+            seed=args.seed,
+            permutations=args.permutations,
+            bootstrap_resamples=args.bootstrap_resamples,
+        )
+    )
+    logger.info(
+        "Wrote task-success inference over {} move-stable source cells to {}",
+        len(artifact.sources),
+        args.out,
     )
 
 

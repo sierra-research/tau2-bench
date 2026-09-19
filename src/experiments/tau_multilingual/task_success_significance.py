@@ -1,28 +1,29 @@
 #!/usr/bin/env python3
 """Reproduce τ-Multilingual task-success inference from locked result indexes.
 
-The analysis keeps the canonical 90-cell voice cohort and 36-cell text cohort
-unless ``--replacement-root`` is supplied.  In that mode, only the ten Korean
-and Mandarin retail voice cells and four matched text cells are replaced by the
-corrected name-role runs.  All inputs are hashed into the output artifact.
+The active root supplies the canonical 90-cell voice cohort and 36-cell text
+cohort. An optional replacement root supports the pre-install layout of the ten
+Korean/Mandarin retail voice cells and four matched text cells. Every input is
+hashed, while serialized source paths use the move-stable canonical namespace.
 """
 
 from __future__ import annotations
 
-import argparse
 import hashlib
+import json
 from collections import defaultdict
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Annotated, Literal, Optional
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
 from tau2.data_model.simulation import Results
-from tau2.judges.nativeness.paper_trial import _atomic_write
+from tau2.judges.nativeness.paper_trial import _atomic_write_text
 from tau2.judges.nativeness.validation import sha256_file
 
 SCHEMA_VERSION = "tau-multi-task-success-significance-v1"
+LOGICAL_EVIDENCE_ROOT = "data/simulations/paper_runs/tau-multi"
 LANGUAGES = ("en", "es", "pt", "hi", "ko", "zh")
 LOCALIZED_LANGUAGES = ("es", "pt", "hi", "ko", "zh")
 DOMAINS = ("airline", "retail", "telecom")
@@ -59,6 +60,10 @@ class TaskSuccessAnalysisConfig(BaseModel):
         Optional[Path],
         Field(description="Corrected simulations root, or null for canonical replay."),
     ] = None
+    logical_evidence_root: Annotated[
+        Literal["data/simulations/paper_runs/tau-multi"],
+        Field(description="Move-stable logical namespace serialized into provenance."),
+    ] = LOGICAL_EVIDENCE_ROOT
     output: Annotated[Path, Field(description="New JSON artifact path.")]
     seed: Annotated[int, Field(description="Shared Monte Carlo RNG seed.")] = 42
     permutations: Annotated[
@@ -214,7 +219,14 @@ def _voice_path(
     language: str,
     domain: str,
     system: str,
-) -> tuple[Path, bool]:
+) -> tuple[Path, PurePosixPath, bool]:
+    canonical_relative = PurePosixPath(
+        "main_runs",
+        _voice_group(language, domain, system),
+        f"{language}_{domain}_{system}",
+        "results.json",
+    )
+    is_corrected_retail = language in {"ko", "zh"} and domain == "retail"
     if replacement_root is not None and language in {"ko", "zh"} and domain == "retail":
         label = LANGUAGE_LABELS[language]
         group = (
@@ -224,6 +236,7 @@ def _voice_path(
         )
         return (
             replacement_root / group / f"{language}_{domain}_{system}" / "results.json",
+            canonical_relative,
             True,
         )
     group = _voice_group(language, domain, system)
@@ -233,7 +246,8 @@ def _voice_path(
         / group
         / f"{language}_{domain}_{system}"
         / "results.json",
-        False,
+        canonical_relative,
+        is_corrected_retail,
     )
 
 
@@ -243,14 +257,22 @@ def _text_path(
     language: str,
     domain: str,
     system: str,
-) -> tuple[Path, bool]:
+) -> tuple[Path, PurePosixPath, bool]:
     label = LANGUAGE_LABELS[language]
+    canonical_relative = PurePosixPath(
+        "text_channel",
+        f"multilingual_text_v1_{label}_{domain}",
+        f"{language}_{domain}_{system}",
+        "results.json",
+    )
+    is_corrected_retail = language in {"ko", "zh"} and domain == "retail"
     if replacement_root is not None and language in {"ko", "zh"} and domain == "retail":
         return (
             replacement_root
             / f"multilingual_text_retail_name_roles_v1_{label}_retail"
             / f"{language}_{domain}_{system}"
             / "results.json",
+            canonical_relative,
             True,
         )
     return (
@@ -259,7 +281,8 @@ def _text_path(
         / f"multilingual_text_v1_{label}_{domain}"
         / f"{language}_{domain}_{system}"
         / "results.json",
-        False,
+        canonical_relative,
+        is_corrected_retail,
     )
 
 
@@ -271,6 +294,7 @@ def _load_cell(
     language: str,
     domain: str,
     system: str,
+    logical_path: str,
 ) -> tuple[list[_Observation], TaskResultSource]:
     if not path.is_file():
         raise ValueError(f"task-success results file is missing: {path}")
@@ -316,7 +340,7 @@ def _load_cell(
         domain=domain,
         system=system,
         replacement=replacement,
-        path=str(path.resolve()),
+        path=logical_path,
         sha256=sha256_file(path),
         rows=len(observations),
         trials=sorted(trials),
@@ -467,10 +491,11 @@ def analyze_task_success(
     )
     observations: list[_Observation] = []
     sources: list[TaskResultSource] = []
+    logical_root = PurePosixPath(config.logical_evidence_root)
     for language in LANGUAGES:
         for domain in DOMAINS:
             for system in VOICE_SYSTEMS:
-                path, replacement = _voice_path(
+                path, logical_relative, replacement = _voice_path(
                     canonical_root, replacement_root, language, domain, system
                 )
                 rows, source = _load_cell(
@@ -480,11 +505,12 @@ def analyze_task_success(
                     language=language,
                     domain=domain,
                     system=system,
+                    logical_path=(logical_root / logical_relative).as_posix(),
                 )
                 observations.extend(rows)
                 sources.append(source)
             for system in TEXT_SYSTEMS:
-                path, replacement = _text_path(
+                path, logical_relative, replacement = _text_path(
                     canonical_root, replacement_root, language, domain, system
                 )
                 rows, source = _load_cell(
@@ -494,6 +520,7 @@ def analyze_task_success(
                     language=language,
                     domain=domain,
                     system=system,
+                    logical_path=(logical_root / logical_relative).as_posix(),
                 )
                 observations.extend(rows)
                 sources.append(source)
@@ -700,25 +727,9 @@ def write_task_success_analysis(
                 "existing task-success analysis was built from other inputs"
             )
         return existing
-    _atomic_write(output, artifact)
+    _atomic_write_text(
+        output,
+        json.dumps(artifact.model_dump(mode="json"), ensure_ascii=False, indent=2)
+        + "\n",
+    )
     return artifact
-
-
-def _parse_args() -> TaskSuccessAnalysisConfig:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--canonical-root", type=Path, required=True)
-    parser.add_argument("--replacement-root", type=Path)
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--permutations", type=int, default=100_000)
-    parser.add_argument("--bootstrap-resamples", type=int, default=10_000)
-    return TaskSuccessAnalysisConfig(**vars(parser.parse_args()))
-
-
-def main() -> None:
-    artifact = write_task_success_analysis(_parse_args())
-    print(artifact.model_dump_json(indent=2))
-
-
-if __name__ == "__main__":
-    main()

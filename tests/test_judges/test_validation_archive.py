@@ -15,9 +15,13 @@ from tau2.judges.nativeness.factors import (
 from tau2.judges.validation_archive import (
     ARCHIVE_LANGUAGES,
     EXPECTED_MEASURES,
+    FCE_DOMAINS,
+    FCE_LANGUAGES,
+    FCE_SYSTEM_ALLOCATION,
     PROMPT_FACTOR_MATRIX,
     BinaryLabel,
     EvaluationLevel,
+    FceReviewRow,
     LabelOrigin,
     MeasureId,
     MetricRow,
@@ -28,6 +32,7 @@ from tau2.judges.validation_archive import (
     ValidationRow,
     _read_csv,
     _resolve_archive_path,
+    _validate_fce_sample_balance,
     compute_metric_rows,
     read_validation_archive,
     validate_archive,
@@ -143,6 +148,48 @@ def test_checked_in_human_annotation_archive_reproduces_offline():
     assert not (ARCHIVE / "validations/provenance").exists()
     assert not (ARCHIVE / "user_sim_review/fce/source_manifest.json").exists()
     assert not (ARCHIVE / "misc/source_manifest.json").exists()
+
+
+def _balanced_fce_rows() -> list[FceReviewRow]:
+    domains = [domain for domain in FCE_DOMAINS for _ in range(10)]
+    systems = [
+        system for system, count in FCE_SYSTEM_ALLOCATION.items() for _ in range(count)
+    ]
+    return [
+        FceReviewRow(
+            language=language,
+            task_id=f"task-{index}",
+            simulation_id=f"{language}-simulation-{index}",
+            trial=0,
+            domain=domain,
+            system=system,
+            completed=True,
+        )
+        for language in FCE_LANGUAGES
+        for index, (domain, system) in enumerate(zip(domains, systems, strict=True))
+    ]
+
+
+def test_fce_sample_balance_is_auditable_by_domain_and_system():
+    rows = _balanced_fce_rows()
+    _validate_fce_sample_balance(rows)
+
+    wrong_domain = list(rows)
+    wrong_domain[0] = wrong_domain[0].model_copy(update={"domain": "retail"})
+    with pytest.raises(ValueError, match="10 calls per language-domain"):
+        _validate_fce_sample_balance(wrong_domain)
+
+    wrong_system = list(rows)
+    wrong_system[0] = wrong_system[0].model_copy(update={"system": "openai_xhigh"})
+    with pytest.raises(ValueError, match="per-language system allocation"):
+        _validate_fce_sample_balance(wrong_system)
+
+
+def test_fce_domain_and_system_are_closed_typed_fields():
+    payload = _balanced_fce_rows()[0].model_dump()
+    payload["system"] = "xai_provider_default"
+    with pytest.raises(ValidationError):
+        FceReviewRow.model_validate(payload)
 
 
 def test_prompt_archive_contains_only_frozen_contracts():
