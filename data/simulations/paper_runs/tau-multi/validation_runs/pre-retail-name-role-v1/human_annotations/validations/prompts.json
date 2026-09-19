@@ -1,0 +1,651 @@
+{
+  "schema_version": "tau-multi-prompt-archive-v4",
+  "languages": [
+    "en",
+    "es",
+    "pt",
+    "hi",
+    "ko",
+    "zh"
+  ],
+  "retained_factors": {
+    "en": [
+      "incorrect_tool_parameters",
+      "auth_arg_mismatch",
+      "agent_caused_tool_error",
+      "fidelity"
+    ],
+    "es": [
+      "natural_word_choice",
+      "counting_units",
+      "email_symbol_verbalization",
+      "incorrect_tool_parameters",
+      "auth_arg_mismatch",
+      "agent_caused_tool_error",
+      "fidelity"
+    ],
+    "pt": [
+      "natural_word_choice",
+      "register_formality",
+      "gender_agreement",
+      "counting_units",
+      "regional_consistency",
+      "email_symbol_verbalization",
+      "incorrect_tool_parameters",
+      "auth_arg_mismatch",
+      "agent_caused_tool_error",
+      "fidelity"
+    ],
+    "hi": [
+      "natural_word_choice",
+      "gender_agreement",
+      "name_address_conventions",
+      "incorrect_tool_parameters",
+      "auth_arg_mismatch",
+      "agent_caused_tool_error",
+      "fidelity"
+    ],
+    "ko": [
+      "natural_word_choice",
+      "honorific_agreement",
+      "name_address_conventions",
+      "email_symbol_verbalization",
+      "incorrect_tool_parameters",
+      "auth_arg_mismatch",
+      "agent_caused_tool_error",
+      "fidelity"
+    ],
+    "zh": [
+      "natural_word_choice",
+      "counting_units",
+      "modal_particles",
+      "name_address_conventions",
+      "email_symbol_verbalization",
+      "incorrect_tool_parameters",
+      "auth_arg_mismatch",
+      "agent_caused_tool_error",
+      "fidelity",
+      "tone_meaning_flip"
+    ]
+  },
+  "combined_naturalness": {
+    "es": {
+      "schema_version": "tau-multi-utterance-naturalness-prompt-v1",
+      "language": "es",
+      "factor_id": "natural_word_choice",
+      "factor_name": "combined_utterance_naturalness",
+      "prompt_version": "v16",
+      "rubric_version": "nativeness-rubric-v20",
+      "question": "This is a customer-service call in contemporary Spanish as spoken in Madrid, Spain. Does this utterance use natural Madrid Spanish without translationese or unnatural word choice, and with correct verb forms and basic function words?",
+      "opportunity": "every non-empty agent utterance",
+      "native_does": "Natural conversational Madrid Spanish appropriate to a customer-service call passes, including ordinary formal or informal speech and established English borrowings or code-switching when they sound natural in context. Literal names, identifiers, and genuinely user-visible product, interface, setting, or status labels that must be preserved may remain in English when naturally integrated. Vocabulary and grammar must be natural in contemporary Madrid Spanish, with an internally consistent regional variety; regional validity elsewhere does not by itself pass. Judge language use only, not factual or task correctness.",
+      "ai_likely_does": "Inspect every complete clause independently. Permitted English, technical material, or natural wording elsewhere does not excuse a separate defect. Flag language that would sound clearly odd, ungrammatical, or non-Madrid in this setting, including English-shaped or word-for-word service phrasing or result constructions; unnatural word choice, collocation, or customer-facing backend language; avoidable raw English where Spanish is ordinarily expected; a clear error in verb form, subject-verb person or number, required clitics or governed prepositions, ser/estar, por/para, or other basic function words; and lexical, grammatical, or second-person forms that are not natural in contemporary Madrid Spanish. Also flag within-utterance mixing of Madrid and non-Madrid regional varieties. One clear marker in the utterance is sufficient; it need not recur across the call. Also flag missing, extra, or misplaced written Spanish diacritics, including accent marks, ñ, and ü, when standard orthography requires them. Ignore only a diacritic issue that is part of an obvious transcription artifact or the clipped ending of an interrupted turn. Quotation marks or apparent system provenance alone do not make an untranslated generic category or ordinary service term acceptable. Also flag a generic customer-data word when its ordinary Spanish meaning does not naturally identify the specific field being requested. A merely smoother, more specialized, or more formal alternative is not enough. Do not flag gender agreement, politeness, or mere switching between otherwise natural Madrid formal and informal forms of address. For interrupted turns, judge complete material before the cutoff and ignore only the clipped ending."
+    },
+    "pt": {
+      "schema_version": "tau-multi-utterance-naturalness-prompt-v1",
+      "language": "pt",
+      "factor_id": "natural_word_choice",
+      "factor_name": "combined_utterance_naturalness",
+      "prompt_version": "v16",
+      "rubric_version": "nativeness-rubric-v20",
+      "question": "This is a customer-service call in Brazilian Portuguese. Does this utterance contain any translationese, verb-morphology or basic function-word error, or unnatural word choice?",
+      "opportunity": "every non-empty agent utterance",
+      "native_does": "Natural conversational Brazilian Portuguese passes, whether colloquial or ordinarily formal for customer service. English words are allowed when they are established in Brazilian usage or are literal names, product, interface, or status labels, or identifiers and are integrated naturally. Judge language use only, not factual or task correctness.",
+      "ai_likely_does": "Flag any language that would sound odd to a native Brazilian-Portuguese speaker, including English-shaped phrasing, incorrect verb person or mood, wrong or missing basic articles or prepositions, unnatural word choice, or avoidable English that a Brazilian speaker would not normally use in this context."
+    },
+    "hi": {
+      "schema_version": "tau-multi-utterance-naturalness-prompt-v1",
+      "language": "hi",
+      "factor_id": "natural_word_choice",
+      "factor_name": "combined_utterance_naturalness",
+      "prompt_version": "v16",
+      "rubric_version": "nativeness-rubric-v20",
+      "question": "This is a customer-service call in Hindi. Does this utterance contain any translationese, verb-morphology or core grammar error, or unnatural word choice?",
+      "opportunity": "every non-empty agent utterance",
+      "native_does": "Natural conversational Hindi and Hinglish pass. Code-switching is allowed when both the chosen words and the way they are mixed sound natural to a native speaker. Judge language use only, not the factual or task correctness of the response.",
+      "ai_likely_does": "Flag any language that would sound odd to a native Hindi speaker, including translated-sounding phrasing, incorrect verb forms or core grammar, unnatural word choice, awkward code-switching, or overly formal or bookish Hindi for a spoken customer-service call."
+    },
+    "ko": {
+      "schema_version": "tau-multi-utterance-naturalness-prompt-v1",
+      "language": "ko",
+      "factor_id": "natural_word_choice",
+      "factor_name": "combined_utterance_naturalness",
+      "prompt_version": "v16",
+      "rubric_version": "nativeness-rubric-v20",
+      "question": "This is a customer-service call in Korean. Does this utterance contain translationese or unnatural word choice?",
+      "opportunity": "every non-empty agent utterance",
+      "native_does": "Natural spoken South Korean customer-service Korean passes, including ordinary polite or formal speech, established loanwords, and code-switching that sounds natural to a native speaker. Literal names, identifiers, and genuine branded product, interface, setting, or status labels may remain in English when naturally integrated. Ordinary Korean wording for money or credit returning to a payment method also passes; do not require the most specialized service verb. Judge language use only, not factual or task correctness.",
+      "ai_likely_does": "Flag wording that would sound clearly odd to a native South Korean speaker, including English-shaped or word-for-word phrasing, unnatural word choice or collocation, and genuinely unnatural backend or system language exposed to the customer. Also flag an untranslated generic English category or service term when ordinary Korean is expected, awkward duplication of English and Korean alternatives, wording that treats verbally supplied information as typed input, and a clear customer-service register mismatch such as restarting a greeting mid-conversation or using an overly casual interjection. A merely smoother or more specialized Korean alternative is not enough. For interrupted turns, judge complete material before the cutoff and ignore only the clipped ending."
+    },
+    "zh": {
+      "schema_version": "tau-multi-utterance-naturalness-prompt-v1",
+      "language": "zh",
+      "factor_id": "natural_word_choice",
+      "factor_name": "combined_utterance_naturalness",
+      "prompt_version": "v16",
+      "rubric_version": "nativeness-rubric-v20",
+      "question": "This is one agent utterance from a customer-service call in Mainland Mandarin. Does it contain English-shaped translationese or clearly unnatural word choice?",
+      "opportunity": "every non-empty agent utterance",
+      "native_does": "Pass natural spoken Mainland Mandarin, including ordinary service formality, colloquial phrasing, and established borrowings or code-switching that sound natural. Names, identifiers, codes, and product names may remain as given. An English interface, setting, or status label passes when the context establishes that it is the actual displayed label or it is naturally mirrored from the customer; do not assume that every generic English technical phrase is such a label. Ignore harmless transcription spacing or punctuation. Judge language use only, not listening accuracy, facts, policy compliance, or task success.",
+      "ai_likely_does": "Inspect every complete clause and phrase independently. A clearly unnatural local collocation or selectional mismatch is a violation even when the rest of the utterance is fluent. Flag wording that would sound clearly odd to a Mainland Mandarin speaker because it follows English structure or idiom word for word; uses forced nominal or passive phrasing, unnatural pronouns, connectors, or aspect particles; uses an unnatural word choice, collocation, or literal coinage; inserts unnecessary English, especially a cluster of generic settings, permissions, or statuses where ordinary Chinese is expected; or exposes raw backend or system language as customer-facing speech. One clear instance is enough. Do not flag mere formality, a smoother alternative, or wording that is only slightly awkward. For interrupted turns, judge complete material before the cutoff and ignore only the clipped ending."
+    }
+  },
+  "email_symbols": {
+    "es": {
+      "@": [
+        "arroba"
+      ],
+      ".": [
+        "punto"
+      ]
+    },
+    "pt": {
+      "@": [
+        "arroba"
+      ],
+      ".": [
+        "ponto"
+      ]
+    },
+    "ko": {
+      "@": [
+        "골뱅이"
+      ],
+      ".": [
+        "점"
+      ]
+    },
+    "zh": {
+      "@": [
+        "艾特",
+        "at"
+      ],
+      ".": [
+        "点",
+        "dot"
+      ]
+    }
+  },
+  "stored_prediction_prompts": [
+    {
+      "contract_id": "nativeness-v15-rubric-v19",
+      "prompt_family": "nativeness",
+      "prompt_version": "v15",
+      "rubric_version": "nativeness-rubric-v19",
+      "judge_models": [
+        "gpt-5.5"
+      ],
+      "model_args": {
+        "reasoning_effort": "medium"
+      },
+      "languages": [
+        "es",
+        "pt",
+        "hi",
+        "ko",
+        "zh"
+      ],
+      "measure_ids": [
+        "counting_units",
+        "gender_agreement",
+        "honorific_agreement",
+        "modal_particles",
+        "name_address_conventions",
+        "regional_consistency",
+        "register_formality"
+      ],
+      "source_revision": "6813fceab54fe6c7c44733be9935e6d38aaca848",
+      "source_files": [
+        {
+          "path": "src/tau2/judges/nativeness/judge.py",
+          "sha256": "4389326c8eabf7eeb92b88890c3bb201bcd6ef25f7f69c588e410895b7f80b58"
+        },
+        {
+          "path": "src/tau2/judges/nativeness/factors.py",
+          "sha256": "8415a7e0bd07864511b026a73c5ab9d88b80dbcc9edb2096f32e1009d9a0c247"
+        },
+        {
+          "path": "src/tau2/judges/nativeness/checkers.py",
+          "sha256": "32bb91f4df66e7cf3637103485ba68152cc0d0879fbbdd61d3b5caa2f8dee9bd"
+        },
+        {
+          "path": "src/tau2/judges/nativeness/harness.py",
+          "sha256": "8656697acdd05314121e39b36e60d259bdf3104fa360687fa8a8a27224db97e4"
+        },
+        {
+          "path": "src/tau2/judges/nativeness/agent_voice.py",
+          "sha256": "113a82e3fb8cf62228a6fce11e9068ddfb5b8432ea0fffdebc1a4f2cf90a0581"
+        },
+        {
+          "path": "src/tau2/judges/nativeness/caller_identity.py",
+          "sha256": "024a6b568f8e0b6f1cc41c3c99393003a53f7a34872087c71bc0ab33b93398aa"
+        },
+        {
+          "path": "src/tau2/multilingual/nativeness_catalog.py",
+          "sha256": "45067eb5380c576dc06e10d3964c21ca221484be10113d7b15b3d48bf71e59d1"
+        },
+        {
+          "path": "src/tau2/multilingual/factor_catalog.py",
+          "sha256": "2af6937dd8cda8d6250f7a34e9b4a92928b7b9082f2bdcf46affd336c724edc9"
+        },
+        {
+          "path": "data/tau2/multilingual/es/pack.yaml",
+          "sha256": "1fb90607902d7c8905d44894d92d7d6ab1ac2549326e1c86d9a65e90fbf6ebbf"
+        },
+        {
+          "path": "data/tau2/multilingual/pt/pack.yaml",
+          "sha256": "d878b3c3ff00414379167dbabfe2eed9b733150070ff3e95032585fb430af77c"
+        },
+        {
+          "path": "data/tau2/multilingual/hi/pack.yaml",
+          "sha256": "d643bff1ad1e536d1b8e5720927ad5327a7e99b46e953f6008d9983f05e2c5fc"
+        },
+        {
+          "path": "data/tau2/multilingual/ko/pack.yaml",
+          "sha256": "7342617f36271af349cfe3364173795fae11b88472f590872135929fce2bdd75"
+        },
+        {
+          "path": "data/tau2/multilingual/zh/pack.yaml",
+          "sha256": "f25575e9b71ac6b6078fb0995752a7a9aa5f6c5fa2768df5aea729c55608790a"
+        }
+      ],
+      "prompt": {
+        "prompt_version": "v15",
+        "rubric_version": "nativeness-rubric-v19",
+        "system_prompt": "You evaluate language use in an AI agent's speech. Return JSON only.",
+        "user_prompt_template": "Language: {language}\nEvaluation unit: {evaluation_unit}\n\nFor every criterion:\n- opportunity is true only when this speech gave the agent a genuine chance to exhibit the criterion.\n- violated is true only when the agent actually violated the criterion. The criterion question asks about the desired behavior; answer violated=true when the answer is no.\n- severity is 0 when violated is false. When violated is true: 1 = minor, 2 = clear, 3 = major, 4 = egregious. Repetition may increase severity at call level.\n- quote is an exact offending span copied from AGENT SPEECH. Use an empty string for no violation or for a diffuse call-level pattern.\n- Judge only AGENT SPEECH. Use CUSTOMER CONTEXT only to interpret it.\n- A turn ending in \"[cut off by caller]\" was interrupted mid-delivery: its final word may be truncated mid-word and endings (agreement suffixes, polite verb endings, sentence-final particles) may be missing. Never count a truncation artifact at the cut-off point as a violation of any criterion; judge only what was audibly complete.\n- When violated is true and the violation localizes to a quoted span, reasoning must also give the natural way a native speaker would phrase that span, in the target language.\n\nCriteria:\n{criteria_json}\n\nAbout the agent being judged:\n{agent_context}\n\nCUSTOMER CONTEXT — DO NOT JUDGE:\n{customer_context}\n\nAGENT SPEECH TO JUDGE:\n{agent_speech}\n\nReturn JSON only:\n{\n  \"results\": [\n    {\n      \"factor_id\": \"<exact factor_id>\",\n      \"opportunity\": true,\n      \"violated\": false,\n      \"severity\": 0,\n      \"reasoning\": \"<brief explanation>\",\n      \"quote\": \"\"\n    }\n  ]\n}\n",
+        "factor_instructions": {}
+      },
+      "nativeness_criteria": {
+        "es": [
+          {
+            "factor_id": "counting_units",
+            "question": "When the agent said a large number, an amount, or a decimal, did it use the natural Spanish number scale and reading?",
+            "opportunity": "agent counts people or items",
+            "positive_examples": "Uses the Spanish long scale and the decimal comma. Examples are \"mil millones de dólares\" for the English billion, \"quinientos mil\", \"dos coma cinco\" for 2.5, and \"treinta y cinco euros con cincuenta\". \"Un billón\" is correct only when a true million millions is meant.",
+            "negative_examples": "Reads a number on the English scale or with an English decimal point. Examples are \"un billón\" for the English billion instead of \"mil millones\", \"quinientos miles\" instead of \"quinientos mil\", and \"dos punto cinco\" instead of \"dos coma cinco\". Do not flag \"punto\" in emails or websites such as \"gmail punto com\", digits read one by one in codes or phone numbers, or a figure the customer said that the agent merely echoed."
+          }
+        ],
+        "pt": [
+          {
+            "factor_id": "register_formality",
+            "question": "Did the agent keep a natural and internally consistent way of addressing the customer?",
+            "opportunity": "agent addresses the customer / makes requests",
+            "positive_examples": "Uses você, o senhor/a senhora, or a locally natural tu pattern and keeps the relationship consistent. Examples are \"Você pode confirmar seu nome?\" and \"A senhora poderia me informar o código?\". Brazilian speakers often use você with te, so that alone is not an error.",
+            "negative_examples": "Abruptly switches between socially incompatible forms or uses a verb form that clearly does not fit the chosen address. An example is starting with \"O senhor poderia confirmar?\" and then switching to \"tu me diz aí\" without a reason. Do not flag tu merely because it appears; natural Brazilian regional usage is fine."
+          },
+          {
+            "factor_id": "gender_agreement",
+            "question": "Did articles, adjectives, participles, noun phrases, gendered numbers, and references to known people use the correct gender?",
+            "opportunity": "agent uses gendered words, titles, adjectives, participles, or numerals",
+            "positive_examples": "Keeps gender agreement inside the phrase and matches any known agent or customer gender in the judge context. Examples are \"a mala despachada\", \"duas passagens\", and \"duzentas milhas\". A known male agent says \"obrigado\". A female speaker may say \"obrigada\" or \"obrigado\"; colloquial Portuguese treats \"obrigado\" as a fixed thanking token, so it is acceptable from any speaker. The set phrase \"um ida e volta\", meaning \"um bilhete de ida e volta\", is also fine.",
+            "negative_examples": "Uses a clearly conflicting form, such as \"a passageiro\", \"o mala despachada\", \"dois passagens\", or \"duzentos milhas\". One clear error is enough. When gender is known, using senhor for a female customer, senhora for a male customer, or \"obrigada\" from a known male speaker is also a violation. Do not flag \"obrigado\" from a female speaker. Never infer missing gender from a name. Do not flag likely transcription errors."
+          },
+          {
+            "factor_id": "counting_units",
+            "question": "When the agent said a large number, an amount, or a decimal, did it use the Brazilian number scale and reading?",
+            "opportunity": "agent counts people or items",
+            "positive_examples": "Uses the Brazilian short scale and the decimal vírgula. Examples are \"um bilhão de reais\" for the English billion, \"quinhentos mil\", \"dois vírgula cinco\" for 2.5, and \"cinquenta reais e noventa centavos\". \"Bilhão\" is the correct Brazilian word for a thousand millions; do not flag it.",
+            "negative_examples": "Reads a number on the European-Portuguese scale or with an English decimal point. Examples are \"mil milhões\" instead of \"um bilhão\", \"quinhentos milhares\" instead of \"quinhentos mil\", and \"dois ponto cinco\" instead of \"dois vírgula cinco\". Do not flag \"ponto\" in emails or websites such as \"ponto com\", digits read one by one in codes or phone numbers, or a figure the customer said that the agent merely echoed."
+          },
+          {
+            "factor_id": "regional_consistency",
+            "question": "Did the agent consistently use Brazilian-Portuguese grammar and vocabulary?",
+            "opportunity": "agent uses region-marked lexicon/conjugation",
+            "positive_examples": "Uses ordinary Brazilian forms such as \"estou verificando\", \"celular\", and \"arquivo\". Formal Brazilian Portuguese and natural regional variation are both fine.",
+            "negative_examples": "Uses unmistakably European forms such as \"estou a verificar\", \"telemóvel\", or \"ficheiro\", or repeatedly drifts into European grammar and vocabulary. Do not flag one formal construction or a word shared by both varieties."
+          }
+        ],
+        "hi": [
+          {
+            "factor_id": "name_address_conventions",
+            "question": "When the agent addressed the customer by name, did it attach जी or an equivalent honorific the way a Hindi service agent would?",
+            "opportunity": "agent names or directly addresses the customer",
+            "positive_examples": "Attaches जी to the name for a formal caller, such as \"शर्मा जी\" or \"राहुल जी\", or uses honorific address without a name, such as \"सर\" or \"मैडम\". The bare first name is fine in a clearly informal call, and addressing the customer without any name is fine. If the agent never uses the customer's name, there is no opportunity.",
+            "negative_examples": "Keeps addressing a formal caller by the bare first name where a native attaches जी or says सर or मैडम, or uses a bookish form such as \"श्रीमान राहुल\" in ordinary speech. Do not require name use or infer gender from a name. Judge verb agreement with आप under the honorific-agreement criterion and आप versus तुम under the register criterion."
+          }
+        ],
+        "ko": [
+          {
+            "factor_id": "honorific_agreement",
+            "question": "Did the agent use -시- for the customer's actions and avoid using it for the agent's own actions?",
+            "opportunity": "agent uses honorific address or refers to customer/agent actions",
+            "positive_examples": "Honors the customer as the grammatical subject. Examples are \"고객님께서 신청하신 예약\" and \"확인하셨나요?\". For the agent's own action, \"제가 확인하겠습니다\" is natural. The final ending may be either -요 or -습니다.",
+            "negative_examples": "Clearly omits -시- where the customer is being honored, or points the honorific at the agent's own action. Examples are \"고객님께서 신청한 예약\" and \"제가 확인하시겠습니다\". One clear instance is enough. Do not guess when the subject is omitted or ambiguous; \"고객님이 필요한 서류\" alone is not a clear omission."
+          },
+          {
+            "factor_id": "counting_units",
+            "question": "Did the agent use the correct counter and Korean number system for the thing being counted?",
+            "opportunity": "agent counts people or items",
+            "positive_examples": "Uses native Korean numbers with common counters, such as \"수하물 한 개\", \"승객 두 명\", \"세 시간\", and \"한 시\". Uses Sino-Korean where expected, such as \"삼십 분\", and may combine them naturally in \"세 시 삼십 분\". Other natural forms include \"표 한 장\" and \"예약 한 건\".",
+            "negative_examples": "Uses a clearly wrong numeral-counter pair, such as \"수하물 일 개\" instead of \"수하물 한 개\", \"삼 시간\" instead of \"세 시간\", or \"사람 두 개\" instead of \"두 명\". One clear error is enough. Do not flag a stylistic choice between two accepted counters."
+          },
+          {
+            "factor_id": "name_address_conventions",
+            "question": "When the agent used the customer's name, did it keep Korean name order and attach the title naturally?",
+            "opportunity": "agent names or directly addresses the customer",
+            "positive_examples": "Keeps family name first and attaches the title to the name. Examples are \"김민준 고객님\" and \"김민준 님\". Using 고객님 without a name is also natural. If the agent never uses the customer's name, there is no opportunity.",
+            "negative_examples": "Reverses the known localized caller name, such as \"김민준\" to \"민준 김\", or directly addresses that caller by family name alone as \"김 씨\". Do not require name use, infer a Korean name from a foreign/source name, or flag spacing before 님, quoted reports, third-party names, or an ambiguous reference."
+          }
+        ],
+        "zh": [
+          {
+            "factor_id": "counting_units",
+            "question": "When the agent counted something, did it use a natural measure word and the natural form of two?",
+            "opportunity": "agent counts people or items",
+            "positive_examples": "Says 两张票 and 两个订单 for counted quantities. Uses 二 naturally in ordinals and fixed strings, such as 第二个 and 二零二五年. Both 二百 and 两百 are fine. Common broad measure words are also fine, such as 几个问题.",
+            "negative_examples": "Says an incompatible combination such as 一位字母, or says 二个订单 or 二张票 where a native speaker would say 两个订单 or 两张票. Do not flag 二百 or 两百."
+          },
+          {
+            "factor_id": "modal_particles",
+            "question": "Across a substantial call, did the agent use sentence-final particles in a natural conversational way?",
+            "opportunity": "agent makes statements/requests",
+            "positive_examples": "Uses particles such as 吗, 呢, 吧, and 啊 where they naturally soften a question, confirmation, or suggestion, for example 这样可以吗 or 您稍等一下吧. Not every sentence needs a particle.",
+            "negative_examples": "Sounds persistently like flat written Chinese because it misses clear opportunities for particles across the call, or adds the same particle to nearly every sentence mechanically. Do not flag one plain sentence."
+          },
+          {
+            "factor_id": "name_address_conventions",
+            "question": "When the agent used the customer's name, did it keep Chinese name order and attach 先生 or 女士 naturally?",
+            "opportunity": "agent names or directly addresses the customer",
+            "positive_examples": "Keeps the family name first and attaches the title to the surname or the full name. Examples are 王先生, 李女士, and 王明先生. Addressing the customer as 您 without a name is also natural. If the agent never uses the customer's name, there is no opportunity.",
+            "negative_examples": "Reverses the known localized name into Western order, such as 明王 for 王明; attaches the title to the given name alone, such as 明先生; or keeps addressing the customer by the bare given name, such as 明，请确认. Do not require name use, infer a Chinese name from a foreign or source name, or flag quoted reports or third-party names. Judge 您 versus 你 under address register."
+          }
+        ]
+      },
+      "quality_criteria": [],
+      "package_prompt_files": [],
+      "scope_note": "Portuguese gender-agreement rows use the frozen female-agent Marin frame represented by their source labels and verdicts. This does not validate a later runtime participant frame."
+    },
+    {
+      "contract_id": "naturalness-v16-rubric-v20",
+      "prompt_family": "nativeness",
+      "prompt_version": "v16",
+      "rubric_version": "nativeness-rubric-v20",
+      "judge_models": [
+        "gpt-5.5"
+      ],
+      "model_args": {
+        "reasoning_effort": "xhigh"
+      },
+      "languages": [
+        "es",
+        "pt",
+        "hi",
+        "ko",
+        "zh"
+      ],
+      "measure_ids": [
+        "naturalness"
+      ],
+      "source_revision": "naturalness-fixed-package-v1",
+      "source_files": [],
+      "prompt": {
+        "prompt_version": "v16",
+        "rubric_version": "nativeness-rubric-v20",
+        "system_prompt": "You evaluate language use in an AI agent's speech. Return JSON only.",
+        "user_prompt_template": "Language: {language}\nEvaluation unit: {evaluation_unit}\n\nFor every criterion:\n- opportunity is true only when this speech gave the agent a genuine chance to exhibit the criterion.\n- violated is true only when the agent actually violated the criterion. The criterion question asks about the desired behavior; answer violated=true when the answer is no.\n- severity is 0 when violated is false. When violated is true: 1 = minor, 2 = clear, 3 = major, 4 = egregious. Repetition may increase severity at call level.\n- quote is an exact offending span copied from AGENT SPEECH. Use an empty string for no violation or for a diffuse call-level pattern.\n- Judge only AGENT SPEECH. Use CUSTOMER CONTEXT only to interpret it.\n- A turn ending in \"[cut off by caller]\" was interrupted mid-delivery: its final word may be truncated mid-word and endings (agreement suffixes, polite verb endings, sentence-final particles) may be missing. Never count a truncation artifact at the cut-off point as a violation of any criterion; judge only what was audibly complete.\n- When violated is true and the violation localizes to a quoted span, reasoning must also give the natural way a native speaker would phrase that span, in the target language.\n\nCriteria:\n{criteria_json}\n\nAbout the agent being judged:\n{agent_context}\n\nCUSTOMER CONTEXT — DO NOT JUDGE:\n{customer_context}\n\nAGENT SPEECH TO JUDGE:\n{agent_speech}\n\nReturn JSON only:\n{\n  \"results\": [\n    {\n      \"factor_id\": \"<exact factor_id>\",\n      \"opportunity\": true,\n      \"violated\": false,\n      \"severity\": 0,\n      \"reasoning\": \"<brief explanation>\",\n      \"quote\": \"\"\n    }\n  ]\n}\n",
+        "factor_instructions": {}
+      },
+      "nativeness_criteria": {
+        "es": [
+          {
+            "factor_id": "natural_word_choice",
+            "question": "This is a customer-service call in contemporary Spanish as spoken in Madrid, Spain. Does this utterance use natural Madrid Spanish without translationese or unnatural word choice, and with correct verb forms and basic function words?",
+            "opportunity": "every non-empty agent utterance",
+            "positive_examples": "Natural conversational Madrid Spanish appropriate to a customer-service call passes, including ordinary formal or informal speech and established English borrowings or code-switching when they sound natural in context. Literal names, identifiers, and genuinely user-visible product, interface, setting, or status labels that must be preserved may remain in English when naturally integrated. Vocabulary and grammar must be natural in contemporary Madrid Spanish, with an internally consistent regional variety; regional validity elsewhere does not by itself pass. Judge language use only, not factual or task correctness.",
+            "negative_examples": "Inspect every complete clause independently. Permitted English, technical material, or natural wording elsewhere does not excuse a separate defect. Flag language that would sound clearly odd, ungrammatical, or non-Madrid in this setting, including English-shaped or word-for-word service phrasing or result constructions; unnatural word choice, collocation, or customer-facing backend language; avoidable raw English where Spanish is ordinarily expected; a clear error in verb form, subject-verb person or number, required clitics or governed prepositions, ser/estar, por/para, or other basic function words; and lexical, grammatical, or second-person forms that are not natural in contemporary Madrid Spanish. Also flag within-utterance mixing of Madrid and non-Madrid regional varieties. One clear marker in the utterance is sufficient; it need not recur across the call. Also flag missing, extra, or misplaced written Spanish diacritics, including accent marks, ñ, and ü, when standard orthography requires them. Ignore only a diacritic issue that is part of an obvious transcription artifact or the clipped ending of an interrupted turn. Quotation marks or apparent system provenance alone do not make an untranslated generic category or ordinary service term acceptable. Also flag a generic customer-data word when its ordinary Spanish meaning does not naturally identify the specific field being requested. A merely smoother, more specialized, or more formal alternative is not enough. Do not flag gender agreement, politeness, or mere switching between otherwise natural Madrid formal and informal forms of address. For interrupted turns, judge complete material before the cutoff and ignore only the clipped ending."
+          }
+        ],
+        "pt": [
+          {
+            "factor_id": "natural_word_choice",
+            "question": "This is a customer-service call in Brazilian Portuguese. Does this utterance contain any translationese, verb-morphology or basic function-word error, or unnatural word choice?",
+            "opportunity": "every non-empty agent utterance",
+            "positive_examples": "Natural conversational Brazilian Portuguese passes, whether colloquial or ordinarily formal for customer service. English words are allowed when they are established in Brazilian usage or are literal names, product, interface, or status labels, or identifiers and are integrated naturally. Judge language use only, not factual or task correctness.",
+            "negative_examples": "Flag any language that would sound odd to a native Brazilian-Portuguese speaker, including English-shaped phrasing, incorrect verb person or mood, wrong or missing basic articles or prepositions, unnatural word choice, or avoidable English that a Brazilian speaker would not normally use in this context."
+          }
+        ],
+        "hi": [
+          {
+            "factor_id": "natural_word_choice",
+            "question": "This is a customer-service call in Hindi. Does this utterance contain any translationese, verb-morphology or core grammar error, or unnatural word choice?",
+            "opportunity": "every non-empty agent utterance",
+            "positive_examples": "Natural conversational Hindi and Hinglish pass. Code-switching is allowed when both the chosen words and the way they are mixed sound natural to a native speaker. Judge language use only, not the factual or task correctness of the response.",
+            "negative_examples": "Flag any language that would sound odd to a native Hindi speaker, including translated-sounding phrasing, incorrect verb forms or core grammar, unnatural word choice, awkward code-switching, or overly formal or bookish Hindi for a spoken customer-service call."
+          }
+        ],
+        "ko": [
+          {
+            "factor_id": "natural_word_choice",
+            "question": "This is a customer-service call in Korean. Does this utterance contain translationese or unnatural word choice?",
+            "opportunity": "every non-empty agent utterance",
+            "positive_examples": "Natural spoken South Korean customer-service Korean passes, including ordinary polite or formal speech, established loanwords, and code-switching that sounds natural to a native speaker. Literal names, identifiers, and genuine branded product, interface, setting, or status labels may remain in English when naturally integrated. Ordinary Korean wording for money or credit returning to a payment method also passes; do not require the most specialized service verb. Judge language use only, not factual or task correctness.",
+            "negative_examples": "Flag wording that would sound clearly odd to a native South Korean speaker, including English-shaped or word-for-word phrasing, unnatural word choice or collocation, and genuinely unnatural backend or system language exposed to the customer. Also flag an untranslated generic English category or service term when ordinary Korean is expected, awkward duplication of English and Korean alternatives, wording that treats verbally supplied information as typed input, and a clear customer-service register mismatch such as restarting a greeting mid-conversation or using an overly casual interjection. A merely smoother or more specialized Korean alternative is not enough. For interrupted turns, judge complete material before the cutoff and ignore only the clipped ending."
+          }
+        ],
+        "zh": [
+          {
+            "factor_id": "natural_word_choice",
+            "question": "This is one agent utterance from a customer-service call in Mainland Mandarin. Does it contain English-shaped translationese or clearly unnatural word choice?",
+            "opportunity": "every non-empty agent utterance",
+            "positive_examples": "Pass natural spoken Mainland Mandarin, including ordinary service formality, colloquial phrasing, and established borrowings or code-switching that sound natural. Names, identifiers, codes, and product names may remain as given. An English interface, setting, or status label passes when the context establishes that it is the actual displayed label or it is naturally mirrored from the customer; do not assume that every generic English technical phrase is such a label. Ignore harmless transcription spacing or punctuation. Judge language use only, not listening accuracy, facts, policy compliance, or task success.",
+            "negative_examples": "Inspect every complete clause and phrase independently. A clearly unnatural local collocation or selectional mismatch is a violation even when the rest of the utterance is fluent. Flag wording that would sound clearly odd to a Mainland Mandarin speaker because it follows English structure or idiom word for word; uses forced nominal or passive phrasing, unnatural pronouns, connectors, or aspect particles; uses an unnatural word choice, collocation, or literal coinage; inserts unnecessary English, especially a cluster of generic settings, permissions, or statuses where ordinary Chinese is expected; or exposes raw backend or system language as customer-facing speech. One clear instance is enough. Do not flag mere formality, a smoother alternative, or wording that is only slightly awkward. For interrupted turns, judge complete material before the cutoff and ignore only the clipped ending."
+          }
+        ]
+      },
+      "quality_criteria": [],
+      "package_prompt_files": [
+        {
+          "role": "exact_stored_prompt",
+          "path": "prompt_sources/naturalness/es.json",
+          "sha256": "dde10a5415ff1c266292ac224519aad50361c9b42887d04750c83c373220698f",
+          "revision": "naturalness-fixed-package-v1"
+        },
+        {
+          "role": "exact_stored_prompt",
+          "path": "prompt_sources/naturalness/pt.json",
+          "sha256": "bdcdab2cb6ac8343b0bfe4bb2863daabfdcfe5e35aedbf3a5ba4bb98475c68b3",
+          "revision": "naturalness-fixed-package-v1"
+        },
+        {
+          "role": "exact_stored_prompt",
+          "path": "prompt_sources/naturalness/hi.json",
+          "sha256": "4920df7b24deaadfd626f0b1dbf2eb28563db66f609cd823ad0238f76aa48bc3",
+          "revision": "naturalness-fixed-package-v1"
+        },
+        {
+          "role": "exact_stored_prompt",
+          "path": "prompt_sources/naturalness/ko.json",
+          "sha256": "42ff3e4b1598bcf0dc2b660b282b9b34045186987aa507dee223fcedfa85de95",
+          "revision": "naturalness-fixed-package-v1"
+        },
+        {
+          "role": "exact_stored_prompt",
+          "path": "prompt_sources/naturalness/zh.json",
+          "sha256": "fd24726d4550a101bb7b95d991039bf9da2bed5f6e37a9cc23b198810b4d4218",
+          "revision": "naturalness-fixed-package-v1"
+        }
+      ],
+      "scope_note": null
+    },
+    {
+      "contract_id": "hi-gender-v16-rubric-v26",
+      "prompt_family": "nativeness",
+      "prompt_version": "v16",
+      "rubric_version": "nativeness-rubric-v26",
+      "judge_models": [
+        "gpt-5.5"
+      ],
+      "model_args": {
+        "reasoning_effort": "medium"
+      },
+      "languages": [
+        "hi"
+      ],
+      "measure_ids": [
+        "gender_agreement"
+      ],
+      "source_revision": "hi-gender-fixed-package-v3",
+      "source_files": [],
+      "prompt": {
+        "prompt_version": "v16",
+        "rubric_version": "nativeness-rubric-v26",
+        "system_prompt": "You evaluate language use in an AI agent's speech. Return JSON only.",
+        "user_prompt_template": "Language: hi\nEvaluation unit: one agent utterance\n\nFor every criterion:\n- opportunity is true only when this speech gave the agent a genuine chance to exhibit the criterion.\n- violated is true only when the agent actually violated the criterion. The criterion question asks about the desired behavior; answer violated=true when the answer is no.\n- severity is 0 when violated is false. When violated is true: 1 = minor, 2 = clear, 3 = major, 4 = egregious. Repetition may increase severity at call level.\n- quote is an exact offending span copied from AGENT SPEECH. Use an empty string for no violation or for a diffuse call-level pattern.\n- Judge only AGENT SPEECH. Use CUSTOMER CONTEXT only to interpret it.\n- A turn ending in \"[cut off by caller]\" was interrupted mid-delivery: its final word may be truncated mid-word and endings (agreement suffixes, polite verb endings, sentence-final particles) may be missing. Never count a truncation artifact at the cut-off point as a violation of any criterion; judge only what was audibly complete.\n- When violated is true and the violation localizes to a quoted span, reasoning must also give the natural way a native speaker would phrase that span, in the target language.\n\nCriteria:\n[\n  {\n    \"factor_id\": \"gender_agreement\",\n    \"question\": \"Did gendered language agree internally and with the known agent or customer gender supplied in the judge context?\",\n    \"opportunity\": \"agent uses gendered words, titles, adjectives, participles, or numerals\",\n    \"positive_examples\": \"Catch three subtypes of agreement. (1) Agent self-reference — a known female agent uses feminine first-person forms, such as \\\"मैं आपकी मदद कर सकती हूँ\\\". (2) Addressing the customer — with आप, masculine plural is the normal polite form for any addressee, including a known female customer; \\\"आप बता सकते हैं\\\" and \\\"आप कर रहे हैं\\\" said to a woman are correct and must never be flagged. (3) Noun and internal agreement — gendered adjectives, participles, and verbs agree with their nouns and with gender established earlier in the utterance, as in \\\"आपकी booking cancel हो गई है\\\". English loanwords have no fixed grammatical gender, so masculine default agreement with them is also correct — \\\"अपना यूजर आईडी बताइए\\\" must never be flagged.\",\n    \"negative_examples\": \"Violations, by the same three subtypes. (1) Self-reference — a known female agent saying \\\"मैं आपकी मदद कर सकता हूँ\\\" or \\\"मैं समझ गया\\\". Spoken slash-alternatives are always a violation regardless of gender — a speaker never voices both forms, so \\\"मैं सुन रहा/रही हूँ\\\" or \\\"बता देता/देती हूँ\\\" is wrong on its face; the agent must commit to one form. (2) Addressing the customer — feminine forms toward a known male customer, such as \\\"आप परेशान लग रही हैं\\\" said to a man; masculine plural with आप is never a violation, whatever the customer's gender. (3) Noun agreement — conflicting endings in one clear construction, such as \\\"booking cancel हो गया\\\" after booking has been established as feminine. If gender is neither supplied nor internally established, mark no opportunity.\"\n  }\n]\n\nAbout the agent being judged:\n<ROW_AGENT_CONTEXT>\n\nCUSTOMER CONTEXT — DO NOT JUDGE:\n<ROW_CUSTOMER_CONTEXT>\n\nAGENT SPEECH TO JUDGE:\n<ROW_AGENT_SPEECH_WITH_INTERRUPTION_MARKER>\n\nReturn JSON only:\n{\n  \"results\": [\n    {\n      \"factor_id\": \"<exact factor_id>\",\n      \"opportunity\": true,\n      \"violated\": false,\n      \"severity\": 0,\n      \"reasoning\": \"<brief explanation>\",\n      \"quote\": \"\"\n    }\n  ]\n}\n",
+        "factor_instructions": {}
+      },
+      "nativeness_criteria": {
+        "hi": [
+          {
+            "factor_id": "gender_agreement",
+            "question": "Did gendered language agree internally and with the known agent or customer gender supplied in the judge context?",
+            "opportunity": "agent uses gendered words, titles, adjectives, participles, or numerals",
+            "positive_examples": "Catch three subtypes of agreement. (1) Agent self-reference — a known female agent uses feminine first-person forms, such as \"मैं आपकी मदद कर सकती हूँ\". (2) Addressing the customer — with आप, masculine plural is the normal polite form for any addressee, including a known female customer; \"आप बता सकते हैं\" and \"आप कर रहे हैं\" said to a woman are correct and must never be flagged. (3) Noun and internal agreement — gendered adjectives, participles, and verbs agree with their nouns and with gender established earlier in the utterance, as in \"आपकी booking cancel हो गई है\". English loanwords have no fixed grammatical gender, so masculine default agreement with them is also correct — \"अपना यूजर आईडी बताइए\" must never be flagged.",
+            "negative_examples": "Violations, by the same three subtypes. (1) Self-reference — a known female agent saying \"मैं आपकी मदद कर सकता हूँ\" or \"मैं समझ गया\". Spoken slash-alternatives are always a violation regardless of gender — a speaker never voices both forms, so \"मैं सुन रहा/रही हूँ\" or \"बता देता/देती हूँ\" is wrong on its face; the agent must commit to one form. (2) Addressing the customer — feminine forms toward a known male customer, such as \"आप परेशान लग रही हैं\" said to a man; masculine plural with आप is never a violation, whatever the customer's gender. (3) Noun agreement — conflicting endings in one clear construction, such as \"booking cancel हो गया\" after booking has been established as feminine. If gender is neither supplied nor internally established, mark no opportunity."
+          }
+        ]
+      },
+      "quality_criteria": [],
+      "package_prompt_files": [
+        {
+          "role": "exact_stored_prompt",
+          "path": "prompt_sources/hi_gender_agreement.json",
+          "sha256": "dd36b5928892f5ff04ea3aaeb7edc6dba253befdf0e07b1d026d375b0cb5396d",
+          "revision": "hi-gender-fixed-package-v3"
+        }
+      ],
+      "scope_note": "Fixed curated Hindi validation uses the male-agent participant frame and row-specific caller gender recorded in the package."
+    },
+    {
+      "contract_id": "quality-v7-rubric-v4",
+      "prompt_family": "quality",
+      "prompt_version": "quality-judge-v7",
+      "rubric_version": "quality-rubric-v4",
+      "judge_models": [
+        "gpt-5.5"
+      ],
+      "model_args": {
+        "reasoning_effort": "high"
+      },
+      "languages": [
+        "en",
+        "es",
+        "pt",
+        "hi",
+        "ko",
+        "zh"
+      ],
+      "measure_ids": [
+        "tool_use"
+      ],
+      "source_revision": "6813fceab54fe6c7c44733be9935e6d38aaca848",
+      "source_files": [
+        {
+          "path": "src/tau2/judges/quality/judge.py",
+          "sha256": "cc8cdbb1791bdc134fcf16b83a1cf73425ab8fcf166463abe985bd82d576f600"
+        },
+        {
+          "path": "src/tau2/judges/quality/factors.py",
+          "sha256": "b6802e7ea62919fa6fcd8b5c3616bd2f979fdfe1468b83eee60e73e28683e3e4"
+        },
+        {
+          "path": "src/tau2/judges/quality/checkers.py",
+          "sha256": "60b774c8e8b2e7edf8ea8d5e53221cce90609801f62100e2839bb0bc6f60cf29"
+        },
+        {
+          "path": "src/tau2/judges/quality/harness.py",
+          "sha256": "b22edd3d3ea42e0a568f181fb67c754caf1e12f26dfbec26184b76d32aae7a12"
+        }
+      ],
+      "prompt": {
+        "prompt_version": "quality-judge-v7",
+        "rubric_version": "quality-rubric-v4",
+        "system_prompt": "You evaluate process quality in AI customer-service calls. Return JSON only.",
+        "user_prompt_template": "Evaluate this call for the following criterion.\n\nFor this criterion:\n- opportunity is true only when the call gave the agent a genuine chance to exhibit the behavior.\n- violated is true only when the agent violated the criterion.\n- Judge the agent, not the caller or infrastructure. Allow any policy-compliant path.\n- When the evidence does not establish a violation, set violated=false.\n- An agent turn ending in \"[cut off by caller]\" was interrupted mid-delivery by the caller. Truncation artifacts at the cut-off (an incomplete final word or sentence, a question cut off before completion) are never violations; judge only what was actually delivered.\n- When violated is true, reasoning must give a brief concrete explanation of the violation, grounded in the transcript or tool trace; never leave it empty.\n- quote is an exact offending transcript span, or an empty string when none applies.\n\nCriterion:\n{criterion_json}\n\nDomain: {domain}\n\nTASK CONTRACT\n{task_contract_json}\n\nDOMAIN POLICY\n{domain_policy}\n\nCOMPLETE TRANSCRIPT\n{transcript}\n\nTOOL TRACE\n{tool_trace}\n\nReturn one JSON object matching the requested schema.\n",
+        "factor_instructions": {
+          "agent_caused_tool_error": "FAIL only when an agent-requested tool error was avoidable and caused by the\nagent's comprehension, tool choice, workflow, or arguments. Do not fail errors from\ncaller misinformation, unavailable state, policy constraints, or infrastructure.\nOn failure, name the errored call and the cause.",
+          "auth_arg_mismatch": "FAIL only when an identity lookup returned no match because the agent altered,\nconfused, invented, or reused unsupported authentication information. Do not fail a\nfaithful lookup of caller-provided information that happens to match no record. On\nfailure, name the lookup and the conflicting facts.",
+          "incorrect_tool_parameters": "FAIL when a tool argument contradicts caller facts, prior tool results, the task,\nor policy, or when the agent invents an unsupported value. A successful call does\nnot prove its arguments were correct. On failure, name the call, parameter, value,\nand contradiction."
+        }
+      },
+      "nativeness_criteria": {},
+      "quality_criteria": [
+        {
+          "criterion_id": "agent_caused_tool_error",
+          "question": "Did the agent cause an avoidable tool error?",
+          "decision_rule": "FAIL only when an agent-requested tool error was avoidable and caused by the\nagent's comprehension, tool choice, workflow, or arguments. Do not fail errors from\ncaller misinformation, unavailable state, policy constraints, or infrastructure.\nOn failure, name the errored call and the cause."
+        },
+        {
+          "criterion_id": "auth_arg_mismatch",
+          "question": "Did the agent use inconsistent authentication arguments?",
+          "decision_rule": "FAIL only when an identity lookup returned no match because the agent altered,\nconfused, invented, or reused unsupported authentication information. Do not fail a\nfaithful lookup of caller-provided information that happens to match no record. On\nfailure, name the lookup and the conflicting facts."
+        },
+        {
+          "criterion_id": "incorrect_tool_parameters",
+          "question": "Did the agent use incorrect or unjustified tool parameters?",
+          "decision_rule": "FAIL when a tool argument contradicts caller facts, prior tool results, the task,\nor policy, or when the agent invents an unsupported value. A successful call does\nnot prove its arguments were correct. On failure, name the call, parameter, value,\nand contradiction."
+        }
+      ],
+      "package_prompt_files": [],
+      "scope_note": null
+    },
+    {
+      "contract_id": "speech-fidelity-v5",
+      "prompt_family": "delivery",
+      "prompt_version": "v5",
+      "rubric_version": "speech-fidelity-v5-filter-v1",
+      "judge_models": [
+        "gemini/gemini-3.1-pro-preview"
+      ],
+      "model_args": {
+        "temperature": 0.0,
+        "max_tokens": 8192,
+        "timeout": 120
+      },
+      "languages": [
+        "en",
+        "es",
+        "pt",
+        "hi",
+        "ko",
+        "zh"
+      ],
+      "measure_ids": [
+        "speech_fidelity"
+      ],
+      "source_revision": "e1ca72ea1e5b399ffcf3e88f62a746e2ad19591d",
+      "source_files": [
+        {
+          "path": "src/tau2/judges/delivery/judge.py",
+          "sha256": "7e1a736bf0e00c5bb0a4b9a38e7d1c38f3ca8b79603b3a7acd9192325f3f881e"
+        },
+        {
+          "path": "src/tau2/judges/delivery/factors.py",
+          "sha256": "74e3032b37fdf75989c26869a1bcd99b647741f9ba9ce207ae730742243c7511"
+        },
+        {
+          "path": "src/tau2/judges/delivery/harness.py",
+          "sha256": "3482a7257620153c6c264cfee734deaecf3f672b245a03717f381f0f19cfe19f"
+        }
+      ],
+      "prompt": {
+        "prompt_version": "v5",
+        "rubric_version": "speech-fidelity-v5-filter-v1",
+        "system_prompt": "You are a careful evaluator of synthesized customer-support voice agents. You judge the AGENT's spoken audio on TWO independent axes and report issues for both in a single response. Every finding must be tagged with its axis: \"fidelity\" or \"intonation\".\n\n=== AXIS A: FIDELITY (did it say the right words?) ===\nCompare the audio against the reference transcript when provided, and identify clear audible ways the synthesized speech fails to faithfully realize the script:\n- Mispronounced words, names, brands, acronyms, or phrases.\n- Word or phrase substitutions that change the intended wording or meaning.\n- Missing words, dropped syllables, extra words, or hallucinated words.\n- Numbers, dates, times, percentages, currency, emails, URLs, codes, account numbers, or digit strings spoken incorrectly or confusingly.\n- Audible punctuation/formatting mistakes that change what the listener hears (saying \"comma\" aloud, dropping a needed separator in an email/URL/code, adding a strong break that changes how structured text parses, or removing a needed pause between tokens).\n- Garbled, clipped, swallowed, or unintelligible speech that changes a word, drops a phoneme/syllable, or prevents the intended phrase from being understood.\nFidelity categories: mispronunciation, word_substitution, missing_word, extra_or_hallucinated_word, number_date_currency, email_url_code, punctuation_or_formatting, acronym_brand_name, clipped_or_garbled, other.\n\nBe tolerant of harmless spoken-language normalization. For fidelity, do NOT flag:\n- Tiny breath pauses, normal phrase grouping, or ordinary emphasis differences.\n- Equivalent contractions/expansions (\"I'm\" vs \"I am\"); \"OK\" vs \"okay\".\n- \"zero\" vs \"oh\" unless it makes a number/code confusing.\n- Accent variation that does not change intelligibility.\n- Slight rephrasing that preserves meaning and is acceptable in support speech.\n- Lightly unreleased/softened final consonants when the word is still clear.\n- Pure acoustic-quality artifacts (vocal fry, stretched vowels, robotic tone, odd warmth, uncanny texture, telephony band-limiting) when the script token is correct.\n- Localized interruption-recovery artifacts (a brief gap, cutoff, clipped partial word, repeated syllable, restart, momentary garble at a stop/resume boundary) if the agent resumes the expected script and meaning is recoverable.\n\n=== AXIS B: INTONATION (did it sound natural?) ===\nIntonation means audible delivery patterns: prosody, pauses, cadence, pitch movement, lexical stress, and delivery tone. It is NOT about whether the script was faithfully spoken (that is fidelity). Identify clear audible ways the delivery sounds objectively unnatural, mechanical, inhuman, tonally inappropriate, or hard to parse:\n- Unnatural pauses, missing pauses, overlong punctuation pauses, phrase-internal gaps, or stitched/segmented timing.\n- Odd pitch movement, misplaced stress, inappropriate up-inflection, abrupt pitch resets, or emphasis that makes ordinary words sound unnatural.\n- Robotic, mechanical, monotone, sing-song, overly uniform, or uncanny cadence.\n- Support-tone mismatch caused by delivery: sounding scary, stern, sarcastic, performative, overly authoritative, or oddly upbeat in a sensitive moment.\n- Cadence or speed changes that are objectively inhuman, jarring, rushed, dragging, or hard to parse.\nIntonation categories: unnatural_pause, missing_pause, phrase_internal_gap, robotic_or_mechanical_delivery, unnatural_pitch_contour, misplaced_stress, inappropriate_upinflection, monotone_flat_delivery, emotional_mismatch, cadence_or_speed_shift, uncanny_prosody, other.\n\nBe tolerant of normal human variation. For intonation, do NOT flag:\n- Merely bland, less warm, less expressive, faster, or slower delivery if it still sounds like plausible human speech.\n- Normal punctuation pauses, breath pauses, phrase grouping, regional accent, or style.\n- Subjective preference or voice-identity mismatch.\n- Recording/telephony quality unless it directly causes a distinct prosody/pause/pitch/ stress/delivery-tone issue.\n- Localized interruption-recovery artifacts as described above.\n\n=== LANGUAGE-SPECIFIC DELIVERY RUBRIC ===\nThe user message may include a language-specific delivery rubric, in one of two forms:\n- A list of FACTOR CHECKS, each with a factor_id and a \"listen for\" description. For EACH listed factor decide: did this clip give the factor an OPPORTUNITY to surface? If it did, was it VIOLATED (the delivered audio audibly exhibits the described problem) or handled natively? Report EVERY listed factor in \"factor_checks\" using its exact factor_id, judging each factor only by its own \"listen for\" description. When uncertain whether a native listener would object, do NOT flag it (prefer false-negative over false-positive). A factor violation that is also a fidelity or intonation issue should ALSO be reported as a normal axis-tagged finding.\n- A NATIVE-LISTENER instruction naming a language, with no factor list. Then evaluate the clip as a native listener of that language — attending to its phonology, its tone/pitch-accent/lexical-stress system, its native letter-name and digit/number/date readout conventions, and its typical text-to-speech failure modes — and report what you hear through the ordinary fidelity/intonation findings. Return an empty \"factor_checks\" list.\nWhen the user message contains no rubric, return an empty \"factor_checks\" list.\n\n=== GENERAL ===\nPrefer precision over recall on both axes and on every factor check. If you are not sure, leave it out of findings and use lower confidence. If a transcript is provided, use it as the reference.\n\nDo not include PII, customer secrets, or sensitive literal values in the response. When describing a problem involving a name, email, URL, phone number, address, account/card/identity number, date of birth, code, or token, describe the value by its class and the structural error rather than copying the literal value (e.g. \"the final digit of a 4-digit account-number suffix was omitted\", or \"a customer name has an unnatural stress pattern\").\n\nSeverity (applies to each finding and the overall clip):\n- 0: no clear issue.\n- 1: minor; listener can still recover the intended content / it still sounds mostly human.\n- 2: clear issue that may confuse a listener, or makes the voice sound mechanical/wrong.\n- 3: critical — sensitive data/money/date/identity fidelity error or meaning-changing hallucination; or delivery that would damage trust (scary/mean/sarcastic, extreme roboticness, very disruptive pauses/cadence).\nSet flag_for_review to true whenever any finding has severity 2 or 3.\n\nReturn only valid JSON. Do not wrap it in Markdown.",
+        "user_prompt_template": "Evaluate the attached AGENT AUDIO clip on BOTH axes (fidelity and intonation).\n\nReference transcript (expected_synthesis_text):\n{ref}\n\nConversation context:\n- was_interrupted: {was_interrupted}\n- If was_interrupted is true, evaluate only the delivered audio; do not penalize trailing content that was cut off by the caller, nor a partial word or clipped sound at the very end of the clip (a barge-in cut, not a synthesis defect).\n\nTarget locale/language:\n{locale}\n{rubric_section}\n{output_shape}",
+        "factor_instructions": {}
+      },
+      "nativeness_criteria": {},
+      "quality_criteria": [],
+      "package_prompt_files": [
+        {
+          "role": "exact_stored_prompt",
+          "path": "prompt_sources/speech_fidelity_v5.json",
+          "sha256": "4bba3f6b6aadb0e2ff6455a441cecc173fc1628f80b59c2f67bfd228bd2777a1",
+          "revision": "speech-fidelity-six-language-v1"
+        }
+      ],
+      "scope_note": "English used the same v5 prompt with its native-listener instruction and no language-specific factor checks."
+    }
+  ]
+}

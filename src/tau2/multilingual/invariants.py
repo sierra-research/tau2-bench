@@ -985,7 +985,26 @@ class IdentityRename(BaseModel):
         1234 Elm St, Springfield, IL, 62701") is not identity material and
         stays canonical, exactly as order ids and prices do.
         """
+        # Protect a prose-anchored caller's complete name while the remaining
+        # fields move. Retail also replaces a bare source given name below;
+        # without this placeholder, a source given name that equals the new
+        # family name is replaced *inside the newly inserted full name*:
+        # ``Chen Johnson`` -> ``Chen Xinyi`` -> ``Xinyi Xinyi``.
+        full_name_placeholder = "\0tau2-caller-full-name\0"
+        protected_full_name = bool(
+            caller_identity is CallerIdentityKind.PROSE_NAME_ZIP
+            and self.renames_caller
+            and self.old_full_name in text
+        )
+        if protected_full_name:
+            if full_name_placeholder in text:
+                raise ValueError(
+                    "Caller prose contains the reserved full-name placeholder"
+                )
+            text = text.replace(self.old_full_name, full_name_placeholder)
         for old, new in self.string_pairs:
+            if protected_full_name and old == self.old_full_name:
+                continue
             text = text.replace(old, new)
         if caller_identity is not CallerIdentityKind.PROSE_NAME_ZIP:
             return text
@@ -997,6 +1016,8 @@ class IdentityRename(BaseModel):
         # caller and a bare given name is not necessarily theirs.
         if old_first and new_first and old_first != new_first:
             text = text.replace(old_first, new_first)
+        if protected_full_name:
+            text = text.replace(full_name_placeholder, self.new_full_name)
         if self.renames_caller:
             text = text.replace(
                 f"{new_first} ({self.new_user_id})",

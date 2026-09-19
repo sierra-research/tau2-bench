@@ -143,7 +143,46 @@ def try_resume(
             "reasoning_effort_source",
             "reasoning_effort_backfill",
         },
+        # Verification evidence says how the prompt-treatment value was
+        # recovered; it does not change the treatment a resumed call receives.
+        "retail_name_roles_prompt_backfill": True,
     }
+    previous_name_roles_recorded = (
+        "retail_name_roles_prompt_version"
+        in prev_simulation_results.info.model_fields_set
+    )
+    from tau2.multilingual.english_prompts import RETAIL_NAME_ROLES_TASK_SETS
+
+    previous_name_roles_in_scope = (
+        prev_simulation_results.info.environment_info.domain_name == "retail"
+        and prev_simulation_results.info.task_set_name in RETAIL_NAME_ROLES_TASK_SETS
+    )
+    ambiguous_legacy_name_roles = not previous_name_roles_recorded and (
+        simulation_results.info.retail_name_roles_prompt_version is not None
+        or previous_name_roles_in_scope
+    )
+    if ambiguous_legacy_name_roles:
+        raise ValueError(
+            "The checkpoint predates explicit retail name-role prompt "
+            "provenance. Refusing to resume an unknown treatment; verify and "
+            "stamp a corrected-name root, or explicitly migrate a known "
+            "prompt-off artifact before resuming."
+        )
+    previous_name_roles = prev_simulation_results.info.retail_name_roles_prompt_version
+    requested_name_roles = simulation_results.info.retail_name_roles_prompt_version
+    if previous_name_roles_in_scope and previous_name_roles is None:
+        raise ValueError(
+            "The checkpoint records an explicit null retail name-role prompt "
+            "treatment. That is a prompt-off value, not corrected-v1 "
+            "provenance, so this in-scope root cannot be resumed."
+        )
+    if previous_name_roles != requested_name_roles:
+        raise ValueError(
+            "The run's retail name-role prompt treatment changed from "
+            f"{previous_name_roles!r} to {requested_name_roles!r}. This "
+            "treatment cannot be mixed by resume; use a new results root, or "
+            "apply the verified provenance stamp to a completed corrected root."
+        )
     config_drift = get_pydantic_hash(
         prev_simulation_results.info, exclude=exclude_fields
     ) != get_pydantic_hash(simulation_results.info, exclude=exclude_fields)

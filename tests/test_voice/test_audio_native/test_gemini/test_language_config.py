@@ -16,6 +16,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from tau2.agent.discrete_time_audio_native_agent import (
+    DiscreteTimeAudioNativeAgent,
+)
 from tau2.voice.audio_native.gemini.discrete_time_adapter import (
     DiscreteTimeGeminiAdapter,
 )
@@ -153,6 +156,45 @@ class TestAdapterLanguagePassThrough:
             )
         )
         assert captured["language"] == "pt"
+
+
+class TestAgentLanguageCodeTreatment:
+    @pytest.mark.parametrize(
+        "explicit_language_code,expected_adapter_language",
+        [(True, "ko"), (False, None)],
+    )
+    def test_switch_controls_gemini_adapter_without_removing_prompt_language(
+        self,
+        monkeypatch,
+        explicit_language_code,
+        expected_adapter_language,
+    ):
+        captured: dict = {}
+
+        def fake_create_adapter(**kwargs):
+            captured.update(kwargs)
+            return SimpleNamespace(), "gemini-test-model"
+
+        monkeypatch.setattr(
+            "tau2.agent.discrete_time_audio_native_agent.create_adapter",
+            fake_create_adapter,
+        )
+        agent = DiscreteTimeAudioNativeAgent(
+            tools=[],
+            domain_policy="policy",
+            provider="gemini",
+            model="gemini-test-model",
+            reasoning_effort="high",
+            language="ko",
+            disclose_voice_gender=False,
+            gemini_live_explicit_language_code=explicit_language_code,
+        )
+
+        _ = agent.adapter
+
+        assert agent.language == "ko"
+        assert captured["provider"] == "gemini"
+        assert captured["language"] == expected_adapter_language
 
     def test_adapter_defaults_to_no_language(self):
         captured: dict = {}

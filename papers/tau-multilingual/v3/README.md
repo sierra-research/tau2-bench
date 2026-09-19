@@ -36,14 +36,24 @@ margins, and column geometry remain those of the author kit.
 
 ## Build
 
+Requires a TeX installation that provides `pdflatex` and BibTeX.
+
 Run:
 
 ```bash
 uv sync --extra experiments
-make
+make repro
 ```
 
-The build first regenerates the language-system figure through the locked
-project environment, then uses `pdflatex` and BibTeX to write the submission
-artifact `ray.pdf` in this directory. Use `make clean` to remove generated
-LaTeX intermediates.
+The `repro` target unconditionally regenerates all three figures through the
+locked project environment, then uses `pdflatex` and BibTeX to write the
+submission artifact `ray.pdf` in this directory. Plain `make` is the incremental
+build. Use `make clean` to remove generated LaTeX intermediates.
+
+The checked-in lockfile names Sierra's package mirror. Without mirror access,
+install from public PyPI and override the Makefile launcher:
+
+```bash
+python -m pip install -e '.[experiments]'
+make repro PYTHON=python
+```

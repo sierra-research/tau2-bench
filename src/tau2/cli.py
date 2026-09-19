@@ -4,11 +4,13 @@ from copy import deepcopy
 from pathlib import Path
 
 from tau2.config import (
+    DEFAULT_AGENT_CALLER_LOCALE_CONTEXT,
     DEFAULT_AGENT_IMPLEMENTATION,
     DEFAULT_AUDIO_NATIVE_MODELS,
     DEFAULT_AUDIO_NATIVE_PROVIDER,
     DEFAULT_DELIVERY_MAX_SEGMENTS,
     DEFAULT_DELIVERY_SAMPLE_RATE,
+    DEFAULT_GEMINI_LIVE_EXPLICIT_LANGUAGE_CODE,
     DEFAULT_INTEGRATION_DURATION_SECONDS,
     DEFAULT_INTERRUPTION_CHECK_INTERVAL_SECONDS,
     DEFAULT_LLM_AGENT,
@@ -27,11 +29,13 @@ from tau2.config import (
     DEFAULT_MAX_STEPS_SECONDS,
     DEFAULT_NUM_TRIALS,
     DEFAULT_PCM_SAMPLE_RATE,
+    DEFAULT_RETAIL_NAME_ROLES_PROMPT_VERSION,
     DEFAULT_RETRY_ATTEMPTS,
     DEFAULT_RETRY_MIN_WAIT,
     DEFAULT_SEED,
     DEFAULT_SILENCE_ANNOTATION_THRESHOLD_SECONDS,
     DEFAULT_SPEECH_COMPLEXITY,
+    DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION,
     DEFAULT_TELEPHONY_RATE,
     DEFAULT_TEXT_MAX_CONCURRENCY,
     DEFAULT_TEXT_NOISE_SEED,
@@ -410,6 +414,28 @@ def add_run_args(parser):
         "tau2.multilingual. Works in both text and voice (--audio-native) modes.",
     )
     parser.add_argument(
+        "--target-language-directive-version",
+        choices=["v1", "v2", "v3"],
+        default=DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION,
+        help="Version of the fixed multilingual user-simulator language "
+        "directive. Historical versions are retained for exact reproduction. "
+        "Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--agent-caller-locale-context",
+        action=argparse.BooleanOptionalAction,
+        default=DEFAULT_AGENT_CALLER_LOCALE_CONTEXT,
+        help="Include the resolved caller locale in the agent prompt. Use "
+        "--no-agent-caller-locale-context for historical prompt reproduction.",
+    )
+    parser.add_argument(
+        "--retail-name-roles-prompt-version",
+        choices=["v1"],
+        default=DEFAULT_RETAIL_NAME_ROLES_PROMPT_VERSION,
+        help="Optional fixed retail caller name-role prompt treatment. Omitted "
+        "by default; corrected Korean/Mandarin retail pools pin v1.",
+    )
+    parser.add_argument(
         "--text-input-style",
         type=str,
         choices=[s.value for s in TextInputStyle],
@@ -478,6 +504,14 @@ def add_run_args(parser):
         help="Run user LLM/TTS generation without blocking audio ticks. "
         "Defaults to enabled for openai_live and disabled for other providers. "
         "Use --no-realtime-generation to disable.",
+    )
+    parser.add_argument(
+        "--gemini-live-explicit-language-code",
+        action=argparse.BooleanOptionalAction,
+        default=DEFAULT_GEMINI_LIVE_EXPLICIT_LANGUAGE_CODE,
+        help="Send Gemini Live the mapped explicit speech language code. Use "
+        "--no-gemini-live-explicit-language-code to retain provider "
+        "auto-detection for historical reproduction.",
     )
     parser.add_argument(
         "--disclose-voice-gender",
@@ -966,6 +1000,9 @@ def main():
                 if args.llm_communicate_judge
                 else "exact"
             ),
+            target_language_directive_version=(args.target_language_directive_version),
+            agent_caller_locale_context=args.agent_caller_locale_context,
+            retail_name_roles_prompt_version=(args.retail_name_roles_prompt_version),
             llm_user=args.user_llm,
             llm_args_user=args.user_llm_args,
             num_trials=args.num_trials,
@@ -1001,6 +1038,10 @@ def main():
                 "--text-noise applies to text runs only (voice runs degrade "
                 "entity conveyance acoustically)"
             )
+        if not args.audio_native and not args.gemini_live_explicit_language_code:
+            run_parser.error(
+                "--no-gemini-live-explicit-language-code requires --audio-native"
+            )
 
         if audio_native_config is not None:
             config = VoiceRunConfig(
@@ -1017,6 +1058,9 @@ def main():
                 audio_debug=getattr(args, "audio_debug", False),
                 audio_taps=getattr(args, "audio_taps", False),
                 user_persona_id=args.user_persona_id,
+                gemini_live_explicit_language_code=(
+                    args.gemini_live_explicit_language_code
+                ),
             )
         else:
             config = TextRunConfig(

@@ -23,6 +23,8 @@ from tau2.data_model.simulation import TextRunConfig
 from tau2.data_model.tasks import Task
 from tau2.multilingual.domain_profiles import CallerIdentityKind
 from tau2.multilingual.english_prompts import (
+    RETAIL_NAME_ROLES_PROMPT_TEMPLATE_V1,
+    RETAIL_NAME_ROLES_PROMPT_VERSION,
     TARGET_LANGUAGE_DIRECTIVE_TEMPLATE_V1,
     TARGET_LANGUAGE_DIRECTIVE_TEMPLATE_V2,
     TARGET_LANGUAGE_DIRECTIVE_TEMPLATE_V3,
@@ -33,12 +35,13 @@ from tau2.multilingual.english_prompts import (
     english_user_task_variant,
     render_target_language_directive,
     render_target_language_reminder,
+    retail_name_roles_prompt_line,
 )
 from tau2.multilingual.factory.caller_diversity import (
     NAME_AUTH_LINE_CLAUSE_TEMPLATE,
 )
 from tau2.registry import registry
-from tau2.runner.build import build_text_orchestrator
+from tau2.runner.build import build_text_orchestrator, user_prompt_task
 from tau2.user.user_simulator import UserSimulator, get_target_language_directive
 from test_multilingual.conftest import first_persona, make_voice_sim
 
@@ -47,6 +50,7 @@ DEVANAGARI = re.compile(r"[ऀ-ॿ]")
 # A stable, distinctive phrase of the fixed directive block (bump alongside
 # TARGET_LANGUAGE_DIRECTIVE_VERSION if the template is recalibrated).
 DIRECTIVE_MARKER = "## LANGUAGE OF THE CALL"
+NAME_ROLES_MARKER = "Your first name is "
 
 
 def _airline_hi_task(task_id: str = "7_hi") -> Task:
@@ -77,6 +81,33 @@ class TestDirective:
     def test_unmapped_locale_fails_loud(self):
         with pytest.raises(ValueError, match="no display name"):
             render_target_language_directive("hi", "IN-UNMAPPED")
+
+    def test_historical_v2_is_byte_exact_and_does_not_require_locale(self):
+        expected = TARGET_LANGUAGE_DIRECTIVE_TEMPLATE_V2.format(language_name="Korean")
+        assert render_target_language_directive("ko", None, version="v2") == expected
+
+        text = UserSimulator(
+            llm="dummy",
+            instructions="scenario",
+            persona_config=first_persona("ko"),
+            target_language_directive_version="v2",
+        )
+        voice = make_voice_sim(
+            first_persona("ko"), target_language_directive_version="v2"
+        )
+        assert expected in text.system_prompt
+        assert expected in voice.system_prompt
+        assert "from Seoul, South Korea" not in text.system_prompt
+        assert "from Seoul, South Korea" not in voice.system_prompt
+
+    def test_historical_v1_is_still_renderable(self):
+        assert render_target_language_directive(
+            "ko", None, version="v1"
+        ) == TARGET_LANGUAGE_DIRECTIVE_TEMPLATE_V1.format(language_name="Korean")
+
+    def test_unknown_directive_version_fails_loud(self):
+        with pytest.raises(ValueError, match="unsupported version"):
+            render_target_language_directive("ko", None, version="v4")
 
     def test_helper_gates_on_language(self):
         assert DIRECTIVE_MARKER in get_target_language_directive(first_persona("hi"))
@@ -319,6 +350,199 @@ class TestEnglishTaskVariant:
             english_user_task_variant(
                 rogue, domain="airline", task_set_name="airline_hi"
             )
+
+
+class TestRetailNameRoles:
+    """Korean/Mandarin retail callers know both structured name roles."""
+
+    @staticmethod
+    def _runtime_task(
+        task_set, task, language, domain="retail", name_roles_version="v1"
+    ):
+        config = TextRunConfig(
+            domain=domain,
+            task_set_name=task_set,
+            user_persona_id=language,
+            complication_rate=0.0,
+            retail_name_roles_prompt_version=name_roles_version,
+        )
+        return user_prompt_task(config, task, language)
+
+    def test_v1_is_current_and_template_is_fixed(self):
+        assert RETAIL_NAME_ROLES_PROMPT_VERSION == "v1"
+        assert set(re.findall(r"{(\w+)}", RETAIL_NAME_ROLES_PROMPT_TEMPLATE_V1)) == {
+            "first_name",
+            "last_name",
+            "full_name",
+        }
+
+    def test_default_treatment_omits_the_line(self):
+        task = registry.get_tasks_loader("retail_ko_identity")()[0]
+        out = self._runtime_task(
+            "retail_ko_identity", task, "ko", name_roles_version=None
+        )
+        assert NAME_ROLES_MARKER not in str(out.user_scenario)
+
+    @pytest.mark.parametrize(
+        "task_set",
+        [
+            "retail_ko_identity",
+            "retail_zh_identity",
+            "retail_zh_identity_native",
+            "retail_zh",
+        ],
+    )
+    def test_every_task_gets_exactly_one_line(self, task_set):
+        language = "ko" if "_ko" in task_set else "zh"
+        tasks = registry.get_tasks_loader(task_set)()
+        assert len(tasks) == 114
+        with_line = 0
+        for task in tasks:
+            out = self._runtime_task(task_set, task, language)
+            occurrences = str(out.user_scenario).count(NAME_ROLES_MARKER)
+            assert occurrences == 1, task.id
+            with_line += occurrences
+        assert with_line == 114
+
+    @pytest.mark.parametrize(
+        "task_set,expected",
+        [
+            (
+                "retail_ko_identity",
+                "Your first name is Jaehyun, and your last name is Shin. "
+                "When asked for your full name, give your last name first and "
+                "your first name second: Shin Jaehyun.",
+            ),
+            (
+                "retail_zh_identity",
+                "Your first name is Peng, and your last name is Zhu. "
+                "When asked for your full name, give your last name first and "
+                "your first name second: Zhu Peng.",
+            ),
+            (
+                "retail_zh_identity_native",
+                "Your first name is 鹏, and your last name is 朱. "
+                "When asked for your full name, give your last name first and "
+                "your first name second: 朱鹏.",
+            ),
+            (
+                "retail_zh",
+                "Your first name is Ivan, and your last name is Hernandez. "
+                "When asked for your full name, give your last name first and "
+                "your first name second: Hernandez Ivan.",
+            ),
+        ],
+    )
+    def test_handle_only_name_auth_task_receives_name_roles(self, task_set, expected):
+        task = next(
+            task
+            for task in registry.get_tasks_loader(task_set)()
+            if task.id.startswith("56_")
+        )
+        language = "ko" if "_ko" in task_set else "zh"
+        out = self._runtime_task(task_set, task, language)
+        assert expected in (out.user_scenario.instructions.task_instructions or "")
+
+    @pytest.mark.parametrize("stem", ["60", "61", "62", "63"])
+    def test_folded_mandarin_name_collision_is_repaired(self, stem):
+        task_set = "retail_zh_identity"
+        task = next(
+            task
+            for task in registry.get_tasks_loader(task_set)()
+            if task.id.startswith(f"{stem}_")
+        )
+        out = self._runtime_task(task_set, task, "zh")
+        known_info = out.user_scenario.instructions.known_info or ""
+        task_instructions = out.user_scenario.instructions.task_instructions or ""
+        assert "You are Chen Xinyi" in known_info
+        assert "Xinyi Xinyi" not in known_info
+        assert "first name is Xinyi" in task_instructions
+        assert "last name is Chen" in task_instructions
+
+    @pytest.mark.parametrize(
+        "task_set,language",
+        [
+            ("retail_ko_identity", "ko"),
+            ("retail_zh_identity", "zh"),
+            ("retail_zh_identity_native", "zh"),
+            ("retail_zh", "zh"),
+        ],
+    )
+    def test_email_only_auth_task_also_gets_name_roles(self, task_set, language):
+        task = next(
+            task
+            for task in registry.get_tasks_loader(task_set)()
+            if task.id.startswith("10_")
+        )
+        action_names = {
+            action.name for action in (task.evaluation_criteria.actions or [])
+        }
+        assert "find_user_id_by_email" in action_names
+        assert "find_user_id_by_name_zip" not in action_names
+        out = self._runtime_task(task_set, task, language)
+        assert NAME_ROLES_MARKER in str(out.user_scenario)
+
+    @pytest.mark.parametrize(
+        "task_set,domain",
+        [("retail_hi_identity", "retail"), ("airline_ko_identity", "airline")],
+    )
+    def test_v1_rejects_unsupported_languages_and_domains(self, task_set, domain):
+        language = "hi" if "_hi" in task_set else "ko"
+        task = registry.get_tasks_loader(task_set)()[0]
+        with pytest.raises(ValueError, match="retail name-role prompt treatment v1"):
+            self._runtime_task(task_set, task, language, domain)
+
+    def test_v1_rejects_a_run_without_a_korean_or_mandarin_persona(self):
+        with pytest.raises(ValueError, match="retail name-role prompt treatment v1"):
+            TextRunConfig(
+                domain="retail",
+                task_set_name="retail_ko_identity",
+                retail_name_roles_prompt_version="v1",
+            )
+
+    @pytest.mark.parametrize(
+        "task_set,language",
+        [
+            ("retail_ko_identity", "zh"),
+            ("retail_zh_identity", "ko"),
+            ("retail_zh_identity_native", "ko"),
+            ("retail_zh", "ko"),
+        ],
+    )
+    def test_v1_rejects_a_supported_task_set_for_the_wrong_language(
+        self, task_set, language
+    ):
+        with pytest.raises(ValueError, match="does not match task_set_name"):
+            TextRunConfig(
+                domain="retail",
+                task_set_name=task_set,
+                user_persona_id=language,
+                retail_name_roles_prompt_version="v1",
+            )
+
+    def test_v1_renderer_rejects_a_task_set_for_the_wrong_language(self):
+        task = registry.get_tasks_loader("retail_ko_identity")()[0]
+        with pytest.raises(ValueError, match="does not match task_set_name"):
+            retail_name_roles_prompt_line(
+                task,
+                language="zh",
+                domain="retail",
+                task_set_name="retail_ko_identity",
+                version="v1",
+            )
+
+    def test_runtime_augmentation_does_not_mutate_registered_task(self):
+        task_set = "retail_ko_identity"
+        task = next(
+            task
+            for task in registry.get_tasks_loader(task_set)()
+            if task.id.startswith("56_")
+        )
+        before = task.model_dump_json()
+        out = self._runtime_task(task_set, task, "ko")
+        assert task.model_dump_json() == before
+        assert NAME_ROLES_MARKER not in str(task.user_scenario)
+        assert NAME_ROLES_MARKER in str(out.user_scenario)
 
 
 class TestIdentityRenamePreserved:

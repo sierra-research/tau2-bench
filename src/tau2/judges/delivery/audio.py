@@ -10,9 +10,14 @@ an in-memory WAV container (mirroring ``save_wav_file`` but without touching dis
 
 import io
 import wave
+from binascii import Error as BinasciiError
 from typing import TYPE_CHECKING, Optional
 
-from tau2.data_model.audio import AudioData, audio_bytes_to_string
+from tau2.data_model.audio import (
+    AudioData,
+    audio_bytes_to_string,
+    audio_string_to_bytes,
+)
 from tau2.voice.utils.audio_preprocessing import convert_to_pcm16
 
 if TYPE_CHECKING:
@@ -41,3 +46,14 @@ def message_audio_to_wav_b64(message: "Message") -> Optional[str]:
         return None
     audio = AudioData(data=audio_bytes, format=message.audio_format)
     return audio_data_to_wav_b64(audio)
+
+
+def wav_b64_duration_seconds(audio_wav_b64: str) -> Optional[float]:
+    """Read an in-memory WAV duration, or return None for malformed audio."""
+    try:
+        raw = audio_string_to_bytes(audio_wav_b64)
+        with wave.open(io.BytesIO(raw), "rb") as wav_file:
+            rate = wav_file.getframerate()
+            return wav_file.getnframes() / rate if rate > 0 else None
+    except (BinasciiError, EOFError, ValueError, wave.Error):
+        return None

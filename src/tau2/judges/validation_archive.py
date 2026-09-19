@@ -572,6 +572,8 @@ class FceReviewRow(BaseModel):
     task_id: str
     simulation_id: str
     trial: int = Field(ge=0)
+    domain: Literal["airline", "retail", "telecom"]
+    system: Literal["openai_minimal", "openai_xhigh", "gemini_minimal", "gemini_high"]
     error_source: Optional[str] = None
     error_type: Optional[str] = None
     notes: Optional[str] = None
@@ -1090,7 +1092,7 @@ class ArchiveManifest(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal["tau-multi-human-annotations-v4"]
+    schema_version: Literal["tau-multi-human-annotations-v5"]
     validation_languages: list[str]
     fce_languages: list[str]
     supporting_review_languages: list[str]
@@ -1616,12 +1618,51 @@ FCE_QUALITY_FIELDS = (
     "speech_accuracy",
     "phrasing_naturalness",
 )
+FCE_DOMAINS = ("airline", "retail", "telecom")
+FCE_SYSTEM_ALLOCATION = {
+    "openai_minimal": 8,
+    "openai_xhigh": 7,
+    "gemini_minimal": 8,
+    "gemini_high": 7,
+}
 
 
 def _mean(values: list[int]) -> float:
     if not values:
         raise ValueError("cannot compute an FCE mean without ratings")
     return sum(values) / len(values)
+
+
+def _validate_fce_sample_balance(rows: list[FceReviewRow]) -> None:
+    """Verify the exact stratification claimed for the 30-call language sample."""
+    language_counts = Counter(row.language for row in rows)
+    expected_languages = Counter({language: 30 for language in FCE_LANGUAGES})
+    if language_counts != expected_languages:
+        raise ValueError(
+            f"FCE rows must contain 30 calls per language: {language_counts}"
+        )
+
+    domain_counts = Counter((row.language, row.domain) for row in rows)
+    expected_domains = Counter(
+        {(language, domain): 10 for language in FCE_LANGUAGES for domain in FCE_DOMAINS}
+    )
+    if domain_counts != expected_domains:
+        raise ValueError(
+            f"FCE rows must contain 10 calls per language-domain: {domain_counts}"
+        )
+
+    system_counts = Counter((row.language, row.system) for row in rows)
+    expected_systems = Counter(
+        {
+            (language, system): count
+            for language in FCE_LANGUAGES
+            for system, count in FCE_SYSTEM_ALLOCATION.items()
+        }
+    )
+    if system_counts != expected_systems:
+        raise ValueError(
+            f"FCE rows do not match the per-language system allocation: {system_counts}"
+        )
 
 
 def _expected_measure_coverage(rows: list[ValidationRow]) -> list[MeasureCoverage]:
@@ -1666,7 +1707,7 @@ def refresh_archive_manifest(root: Path, rows: list[ValidationRow]) -> ArchiveMa
                 row_count = sum(1 for _ in csv.DictReader(handle))
         files.append(_archive_file(file_path, relative=relative, rows=row_count))
     manifest = ArchiveManifest(
-        schema_version="tau-multi-human-annotations-v4",
+        schema_version="tau-multi-human-annotations-v5",
         validation_languages=list(VALIDATION_LANGUAGES),
         fce_languages=list(FCE_LANGUAGES),
         supporting_review_languages=list(ARCHIVE_LANGUAGES),
@@ -2076,11 +2117,7 @@ def validate_archive(root: Path) -> ArchiveValidationReport:
         raise ValueError("FCE row count differs from manifest")
     if not all(row.completed for row in fce_rows):
         raise ValueError("FCE archive contains an incomplete review row")
-    language_counts = Counter(row.language for row in fce_rows)
-    if language_counts != Counter({language: 30 for language in FCE_LANGUAGES}):
-        raise ValueError(
-            f"FCE rows must contain 30 calls per language: {language_counts}"
-        )
+    _validate_fce_sample_balance(fce_rows)
     fce_keys = [(row.language, row.simulation_id) for row in fce_rows]
     if len(fce_keys) != len(set(fce_keys)):
         raise ValueError("FCE archive contains duplicate simulation rows")

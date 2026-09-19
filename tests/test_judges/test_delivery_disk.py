@@ -17,9 +17,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from tau2.config import DELIVERY_FIDELITY_FINDING_FILTER_VERSION
 from tau2.data_model.audio import AudioData, AudioEncoding, AudioFormat
 from tau2.data_model.message import AssistantMessage, Tick
 from tau2.data_model.simulation import (
+    DeliveryInfo,
     DeliveryJudgeSettings,
     DeliveryUtteranceResult,
     JudgeOutcome,
@@ -34,7 +36,9 @@ from tau2.judges.delivery.disk_audio import (
     slice_tick_span,
     split_agent_channel,
 )
-from tau2.judges.delivery.harness import evaluate_delivery
+from tau2.judges.delivery.factors import build_delivery_rubric
+from tau2.judges.delivery.harness import DeliveryResumeMismatch, evaluate_delivery
+from tau2.judges.delivery.judge import DELIVERY_JUDGE_PROMPT_VERSION
 from tau2.judges.export import JudgeStreamStats, iter_judged_sims_detailed
 from tau2.voice.utils.audio_io import save_wav_file
 from tau2.voice.utils.audio_preprocessing import convert_to_stereo
@@ -221,6 +225,44 @@ def _capture_judge(captured):
     return _judge
 
 
+def _partial_delivery_info(
+    settings: DeliveryJudgeSettings,
+    *,
+    first_expected: str = "aapka code JMO1MG hai",
+    language: str | None = "hi",
+) -> DeliveryInfo:
+    return DeliveryInfo(
+        num_judged=2,
+        num_errors=1,
+        utterance_results=[
+            DeliveryUtteranceResult(
+                utterance_idx=0,
+                expected_text=first_expected,
+                outcome=JudgeOutcome.PASS,
+                summary="keep this stored verdict",
+            ),
+            DeliveryUtteranceResult(
+                utterance_idx=1,
+                expected_text="dhanyavaad",
+                was_interrupted=True,
+                outcome=JudgeOutcome.ERROR,
+                summary="api down",
+            ),
+        ],
+        rubric_source=build_delivery_rubric(language, None).source,
+        language=language,
+        locale=None,
+        judge_model=settings.model,
+        judge_args=dict(settings.model_args),
+        judge_prompt_version=DELIVERY_JUDGE_PROMPT_VERSION,
+        finding_filter_version=DELIVERY_FIDELITY_FINDING_FILTER_VERSION,
+        fidelity_end_exclusion_seconds=settings.fidelity_end_exclusion_seconds,
+        sample_rate=settings.sample_rate,
+        max_segments=settings.max_segments,
+        seed=0,
+    )
+
+
 def test_evaluate_delivery_from_disk(disk_run, monkeypatch):
     run_dir, sim = disk_run
     captured = {}
@@ -240,6 +282,65 @@ def test_evaluate_delivery_from_disk(disk_run, monkeypatch):
     assert _wav_values(captured[1][0]).tolist() == [4000] * SPT
     assert captured[0][1] == "aapka code JMO1MG hai"
     assert captured[1][1] == "dhanyavaad"
+
+
+def test_evaluate_delivery_resumes_only_error_slots(disk_run, monkeypatch):
+    run_dir, sim = disk_run
+    captured = {}
+    monkeypatch.setattr(
+        "tau2.judges.delivery.harness.run_delivery_judge",
+        _capture_judge(captured),
+    )
+    settings = DeliveryJudgeSettings(sample_rate=1.0, concurrency=1)
+    info = evaluate_delivery(
+        sim,
+        "hi",
+        settings=settings,
+        wav_source=SimAgentAudio(sim, run_dir).wav_b64_for,
+        resume_from=_partial_delivery_info(settings),
+    )
+
+    assert info is not None and info.num_errors == 0
+    assert list(captured) == [1]
+    assert info.utterance_results[0].summary == "keep this stored verdict"
+    assert info.utterance_results[1].outcome == JudgeOutcome.PASS
+
+
+@pytest.mark.parametrize(
+    ("drift", "message"),
+    [("selection", "utterance selection"), ("config", "judge_model")],
+)
+def test_evaluate_delivery_resume_fails_closed_on_drift(
+    disk_run, monkeypatch, drift, message
+):
+    run_dir, sim = disk_run
+    settings = DeliveryJudgeSettings(sample_rate=1.0, concurrency=1)
+    previous = _partial_delivery_info(
+        settings,
+        first_expected=(
+            "wrong text" if drift == "selection" else "aapka code JMO1MG hai"
+        ),
+    )
+    if drift == "config":
+        previous.judge_model = "different-model"
+    calls = {"n": 0}
+
+    def _should_not_run(*args, **kwargs):
+        calls["n"] += 1
+        raise AssertionError("judge must not run before resume identity validates")
+
+    monkeypatch.setattr(
+        "tau2.judges.delivery.harness.run_delivery_judge", _should_not_run
+    )
+    with pytest.raises(DeliveryResumeMismatch, match=message):
+        evaluate_delivery(
+            sim,
+            "hi",
+            settings=settings,
+            wav_source=SimAgentAudio(sim, run_dir).wav_b64_for,
+            resume_from=previous,
+        )
+    assert calls["n"] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -310,45 +411,65 @@ def test_iter_judged_sims_reuses_stored_delivery(tmp_path, monkeypatch):
     assert stats.delivery_reused == 1 and stats.delivery_unavailable == 1
 
 
+def test_save_judged_results_atomically_replaces_changed_sim_and_index(
+    disk_run, monkeypatch
+):
+    run_dir, sim = disk_run
+    sim.delivery_info = DeliveryInfo(score=1.0)
+    replaced = []
+
+    import tau2.judges.export as export_module
+
+    real_replace = export_module.os.replace
+
+    def _capture_replace(source, destination):
+        replaced.append(Path(destination))
+        real_replace(source, destination)
+
+    monkeypatch.setattr(export_module.os, "replace", _capture_replace)
+    export_module.save_judged_results(run_dir, {sim.id: sim})
+
+    assert run_dir / "simulations" / f"{sim.id}.json" in replaced
+    assert run_dir / "results.json" in replaced
+    assert not list(run_dir.rglob("*.tmp"))
+    stored = Results.load(run_dir)
+    assert stored.simulations[0].delivery_info.score == 1.0
+
+
 def test_iter_judged_sims_delivery_heals_error_verdicts(tmp_path, monkeypatch):
     """Stored delivery verdicts containing an ERROR utterance (failed judge
     call) are NOT reusable — the sim is re-judged so gap-filling heals the
     error instead of treating it as done forever."""
-    from tau2.data_model.simulation import DeliveryInfo
     from tau2.judges.export import has_complete_delivery_verdicts
 
     sim = _disk_sim("s1", "t1")
-    from tau2.judges.delivery.judge import DELIVERY_JUDGE_PROMPT_VERSION
-
-    sim.delivery_info = DeliveryInfo(
-        num_judged=1,
-        num_errors=1,
-        judge_prompt_version=DELIVERY_JUDGE_PROMPT_VERSION,
-        utterance_results=[
-            DeliveryUtteranceResult(
-                utterance_idx=0, outcome=JudgeOutcome.ERROR, summary="api down"
-            )
-        ],
-    )
+    settings = DeliveryJudgeSettings(sample_rate=1.0, concurrency=1)
+    sim.delivery_info = _partial_delivery_info(settings, language=None)
     assert has_complete_delivery_verdicts(sim) is False
     run_dir = make_hi_results(tmp_path, [sim])
     _write_both_wav(run_dir, sim, AGENT_TICK_VALUES)
 
+    captured = {}
     monkeypatch.setattr(
-        "tau2.judges.delivery.harness.run_delivery_judge", _capture_judge({})
+        "tau2.judges.delivery.harness.run_delivery_judge", _capture_judge(captured)
     )
     stats = JudgeStreamStats()
     items = {
         j.sim.id: j
         for j in iter_judged_sims_detailed(
             run_dir,
-            delivery_settings=DeliveryJudgeSettings(sample_rate=1.0),
+            delivery_settings=settings,
             stats=stats,
         )
     }
     assert stats.delivery_judged == 1 and stats.delivery_reused == 0
     assert items["s1"].was_judged is True
     assert items["s1"].sim.delivery_info.num_errors == 0
+    assert list(captured) == [1]
+    assert (
+        items["s1"].sim.delivery_info.utterance_results[0].summary
+        == "keep this stored verdict"
+    )
 
 
 def test_has_complete_delivery_verdicts_predicate():

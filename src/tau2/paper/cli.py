@@ -103,7 +103,13 @@ def add_paper_args(parser: argparse.ArgumentParser) -> None:
         "--repo-root",
         type=Path,
         default=Path.cwd(),
-        help="Repository containing the frozen cohort and final analysis inputs",
+        help="Repository containing code-owned final analysis inputs",
+    )
+    experience.add_argument(
+        "--evidence-root",
+        type=Path,
+        required=True,
+        help="Detached tau-multi evidence root containing main_runs",
     )
     experience.add_argument(
         "--naturalness-sidecar",
@@ -113,6 +119,58 @@ def add_paper_args(parser: argparse.ArgumentParser) -> None:
     )
     experience.add_argument("--out", type=Path, required=True)
     experience.set_defaults(func=run_multilingual_experience)
+
+    latency = commands.add_parser(
+        "multilingual-latency",
+        help="Recompute corrected trial-zero turn-taking latency",
+    )
+    latency.add_argument(
+        "--evidence-root",
+        type=Path,
+        required=True,
+        help=(
+            "Frozen tau-multi root containing active main_runs/ and archived "
+            "validation_runs/{ko,zh}/ retail inputs"
+        ),
+    )
+    latency.add_argument(
+        "--audit",
+        type=Path,
+        required=True,
+        help="Active corrected multilingual audit JSON",
+    )
+    latency.add_argument(
+        "--previous-experience",
+        type=Path,
+        required=True,
+        help="Frozen pre-replacement experience artifact used as the comparison",
+    )
+    latency.add_argument("--out", type=Path, required=True)
+    latency.set_defaults(func=run_multilingual_latency)
+
+    task_success = commands.add_parser(
+        "multilingual-task-success",
+        help="Recompute corrected task-success significance and stability",
+    )
+    task_success.add_argument(
+        "--evidence-root",
+        type=Path,
+        required=True,
+        help="Active tau-multi root containing main_runs/ and text_channel/",
+    )
+    task_success.add_argument(
+        "--replacement-root",
+        type=Path,
+        help=(
+            "Optional pre-install root for the 14 Korean/Mandarin retail cells; "
+            "omit when corrected results are installed under --evidence-root"
+        ),
+    )
+    task_success.add_argument("--out", type=Path, required=True)
+    task_success.add_argument("--seed", type=int, default=42)
+    task_success.add_argument("--permutations", type=int, default=100_000)
+    task_success.add_argument("--bootstrap-resamples", type=int, default=10_000)
+    task_success.set_defaults(func=run_multilingual_task_success)
 
     ablation_transcripts = commands.add_parser(
         "multilingual-ablation-transcripts",
@@ -222,10 +280,52 @@ def run_multilingual_experience(args) -> None:
 
     write_analysis(
         args.repo_root,
+        args.evidence_root,
         args.out,
         naturalness_sidecar=args.naturalness_sidecar,
     )
     logger.info("Wrote Interaction and utterance Experience analysis to {}", args.out)
+
+
+def run_multilingual_latency(args) -> None:
+    """Recompute the corrected trial-zero voice latency artifact."""
+    from tau2.paper.latency import write_multilingual_latency_artifact
+
+    artifact = write_multilingual_latency_artifact(
+        args.evidence_root,
+        args.audit,
+        args.previous_experience,
+        args.out,
+    )
+    logger.info(
+        "Wrote latency for {} calls; {} source cells changed",
+        artifact.cohort.calls,
+        artifact.comparison.changed_input_cells,
+    )
+
+
+def run_multilingual_task_success(args) -> None:
+    """Recompute the corrected task-success inference artifact."""
+    from experiments.tau_multilingual.task_success_significance import (
+        TaskSuccessAnalysisConfig,
+        write_task_success_analysis,
+    )
+
+    artifact = write_task_success_analysis(
+        TaskSuccessAnalysisConfig(
+            canonical_root=args.evidence_root,
+            replacement_root=args.replacement_root,
+            output=args.out,
+            seed=args.seed,
+            permutations=args.permutations,
+            bootstrap_resamples=args.bootstrap_resamples,
+        )
+    )
+    logger.info(
+        "Wrote task-success inference over {} move-stable source cells to {}",
+        len(artifact.sources),
+        args.out,
+    )
 
 
 def run_multilingual_ablation_transcripts(args) -> None:

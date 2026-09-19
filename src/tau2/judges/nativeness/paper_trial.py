@@ -95,6 +95,9 @@ from tau2.utils.utils import DATA_DIR
 TRIAL_ARTIFACT_SCHEMA_VERSION = "tau-multi-naturalness-trial0-v1"
 VALIDATION_CACHE_SCHEMA_VERSION = "tau-multi-naturalness-validation-cache-v1"
 CANONICAL_EXPERIENCE_PATH = Path("papers/tau-multilingual/reproduction/experience.json")
+ACTIVE_EXPERIENCE_PATH = Path(
+    "data/analysis/tau_multilingual_experience_without_fluency_2026-09-18.json"
+)
 CANONICAL_VALIDATION_PATH = Path(
     "data/simulations/paper_runs/tau-multi/human_annotations/validations"
 )
@@ -292,6 +295,21 @@ class ExperienceCohort(BaseModel):
     trial: Annotated[int, Field(ge=0, description="Selected trial index.")]
 
 
+class ExperienceNaturalnessSidecar(BaseModel):
+    """Naturalness work identity recorded by an Experience artifact."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    path: Annotated[str, Field(description="Logical naturalness sidecar path.")]
+    manifest_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    identity_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    work_fingerprint_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    calls: Annotated[int, Field(ge=1)]
+    factor_id: Annotated[str, Field(description="Runtime naturalness factor id.")]
+    prompt_version: Annotated[str, Field(description="Frozen judge prompt version.")]
+    rubric_version: Annotated[str, Field(description="Frozen rubric version.")]
+
+
 class ExperienceManifest(BaseModel):
     """Projection of the Experience artifact consumed by the judge runner."""
 
@@ -306,6 +324,10 @@ class ExperienceManifest(BaseModel):
     results_files: Annotated[
         list[ExperienceSource], Field(description="Exact results root inventory.")
     ]
+    naturalness_sidecar: Annotated[
+        Optional[ExperienceNaturalnessSidecar],
+        Field(description="Declared combined-naturalness replay identity."),
+    ] = None
 
 
 class CohortContract(BaseModel):
@@ -728,6 +750,10 @@ class TrialRunConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     repo_root: Annotated[Path, Field(description="Reviewer-repository root.")]
+    experience_path: Annotated[
+        Path,
+        Field(description="Repository-relative Experience cohort artifact."),
+    ] = CANONICAL_EXPERIENCE_PATH
     evidence_root: Annotated[
         Optional[Path],
         Field(
@@ -756,8 +782,32 @@ def _load_experience(path: Path) -> ExperienceManifest:
             "cohort_fingerprint_sha256"
         ),
         "results_files": (raw.get("provenance") or {}).get("results_files"),
+        "naturalness_sidecar": (raw.get("provenance") or {}).get("naturalness_sidecar"),
     }
     return ExperienceManifest.model_validate(projection)
+
+
+def _resolve_experience_path(
+    repo_root: Path, experience_path: Path
+) -> tuple[Path, str]:
+    """Resolve a tracked Experience artifact and retain its move-stable path."""
+    candidate = experience_path.expanduser()
+    resolved = (
+        candidate.resolve()
+        if candidate.is_absolute()
+        else (repo_root / candidate).resolve()
+    )
+    if not resolved.is_relative_to(repo_root):
+        raise ValueError("Experience artifact must be inside --repo-root")
+    return resolved, resolved.relative_to(repo_root).as_posix()
+
+
+def _uses_frozen_legacy_snapshot(
+    contract: CohortContract, experience_reference: str
+) -> bool:
+    return _uses_canonical_contract(contract) and (
+        experience_reference == CANONICAL_EXPERIENCE_PATH.as_posix()
+    )
 
 
 def _cohort_fingerprint(sources: list[ExperienceSource]) -> str:
@@ -795,16 +845,19 @@ def verify_experience_cohort(
     *,
     contract: CohortContract = CANONICAL_COHORT_CONTRACT,
     evidence_root: Optional[Path] = None,
+    experience_path: Path = CANONICAL_EXPERIENCE_PATH,
 ) -> tuple[ExperienceManifest, list[PreparedSource], str]:
     """Verify all manifest/header hashes and return selected non-English roots."""
     repo_root = repo_root.resolve()
-    experience_path = repo_root / CANONICAL_EXPERIENCE_PATH
+    experience_path, experience_reference = _resolve_experience_path(
+        repo_root, experience_path
+    )
     experience_sha256 = sha256_file(experience_path)
     experience = _load_experience(experience_path)
     cohort = experience.cohort
     if experience.instrument != "tau-multilingual-utterance-experience":
         raise ValueError("unexpected Experience instrument")
-    if _uses_canonical_contract(contract):
+    if _uses_frozen_legacy_snapshot(contract, experience_reference):
         if experience.instrument_version != CANONICAL_EXPERIENCE_INSTRUMENT_VERSION:
             raise ValueError("canonical Experience instrument version drifted")
         if experience_sha256 != CANONICAL_EXPERIENCE_SHA256:
@@ -948,11 +1001,18 @@ def prepare_trial_plan(
     *,
     contract: CohortContract = CANONICAL_COHORT_CONTRACT,
     evidence_root: Optional[Path] = None,
+    experience_path: Path = CANONICAL_EXPERIENCE_PATH,
 ) -> TrialPlan:
     """Verify and project the canonical cohort before any paid call starts."""
     repo_root = repo_root.resolve()
+    _resolved_experience, experience_reference = _resolve_experience_path(
+        repo_root, experience_path
+    )
     experience, sources, experience_sha = verify_experience_cohort(
-        repo_root, contract=contract, evidence_root=evidence_root
+        repo_root,
+        contract=contract,
+        evidence_root=evidence_root,
+        experience_path=experience_path,
     )
     validation_evidence = (
         _validated_evidence_identity(repo_root)
@@ -1020,7 +1080,7 @@ def prepare_trial_plan(
     if len(simulations) != expected_sims:
         raise ValueError("selected simulation count drifted")
     plan = TrialPlan(
-        experience_path=CANONICAL_EXPERIENCE_PATH.as_posix(),
+        experience_path=experience_reference,
         experience_sha256=experience_sha,
         cohort_fingerprint_sha256=experience.cohort_fingerprint_sha256,
         validation_evidence=validation_evidence,
@@ -1029,11 +1089,17 @@ def prepare_trial_plan(
         simulations=simulations,
         utterances=utterances,
     )
-    if _uses_canonical_contract(contract) and (
-        _work_fingerprint(plan) != CANONICAL_WORK_FINGERPRINT_SHA256
+    work_fingerprint = _work_fingerprint(plan)
+    if experience.naturalness_sidecar is not None and (
+        work_fingerprint != experience.naturalness_sidecar.work_fingerprint_sha256
+        or len(plan.simulations) != experience.naturalness_sidecar.calls
+    ):
+        raise ValueError("Experience naturalness work identity drifted")
+    if _uses_frozen_legacy_snapshot(contract, experience_reference) and (
+        work_fingerprint != CANONICAL_WORK_FINGERPRINT_SHA256
     ):
         raise ValueError("canonical transcript work fingerprint drifted")
-    if _uses_canonical_contract(contract) and (
+    if _uses_frozen_legacy_snapshot(contract, experience_reference) and (
         len(plan.utterances) != CANONICAL_UTTERANCES
         or sum(not row.turns for row in plan.simulations)
         != CANONICAL_ZERO_UTTERANCE_SIMULATIONS
@@ -1063,10 +1129,16 @@ def prepare_trial0_naturalness(
     *,
     contract: CohortContract = CANONICAL_COHORT_CONTRACT,
     evidence_root: Optional[Path] = None,
+    experience_path: Path = CANONICAL_EXPERIENCE_PATH,
 ) -> TrialPreparationReport:
     """Hash and project the full cohort without making a paid judge call."""
     code = _code_provenance()
-    plan = prepare_trial_plan(repo_root, contract=contract, evidence_root=evidence_root)
+    plan = prepare_trial_plan(
+        repo_root,
+        contract=contract,
+        evidence_root=evidence_root,
+        experience_path=experience_path,
+    )
     simulations_by_language = Counter(row.language for row in plan.simulations)
     utterances_by_language = Counter(row.language for row in plan.utterances)
     simulations_by_language_system: dict[str, Counter[str]] = defaultdict(Counter)
@@ -1519,6 +1591,7 @@ def _run_trial0_naturalness_claimed(
         repo_root,
         contract=contract,
         evidence_root=config.evidence_root,
+        experience_path=config.experience_path,
     )
     identity = _run_identity(plan, code)
     prior = _ensure_output_root(output_root, plan, identity)

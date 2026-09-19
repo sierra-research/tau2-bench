@@ -43,7 +43,11 @@ from tau2.evaluator.evaluator import EvaluationType
 from tau2.evaluator.reviewer import check_hallucination, format_hallucination_feedback
 from tau2.metrics.agent_metrics import compute_metrics
 from tau2.multilingual.registry import require_caller_persona
-from tau2.runner.build import _build_env_kwargs, build_orchestrator
+from tau2.runner.build import (
+    _build_env_kwargs,
+    build_orchestrator,
+    user_prompt_task_for_run,
+)
 from tau2.runner.checkpoint import (
     create_checkpoint_fns,
     try_resume,
@@ -656,13 +660,20 @@ def run_unit(
         # Hallucination retry: if check detects fabricated info, re-run
         is_full_duplex = result.ticks is not None and len(result.ticks) > 0
         if hallucination_retries > 0 and is_full_duplex:
+            # The gate fact-checks against the instructions the user simulator
+            # actually read, including runtime multilingual additions. The
+            # original task remains authoritative everywhere else: environment,
+            # evaluation, checkpointing, and discard provenance.
+            hallucination_task = user_prompt_task_for_run(config, task)
             hallucination_retry_count = 0
             while True:
                 # The simulation itself already completed (and is
                 # checkpointed); a reviewer failure must not kill the batch.
                 try:
                     h_check = check_hallucination(
-                        result, task, review_model=config.review_model
+                        result,
+                        hallucination_task,
+                        review_model=config.review_model,
                     )
                 except Exception as e:
                     logger.warning(
@@ -677,10 +688,13 @@ def run_unit(
                     break
                 result.hallucination_check = h_check
 
-                if (
-                    not h_check.hallucination_found
-                    or hallucination_retry_count >= hallucination_retries
-                ):
+                if not h_check.hallucination_found:
+                    break
+
+                # ``hallucination_retries`` limits reruns, not checks. Review
+                # the last permitted rerun too, retain its populated verdict,
+                # and stop without creating an unreviewed extra attempt.
+                if hallucination_retry_count >= hallucination_retries:
                     break
 
                 hallucination_retry_count += 1

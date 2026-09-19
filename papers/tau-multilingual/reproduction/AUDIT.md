@@ -1,8 +1,8 @@
 # τ-Multilingual reproduction audit
 
-Artifact: `08863c9fff5b4c5f`
-Repository commit: `45a6115e53994b4acddde77012aeed447680b44e`
-Evidence root: `tau-multi`
+Artifact: `ee59caca58b614a4`
+Repository commit: `037516b2a4d6b18c27d94f6f1aec558c0f6188a6`
+Evidence root: `tau-multilingual-release-corrected-retail-evidence-20260918`
 
 τ-Multilingual audit: 141 pass, 8 warning, 0 fail
 

@@ -4,7 +4,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from contextvars import copy_context
 from copy import deepcopy
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Literal, Optional, Tuple
 
 from loguru import logger
 
@@ -20,6 +20,7 @@ from tau2.agent.base.streaming import (
 )
 from tau2.agent.base.voice import VoiceMixin, VoiceState
 from tau2.config import (
+    DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION,
     VOICE_USER_SIMULATOR_DECISION_MODEL,
 )
 from tau2.data_model.audio import (
@@ -404,6 +405,9 @@ class VoiceStreamingUserSimulator(
         audio_taps_dir: Optional["Path"] = None,
         realtime_generation: bool = False,
         domain: Optional[str] = None,
+        target_language_directive_version: Literal[
+            "v1", "v2", "v3"
+        ] = DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION,
     ):
         """
         Initialize the streaming user simulator.
@@ -447,6 +451,7 @@ class VoiceStreamingUserSimulator(
         # per-domain glossaries renders into the localization section. None
         # (non-multilingual runs) renders no glossary.
         self.domain = domain
+        self.target_language_directive_version = target_language_directive_version
         self.integration_ticks = integration_ticks
         self.silence_annotation_threshold_ticks = silence_annotation_threshold_ticks
         self.tick_duration_seconds = tick_duration_seconds
@@ -662,7 +667,10 @@ class VoiceStreamingUserSimulator(
         # The directive goes near the TOP (after the title/role-framing
         # intro): the language mandate must be visible before any behavioral
         # instruction or example.
-        directive = get_target_language_directive(self.persona_config)
+        directive = get_target_language_directive(
+            self.persona_config,
+            version=self.target_language_directive_version,
+        )
         guidelines = insert_language_directive(guidelines, directive)
 
         language = getattr(self.persona_config, "language", None)

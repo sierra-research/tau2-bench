@@ -9,11 +9,15 @@ this layer and construct instances directly.
 import uuid
 from copy import deepcopy
 from pathlib import Path
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 from loguru import logger
 
 from tau2.agent.base_agent import FullDuplexAgent, HalfDuplexAgent
+from tau2.config import (
+    DEFAULT_GEMINI_LIVE_EXPLICIT_LANGUAGE_CODE,
+    DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION,
+)
 from tau2.data_model.persona import PersonaConfig
 from tau2.data_model.simulation import (
     AudioNativeConfig,
@@ -78,6 +82,9 @@ def build_agent(
     audio_taps_dir: Optional[Path] = None,
     language: Optional[str] = None,
     locale: Optional[str] = None,
+    gemini_live_explicit_language_code: bool = (
+        DEFAULT_GEMINI_LIVE_EXPLICIT_LANGUAGE_CODE
+    ),
 ) -> Union[HalfDuplexAgent, FullDuplexAgent]:
     """Build an agent from a registered name and an environment.
 
@@ -97,6 +104,8 @@ def build_agent(
             (see tau2.multilingual). None means English.
         locale: ISO 3166-2 locale of the resolved caller persona. None omits
             caller-region context from the agent prompt.
+        gemini_live_explicit_language_code: Whether Gemini Live receives the
+            mapped explicit speech language code. False uses auto-detection.
 
     Returns:
         A fully constructed agent instance.
@@ -141,6 +150,7 @@ def build_agent(
         language=language,
         locale=locale,
         native_script_db=native_script_db,
+        gemini_live_explicit_language_code=gemini_live_explicit_language_code,
     )
 
 
@@ -156,6 +166,9 @@ def build_user(
     speech_environment=None,
     input_style_directive: Optional[str] = None,
     entity_noise=None,
+    target_language_directive_version: Literal[
+        "v1", "v2", "v3"
+    ] = DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION,
 ) -> HalfDuplexUser:
     """Build a half-duplex user from a registered name.
 
@@ -204,6 +217,9 @@ def build_user(
         user_kwargs["domain"] = environment.get_domain_name()
         user_kwargs["input_style_directive"] = input_style_directive
         user_kwargs["entity_noise"] = entity_noise
+        user_kwargs["target_language_directive_version"] = (
+            target_language_directive_version
+        )
 
     user = UserConstructor(**user_kwargs)
     # Record the active language/persona on the user so the completed
@@ -232,6 +248,9 @@ def build_voice_user(
     user_persona_id: Optional[str] = None,
     channel_effects_mode: str = "regular",
     speech_effects_mode: str = "regular",
+    target_language_directive_version: Literal[
+        "v1", "v2", "v3"
+    ] = DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION,
 ) -> FullDuplexUser:
     """Build a full-duplex voice user simulator.
 
@@ -354,6 +373,7 @@ def build_voice_user(
         audio_taps_dir=audio_taps_dir,
         realtime_generation=audio_native_config.realtime_generation_enabled,
         domain=domain,
+        target_language_directive_version=target_language_directive_version,
     )
 
 
@@ -425,11 +445,30 @@ def user_prompt_task(
 
     """
     if user_language is not None:
-        from tau2.multilingual.english_prompts import english_user_task_variant
+        from tau2.multilingual.english_prompts import (
+            english_user_task_variant,
+            retail_name_roles_prompt_line,
+        )
 
         task = english_user_task_variant(
             task, domain=config.domain, task_set_name=config.task_set_name
         )
+        name_roles_line = retail_name_roles_prompt_line(
+            task,
+            language=user_language,
+            domain=config.domain,
+            task_set_name=config.task_set_name,
+            version=config.retail_name_roles_prompt_version,
+        )
+        if name_roles_line:
+            task = task.model_copy(deep=True)
+            instructions = task.user_scenario.instructions
+            if isinstance(instructions, str):
+                task.user_scenario.instructions = f"{instructions}\n\n{name_roles_line}"
+            else:
+                instructions.task_instructions = (
+                    f"{instructions.task_instructions or ''}\n\n{name_roles_line}"
+                ).strip()
         # Native-script identity tasks (the romanization ablation) additionally
         # get the fixed, versioned name spell-out block: the caller's
         # per-identity payload from the committed native identity map, so the
@@ -455,6 +494,35 @@ def user_prompt_task(
                     f"{instructions.task_instructions or ''}\n\n{block}".strip()
                 )
     return task
+
+
+def _resolved_user_persona(
+    config: RunConfig, task: Task
+) -> tuple[Optional[str], Optional[str]]:
+    """Return the task-specific persona id and language for one run.
+
+    Bare language-code overrides rotate among a pack's concrete personas by
+    task and run seed. Keeping that resolution here gives text construction,
+    voice construction, and post-hoc prompt consumers one identical path.
+    """
+    if config.user_persona_id is None:
+        return None, None
+
+    from tau2.multilingual.registry import resolve_run_language, resolve_task_persona
+
+    persona_id = resolve_task_persona(
+        config.user_persona_id,
+        task_id=task.id,
+        run_seed=config.seed,
+        domain=config.domain,
+    )
+    return persona_id, resolve_run_language(persona_id)
+
+
+def user_prompt_task_for_run(config: RunConfig, task: Task) -> Task:
+    """Build the exact task whose scenario the run's user simulator reads."""
+    _persona_id, user_language = _resolved_user_persona(config, task)
+    return user_prompt_task(config, task, user_language)
 
 
 def _localized_first_agent_message(language: Optional[str]):
@@ -527,21 +595,11 @@ def build_text_orchestrator(
     user_locale = None
     resolved_persona_config = user_persona_config
     speech_environment = None
-    if config.user_persona_id is not None:
+    resolved_persona_id, user_language = _resolved_user_persona(config, task)
+    if resolved_persona_id is not None:
         from tau2.data_model.voice import SpeechEnvironment
-        from tau2.multilingual.registry import (
-            get_multilingual_persona,
-            resolve_run_language,
-            resolve_task_persona,
-        )
+        from tau2.multilingual.registry import get_multilingual_persona
 
-        resolved_persona_id = resolve_task_persona(
-            config.user_persona_id,
-            task_id=task.id,
-            run_seed=config.seed,
-            domain=domain,
-        )
-        user_language = resolve_run_language(resolved_persona_id)
         hit = get_multilingual_persona(resolved_persona_id)
         if hit is not None:
             _pack, persona = hit
@@ -597,7 +655,7 @@ def build_text_orchestrator(
         task=task,
         solo_mode=solo_mode,
         language=user_language,
-        locale=user_locale,
+        locale=(user_locale if config.agent_caller_locale_context else None),
     )
 
     user = build_user(
@@ -611,6 +669,7 @@ def build_text_orchestrator(
         speech_environment=speech_environment,
         input_style_directive=input_style_directive,
         entity_noise=entity_noise,
+        target_language_directive_version=(config.target_language_directive_version),
     )
     orchestrator = Orchestrator(
         domain=domain,
@@ -704,20 +763,10 @@ def build_voice_orchestrator(
     # English.
     user_language = None
     user_locale = None
-    if config.user_persona_id is not None:
-        from tau2.multilingual.registry import (
-            get_multilingual_persona,
-            resolve_run_language,
-            resolve_task_persona,
-        )
+    resolved_persona_id, user_language = _resolved_user_persona(config, task)
+    if resolved_persona_id is not None:
+        from tau2.multilingual.registry import get_multilingual_persona
 
-        resolved_persona_id = resolve_task_persona(
-            config.user_persona_id,
-            task_id=task.id,
-            run_seed=config.seed,
-            domain=domain,
-        )
-        user_language = resolve_run_language(resolved_persona_id)
         hit = get_multilingual_persona(resolved_persona_id)
         if hit is not None:
             _pack, persona = hit
@@ -730,7 +779,8 @@ def build_voice_orchestrator(
         audio_native_config=config.audio_native_config,
         audio_taps_dir=audio_taps_dir,
         language=user_language,
-        locale=user_locale,
+        locale=(user_locale if config.agent_caller_locale_context else None),
+        gemini_live_explicit_language_code=(config.gemini_live_explicit_language_code),
     )
 
     user = build_voice_user(
@@ -752,6 +802,7 @@ def build_voice_orchestrator(
         user_persona_id=config.user_persona_id,
         channel_effects_mode=config.channel_effects_mode,
         speech_effects_mode=config.speech_effects_mode,
+        target_language_directive_version=(config.target_language_directive_version),
     )
     orchestrator = FullDuplexOrchestrator(
         domain=domain,

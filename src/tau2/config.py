@@ -108,6 +108,18 @@ DEFAULT_LLM_COMMUNICATE_JUDGE_ARGS = {
 # "auto" keeps the language-aware policy: semantic judging for non-English,
 # exact matching for English. Other modes explicitly pin the policy for a run.
 DEFAULT_COMMUNICATE_JUDGE_MODE = "auto"
+# Multilingual prompt treatments. These defaults describe the current prompt;
+# reproduction pools may pin an older directive and/or omit caller-locale
+# context from the agent while keeping the target-language clause itself.
+DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION = "v3"
+DEFAULT_AGENT_CALLER_LOCALE_CONTEXT = True
+# Optional retail caller-prompt treatment. ``None`` is the historical/default
+# condition; only the isolated Korean/Mandarin corrected-name pools select v1.
+DEFAULT_RETAIL_NAME_ROLES_PROMPT_VERSION = None
+# Gemini Live can receive an explicit BCP-47 SpeechConfig.language_code for
+# language-pack runs. Current runs pin it; older paper runs relied on Live's
+# automatic language detection.
+DEFAULT_GEMINI_LIVE_EXPLICIT_LANGUAGE_CODE = True
 # Env var to force the LLM communicate judge regardless of run language.
 # Used for the English baseline arm of multilingual experiments (see
 # tau2.multilingual.run_presets), so English and non-English runs are scored
@@ -178,6 +190,11 @@ DEFAULT_LLM_DELIVERY_JUDGE_ARGS: dict = {
     "max_tokens": 8192,
     "timeout": 120,
 }
+# End-of-clip fidelity findings are confounded with normal utterance
+# segmentation and interruption. Exclude that final window from scoring while
+# preserving every excluded finding on the result for audit.
+DEFAULT_DELIVERY_FIDELITY_END_EXCLUSION_SECONDS = 1.0
+DELIVERY_FIDELITY_FINDING_FILTER_VERSION = "v1"
 # Cost control: fraction of CONVERSATIONS judged (deterministic per sim id;
 # sampled sims get ALL their utterances judged so per-sim scores are
 # trustworthy — sierra-style), plus a per-conversation utterance cap.

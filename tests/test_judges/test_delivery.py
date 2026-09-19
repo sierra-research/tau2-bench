@@ -43,6 +43,10 @@ from tau2.judges.delivery.judge import (
     render_language_rubric,
     run_delivery_judge,
 )
+from tau2.judges.delivery.postprocess import (
+    is_in_final_utterance_window,
+    time_range_bounds_seconds,
+)
 from tau2.metrics.interaction_quality import barge_in_utterance_indices
 
 
@@ -186,6 +190,96 @@ def test_run_delivery_judge_sends_audio_multipart(monkeypatch):
     user_msg = capture["messages"][1]
     assert user_msg.audio_content == "UklGd0g="  # audio rides the generate() seam
     assert "hello" in user_msg.content
+
+
+def test_time_range_parser_accepts_stored_judge_formats():
+    assert time_range_bounds_seconds("00:03 - 00:04") == (3.0, 4.0)
+    assert time_range_bounds_seconds("03.5-07.0") == (3.5, 7.0)
+    assert time_range_bounds_seconds("0:21") == (21.0, 21.0)
+    assert time_range_bounds_seconds(None) is None
+    assert is_in_final_utterance_window("0:03-0:04", 4.0)
+    assert not is_in_final_utterance_window("0:01-0:02", 4.0)
+
+
+def test_run_delivery_judge_excludes_final_window_fidelity_only(monkeypatch):
+    _mock_generate(
+        monkeypatch,
+        {
+            "findings": [
+                {
+                    "axis": "fidelity",
+                    "category": "word_substitution",
+                    "time_range": "0:01-0:02",
+                    "severity": 2,
+                },
+                {
+                    "axis": "fidelity",
+                    "category": "missing_word",
+                    "time_range": "0:03-0:04",
+                    "severity": 3,
+                },
+                {
+                    "axis": "intonation",
+                    "category": "unnatural_pause",
+                    "time_range": "0:03-0:04",
+                    "severity": 1,
+                },
+            ]
+        },
+    )
+    wav_b64 = audio_data_to_wav_b64(
+        AudioData(
+            data=b"\x00\x00" * 32_000,
+            format=AudioFormat(
+                encoding=AudioEncoding.PCM_S16LE,
+                sample_rate=8_000,
+                channels=1,
+            ),
+        )
+    )
+    result = run_delivery_judge(wav_b64, "hello", utterance_idx=0)
+    assert result.outcome == JudgeOutcome.FAIL
+    assert result.severity == 2 and result.flag_for_review
+    assert [finding.axis for finding in result.findings] == [
+        "fidelity",
+        "intonation",
+    ]
+    assert len(result.excluded_findings) == 1
+    excluded = result.excluded_findings[0]
+    assert excluded.reason == "final_utterance_window"
+    assert excluded.finding.category == "missing_word"
+    assert excluded.clip_duration_seconds == pytest.approx(4.0)
+
+
+def test_only_final_window_fidelity_finding_becomes_pass(monkeypatch):
+    _mock_generate(
+        monkeypatch,
+        {
+            "findings": [
+                {
+                    "axis": "fidelity",
+                    "category": "missing_word",
+                    "time_range": "0:03-0:04",
+                    "severity": 3,
+                }
+            ]
+        },
+    )
+    wav_b64 = audio_data_to_wav_b64(
+        AudioData(
+            data=b"\x00\x00" * 32_000,
+            format=AudioFormat(
+                encoding=AudioEncoding.PCM_S16LE,
+                sample_rate=8_000,
+                channels=1,
+            ),
+        )
+    )
+    result = run_delivery_judge(wav_b64, "hello", utterance_idx=0)
+    assert result.outcome == JudgeOutcome.PASS
+    assert result.severity == 0 and not result.flag_for_review
+    assert result.findings == []
+    assert len(result.excluded_findings) == 1
 
 
 # --- language-specific prompt rendering (pack / fallback / generic) ----------
@@ -417,6 +511,9 @@ def test_harness_aggregates_scores(monkeypatch):
     # no intonation findings -> perfect intonation
     assert info.intonation_score == pytest.approx(1.0)
     assert info.score == pytest.approx((1 + 1 / 3 + 0) / 3)
+    assert info.finding_filter_version == "v1"
+    assert info.fidelity_end_exclusion_seconds == 1.0
+    assert info.num_findings_excluded == 0
 
 
 def test_harness_records_error_without_aborting(monkeypatch):

@@ -119,6 +119,30 @@ def add_pool_args(parser: argparse.ArgumentParser) -> None:
     )
     repair_parser.set_defaults(func=run_pool_repair_ceiling)
 
+    stamp_parser = sub.add_parser(
+        "stamp-retail-name-roles-v1",
+        help="Verify completed corrected-name pools and stamp their exact v1 "
+        "caller-prompt treatment provenance",
+    )
+    stamp_parser.add_argument(
+        "--pool",
+        action="append",
+        required=True,
+        help="Registered corrected-name pool to verify; repeat for a cohort",
+    )
+    stamp_parser.add_argument(
+        "--write",
+        action="store_true",
+        help="Write verified metadata stamps (default: verification-only dry run)",
+    )
+    stamp_parser.add_argument(
+        "--evidence-out",
+        default=None,
+        help="Exclusively create a typed verification JSON outside the source "
+        "run roots; valid only without --write",
+    )
+    stamp_parser.set_defaults(func=run_pool_stamp_retail_name_roles_v1)
+
 
 def run_pool_list(args: argparse.Namespace) -> None:
     """Dispatch ``tau2 pool list``."""
@@ -204,6 +228,29 @@ def run_pool_repair_ceiling(args: argparse.Namespace) -> None:
     print(report.describe())
     if args.dry_run and report.changed:
         print("--dry-run: nothing written.")
+
+
+def run_pool_stamp_retail_name_roles_v1(args: argparse.Namespace) -> None:
+    """Dispatch the verified corrected-name prompt-provenance repair."""
+    from tau2.runner.name_role_provenance import (
+        NameRoleProvenanceError,
+        stamp_name_role_provenance,
+        write_evidence_report,
+    )
+
+    try:
+        if args.write and args.evidence_out:
+            raise NameRoleProvenanceError(
+                "--evidence-out is verification-only and cannot accompany --write"
+            )
+        report = stamp_name_role_provenance(args.pool, write=args.write)
+        if args.evidence_out:
+            write_evidence_report(report, args.evidence_out)
+    except (NameRoleProvenanceError, RuntimeError) as exc:
+        raise SystemExit(str(exc)) from None
+    print(report.model_dump_json(indent=2))
+    if not args.write:
+        print("--write was not supplied: verified only; nothing written.")
 
 
 # =============================================================================

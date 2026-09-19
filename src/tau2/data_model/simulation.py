@@ -13,15 +13,18 @@ if TYPE_CHECKING:
     from tau2.voice.audio_native.livekit.config import CascadedConfig
 
 from tau2.config import (
+    DEFAULT_AGENT_CALLER_LOCALE_CONTEXT,
     DEFAULT_AUDIO_NATIVE_AGENT_IMPLEMENTATION,
     DEFAULT_AUDIO_NATIVE_MODELS,
     DEFAULT_AUDIO_NATIVE_PROVIDER,
     DEFAULT_AUDIO_NATIVE_REASONING_EFFORT,
     DEFAULT_AUDIO_NATIVE_USER_IMPLEMENTATION,
     DEFAULT_COMMUNICATE_JUDGE_MODE,
+    DEFAULT_DELIVERY_FIDELITY_END_EXCLUSION_SECONDS,
     DEFAULT_DELIVERY_JUDGE_CONCURRENCY,
     DEFAULT_DELIVERY_MAX_SEGMENTS,
     DEFAULT_DELIVERY_SAMPLE_RATE,
+    DEFAULT_GEMINI_LIVE_EXPLICIT_LANGUAGE_CODE,
     DEFAULT_INTEGRATION_DURATION_SECONDS,
     DEFAULT_INTERRUPTION_CHECK_INTERVAL_SECONDS,
     DEFAULT_LLM_AGENT,
@@ -43,12 +46,14 @@ from tau2.config import (
     DEFAULT_PCM_SAMPLE_RATE,
     DEFAULT_QUALITY_MONOLOGUE_SECONDS,
     DEFAULT_QUALITY_RESPONSE_LATENCY_SECONDS,
+    DEFAULT_RETAIL_NAME_ROLES_PROMPT_VERSION,
     DEFAULT_RETRY_ATTEMPTS,
     DEFAULT_RETRY_MIN_WAIT,
     DEFAULT_SAVE_TO,
     DEFAULT_SEED,
     DEFAULT_SEND_AUDIO_INSTANT,
     DEFAULT_SILENCE_ANNOTATION_THRESHOLD_SECONDS,
+    DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION,
     DEFAULT_TELEPHONY_RATE,
     DEFAULT_TEXT_MAX_CONCURRENCY,
     DEFAULT_TEXT_NOISE_SEED,
@@ -119,6 +124,49 @@ class ReasoningEffortBackfill(BaseModel):
         description="Why this value: the table it was read from, or the "
         "measurement it rests on. Written verbatim so the claim can be "
         "weighed without finding the source at this commit."
+    )
+
+
+class RetailNameRolesPromptBackfill(BaseModel):
+    """Evidence recorded when a completed corrected-name run is stamped.
+
+    The first corrected Korean/Mandarin retail reruns were collected with the
+    v1 line in every caller prompt before the treatment field existed.  This
+    record distinguishes that verified repair from a value observed directly
+    in a live run.
+    """
+
+    tool: Literal["tau2 pool stamp-retail-name-roles-v1"] = Field(
+        description="Package-owned verb that verified and stamped the run."
+    )
+    stamped_at: str = Field(description="When the verifier wrote the stamp.")
+    git_commit: str = Field(description="Git commit of the verifier code.")
+    pool: str = Field(description="Registered corrected-name pool verified.")
+    cell: str = Field(description="Language/provider/effort cell verified.")
+    calls_verified: int = Field(
+        description="Number of indexed calls whose caller prompts were verified.",
+        ge=1,
+    )
+    prompt_requests_verified: int = Field(
+        description="Number of caller LLM requests containing the exact v1 line.",
+        ge=1,
+    )
+    nonprompt_payload_sha256: str = Field(
+        description="SHA-256 of results.json after removing only this treatment "
+        "field and its backfill record.",
+        pattern=r"^[0-9a-f]{64}$",
+    )
+    simulation_payload_sha256: str = Field(
+        description="SHA-256 manifest of every indexed simulation JSON payload.",
+        pattern=r"^[0-9a-f]{64}$",
+    )
+    prompt_evidence_sha256: str = Field(
+        description="SHA-256 manifest of every verified caller-prompt request.",
+        pattern=r"^[0-9a-f]{64}$",
+    )
+    template_sha256: str = Field(
+        description="SHA-256 of the fixed v1 prompt template.",
+        pattern=r"^[0-9a-f]{64}$",
     )
 
 
@@ -714,6 +762,14 @@ class DeliveryJudgeSettings(BaseModel):
             default=DEFAULT_DELIVERY_JUDGE_CONCURRENCY,
         ),
     ]
+    fidelity_end_exclusion_seconds: Annotated[
+        float,
+        Field(
+            description="Final judged-clip window excluded from fidelity scoring.",
+            default=DEFAULT_DELIVERY_FIDELITY_END_EXCLUSION_SECONDS,
+            ge=0,
+        ),
+    ]
 
 
 class BaseRunConfig(BaseModel):
@@ -756,6 +812,32 @@ class BaseRunConfig(BaseModel):
             "per-task persona sampling. Works in both text and voice modes. See "
             "tau2.multilingual.",
             default=None,
+        ),
+    ]
+    target_language_directive_version: Annotated[
+        Literal["v1", "v2", "v3"],
+        Field(
+            description="Version of the fixed target-language directive in the "
+            "user-simulator prompt. Historical versions remain selectable for "
+            "exact experiment reproduction.",
+            default=DEFAULT_TARGET_LANGUAGE_DIRECTIVE_VERSION,
+        ),
+    ]
+    agent_caller_locale_context: Annotated[
+        bool,
+        Field(
+            description="Whether the agent prompt receives the resolved caller "
+            "locale in addition to the target-language clause.",
+            default=DEFAULT_AGENT_CALLER_LOCALE_CONTEXT,
+        ),
+    ]
+    retail_name_roles_prompt_version: Annotated[
+        Literal["v1"] | None,
+        Field(
+            description="Optional retail caller name-role prompt treatment. "
+            "None omits the line; v1 renders the fixed family-first name-role "
+            "line for its supported Korean/Mandarin retail task sets.",
+            default=DEFAULT_RETAIL_NAME_ROLES_PROMPT_VERSION,
         ),
     ]
     communicate_judge_mode: Annotated[
@@ -1020,6 +1102,43 @@ class BaseRunConfig(BaseModel):
             object.__setattr__(self, "retrieval_config", "alltools")
         return self
 
+    @model_validator(mode="after")
+    def _validate_retail_name_roles_prompt_target(self) -> "BaseRunConfig":
+        """Reject a treatment selection that cannot render into the prompt."""
+        if self.retail_name_roles_prompt_version is None:
+            return self
+
+        from tau2.multilingual.english_prompts import (
+            RETAIL_NAME_ROLES_LANGUAGES,
+            RETAIL_NAME_ROLES_TASK_SETS,
+            RETAIL_NAME_ROLES_TASK_SETS_BY_LANGUAGE,
+        )
+        from tau2.multilingual.registry import resolve_run_language
+
+        language = (
+            resolve_run_language(self.user_persona_id)
+            if self.user_persona_id is not None
+            else None
+        )
+        if (
+            self.domain != "retail"
+            or self.task_set_name not in RETAIL_NAME_ROLES_TASK_SETS
+            or language not in RETAIL_NAME_ROLES_LANGUAGES
+        ):
+            raise ValueError(
+                "retail name-role prompt treatment v1 requires a supported "
+                "Korean/Mandarin retail task set and matching language-pack "
+                "caller persona; got "
+                f"domain={self.domain!r}, task_set_name={self.task_set_name!r}, "
+                f"language={language!r}"
+            )
+        if self.task_set_name not in RETAIL_NAME_ROLES_TASK_SETS_BY_LANGUAGE[language]:
+            raise ValueError(
+                f"retail name-role prompt language={language!r} does not match "
+                f"task_set_name={self.task_set_name!r}"
+            )
+        return self
+
     @property
     def effective_agent(self) -> str:
         """The agent implementation name to use."""
@@ -1231,6 +1350,15 @@ class VoiceRunConfig(BaseRunConfig):
         AudioNativeConfig,
         Field(
             description="Configuration for audio-native mode (provider, model, timing, thresholds, etc.).",
+        ),
+    ]
+    gemini_live_explicit_language_code: Annotated[
+        bool,
+        Field(
+            description="Whether Gemini Live receives the mapped explicit "
+            "SpeechConfig.language_code for language-pack runs. False retains "
+            "the target-language prompt but lets Live auto-detect speech.",
+            default=DEFAULT_GEMINI_LIVE_EXPLICIT_LANGUAGE_CODE,
         ),
     ]
 
@@ -1594,6 +1722,27 @@ class DeliveryFinding(BaseModel):
     confidence: Optional[float] = None
 
 
+class DeliveryFindingExclusion(BaseModel):
+    """One raw judge finding excluded by deterministic post-processing."""
+
+    finding: DeliveryFinding = Field(description="The unmodified judge finding.")
+    reason: Literal["final_utterance_window"] = Field(
+        description="Stable reason code for the exclusion."
+    )
+    clip_duration_seconds: float = Field(
+        description="Exact duration of the judged utterance clip.", ge=0
+    )
+    exclusion_window_seconds: float = Field(
+        description="Size of the excluded window at the end of the clip.", ge=0
+    )
+    span_start_seconds: float = Field(
+        description="Parsed start of the judge-provided approximate span.", ge=0
+    )
+    span_end_seconds: float = Field(
+        description="Parsed end of the judge-provided approximate span.", ge=0
+    )
+
+
 class DeliveryFactorCheck(BaseModel):
     """Result of one language-specific delivery factor against one clip / sim.
 
@@ -1648,6 +1797,11 @@ class DeliveryUtteranceResult(BaseModel):
     confidence: Optional[float] = None
     summary: Optional[str] = None
     findings: list[DeliveryFinding] = Field(default_factory=list)
+    excluded_findings: list[DeliveryFindingExclusion] = Field(
+        default_factory=list,
+        description="Raw judge findings excluded from verdicts and scores by "
+        "deterministic post-processing; retained for audit.",
+    )
     factor_checks: list[DeliveryFactorCheck] = Field(
         default_factory=list,
         description="Per-factor verdicts for this clip against the language's "
@@ -1734,6 +1888,22 @@ class DeliveryInfo(BaseModel):
             default=None,
         ),
     ]
+    finding_filter_version: Optional[str] = Field(
+        description="Version of deterministic finding post-processing; None "
+        "when the delivery judge did not run.",
+        default=None,
+    )
+    fidelity_end_exclusion_seconds: Optional[float] = Field(
+        description="Final clip window excluded from fidelity findings; None "
+        "when the delivery judge did not run.",
+        default=None,
+        ge=0,
+    )
+    num_findings_excluded: int = Field(
+        description="Raw judge findings retained only as excluded_findings.",
+        default=0,
+        ge=0,
+    )
     sample_rate: Optional[float] = None
     max_segments: Optional[int] = None
     seed: Optional[int] = None
@@ -2330,6 +2500,27 @@ class Info(BaseModel):
         "check. None also means a results file predating this field.",
         default=None,
     )
+    target_language_directive_version: Optional[Literal["v1", "v2", "v3"]] = Field(
+        description="Target-language directive version rendered into the "
+        "user prompt. None means the result predates this provenance field.",
+        default=None,
+    )
+    agent_caller_locale_context: Optional[bool] = Field(
+        description="Whether the agent prompt included resolved caller-locale "
+        "context. None means the result predates this provenance field.",
+        default=None,
+    )
+    retail_name_roles_prompt_version: Optional[Literal["v1"]] = Field(
+        description="Retail name-role caller-prompt treatment recorded for the "
+        "run. None means the prompt line was omitted (and is also how results "
+        "predating this field deserialize).",
+        default=None,
+    )
+    retail_name_roles_prompt_backfill: Optional[RetailNameRolesPromptBackfill] = Field(
+        description="Verification evidence when v1 was stamped onto a completed "
+        "corrected-name run; None when the live run recorded the treatment.",
+        default=None,
+    )
     text_input_style: Optional[str] = Field(
         description="The run's --text-input-style arm (closed catalog in "
         "tau2.multilingual.text_input_catalog): how the user simulator TYPED "
@@ -2375,6 +2566,11 @@ class Info(BaseModel):
     )
     audio_native_config: Optional["AudioNativeConfig"] = Field(
         description="Configuration for audio-native mode",
+        default=None,
+    )
+    gemini_live_explicit_language_code: Optional[bool] = Field(
+        description="Whether Gemini Live received an explicit mapped speech "
+        "language code. None means text mode or a result predating this field.",
         default=None,
     )
     retrieval_config: Optional[str] = Field(
