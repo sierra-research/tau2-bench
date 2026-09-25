@@ -15,6 +15,17 @@ from tau2.agent.llm_agent import (
     create_llm_solo_agent,
 )
 from tau2.data_model.tasks import Task
+
+#claims
+from tau2.domains.claims.environment import (
+    get_environment as claims_domain_get_environment,
+)
+from tau2.domains.claims.environment import get_tasks as claims_domain_get_tasks
+from tau2.domains.claims.environment import (
+    get_tasks_split as claims_domain_get_tasks_split,
+)
+
+#other domains
 from tau2.domains.airline.environment import (
     get_environment as airline_domain_get_environment,
 )
@@ -312,6 +323,13 @@ try:
     )
     registry.register_domain(mock_domain_get_environment, "mock")
     registry.register_tasks(mock_domain_get_tasks, "mock")
+
+    registry.register_domain(claims_domain_get_environment, "claims")
+    registry.register_tasks(
+        claims_domain_get_tasks,
+        "claims",
+        get_task_splits=claims_domain_get_tasks_split,
+    )
 
     registry.register_domain(airline_domain_get_environment, "airline")
     registry.register_tasks(
