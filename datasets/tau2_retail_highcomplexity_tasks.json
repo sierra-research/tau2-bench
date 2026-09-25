@@ -1,0 +1,710 @@
+[
+  {
+    "id": "0::add_condition",
+    "description": {
+      "purpose": "Conditional resolution: agent must pick the fallback variant when the preferred one is unavailable.",
+      "relevant_policies": "Exchange delivered order: items must be of the same product type, different available options; difference refunded/charged to a valid payment method.",
+      "notes": "Pattern=add_condition. Preferred (clicky+RGB+full size) is NOT in stock; gold path resolves to fallback clicky+white+full size (6342039236)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You received order #W2378156 and want to exchange the Mechanical Keyboard for a clicky-switch, RGB backlight, full-size version. If a clicky + RGB + full-size keyboard is not available, you'd instead take a clicky + white backlight + full-size one.",
+        "known_info": "You are Yusuf Rossi in zip code 19122.",
+        "unknown_info": "You do not remember your email address.",
+        "task_instructions": "You are detail-oriented. State your conditional preference clearly and let the agent check availability before confirming."
+      }
+    },
+    "ticket": "Customer Yusuf Rossi (zip 19122), order #W2378156 (delivered). Exchange the Mechanical Keyboard (item 1151293680) to clicky+RGB+full size; if unavailable, to clicky+white+full size. No clicky+RGB+full size is in stock, so exchange to item 6342039236. Refund the price difference to the card on file.",
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a_auth",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Yusuf",
+            "last_name": "Rossi",
+            "zip": "19122"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a1",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W2378156"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a2",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": {
+            "product_id": "1656367028"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a3",
+          "requestor": "assistant",
+          "name": "exchange_delivered_order_items",
+          "arguments": {
+            "order_id": "#W2378156",
+            "item_ids": [
+              "1151293680"
+            ],
+            "new_item_ids": [
+              "6342039236"
+            ],
+            "payment_method_id": "credit_card_9513926"
+          },
+          "info": null,
+          "compare_args": null
+        }
+      ],
+      "env_assertions": null,
+      "communicate_info": [],
+      "nl_assertions": [
+        "The agent confirmed that a clicky + RGB + full-size keyboard was not available before applying the fallback.",
+        "The agent exchanged the keyboard to the clicky + white backlight + full-size variant, not any other option."
+      ],
+      "reward_basis": [
+        "DB",
+        "NL_ASSERTION"
+      ]
+    },
+    "issues": [
+      {
+        "id": "prov_add_condition",
+        "title": "Synthetic task provenance & verification basis",
+        "description": "Synthetic high-complexity task derived from retail task id 0. Gold path resolved against data/tau2/domains/retail/db.json @ commit 1746a25db265724f6fed2260934bb67f1514fad7; all actions verified executable, legal per policy, and yielding a unique end state.",
+        "status": "resolved",
+        "resolution": "Verified against db.json.",
+        "created_at": "2026-06-05",
+        "resolved_at": "2026-06-05",
+        "author_email": null,
+        "pr_link": null,
+        "simulation_file": null
+      }
+    ],
+    "required_documents": null,
+    "user_tools": null
+  },
+  {
+    "id": "0::add_dependency",
+    "description": {
+      "purpose": "Cross-item dependency: the keyboard exchange is contingent on the combined transaction being a net refund.",
+      "relevant_policies": "Exchange delivered order: tool may be called only once per order, so dependent item exchanges must be combined into a single call.",
+      "notes": "Pattern=add_dependency. Thermostat->Google Assistant (-13.46) + Keyboard->clicky/white/full (-27.42) = net -40.88 (refund), so the dependent keyboard exchange is included; both in ONE exchange call."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You received order #W2378156 and want to exchange the Smart Thermostat to a Google Assistant compatible version. You also want to exchange the Mechanical Keyboard to a clicky + white backlight + full-size one, but ONLY if doing both still results in a net refund overall (you do not want to end up paying extra).",
+        "known_info": "You are Yusuf Rossi in zip code 19122.",
+        "unknown_info": "You do not remember your email address.",
+        "task_instructions": "Make clear the keyboard exchange depends on the overall transaction being a net refund. Confirm once the agent has computed the totals."
+      }
+    },
+    "ticket": "Customer Yusuf Rossi (zip 19122), order #W2378156 (delivered). Exchange Smart Thermostat (4983901480) to Google Assistant (7747408585). Also exchange Mechanical Keyboard (1151293680) to clicky/white/full (6342039236) only if the combined difference is a net refund. Combined difference = -$40.88 (refund), so include both in a single exchange call. Refund to card on file.",
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a_auth",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Yusuf",
+            "last_name": "Rossi",
+            "zip": "19122"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a1",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W2378156"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a2",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": {
+            "product_id": "4896585277"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a3",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": {
+            "product_id": "1656367028"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a4",
+          "requestor": "assistant",
+          "name": "exchange_delivered_order_items",
+          "arguments": {
+            "order_id": "#W2378156",
+            "item_ids": [
+              "4983901480",
+              "1151293680"
+            ],
+            "new_item_ids": [
+              "7747408585",
+              "6342039236"
+            ],
+            "payment_method_id": "credit_card_9513926"
+          },
+          "info": null,
+          "compare_args": null
+        }
+      ],
+      "env_assertions": null,
+      "communicate_info": [],
+      "nl_assertions": [
+        "The agent computed the combined price difference and confirmed it was a net refund before exchanging the keyboard.",
+        "Both items were exchanged in a single exchange action on order #W2378156."
+      ],
+      "reward_basis": [
+        "DB",
+        "NL_ASSERTION"
+      ]
+    },
+    "issues": [
+      {
+        "id": "prov_add_dependency",
+        "title": "Synthetic task provenance & verification basis",
+        "description": "Synthetic high-complexity task derived from retail task id 0. Gold path resolved against data/tau2/domains/retail/db.json @ commit 1746a25db265724f6fed2260934bb67f1514fad7; all actions verified executable, legal per policy, and yielding a unique end state.",
+        "status": "resolved",
+        "resolution": "Verified against db.json.",
+        "created_at": "2026-06-05",
+        "resolved_at": "2026-06-05",
+        "author_email": null,
+        "pr_link": null,
+        "simulation_file": null
+      }
+    ],
+    "required_documents": null,
+    "user_tools": null
+  },
+  {
+    "id": "0::split_across_orders",
+    "description": {
+      "purpose": "Two intents spread across two different delivered orders in one conversation.",
+      "relevant_policies": "Return and exchange apply only to delivered orders; each may target a different order.",
+      "notes": "Pattern=split_across_orders. Return Digital Camera from #W6679257; exchange Smart Watch in #W2378156 to gold/leather/AMOLED (5694328282)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You want to return the Digital Camera you received in one order, and in another order you want to exchange the Smart Watch for the same one but with an AMOLED display (keeping gold color and leather band). Handle both in this call.",
+        "known_info": "You are Yusuf Rossi in zip code 19122. The camera is in order #W6679257 and the smart watch is in order #W2378156.",
+        "unknown_info": "You do not remember your email address.",
+        "task_instructions": "You want both handled in one go. Refund/charge everything to your card on file."
+      }
+    },
+    "ticket": "Customer Yusuf Rossi (zip 19122). Return Digital Camera (item 5996159312) from delivered order #W6679257. Exchange Smart Watch (item 9408160950) in delivered order #W2378156 to gold/leather/AMOLED (item 5694328282). Refund to card on file.",
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a_auth",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Yusuf",
+            "last_name": "Rossi",
+            "zip": "19122"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a1",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W6679257"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a2",
+          "requestor": "assistant",
+          "name": "return_delivered_order_items",
+          "arguments": {
+            "order_id": "#W6679257",
+            "item_ids": [
+              "5996159312"
+            ],
+            "payment_method_id": "credit_card_9513926"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a3",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W2378156"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a4",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": {
+            "product_id": "6945232052"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a5",
+          "requestor": "assistant",
+          "name": "exchange_delivered_order_items",
+          "arguments": {
+            "order_id": "#W2378156",
+            "item_ids": [
+              "9408160950"
+            ],
+            "new_item_ids": [
+              "5694328282"
+            ],
+            "payment_method_id": "credit_card_9513926"
+          },
+          "info": null,
+          "compare_args": null
+        }
+      ],
+      "env_assertions": null,
+      "communicate_info": [],
+      "nl_assertions": [
+        "The agent processed the camera return on order #W6679257 and the smart watch exchange on order #W2378156, not on a single order.",
+        "The smart watch was exchanged to the AMOLED-display variant keeping gold color and leather band."
+      ],
+      "reward_basis": [
+        "DB",
+        "NL_ASSERTION"
+      ]
+    },
+    "issues": [
+      {
+        "id": "prov_split_across_orders",
+        "title": "Synthetic task provenance & verification basis",
+        "description": "Synthetic high-complexity task derived from retail task id 0. Gold path resolved against data/tau2/domains/retail/db.json @ commit 1746a25db265724f6fed2260934bb67f1514fad7; all actions verified executable, legal per policy, and yielding a unique end state.",
+        "status": "resolved",
+        "resolution": "Verified against db.json.",
+        "created_at": "2026-06-05",
+        "resolved_at": "2026-06-05",
+        "author_email": null,
+        "pr_link": null,
+        "simulation_file": null
+      }
+    ],
+    "required_documents": null,
+    "user_tools": null
+  },
+  {
+    "id": "0::add_constraint",
+    "description": {
+      "purpose": "Payment-method constraint with fallback: customer requests a gift-card refund but has none on file.",
+      "relevant_policies": "Return delivered order: refund must go to the original payment method or an existing gift card.",
+      "notes": "Pattern=add_constraint(payment-method). Yusuf has only a credit card; gift-card refund is impossible, so gold path falls back to the original card."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You want to return the Vacuum Cleaner from order #W2378156. You would prefer the refund go to a gift card; if you don't have a gift card on file, refund to your original payment method instead.",
+        "known_info": "You are Yusuf Rossi in zip code 19122. The vacuum is in order #W2378156.",
+        "unknown_info": "You do not remember your email address, and you are not sure which payment methods are on your account.",
+        "task_instructions": "Ask for a gift-card refund first; accept the original-card fallback if no gift card exists."
+      }
+    },
+    "ticket": "Customer Yusuf Rossi (zip 19122), order #W2378156 (delivered). Return the Vacuum Cleaner (item 4602305039). Customer prefers gift-card refund but has no gift card on file, so refund to the original card (credit_card_9513926).",
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a_auth",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Yusuf",
+            "last_name": "Rossi",
+            "zip": "19122"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a1",
+          "requestor": "assistant",
+          "name": "get_user_details",
+          "arguments": {
+            "user_id": "yusuf_rossi_9620"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a2",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W2378156"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a3",
+          "requestor": "assistant",
+          "name": "return_delivered_order_items",
+          "arguments": {
+            "order_id": "#W2378156",
+            "item_ids": [
+              "4602305039"
+            ],
+            "payment_method_id": "credit_card_9513926"
+          },
+          "info": null,
+          "compare_args": null
+        }
+      ],
+      "env_assertions": null,
+      "communicate_info": [],
+      "nl_assertions": [
+        "The agent established that no gift card was on file before choosing the refund method.",
+        "The refund for the vacuum return was directed to the original card on file."
+      ],
+      "reward_basis": [
+        "DB",
+        "NL_ASSERTION"
+      ]
+    },
+    "issues": [
+      {
+        "id": "prov_add_constraint",
+        "title": "Synthetic task provenance & verification basis",
+        "description": "Synthetic high-complexity task derived from retail task id 0. Gold path resolved against data/tau2/domains/retail/db.json @ commit 1746a25db265724f6fed2260934bb67f1514fad7; all actions verified executable, legal per policy, and yielding a unique end state.",
+        "status": "resolved",
+        "resolution": "Verified against db.json.",
+        "created_at": "2026-06-05",
+        "resolved_at": "2026-06-05",
+        "author_email": null,
+        "pr_link": null,
+        "simulation_file": null
+      }
+    ],
+    "required_documents": null,
+    "user_tools": null
+  },
+  {
+    "id": "0::inject_policy_edge",
+    "description": {
+      "purpose": "Policy edge: customer asks to cancel a delivered order (not allowed) alongside a legitimate pending-order cancellation.",
+      "relevant_policies": "Cancel pending order: only orders with status 'pending' can be cancelled; reason must be 'no longer needed' or 'ordered by mistake'. Delivered orders cannot be cancelled.",
+      "notes": "Pattern=inject_policy_edge(delivered-cancel). Gold path refuses to cancel delivered #W2378156 (may suggest return) and cancels only pending #W6247578."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You changed your mind and want to cancel two orders: order #W2378156 and your pending t-shirt order #W6247578.",
+        "known_info": "You are Yusuf Rossi in zip code 19122.",
+        "unknown_info": "You do not remember your email address, and you don't recall which of your orders have already been delivered.",
+        "task_instructions": "Push to cancel both. Accept the agent's explanation if one of them cannot be cancelled."
+      }
+    },
+    "ticket": "Customer Yusuf Rossi (zip 19122) wants to cancel order #W2378156 (DELIVERED - cannot be cancelled; explain and optionally offer a return) and pending order #W6247578 (cancel with reason 'no longer needed').",
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a_auth",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Yusuf",
+            "last_name": "Rossi",
+            "zip": "19122"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a1",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W2378156"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a2",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W6247578"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a3",
+          "requestor": "assistant",
+          "name": "cancel_pending_order",
+          "arguments": {
+            "order_id": "#W6247578",
+            "reason": "no longer needed"
+          },
+          "info": null,
+          "compare_args": null
+        }
+      ],
+      "env_assertions": null,
+      "communicate_info": [],
+      "nl_assertions": [
+        "The agent explained that the delivered order #W2378156 cannot be cancelled.",
+        "The agent cancelled only the pending order #W6247578 and did not cancel #W2378156."
+      ],
+      "reward_basis": [
+        "DB",
+        "NL_ASSERTION"
+      ]
+    },
+    "issues": [
+      {
+        "id": "prov_inject_policy_edge",
+        "title": "Synthetic task provenance & verification basis",
+        "description": "Synthetic high-complexity task derived from retail task id 0. Gold path resolved against data/tau2/domains/retail/db.json @ commit 1746a25db265724f6fed2260934bb67f1514fad7; all actions verified executable, legal per policy, and yielding a unique end state.",
+        "status": "resolved",
+        "resolution": "Verified against db.json.",
+        "created_at": "2026-06-05",
+        "resolved_at": "2026-06-05",
+        "author_email": null,
+        "pr_link": null,
+        "simulation_file": null
+      }
+    ],
+    "required_documents": null,
+    "user_tools": null
+  },
+  {
+    "id": "0::add_distractor",
+    "description": {
+      "purpose": "Distractor / multi-user: a request to act on a third party's account that must be ignored per single-user policy.",
+      "relevant_policies": "The agent can only help one authenticated user per conversation and must deny requests related to any other user.",
+      "notes": "Pattern=add_distractor(multi-user). Gold path exchanges only Yusuf's thermostat to Amazon Alexa (4953074738) and refuses the roommate request."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You want to exchange the Smart Thermostat in order #W2378156 to the Amazon Alexa compatible version. Also, your roommate Sara Doe ordered the same thermostat - please switch hers to Alexa too while you're at it.",
+        "known_info": "You are Yusuf Rossi in zip code 19122. The thermostat is in order #W2378156.",
+        "unknown_info": "You do not remember your email address.",
+        "task_instructions": "Make the roommate request casually. Do not provide any account details for the roommate; accept it if the agent declines that part."
+      }
+    },
+    "ticket": "Customer Yusuf Rossi (zip 19122), order #W2378156 (delivered). Exchange Smart Thermostat (4983901480) to Amazon Alexa (4953074738), refund difference to card on file. Decline the request to modify a different customer's (Sara Doe's) order - single-user policy.",
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a_auth",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Yusuf",
+            "last_name": "Rossi",
+            "zip": "19122"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a1",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W2378156"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a2",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": {
+            "product_id": "4896585277"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a3",
+          "requestor": "assistant",
+          "name": "exchange_delivered_order_items",
+          "arguments": {
+            "order_id": "#W2378156",
+            "item_ids": [
+              "4983901480"
+            ],
+            "new_item_ids": [
+              "4953074738"
+            ],
+            "payment_method_id": "credit_card_9513926"
+          },
+          "info": null,
+          "compare_args": null
+        }
+      ],
+      "env_assertions": null,
+      "communicate_info": [],
+      "nl_assertions": [
+        "The agent exchanged only the authenticated user's thermostat to the Amazon Alexa variant.",
+        "The agent declined to act on the roommate's (Sara Doe's) account, citing that it can only assist the authenticated user."
+      ],
+      "reward_basis": [
+        "DB",
+        "NL_ASSERTION"
+      ]
+    },
+    "issues": [
+      {
+        "id": "prov_add_distractor",
+        "title": "Synthetic task provenance & verification basis",
+        "description": "Synthetic high-complexity task derived from retail task id 0. Gold path resolved against data/tau2/domains/retail/db.json @ commit 1746a25db265724f6fed2260934bb67f1514fad7; all actions verified executable, legal per policy, and yielding a unique end state.",
+        "status": "resolved",
+        "resolution": "Verified against db.json.",
+        "created_at": "2026-06-05",
+        "resolved_at": "2026-06-05",
+        "author_email": null,
+        "pr_link": null,
+        "simulation_file": null
+      }
+    ],
+    "required_documents": null,
+    "user_tools": null
+  },
+  {
+    "id": "0::make_underspecified",
+    "description": {
+      "purpose": "Underspecified request requiring clarification before any state-changing action.",
+      "relevant_policies": "Return delivered order: agent must confirm the order id and the specific items before processing; should not invent details.",
+      "notes": "Pattern=make_underspecified. Resolution lives in task_instructions: when asked, the user specifies the Vacuum Cleaner and Smart Watch in delivered order #W2378156."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You're unhappy with a couple of the electronics you recently received and want to return them. You're not sure which order they were in.",
+        "known_info": "You are Yusuf Rossi in zip code 19122.",
+        "unknown_info": "You do not remember your email address or which order the items are in.",
+        "task_instructions": "Be vague at first. Only when the agent asks, clarify that you mean the Vacuum Cleaner and the Smart Watch from your most recent delivered order (#W2378156), and that the refund should go to your card on file."
+      }
+    },
+    "ticket": "Customer Yusuf Rossi (zip 19122) wants to return two electronics but is initially vague. After clarification: return the Vacuum Cleaner (item 4602305039) and Smart Watch (item 9408160950) from delivered order #W2378156, refund to card on file.",
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "a_auth",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Yusuf",
+            "last_name": "Rossi",
+            "zip": "19122"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a1",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W2378156"
+          },
+          "info": null,
+          "compare_args": null
+        },
+        {
+          "action_id": "a2",
+          "requestor": "assistant",
+          "name": "return_delivered_order_items",
+          "arguments": {
+            "order_id": "#W2378156",
+            "item_ids": [
+              "4602305039",
+              "9408160950"
+            ],
+            "payment_method_id": "credit_card_9513926"
+          },
+          "info": null,
+          "compare_args": null
+        }
+      ],
+      "env_assertions": null,
+      "communicate_info": [],
+      "nl_assertions": [
+        "The agent asked clarifying questions to identify the specific order and items before processing any return.",
+        "The agent returned exactly the Vacuum Cleaner and the Smart Watch from order #W2378156 and did not invent or add other items."
+      ],
+      "reward_basis": [
+        "DB",
+        "NL_ASSERTION"
+      ]
+    },
+    "issues": [
+      {
+        "id": "prov_make_underspecified",
+        "title": "Synthetic task provenance & verification basis",
+        "description": "Synthetic high-complexity task derived from retail task id 0. Gold path resolved against data/tau2/domains/retail/db.json @ commit 1746a25db265724f6fed2260934bb67f1514fad7; all actions verified executable, legal per policy, and yielding a unique end state.",
+        "status": "resolved",
+        "resolution": "Verified against db.json.",
+        "created_at": "2026-06-05",
+        "resolved_at": "2026-06-05",
+        "author_email": null,
+        "pr_link": null,
+        "simulation_file": null
+      }
+    ],
+    "required_documents": null,
+    "user_tools": null
+  }
+]
