@@ -4,11 +4,12 @@ from tau2.data_model.message import (
     AssistantMessage,
     Message,
     SystemMessage,
+    ToolCall,
     ToolMessage,
     UserMessage,
 )
 from tau2.environment.tool import Tool, as_tool
-from tau2.utils.llm_utils import generate
+from tau2.utils.llm_utils import generate, to_litellm_messages
 
 
 @pytest.fixture
@@ -49,6 +50,41 @@ def tool_call_messages() -> list[Message]:
         ),
     ]
     return messages
+
+
+def test_to_litellm_messages_preserves_user_tool_calls():
+    message = UserMessage(
+        role="user",
+        content=None,
+        tool_calls=[
+            ToolCall(
+                id="call_user_1",
+                name="verify_identity",
+                arguments={"last_four_digits": "1234"},
+                requestor="user",
+            )
+        ],
+    )
+
+    litellm_messages = to_litellm_messages([message])
+
+    assert litellm_messages == [
+        {
+            "role": "user",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call_user_1",
+                    "name": "verify_identity",
+                    "function": {
+                        "name": "verify_identity",
+                        "arguments": '{"last_four_digits": "1234"}',
+                    },
+                    "type": "function",
+                }
+            ],
+        }
+    ]
 
 
 def test_generate_no_tool_call(model: str, messages: list[Message]):
