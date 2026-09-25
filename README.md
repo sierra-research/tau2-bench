@@ -53,6 +53,10 @@ Each domain specifies:
 | **Text (half-duplex)** | Turn-based chat with tool use |
 | **Voice (full-duplex)** | End-to-end audio via realtime providers (OpenAI, Gemini, xAI) |
 
+### Related external benchmarks
+
+[ClawBench](https://github.com/TIGER-AI-Lab/ClawBench) is a complementary benchmark for AI web agents performing real-world tasks across live websites. It is independent of τ-bench and is not integrated or supported by this repository; the link is provided for readers comparing interactive-agent evaluation environments.
+
 ## Quick Start
 
 ### 1. Install
