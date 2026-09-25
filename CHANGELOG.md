@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+- Examples in tool docstrings no longer cause errors on `Tool.__init__`
 
 ## [1.0.1] - 2026-07-15
 
