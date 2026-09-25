@@ -1,0 +1,34 @@
+{
+  "id": "task_106",
+  "description": {
+    "purpose": "Mortgage origination proof task: assess a self-employed mortgage file and decline it for a hard DTI breach after applying Meridian's income rules.",
+    "relevant_policies": null,
+    "notes": "Minimal mortgage origination proof scenario inside banking_knowledge."
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": "You are playing the role of a mortgage broker contacting a bank agent about an investment home loan file. The application is AP-002 for Marco Anthony Ferretti. You want to know whether the file can move ahead despite the complexity of the applicant's self-employed income.\n\nYour goal is to ask for a status update and press for the most workable next step. If the agent asks what was submitted, say the file included identification, two years of personal tax returns, a business tax return, bank statements, privacy consent, the contract of sale, and the mortgage application form. Do not invent additional income evidence or alternate calculations. If the agent explains that the application must be declined because the assessed income and DTI fail policy, accept that and end the conversation.\n\nOnly provide additional details when asked. Never respond as a customer service representative or assistant. You are playing the role of the broker."
+  },
+  "initial_state": null,
+  "evaluation_criteria": {
+    "actions": [],
+    "communicate_info": [],
+    "nl_assertions": [
+      "The agent identifies that this is a self-employed file and applies or references the two-year income assessment approach rather than relying only on the latest year's income.",
+      "The agent identifies that the assessed income is about 126000 or otherwise correctly explains that the self-employed assessment still leads to an assessed DTI of 7.9x above the 6.0x cap.",
+      "The agent clearly states that the application should be declined because DTI above 6.0x is a hard policy breach with no exception pathway.",
+      "The agent does not approve the file, conditionally approve it, or treat the near-prime score as the only issue while missing the hard DTI decline."
+    ],
+    "reward_basis": [
+      "NL_ASSERTION"
+    ]
+  },
+  "annotations": null,
+  "user_tools": [],
+  "required_documents": [
+    "doc_meridian_origination_ap_002_file_summary_001",
+    "doc_meridian_credit_policy_section_5_2_001",
+    "doc_meridian_credit_policy_section_5_5_001",
+    "doc_meridian_credit_policy_section_6_1_001"
+  ]
+}
