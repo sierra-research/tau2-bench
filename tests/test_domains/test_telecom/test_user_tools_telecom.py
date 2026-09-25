@@ -432,6 +432,35 @@ class TestTelecomUserTools:
             in telecom_tools.can_send_mms()
         )
 
+    def test_vpn_state_not_shared_across_instances(self):
+        """Regression test for issue #154: default_vpn_details is a class-level
+        attribute. _connect_vpn() must deep-copy it so that break_vpn() on one
+        instance cannot corrupt the VPN state seen by a concurrent simulation."""
+
+        def make_tools():
+            db = TelecomUserDB(
+                device=MockPhoneAttributes(), surroundings=UserSurroundings()
+            )
+            return TelecomUserTools(db=db)
+
+        sim1 = make_tools()
+        sim2 = make_tools()
+
+        # sim1 connects then breaks its VPN (mutates server_performance to POOR)
+        sim1._connect_vpn()
+        sim1.break_vpn()
+        assert sim1.device.vpn_details.server_performance == PerformanceLevel.POOR
+
+        # sim2 connects independently — must get a fresh EXCELLENT copy
+        sim2._connect_vpn()
+        assert sim2.device.vpn_details.server_performance == PerformanceLevel.EXCELLENT
+
+        # The class-level default must also be untouched
+        assert (
+            TelecomUserTools.default_vpn_details.server_performance
+            == PerformanceLevel.EXCELLENT
+        )
+
     def test_run_speed_test(self, telecom_tools: TelecomUserTools):
         # Basic connected state
         telecom_tools.device.airplane_mode = False
