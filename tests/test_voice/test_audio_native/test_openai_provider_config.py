@@ -30,3 +30,57 @@ def test_pine_model_requires_pine_base_url(monkeypatch):
 
     with pytest.raises(ValueError, match="PINE_REALTIME_BASE_URL"):
         OpenAIRealtimeProvider(model="pine-voice-preview")
+
+
+def test_airudder_model_uses_dedicated_environment(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-key")
+    monkeypatch.setenv("PINE_API_KEY", "pine-key")
+    monkeypatch.setenv("AIRUDDER_REALTIME_API_KEY", "airudder-test-key")
+    monkeypatch.setenv("AIRUDDER_REALTIME_BASE_URL", "wss://airudder.example/realtime")
+
+    provider = OpenAIRealtimeProvider(model="airudder-voice-v1")
+
+    assert provider.api_key == "airudder-test-key"
+    assert provider.base_url == "wss://airudder.example/realtime"
+
+
+def test_airudder_explicit_key_overrides_environment(monkeypatch):
+    monkeypatch.setenv("AIRUDDER_REALTIME_API_KEY", "environment-test-key")
+    monkeypatch.setenv("AIRUDDER_REALTIME_BASE_URL", "wss://airudder.example/realtime")
+
+    provider = OpenAIRealtimeProvider(
+        model="airudder-voice-v1", api_key="explicit-test-key"
+    )
+
+    assert provider.api_key == "explicit-test-key"
+
+
+@pytest.mark.parametrize(
+    "missing", ["AIRUDDER_REALTIME_BASE_URL", "AIRUDDER_REALTIME_API_KEY"]
+)
+def test_airudder_missing_config_never_uses_openai_credentials(monkeypatch, missing):
+    monkeypatch.setenv("OPENAI_API_KEY", "must-not-be-used")
+    monkeypatch.setenv("AIRUDDER_REALTIME_API_KEY", "airudder-test-key")
+    monkeypatch.setenv("AIRUDDER_REALTIME_BASE_URL", "wss://airudder.example/realtime")
+    monkeypatch.delenv(missing)
+
+    with pytest.raises(ValueError, match=missing):
+        OpenAIRealtimeProvider(model="airudder-voice-v1")
+
+
+@pytest.mark.parametrize("model", ["gpt-realtime", "pine-voice-preview"])
+def test_airudder_environment_does_not_change_existing_routes(monkeypatch, model):
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-key")
+    monkeypatch.setenv("PINE_API_KEY", "pine-key")
+    monkeypatch.setenv("PINE_REALTIME_BASE_URL", "wss://pine.example/realtime")
+    monkeypatch.setenv("AIRUDDER_REALTIME_API_KEY", "airudder-test-key")
+    monkeypatch.setenv("AIRUDDER_REALTIME_BASE_URL", "wss://airudder.example/realtime")
+
+    provider = OpenAIRealtimeProvider(model=model)
+
+    if model.startswith("pine-"):
+        assert provider.api_key == "pine-key"
+        assert provider.base_url == "wss://pine.example/realtime"
+    else:
+        assert provider.api_key == "openai-key"
+        assert provider.base_url == DEFAULT_OPENAI_REALTIME_BASE_URL

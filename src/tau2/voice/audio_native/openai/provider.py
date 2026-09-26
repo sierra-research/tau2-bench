@@ -39,6 +39,12 @@ PINE_MODEL_PREFIX = "pine-"
 PINE_API_KEY_ENV = "PINE_API_KEY"
 PINE_REALTIME_BASE_URL_ENV = "PINE_REALTIME_BASE_URL"
 
+# Same hook shape as the pine- entry above: a self-hosted Realtime-compatible
+# endpoint selected by model-name prefix, credentials from its own env vars.
+AIRUDDER_MODEL_PREFIX = "airudder-"
+AIRUDDER_API_KEY_ENV = "AIRUDDER_REALTIME_API_KEY"
+AIRUDDER_REALTIME_BASE_URL_ENV = "AIRUDDER_REALTIME_BASE_URL"
+
 
 class OpenAIVADMode(str, Enum):
     """Voice Activity Detection modes supported by OpenAI's Realtime API.
@@ -146,6 +152,18 @@ class OpenAIRealtimeProvider:
                 )
             if not self.api_key:
                 raise ValueError(f"Pine API key not provided. Set {PINE_API_KEY_ENV}.")
+        elif self.model.startswith(AIRUDDER_MODEL_PREFIX):
+            self.base_url = os.environ.get(AIRUDDER_REALTIME_BASE_URL_ENV)
+            self.api_key = api_key or os.environ.get(AIRUDDER_API_KEY_ENV)
+            if not self.base_url:
+                raise ValueError(
+                    "AiRudder Realtime base URL not provided. Set "
+                    f"{AIRUDDER_REALTIME_BASE_URL_ENV}."
+                )
+            if not self.api_key:
+                raise ValueError(
+                    f"AiRudder API key not provided. Set {AIRUDDER_API_KEY_ENV}."
+                )
         else:
             self.base_url = self.BASE_URL
             self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
