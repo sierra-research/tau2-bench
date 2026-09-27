@@ -34,17 +34,27 @@ def analyze_reward(
     reward_breakdown = reward_info.reward_breakdown
     try:
         if RewardType.COMMUNICATE in reward_info.reward_basis:
+            communicate_reward = (
+                reward_breakdown.get(RewardType.COMMUNICATE)
+                if reward_breakdown
+                else None
+            )
             communicate_success = (
-                is_successful(reward_breakdown[RewardType.COMMUNICATE])
-                if reward_breakdown is not None
+                is_successful(communicate_reward)
+                if communicate_reward is not None
                 else 0
             )
         else:
             communicate_success = None
         if RewardType.ENV_ASSERTION in reward_info.reward_basis:
+            env_assertion_reward = (
+                reward_breakdown.get(RewardType.ENV_ASSERTION)
+                if reward_breakdown
+                else None
+            )
             env_success = (
-                is_successful(reward_breakdown[RewardType.ENV_ASSERTION])
-                if reward_breakdown is not None
+                is_successful(env_assertion_reward)
+                if env_assertion_reward is not None
                 else 0
             )
         else:

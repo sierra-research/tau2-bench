@@ -17,6 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `metrics.break_down_metrics.analyze_reward()` aborted the whole reward analysis
+  when a simulation's `reward_basis` named a `COMMUNICATE` or `ENV_ASSERTION`
+  component that its `reward_breakdown` did not carry: the values were read by
+  direct subscript, guarded only by a `reward_breakdown is not None` check, and
+  the surrounding `except Exception` re-raises. An `EnvironmentEvaluator` result
+  on an airline task (basis `[DB, COMMUNICATE]`) and an
+  `evaluate_simulation(..., EvaluationType.ALL_IGNORE_BASIS)` result on a
+  retail/airline/telecom task (that branch fixes `reward_basis` to four components
+  while filling the breakdown per task) both produce that shape today. A named
+  component that is absent now reports `0` -- the value the `reward_breakdown
+  is None` branch already gave -- so no new state enters the report and no column
+  is renamed or redefined.
+
 ## [1.0.1] - 2026-07-15
 
 > **⚠️ Grading change — banking_knowledge scores are not comparable across this release.**
