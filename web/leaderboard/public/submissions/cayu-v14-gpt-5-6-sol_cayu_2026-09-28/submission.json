@@ -1,0 +1,51 @@
+{
+  "model_name": "Cayu V14 — GPT-5.6-sol",
+  "model_organization": "Cayu",
+  "submitting_organization": "Cayu",
+  "submission_date": "2026-09-28",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "talgat@cayu.ai",
+    "github": "talgat0528"
+  },
+  "reasoning_effort": "xhigh",
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "banking_knowledge": "cayu-v14_banking_knowledge_4trials.json"
+  },
+  "results": {
+    "banking_knowledge": {
+      "pass_1": 41.75257731958763,
+      "pass_2": 31.27147766323024,
+      "pass_3": 25.773195876288657,
+      "pass_4": 21.649484536082475,
+      "cost": null,
+      "retrieval_config": "cayu_hybrid"
+    }
+  },
+  "references": [
+    {
+      "title": "Cayu V14 implementation methodology and recovery provenance",
+      "url": "https://github.com/talgat0528/tau2-bench/releases/tag/cayu-v14-20260928",
+      "type": "documentation"
+    },
+    {
+      "title": "Complete banking trajectories (97 tasks, four trials)",
+      "url": "https://github.com/talgat0528/tau2-bench/releases/download/cayu-v14-20260928/cayu-v14_banking_knowledge_4trials.json",
+      "type": "other"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-09-28",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "openai/gpt-5.2",
+    "notes": "Custom Cayu V14 repair1 scaffold with GPT-5.6-sol xhigh through the subscription provider; Platform openai/gpt-5.2 low customer, 300-second customer timeout. All 97 base banking tasks, four trials, eight concurrent fresh task agents; seed 300 produces trial seeds 626729, 373753, 361454, 1567. Evaluation ran September 25–28 UTC. Tau v1.0.1 commit fc0055dc4e0a316c3f83133267fbd6faaa770992; Cayu 8784d320775ddeedff6c2cb8ccd0ac1941314037; actor manifest 850b98611b7d8c0627e1f42c5a99f446562d5bdd791425982a350380d4c12761. Custom actor instructions, hybrid public-corpus retrieval with BM25 and cached text-embedding-3-large 3072-dimensional vectors, outcome plans, source-linked decision notes, constraints and automatic evidence retention. Retrieval_config in the upstream trajectory is no_knowledge because Cayu supplies retrieval; the leaderboard label cayu_hybrid describes the actual actor interface. Native advisory controller with deterministic admission checks; separate semantic plan/action/response verifiers and decision-packet mode disabled. 60,000 estimated-token compaction trigger and 20,000 recent-token target. 150-minute actor budget, 152.5-minute callback and 155-minute simulation limits; 192 runtime steps, 200 public steps; up to ten transient model attempts. Agent budget exhaustion produces a disclosed agent stop graded by the unchanged upstream evaluator; 36 such stops yielded 32 zeros and 4 passes and were never rerun. One scored user_error is also retained. Final 388 outcomes: 162 passes, 226 zeros, no unscored. There were 394 historical infrastructure failures over 381 slots: the first batch missed an HTTP-401 outage and recorded 381 unscored attempts; subsequent infrastructure recovery was checkpoint-based with fixed task/trial/seed and frozen actor. Five execution epochs, two completed retry rounds, and credential/connectivity pauses; scored rows were never replaced. All preserved checkpoint scored rows match the final canonical rows. Public tasks and failure analysis informed development; this is not an untouched holdout. No task omissions, hidden task/reference inputs, focused-policy injection, or cross-task conversational memory in this campaign. Public trajectory export removes message raw provider/runtime diagnostics while retaining explicit agent_termination, complete dialogue/tool data, task definitions, scores and identifiers. Original data and recovery history are preserved privately. Source code is private; the linked methodology documents the custom implementation and exact configuration. Cost is unknown, not zero.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "Custom actor scaffold/instructions; unchanged customer, base task set, banking tool execution and reward evaluator. Infrastructure-only resume and scored budget stops disclosed. Upstream public validation passed. Maintainer acceptance remains pending."
+    }
+  }
+}
