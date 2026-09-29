@@ -17,6 +17,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Environment evaluation no longer swallows a reference trajectory that cannot
+  be replayed (`EnvironmentEvaluator`, `FullDuplexEnvironmentEvaluator`, #499).
+  A *state-mutating* golden action that raises is logged at error level with its
+  task, action id and exception, recorded in `RewardInfo.info`, and its DB match
+  is reported as `db_check=None` ("not evaluated") instead of certifying
+  `db_reward=1.0` against a gold database state that was never constructed.
+  Read-only golden actions are still replayed and their failures still surface as
+  warnings, and a DB mismatch keeps its `0.0` -- now with the same `info` provenance.
+  The executed replay sequence is unchanged, so no gold database hash changes.
+  No total reward changes: only a match, whose component reward is the identity
+  `1.0`, is withheld. The affected published results are the tasks with a failing
+  state-mutating golden action -- measured on the shipped corpora, retail tasks
+  64 and 105 (`python -m tau2.scripts.golden_action_replay_report --domains
+  retail,airline,telecom,banking_knowledge` reproduces that list, every number in
+  this entry, and the two-mode gold-hash invariance check named above).
+
 ## [1.0.1] - 2026-07-15
 
 > **⚠️ Grading change — banking_knowledge scores are not comparable across this release.**
