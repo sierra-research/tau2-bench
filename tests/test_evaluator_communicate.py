@@ -164,3 +164,99 @@ def test_all_required_information_controls_reward(base_task):
         ).reward
         == 1
     )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "minus four dollars",
+        "negative four dollars",
+        "-four dollars",
+        "minus 4 dollars",
+        "negative 4 dollars",
+        "-$4",
+        "-4",
+    ],
+)
+def test_negative_amount_cannot_match_positive(text):
+    assert not CommunicateEvaluator.evaluate_communicate_info(
+        [AssistantMessage(role="assistant", content=text)], ["4"]
+    )[0].met
+
+
+@pytest.mark.parametrize("duration,count", [(0.1, 10), (0.2, 5), (0.05, 20), (0.25, 4)])
+def test_exact_one_second_pause_separates_responses(duration, count):
+    trajectory = ticks(["10"] + [None] * count + ["00"])
+    for tick in trajectory:
+        tick.tick_duration_seconds = duration
+    messages = FullDuplexCommunicateEvaluator.ticks_to_message_history(trajectory)
+    assert [message.content for message in messages] == ["10", "00"]
+
+
+@pytest.mark.parametrize("event", ["call", "result", "inline_call"])
+def test_simultaneous_tool_event_preserves_speech(event):
+    from tau2.data_model.message import ToolMessage
+
+    trajectory = ticks(["before", "Refund is 5244 dollars.", "after"])
+    call = ToolCall(id="call", name="lookup", arguments={})
+    if event == "call":
+        trajectory[1].agent_tool_calls = [call]
+    elif event == "result":
+        trajectory[1].agent_tool_results = [
+            ToolMessage(role="tool", id="call", content="1000")
+        ]
+    else:
+        trajectory[1].agent_chunk.tool_calls = [call]
+    messages = FullDuplexCommunicateEvaluator.ticks_to_message_history(trajectory)
+    assert [m.content for m in messages] == [
+        "before",
+        "Refund is 5244 dollars.",
+        "after",
+    ]
+    checks = FullDuplexCommunicateEvaluator.evaluate_communicate_info(
+        messages, ["5244", "1000"]
+    )
+    assert [c.met for c in checks] == [True, False]
+
+
+@pytest.mark.parametrize(
+    "ids",
+    [
+        [["first"], None],
+        [None, ["second"]],
+        [["first"], ["first", "second"], ["second"]],
+    ],
+)
+def test_mixed_utterance_ids(ids):
+    trajectory = ticks(["10", "00"] if len(ids) == 2 else ["1", "0", "00"])
+    for tick, utterance_ids in zip(trajectory, ids):
+        tick.agent_chunk.utterance_ids = utterance_ids
+    messages = FullDuplexCommunicateEvaluator.ticks_to_message_history(trajectory)
+    assert [m.content for m in messages] == (
+        ["10", "00"] if len(ids) == 2 else ["1000"]
+    )
+
+
+def test_short_pause_preserves_number_fragments():
+    messages = FullDuplexCommunicateEvaluator.ticks_to_message_history(
+        ticks(["10", None, None, "00"])
+    )
+    assert [m.content for m in messages] == ["1000"]
+
+
+def test_public_airline_trajectory_excerpts():
+    """Keep small real-tick regressions for both observed false-negative causes."""
+    import json
+    from pathlib import Path
+
+    cases = json.loads(
+        (
+            Path(__file__).parent / "fixtures" / "communication_airline_excerpts.json"
+        ).read_text()
+    )
+    for case in cases:
+        trajectory = [Tick.model_validate(t) for t in case["ticks"]]
+        messages = FullDuplexCommunicateEvaluator.ticks_to_message_history(trajectory)
+        assert FullDuplexCommunicateEvaluator.evaluate_communicate_info(
+            messages, [case["amount"]]
+        )[0].met, case["task_id"]

@@ -1,4 +1,5 @@
 import re
+from decimal import Decimal
 
 from tau2.data_model.message import AssistantMessage, Message, Tick
 from tau2.data_model.simulation import CommunicateCheck, RewardInfo
@@ -39,12 +40,16 @@ def _communicated(info: str, content: str) -> bool:
     if not re.fullmatch(r"[0-9]+", expected):
         return info.lower() in text
     # Do not let a required 4 match 5244, 4.5, or an identifier containing 4.
-    if re.search(r"(?<![\w.-])" + re.escape(expected) + r"(?!\w|\.[0-9]|-[0-9])", text):
-        return True
+    for match in re.finditer(
+        r"(?<![\w.-])" + re.escape(expected) + r"(?!\w|\.[0-9]|-[0-9])", text
+    ):
+        if not re.search(r"(?:\bminus|\bnegative|-)\s*\$?\s*$", text[: match.start()]):
+            return True
     value = int(expected)
     # Leading-zero strings are identifiers, not cardinal numbers.
     if str(value) != expected or value >= 10**15:
         return False
+    text = re.sub(r"(?<!\w)-(?=[a-z])", "minus ", text)
     text = re.sub(r"\band\b", " ", text.replace("-", " "))
     text = re.sub(r"\s+", " ", text)
     forms = [_integer_words(value)]
@@ -61,7 +66,7 @@ def _communicated(info: str, content: str) -> bool:
                 + _TENS
                 + ["hundred", "thousand", "million", "billion", "trillion", "point"]
             )
-            if (before and before[-1] in number_words) or (
+            if (before and before[-1] in number_words | {"minus", "negative"}) or (
                 after and after[0] in number_words
             ):
                 continue
@@ -170,7 +175,7 @@ class FullDuplexCommunicateEvaluator(EvaluatorBase[Tick]):
         messages: list[AssistantMessage] = []
         group: list[AssistantMessage] = []
         utterance_ids: set[str] = set()
-        silence = 0.0
+        silence = Decimal(0)
 
         def flush() -> None:
             if group:
@@ -193,11 +198,15 @@ class FullDuplexCommunicateEvaluator(EvaluatorBase[Tick]):
                 or (chunk and chunk.is_tool_call())
             ):
                 flush()
-                silence = 0.0
+                silence = Decimal(0)
+                # Speech and tool events may share a full-duplex tick. Preserve
+                # that speech as a separate message without joining across tools.
+                if chunk and chunk.content:
+                    messages.append(chunk.model_copy(update={"tool_calls": None}))
                 continue
             if chunk is None or not chunk.content:
                 if group and not utterance_ids:
-                    silence += tick.tick_duration_seconds or 0.2
+                    silence += Decimal(str(tick.tick_duration_seconds or 0.2))
                     if silence >= 1.0:
                         flush()
                 continue
@@ -208,7 +217,7 @@ class FullDuplexCommunicateEvaluator(EvaluatorBase[Tick]):
             # Preserve their spacing and merge until a pause/tool/ID boundary.
             group.append(chunk)
             utterance_ids.update(ids)
-            silence = 0.0
+            silence = Decimal(0)
         flush()
 
         return messages
