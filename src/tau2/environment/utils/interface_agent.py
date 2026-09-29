@@ -73,7 +73,9 @@ class InterfaceAgent:
         while assistant_message.is_tool_call():
             message_history.append(assistant_message)
             for tool_call in assistant_message.tool_calls:
-                tool_message = self.environment.get_response(tool_call)
+                tool_message = self.environment.get_response(
+                    tool_call, conversation_history=message_history
+                )
                 message_history.append(tool_message)
             messages = [system_message] + message_history
             assistant_message = generate(

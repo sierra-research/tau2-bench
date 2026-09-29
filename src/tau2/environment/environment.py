@@ -14,9 +14,23 @@ from tau2.data_model.message import (
     UserMessage,
 )
 from tau2.data_model.tasks import EnvAssertion, EnvFunctionCall, InitializationData
+from tau2.environment.critic import (
+    GATE_BLOCKED_MARKER,
+    REASONING_ARG,
+    review_write_action,
+    verdict_cache_key,
+)
 from tau2.environment.db import DB
 from tau2.environment.tool import Tool
 from tau2.environment.toolkit import ToolKitBase, ToolSignature, get_tool_signatures
+
+# Tool names that gate their own inner dispatch generically (based on the
+# mutates_state of whatever underlying tool is actually being invoked) and so
+# are excluded from the outer, environment-level gate below -- gating them a
+# second time at this layer would require a top-level `_reasoning` argument
+# on the *wrapper* call itself, which doesn't make sense since the wrapper's
+# real arguments are JSON-encoded inside a string argument.
+_SELF_GATING_TOOL_NAMES = {"call_discoverable_agent_tool"}
 
 
 class EnvironmentInfo(BaseModel):
@@ -43,6 +57,7 @@ class Environment:
         tools: Optional[ToolKitBase] = None,
         user_tools: Optional[ToolKitBase] = None,
         solo_mode: bool = False,
+        enable_write_critic: bool = False,
     ):
         """
         Environment
@@ -52,12 +67,43 @@ class Environment:
             tools: The tools available to the assistant in the domain.
             user_tools: The tools available to the user in the domain.
             solo_mode: The agent will have access to both user and assistant tools.
+            enable_write_critic: If True, every assistant-initiated mutating
+                (write) tool call -- identified generically via the tool's
+                ``mutates_state`` metadata, not by name -- is required to
+                include a ``_reasoning`` argument and is reviewed by a
+                second, independent LLM critic (see ``tau2.environment.critic``)
+                before it is actually executed. Off by default so this
+                framework-level behavior doesn't silently change other
+                domains; opt in per-domain in that domain's ``get_environment``.
         """
         self.domain_name = domain_name
         self.policy = policy
         self.tools = tools
         self.user_tools = user_tools
         self.solo_mode = solo_mode
+        self.enable_write_critic = enable_write_critic
+        # Cache of critic verdicts keyed by verdict_cache_key(tool_name, args),
+        # scoped to THIS Environment instance only. This is a same-instance
+        # optimization (e.g. the agent issuing the exact same call twice
+        # within one live conversation) -- it is NOT what makes replay
+        # deterministic. Replay/evaluation always constructs a brand-new
+        # Environment per attempt (see evaluator_env.py), so this cache is
+        # empty on every replay regardless. The actual replay-determinism
+        # fix is GATE_BLOCKED_MARKER: every gate rejection is tagged with it,
+        # and Environment.set_state()'s replay loop recognizes that marker in
+        # the *recorded* response and skips re-executing (and re-critiquing)
+        # that call entirely, rather than relying on any cache surviving
+        # across instances.
+        self._critic_verdict_cache: dict[str, Optional[str]] = {}
+        # Per-tool-name count of write-critic blocks (missing-reasoning OR a
+        # critic rejection) issued so far this conversation. Capped at 1: the
+        # agent gets one corrective error per tool name to react to, but a
+        # second attempt on that same tool name is let through unconditionally
+        # rather than gated again. This bounds the worst case where a stubborn
+        # or wrong verdict keeps rejecting corrected retries -- burning
+        # through the simulation's error budget and causing a premature
+        # TOO_MANY_ERRORS termination -- to at most one rejection per tool.
+        self._critic_block_counts: dict[str, int] = {}
         if self.solo_mode:
             self.validate_solo_mode()
         self.sync_tools()
@@ -138,6 +184,76 @@ class Environment:
             if toolkit is not None and toolkit.has_tool(tool_name):
                 return toolkit.tool_mutates_state(tool_name)
         return True  # safe fallback: assume mutation
+
+    def _check_write_critic_gate(
+        self,
+        tool_name: str,
+        requestor: str,
+        arguments: dict,
+        conversation_history: Optional[list],
+    ) -> Optional[str]:
+        """Generic write-action critic gate.
+
+        For any assistant-initiated tool call whose underlying tool mutates
+        state (identified generically via ``mutates_state`` metadata, never
+        by tool name), require a ``_reasoning`` argument and run it past a
+        second, independent LLM critic (``tau2.environment.critic``) before
+        the tool actually executes.
+
+        Mutates ``arguments`` in place by popping the harness-level
+        ``_reasoning`` field so it never reaches the underlying tool's real
+        signature.
+
+        Returns an error string (blocking the write) if the gate should
+        reject the call, else None (safe to proceed).
+        """
+        if not self.enable_write_critic:
+            return None
+        if requestor != "assistant":
+            return None
+        if tool_name in _SELF_GATING_TOOL_NAMES:
+            return None
+        if not self._has_tool(tool_name) or not self._is_mutating_tool(tool_name):
+            return None
+
+        agent_reasoning = arguments.pop(REASONING_ARG, None)
+
+        # Cap: at most one block per tool name per conversation (see
+        # _critic_block_counts docstring in __init__). Once this tool has
+        # already been blocked once, let any further attempt through
+        # unconditionally rather than risk the gate itself exhausting the
+        # simulation's error budget.
+        if self._critic_block_counts.get(tool_name, 0) >= 1:
+            return None
+
+        if not agent_reasoning or not str(agent_reasoning).strip():
+            self._critic_block_counts[tool_name] = (
+                self._critic_block_counts.get(tool_name, 0) + 1
+            )
+            return (
+                f"Error: {GATE_BLOCKED_MARKER} '{tool_name}' is a state-changing action "
+                f"and requires a '{REASONING_ARG}' argument explaining, in 1-2 sentences, "
+                "why this specific action and these specific argument values are correct "
+                "given the policy/evidence gathered so far in this conversation. Please "
+                f"retry including '{REASONING_ARG}' in the arguments."
+            )
+
+        cache_key = verdict_cache_key(tool_name, arguments)
+        if cache_key in self._critic_verdict_cache:
+            return self._critic_verdict_cache[cache_key]
+
+        verdict = review_write_action(
+            tool_name=tool_name,
+            args_dict=arguments,
+            agent_reasoning=str(agent_reasoning),
+            conversation_history=conversation_history,
+        )
+        self._critic_verdict_cache[cache_key] = verdict
+        if verdict is not None:
+            self._critic_block_counts[tool_name] = (
+                self._critic_block_counts.get(tool_name, 0) + 1
+            )
+        return verdict
 
     def use_tool(self, tool_name: str, **kwargs) -> Any:
         """
@@ -387,7 +503,25 @@ class Environment:
             # comparison issues.
             if not self._is_mutating_tool(tool_call.name):
                 continue
-            response = self.get_response(tool_call)
+            # A recorded response that was blocked by the generic write-critic
+            # gate (missing reasoning, or a critic rejection) never mutated
+            # state live, and the exact wording of a critic rejection is a
+            # non-deterministic LLM output that must not be replayed. Detect
+            # this purely from the recorded content and skip re-execution
+            # entirely -- no mutation to reproduce, nothing to compare.
+            if (
+                isinstance(expected_response.content, str)
+                and GATE_BLOCKED_MARKER in expected_response.content
+            ):
+                continue
+            # For every other (successful) mutating call, replay it with the
+            # critic gate bypassed: the gate already had its say live, and
+            # the actual tool output for a successful call is deterministic
+            # (no LLM wording embedded in it), so bypassing here just
+            # reproduces the same state mutation without re-invoking a live,
+            # non-deterministic LLM check against a fresh/empty conversation
+            # context.
+            response = self.get_response(tool_call, skip_write_critic=True)
             try:
                 content = json.loads(response.content)
             except json.JSONDecodeError:
@@ -462,18 +596,66 @@ class Environment:
         if len(overlap) > 0:
             raise ValueError(f"Tool names overlap: {overlap}")
 
-    def get_response(self, message: ToolCall) -> ToolMessage:
+    def get_response(
+        self,
+        message: ToolCall,
+        conversation_history: Optional[list] = None,
+        skip_write_critic: bool = False,
+    ) -> ToolMessage:
         """
         Get the response of the domain. This also calls sync_tools.
         Args:
             message: The message to get the response for.
+            conversation_history: Recent conversation messages so far this
+                task (assistant/tool messages). Threaded generically into the
+                toolkit (via ``set_conversation_context``) before dispatch so
+                any tool -- including the write-action critic gate below --
+                can see what policy/evidence has already been surfaced.
+            skip_write_critic: If True, bypass the write-action critic gate
+                entirely and just re-apply the tool call's state mutation
+                directly. Used during replay (``set_state`` / evaluation):
+                replay re-executes a tool call that was ALREADY approved and
+                executed once during the live run, against a fresh Environment
+                instance with no conversation history available, purely to
+                reproduce its state mutation deterministically -- re-running a
+                live, non-deterministic LLM critic there (possibly with a
+                different or empty context than the original call saw) would
+                risk a different verdict/wording than the original response,
+                which breaks the replay-consistency check this method's
+                caller performs. The critic already had its say the first
+                time the call was actually made live.
         Returns:
             The response of the tool call.
         """
         error = False
+        arguments = dict(message.arguments)
+        if self.tools is not None:
+            self.tools.set_conversation_context(conversation_history)
+            self.tools.set_skip_write_critic(skip_write_critic)
+        if self.user_tools is not None:
+            self.user_tools.set_conversation_context(conversation_history)
+            self.user_tools.set_skip_write_critic(skip_write_critic)
+
+        if not skip_write_critic:
+            gate_error = self._check_write_critic_gate(
+                message.name, message.requestor, arguments, conversation_history
+            )
+            if gate_error is not None:
+                return ToolMessage(
+                    id=message.id,
+                    content=gate_error,
+                    requestor=message.requestor,
+                    role="tool",
+                    error=True,
+                )
+        else:
+            # Still strip the harness-level reasoning field so it doesn't
+            # leak through to the underlying tool's real signature.
+            arguments.pop(REASONING_ARG, None)
+
         try:
             resp = self.make_tool_call(
-                message.name, requestor=message.requestor, **message.arguments
+                message.name, requestor=message.requestor, **arguments
             )
             self.sync_tools()
         except Exception as e:

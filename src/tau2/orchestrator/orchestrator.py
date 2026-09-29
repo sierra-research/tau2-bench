@@ -322,7 +322,9 @@ class BaseOrchestrator(ABC, Generic[BaseAgentT, BaseUserT, TrajectoryItemT]):
         """
         tool_results = []
         for tool_call in tool_calls:
-            tool_result = self.environment.get_response(tool_call)
+            tool_result = self.environment.get_response(
+                tool_call, conversation_history=self.trajectory
+            )
             if tool_result.error:
                 self.num_errors += 1
             tool_results.append(tool_result)

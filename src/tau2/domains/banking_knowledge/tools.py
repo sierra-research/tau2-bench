@@ -5,6 +5,8 @@ import json
 import re
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, get_args
 
+from loguru import logger
+
 from tau2.domains.banking_knowledge.data_model import TransactionalDB
 from tau2.domains.banking_knowledge.db_query import (
     add_to_db,
@@ -31,6 +33,12 @@ from tau2.domains.banking_knowledge.utils import (
     generate_verification_id,
     get_now,
     get_today_str,
+)
+from tau2.environment.critic import (
+    GATE_BLOCKED_MARKER,
+    REASONING_ARG,
+    review_write_action,
+    verdict_cache_key,
 )
 from tau2.environment.toolkit import (
     DISCOVERABLE_ATTR,
@@ -350,6 +358,14 @@ class KnowledgeTools(ToolKitBase):
         # still discriminate, while extra validation reads don't pollute the
         # DB hash. See get_environment(read_log_allowlist=...).
         self._read_log_allowlist: set[str] = set()
+        # Cache of generic write-critic verdicts for discoverable-tool calls,
+        # keyed by verdict_cache_key(tool_name, args). See
+        # tau2.environment.critic and call_discoverable_agent_tool below.
+        self._critic_verdict_cache: Dict[str, Optional[str]] = {}
+        # Per-tool-name count of write-critic blocks issued so far, capped at
+        # 1 per tool -- see call_discoverable_agent_tool and the mirrored
+        # Environment._critic_block_counts.
+        self._critic_block_counts: Dict[str, int] = {}
 
     def set_read_log_allowlist(self, allowlist: Optional[set]) -> None:
         """Replace the read-call DB-logging allowlist."""
@@ -363,7 +379,7 @@ class KnowledgeTools(ToolKitBase):
         """Get the current state of agent discoverable tools."""
         return self._agent_discoverable_tools_state
 
-    @is_tool(ToolType.GENERIC)
+    @is_tool(ToolType.GENERIC, mutates_state=True)
     def transfer_to_human_agents(
         self,
         summary: str,
@@ -374,13 +390,21 @@ class KnowledgeTools(ToolKitBase):
         The proper transfer reason enum can be found in the knowledge base: search it before calling this tool to select the proper applicable reason.
 
         Args:
-            summary: A summary of the user's issue and what was attempted before transfer.
+            summary: A summary of the user's issue and what was attempted before transfer. Be
+                specific and detailed (what happened, what was tried, why transfer is needed) --
+                this summary is checked against the reason-code taxonomy before the transfer is
+                accepted, so a vague summary may prevent that check from catching a misselected
+                reason code.
             reason: The specific reason code for the transfer.
         """
         valid_reasons = list(get_args(TransferReasonLiteral))
         if reason not in valid_reasons:
             return f"Error: Invalid transfer reason '{reason}'. Must be one of: {', '.join(valid_reasons)}"
 
+        # Note: this call is gated generically by Environment's write-critic
+        # gate (see tau2.environment.critic / tau2.environment.environment)
+        # because this tool is marked mutates_state=True above -- not by any
+        # tool-specific logic here.
         return f"Transfer successful (reason: {reason}). A human agent will assist you shortly."
 
     @is_tool(ToolType.READ)
@@ -651,7 +675,15 @@ class KnowledgeTools(ToolKitBase):
 
         Args:
             agent_tool_name: The name of the agent discoverable tool to call
-            arguments: JSON string of arguments for the tool (e.g., '{"user_id": "abc123"}')
+            arguments: JSON string of arguments for the tool (e.g., '{"user_id": "abc123"}').
+                For any discoverable tool that mutates state (a write action) you must also
+                include a "_reasoning" field in this JSON: 1-2 sentences explaining, with
+                reference to the specific policy rule or evidence you're applying, why this
+                action and these argument values are correct. The call is rejected with an
+                error if "_reasoning" is missing on such a tool, and the proposed action (with
+                your reasoning) is then reviewed by an independent compliance check against the
+                policy/evidence already surfaced in this conversation before it executes --
+                think it through and state it explicitly before calling.
 
         Returns:
             The result of executing the agent tool
@@ -675,6 +707,66 @@ class KnowledgeTools(ToolKitBase):
             args_dict = json.loads(arguments, parse_int=float)
         except json.JSONDecodeError as e:
             return f"Error: Invalid JSON in arguments: {e}"
+
+        # Generic write-critic gate: this wraps arbitrary discoverable tools
+        # whose real arguments are JSON-encoded inside the `arguments` string
+        # above, so the environment-level gate (which only sees this
+        # method's own top-level arguments) can't see far enough in to gate
+        # them -- gating has to happen here instead, but on the exact same
+        # generic criterion (the underlying method's mutates_state metadata,
+        # not any tool name) and via the exact same generic critic used
+        # everywhere else (tau2.environment.critic). See
+        # Environment._check_write_critic_gate for the sibling gate that
+        # covers non-discoverable write tools.
+        underlying_method_for_gate = self.get_discoverable_tools()[agent_tool_name]
+        if getattr(underlying_method_for_gate, MUTATES_STATE_ATTR, False):
+            # '_reasoning' is a harness-level field, not a real tool
+            # parameter -- pop it before calling the underlying method so it
+            # never reaches the tool's actual signature.
+            agent_reasoning = args_dict.pop(REASONING_ARG, None)
+            # Cap: at most one block per tool name per conversation, mirroring
+            # Environment._critic_block_counts -- once this tool has already
+            # been blocked once (missing reasoning OR a critic rejection),
+            # let any further attempt through unconditionally rather than
+            # risk the gate itself exhausting the simulation's error budget.
+            already_blocked_once = (
+                self._critic_block_counts.get(agent_tool_name, 0) >= 1
+            )
+            if self.get_skip_write_critic():
+                # Replay: the gate already had its say when this call was
+                # actually made live (see Environment.set_state /
+                # GATE_BLOCKED_MARKER) -- just apply the mutation.
+                pass
+            elif already_blocked_once:
+                pass
+            elif not agent_reasoning or not str(agent_reasoning).strip():
+                self._critic_block_counts[agent_tool_name] = (
+                    self._critic_block_counts.get(agent_tool_name, 0) + 1
+                )
+                return (
+                    f"Error: {GATE_BLOCKED_MARKER} '{agent_tool_name}' is a state-changing "
+                    f"action and requires a '{REASONING_ARG}' argument explaining, in 1-2 "
+                    "sentences, why this specific action and these specific argument values "
+                    "are correct given the policy/evidence gathered so far in this "
+                    f"conversation. Please retry including '{REASONING_ARG}' in the arguments JSON."
+                )
+            else:
+                cache_key = verdict_cache_key(agent_tool_name, args_dict)
+                if cache_key in self._critic_verdict_cache:
+                    error = self._critic_verdict_cache[cache_key]
+                else:
+                    error = review_write_action(
+                        tool_name=agent_tool_name,
+                        args_dict=args_dict,
+                        agent_reasoning=str(agent_reasoning),
+                        conversation_history=self.get_conversation_context(),
+                    )
+                    self._critic_verdict_cache[cache_key] = error
+                if error is not None:
+                    self._critic_block_counts[agent_tool_name] = (
+                        self._critic_block_counts.get(agent_tool_name, 0) + 1
+                    )
+                    return error
 
         # Get the method and call it directly with the parsed arguments
         method = self.get_discoverable_tools()[agent_tool_name]

@@ -251,7 +251,9 @@ class EnvironmentManager:
             tool_calls=[tool_call],
         )
         self.trajectories[env_id].append(assistant_message)
-        tool_message = self.environments[env_id].get_response(tool_call)
+        tool_message = self.environments[env_id].get_response(
+            tool_call, conversation_history=self.trajectories[env_id]
+        )
         self.trajectories[env_id].append(tool_message)
         return tool_message
 
