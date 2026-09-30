@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import VoiceViewer from './VoiceViewer'
+import RewardDetails from './RewardDetails'
 import './TrajectoryVisualizer.css'
 
 const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
@@ -826,20 +827,12 @@ const TrajectoryVisualizer = () => {
                       </div>
                     </div>
 
-                    {currentSimulation.reward_info?.nl_assertions?.length > 0 && (
-                      <div className="assertions">
-                        <h5>Evaluation Assertions</h5>
-                        <div className="assertion-list">
-                          {currentSimulation.reward_info.nl_assertions.map((a, i) => (
-                            <div key={i} className={`assertion ${a.met ? 'passed' : 'failed'}`}>
-                              <span className="assertion-status">{a.met ? '✅' : '❌'}</span>
-                              <span className="assertion-text">{a.nl_assertion}</span>
-                              {a.justification && <p className="assertion-justification">{a.justification}</p>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    {!isVoice && <RewardDetails
+                      key={currentSimulation.id}
+                      rewardInfo={currentSimulation.reward_info}
+                      sourceUrl={`${SUBMISSIONS_BASE}/${currentSubmission.dir}/trajectories/${currentSubmission.trajectory_files[selectedDomain]}`}
+                    />}
+
                   </div>
                 </div>
 
