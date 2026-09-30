@@ -60,6 +60,7 @@ DEFAULT_RETRIEVAL_VARIANT = "alltools"
 
 DEFAULT_DENSE_EMBEDDING_MODEL_OPENAI = "text-embedding-3-large"
 DEFAULT_DENSE_EMBEDDING_MODEL_OPENROUTER = "qwen3-embedding-8b"
+DEFAULT_DENSE_EMBEDDING_MODEL_ORCAROUTER = "text-embedding-3-small"
 
 
 def format_all_tools_dense_instructions(variant: "RetrievalVariant") -> str:
@@ -75,6 +76,9 @@ def format_all_tools_dense_instructions(variant: "RetrievalVariant") -> str:
     elif embedder_type == "openrouter":
         provider = "OpenRouter"
         model = model or DEFAULT_DENSE_EMBEDDING_MODEL_OPENROUTER
+    elif embedder_type == "orcarouter":
+        provider = "OrcaRouter"
+        model = model or DEFAULT_DENSE_EMBEDDING_MODEL_ORCAROUTER
     else:
         provider = embedder_type or "the configured embedding provider"
         model = model or "the configured embedding model"
@@ -559,6 +563,54 @@ RETRIEVAL_VARIANTS: Dict[str, RetrievalVariant] = {
         ),
         supports_top_k=True,
     ),
+    "orcarouter_embeddings_grep": RetrievalVariant(
+        name="orcarouter_embeddings_grep",
+        prompt_template=PROMPTS_DIR / "classic_rag_orcarouter.md",
+        build_prompt=standard_prompt,
+        kb_search=PipelineSpec(
+            type="embedding",
+            embedder_type="orcarouter",
+            embedder_model="text-embedding-3-small",
+        ),
+        grep=GrepSpec(),
+        supports_top_k=True,
+    ),
+    "orcarouter_embeddings_reranker_grep": RetrievalVariant(
+        name="orcarouter_embeddings_reranker_grep",
+        prompt_template=PROMPTS_DIR / "classic_rag_orcarouter.md",
+        build_prompt=standard_prompt,
+        kb_search=PipelineSpec(
+            type="embedding",
+            embedder_type="orcarouter",
+            embedder_model="text-embedding-3-small",
+            reranker=True,
+        ),
+        grep=GrepSpec(),
+        supports_top_k=True,
+    ),
+    "orcarouter_embeddings": RetrievalVariant(
+        name="orcarouter_embeddings",
+        prompt_template=PROMPTS_DIR / "classic_rag_orcarouter_no_grep.md",
+        build_prompt=standard_prompt,
+        kb_search=PipelineSpec(
+            type="embedding",
+            embedder_type="orcarouter",
+            embedder_model="text-embedding-3-small",
+        ),
+        supports_top_k=True,
+    ),
+    "orcarouter_embeddings_reranker": RetrievalVariant(
+        name="orcarouter_embeddings_reranker",
+        prompt_template=PROMPTS_DIR / "classic_rag_orcarouter_no_grep.md",
+        build_prompt=standard_prompt,
+        kb_search=PipelineSpec(
+            type="embedding",
+            embedder_type="orcarouter",
+            embedder_model="text-embedding-3-small",
+            reranker=True,
+        ),
+        supports_top_k=True,
+    ),
     "bm25": RetrievalVariant(
         name="bm25",
         prompt_template=PROMPTS_DIR / "classic_rag_bm25_no_grep.md",
@@ -601,6 +653,11 @@ RETRIEVAL_VARIANTS: Dict[str, RetrievalVariant] = {
         "alltools-qwen",
         embedder_type="openrouter",
         embedder_model=DEFAULT_DENSE_EMBEDDING_MODEL_OPENROUTER,
+    ),
+    "alltools-orcarouter": all_tools_variant(
+        "alltools-orcarouter",
+        embedder_type="orcarouter",
+        embedder_model=DEFAULT_DENSE_EMBEDDING_MODEL_ORCAROUTER,
     ),
 }
 
