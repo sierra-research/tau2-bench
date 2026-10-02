@@ -13,8 +13,11 @@ environments are loud at the start of a run.
 
 from __future__ import annotations
 
+import os
 import shutil
+import subprocess
 import sys
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -241,5 +244,107 @@ class TestSandboxManagerLive:
         sm = SandboxManager(base_temp_dir=str(tmp_path))
         try:
             assert sm.kb_dir.exists()
+        finally:
+            sm.cleanup()
+
+    @pytest.mark.skipif(
+        not sys.platform.startswith("linux"), reason="srt starts socat on Linux only"
+    )
+    def test_timed_out_command_leaves_no_proxies(self, tmp_path):
+        sm = SandboxManager(base_temp_dir=str(tmp_path))
+        try:
+            assert sm.run_command("sleep 30", timeout=3) == (
+                124,
+                "",
+                "Command timed out after 3 seconds",
+            )
+        finally:
+            sm.cleanup()
+        deadline = time.monotonic() + 10
+        while _socat_in_own_group() and time.monotonic() < deadline:
+            time.sleep(0.2)
+        assert _socat_in_own_group() == []
+
+
+def _socat_in_own_group() -> list[str]:
+    """IDs of the socat processes in this process's group, as ``ps`` lists them."""
+    listed = subprocess.run(
+        ["ps", "-A", "-o", "pid=", "-o", "pgid=", "-o", "comm="],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    group = str(os.getpgid(0))
+    return [
+        fields[0]
+        for fields in map(str.split, listed.splitlines())
+        if fields[1:] == [group, "socat"]
+    ]
+
+
+def _child(code: str) -> list[str]:
+    return [sys.executable, "-c", code]
+
+
+class TestRunSrt:
+    """``_run_srt`` on a stand-in process, since only its process handling differs."""
+
+    def test_completed_command(self, tmp_path):
+        result = sandbox_manager._run_srt(
+            _child("print('ok')"), timeout=30, cwd=str(tmp_path)
+        )
+        assert (result.returncode, result.stdout) == (0, "ok\n")
+
+    def test_timeout_sends_sigterm_first(self, tmp_path):
+        marker = tmp_path / "terminated"
+        code = (
+            "import signal, sys, time\n"
+            "def stop(*_):\n"
+            f"    open({str(marker)!r}, 'w').close()\n"
+            "    sys.exit(0)\n"
+            "signal.signal(signal.SIGTERM, stop)\n"
+            "time.sleep(60)\n"
+        )
+        with pytest.raises(subprocess.TimeoutExpired):
+            sandbox_manager._run_srt(_child(code), timeout=3, cwd=str(tmp_path))
+        assert marker.exists()
+
+    def test_sigkill_after_the_grace_period(self, tmp_path):
+        pid_file = tmp_path / "pid"
+        code = (
+            "import os, signal, time\n"
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+            f"open({str(pid_file)!r}, 'w').write(str(os.getpid()))\n"
+            "time.sleep(60)\n"
+        )
+        start = time.monotonic()
+        with patch.object(sandbox_manager, "_SRT_TERMINATE_GRACE_SECONDS", 0.5):
+            with pytest.raises(subprocess.TimeoutExpired):
+                sandbox_manager._run_srt(_child(code), timeout=3, cwd=str(tmp_path))
+        assert time.monotonic() - start < 30
+        with pytest.raises(ProcessLookupError):
+            os.kill(int(pid_file.read_text()), 0)
+
+    def test_run_command_reports_a_timeout(self, tmp_path):
+        with (
+            patch.object(sandbox_manager.sys, "platform", "linux"),
+            patch.object(
+                sandbox_manager.shutil,
+                "which",
+                _which_returning({"srt", "rg", "bwrap", "socat"}),
+            ),
+        ):
+            sm = SandboxManager(base_temp_dir=str(tmp_path))
+        try:
+            with patch.object(
+                sandbox_manager,
+                "_run_srt",
+                side_effect=subprocess.TimeoutExpired(["srt"], 7),
+            ):
+                assert sm.run_command("sleep 9", timeout=7) == (
+                    124,
+                    "",
+                    "Command timed out after 7 seconds",
+                )
         finally:
             sm.cleanup()
