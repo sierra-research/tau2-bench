@@ -1,0 +1,51 @@
+{
+  "model_name": "Cayu V19r3 — GPT-5.6-sol",
+  "model_organization": "Cayu",
+  "submitting_organization": "Cayu",
+  "submission_date": "2026-10-03",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "talgat@cayu.ai",
+    "github": "talgat0528"
+  },
+  "reasoning_effort": "xhigh",
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "banking_knowledge": "cayu-v19r3_banking_knowledge_4trials.json"
+  },
+  "results": {
+    "banking_knowledge": {
+      "pass_1": 49.74226804123711,
+      "pass_2": 40.20618556701031,
+      "pass_3": 36.08247422680412,
+      "pass_4": 34.02061855670103,
+      "cost": null,
+      "retrieval_config": "cayu_hybrid"
+    }
+  },
+  "references": [
+    {
+      "title": "Cayu V19r3 implementation methodology and recovery provenance",
+      "url": "https://github.com/talgat0528/tau2-bench/releases/tag/cayu-v19r3-20261003",
+      "type": "documentation"
+    },
+    {
+      "title": "Complete banking trajectories (97 tasks, four trials)",
+      "url": "https://github.com/talgat0528/tau2-bench/releases/download/cayu-v19r3-20261003/cayu-v19r3_banking_knowledge_4trials.json",
+      "type": "other"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-10-03",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "openai/gpt-5.2",
+    "notes": "Custom Cayu V19r3 actor with GPT-5.6-sol xhigh through the subscription provider; unchanged Platform openai/gpt-5.2 low customer with 300-second customer timeout. All 97 base banking tasks, four registered trials, eight concurrent fresh task agents; seed 300 produces trial seeds 626729, 373753, 361454, 1567. Evaluation ran September 28–October 3, 2026 UTC, including a preregistered pause after trial one and later credential/quota pauses. The same frozen candidate completed all four trials; later development candidates were not substituted. Tau v1.0.1 commit fc0055dc4e0a316c3f83133267fbd6faaa770992; Cayu d8e530acafa3cb7ab9596340182cffc8d9467d5d (base 8784d320775ddeedff6c2cb8ccd0ac1941314037); actor manifest 93300d01e05e9721de27e650377a270467665aecdd3792d361646d694b92714d. Custom actor instructions, hybrid public-corpus retrieval with BM25 and cached text-embedding-3-large 3072-dimensional vectors, automatic recall, actor-selected search scopes, bounded document windows, persistent source-linked constraints and optional outcome plans/decision notes. Source and completion evidence validation remains; missing initial notes and model-authored conflicts do not independently veto actions in the advisory profile. Actual deterministic action admission remains enforced. No separate semantic plan/action/response reviewer and no separate decision-packet agent. A retrieval_config of no_knowledge in upstream trajectories is the adapter setting because Cayu supplies retrieval; cayu_hybrid is the actual retrieval interface. 180,000 estimated-token compaction trigger, advisory warning at 150,000, 100,000 recent-token target. Two-hour actor budget, 122.5-minute callback and 125-minute simulation limits; 192 runtime steps and 200 public steps; up to ten transient model attempts under the frozen recovery policy. No final agent budget stops occurred. All 388 outcomes are retained:193 passes,195 zeros,zero unscored; two scored user_error outcomes remain zeros. Five historical infrastructure failures across five fixed task/trial/seed slots were retried through pinned upstream checkpoint resume; final outcomes for those slots are four passes and one zero. Three execution epochs and one completed supervisor infrastructure retry round; an earlier infrastructure failure was retried when resuming after the trial-one pause. Every scored record in all four preserved checkpoints matches its final canonical record exactly. No scored zero was retried or replaced. Public tasks and failure analysis informed development; this is not an untouched holdout. No omitted banking tasks, hidden task goals, reference-action input, task-specific focused-policy injection, or cross-task conversational memory. Public export removes message raw provider/runtime diagnostics only, preserving explicit agent_termination, all public dialogue and tool arguments/results, task definitions, seeds, scores and identifiers. Full canonical evidence and checkpoints remain preserved privately. Source code remains private; linked methodology describes the implementation and exact evaluation treatment. Cost is unknown, not zero. Acceptance and trajectory import are subject to maintainer review.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "Custom actor scaffold/instructions; unchanged customer, full base task set, banking tool execution and reward evaluator. Fixed-source infrastructure-only resume and public-task development disclosed. Not a standard Verified entry; maintainer acceptance pending."
+    }
+  }
+}
