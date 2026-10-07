@@ -53,7 +53,7 @@ The `evaluate_simulation()` function in `evaluator.py` is the main entry point. 
 
 4. **Handle missing criteria gracefully**: If `task.evaluation_criteria` is `None` or a specific criterion is absent, return `reward=1.0` (not 0). Missing criteria means "not evaluated", not "failed".
 
-5. **Premature termination = 0 reward**: If `simulation.termination_reason` is not `AGENT_STOP` or `USER_STOP`, the simulation gets reward 0 before any evaluators run.
+5. **Premature termination = 0 reward**: If `simulation.termination_reason` is not `AGENT_STOP` or `USER_STOP`, the simulation gets reward 0 before any evaluators run. This includes `OUT_OF_SCOPE`, which is recorded when the user simulator emits `###OUT-OF-SCOPE###` because the scenario gave it nothing to continue with: the run was aborted, not completed, so it is not graded. `###STOP###` and `###TRANSFER###` remain `USER_STOP` and are graded normally.
 
 6. **`evaluation_criteria.actions` is *one* reference trajectory, not a per-action requirement**: `EnvironmentEvaluator` replays `actions` on a fresh env to derive the target DB hash, then compares against the predicted DB hash. Other agent trajectories producing an equivalent end state also pass. The agent is only required to match those specific calls when `RewardType.ACTION` is in `reward_basis` (rare; not used by airline/retail/telecom). See `docs/evaluation.md`.
 

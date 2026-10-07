@@ -1192,6 +1192,11 @@ class ConsoleDisplay:
             "🛑 Normal Stop",
             f"[green]{term_normal}[/] (👤 {metrics.termination_user_stop} / 🤖 {metrics.termination_agent_stop})",
         )
+        if metrics.termination_out_of_scope > 0:
+            table.add_row(
+                "🚫 Out of Scope",
+                f"[yellow]{metrics.termination_out_of_scope}[/]",
+            )
         if metrics.termination_max_steps > 0:
             table.add_row("⏱️  Max Steps", f"[yellow]{metrics.termination_max_steps}[/]")
         if metrics.termination_error > 0:

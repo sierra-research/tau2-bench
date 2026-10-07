@@ -47,6 +47,7 @@ class AgentMetrics(BaseModel):
     # Termination reason counts
     termination_user_stop: int = 0
     termination_agent_stop: int = 0
+    termination_out_of_scope: int = 0
     termination_max_steps: int = 0
     termination_error: int = 0
     termination_infrastructure_error: int = 0
@@ -268,6 +269,7 @@ def compute_metrics(results: Results) -> AgentMetrics:
     # Termination
     termination_user_stop = 0
     termination_agent_stop = 0
+    termination_out_of_scope = 0
     termination_max_steps = 0
     termination_error = 0
 
@@ -325,6 +327,8 @@ def compute_metrics(results: Results) -> AgentMetrics:
             termination_user_stop += 1
         elif sim.termination_reason == TerminationReason.AGENT_STOP:
             termination_agent_stop += 1
+        elif sim.termination_reason == TerminationReason.OUT_OF_SCOPE:
+            termination_out_of_scope += 1
         elif sim.termination_reason == TerminationReason.MAX_STEPS:
             termination_max_steps += 1
         elif sim.termination_reason in (
@@ -463,6 +467,7 @@ def compute_metrics(results: Results) -> AgentMetrics:
         auth_not_checked=auth_not_checked,
         termination_user_stop=termination_user_stop,
         termination_agent_stop=termination_agent_stop,
+        termination_out_of_scope=termination_out_of_scope,
         termination_max_steps=termination_max_steps,
         termination_error=termination_error,
         termination_infrastructure_error=infra_error_count,

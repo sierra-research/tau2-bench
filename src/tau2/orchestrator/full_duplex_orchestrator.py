@@ -27,7 +27,7 @@ from tau2.environment.environment import Environment
 from tau2.orchestrator.modes import CommunicationMode
 from tau2.orchestrator.orchestrator import DEFAULT_FIRST_AGENT_MESSAGE, BaseOrchestrator
 from tau2.user.user_simulator import UserSimulator
-from tau2.user.user_simulator_base import FullDuplexUser
+from tau2.user.user_simulator_base import FullDuplexUser, classify_user_stop
 from tau2.utils.llm_utils import get_cost
 from tau2.utils.utils import get_now
 from tau2.voice.pricing import build_session_usage
@@ -416,9 +416,6 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
         participant_name = "AGENT" if is_agent else "USER"
 
         is_stop = self.agent.is_stop if is_agent else UserSimulator.is_stop
-        termination_reason = (
-            TerminationReason.AGENT_STOP if is_agent else TerminationReason.USER_STOP
-        )
 
         new_state = state
 
@@ -446,7 +443,13 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
         if is_stop(new_chunk):
             logger.info(f"  [{participant_name}] *** STOP signal detected ***")
             self.done = True
-            self.termination_reason = termination_reason
+            # A user-side stop carries which token fired, so an out-of-scope
+            # abort is not recorded as an ordinary end (see #517).
+            self.termination_reason = (
+                TerminationReason.AGENT_STOP
+                if is_agent
+                else (classify_user_stop(new_chunk) or TerminationReason.USER_STOP)
+            )
 
         # Handle tool calls: execute now, deliver results next tick
         tool_calls: list[ToolCall] = []

@@ -1281,6 +1281,7 @@ class Info(BaseModel):
 class TerminationReason(str, Enum):
     USER_STOP = "user_stop"
     AGENT_STOP = "agent_stop"
+    OUT_OF_SCOPE = "out_of_scope"  # User simulator emitted ###OUT-OF-SCOPE###: the scenario gave it nothing to continue with. Aborted, not completed.
     MAX_STEPS = "max_steps"
     TIMEOUT = "timeout"
     TOO_MANY_ERRORS = "too_many_errors"

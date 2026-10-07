@@ -32,11 +32,9 @@ from tau2.orchestrator.orchestrator import Orchestrator
 from tau2.registry import registry
 from tau2.user.user_simulator import DummyUser, UserSimulator
 from tau2.user.user_simulator_base import (
-    OUT_OF_SCOPE,
-    STOP,
-    TRANSFER,
     HalfDuplexUser,
     ValidUserInputMessage,
+    classify_user_stop,
 )
 from tau2.utils.tools import parse_action_string, to_functional_format
 
@@ -535,15 +533,7 @@ class GymUser(HalfDuplexUser):
         - TRANSFER token (###TRANSFER###): User wants to transfer to human agent
         - OUT_OF_SCOPE token (###OUT-OF-SCOPE###): Request is out of scope
         """
-        if message.is_tool_call():
-            return False
-        if message.content is None:
-            return False
-        return (
-            STOP in message.content
-            or TRANSFER in message.content
-            or OUT_OF_SCOPE in message.content
-        )
+        return classify_user_stop(message) is not None
 
 
 class AgentGymEnv(gym.Env):
