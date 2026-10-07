@@ -659,3 +659,84 @@ def test_environment_set_state_strict_flag(
             arguments={"user_id": "user_1", "expected_number": 2},
         )
     )
+
+
+class TestSetStateCountsReplayDivergence:
+    """Lenient replay must say how far it diverged, not just carry on.
+
+    Regression coverage for the second half of finding 1 in #502: a telecom file
+    re-graded from a recorded 0.7215 to 0.0965 with no error, because every
+    replayed user-side call returned a "tool not found" error and lenient replay
+    logged a warning per call and continued. The score was then computed against
+    an environment the recorded trajectory never produced.
+    """
+
+    @staticmethod
+    def _environment(mock_toolkit_class: Callable[[], ToolKitBase]) -> Environment:
+        return Environment(
+            domain_name="mock_domain",
+            policy="You are a helpful assistant.",
+            tools=mock_toolkit_class(),
+        )
+
+    @staticmethod
+    def _history(*recorded_outputs: str) -> list[Message]:
+        """One `tool1(param1=1)` call per recorded output.
+
+        The toolkit accumulates, so a faithful recording is "1", "2", "3", ...;
+        any other value is a recorded output the replay will not reproduce.
+        """
+        history: list[Message] = []
+        for i, content in enumerate(recorded_outputs):
+            call_id = str(i)
+            history.append(
+                AssistantMessage(
+                    id=call_id,
+                    content=None,
+                    role="assistant",
+                    tool_calls=[
+                        ToolCall(id=call_id, name="tool1", arguments={"param1": 1})
+                    ],
+                )
+            )
+            history.append(ToolMessage(id=call_id, content=content, role="tool"))
+        return history
+
+    def test_faithful_replay_reports_no_divergence(self, mock_toolkit_class):
+        environment = self._environment(mock_toolkit_class)
+
+        assert (
+            environment.set_state(
+                initialization_data=None,
+                initialization_actions=None,
+                message_history=self._history("1", "2", "3"),
+                strict=False,
+            )
+            == 0
+        )
+
+    def test_lenient_replay_counts_every_drifted_output(self, mock_toolkit_class):
+        """The count is what distinguishes cosmetic drift from a collapsed replay."""
+        environment = self._environment(mock_toolkit_class)
+
+        assert (
+            environment.set_state(
+                initialization_data=None,
+                initialization_actions=None,
+                message_history=self._history("1", "999", "1000"),
+                strict=False,
+            )
+            == 2
+        )
+
+    def test_strict_replay_still_raises_on_the_same_history(self, mock_toolkit_class):
+        """Strict behaviour is unchanged: the first mismatch raises."""
+        environment = self._environment(mock_toolkit_class)
+
+        with pytest.raises(ValueError):
+            environment.set_state(
+                initialization_data=None,
+                initialization_actions=None,
+                message_history=self._history("1", "999"),
+                strict=True,
+            )
