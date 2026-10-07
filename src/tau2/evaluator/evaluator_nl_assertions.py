@@ -125,13 +125,21 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
         )
         result_data = json.loads(assistant_message.content)
+        results = result_data.get("results", [])
+        if len(results) != len(nl_assertions):
+            # An empty or short verdict list would otherwise score as a full
+            # pass, because all() over missing verdicts is True.
+            raise ValueError(
+                f"NL-assertion judge returned {len(results)} verdict(s) "
+                f"for {len(nl_assertions)} assertion(s)"
+            )
         return [
             NLAssertionCheck(
                 nl_assertion=result["expectedOutcome"],
                 met=result["metExpectation"],
                 justification=result["reasoning"],
             )
-            for result in result_data.get("results", [])
+            for result in results
         ]
 
 
