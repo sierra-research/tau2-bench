@@ -113,6 +113,27 @@ class Description(BaseModel):
         return "\n".join(lines)
 
 
+def _sort_scalar_lists(args: dict) -> dict:
+    """
+    Sort list-of-scalar arguments so their order does not affect matching.
+    Lists of the same length are sorted together row by row, so paired
+    arguments such as `item_ids` / `new_item_ids` keep their pairing.
+    """
+    groups: dict[int, list[str]] = {}
+    for key in sorted(args):
+        value = args[key]
+        if isinstance(value, list) and all(
+            not isinstance(x, (list, dict)) for x in value
+        ):
+            groups.setdefault(len(value), []).append(key)
+    sorted_args = dict(args)
+    for keys in groups.values():
+        rows = sorted(zip(*(args[k] for k in keys)), key=repr)
+        for i, key in enumerate(keys):
+            sorted_args[key] = [row[i] for row in rows]
+    return sorted_args
+
+
 class Action(BaseModel):
     """
     Descriptor for a tool call by the agent or the user.
@@ -181,6 +202,7 @@ class Action(BaseModel):
         If the name is not the same, return False.
         If compare_args is None, will check all the arguments.
         Otherwise, will check only the arguments in compare_args.
+        The order of items in list arguments is ignored.
         """
         if self.name != tool_call.name:
             return False
@@ -192,7 +214,7 @@ class Action(BaseModel):
             return True
         tool_args = {k: v for k, v in tool_call.arguments.items() if k in compare_args}
         action_args = {k: v for k, v in self.arguments.items() if k in compare_args}
-        return tool_args == action_args
+        return _sort_scalar_lists(tool_args) == _sort_scalar_lists(action_args)
 
 
 class EnvFunctionCall(BaseModel):
