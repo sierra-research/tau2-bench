@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { buildSimData } from '../utils/voiceDataTransform'
 import { renderVoiceViewer } from '../utils/voiceViewerRenderer'
+import RewardDetails from './RewardDetails'
 import './VoiceViewer.css'
 
 const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
@@ -29,6 +30,8 @@ const VoiceViewer = ({
   const [error, setError] = useState(null)
   const [simData, setSimData] = useState(null)
   const [audioUrl, setAudioUrl] = useState(null)
+  const [rewardInfo, setRewardInfo] = useState(null)
+  const sourceUrl = `${SUBMISSIONS_BASE}/${submissionDir}/trajectories/${trajectoryDir}/simulations/${simulationId}.json`
 
   useEffect(() => {
     if (!submissionDir || !trajectoryDir || !simulationId) return
@@ -61,6 +64,7 @@ const VoiceViewer = ({
         })
 
         setSimData(data)
+        setRewardInfo(simJson.reward_info || null)
 
         // Construct the audio URL — the stereo mix lives alongside simulation data
         const audioSrc = `${SUBMISSIONS_BASE}/${submissionDir}/trajectories/${trajectoryDir}/artifacts/task_${taskId}/sim_${simulationId}/audio/both.wav`
@@ -115,7 +119,10 @@ const VoiceViewer = ({
     )
   }
 
-  return <div className="voice-viewer" ref={containerRef} />
+  return <>
+    <RewardDetails rewardInfo={rewardInfo} sourceUrl={sourceUrl} />
+    <div className="voice-viewer" ref={containerRef} />
+  </>
 }
 
 export default VoiceViewer
