@@ -77,7 +77,9 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             - reasoning: Explanation for the evaluation
         """
         trajectory_str = "\n".join(
-            [f"{message.role}: {message.content}" for message in trajectory]
+            f"{message.role}: {message.content}"
+            for message in trajectory
+            if message.content is not None
         )
         # System prompt similar to the TypeScript implementation
         system_prompt = """
