@@ -1,0 +1,146 @@
+{
+  "model_name": "AI Rudder Voice",
+  "model_organization": "Voyager",
+  "submitting_organization": "AI Rudder",
+  "submission_date": "2026-09-26",
+  "submission_type": "custom",
+  "modality": "voice",
+  "contact_info": {
+    "email": "yechang.hu@airudder.com",
+    "name": "Yechang Hu",
+    "github": "yechang15"
+  },
+  "results": {
+    "retail": {
+      "pass_1": 85.96491228070175
+    },
+    "airline": {
+      "pass_1": 84.0
+    },
+    "telecom": {
+      "pass_1": 96.49122807017544
+    }
+  },
+  "is_new": true,
+  "trajectories_available": false,
+  "trajectory_files": {
+    "airline": "va20260926a_custom_airline",
+    "retail": "va20260926a_custom_retail",
+    "telecom": "va20260926a_custom_telecom"
+  },
+  "methodology": {
+    "evaluation_date": "2026-09-26",
+    "tau2_bench_version": "b7ea9074c1cba482b30687fecdb5c8425fd6f619 + Route A transport hook",
+    "user_simulator": "v1.0",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "No benchmark-side prompt, task-selection, tool-schema, tool-result or evaluator changes are declared. modified_prompts refers to benchmark-supplied prompts, not the disclosed product-internal domain scaffolds. All base IDs are present and scored; no omitted questions. The sole stock source diff is the transport hook. Dependency/model-registry differences, external-account voices and known retries are disclosed in notes. Owner Yechang Hu confirmed on 2026-09-26 that the submitted system was not trained specifically on tau-bench tasks, rewards or evaluation data and did not access hidden task goals, reference answers/actions, evaluator state or other benchmark data outside the standard agent interface. This is an owner declaration, not independent provenance verification or official acceptance."
+    },
+    "notes": "AI Rudder Voice: single-brain Gemini gemini-3.7-flash (OpenAI-compatible API), Deepgram nova-3 ASR at 8 kHz, ElevenLabs eleven_flash_v2_5 agent TTS. The product includes VIE, internal domain scaffolds and a Realtime-compatible endpoint routing by benchmark-visible policy/tools. Tools execute in stock tau2. No fast/slow dual-brain system. Campaign va20260926a, 2026-09-26, Virginia; full base: retail 114, airline 50, telecom 114; regular, one trial; concurrency 6/3/12. No Banking. Stock b7ea9074c1cba482b30687fecdb5c8425fd6f619 plus a disclosed +18/-0 transport hook; system 373bde7430eddea1dcc045454e5ab5fa069b8b34; VIE 8594843b44d385faf967f25981864d78ade60bce. Python 3.12.13, litellm 1.82.6 (upstream lock is 1.81.11), google-genai 1.63.0, pydantic 2.12.4. Voice simulator v1.0; user TTS eleven_v3; reused external-account voice batch v4 (seed 20260925, design model eleven_ttv_v3, seven-persona mapping SHA256 prefix 6c65ae3e684773a9); regular uses five personas. These are not Sierra voices. Voice seed 300, tick 0.2s, maximum 1200 virtual seconds; NL assertions gpt-4.1-2025-04-14, hallucination review claude-opus-4-5, retries=3, no auto-review. First completed valid attempt under the stock retry/discard protocol; no best-of selection. Client-to-endpoint was same-host loopback, not an external Sierra rerun. Official interaction_metrics use retained tick trajectories, not journal TTFS. Non-default user generation gpt-5.5-2026-04-23, reasoning_effort=xhigh; other run settings and agent unchanged. This simulator change determines Custom classification. No hallucination-discarded attempts. Whole-task runner retries: retail 1/1 (loopback WS 1011 keepalive timeout), airline 0/0, telecom 4/4 (one empty user-TTS output, three text-too-long errors: 10145/14641/5792 characters). All five retried tasks have a retained passing attempt, not manually selected trials. Runtime model-registry support for xhigh was checked. Actual Chat Completions HTTP observations cover retail/airline, not telecom Responses API. Telecom invocation logs record xhigh and a separate same-version offline serialization probe preserves it; that probe is not a live per-request trace of this run."
+  },
+  "voice_config": {
+    "provider": "openai",
+    "model": "airudder-voice-v1",
+    "tick_duration_seconds": 0.2,
+    "max_steps_seconds": 1200.0,
+    "user_tts_provider": "elevenlabs/eleven_v3"
+  },
+  "interaction_metrics": {
+    "version": "1.0",
+    "config": {
+      "tick_duration_sec": 0.2,
+      "no_yield_window_sec": 2.0,
+      "backchannel_yield_window_sec": 1.0,
+      "vocal_tic_yield_window_sec": 1.0,
+      "non_directed_yield_window_sec": 1.0,
+      "vocal_tic_response_window_sec": 2.0,
+      "non_directed_response_window_sec": 2.0
+    },
+    "domains": {
+      "airline": {
+        "response_latency_mean": 2.7978609625668445,
+        "yield_latency_mean": 1.2288209606986902,
+        "response_rate": 0.9765013054830287,
+        "yield_rate": 0.916,
+        "agent_interruption_rate": 0.5404699738903395,
+        "selectivity_backchannel": 0.8666666666666667,
+        "selectivity_vocal_tic": 0.5853658536585367,
+        "selectivity_non_directed": 0.4482758620689655,
+        "counts": {
+          "n_simulations": 50,
+          "response_total": 383,
+          "yield_total": 250,
+          "backchannel_total": 15,
+          "vocal_tic_total": 41,
+          "non_directed_total": 29,
+          "agent_interrupts_count": 207
+        }
+      },
+      "retail": {
+        "response_latency_mean": 2.7799450549450544,
+        "yield_latency_mean": 1.1468531468531469,
+        "response_rate": 0.9851150202976996,
+        "yield_rate": 0.9225806451612903,
+        "agent_interruption_rate": 0.6941813261163735,
+        "selectivity_backchannel": 0.9487179487179487,
+        "selectivity_vocal_tic": 0.39583333333333337,
+        "selectivity_non_directed": 0.37777777777777777,
+        "counts": {
+          "n_simulations": 114,
+          "response_total": 739,
+          "yield_total": 465,
+          "backchannel_total": 39,
+          "vocal_tic_total": 96,
+          "non_directed_total": 45,
+          "agent_interrupts_count": 513
+        }
+      },
+      "telecom": {
+        "response_latency_mean": 2.2825635517364837,
+        "yield_latency_mean": 1.1344582593250445,
+        "response_rate": 0.9851851851851852,
+        "yield_rate": 0.9221949221949222,
+        "agent_interruption_rate": 0.2345679012345679,
+        "selectivity_backchannel": 1.0,
+        "selectivity_vocal_tic": 0.4405594405594405,
+        "selectivity_non_directed": 0.35074626865671643,
+        "counts": {
+          "n_simulations": 114,
+          "response_total": 2835,
+          "yield_total": 1221,
+          "backchannel_total": 2,
+          "vocal_tic_total": 286,
+          "non_directed_total": 134,
+          "agent_interrupts_count": 665
+        }
+      }
+    },
+    "overall": {
+      "response_latency_mean": 2.6201231897494606,
+      "yield_latency_mean": 1.1700441222922937,
+      "response_rate": 0.9822671703219711,
+      "yield_rate": 0.9202585224520708,
+      "agent_interruption_rate": 0.4897397337470936,
+      "selectivity_backchannel": 0.9384615384615383,
+      "selectivity_vocal_tic": 0.4739195425171035,
+      "selectivity_non_directed": 0.3922666361678199,
+      "counts": {
+        "n_simulations": 278,
+        "response_total": 3957,
+        "yield_total": 1936,
+        "backchannel_total": 56,
+        "vocal_tic_total": 423,
+        "non_directed_total": 208,
+        "agent_interrupts_count": 1385
+      }
+    }
+  },
+  "references": [
+    {
+      "title": "Beyond the Model: Building a Harness for a Voice Agent",
+      "url": "https://airudder.com/beyond-the-model-building-a-harness-for-a-voice-agent/",
+      "type": "blog_post"
+    }
+  ]
+}
