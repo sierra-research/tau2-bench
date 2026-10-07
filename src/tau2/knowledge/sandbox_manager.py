@@ -129,6 +129,41 @@ def _check_sandbox_dependencies(force: bool = False) -> None:
     _DEPS_VERIFIED = True
 
 
+# Seconds that ``srt`` gets, after SIGTERM, to stop the processes it started.
+_SRT_TERMINATE_GRACE_SECONDS = 5
+
+
+def _run_srt(
+    srt_command: List[str], timeout: float, cwd: str
+) -> subprocess.CompletedProcess:
+    """Run ``srt`` as ``subprocess.run`` would, but stop it with SIGTERM on timeout.
+
+    ``subprocess.run`` kills a process that times out with SIGKILL. ``srt``
+    then cannot stop the proxy processes it started (``socat`` on Linux), and
+    they keep running after the command. On SIGTERM, ``srt`` stops them itself;
+    SIGKILL follows only if it has not exited after a grace period. As with
+    ``subprocess.run``, ``subprocess.TimeoutExpired`` is raised once it has.
+    """
+    with subprocess.Popen(
+        srt_command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        cwd=cwd,
+    ) as process:
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            process.terminate()
+            try:
+                process.communicate(timeout=_SRT_TERMINATE_GRACE_SECONDS)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.communicate()
+            raise
+    return subprocess.CompletedProcess(srt_command, process.returncode, stdout, stderr)
+
+
 # Static metadata for sanitized output
 _SANDBOX_USER = "kb_user"
 _SANDBOX_GROUP = "kb_group"
@@ -428,13 +463,7 @@ class SandboxManager:
         srt_command = ["srt", "--settings", str(self.settings_path), command]
 
         try:
-            result = subprocess.run(
-                srt_command,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=str(self.kb_dir),
-            )
+            result = _run_srt(srt_command, timeout=timeout, cwd=str(self.kb_dir))
             # Sanitize output to remove real user metadata
             sanitized_stdout = self._sanitize_output(result.stdout, command)
             sanitized_stderr = self._sanitize_output(result.stderr, command)
