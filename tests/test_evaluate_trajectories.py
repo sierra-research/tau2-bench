@@ -24,6 +24,7 @@ from tau2.scripts import evaluate_trajectories as evaluate_trajectories_module
 from tau2.scripts.evaluate_trajectories import (
     compute_simulation_rewards,
     get_communication_mode,
+    is_solo_mode,
 )
 
 # ---- Fixtures ----
@@ -32,6 +33,7 @@ from tau2.scripts.evaluate_trajectories import (
 def _make_info(
     user_implementation: str = "user_simulator",
     audio_native_config: AudioNativeConfig = None,
+    agent_implementation: str = "llm_agent",
 ) -> Info:
     return Info(
         git_commit="abc123",
@@ -39,7 +41,7 @@ def _make_info(
         max_steps=100,
         max_errors=10,
         user_info=UserInfo(implementation=user_implementation),
-        agent_info={"implementation": "llm_agent"},
+        agent_info={"implementation": agent_implementation},
         environment_info=EnvironmentInfo(domain_name="mock", policy="test policy"),
         audio_native_config=audio_native_config,
     )
@@ -78,6 +80,35 @@ def _make_full_duplex_sim(task_id: str, ticks: list[Tick] = None) -> SimulationR
         ticks=ticks if ticks is not None else [],
         mode=CommunicationMode.FULL_DUPLEX.value,
     )
+
+
+# ---- Solo mode detection ----
+
+
+class TestIsSoloMode:
+    def _results(self, agent_implementation: str, user_implementation: str) -> Results:
+        return Results(
+            info=_make_info(
+                user_implementation=user_implementation,
+                agent_implementation=agent_implementation,
+            ),
+            tasks=[_make_task("t0")],
+            simulations=[],
+        )
+
+    def test_llm_agent_solo_is_solo(self):
+        assert is_solo_mode(self._results("llm_agent_solo", "dummy_user")) is True
+
+    def test_llm_agent_solo_gt_is_solo(self):
+        # Ground-truth solo files also run with a dummy user and must be detected as solo, so replay keeps
+        # the user-side tools. Regression for #502, where these files silently re-graded from 0.72 to 0.10.
+        assert is_solo_mode(self._results("llm_agent_solo_gt", "dummy_user")) is True
+
+    def test_regular_agent_is_not_solo(self):
+        assert is_solo_mode(self._results("llm_agent", "user_simulator")) is False
+
+    def test_solo_agent_with_real_user_is_not_solo(self):
+        assert is_solo_mode(self._results("llm_agent_solo", "user_simulator")) is False
 
 
 # ---- Mode detection ----
