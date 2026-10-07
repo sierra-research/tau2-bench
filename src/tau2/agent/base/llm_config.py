@@ -10,6 +10,8 @@ from typing import Optional
 
 from loguru import logger
 
+from tau2.utils.llm_utils import warn_if_param_unsupported
+
 
 class LLMConfigMixin:
     """
@@ -46,3 +48,6 @@ class LLMConfigMixin:
         if cur_seed is not None:
             logger.warning(f"Seed is already set to {cur_seed}, resetting it to {seed}")
         self.llm_args["seed"] = seed
+        # litellm.drop_params silently discards `seed` for providers without
+        # seed support, so say so here rather than letting the run look seeded.
+        warn_if_param_unsupported(self.llm, "seed")

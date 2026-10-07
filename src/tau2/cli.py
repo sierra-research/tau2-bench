@@ -178,7 +178,11 @@ def add_run_args(parser):
         "--seed",
         type=int,
         default=DEFAULT_SEED,
-        help=f"The seed to use for the simulation. Default is {DEFAULT_SEED}.",
+        help=f"The seed to use for the simulation. Default is {DEFAULT_SEED}. "
+        "Derives the per-trial seeds (and persona selection in voice runs), and is "
+        "passed to the LLM; providers without seed support drop it, so provider "
+        "sampling is not seeded for those models. A warning is logged when that "
+        "happens.",
     )
     parser.add_argument(
         "--log-level",

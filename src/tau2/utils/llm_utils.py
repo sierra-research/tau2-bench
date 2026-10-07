@@ -68,6 +68,13 @@ if USE_LANGFUSE:
 else:
     litellm.success_callback = []
 
+# Incidental kwargs should not break a provider that does not accept them, so
+# unsupported parameters are dropped rather than raised. The cost is that a
+# parameter the CLI explicitly advertises is silenced the same way: --seed
+# reaches the call, LiteLLM would raise UnsupportedParamsError for a provider
+# without seed support (Gemini), and this turns that into a no-op. Two unseeded
+# runs then look exactly like a reproducible pair. warn_if_param_unsupported()
+# below restores the signal for parameters a caller asked for on purpose.
 litellm.drop_params = True
 
 warnings.filterwarnings(
@@ -101,6 +108,47 @@ if LLM_CACHE_ENABLED:
 else:
     logger.info("LiteLLM: Cache is disabled")
     litellm.disable_cache()
+
+
+_UNSUPPORTED_PARAM_WARNINGS: set[tuple[str, str]] = set()
+
+
+def warn_if_param_unsupported(model: str, param: str) -> Optional[bool]:
+    """Warn once when `param` was requested but `model` will silently drop it.
+
+    `litellm.drop_params = True` (see above) makes an unsupported parameter a
+    no-op instead of an error, so a caller that asked for one has no way to
+    learn it had no effect. Use this at the point the parameter is requested.
+
+    Returns True when the provider supports `param`, False when it does not and
+    a warning was issued, and None when support could not be determined, in
+    which case nothing is logged: a false alarm about an unseeded run is worse
+    than staying quiet, and LiteLLM raises for models it does not recognise.
+    """
+    try:
+        supported = litellm.get_supported_openai_params(model=model)
+    except Exception as e:  # unrecognised model, provider lookup failure
+        logger.debug(f"Could not determine supported params for {model}: {e}")
+        return None
+    if supported is None:
+        return None
+    if param in supported:
+        return True
+
+    key = (model, param)
+    if key not in _UNSUPPORTED_PARAM_WARNINGS:
+        _UNSUPPORTED_PARAM_WARNINGS.add(key)
+        logger.warning(
+            f"{param!r} was requested but {model} does not support it, so it is "
+            f"dropped before the request is sent. This run is NOT seeded by the "
+            f"provider: repeat runs are independent samples even at the same "
+            f"--seed. A model that is deterministic at temperature 0 can make "
+            f"this look like seeding is working."
+            if param == "seed"
+            else f"{param!r} was requested but {model} does not support it, so "
+            f"it is dropped before the request is sent and has no effect."
+        )
+    return False
 
 
 def _parse_ft_model_name(model: str) -> str:
