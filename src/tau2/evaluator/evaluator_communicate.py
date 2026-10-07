@@ -1,7 +1,77 @@
+import re
+from decimal import Decimal
+
 from tau2.data_model.message import AssistantMessage, Message, Tick
 from tau2.data_model.simulation import CommunicateCheck, RewardInfo
 from tau2.data_model.tasks import RewardType, Task
 from tau2.evaluator.evaluator_base import EvaluatorBase
+
+_SMALL = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
+_TENS = "zero ten twenty thirty forty fifty sixty seventy eighty ninety".split()
+
+
+def _integer_words(value: int) -> str:
+    """Spell a nonnegative integer using standard English cardinal numbers."""
+    if value < 20:
+        return _SMALL[value]
+    if value < 100:
+        return _TENS[value // 10] + (" " + _SMALL[value % 10] if value % 10 else "")
+    for scale, name in (
+        (10**12, "trillion"),
+        (10**9, "billion"),
+        (10**6, "million"),
+        (1000, "thousand"),
+        (100, "hundred"),
+    ):
+        if value >= scale:
+            return (
+                _integer_words(value // scale)
+                + " "
+                + name
+                + (" " + _integer_words(value % scale) if value % scale else "")
+            )
+    raise ValueError(value)
+
+
+def _communicated(info: str, content: str) -> bool:
+    """Match integer values in digits or words; retain legacy matching for prose."""
+    expected = info.lower().replace(",", "").strip()
+    text = content.lower().replace(",", "")
+    if not re.fullmatch(r"[0-9]+", expected):
+        return info.lower() in text
+    # Do not let a required 4 match 5244, 4.5, or an identifier containing 4.
+    for match in re.finditer(
+        r"(?<![\w.-])" + re.escape(expected) + r"(?!\w|\.[0-9]|-[0-9])", text
+    ):
+        if not re.search(r"(?:\bminus|\bnegative|-)\s*\$?\s*$", text[: match.start()]):
+            return True
+    value = int(expected)
+    # Leading-zero strings are identifiers, not cardinal numbers.
+    if str(value) != expected or value >= 10**15:
+        return False
+    text = re.sub(r"(?<!\w)-(?=[a-z])", "minus ", text)
+    text = re.sub(r"\band\b", " ", text.replace("-", " "))
+    text = re.sub(r"\s+", " ", text)
+    forms = [_integer_words(value)]
+    # Common spoken dollar amounts: "twelve eighty-six" for 1286.
+    if 1000 <= value < 10000 and value % 100 >= 10:
+        forms.append(_integer_words(value // 100) + " " + _integer_words(value % 100))
+    for form in forms:
+        for match in re.finditer(r"\b" + re.escape(form) + r"\b", text):
+            # Reject a proper subphrase of a larger spoken number.
+            before = text[: match.start()].split()
+            after = text[match.end() :].split()
+            number_words = set(
+                _SMALL
+                + _TENS
+                + ["hundred", "thousand", "million", "billion", "trillion", "point"]
+            )
+            if (before and before[-1] in number_words | {"minus", "negative"}) or (
+                after and after[0] in number_words
+            ):
+                continue
+            return True
+    return False
 
 
 class CommunicateEvaluator(EvaluatorBase[Message]):
@@ -66,9 +136,7 @@ class CommunicateEvaluator(EvaluatorBase[Message]):
                     continue
                 if not message.has_text_content():
                     continue
-                if info_str.lower() in message.content.lower().replace(
-                    ",", ""
-                ):  # TODO: This could be improved!
+                if _communicated(info_str, message.content):
                     found = True
                     break
             if found:
@@ -94,6 +162,7 @@ class FullDuplexCommunicateEvaluator(EvaluatorBase[Tick]):
         Convert a list of Ticks to a list of AssistantMessages by extracting and merging agent chunks.
 
         Chunks with overlapping utterance_ids are merged into single messages.
+        Missing IDs fall back to contiguous text, separated by tools or a one-second pause.
         This groups consecutive chunks that belong to the same utterance(s).
 
         Args:
@@ -103,51 +172,53 @@ class FullDuplexCommunicateEvaluator(EvaluatorBase[Tick]):
             List of AssistantMessages, where chunks with overlapping utterance_ids
             have been merged together.
         """
-        # Extract all agent chunks that have content
-        agent_chunks: list[AssistantMessage] = []
-        for tick in ticks:
-            if tick.agent_chunk is not None and not tick.agent_chunk.is_tool_call():
-                agent_chunks.append(tick.agent_chunk)
-
-        if not agent_chunks:
-            return []
-
-        # Group consecutive chunks with overlapping utterance_ids
         messages: list[AssistantMessage] = []
-        current_group: list[AssistantMessage] = [agent_chunks[0]]
-        current_utterance_ids: set[str] = set(agent_chunks[0].utterance_ids or [])
+        group: list[AssistantMessage] = []
+        utterance_ids: set[str] = set()
+        silence = Decimal(0)
 
-        for chunk in agent_chunks[1:]:
-            chunk_utterance_ids = set(chunk.utterance_ids or [])
+        def flush() -> None:
+            if group:
+                # Evaluation needs only text; avoid concatenating audio buffers.
+                messages.append(
+                    group[0].model_copy(
+                        update={
+                            "content": "".join(chunk.content or "" for chunk in group)
+                        }
+                    )
+                )
+                group.clear()
+                utterance_ids.clear()
 
-            # Check for overlap with current group
-            has_overlap = bool(
-                current_utterance_ids
-                and chunk_utterance_ids
-                and not current_utterance_ids.isdisjoint(chunk_utterance_ids)
-            )
-
-            if has_overlap:
-                # Extend the current group
-                current_group.append(chunk)
-                current_utterance_ids.update(chunk_utterance_ids)
-            else:
-                # Merge the current group and start a new one
-                if current_group:
-                    if len(current_group) == 1:
-                        messages.append(current_group[0])
-                    else:
-                        messages.append(AssistantMessage.merge_chunks(current_group))
-
-                current_group = [chunk]
-                current_utterance_ids = chunk_utterance_ids
-
-        # Don't forget the last group
-        if current_group:
-            if len(current_group) == 1:
-                messages.append(current_group[0])
-            else:
-                messages.append(AssistantMessage.merge_chunks(current_group))
+        for tick in ticks:
+            chunk = tick.agent_chunk
+            if (
+                tick.agent_tool_calls
+                or tick.agent_tool_results
+                or (chunk and chunk.is_tool_call())
+            ):
+                flush()
+                silence = Decimal(0)
+                # Speech and tool events may share a full-duplex tick. Preserve
+                # that speech as a separate message without joining across tools.
+                if chunk and chunk.content:
+                    messages.append(chunk.model_copy(update={"tool_calls": None}))
+                continue
+            if chunk is None or not chunk.content:
+                if group and not utterance_ids:
+                    silence += Decimal(str(tick.tick_duration_seconds or 0.2))
+                    if silence >= 1.0:
+                        flush()
+                continue
+            ids = set(chunk.utterance_ids or [])
+            if group and (utterance_ids or ids) and not utterance_ids.intersection(ids):
+                flush()
+            # Providers without utterance IDs emit incremental text fragments.
+            # Preserve their spacing and merge until a pause/tool/ID boundary.
+            group.append(chunk)
+            utterance_ids.update(ids)
+            silence = Decimal(0)
+        flush()
 
         return messages
 
