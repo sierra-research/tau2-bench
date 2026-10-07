@@ -1,4 +1,5 @@
 import json
+from typing import Optional
 
 from tau2.agent.base.streaming import (
     LinearizationStrategy,
@@ -23,9 +24,18 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
         cls,
         task: Task,
         full_trajectory: list[Message],
+        model: Optional[str] = None,
+        model_args: Optional[dict] = None,
     ) -> RewardInfo:
         """
         Calculate the reward for the simulation by using an LLM to evaluate whether the trajectory adheres to all the natural-language assertions
+
+        Args:
+            task: The task specification.
+            full_trajectory: List of messages from the conversation.
+            model: The judge model to use. Defaults to DEFAULT_LLM_NL_ASSERTIONS.
+            model_args: The arguments to pass to the judge model. Defaults to
+                DEFAULT_LLM_NL_ASSERTIONS_ARGS.
         """
         if task.evaluation_criteria is None:
             return RewardInfo(
@@ -44,7 +54,7 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             )
 
         nl_assertions_checks = cls.evaluate_nl_assertions(
-            full_trajectory, nl_assertions
+            full_trajectory, nl_assertions, model=model, model_args=model_args
         )
 
         # Calculate reward: 1 if all expectations are met, 0 otherwise
@@ -62,6 +72,8 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
         cls,
         trajectory: list[Message],
         nl_assertions: list[str],
+        model: Optional[str] = None,
+        model_args: Optional[dict] = None,
     ) -> list[NLAssertionCheck]:
         """
         Evaluate whether the trajectory meets each expected outcome.
@@ -69,6 +81,9 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
         Args:
             trajectory: List of messages from the conversation
             nl_assertions: List of natural-language assertions to evaluate
+            model: The judge model to use. Defaults to DEFAULT_LLM_NL_ASSERTIONS.
+            model_args: The arguments to pass to the judge model. Defaults to
+                DEFAULT_LLM_NL_ASSERTIONS_ARGS.
 
         Returns:
             List of evaluation results for each NL assertion, containing:
@@ -119,10 +134,12 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
         ]
 
         assistant_message = generate(
-            model=DEFAULT_LLM_NL_ASSERTIONS,
+            model=model if model is not None else DEFAULT_LLM_NL_ASSERTIONS,
             messages=messages,
             call_name="nl_assertions_eval",
-            **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
+            **(
+                model_args if model_args is not None else DEFAULT_LLM_NL_ASSERTIONS_ARGS
+            ),
         )
         result_data = json.loads(assistant_message.content)
         return [
@@ -193,10 +210,19 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
         cls,
         task: Task,
         full_trajectory: list[Tick],
+        model: Optional[str] = None,
+        model_args: Optional[dict] = None,
     ) -> RewardInfo:
         """
         Calculate the reward for the simulation by using an LLM to evaluate whether
         the trajectory adheres to all the natural-language assertions.
+
+        Args:
+            task: The task specification.
+            full_trajectory: List of ticks from the conversation.
+            model: The judge model to use. Defaults to DEFAULT_LLM_NL_ASSERTIONS.
+            model_args: The arguments to pass to the judge model. Defaults to
+                DEFAULT_LLM_NL_ASSERTIONS_ARGS.
         """
         if task.evaluation_criteria is None:
             return RewardInfo(
@@ -217,7 +243,9 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
         # Convert ticks to linearized message history
         messages = cls.ticks_to_message_history(full_trajectory)
 
-        nl_assertions_checks = cls.evaluate_nl_assertions(messages, nl_assertions)
+        nl_assertions_checks = cls.evaluate_nl_assertions(
+            messages, nl_assertions, model=model, model_args=model_args
+        )
 
         # Calculate reward: 1 if all expectations are met, 0 otherwise
         all_expectations_met = all(result.met for result in nl_assertions_checks)
@@ -234,10 +262,14 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
         cls,
         trajectory: list[Message],
         nl_assertions: list[str],
+        model: Optional[str] = None,
+        model_args: Optional[dict] = None,
     ) -> list[NLAssertionCheck]:
         """
         Evaluate whether the trajectory meets each expected outcome.
 
         Delegates to NLAssertionsEvaluator.evaluate_nl_assertions.
         """
-        return NLAssertionsEvaluator.evaluate_nl_assertions(trajectory, nl_assertions)
+        return NLAssertionsEvaluator.evaluate_nl_assertions(
+            trajectory, nl_assertions, model=model, model_args=model_args
+        )

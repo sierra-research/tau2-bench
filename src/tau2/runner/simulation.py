@@ -21,6 +21,8 @@ def run_simulation(
     *,
     evaluation_type: EvaluationType = EvaluationType.ALL,
     env_kwargs: Optional[dict] = None,
+    judge_llm: Optional[str] = None,
+    judge_llm_args: Optional[dict] = None,
 ) -> SimulationRun:
     """Run a simulation and evaluate the result.
 
@@ -38,6 +40,10 @@ def run_simulation(
         evaluation_type: The type of evaluation to perform. Defaults to ALL.
         env_kwargs: Additional kwargs passed to the evaluator's environment
             constructor (e.g., retrieval_variant for banking_knowledge).
+        judge_llm: The LLM used by the NL assertions judge. Defaults to
+            DEFAULT_LLM_NL_ASSERTIONS when None.
+        judge_llm_args: The arguments passed to the NL assertions judge LLM.
+            Defaults to DEFAULT_LLM_NL_ASSERTIONS_ARGS when None.
 
     Returns:
         SimulationRun with reward_info attached.
@@ -81,6 +87,8 @@ def run_simulation(
         domain=domain,
         mode=mode,
         env_kwargs=env_kwargs,
+        judge_llm=judge_llm,
+        judge_llm_args=judge_llm_args,
     )
     simulation.reward_info = reward_info
 
