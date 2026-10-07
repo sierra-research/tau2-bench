@@ -43,8 +43,8 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
                 reward_breakdown={RewardType.NL_ASSERTION: 1.0},
             )
 
-        nl_assertions_checks = cls.evaluate_nl_assertions(
-            full_trajectory, nl_assertions
+        nl_assertions_checks, evaluator_cost, evaluator_usage = (
+            cls.evaluate_nl_assertions(full_trajectory, nl_assertions)
         )
 
         # Calculate reward: 1 if all expectations are met, 0 otherwise
@@ -55,6 +55,8 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             reward=reward,
             nl_assertions=nl_assertions_checks,
             reward_breakdown={RewardType.NL_ASSERTION: reward},
+            evaluator_cost=evaluator_cost,
+            evaluator_usage=evaluator_usage,
         )
 
     @classmethod
@@ -62,7 +64,7 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
         cls,
         trajectory: list[Message],
         nl_assertions: list[str],
-    ) -> list[NLAssertionCheck]:
+    ) -> tuple[list[NLAssertionCheck], float | None, dict[str, int] | None]:
         """
         Evaluate whether the trajectory meets each expected outcome.
 
@@ -125,7 +127,7 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
         )
         result_data = json.loads(assistant_message.content)
-        return [
+        checks = [
             NLAssertionCheck(
                 nl_assertion=result["expectedOutcome"],
                 met=result["metExpectation"],
@@ -133,6 +135,7 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             )
             for result in result_data.get("results", [])
         ]
+        return checks, assistant_message.cost, assistant_message.usage
 
 
 class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
@@ -217,7 +220,9 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
         # Convert ticks to linearized message history
         messages = cls.ticks_to_message_history(full_trajectory)
 
-        nl_assertions_checks = cls.evaluate_nl_assertions(messages, nl_assertions)
+        nl_assertions_checks, evaluator_cost, evaluator_usage = (
+            cls.evaluate_nl_assertions(messages, nl_assertions)
+        )
 
         # Calculate reward: 1 if all expectations are met, 0 otherwise
         all_expectations_met = all(result.met for result in nl_assertions_checks)
@@ -227,6 +232,8 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
             reward=reward,
             nl_assertions=nl_assertions_checks,
             reward_breakdown={RewardType.NL_ASSERTION: reward},
+            evaluator_cost=evaluator_cost,
+            evaluator_usage=evaluator_usage,
         )
 
     @classmethod
@@ -234,7 +241,7 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
         cls,
         trajectory: list[Message],
         nl_assertions: list[str],
-    ) -> list[NLAssertionCheck]:
+    ) -> tuple[list[NLAssertionCheck], float | None, dict[str, int] | None]:
         """
         Evaluate whether the trajectory meets each expected outcome.
 
