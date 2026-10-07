@@ -10,7 +10,7 @@ from tau2.data_model.message import Message, SystemMessage, Tick, UserMessage
 from tau2.data_model.simulation import NLAssertionCheck, RewardInfo
 from tau2.data_model.tasks import RewardType, Task
 from tau2.evaluator.evaluator_base import EvaluatorBase
-from tau2.utils.llm_utils import generate
+from tau2.utils.llm_utils import extract_json_from_llm_response, generate
 
 
 class NLAssertionsEvaluator(EvaluatorBase[Message]):
@@ -124,7 +124,9 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             call_name="nl_assertions_eval",
             **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
         )
-        result_data = json.loads(assistant_message.content)
+        result_data = json.loads(
+            extract_json_from_llm_response(assistant_message.content)
+        )
         return [
             NLAssertionCheck(
                 nl_assertion=result["expectedOutcome"],
