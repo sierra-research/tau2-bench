@@ -64,3 +64,50 @@ def test_dummy_user_no_args():
     dummy = DummyUser()
     state = dummy.get_init_state()
     assert state.messages == []
+
+
+@pytest.mark.parametrize("empty_content", [None, "", "   \n"])
+def test_empty_completion_is_retried_with_a_reminder(
+    monkeypatch,
+    user_simulator: UserSimulator,
+    first_agent_message: AssistantMessage,
+    empty_content,
+):
+    """An empty completion (no content, no tool calls) is retried once with an
+    explicit reminder in the system prompt, instead of crashing the episode (#470)."""
+    prompts = []
+    responses = [
+        AssistantMessage(role="assistant", content=empty_content),
+        AssistantMessage(role="assistant", content="Where is my deposit?"),
+    ]
+
+    def fake_generate(model, messages, tools=None, call_name=None, **kwargs):
+        prompts.append(messages)
+        return responses[len(prompts) - 1]
+
+    monkeypatch.setattr("tau2.user.user_simulator.generate", fake_generate)
+    state = user_simulator.get_init_state()
+    user_msg, state = user_simulator.generate_next_message(first_agent_message, state)
+
+    assert user_msg.content == "Where is my deposit?"
+    assert len(prompts) == 2
+    # The retry carries the reminder in the system prompt; the first call does not.
+    assert "your previous reply was empty" in prompts[1][0].content
+    assert "your previous reply was empty" not in prompts[0][0].content
+
+
+def test_empty_completion_twice_raises_a_clear_error(
+    monkeypatch,
+    user_simulator: UserSimulator,
+    first_agent_message: AssistantMessage,
+):
+    """Two empty completions in a row raise a descriptive error rather than letting
+    message validation fail deeper in the orchestrator."""
+
+    def fake_generate(model, messages, tools=None, call_name=None, **kwargs):
+        return AssistantMessage(role="assistant", content=None)
+
+    monkeypatch.setattr("tau2.user.user_simulator.generate", fake_generate)
+    state = user_simulator.get_init_state()
+    with pytest.raises(ValueError, match="empty completion twice"):
+        user_simulator.generate_next_message(first_agent_message, state)
