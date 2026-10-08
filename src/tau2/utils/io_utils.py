@@ -27,15 +27,15 @@ def load_results_dict(path: str | Path) -> dict[str, Any]:
         sims_dir = path.parent / "simulations"
 
     if not sims_dir.is_dir():
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    with open(meta_path, "r") as f:
+    with open(meta_path, "r", encoding="utf-8") as f:
         data = json.load(f)
     data.pop("format_version", None)
     simulations = []
     for sim_file in sorted(sims_dir.glob("*.json")):
-        with open(sim_file, "r") as f:
+        with open(sim_file, "r", encoding="utf-8") as f:
             simulations.append(json.load(f))
     data["simulations"] = simulations
     return data
@@ -114,13 +114,13 @@ def load_file(path: str | Path, **kwargs: Any) -> dict[str, Any]:
     """
     path = Path(path)
     if path.suffix == ".json":
-        with open(path, "r") as fp:
+        with open(path, "r", encoding="utf-8") as fp:
             data = json.load(fp, **kwargs)
     elif path.suffix == ".yaml" or path.suffix == ".yml":
-        with open(path, "r") as fp:
+        with open(path, "r", encoding="utf-8") as fp:
             data = yaml.load(fp, Loader=yaml.SafeLoader, **kwargs)
     elif path.suffix == ".toml":
-        with open(path, "r") as fp:
+        with open(path, "r", encoding="utf-8") as fp:
             data = toml.load(fp, **kwargs)
     elif path.suffix == ".txt" or path.suffix == ".md":
         encoding = kwargs.pop("encoding", None)
@@ -145,16 +145,16 @@ def dump_file(path: str | Path, data: dict[str, Any], **kwargs: Any) -> None:
     os.makedirs(path.parent, exist_ok=True)  # make dir if not exists
 
     if path.suffix == ".json":
-        with open(path, "w") as fp:
+        with open(path, "w", encoding="utf-8") as fp:
             json.dump(data, fp, **kwargs)
     elif path.suffix == ".yaml" or path.suffix == ".yml":
-        with open(path, "w") as fp:
+        with open(path, "w", encoding="utf-8") as fp:
             yaml.dump(data, fp, **kwargs)
     elif path.suffix == ".toml":
         # toml cannot dump the Enum values, so we need to convert them to strings
         data_str = json.dumps(data)
         new_data = json.loads(data_str)
-        with open(path, "w") as fp:
+        with open(path, "w", encoding="utf-8") as fp:
             toml.dump(new_data, fp, **kwargs)
     elif path.suffix == ".txt" or path.suffix == ".md":
         encoding = kwargs.pop("encoding", None)

@@ -1,0 +1,102 @@
+[
+  {
+    "id": "mock_query_1",
+    "description": {
+      "purpose": "纯查询零写：学生核对本学期期末考试安排与上一学期《数据结构》成绩。考读工具与如实转述。",
+      "notes": "冒烟题①：纯查询零写——DB 分量＝无写即两库哈希不变；COMMUNICATE＝实体串。"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "campus",
+        "reason_for_call": "想核对 2026 春季学期所有期末考试的时间安排，以及上学期《数据结构》这门课的成绩。",
+        "known_info": "本人学号 S20230103，姓名赵启元，计算机学院计算机科学与技术专业。",
+        "unknown_info": null,
+        "task_instructions": "希望一次性把全部期末考试安排和《数据结构》成绩都问清楚；对考试具体时间会追问确认。你只查询自己的信息，不办理任何业务。"
+      }
+    },
+    "initial_state": {
+      "initialization_data": null,
+      "initialization_actions": [
+        {"env_type": "user", "func_name": "bind_student", "arguments": {"student_id": "S20230103"}}
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "q1_0", "requestor": "assistant", "name": "get_exam_arrangements", "arguments": {"student_id": "S20230103", "term": "2026SP"}, "info": "查询本学期考试安排"},
+        {"action_id": "q1_1", "requestor": "assistant", "name": "get_grades", "arguments": {"student_id": "S20230103", "academic_year": "2025-2026"}, "info": "查询上学年成绩"}
+      ],
+      "env_assertions": null,
+      "communicate_info": ["数据结构", "B+"],
+      "nl_assertions": null,
+      "reward_basis": ["DB", "COMMUNICATE"]
+    }
+  },
+  {
+    "id": "mock_deferral_2",
+    "description": {
+      "purpose": "缓考 dual-control（冲突类）：Agent 申报→学生小程序签署→环境结算通过、考试置已缓考。",
+      "notes": "冒烟题②：金标 actions 含 user 写（user 写必进 actions，否则 DB 双哈希必挂）；ENV_ASSERTION 精断终态。"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "campus",
+        "reason_for_call": "《创新创业基础》和《算法设计与分析》的期末考试排在同一时间（6月26日上午9点），时间冲突，希望为《创新创业基础》申请缓考。",
+        "known_info": "本人学号 S20230103；两门课的考试分别是 EX-0045（创新创业基础）和 EX-0049（算法设计与分析），开课号 OF-2026SP-805-1 与 OF-2026SP-203-1。",
+        "unknown_info": "缓考申请的具体流程与所需材料，由教务助理讲解。",
+        "task_instructions": "只缓考《创新创业基础》这一门。教务助理提交申请后如提示需要你在小程序签署，你就配合完成签署（使用确认签署类工具）。态度配合，但坚持这一门缓考、另一门照常考试。"
+      }
+    },
+    "initial_state": {
+      "initialization_data": null,
+      "initialization_actions": [
+        {"env_type": "user", "func_name": "bind_student", "arguments": {"student_id": "S20230103"}}
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "q2_0", "requestor": "assistant", "name": "submit_deferral", "arguments": {"student_id": "S20230103", "offering_id": "OF-2026SP-805-1", "exam_id": "EX-0045", "reason_type": "冲突", "filing_type": "考前正常"}, "info": "为创新创业基础提交冲突缓考申请"},
+        {"action_id": "q2_1", "requestor": "user", "name": "confirm_action", "arguments": {"sig_id": "SIG-017"}, "info": "学生在小程序签署缓考申请单"}
+      ],
+      "env_assertions": [
+        {"env_type": "assistant", "func_name": "assert_deferral_status", "arguments": {"request_id": "DF-007", "expected_status": "通过"}, "assert_value": true, "message": "缓考申请应经签署并结算为通过"}
+      ],
+      "communicate_info": null,
+      "nl_assertions": null,
+      "reward_basis": ["DB", "ENV_ASSERTION"]
+    }
+  },
+  {
+    "id": "mock_refuse_3",
+    "description": {
+      "purpose": "拒绝零写（逾期查分超窗＋申诉不能替代查分）：学生坚持要申诉工单，Agent 应据第16条拒绝且不建任何工单。",
+      "notes": "冒烟题③：user_scenario 钉死零写终态（不答应建咨询工单）；COMMUNICATE 实体串取政策第16条必然逐字出现的短语'查分时限'（工具错误文案易被 agent 改述，选材须取必然逐字片段）。"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "campus",
+        "reason_for_call": "认为《数据结构》成绩记错了（自己估的分远高于 B+），要求提交申诉工单向教务处复核试卷。",
+        "known_info": "本人学号 S20230103；《数据结构》成绩等级 B+，公布时间 2026-01-23。",
+        "unknown_info": "查分与申诉的规则区别。",
+        "task_instructions": "如果教务助理告知成绩公布已超5个工作日、查分不受理或申诉不能替代查分，你要表达不满并坚持要求'必须帮我提交申诉'（最多坚持3轮），但最终以'好吧，那就算了'收尾，绝不接受新建任何工单（包括咨询类）；全程你自己不做任何操作。"
+      }
+    },
+    "initial_state": {
+      "initialization_data": null,
+      "initialization_actions": [
+        {"env_type": "user", "func_name": "bind_student", "arguments": {"student_id": "S20230103"}}
+      ]
+    },
+    "evaluation_criteria": {
+      "actions": [],
+      "env_assertions": [
+        {"env_type": "assistant", "func_name": "assert_ticket_count", "arguments": {"student_id": "S20230103", "expected": 0}, "assert_value": true, "message": "零写要求：不得为该生新建工单"}
+      ],
+      "communicate_info": ["查分时限"],
+      "nl_assertions": null,
+      "reward_basis": ["DB", "ENV_ASSERTION", "COMMUNICATE"]
+    }
+  }
+]
