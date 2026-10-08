@@ -17,6 +17,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- retail task 105's reference trajectory could not be applied: it exchanged two
+  Tea Kettles for variants whose price difference is $21.10, while the order's only
+  payment method is a gift card holding $17.00. The single state-mutating reference
+  action raised, so the gold database stayed at the untouched `db.json`: the
+  DB component then handed `1.0` to every trajectory that left the database
+  unchanged (the empty one included) and `0.0` to any legitimate one that
+  changed it -- the check rewarded doing nothing and punished doing the work.
+  The reference, and the scenario text it derives from, now target a
+  ceramic/2 L/gas kettle plus a glass/1 L/gas one: a $9.77 difference the gift card
+  covers, so the exchange applies and the target state is reachable.
+- retail task 64's reference called `exchange_delivered_order_items` on the pending
+  order `#W7464385`, which the domain rule rejects (`src/tau2/domains/retail/tools.py:240-241`).
+  The step is dropped; the gold database state is byte-identical to before (that
+  call never applied), so no verdict for task 64 moves.
+
 ## [1.0.1] - 2026-07-15
 
 > **⚠️ Grading change — banking_knowledge scores are not comparable across this release.**
