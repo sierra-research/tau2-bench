@@ -185,7 +185,7 @@ class Action(BaseModel):
         if self.name != tool_call.name:
             return False
         if self.compare_args is None:
-            compare_args = tool_call.arguments.keys()
+            compare_args = tool_call.arguments.keys() | self.arguments.keys()
         else:
             compare_args = self.compare_args
         if len(compare_args) == 0:
