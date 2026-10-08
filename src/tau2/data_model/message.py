@@ -70,6 +70,22 @@ class ToolCall(BaseModel):
         "assistant",
         description="The requestor of the tool call.",
     )
+    compare_args: Optional[list[str]] = Field(
+        default=None,
+        description=(
+            "Used in fix_funcs to annotate which arguments matter for ACTION evaluation. "
+            "Propagated to Action.compare_args by TaskManager. "
+            "If None, compare all args. If empty list, compare only tool name."
+        ),
+    )
+    accepted_values: Optional[dict[str, list]] = Field(
+        default=None,
+        description=(
+            "Used in fix_funcs to annotate allowed values for specific arguments in ACTION evaluation. "
+            "Propagated to Action.accepted_values by TaskManager. "
+            "Overrides exact equality for those arguments."
+        ),
+    )
 
     def __str__(self) -> str:
         lines = [f"ToolCall (from {self.requestor})"]

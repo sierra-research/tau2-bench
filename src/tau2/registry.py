@@ -37,6 +37,20 @@ from tau2.domains.retail.environment import get_tasks as retail_domain_get_tasks
 from tau2.domains.retail.environment import (
     get_tasks_split as retail_domain_get_tasks_split,
 )
+from tau2.domains.healthcare.environment import (
+    get_environment as healthcare_domain_get_environment,
+)
+from tau2.domains.healthcare.environment import get_tasks as healthcare_domain_get_tasks
+from tau2.domains.healthcare.environment import (
+    get_tasks_full as healthcare_domain_get_tasks_full,
+)
+from tau2.domains.healthcare.environment import (
+    get_tasks_small as healthcare_domain_get_tasks_small,
+)
+from tau2.domains.healthcare.environment import (
+    get_tasks_split as healthcare_domain_get_tasks_split,
+)
+
 from tau2.domains.telecom.environment import (
     get_environment_manual_policy as telecom_domain_get_environment_manual_policy,
 )
@@ -53,6 +67,7 @@ from tau2.domains.telecom.environment import (
 from tau2.domains.telecom.environment import (
     get_tasks_split as telecom_domain_get_tasks_split,
 )
+
 from tau2.environment.environment import Environment
 from tau2.user.user_simulator import DummyUser, UserSimulator
 from tau2.user.user_simulator_base import FullDuplexUser, HalfDuplexUser
@@ -344,6 +359,14 @@ try:
         get_task_splits=telecom_domain_get_tasks_split,
     )
 
+    registry.register_domain(healthcare_domain_get_environment, "healthcare")
+    registry.register_tasks(healthcare_domain_get_tasks_full, "healthcare_full")
+    registry.register_tasks(healthcare_domain_get_tasks_small, "healthcare_small")
+    registry.register_tasks(
+        healthcare_domain_get_tasks,
+        "healthcare",
+        get_task_splits=healthcare_domain_get_tasks_split,
+    )
     registry.register_domain(knowledge_domain_get_environment, "banking_knowledge")
     registry.register_tasks(knowledge_domain_get_tasks, "banking_knowledge")
 
