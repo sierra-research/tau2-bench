@@ -43,7 +43,7 @@ class KnowledgeBase(BaseModel):
         doc_path = Path(documents_dir)
 
         if doc_path.exists():
-            for file_path in doc_path.glob("*.json"):
+            for file_path in sorted(doc_path.glob("*.json")):
                 with open(file_path, "r") as f:
                     doc_data = json.load(f)
                     doc = Document(**doc_data)
