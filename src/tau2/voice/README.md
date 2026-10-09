@@ -11,6 +11,7 @@ tau2 run --domain retail --audio-native --num-tasks 1 --verbose-logs
 | Provider | Flag | Requirements |
 |----------|------|-------------|
 | OpenAI Realtime | `--audio-native-provider openai` | `OPENAI_API_KEY` |
+| BaiRong Voice Realtime | `--audio-native-provider bairong` | None |
 | Google Gemini Live | `--audio-native-provider gemini` | `GOOGLE_API_KEY` |
 | xAI Grok Voice | `--audio-native-provider xai` | `XAI_API_KEY` |
 

@@ -64,6 +64,8 @@ class DiscreteTimeOpenAIAdapter(DiscreteTimeAdapter):
     OpenAI-specific behavior: truncate_item on interruption.
     """
 
+    USAGE_PROVIDER = "openai"
+
     def __init__(
         self,
         tick_duration_ms: int,
@@ -334,7 +336,7 @@ class DiscreteTimeOpenAIAdapter(DiscreteTimeAdapter):
                 self.record_usage(
                     UsageRecord.from_openai_realtime_usage(
                         event.usage,
-                        provider="openai",
+                        provider=self.USAGE_PROVIDER,
                         model=self.model or self.provider.model,
                         scope_id=event.response_id,
                     )

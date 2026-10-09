@@ -84,7 +84,7 @@ from tau2.voice.pricing import compute_tick_cost
 
 # Provider type alias
 AudioNativeProvider = Literal[
-    "openai", "openai_live", "gemini", "xai", "nova", "qwen", "livekit"
+    "openai", "openai_live", "bairong", "gemini", "xai", "nova", "qwen", "livekit"
 ]
 
 # VAD config union type (string annotations for lazy resolution)
@@ -276,7 +276,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         # pulling in websockets/aiohttp when voice extras aren't installed)
         if vad_config is not None:
             self.vad_config = vad_config
-        elif provider in {"openai", "openai_live"}:
+        elif provider in {"openai", "openai_live", "bairong"}:
             from tau2.voice.audio_native.openai.provider import (
                 OpenAIVADConfig,
                 OpenAIVADMode,
