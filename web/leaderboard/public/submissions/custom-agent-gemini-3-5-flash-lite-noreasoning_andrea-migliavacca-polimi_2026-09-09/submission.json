@@ -1,0 +1,51 @@
+{
+  "model_name": "custom_agent_gemini-3.5.flash-lite-noReasoning",
+  "model_organization": "Andrea Migliavacca, Politecnico di Milano",
+  "submitting_organization": "Andrea Migliavacca, Politecnico di Milano",
+  "submission_date": "2026-09-09",
+  "submission_type": "custom",
+  "modality": "text",
+  "reasoning_effort": "no reasoning",
+  "contact_info": {
+    "email": "andrea.migliavacca04@gmail.com",
+    "name": "Andrea Migliavacca",
+    "github": "Migliaa"
+  },
+  "results": {
+    "airline": {
+      "pass_1": 80.5,
+      "pass_2": 73.33333333333333,
+      "pass_3": 68.0,
+      "pass_4": 64.0,
+      "cost": 0.04180436345000001
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "airline_results.json"
+  },
+  "references": [
+    {
+      "title": "Project Tassonomia -- implementation, prompts, and full methodology",
+      "url": "https://github.com/Migliaa/Project_Tassonomia",
+      "type": "github"
+    },
+    {
+      "title": "tau2-bench issue #514 -- DB hash comparison sorts dict keys but not list elements",
+      "url": "https://github.com/sierra-research/tau2-bench/issues/514",
+      "type": "other"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-09-05",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "gemini/gemini-3.5-flash-lite",
+    "notes": "The user simulator is gemini/gemini-3.5-flash-lite, the same model as the agent -- not gpt-5.2 as recommended in this guide, so these pass rates are not directly comparable to submissions that use gpt-5.2 as the user simulator. Custom agent: only the system prompt of the built-in custom_agent was rewritten, across 6 iterations (v1-v6), with the base model and temperature (gemini/gemini-3.5-flash-lite, temperature 0, no reasoning effort) held fixed for both agent and user simulator throughout. 4 trials on all 50 airline tasks per the leaderboard's stated preference; per-trial pass_1 was 82%, 74%, 80%, 86% (mean 80.5%). The 68% baseline for comparison is a single run of the benchmark's own unmodified llm_agent, not an average -- not directly comparable in reliability to our 4-trial mean, though the two are close on shared tasks (pass_1 74.3% and pass_2 67.6% for the baseline vs 78.4% and 67.6% for our agent, on the 37 tasks where both have two runs). pass^4 for our agent is 64%. Full prompt versions, per-task failure diagnosis, and pre-registered predictions for each change are documented in the linked repository. While doing this work we found and reported a benchmark defect (see reference below): the database-hash comparison used to score a task sorts dictionary keys but not list elements, so two databases that differ only in list ordering (e.g. a booking's payment history) are scored as different even when identical in content. The attached trajectory file combines individual per-task retries made necessary by daily API quota limits; as a result the 200 runs span six commits of the upstream tau2-bench repository, all captured on 2026-09-05 (task/domain content and agent/user configuration verified identical across all of them; the exact commit breakdown is in this project's repository, DIARIO.md).",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "Only the system prompt of custom_agent was modified (6 iterations, v1-v6); same tools, same environment, same model/temperature for agent and user simulator across every run. Prompt diffs and rationale for each version are in the linked repository (patches/ and DIARIO.md)."
+    }
+  }
+}
