@@ -69,6 +69,23 @@ Copy `.env.example` as `.env` and edit it to include your API keys:
 cp .env.example .env
 ```
 
+### Azure OpenAI
+
+To use models deployed on Azure OpenAI, add the following to your `.env` file:
+
+```bash
+AZURE_API_KEY=<your_azure_api_key>
+AZURE_API_BASE=https://<your-resource-name>.openai.azure.com
+AZURE_API_VERSION=2025-04-01-preview
+```
+
+Then prefix your deployment name with `azure/` wherever a model name is expected:
+
+```bash
+tau2 run --domain airline --agent-llm azure/<your-deployment-name> \
+  --user-llm azure/<your-deployment-name> --num-trials 1 --num-tasks 5
+```
+
 ### Voice API Keys (for voice-enabled features)
 
 If you're using voice features, add the following to your `.env` file:
