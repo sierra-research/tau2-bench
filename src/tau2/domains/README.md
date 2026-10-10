@@ -67,6 +67,7 @@ pytest tests/test_domains/test_<domain_name>
 | `retail` | Order management, returns, and product inquiries |
 | `telecom` | Telecom account management and troubleshooting |
 | `banking_knowledge` | Knowledge-retrieval-based banking customer service with configurable RAG pipelines |
+| `hospitality` | Hotel reservations, modifications, and guest services, with dual-control user tools |
 
 ### `banking_knowledge` Domain
 
@@ -76,6 +77,16 @@ The `banking_knowledge` domain differs from standard domains in several ways:
 - **Dual data sources**: A `TransactionalDB` for user/account data and a `KnowledgeBase` of 700+ documents for retrieval.
 - **Extended data directory**: Contains `documents/`, `prompts/` (per-variant policy templates), and `tasks/` subdirectories.
 - **Retrieval pipeline**: Uses the `src/tau2/knowledge/` module for embeddings, BM25, grep, reranking, and sandboxed shell access. See `src/tau2/knowledge/README.md` for config details.
+
+### `hospitality` Domain
+
+A single-hotel reservations desk (rooms, rate plans, stay packages, extras). The tool surface mirrors the production workflows of [BE-A](https://be-a.ai), an agentic hotel-reservations platform - these are the operations a real hotel AI agent executes all day. A few things it exercises that the other text domains don't combine:
+
+- **Dual-control user tools**: the guest can check their booking confirmation email and complete online check-in themselves. Two tasks require the agent to guide the user through actions only the user can perform.
+- **Rate plan rules**: cancellation refunds and modification rights depend on the rate plan and on timing relative to the policy's fixed current time. The tools compute refunds; the tasks check the agent communicates them correctly.
+- **A built-in knowledge base tool**: lightweight keyword search over hotel policy articles, no extra dependencies. Knowledge questions are answered from the KB, not from the policy prompt.
+
+All prices are integers (EUR) and all IDs are generated deterministically, so DB-hash evaluation is stable across runs.
 
 ## Registering your domain
 To make it easy for people to use your domain, you need to register your `get_environment`, `get_tasks`, and `get_tasks_split` functions in Tau2 `registry.py` file.

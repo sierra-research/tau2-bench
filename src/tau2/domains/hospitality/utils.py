@@ -1,0 +1,6 @@
+from tau2.utils.utils import DATA_DIR
+
+HOSPITALITY_DATA_DIR = DATA_DIR / "tau2" / "domains" / "hospitality"
+HOSPITALITY_DB_PATH = HOSPITALITY_DATA_DIR / "db.json"
+HOSPITALITY_POLICY_PATH = HOSPITALITY_DATA_DIR / "policy.md"
+HOSPITALITY_TASK_SET_PATH = HOSPITALITY_DATA_DIR / "tasks.json"
