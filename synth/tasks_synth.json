@@ -1,0 +1,754 @@
+[
+  {
+    "id": "retail_synth_001",
+    "description": {
+      "purpose": "Cancel a single pending order with reason 'ordered by mistake'.",
+      "relevant_policies": "Cancel pending order; valid reasons; refund routing.",
+      "notes": "Order #W5065081; refund 2502.04 to original method(s)."
+    },
+    "user_scenario": {
+      "persona": "Brief and a little embarrassed; you just want it undone.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You want to cancel order #W5065081 because you ordered it by mistake.",
+        "known_info": "You are Aarav Brown. Your email is aarav.brown3708@example.com.",
+        "unknown_info": null,
+        "task_instructions": "Ask to cancel order #W5065081. The reason is that you ordered it by mistake. Confirm when the agent explains the refund."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "cancel_1",
+          "requestor": "assistant",
+          "name": "cancel_pending_order",
+          "arguments": {
+            "order_id": "#W5065081",
+            "reason": "ordered by mistake"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "2502.04"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_002",
+    "description": {
+      "purpose": "Multi-intent: cancel a pending order AND return an item from a different delivered order.",
+      "relevant_policies": "Cancel pending order; return delivered order; refund to original method.",
+      "notes": "Cancel #W7430166; return item 3230708338 from #W3223435 to gift_card_9708163."
+    },
+    "user_scenario": {
+      "persona": "Efficient; you have two unrelated requests and want both done.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "Two things: cancel pending order #W7430166, and return one item from delivered order #W3223435.",
+        "known_info": "You are Aarav Davis. Your email is aarav.davis1165@example.com.",
+        "unknown_info": null,
+        "task_instructions": "First, cancel pending order #W7430166 (no longer needed). Second, return the Garden Hose from delivered order #W3223435, refunded to the original payment method. Handle both before you hang up."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "cancel_1",
+          "requestor": "assistant",
+          "name": "cancel_pending_order",
+          "arguments": {
+            "order_id": "#W7430166",
+            "reason": "no longer needed"
+          },
+          "info": null
+        },
+        {
+          "action_id": "return_1",
+          "requestor": "assistant",
+          "name": "return_delivered_order_items",
+          "arguments": {
+            "order_id": "#W3223435",
+            "item_ids": [
+              "3230708338"
+            ],
+            "payment_method_id": "gift_card_9708163"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "#W3223435",
+        "#W7430166"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_003",
+    "description": {
+      "purpose": "Modify a pending order item to the cheapest available same-product variant (requires variant search).",
+      "relevant_policies": "Modify pending items; same product type; pay/refund difference.",
+      "notes": "6164262152->2645006275 ({'color': 'white', 'speed settings': 'high', 'battery type': 'AA batteries'}); price diff -28.00 via paypal_6121064."
+    },
+    "user_scenario": {
+      "persona": "Budget-conscious; you only care about getting the cheapest option.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "On pending order #W6979932 you want to switch the Electric Toothbrush to the cheapest available Electric Toothbrush variant.",
+        "known_info": "You are Aarav Gonzalez. Your email is aarav.gonzalez9269@example.com.",
+        "unknown_info": null,
+        "task_instructions": "For pending order #W6979932, change the Electric Toothbrush to the cheapest available variant of the same product. Any price difference goes to your original payment method. Confirm once the agent states the new price."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "modify_1",
+          "requestor": "assistant",
+          "name": "modify_pending_order_items",
+          "arguments": {
+            "order_id": "#W6979932",
+            "item_ids": [
+              "6164262152"
+            ],
+            "new_item_ids": [
+              "2645006275"
+            ],
+            "payment_method_id": "paypal_6121064"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "183.11"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_004",
+    "description": {
+      "purpose": "Conditional fallback: preferred option unavailable, agent must apply the stated fallback rule.",
+      "relevant_policies": "Modify pending items; check availability; same product type.",
+      "notes": "Preferred type='in-ear' unavailable -> fallback cheapest available 7184044281 ({'type': 'in-ear', 'connectivity': 'wireless', 'color': 'black'})."
+    },
+    "user_scenario": {
+      "persona": "Flexible; you state a preference but accept a clear fallback.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "On pending order #W2239230 you'd like to change the Headphones: ideally type 'in-ear', but if that isn't available take the cheapest available variant instead.",
+        "known_info": "You are Aarav Ito. Your email is aarav.ito1554@example.com.",
+        "unknown_info": null,
+        "task_instructions": "For pending order #W2239230, change the Headphones to one with type 'in-ear'. If type 'in-ear' is not available, take the cheapest available variant of the same product. Price difference to your original payment method."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "modify_1",
+          "requestor": "assistant",
+          "name": "modify_pending_order_items",
+          "arguments": {
+            "order_id": "#W2239230",
+            "item_ids": [
+              "3104857380"
+            ],
+            "new_item_ids": [
+              "7184044281"
+            ],
+            "payment_method_id": "gift_card_1468632"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "344.55"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_005",
+    "description": {
+      "purpose": "Change the shipping address of a pending order to a new address.",
+      "relevant_policies": "Modify pending order address; explicit confirmation.",
+      "notes": "Order #W3361211 -> 742 Evergreen Terrace, Springfield 97403."
+    },
+    "user_scenario": {
+      "persona": "Recently relocated; precise about the new address.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You moved and need the shipping address on pending order #W3361211 updated.",
+        "known_info": "You are Aarav Lee. Your email is aarav.lee6460@example.com.",
+        "unknown_info": null,
+        "task_instructions": "Update the shipping address of pending order #W3361211 to 742 Evergreen Terrace, Apt 5, Springfield, OR 97403, USA."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "addr_1",
+          "requestor": "assistant",
+          "name": "modify_pending_order_address",
+          "arguments": {
+            "order_id": "#W3361211",
+            "address1": "742 Evergreen Terrace",
+            "address2": "Apt 5",
+            "city": "Springfield",
+            "state": "OR",
+            "country": "USA",
+            "zip": "97403"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "97403"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_006",
+    "description": {
+      "purpose": "Set a pending order's shipping address to the user's account default (cross-entity lookup).",
+      "relevant_policies": "Modify pending order address; get user details.",
+      "notes": "Order #W3883329 address -> user default 32184 (Jacksonville)."
+    },
+    "user_scenario": {
+      "persona": "Assumes the agent can look up your default address; doesn't recite it.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "The pending order #W3883329 is going to an old address; ship it to your default address on file instead.",
+        "known_info": "You are Amelia Ito. Your email is amelia.ito8974@example.com.",
+        "unknown_info": null,
+        "task_instructions": "Change the shipping address of pending order #W3883329 to match your account's default address on file."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "addr_1",
+          "requestor": "assistant",
+          "name": "modify_pending_order_address",
+          "arguments": {
+            "order_id": "#W3883329",
+            "address1": "999 Oak Street",
+            "address2": "Suite 918",
+            "city": "Jacksonville",
+            "state": "FL",
+            "country": "USA",
+            "zip": "32184"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "32184"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_007",
+    "description": {
+      "purpose": "Switch a pending order's payment method to a gift card with sufficient balance.",
+      "relevant_policies": "Modify pending order payment; one payment only; gift-card balance check.",
+      "notes": "Order #W1080318 amount 53.43 -> gift_card_3749819 (balance 91.00)."
+    },
+    "user_scenario": {
+      "persona": "Wants to use up a gift card balance.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You want to pay for pending order #W1080318 with your gift card instead of the current method.",
+        "known_info": "You are Omar Kim. Your email is omar.kim8981@example.com.",
+        "unknown_info": null,
+        "task_instructions": "Change the payment method on pending order #W1080318 to your gift card. Confirm when explained."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "pay_1",
+          "requestor": "assistant",
+          "name": "modify_pending_order_payment",
+          "arguments": {
+            "order_id": "#W1080318",
+            "payment_method_id": "gift_card_3749819"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "53.43"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_008",
+    "description": {
+      "purpose": "Refusal: gift card balance is insufficient to cover the order; agent must decline and leave the order unchanged.",
+      "relevant_policies": "Modify pending order payment; gift-card balance must cover the order.",
+      "notes": "Order #W2443586 amount 591.95 > gift card gift_card_2742113 balance 22.00 -> no change."
+    },
+    "user_scenario": {
+      "persona": "Hopeful but with no backup plan if the gift card can't cover it.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You want to switch pending order #W2443586 to your gift card.",
+        "known_info": "You are Aarav Nguyen. Your email is aarav.nguyen1293@example.com.",
+        "unknown_info": null,
+        "task_instructions": "Ask to change the payment method on pending order #W2443586 to your gift card. You have no other instructions if that can't be done."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [],
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_009",
+    "description": {
+      "purpose": "Exchange one item in a delivered order for an available same-product variant.",
+      "relevant_policies": "Exchange delivered order; once per order; same product type.",
+      "notes": "4385534692->5320792178 ({'color': 'black', 'brightness': 'medium', 'power source': 'AC adapter'}); diff -2.83 via paypal_7357553."
+    },
+    "user_scenario": {
+      "persona": "Decisive; confirms once the swap and price are clear.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You received order #W6552785 and want to exchange the Desk Lamp for a different variant.",
+        "known_info": "You are Aarav Davis. Your email is aarav.davis2239@example.com.",
+        "unknown_info": null,
+        "task_instructions": "Exchange the Desk Lamp in delivered order #W6552785 for the cheapest available variant of the same product. Settle any difference on your original payment method."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "exch_1",
+          "requestor": "assistant",
+          "name": "exchange_delivered_order_items",
+          "arguments": {
+            "order_id": "#W6552785",
+            "item_ids": [
+              "4385534692"
+            ],
+            "new_item_ids": [
+              "5320792178"
+            ],
+            "payment_method_id": "paypal_7357553"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "135.24"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_010",
+    "description": {
+      "purpose": "Exchange two items in one call (single-call constraint), each to its cheapest available variant.",
+      "relevant_policies": "Exchange delivered order; one exchange call per order; same product type only.",
+      "notes": "['9929635042', '5172162216']->['5339029584', '9665100170'] via credit_card_6821943; both must be in one exchange call."
+    },
+    "user_scenario": {
+      "persona": "Insists both items be handled in one exchange, not separately.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You want to exchange two items from delivered order #W3038897: the Smartphone and Jigsaw Puzzle.",
+        "known_info": "You are Aarav Garcia. You don't remember the email on file; identify yourself by name (Aarav Garcia) and zip code 10129.",
+        "unknown_info": null,
+        "task_instructions": "In a single exchange on delivered order #W3038897, swap both the Smartphone and the Jigsaw Puzzle for the cheapest available variant of each (same products). Only confirm once both are handled together; differences on your original payment method."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "exch_1",
+          "requestor": "assistant",
+          "name": "exchange_delivered_order_items",
+          "arguments": {
+            "order_id": "#W3038897",
+            "item_ids": [
+              "9929635042",
+              "5172162216"
+            ],
+            "new_item_ids": [
+              "5339029584",
+              "9665100170"
+            ],
+            "payment_method_id": "credit_card_6821943"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "#W3038897"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_011",
+    "description": {
+      "purpose": "Disambiguate which of two delivered orders holds the item to exchange.",
+      "relevant_policies": "Exchange delivered order; identify correct order before acting.",
+      "notes": "Exchange 7729002517 in #W2842410; distractor order #W8496475."
+    },
+    "user_scenario": {
+      "persona": "Has several orders and can be vague at first; agent must confirm the right one.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You have two delivered orders (#W2842410 and #W8496475); exchange the Pet Bed from #W2842410.",
+        "known_info": "You are Aarav Moore. Your email is aarav.moore6937@example.com.",
+        "unknown_info": null,
+        "task_instructions": "You have more than one delivered order. Exchange the Pet Bed that is in order #W2842410 (not your other order #W8496475) for the cheapest available variant of the same product. Original payment method for any difference."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "exch_1",
+          "requestor": "assistant",
+          "name": "exchange_delivered_order_items",
+          "arguments": {
+            "order_id": "#W2842410",
+            "item_ids": [
+              "7729002517"
+            ],
+            "new_item_ids": [
+              "6942241102"
+            ],
+            "payment_method_id": "paypal_4751854"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "#W2842410"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_012",
+    "description": {
+      "purpose": "Return a single item from a delivered order to the original payment method.",
+      "relevant_policies": "Return delivered order; refund to original method or gift card.",
+      "notes": "Return 6245746168 from #W5497052 to paypal_6627442."
+    },
+    "user_scenario": {
+      "persona": "Straightforward return; expects the refund to go back the way they paid.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You want to return the Jigsaw Puzzle from delivered order #W5497052.",
+        "known_info": "You are Aarav Khan. Your email is aarav.khan8893@example.com.",
+        "unknown_info": null,
+        "task_instructions": "Return the Jigsaw Puzzle from delivered order #W5497052; refund to the original payment method."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "return_1",
+          "requestor": "assistant",
+          "name": "return_delivered_order_items",
+          "arguments": {
+            "order_id": "#W5497052",
+            "item_ids": [
+              "6245746168"
+            ],
+            "payment_method_id": "paypal_6627442"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "46.00"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_013",
+    "description": {
+      "purpose": "Return a subset of items from a multi-item delivered order, keeping the others.",
+      "relevant_policies": "Return delivered order; only specified items.",
+      "notes": "Return ['1178356107', '2244749153'] of 3 items from #W9552705 to gift_card_8922351."
+    },
+    "user_scenario": {
+      "persona": "Keeping most of the order; only two items didn't work out.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "From delivered order #W9552705 you want to return two of the items, keeping the rest.",
+        "known_info": "You are Aarav Sanchez. Your email is aarav.sanchez5467@example.com.",
+        "unknown_info": null,
+        "task_instructions": "Return only the Portable Charger and Bookshelf from delivered order #W9552705 (keep everything else). Refund to the original payment method."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "return_1",
+          "requestor": "assistant",
+          "name": "return_delivered_order_items",
+          "arguments": {
+            "order_id": "#W9552705",
+            "item_ids": [
+              "1178356107",
+              "2244749153"
+            ],
+            "payment_method_id": "gift_card_8922351"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "#W9552705"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_014",
+    "description": {
+      "purpose": "Return a delivered item with refund routed to the gift card (allowed alternative to original method).",
+      "relevant_policies": "Return delivered order; refund to original method OR gift card.",
+      "notes": "Return 9370300555 from #W9833379 -> refund to gift_card_6253568."
+    },
+    "user_scenario": {
+      "persona": "Prefers store credit; explicitly wants the gift card refund.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "Return the Jigsaw Puzzle from delivered order #W9833379, but refund to your gift card.",
+        "known_info": "You are Aarav Thomas. Your email is aarav.thomas4351@example.com.",
+        "unknown_info": null,
+        "task_instructions": "Return the Jigsaw Puzzle from delivered order #W9833379. Put the refund on your gift card rather than the original method."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "return_1",
+          "requestor": "assistant",
+          "name": "return_delivered_order_items",
+          "arguments": {
+            "order_id": "#W9833379",
+            "item_ids": [
+              "9370300555"
+            ],
+            "payment_method_id": "gift_card_6253568"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "45.90"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_015",
+    "description": {
+      "purpose": "Disambiguate a duplicated item id present in two delivered orders; act on only one.",
+      "relevant_policies": "Exchange delivered order; correct order identification.",
+      "notes": "Item 4920090458 in #W1504875 and #W9126675; exchange only in #W1504875 -> 2860956907."
+    },
+    "user_scenario": {
+      "persona": "Knows it's confusing that the item is duplicated; insists only one order changes.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "The same Smart Watch appears in two of your delivered orders; exchange only the one in #W1504875.",
+        "known_info": "You are Ava Nguyen. Your email is ava.nguyen3664@example.com.",
+        "unknown_info": null,
+        "task_instructions": "You ordered the same Smart Watch twice (in orders #W1504875 and #W9126675). Exchange only the one in order #W1504875 for the cheapest available variant; leave #W9126675 alone. Original payment method for any difference."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "exch_1",
+          "requestor": "assistant",
+          "name": "exchange_delivered_order_items",
+          "arguments": {
+            "order_id": "#W1504875",
+            "item_ids": [
+              "4920090458"
+            ],
+            "new_item_ids": [
+              "2860956907"
+            ],
+            "payment_method_id": "paypal_6262583"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "#W1504875"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_016",
+    "description": {
+      "purpose": "Refusal: 'modify items' is only valid for pending orders; the order is delivered, so the agent must decline (and may suggest exchange/return).",
+      "relevant_policies": "Modify pending items applies to pending orders only; delivered -> exchange/return.",
+      "notes": "Order #W5455653 is delivered -> no modify_pending_order_items; DB must stay unchanged."
+    },
+    "user_scenario": {
+      "persona": "Mistakenly believes a delivered order can be edited like a pending one.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You want to change the variant of the Backpack on order #W5455653 (which is already delivered).",
+        "known_info": "You are Aarav Sanchez. Your email is aarav.sanchez1292@example.com.",
+        "unknown_info": null,
+        "task_instructions": "Ask to modify the items on order #W5455653 to a different variant \u2014 note you think it's still editable. You do NOT want to exchange or return; you want it 'modified' like a pending order. Accept the answer either way."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [],
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_017",
+    "description": {
+      "purpose": "Refusal: a delivered order cannot be cancelled; agent must decline and may suggest return/exchange.",
+      "relevant_policies": "Cancel pending order only; delivered orders cannot be cancelled.",
+      "notes": "Order #W8528674 delivered -> cancel not allowed; DB unchanged."
+    },
+    "user_scenario": {
+      "persona": "Thinks any order can be cancelled; not aware delivered orders can't.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You want to cancel order #W8528674.",
+        "known_info": "You are Aarav Santos. Your email is aarav.santos8320@example.com.",
+        "unknown_info": null,
+        "task_instructions": "Ask to cancel order #W8528674. (It has already been delivered.) Accept the agent's explanation."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [],
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_018",
+    "description": {
+      "purpose": "Out-of-policy request (price match / partial cash refund) with no supporting tool; agent must refuse or transfer, never fabricate a refund.",
+      "relevant_policies": "No price-match tool; agent must not invent refunds; transfer_to_human if needed.",
+      "notes": "No DB write is correct; DB must stay unchanged for order #W8309293."
+    },
+    "user_scenario": {
+      "persona": "A little pushy; wants money back for a price difference.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You saw the Mechanical Keyboard from order #W8309293 is cheaper elsewhere and want a price-match refund of the difference.",
+        "known_info": "You are Aarav Santos. Your email is aarav.santos2789@example.com.",
+        "unknown_info": null,
+        "task_instructions": "Demand a partial cash refund as a price match on the Mechanical Keyboard in order #W8309293. There is no tool/policy for price matching. Push once, then accept the outcome."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [],
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_019",
+    "description": {
+      "purpose": "Multi-intent on one pending order: modify an item variant and change the shipping address.",
+      "relevant_policies": "Modify pending items (once); modify pending address; same product type.",
+      "notes": "5120532699->6843647669; address -> 97403; both on #W5493256."
+    },
+    "user_scenario": {
+      "persona": "Has two edits for the same order and wants both applied.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "On pending order #W5493256: change the Skateboard to a different variant AND update the shipping address.",
+        "known_info": "You are Aarav Nguyen. Your email is aarav.nguyen9723@example.com.",
+        "unknown_info": null,
+        "task_instructions": "Two changes to pending order #W5493256: (1) change the Skateboard to the cheapest available variant of the same product, and (2) ship it to 742 Evergreen Terrace, Springfield, OR 97403. Original payment method for any difference."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "modify_1",
+          "requestor": "assistant",
+          "name": "modify_pending_order_items",
+          "arguments": {
+            "order_id": "#W5493256",
+            "item_ids": [
+              "5120532699"
+            ],
+            "new_item_ids": [
+              "6843647669"
+            ],
+            "payment_method_id": "gift_card_8584555"
+          },
+          "info": null
+        },
+        {
+          "action_id": "addr_1",
+          "requestor": "assistant",
+          "name": "modify_pending_order_address",
+          "arguments": {
+            "order_id": "#W5493256",
+            "address1": "742 Evergreen Terrace",
+            "address2": "Apt 5",
+            "city": "Springfield",
+            "state": "OR",
+            "country": "USA",
+            "zip": "97403"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "97403"
+      ]
+    }
+  },
+  {
+    "id": "retail_synth_020",
+    "description": {
+      "purpose": "Authenticate by name+zip (email forgotten), then return a delivered item.",
+      "relevant_policies": "Authenticate by name+zip when email unavailable; return delivered order.",
+      "notes": "Auth Aarav Wilson/28214; return 3714494375 from #W7553778."
+    },
+    "user_scenario": {
+      "persona": "Forgot which email is on file; can give name and zip.",
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You can't recall the email on the account; you want to return the Espresso Machine from order #W7553778.",
+        "known_info": "You are Aarav Wilson. You don't remember the email on file; identify yourself by name (Aarav Wilson) and zip code 28214.",
+        "unknown_info": null,
+        "task_instructions": "You do not remember your account email. Have the agent find you by name and zip, then return the Espresso Machine from delivered order #W7553778 to the original payment method."
+      }
+    },
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "return_1",
+          "requestor": "assistant",
+          "name": "return_delivered_order_items",
+          "arguments": {
+            "order_id": "#W7553778",
+            "item_ids": [
+              "3714494375"
+            ],
+            "payment_method_id": "gift_card_9138722"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "2709.83"
+      ]
+    }
+  }
+]

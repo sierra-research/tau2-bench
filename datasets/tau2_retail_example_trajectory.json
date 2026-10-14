@@ -1,0 +1,295 @@
+{
+  "_about": "Schema-valid tau2-bench RETAIL example. 'task' (incl. evaluation_criteria = ground truth) is taken verbatim from data/tau2/domains/retail/tasks.json (task id '1'). 'simulation_run' is a reconstructed half-duplex trajectory conforming to tau2.data_model.simulation.SimulationRun and tau2.data_model.message.* . Tool-return payloads are representative, not pulled from the live retail db.json.",
+
+  "task": {
+    "id": "1",
+    "description": {
+      "purpose": null,
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "retail",
+        "reason_for_call": "You received your order #W2378156 and wish to exchange the mechanical keyboard for the same one but with clicky switches and the smart thermostat for one compatible with Google Home instead of Apple HomeKit. If there is no keyboard that is clicky, RGB backlight, full size, you'd rather only exchange the thermostat.",
+        "known_info": "You are Yusuf Rossi in zip code 19122.",
+        "unknown_info": "You do not remember your email address",
+        "task_instructions": "You are detail-oriented and want to make sure everything is addressed in one go."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "1_0",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": { "first_name": "Yusuf", "last_name": "Rossi", "zip": "19122" },
+          "info": null
+        },
+        {
+          "action_id": "1_1",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": { "order_id": "#W2378156" },
+          "info": null
+        },
+        {
+          "action_id": "1_2",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": { "product_id": "1656367028" },
+          "info": null
+        },
+        {
+          "action_id": "1_3",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": { "product_id": "4896585277" },
+          "info": null
+        },
+        {
+          "action_id": "1_4",
+          "requestor": "assistant",
+          "name": "exchange_delivered_order_items",
+          "arguments": {
+            "order_id": "#W2378156",
+            "item_ids": ["4983901480"],
+            "new_item_ids": ["7747408585"],
+            "payment_method_id": "credit_card_9513926"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": ["DB", "NL_ASSERTION"]
+    }
+  },
+
+  "simulation_run": {
+    "id": "retail_task_1_trial_0_example",
+    "task_id": "1",
+    "timestamp": "2026-06-05T09:00:00",
+    "start_time": "2026-06-05T09:00:00",
+    "end_time": "2026-06-05T09:00:48",
+    "duration": 48.0,
+    "termination_reason": "user_stop",
+    "agent_cost": 0.041,
+    "user_cost": 0.012,
+    "trial": 0,
+    "seed": 42,
+    "mode": "half_duplex",
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "Hi! How can I help you today?",
+        "tool_calls": null,
+        "turn_idx": 0,
+        "timestamp": "2026-06-05T09:00:00"
+      },
+      {
+        "role": "user",
+        "content": "Hi, I received order #W2378156 and I'd like to exchange two items: the mechanical keyboard for the same model but with clicky switches, and the smart thermostat for a version that works with Google Home instead of Apple HomeKit.",
+        "tool_calls": null,
+        "turn_idx": 1,
+        "timestamp": "2026-06-05T09:00:04"
+      },
+      {
+        "role": "assistant",
+        "content": "I can help with that. First I need to verify your identity. Could you give me your name and zip code, or your email address?",
+        "tool_calls": null,
+        "turn_idx": 2,
+        "timestamp": "2026-06-05T09:00:07"
+      },
+      {
+        "role": "user",
+        "content": "I'm Yusuf Rossi, zip code 19122. I don't remember the email on the account.",
+        "tool_calls": null,
+        "turn_idx": 3,
+        "timestamp": "2026-06-05T09:00:10"
+      },
+      {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "call_0",
+            "name": "find_user_id_by_name_zip",
+            "arguments": { "first_name": "Yusuf", "last_name": "Rossi", "zip": "19122" },
+            "requestor": "assistant"
+          }
+        ],
+        "turn_idx": 4,
+        "timestamp": "2026-06-05T09:00:12"
+      },
+      {
+        "id": "call_0",
+        "role": "tool",
+        "content": "yusuf_rossi_9620",
+        "requestor": "assistant",
+        "error": false,
+        "turn_idx": 5,
+        "timestamp": "2026-06-05T09:00:13"
+      },
+      {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "call_1",
+            "name": "get_order_details",
+            "arguments": { "order_id": "#W2378156" },
+            "requestor": "assistant"
+          }
+        ],
+        "turn_idx": 6,
+        "timestamp": "2026-06-05T09:00:15"
+      },
+      {
+        "id": "call_1",
+        "role": "tool",
+        "content": "{\"order_id\": \"#W2378156\", \"user_id\": \"yusuf_rossi_9620\", \"status\": \"delivered\", \"items\": [{\"name\": \"Mechanical Keyboard\", \"product_id\": \"1656367028\", \"item_id\": \"1151293680\", \"options\": {\"switch type\": \"linear\", \"backlight\": \"RGB\", \"size\": \"full size\"}, \"price\": 272.33}, {\"name\": \"Smart Thermostat\", \"product_id\": \"4896585277\", \"item_id\": \"4983901480\", \"options\": {\"compatibility\": \"Apple HomeKit\", \"color\": \"black\"}, \"price\": 262.47}], \"payment_history\": [{\"transaction_type\": \"payment\", \"amount\": 534.80, \"payment_method_id\": \"credit_card_9513926\"}]}",
+        "requestor": "assistant",
+        "error": false,
+        "turn_idx": 7,
+        "timestamp": "2026-06-05T09:00:16"
+      },
+      {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "call_2",
+            "name": "get_product_details",
+            "arguments": { "product_id": "1656367028" },
+            "requestor": "assistant"
+          }
+        ],
+        "turn_idx": 8,
+        "timestamp": "2026-06-05T09:00:18"
+      },
+      {
+        "id": "call_2",
+        "role": "tool",
+        "content": "{\"product_id\": \"1656367028\", \"name\": \"Mechanical Keyboard\", \"variants\": {\"1151293680\": {\"item_id\": \"1151293680\", \"options\": {\"switch type\": \"linear\", \"backlight\": \"RGB\", \"size\": \"full size\"}, \"available\": true, \"price\": 272.33}, \"9690244451\": {\"item_id\": \"9690244451\", \"options\": {\"switch type\": \"clicky\", \"backlight\": \"none\", \"size\": \"full size\"}, \"available\": true, \"price\": 240.97}, \"7706410293\": {\"item_id\": \"7706410293\", \"options\": {\"switch type\": \"clicky\", \"backlight\": \"RGB\", \"size\": \"60%\"}, \"available\": true, \"price\": 236.51}, \"6342039236\": {\"item_id\": \"6342039236\", \"options\": {\"switch type\": \"clicky\", \"backlight\": \"RGB\", \"size\": \"full size\"}, \"available\": false, \"price\": 244.91}}}",
+        "requestor": "assistant",
+        "error": false,
+        "turn_idx": 9,
+        "timestamp": "2026-06-05T09:00:19"
+      },
+      {
+        "role": "assistant",
+        "content": "I checked the keyboard options. A clicky + RGB backlight + full size variant exists but is currently out of stock, and no other in-stock variant matches all three of your requirements (clicky, RGB, full size). Per your preference, in that case I'll exchange only the thermostat. Is that right?",
+        "tool_calls": null,
+        "turn_idx": 10,
+        "timestamp": "2026-06-05T09:00:24"
+      },
+      {
+        "role": "user",
+        "content": "Yes, that's correct. Please exchange just the thermostat for the Google Home compatible one.",
+        "tool_calls": null,
+        "turn_idx": 11,
+        "timestamp": "2026-06-05T09:00:28"
+      },
+      {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "call_3",
+            "name": "get_product_details",
+            "arguments": { "product_id": "4896585277" },
+            "requestor": "assistant"
+          }
+        ],
+        "turn_idx": 12,
+        "timestamp": "2026-06-05T09:00:30"
+      },
+      {
+        "id": "call_3",
+        "role": "tool",
+        "content": "{\"product_id\": \"4896585277\", \"name\": \"Smart Thermostat\", \"variants\": {\"4983901480\": {\"item_id\": \"4983901480\", \"options\": {\"compatibility\": \"Apple HomeKit\", \"color\": \"black\"}, \"available\": false, \"price\": 262.47}, \"7747408585\": {\"item_id\": \"7747408585\", \"options\": {\"compatibility\": \"Google Home\", \"color\": \"black\"}, \"available\": true, \"price\": 249.01}, \"9480266227\": {\"item_id\": \"9480266227\", \"options\": {\"compatibility\": \"Amazon Alexa\", \"color\": \"white\"}, \"available\": true, \"price\": 268.77}}}",
+        "requestor": "assistant",
+        "error": false,
+        "turn_idx": 13,
+        "timestamp": "2026-06-05T09:00:31"
+      },
+      {
+        "role": "assistant",
+        "content": "I found a Google Home compatible thermostat (item 7747408585, $249.01). The exchange price difference will be refunded to your original payment method. To confirm: exchange the Apple HomeKit thermostat (item 4983901480) for the Google Home version (item 7747408585) on order #W2378156, refunded to the credit card on file. Shall I proceed?",
+        "tool_calls": null,
+        "turn_idx": 14,
+        "timestamp": "2026-06-05T09:00:36"
+      },
+      {
+        "role": "user",
+        "content": "Yes, please proceed.",
+        "tool_calls": null,
+        "turn_idx": 15,
+        "timestamp": "2026-06-05T09:00:39"
+      },
+      {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "call_4",
+            "name": "exchange_delivered_order_items",
+            "arguments": {
+              "order_id": "#W2378156",
+              "item_ids": ["4983901480"],
+              "new_item_ids": ["7747408585"],
+              "payment_method_id": "credit_card_9513926"
+            },
+            "requestor": "assistant"
+          }
+        ],
+        "turn_idx": 16,
+        "timestamp": "2026-06-05T09:00:41"
+      },
+      {
+        "id": "call_4",
+        "role": "tool",
+        "content": "{\"order_id\": \"#W2378156\", \"status\": \"exchange requested\", \"exchange_items\": [\"4983901480\"], \"exchange_new_items\": [\"7747408585\"], \"exchange_payment_method_id\": \"credit_card_9513926\", \"exchange_price_difference\": -13.46}",
+        "requestor": "assistant",
+        "error": false,
+        "turn_idx": 17,
+        "timestamp": "2026-06-05T09:00:42"
+      },
+      {
+        "role": "assistant",
+        "content": "Done! Your thermostat exchange is requested: the Google Home version is on its way and $13.46 will be refunded to your credit card. You'll get an email with return instructions for the Apple HomeKit unit. Anything else?",
+        "tool_calls": null,
+        "turn_idx": 18,
+        "timestamp": "2026-06-05T09:00:45"
+      },
+      {
+        "role": "user",
+        "content": "That's everything, thank you!",
+        "tool_calls": null,
+        "turn_idx": 19,
+        "timestamp": "2026-06-05T09:00:48"
+      }
+    ],
+    "reward_info": {
+      "reward": 1.0,
+      "db_check": {
+        "db_reward": 1.0
+      },
+      "env_assertions": null,
+      "action_checks": null,
+      "nl_assertions": null,
+      "communicate_checks": [],
+      "reward_basis": ["DB", "NL_ASSERTION"],
+      "reward_breakdown": {
+        "DB": 1.0,
+        "NL_ASSERTION": 1.0
+      },
+      "info": {
+        "note": "Final DB end state matches the target derived from evaluation_criteria.actions (only the thermostat exchanged). Reward gated on DB; agent path need not match the reference actions call-for-call."
+      }
+    }
+  }
+}
