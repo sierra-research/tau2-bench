@@ -49,7 +49,11 @@ def load_task_splits(task_set_name: str) -> Optional[dict[str, list[str]]]:
 def load_tasks(task_set_name: str, task_split_name: Optional[str] = None) -> list[Task]:
     """Load tasks for a given task set, optionally filtering by split."""
     task_loader = registry.get_tasks_loader(task_set_name)
-    tasks = task_loader(task_split_name=task_split_name)
+    try:
+        tasks = task_loader(task_split_name=task_split_name)
+    except TypeError:
+        # Some loaders (e.g. telecom_small/full) don't accept task_split_name.
+        tasks = task_loader()
     return tasks
 
 

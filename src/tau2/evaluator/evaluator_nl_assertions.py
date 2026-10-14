@@ -1,4 +1,5 @@
 import json
+import os
 
 from tau2.agent.base.streaming import (
     LinearizationStrategy,
@@ -11,6 +12,32 @@ from tau2.data_model.simulation import NLAssertionCheck, RewardInfo
 from tau2.data_model.tasks import RewardType, Task
 from tau2.evaluator.evaluator_base import EvaluatorBase
 from tau2.utils.llm_utils import generate
+
+
+def _resolve_nl_assertions_model() -> str:
+    """Pick the model used by the natural-language-assertions judge.
+
+    Upstream tau2 hardcodes OpenAI `gpt-4.1-*`, which breaks every run that
+    doesn't also set `OPENAI_API_KEY` (the infamous "OPENAI_API_KEY missing"
+    LLM Judge Review failure on retail). Order of precedence:
+
+    1. ``TAU2_LLM_NL_ASSERTIONS`` env var -- explicit override, wins always.
+    2. The upstream default, if ``OPENAI_API_KEY`` is set (OpenAI path still
+       works).
+    3. Any Bedrock agent/user LLM that was supplied via
+       ``TAU2_AGENT_LLM`` / ``TAU2_USER_LLM`` env (set by the CLI when we
+       extend it) -- auto-fallback so single-provider runs "just work".
+    4. Upstream default as a final best effort.
+    """
+    env_override = os.environ.get("TAU2_LLM_NL_ASSERTIONS")
+    if env_override:
+        return env_override
+    if os.environ.get("OPENAI_API_KEY"):
+        return DEFAULT_LLM_NL_ASSERTIONS
+    fallback = os.environ.get("TAU2_AGENT_LLM") or os.environ.get("TAU2_USER_LLM")
+    if fallback:
+        return fallback
+    return DEFAULT_LLM_NL_ASSERTIONS
 
 
 class NLAssertionsEvaluator(EvaluatorBase[Message]):
@@ -119,7 +146,7 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
         ]
 
         assistant_message = generate(
-            model=DEFAULT_LLM_NL_ASSERTIONS,
+            model=_resolve_nl_assertions_model(),
             messages=messages,
             call_name="nl_assertions_eval",
             **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
