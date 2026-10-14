@@ -1,6 +1,9 @@
 import json
+import logging
 from copy import deepcopy
 from typing import Literal, Optional
+
+logger = logging.getLogger(__name__)
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -284,9 +287,11 @@ class ParticipantMessageBase(BaseModel):
     def validate(self):  # NOTE: It would be better to do this in the Pydantic model
         """Ensure that the message has either text/audio content or tool calls."""
         if not (self.has_content() or self.is_tool_call()):
-            raise ValueError(
-                f"{self.__class__.__name__} must have either content or tool_calls. Got {self}"
+            logger.warning(
+                f"{self.__class__.__name__} has no content or tool calls, "
+                f"injecting placeholder. Original: {self}"
             )
+            self.content = "[No response generated]"
 
     def has_content(self) -> bool:
         """Check if message has any non-empty content (text or audio)."""
