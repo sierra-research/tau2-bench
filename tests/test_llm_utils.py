@@ -1,3 +1,6 @@
+from unittest.mock import patch
+
+import litellm
 import pytest
 
 from tau2.data_model.message import (
@@ -8,7 +11,7 @@ from tau2.data_model.message import (
     UserMessage,
 )
 from tau2.environment.tool import Tool, as_tool
-from tau2.utils.llm_utils import generate
+from tau2.utils.llm_utils import _is_unsupported_temperature_error, generate
 
 
 @pytest.fixture
@@ -49,6 +52,70 @@ def tool_call_messages() -> list[Message]:
         ),
     ]
     return messages
+
+
+def _temperature_error() -> litellm.BadRequestError:
+    return litellm.BadRequestError(
+        message=(
+            "Unsupported value: 'temperature' does not support 0.0 with this "
+            "model. Only the default (1) value is supported."
+        ),
+        model="gpt-5.2",
+        llm_provider="openai",
+    )
+
+
+def _ok_response(model: str) -> litellm.ModelResponse:
+    return litellm.ModelResponse(
+        model=model,
+        choices=[
+            {
+                "finish_reason": "stop",
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "hi",
+                    "tool_calls": None,
+                },
+            }
+        ],
+        usage={"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+    )
+
+
+def test_is_unsupported_temperature_error():
+    assert _is_unsupported_temperature_error(_temperature_error())
+    other = litellm.BadRequestError(
+        message="Invalid 'messages': too long.",
+        model="gpt-5.2",
+        llm_provider="openai",
+    )
+    assert not _is_unsupported_temperature_error(other)
+    assert not _is_unsupported_temperature_error(ValueError("temperature"))
+
+
+def test_generate_drops_temperature_on_reasoning_model(messages: list[Message]):
+    """Reasoning models reject temperature; generate should drop it and retry."""
+    with patch("tau2.utils.llm_utils.completion") as mock_completion:
+        mock_completion.side_effect = [_temperature_error(), _ok_response("gpt-5.2")]
+        response = generate("gpt-5.2", messages, temperature=0.0)
+
+    assert isinstance(response, AssistantMessage)
+    assert mock_completion.call_count == 2
+    assert "temperature" not in mock_completion.call_args_list[1].kwargs
+
+
+def test_generate_reraises_unrelated_bad_request(messages: list[Message]):
+    other = litellm.BadRequestError(
+        message="Invalid 'messages': too long.",
+        model="gpt-5.2",
+        llm_provider="openai",
+    )
+    with patch("tau2.utils.llm_utils.completion") as mock_completion:
+        mock_completion.side_effect = other
+        with pytest.raises(litellm.BadRequestError):
+            generate("gpt-5.2", messages, temperature=0.0)
+    assert mock_completion.call_count == 1
 
 
 def test_generate_no_tool_call(model: str, messages: list[Message]):

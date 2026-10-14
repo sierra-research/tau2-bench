@@ -352,6 +352,19 @@ def _write_llm_log(
         json.dump(call_data, f, indent=2)
 
 
+def _is_unsupported_temperature_error(error: Exception) -> bool:
+    """
+    Check whether an exception is the API rejecting the temperature value.
+
+    Reasoning models only allow the default temperature and return a 400 such as:
+    "Unsupported value: 'temperature' does not support 0.0 with this model.
+    Only the default (1) value is supported."
+    """
+    if not isinstance(error, litellm.BadRequestError):
+        return False
+    return "temperature" in str(error).lower()
+
+
 def generate(
     model: str,
     messages: list[Message],
@@ -414,8 +427,26 @@ def generate(
             **kwargs,
         )
     except Exception as e:
-        logger.error(e)
-        raise e
+        # Reasoning models (o-series, gpt-5.x, etc.) reject any temperature other
+        # than the default. litellm.drop_params handles this for models it
+        # recognizes, but newer or custom-named models slip through and the API
+        # returns a 400. Drop temperature and retry once so these models work.
+        if _is_unsupported_temperature_error(e) and "temperature" in kwargs:
+            logger.warning(
+                f"Model {model} rejected temperature={kwargs['temperature']}. "
+                "Retrying without temperature."
+            )
+            kwargs.pop("temperature")
+            response = completion(
+                model=model,
+                messages=litellm_messages,
+                tools=tools_schema,
+                tool_choice=tool_choice,
+                **kwargs,
+            )
+        else:
+            logger.error(e)
+            raise e
     generation_time_seconds = time.perf_counter() - start_time
     cost = get_response_cost(response)
     usage = get_response_usage(response)
