@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from tau2.data_model.message import (
@@ -10,10 +12,27 @@ from tau2.data_model.message import (
 from tau2.environment.tool import Tool, as_tool
 from tau2.utils.llm_utils import generate
 
+AZURE_TEST_DEPLOYMENT = os.environ.get("TAU2_TEST_AZURE_DEPLOYMENT")
 
-@pytest.fixture
-def model() -> str:
-    return "gpt-4o-mini"
+requires_azure = pytest.mark.skipif(
+    AZURE_TEST_DEPLOYMENT is None,
+    reason=(
+        "Azure OpenAI tests require TAU2_TEST_AZURE_DEPLOYMENT, "
+        "AZURE_API_KEY, AZURE_API_BASE, and AZURE_API_VERSION"
+    ),
+)
+
+
+@pytest.fixture(
+    params=[
+        pytest.param("gpt-4o-mini", id="openai"),
+        pytest.param(
+            f"azure/{AZURE_TEST_DEPLOYMENT}", marks=requires_azure, id="azure"
+        ),
+    ]
+)
+def model(request: pytest.FixtureRequest) -> str:
+    return request.param
 
 
 @pytest.fixture
