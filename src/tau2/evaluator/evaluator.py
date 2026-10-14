@@ -266,6 +266,10 @@ def evaluate_simulation(
             communicate_checks=communicate_reward_info.communicate_checks,
             reward_basis=task.evaluation_criteria.reward_basis,
             reward_breakdown=reward_breakdown,
+            evaluation_mode=env_reward_info.evaluation_mode,
+            state_source=env_reward_info.state_source,
+            replayed_actions=env_reward_info.replayed_actions,
+            warnings=env_reward_info.warnings,
             info={
                 "env": env_reward_info.info,
                 "nl": nl_reward_info.info if nl_reward_info is not None else None,
@@ -283,6 +287,7 @@ def evaluate_simulation(
             full_trajectory=trajectory,
             solo_mode=solo_mode,
             env_kwargs=env_kwargs,
+            strict_replay=strict_replay,
         )
         action_reward_info = ActEvaluator.calculate_reward(
             task=task,
@@ -339,6 +344,10 @@ def evaluate_simulation(
                 *([RewardType.NL_ASSERTION] if nl_reward_info is not None else []),
             ],
             reward_breakdown=reward_breakdown,
+            evaluation_mode=env_reward_info.evaluation_mode,
+            state_source=env_reward_info.state_source,
+            replayed_actions=env_reward_info.replayed_actions,
+            warnings=env_reward_info.warnings,
             info={
                 "env": env_reward_info.info,
                 "nl": nl_reward_info.info if nl_reward_info is not None else None,

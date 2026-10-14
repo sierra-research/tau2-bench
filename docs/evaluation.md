@@ -31,6 +31,27 @@ required of the agent, this page is for you.
 [issue-224]: https://github.com/sierra-research/tau2-bench/issues/224
 [issue-129]: https://github.com/sierra-research/tau2-bench/issues/129
 
+## Evaluator provenance: live versus replay
+
+Environment evaluation can be performed against either a caller-provided live
+environment or a reconstructed environment. The returned `RewardInfo` makes
+this distinction explicit:
+
+| Field | Meaning |
+|-------|---------|
+| `evaluation_mode` | `"live"` when the candidate is the current environment; `"replay"` when it is reconstructed from recorded messages. |
+| `state_source` | The source of the candidate state: `"live"` or `"replayed"`. |
+| `replayed_actions` | The trajectory and reference tool calls executed while rebuilding evaluator state, with each entry labeled `trajectory` or `reference`. |
+| `warnings` | Provenance or replay-fidelity warnings. Lenient re-grading (`strict_replay=False`) always adds a warning. |
+
+`EnvironmentEvaluator.calculate_reward(...)` is the backward-compatible
+replay entry point. Use `EnvironmentEvaluator.evaluate_live(...)` when the
+candidate environment itself is available. A replay reward is a statement
+about the reconstructed state; it is not evidence that the same write occurred
+in the original live environment. For example, a proxy-intercepted write can
+produce `evaluation_mode="live", reward=0.0` for the live environment while a
+separate replay evaluation produces `evaluation_mode="replay", reward=1.0`.
+
 ## The task schema, in plain English
 
 A task's `evaluation_criteria` (see
