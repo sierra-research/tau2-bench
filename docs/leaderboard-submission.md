@@ -190,7 +190,7 @@ The voice user simulator is versioned separately via `VOICE_USER_SIMULATOR_VERSI
 
 ### Existing Provider (Adapter Already Integrated)
 
-OpenAI, Gemini, and xAI already have audio-native adapters in `src/tau2/voice/audio_native/`. If you want results for one of these providers:
+OpenAI, BaiRong, Gemini, and xAI already have audio-native adapters in `src/tau2/voice/audio_native/`. If you want results for one of these providers:
 
 1. Open a PR with your `submission.json` and contact us — we can run the evaluation
 2. If you ran the evaluation yourself, include a link to your trajectory data in the PR description for verification
@@ -247,7 +247,7 @@ Replace `--audio-native-provider` and `--audio-native-model` with the provider a
 | Flag | Purpose |
 |------|---------|
 | `--audio-native` | Enable voice full-duplex mode |
-| `--audio-native-provider` | Provider to evaluate (`openai`, `gemini`, `xai`) |
+| `--audio-native-provider` | Provider to evaluate (`openai`, `bairong`, `gemini`, `xai`) |
 | `--audio-native-model` | Specific model identifier |
 | `--speech-complexity regular` | Full realistic conditions (required for leaderboard) |
 | `--verbose-logs` | Save audio files and tick data for verification |
@@ -486,7 +486,7 @@ Required when `modality` is `"voice"`:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `provider` | Yes | Audio-native provider (e.g. `"openai"`, `"gemini"`, `"xai"`) |
+| `provider` | Yes | Audio-native provider (e.g. `"openai"`, `"bairong"`, `"gemini"`, `"xai"`) |
 | `model` | Yes | Model identifier (e.g. `"gpt-realtime-1.5"`) |
 | `tick_duration_seconds` | No | Duration of each simulation tick in seconds |
 | `max_steps_seconds` | No | Maximum simulation duration in seconds |

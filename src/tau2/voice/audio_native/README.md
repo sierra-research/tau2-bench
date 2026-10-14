@@ -7,6 +7,7 @@ Full-duplex voice evaluation via provider-specific realtime APIs. Each provider 
 | Provider | Type | API | Model |
 |----------|------|-----|-------|
 | **openai** | Native audio | OpenAI Realtime API | gpt-realtime-1.5 |
+| **bairong** | Native audio | BaiRong Voice Realtime | BaiRong-Voice-Realtime |
 | **gemini** | Native audio | Google Gemini Live | gemini-3.1-flash-live-preview |
 | **xai** | Native audio | xAI Grok Voice Agent | xai-realtime |
 | **nova** | Native audio | Amazon Nova Sonic | amazon.nova-2-sonic-v1:0 |
@@ -23,6 +24,7 @@ DiscreteTimeAdapter (adapter.py)          ← shared base class
 │
 ├── gemini/discrete_time_adapter.py       ← implements _execute_tick + _flush_pending_tool_results
 ├── openai/discrete_time_adapter.py
+├── bairong/discrete_time_adapter.py       ← BaiRong, reuses OpenAI event protocol
 ├── xai/discrete_time_adapter.py
 ├── qwen/discrete_time_adapter.py
 ├── nova/discrete_time_adapter.py
