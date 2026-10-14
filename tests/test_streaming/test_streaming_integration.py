@@ -1,9 +1,15 @@
+import time
+from types import SimpleNamespace
+
 import pytest
 
 from tau2 import LLMAgent, Orchestrator, UserSimulator
-from tau2.data_model.message import AssistantMessage, UserMessage
+from tau2.data_model.audio import audio_bytes_to_string
+from tau2.data_model.message import AssistantMessage, Tick, UserMessage
+from tau2.data_model.simulation import TerminationReason
 from tau2.orchestrator.full_duplex_orchestrator import FullDuplexOrchestrator
 from tau2.orchestrator.modes import CommunicationMode
+from tau2.utils.utils import get_now
 
 
 class TestBackwardCompatibility:
@@ -131,6 +137,74 @@ class TestMessageEnhancements:
 
         assert chunk.chunk_id == 0
         assert not chunk.is_final_chunk
+
+
+class TestFullDuplexAudioDrain:
+    """Test final buffered audio handling for full-duplex runs."""
+
+    def test_drain_buffered_agent_audio_appends_to_last_tick(self):
+        orchestrator = FullDuplexOrchestrator.__new__(FullDuplexOrchestrator)
+        orchestrator.agent = SimpleNamespace(
+            adapter=SimpleNamespace(
+                _buffered_agent_audio=[(b" tail", "item_1"), (b" audio", "item_1")]
+            ),
+            audio_format=None,
+        )
+        orchestrator.ticks = [
+            Tick(
+                tick_id=0,
+                timestamp=get_now(),
+                agent_chunk=AssistantMessage(
+                    role="assistant",
+                    audio_content=audio_bytes_to_string(b"heard"),
+                    contains_speech=True,
+                ),
+            )
+        ]
+
+        orchestrator._drain_buffered_agent_audio()
+
+        assert (
+            orchestrator.ticks[-1].agent_chunk.get_audio_bytes() == b"heard tail audio"
+        )
+        assert orchestrator.agent.adapter._buffered_agent_audio == []
+        assert orchestrator.ticks[-1].agent_chunk.contains_speech
+
+    def test_finalize_drains_buffer_before_agent_stop_clears_it(self):
+        class Agent:
+            def __init__(self):
+                self.adapter = SimpleNamespace(
+                    _buffered_agent_audio=[(b"final words", "item_1")]
+                )
+                self.audio_format = None
+                self.saw_buffer_during_stop = None
+
+            def stop(self, *args, **kwargs):
+                self.saw_buffer_during_stop = list(self.adapter._buffered_agent_audio)
+                self.adapter._buffered_agent_audio.clear()
+
+        agent = Agent()
+        orchestrator = FullDuplexOrchestrator.__new__(FullDuplexOrchestrator)
+        orchestrator.agent = agent
+        orchestrator.user = SimpleNamespace(stop=lambda *args, **kwargs: None)
+        orchestrator.agent_state = object()
+        orchestrator.user_state = object()
+        orchestrator.pending_agent_tool_results = None
+        orchestrator.pending_user_tool_results = None
+        orchestrator._run_start_perf = time.perf_counter()
+        orchestrator._run_start_time = get_now()
+        orchestrator.simulation_id = "sim"
+        orchestrator.task = SimpleNamespace(id="task")
+        orchestrator.termination_reason = TerminationReason.USER_STOP
+        orchestrator.seed = None
+        orchestrator.mode = CommunicationMode.FULL_DUPLEX
+        orchestrator.ticks = [Tick(tick_id=0, timestamp=get_now())]
+
+        simulation_run = orchestrator._finalize()
+
+        assert agent.saw_buffer_during_stop == []
+        assert simulation_run.ticks[-1].agent_chunk.get_audio_bytes() == b"final words"
+        assert agent.adapter._buffered_agent_audio == []
 
 
 # Fixtures
