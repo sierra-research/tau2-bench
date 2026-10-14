@@ -659,3 +659,19 @@ def test_environment_set_state_strict_flag(
             arguments={"user_id": "user_1", "expected_number": 2},
         )
     )
+
+
+def test_tool_call_coerces_float_to_int(mock_toolkit_class):
+    toolkit = mock_toolkit_class()
+    tools = toolkit.get_tools()
+    tool1 = tools["tool1"]
+    res = tool1(param1=5.0)
+    assert res == "5"
+    assert toolkit.val == 5
+    assert isinstance(toolkit.val, int)
+
+    # Test that toolkit.use_tool also coerces float to int
+    res2 = toolkit.use_tool("tool1", param1=3.0)
+    assert res2 == "8"
+    assert toolkit.val == 8
+    assert isinstance(toolkit.val, int)
