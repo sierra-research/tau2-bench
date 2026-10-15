@@ -1,7 +1,11 @@
 import pytest
+from pathlib import Path
 
 from tau2.data_model.message import AssistantMessage, UserMessage
 from tau2.user.user_simulator import DummyUser, UserSimulator
+
+
+GUIDELINES_DIR = Path(__file__).resolve().parents[1] / "data" / "tau2" / "user_simulator"
 
 
 @pytest.fixture
@@ -64,3 +68,15 @@ def test_dummy_user_no_args():
     dummy = DummyUser()
     state = dummy.get_init_state()
     assert state.messages == []
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["simulation_guidelines.md", "simulation_guidelines_tools.md"],
+)
+def test_text_user_simulator_guidelines_wait_for_action_completion(filename: str):
+    guidelines = (GUIDELINES_DIR / filename).read_text()
+
+    assert "Agreeing to an action is not the same as the action being completed" in guidelines
+    assert "wait for the agent to confirm it is done before ending the conversation" in guidelines
+    assert "do not stop after only some of them are resolved" in guidelines
