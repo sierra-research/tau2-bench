@@ -46,7 +46,7 @@ Each domain specifies:
 - A set of **tasks** to evaluate the agent's performance
 - Optionally: a set of **user tools** for the user simulator
 
-**Available domains**: `mock` · `airline` · `retail` · `telecom` · `banking_knowledge`
+**Available domains**: `mock` · `airline` · `retail` · `telecom` · `banking_knowledge` · `hospitality`
 
 | Mode | Description |
 |------|-------------|

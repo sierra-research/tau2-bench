@@ -28,6 +28,15 @@ from tau2.domains.banking_knowledge.environment import (
 from tau2.domains.banking_knowledge.environment import (
     get_tasks as knowledge_domain_get_tasks,
 )
+from tau2.domains.hospitality.environment import (
+    get_environment as hospitality_domain_get_environment,
+)
+from tau2.domains.hospitality.environment import (
+    get_tasks as hospitality_domain_get_tasks,
+)
+from tau2.domains.hospitality.environment import (
+    get_tasks_split as hospitality_domain_get_tasks_split,
+)
 from tau2.domains.mock.environment import get_environment as mock_domain_get_environment
 from tau2.domains.mock.environment import get_tasks as mock_domain_get_tasks
 from tau2.domains.retail.environment import (
@@ -346,6 +355,13 @@ try:
 
     registry.register_domain(knowledge_domain_get_environment, "banking_knowledge")
     registry.register_tasks(knowledge_domain_get_tasks, "banking_knowledge")
+
+    registry.register_domain(hospitality_domain_get_environment, "hospitality")
+    registry.register_tasks(
+        hospitality_domain_get_tasks,
+        "hospitality",
+        get_task_splits=hospitality_domain_get_tasks_split,
+    )
 
     logger.debug(
         f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}"
