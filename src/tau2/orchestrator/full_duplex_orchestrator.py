@@ -624,6 +624,8 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
             agent_cost=agent_cost,
             agent_usage=agent_usage,
             ticks=ticks,
+            live_db_hash=self.environment.get_db_hash(),
+            live_user_db_hash=self.environment.get_user_db_hash(),
             seed=self.seed,
             mode=self.mode.value,
             speech_environment=speech_environment,

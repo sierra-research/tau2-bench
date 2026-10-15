@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The DB check grades the database the live environment held when the simulation ended (`SimulationRun.live_db_hash`, `live_user_db_hash`) instead of a replay of the trajectory. A tool that commits and then reports an error made strict replay raise, and one that reports an error without committing made lenient replay credit a change that never happened. Replay still runs as a consistency check and is reported as `replay_divergence` in the reward info. Stored runs without the live hash are graded as before.
+
 ## [1.0.1] - 2026-07-15
 
 > **⚠️ Grading change — banking_knowledge scores are not comparable across this release.**
