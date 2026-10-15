@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>τ-Rec: A Verifiable Benchmark for Agentic Recommender Systems | τ-bench</title>
+  <meta name="description" content="τ-Rec extends τ-bench to conversational recommendation with multi-turn user simulation, catalog tools, policy checks, deterministic scoring, and pass^k reliability evaluation.">
+  <link rel="canonical" href="https://taubench.com/community/tau-rec.html">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="τ-Rec: A Verifiable Benchmark for Agentic Recommender Systems">
+  <meta property="og:description" content="A community spotlight on τ-Rec and verifiable evaluation of multi-turn conversational recommender agents.">
+  <meta property="og:image" content="https://taubench.com/community/assets/tau-rec-reliability.png">
+  <meta property="og:url" content="https://taubench.com/community/tau-rec.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      width: 100%;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      color: #2d3748;
+      line-height: 1.6;
+      font-weight: 400;
+      width: 100%;
+      overflow-x: hidden;
+      background: #ffffff;
+      min-height: 100vh;
+    }
+
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #e2e8f0;
+      padding: 16px 0;
+    }
+
+    .nav-container {
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .nav-logo {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+    }
+
+    .logo-main {
+      display: flex;
+      align-items: center;
+      font-size: 24px;
+      font-weight: 700;
+      color: #2d3748;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+      text-decoration: none;
+    }
+
+    .logo-main:hover {
+      opacity: 0.8;
+    }
+
+    .tau-symbol {
+      color: #065f46;
+      margin-right: 2px;
+    }
+
+    .bench-text {
+      color: #2d3748;
+    }
+
+    .logo-attribution {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      text-decoration: none;
+    }
+
+    .sierra-logo {
+      height: 12px;
+      width: auto;
+    }
+
+    .from-text {
+      font-size: 10px;
+      color: #718096;
+      font-weight: 400;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: #718096;
+      font-weight: 500;
+      font-size: 15px;
+      transition: color 0.2s ease;
+    }
+
+    .nav-links a:hover,
+    .nav-links a.active {
+      color: #065f46;
+    }
+
+    .mobile-menu-toggle {
+      display: none;
+    }
+
+    .blog-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 120px 24px 80px;
+    }
+
+    .blog-header {
+      margin-bottom: 40px;
+    }
+
+    .blog-badge {
+      display: inline-block;
+      background: #f0fdf4;
+      color: #065f46;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .blog-title {
+      font-size: 2.75rem;
+      font-weight: 800;
+      line-height: 1.12;
+      color: #1a202c;
+      margin-bottom: 16px;
+    }
+
+    .blog-meta {
+      font-size: 15px;
+      color: #718096;
+      margin-bottom: 18px;
+    }
+
+    .article-authors {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .author-facepile {
+      display: flex;
+      flex-shrink: 0;
+    }
+
+    .author-photo-link {
+      display: block;
+      border-radius: 50%;
+      transition: transform 0.15s ease;
+    }
+
+    .author-photo-link:not(:first-child) {
+      margin-left: -10px;
+    }
+
+    .author-photo-link:hover {
+      transform: translateY(-1px);
+      z-index: 1;
+    }
+
+    .author-photo {
+      display: block;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      object-fit: cover;
+    }
+
+    .author-copy {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .author-names {
+      font-size: 14px;
+      line-height: 1.4;
+      color: #4a5568;
+    }
+
+    .author-names a {
+      color: #2d3748;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .author-names a:hover {
+      color: #065f46;
+      text-decoration: underline;
+    }
+
+    .author-affiliations {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.4;
+      margin-top: 2px;
+    }
+
+    .blog-content {
+      font-size: 1.0625rem;
+      color: #4a5568;
+      line-height: 1.7;
+      letter-spacing: -0.01em;
+    }
+
+    .blog-content p {
+      margin-bottom: 16px;
+    }
+
+    .blog-content h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1a202c;
+      margin-top: 48px;
+      margin-bottom: 20px;
+    }
+
+    .blog-content h3 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #1a202c;
+      margin-bottom: 10px;
+    }
+
+    .blog-content a {
+      color: #065f46;
+    }
+
+    .tldr-box {
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+      border: 1px solid #bbf7d0;
+      border-left: 4px solid #065f46;
+      border-radius: 8px;
+      padding: 20px 24px 16px;
+      margin-bottom: 32px;
+    }
+
+    .tldr-box p {
+      margin-bottom: 0;
+      font-size: 15px;
+      line-height: 1.7;
+      color: #1a202c;
+    }
+
+    .tldr-label,
+    .section-kicker {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #065f46;
+    }
+
+    .tldr-label {
+      margin-bottom: 10px;
+    }
+
+    .highlight-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin: 24px 0 8px;
+    }
+
+    .highlight-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 18px;
+      background: #ffffff;
+    }
+
+    .highlight-card p {
+      font-size: 14px;
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    .highlight-kicker {
+      color: #065f46;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      line-height: 1;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .results-dashboard {
+      margin: 32px 0 40px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fafbfc;
+    }
+
+    .results-dashboard-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 13px;
+      font-weight: 600;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .results-dashboard-icon {
+      font-size: 15px;
+    }
+
+    .results-summary {
+      padding: 12px 20px;
+      background: #ffffff;
+      border-bottom: 1px solid #edf2f7;
+      color: #718096;
+      font-size: 12.5px;
+    }
+
+    .results-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+    }
+
+    .results-controls-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #718096;
+      margin-right: 4px;
+    }
+
+    .metric-btn {
+      padding: 5px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      background: #ffffff;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #718096;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .metric-btn:hover {
+      border-color: #cbd5e0;
+      color: #4a5568;
+    }
+
+    .metric-btn.active {
+      background: #065f46;
+      border-color: #065f46;
+      color: #ffffff;
+    }
+
+    .results-table-wrap {
+      padding: 16px 20px 20px;
+      overflow-x: auto;
+    }
+
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .results-table th {
+      text-align: left;
+      padding: 8px 12px;
+      font-weight: 700;
+      font-size: 12px;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 2px solid #e2e8f0;
+      white-space: nowrap;
+    }
+
+    .results-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid #edf2f7;
+      white-space: nowrap;
+    }
+
+    .results-table tbody tr:hover {
+      background: #f7fafc;
+    }
+
+    .results-table .rank-cell {
+      width: 36px;
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .results-table .model-cell {
+      font-weight: 600;
+      color: #1a202c;
+    }
+
+    .results-table .mode-cell {
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .results-table .score-cell {
+      color: #4a5568;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+
+    .results-dashboard-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 20px;
+      border-top: 1px solid #e2e8f0;
+      background: #ffffff;
+      color: #718096;
+      font-size: 12px;
+    }
+
+    .results-dashboard-footer a {
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .flow-diagram {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1.25fr) 28px minmax(0, 1fr);
+      align-items: stretch;
+      gap: 8px;
+      margin: 24px 0 12px;
+    }
+
+    .flow-step {
+      border: 1px solid #dbe4ee;
+      border-radius: 10px;
+      padding: 18px;
+      background: #ffffff;
+    }
+
+    .flow-step p {
+      font-size: 13px;
+      line-height: 1.55;
+      margin-bottom: 10px;
+    }
+
+    .flow-step p:last-child {
+      margin-bottom: 0;
+    }
+
+    .flow-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #ecfdf5;
+      color: #065f46;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .flow-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      font-size: 24px;
+    }
+
+    .constraint-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .constraint-tag {
+      border-radius: 4px;
+      background: #edf2f7;
+      color: #475569;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 10px;
+      padding: 3px 6px;
+    }
+
+    .constraint-tag.hidden {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+
+    .message {
+      border-radius: 7px;
+      font-size: 11px;
+      line-height: 1.4;
+      margin-bottom: 7px;
+      padding: 7px 9px;
+    }
+
+    .message.user {
+      background: #f1f5f9;
+      color: #475569;
+      margin-right: 18px;
+    }
+
+    .message.agent {
+      background: #164e63;
+      color: #ffffff;
+      margin-left: 18px;
+    }
+
+    .tool-call {
+      color: #065f46;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 10px;
+      margin: 4px 0 7px 18px;
+    }
+
+    .score-checks {
+      list-style: none;
+      padding: 0;
+    }
+
+    .score-checks li {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.45;
+      margin-bottom: 5px;
+    }
+
+    .score-checks li::before {
+      content: '✓';
+      color: #047857;
+      font-family: inherit;
+      font-weight: 800;
+      margin-right: 6px;
+    }
+
+    .demo-block {
+      margin: 32px 0 40px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fafbfc;
+    }
+
+    .demo-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      color: #64748b;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .demo-label-icon {
+      font-size: 15px;
+    }
+
+    .convo-viewer {
+      padding: 20px;
+      background: #ffffff;
+    }
+
+    .convo-task-label {
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    .convo-task-badge {
+      display: inline-block;
+      border-radius: 12px;
+      background: #edf2f7;
+      color: #4a5568;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+    }
+
+    .convo-source {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.5;
+      margin: 0 auto 20px;
+      max-width: 620px;
+      text-align: center;
+    }
+
+    .convo-source a {
+      font-weight: 600;
+    }
+
+    .convo-msg {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .convo-avatar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      font-size: 13px;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .convo-msg.user .convo-avatar {
+      background: #ebf8ff;
+      color: #2b6cb0;
+    }
+
+    .convo-msg.agent .convo-avatar {
+      background: #f0fdf4;
+      color: #065f46;
+    }
+
+    .convo-bubble {
+      max-width: 88%;
+      border-radius: 12px;
+      border-bottom-left-radius: 4px;
+      color: #2d3748;
+      font-size: 13.5px;
+      line-height: 1.55;
+      padding: 10px 14px;
+    }
+
+    .convo-msg.user .convo-bubble {
+      background: #ebf8ff;
+    }
+
+    .convo-msg.agent .convo-bubble {
+      background: #f0fdf4;
+    }
+
+    .convo-meta {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+
+    .convo-reveal {
+      border-radius: 999px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-size: 9px;
+      padding: 2px 6px;
+    }
+
+    .convo-reveal.on-ask {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .convo-tool-calls {
+      margin-bottom: 7px;
+    }
+
+    .convo-tool-line {
+      color: #7e22ce;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+      padding: 1px 0;
+    }
+
+    .convo-result {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      background: #f0fdf4;
+      color: #166534;
+      font-size: 12px;
+      margin-top: 18px;
+      padding: 10px 14px;
+    }
+
+    .convo-result strong {
+      color: #065f46;
+    }
+
+    .result-figure {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin: 24px 0 18px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .result-figure a {
+      display: block;
+      line-height: 0;
+    }
+
+    .result-figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .result-figure figcaption {
+      border-top: 1px solid #edf2f7;
+      color: #718096;
+      font-size: 12px;
+      line-height: 1.5;
+      padding: 10px 14px;
+    }
+
+    .finding-callout {
+      border-left: 3px solid #065f46;
+      color: #334155;
+      margin: 24px 0;
+      padding: 4px 0 4px 18px;
+    }
+
+    .finding-callout p {
+      margin: 0;
+    }
+
+    .resource-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 48px;
+      padding: 24px;
+    }
+
+    .resource-box h2 {
+      margin: 0 0 10px;
+    }
+
+    .resource-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .resource-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #065f46;
+      border-radius: 7px;
+      color: #065f46;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 9px 14px;
+      text-decoration: none;
+    }
+
+    .resource-link.primary {
+      background: #065f46;
+      color: #ffffff;
+    }
+
+    .resource-link:hover {
+      background: #ecfdf5;
+    }
+
+    .resource-link.primary:hover {
+      background: #047857;
+    }
+
+    .simple-footer {
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      color: #718096;
+      font-size: 14px;
+      padding: 28px 24px;
+      text-align: center;
+    }
+
+    .simple-footer a {
+      color: #065f46;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    @media (min-width: 769px) and (max-width: 1100px) {
+      .nav-links {
+        gap: 18px;
+      }
+
+      .nav-links a {
+        font-size: 14px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .nav-links {
+        display: none;
+        position: absolute;
+        top: calc(100% + 16px);
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        background: #ffffff;
+        border-top: 1px solid #e2e8f0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        padding: 8px 24px 14px;
+      }
+
+      .nav-links.open {
+        display: flex;
+      }
+
+      .nav-links a {
+        padding: 9px 0;
+      }
+
+      .mobile-menu-toggle {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 8px;
+      }
+
+      .mobile-menu-toggle span {
+        width: 20px;
+        height: 2px;
+        background: #2d3748;
+        border-radius: 1px;
+      }
+
+      .blog-container {
+        padding: 100px 16px 60px;
+      }
+
+      .blog-title {
+        font-size: 2rem;
+      }
+
+      .blog-content {
+        font-size: 1rem;
+      }
+
+      .article-authors {
+        align-items: flex-start;
+      }
+
+      .author-affiliations span {
+        display: block;
+      }
+
+      .author-affiliations .separator {
+        display: none;
+      }
+
+      .highlight-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .results-table {
+        table-layout: fixed;
+        font-size: 12px;
+      }
+
+      .results-table th,
+      .results-table td {
+        padding: 8px 5px;
+      }
+
+      .results-table th:first-child,
+      .results-table .rank-cell {
+        display: none;
+      }
+
+      .results-table th:nth-child(2) {
+        width: 42%;
+      }
+
+      .results-table th:nth-child(3) {
+        width: 36%;
+      }
+
+      .results-table th:nth-child(4) {
+        width: 22%;
+      }
+
+      .results-table .mode-cell,
+      .results-table .score-cell {
+        font-size: 11px;
+      }
+
+      .results-dashboard-footer {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .flow-diagram {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-arrow {
+        min-height: 20px;
+        transform: rotate(90deg);
+      }
+
+      .convo-viewer {
+        padding: 16px 12px;
+      }
+
+      .convo-bubble {
+        max-width: calc(100% - 40px);
+        font-size: 13px;
+      }
+
+      .convo-result {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .result-figure {
+        margin-left: -8px;
+        margin-right: -8px;
+      }
+
+      .resource-links {
+        flex-direction: column;
+      }
+
+      .resource-link {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="nav-logo">
+        <a href="/" class="logo-main">
+          <span class="tau-symbol">τ</span>
+          <span class="bench-text">-bench</span>
+        </a>
+        <a href="https://sierra.ai" target="_blank" rel="noopener noreferrer" class="logo-attribution">
+          <img src="/sierra_logo.jpeg" alt="Sierra" class="sierra-logo">
+          <span class="from-text">from Sierra</span>
+        </a>
+      </div>
+      <button class="mobile-menu-toggle" type="button" aria-label="Toggle navigation" aria-controls="site-nav" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <div class="nav-links" id="site-nav">
+        <a href="/#home">Overview</a>
+        <a href="/#leaderboard">Leaderboard</a>
+        <a href="/#trajectory-visualizer">Visualizer</a>
+        <a href="/#blog">Blog</a>
+        <a href="/community" class="active">Community</a>
+        <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="blog-container">
+    <header class="blog-header">
+      <span class="blog-badge">Community Spotlight</span>
+      <h1 class="blog-title"><span class="tau-symbol">τ</span>-Rec: A Verifiable Benchmark for Agentic Recommender Systems</h1>
+      <p class="blog-meta">September 2026 · ACM RecSys 2026</p>
+      <div class="article-authors">
+        <div class="author-facepile">
+          <a href="/authors/bharath-narasimhan.html" class="author-photo-link" title="Bharath Sivaram Narasimhan — Independent Researcher">
+            <img src="/community/assets/bharath-narasimhan.jpg" alt="Bharath Sivaram Narasimhan" class="author-photo">
+          </a>
+          <a href="/authors/karthik-narasimhan.html" class="author-photo-link" title="Karthik Narasimhan — Princeton University">
+            <img src="/authors/karthik-narasimhan.jpg" alt="Karthik Narasimhan" class="author-photo">
+          </a>
+        </div>
+        <div class="author-copy">
+          <span class="author-names">By <a href="/authors/bharath-narasimhan.html">Bharath Sivaram Narasimhan</a> &amp; <a href="/authors/karthik-narasimhan.html">Karthik Narasimhan</a></span>
+          <span class="author-affiliations"><span>Independent Researcher</span><span class="separator"> · </span><span>Princeton University</span></span>
+        </div>
+      </div>
+    </header>
+
+    <article class="blog-content">
+      <div class="tldr-box">
+        <div class="tldr-label">TL;DR</div>
+        <p><strong>τ-Rec</strong> extends τ-bench to conversational recommendation. It evaluates whether an agent can uncover a user's preferences over multiple turns, use catalog tools, follow policy, and make a recommendation that is checked programmatically—not graded by another language model. Across four repeated trials, the strongest evaluated agent falls from roughly <strong>57% pass^1</strong> to <strong>35% pass^4</strong>.</p>
+      </div>
+
+      <p>Recommender agents must do more than retrieve a plausible item. They have to ask the right questions, recognize what the user has not said, inspect a changing catalog, respect operational policy, and commit to one recommendation. A polished conversation can still end with the wrong item.</p>
+
+      <p>τ-Rec brings this setting to the τ-bench family through <strong>60 multi-turn movie-recommendation tasks</strong>. Each task pairs a simulated user persona with structured constraints, a 153-item catalog, search and metadata tools, and deterministic checks for both recommendation quality and policy compliance. The benchmark and its evaluation artifacts were published in the <strong>ACM RecSys 2026 Reproducibility and Resource Track</strong>.</p>
+
+      <h2>Three ideas τ-Rec brings together</h2>
+
+      <p>τ-Rec combines three pieces needed to evaluate conversational recommender agents as complete systems—not just as rankers.</p>
+
+      <div class="highlight-grid" aria-label="Three core contributions of τ-Rec">
+        <div class="highlight-card">
+          <div class="highlight-kicker">Verifiable</div>
+          <h3>Verifiable by construction</h3>
+          <p>Structured catalog predicates and programmatic policy checks replace subjective LLM-as-a-judge scoring.</p>
+        </div>
+        <div class="highlight-card">
+          <div class="highlight-kicker">Reliable</div>
+          <h3>Reliability across trials</h3>
+          <p>Repeated runs separate one-shot capability from consistent success. To our knowledge, pass^k is novel to recommendation evaluation.</p>
+        </div>
+        <div class="highlight-card">
+          <div class="highlight-kicker">Elicitation</div>
+          <h3>Reveal-tagged elicitation</h3>
+          <p>Constraints tagged <code>volunteer</code>, <code>on_ask</code>, or <code>hidden</code> force agents to uncover needs through dialogue.</p>
+        </div>
+      </div>
+
+      <h2>How a τ-Rec task works</h2>
+
+      <p>A task starts with a persona and a checklist of requirements. Some constraints are volunteered immediately, some appear only when the agent asks, and some remain hidden. The agent must use conversation and tools to narrow the catalog before making one final recommendation.</p>
+
+      <div class="flow-diagram" aria-label="Three stages of a τ-Rec task">
+        <section class="flow-step">
+          <span class="flow-number">1</span>
+          <h3>Simulated user</h3>
+          <p>A persona responds naturally while revealing constraints at controlled points.</p>
+          <div class="constraint-tags">
+            <span class="constraint-tag">genre: Action</span>
+            <span class="constraint-tag hidden">runtime: hidden</span>
+            <span class="constraint-tag hidden">service: hidden</span>
+          </div>
+        </section>
+        <span class="flow-arrow" aria-hidden="true">→</span>
+        <section class="flow-step">
+          <span class="flow-number">2</span>
+          <h3>Conversation and tools</h3>
+          <div class="message user">“I want an action movie for Friday night.”</div>
+          <div class="tool-call">search_catalog(...) → candidates</div>
+          <div class="message agent">“Do you have a runtime or streaming preference?”</div>
+          <div class="tool-call">check_availability(...) → true</div>
+        </section>
+        <span class="flow-arrow" aria-hidden="true">→</span>
+        <section class="flow-step">
+          <span class="flow-number">3</span>
+          <h3>Deterministic scorer</h3>
+          <p>The selected item is checked against the catalog and every applicable policy rule.</p>
+          <ul class="score-checks">
+            <li>constraints satisfied</li>
+            <li>available on service</li>
+            <li>policy checks pass</li>
+          </ul>
+        </section>
+      </div>
+
+      <div class="demo-block" id="sample-conversation">
+        <div class="demo-label">
+          <span class="demo-label-icon" aria-hidden="true">💬</span>
+          Sample conversation trace
+        </div>
+        <div class="convo-viewer">
+          <div class="convo-task-label">
+            <span class="convo-task-badge">Task 040 · DeepSeek V4 Flash (max thinking) · passing trial</span>
+          </div>
+          <p class="convo-source">Condensed from the <a href="https://github.com/nbharaths/tau-rec/releases/tag/v1.1.0" target="_blank" rel="noopener noreferrer">public trace archive</a>; repeated catalog lookups are omitted.</p>
+
+          <div class="convo-msg user">
+            <div class="convo-avatar" aria-hidden="true">U</div>
+            <div class="convo-bubble">
+              <div class="convo-meta">User <span class="convo-reveal">Volunteer</span></div>
+              <div>“Genres: Horror (this is a must). Minimum rating: 5.5 (no lower). I’m a cinephile who follows indie film festivals and prefers auteur-driven, original films with a cult following.”</div>
+            </div>
+          </div>
+
+          <div class="convo-msg agent">
+            <div class="convo-avatar" aria-hidden="true">A</div>
+            <div class="convo-bubble">
+              <div class="convo-meta">Agent</div>
+              <div class="convo-tool-calls">
+                <div class="convo-tool-line">search_catalog("horror")</div>
+                <div class="convo-tool-line">get_metadata(candidate_id) …</div>
+              </div>
+              <div>“Before I commit, could you tell me which streaming services you have? That’ll help me narrow things down to what’s actually available to you.”</div>
+            </div>
+          </div>
+
+          <div class="convo-msg user">
+            <div class="convo-avatar" aria-hidden="true">U</div>
+            <div class="convo-bubble">
+              <div class="convo-meta">User <span class="convo-reveal on-ask">On ask</span></div>
+              <div>“I have Hulu.”</div>
+            </div>
+          </div>
+
+          <div class="convo-msg agent">
+            <div class="convo-avatar" aria-hidden="true">A</div>
+            <div class="convo-bubble">
+              <div class="convo-meta">Agent</div>
+              <div class="convo-tool-calls">
+                <div class="convo-tool-line">check_availability(candidate_id, ["Hulu"])</div>
+                <div class="convo-tool-line">get_metadata("tmdb_1285965")</div>
+                <div class="convo-tool-line">check_content_preference("R")</div>
+              </div>
+              <div>“Dangerous Animals really stands out for someone with your taste. Before I recommend it though—it’s rated R for mature content. Are you comfortable with that?”</div>
+            </div>
+          </div>
+
+          <div class="convo-msg user">
+            <div class="convo-avatar" aria-hidden="true">U</div>
+            <div class="convo-bubble">
+              <div class="convo-meta">User <span class="convo-reveal on-ask">On ask</span></div>
+              <div>“Yes—R is fine, and that sounds like a perfect pick for my taste.”</div>
+            </div>
+          </div>
+
+          <div class="convo-msg agent">
+            <div class="convo-avatar" aria-hidden="true">A</div>
+            <div class="convo-bubble">
+              <div class="convo-meta">Agent</div>
+              <div class="convo-tool-calls">
+                <div class="convo-tool-line">recommend(item_id="tmdb_1285965")</div>
+              </div>
+              <div>“Recommended: Dangerous Animals (2025). You’re all set—enjoy the horror!”</div>
+            </div>
+          </div>
+
+          <div class="convo-result">
+            <strong>✓ Deterministic result: pass</strong>
+            <span>5/5 constraints satisfied · no policy violations</span>
+          </div>
+        </div>
+      </div>
+
+      <p>Each task is run four times. τ-Rec reports pass^1, pass^2, and pass^4, so an agent receives full reliability credit only when it succeeds repeatedly rather than getting one favorable trajectory.</p>
+
+      <h2>Paper results</h2>
+
+      <p>This snapshot shows all nine configurations evaluated in the paper. Switch metrics to see how rankings change as the reliability requirement becomes stricter.</p>
+
+      <div class="results-dashboard" id="paper-results">
+        <div class="results-dashboard-label">
+          <span class="results-dashboard-icon" aria-hidden="true">📊</span>
+          Benchmark snapshot
+        </div>
+        <div class="results-summary">60 tasks × 4 trials · GPT-5 mini user simulator</div>
+        <div class="results-controls" role="group" aria-label="Select paper results metric">
+          <span class="results-controls-label">Metric:</span>
+          <button class="metric-btn active" type="button" data-metric="pass1" aria-pressed="true">pass^1</button>
+          <button class="metric-btn" type="button" data-metric="pass2" aria-pressed="false">pass^2</button>
+          <button class="metric-btn" type="button" data-metric="pass4" aria-pressed="false">pass^4</button>
+        </div>
+        <div class="results-table-wrap">
+          <table class="results-table">
+            <caption class="visually-hidden">τ-Rec paper results, ranked by the selected pass metric</caption>
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Model</th>
+                <th scope="col">Mode</th>
+                <th scope="col" id="results-metric-header">pass^1</th>
+              </tr>
+            </thead>
+            <tbody id="results-tbody" aria-live="polite">
+              <tr>
+                <td class="rank-cell">1</td>
+                <td class="model-cell">DeepSeek V4 Flash</td>
+                <td class="mode-cell">Max thinking</td>
+                <td class="score-cell">57.1%</td>
+              </tr>
+              <tr>
+                <td class="rank-cell">2</td>
+                <td class="model-cell">DeepSeek V4 Flash</td>
+                <td class="mode-cell">High thinking</td>
+                <td class="score-cell">56.0%</td>
+              </tr>
+              <tr>
+                <td class="rank-cell">3</td>
+                <td class="model-cell">GPT-5.4</td>
+                <td class="mode-cell">Medium thinking</td>
+                <td class="score-cell">55.1%</td>
+              </tr>
+              <tr>
+                <td class="rank-cell">4</td>
+                <td class="model-cell">DeepSeek V4 Flash</td>
+                <td class="mode-cell">No thinking</td>
+                <td class="score-cell">54.6%</td>
+              </tr>
+              <tr>
+                <td class="rank-cell">5</td>
+                <td class="model-cell">Sonnet 4.6</td>
+                <td class="mode-cell">Default</td>
+                <td class="score-cell">53.7%</td>
+              </tr>
+              <tr>
+                <td class="rank-cell">6</td>
+                <td class="model-cell">GPT-5.4</td>
+                <td class="mode-cell">No thinking</td>
+                <td class="score-cell">47.1%</td>
+              </tr>
+              <tr>
+                <td class="rank-cell">7</td>
+                <td class="model-cell">GPT-5 mini</td>
+                <td class="mode-cell">Default</td>
+                <td class="score-cell">41.7%</td>
+              </tr>
+              <tr>
+                <td class="rank-cell">8</td>
+                <td class="model-cell">Gemini 2.5 Flash</td>
+                <td class="mode-cell">Default</td>
+                <td class="score-cell">27.5%</td>
+              </tr>
+              <tr>
+                <td class="rank-cell">9</td>
+                <td class="model-cell">Qwen3-32B</td>
+                <td class="mode-cell">Default</td>
+                <td class="score-cell">27.1%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="results-dashboard-footer">
+          <span>All nine configurations evaluated in the paper.</span>
+          <a href="https://github.com/nbharaths/tau-rec/blob/main/LEADERBOARD.md" target="_blank" rel="noopener noreferrer">View live leaderboard →</a>
+        </div>
+      </div>
+
+      <h2>Key findings</h2>
+
+      <p>The central result is a reliability gap. Models that look capable on one attempt become much less dependable when the same task must succeed across repeated trials.</p>
+
+      <figure class="result-figure">
+        <a href="/community/assets/tau-rec-reliability.png" target="_blank" rel="noopener noreferrer" aria-label="Open reliability figure at full size">
+          <img src="/community/assets/tau-rec-reliability.png" alt="Paper result: reliability falls across repeated trials, from 57 percent pass one to 35 percent pass four for the strongest evaluated agent">
+        </a>
+        <figcaption>Paper results across nine evaluated configurations. The highlighted configuration drops by 22 percentage points when success is required on all four trials.</figcaption>
+      </figure>
+
+      <p>The strongest evaluated agent completes about <strong>57% of tasks on one try</strong>, but only about <strong>35% on all four tries</strong>. The gap shows why one-shot accuracy can overstate whether an agent is ready to behave reliably in a user-facing setting.</p>
+
+      <figure class="result-figure">
+        <a href="/community/assets/tau-rec-hidden-intent.png" target="_blank" rel="noopener noreferrer" aria-label="Open hidden-preference figure at full size">
+          <img src="/community/assets/tau-rec-hidden-intent.png" alt="Paper result: hidden preferences make tasks harder, with one-try success falling from 85 percent for volunteered constraints to 20 percent when a constraint remains hidden">
+        </a>
+        <figcaption>One-try success for the highlighted configuration by reveal difficulty; whiskers show the range across all nine configurations.</figcaption>
+      </figure>
+
+      <p>Preference elicitation is another major failure mode. For the highlighted configuration, one-try success falls from <strong>85%</strong> when every need is volunteered to <strong>20%</strong> when one constraint is never stated. An agent that recommends too quickly can sound helpful while missing the requirement that matters most.</p>
+
+      <div class="finding-callout">
+        <p><strong>The best agents verify before they commit.</strong> Strong configurations use catalog and availability tools to check their choice. Common failures include declining to recommend anything or recommending an item without verifying that it is actually available.</p>
+      </div>
+
+      <section class="resource-box">
+        <div class="section-kicker">Explore τ-Rec</div>
+        <h2>Paper, code, and current results</h2>
+        <p>Read the RecSys paper for the full methodology, run the benchmark from GitHub, or see the latest verified submissions.</p>
+        <div class="resource-links">
+          <a class="resource-link primary" href="https://doi.org/10.1145/3773078.3831847" target="_blank" rel="noopener noreferrer">Read the paper</a>
+          <a class="resource-link" href="https://github.com/nbharaths/tau-rec" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+          <a class="resource-link" href="https://github.com/nbharaths/tau-rec/blob/main/LEADERBOARD.md" target="_blank" rel="noopener noreferrer">Live leaderboard</a>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <footer class="simple-footer">
+    For questions or feedback, contact <a href="mailto:research@sierra.ai">research@sierra.ai</a>
+  </footer>
+
+  <script>
+    const resultsData = [
+      { model: 'DeepSeek V4 Flash', mode: 'Max thinking', pass1: 57.1, pass2: 46.1, pass4: 35.0 },
+      { model: 'DeepSeek V4 Flash', mode: 'High thinking', pass1: 56.0, pass2: 46.1, pass4: 38.3 },
+      { model: 'GPT-5.4', mode: 'Medium thinking', pass1: 55.1, pass2: 45.0, pass4: 35.0 },
+      { model: 'DeepSeek V4 Flash', mode: 'No thinking', pass1: 54.6, pass2: 43.3, pass4: 33.3 },
+      { model: 'Sonnet 4.6', mode: 'Default', pass1: 53.7, pass2: 43.3, pass4: 35.0 },
+      { model: 'GPT-5.4', mode: 'No thinking', pass1: 47.1, pass2: 35.8, pass4: 28.3 },
+      { model: 'GPT-5 mini', mode: 'Default', pass1: 41.7, pass2: 33.3, pass4: 25.0 },
+      { model: 'Gemini 2.5 Flash', mode: 'Default', pass1: 27.5, pass2: 18.9, pass4: 13.8 },
+      { model: 'Qwen3-32B', mode: 'Default', pass1: 27.1, pass2: 18.1, pass4: 11.7 },
+    ]
+
+    const metricLabels = {
+      pass1: 'pass^1',
+      pass2: 'pass^2',
+      pass4: 'pass^4',
+    }
+
+    const renderResults = (metric) => {
+      const tableBody = document.querySelector('#results-tbody')
+      const metricHeader = document.querySelector('#results-metric-header')
+
+      if (!tableBody || !metricHeader) return
+
+      metricHeader.textContent = metricLabels[metric]
+      tableBody.replaceChildren()
+
+      const rankedResults = [...resultsData].sort((a, b) => b[metric] - a[metric])
+
+      rankedResults.forEach((result, index) => {
+        const row = document.createElement('tr')
+        const cells = [index + 1, result.model, result.mode, `${result[metric].toFixed(1)}%`]
+        const cellClasses = ['rank-cell', 'model-cell', 'mode-cell', 'score-cell']
+
+        cells.forEach((value, cellIndex) => {
+          const cell = document.createElement('td')
+          cell.className = cellClasses[cellIndex]
+          cell.textContent = value
+          row.appendChild(cell)
+        })
+
+        tableBody.appendChild(row)
+      })
+    }
+
+    document.querySelectorAll('.metric-btn').forEach((button) => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.metric-btn').forEach((candidate) => {
+          const isActive = candidate === button
+          candidate.classList.toggle('active', isActive)
+          candidate.setAttribute('aria-pressed', String(isActive))
+        })
+        renderResults(button.dataset.metric)
+      })
+    })
+
+    renderResults('pass1')
+
+    const toggle = document.querySelector('.mobile-menu-toggle')
+    const nav = document.querySelector('#site-nav')
+
+    toggle?.addEventListener('click', () => {
+      const open = nav?.classList.toggle('open') ?? false
+      toggle.setAttribute('aria-expanded', String(open))
+    })
+  </script>
+</body>
+</html>

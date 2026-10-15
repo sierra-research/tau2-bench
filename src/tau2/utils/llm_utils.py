@@ -379,6 +379,24 @@ def generate(
     if kwargs.get("num_retries") is None:
         kwargs["num_retries"] = DEFAULT_MAX_RETRIES
 
+    # The pinned LiteLLM release rejects (or silently drops) xhigh for GPT-5.5.
+    # Pass it through the Responses API body so the requested effort reaches
+    # OpenAI, including user-simulator turns that use function tools.
+    api_model = model
+    if (
+        model.split("/")[-1].startswith("gpt-5.5")
+        and kwargs.get("reasoning_effort") == "xhigh"
+    ):
+        if "/" not in model or model.startswith("openai/"):
+            api_model = f"openai/responses/{model.split('/')[-1]}"
+            kwargs = dict(kwargs)
+            kwargs.pop("reasoning_effort")
+            extra_body = dict(kwargs.pop("extra_body", {}) or {})
+            if "reasoning" in extra_body:
+                raise ValueError("Conflicting GPT-5.5 reasoning settings")
+            extra_body["reasoning"] = {"effort": "xhigh"}
+            kwargs["extra_body"] = extra_body
+
     # Vertex AI Gemini 3 models require VERTEXAI_LOCATION="global"
     if model.startswith("vertex_ai/gemini-3") and not os.environ.get(
         "VERTEXAI_LOCATION"
@@ -386,6 +404,29 @@ def generate(
         os.environ["VERTEXAI_LOCATION"] = "global"
 
     litellm_messages = to_litellm_messages(messages)
+    if api_model.startswith("openai/responses/"):
+        # LiteLLM otherwise hoists every string system message into top-level
+        # instructions, losing mid-conversation silence annotations and leaving
+        # the first voice turn with an empty Responses input.
+        first_non_system = next(
+            (i for i, m in enumerate(litellm_messages) if m.get("role") != "system"),
+            None,
+        )
+        for i, message in enumerate(litellm_messages):
+            keep_positional = (
+                message.get("role") == "system"
+                and isinstance(message.get("content"), str)
+                and (
+                    i > first_non_system
+                    if first_non_system is not None
+                    else (i > 0 or len(litellm_messages) == 1)
+                )
+            )
+            if keep_positional:
+                litellm_messages[i] = {
+                    **message,
+                    "content": [{"type": "text", "text": message["content"]}],
+                }
     tools_schema = [tool.openai_schema for tool in tools] if tools else None
     if tools_schema and tool_choice is None:
         tool_choice = "auto"
@@ -407,7 +448,7 @@ def generate(
     start_time = time.perf_counter()
     try:
         response = completion(
-            model=model,
+            model=api_model,
             messages=litellm_messages,
             tools=tools_schema,
             tool_choice=tool_choice,

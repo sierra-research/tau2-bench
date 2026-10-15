@@ -438,7 +438,19 @@ def create_adapter(
 
     # --- Construct adapter ---
     adapter: DiscreteTimeAdapter
-    if provider == "openai":
+    if provider == "launa":
+        from tau2.voice.audio_native.launa.discrete_time_adapter import (
+            DiscreteTimeLaunaAdapter,
+        )
+
+        adapter = DiscreteTimeLaunaAdapter(
+            tick_duration_ms=tick_duration_ms,
+            send_audio_instant=send_audio_instant,
+            model=model,
+            reasoning_effort=reasoning_effort,
+            audio_format=audio_format,
+        )
+    elif provider == "openai":
         from tau2.voice.audio_native.openai.discrete_time_adapter import (
             DiscreteTimeOpenAIAdapter,
         )
