@@ -202,7 +202,7 @@ class AirlineTools(ToolKitBase):  # Tools
         Book a reservation.
 
         Args:
-            user_id: The ID of the user to book the reservation such as 'sara_doe_496'`.
+            user_id: The ID of the user to book the reservation such as 'sara_doe_496'`. The user id is always entirely lowercase; never capitalise any letter of it.
             origin: The IATA code for the origin city such as 'SFO'.
             destination: The IATA code for the destination city such as 'JFK'.
             flight_type: The type of flight such as 'one_way' or 'round_trip'.
@@ -389,7 +389,7 @@ class AirlineTools(ToolKitBase):  # Tools
         Get the details of a user, including their reservations.
 
         Args:
-            user_id: The user ID, such as 'sara_doe_496'.
+            user_id: The user ID, such as 'sara_doe_496'. The user id is always entirely lowercase; never capitalise any letter of it.
 
         Returns:
             The user details.
@@ -490,7 +490,7 @@ class AirlineTools(ToolKitBase):  # Tools
         Send a certificate to a user. Be careful!
 
         Args:
-            user_id: The ID of the user to book the reservation, such as 'sara_doe_496'.
+            user_id: The ID of the user to book the reservation, such as 'sara_doe_496'. The user id is always entirely lowercase; never capitalise any letter of it.
             amount: The amount of the certificate to send.
 
         Returns:
