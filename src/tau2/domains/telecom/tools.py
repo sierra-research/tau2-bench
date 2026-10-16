@@ -626,8 +626,8 @@ class TelecomTools(ToolKitBase):
         """
         target_line = self._get_target_line(customer_id, line_id)
 
-        # if target_line.status != LineStatus.ACTIVE:
-        #     raise ValueError("Line must be active to refuel data")
+        if target_line.status != LineStatus.ACTIVE:
+            raise ValueError("Line must be active to refuel data")
 
         if gb_amount <= 0:
             raise ValueError("Refuel amount must be positive")
