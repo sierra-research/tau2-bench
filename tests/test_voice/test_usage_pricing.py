@@ -4,11 +4,18 @@ No network access: provider payloads are synthetic fixtures matching each
 provider's wire format.
 """
 
+import time
+from types import SimpleNamespace
+
 import pytest
 
 from tau2.data_model.message import AssistantMessage, UserMessage
+from tau2.data_model.simulation import TerminationReason
 from tau2.data_model.usage import UsageRecord, aggregate_usage
+from tau2.orchestrator.full_duplex_orchestrator import FullDuplexOrchestrator
+from tau2.orchestrator.modes import CommunicationMode
 from tau2.utils.llm_utils import get_cost
+from tau2.utils.utils import get_now
 from tau2.voice.audio_native.nova.events import NovaUsageEvent, parse_nova_event
 from tau2.voice.pricing import (
     PRICING_VERSION,
@@ -473,6 +480,56 @@ class TestSessionUsage:
         ]
         assert compute_tick_cost(records) == 0.0
         assert build_session_usage(records).cost is None
+
+
+@pytest.mark.parametrize(
+    ("cost_report", "expected_cost"),
+    [
+        ({"currency": "USD", "total_cost_usd": 0.25}, 0.25),
+        ({"currency": "USD", "usage": {"worker_tokens": 100}}, None),
+    ],
+)
+def test_provider_native_report_sets_or_nulls_simulation_agent_cost(
+    cost_report, expected_cost
+):
+    provider = SimpleNamespace(
+        session_id="session-1",
+        cost_report=cost_report,
+    )
+    agent = SimpleNamespace(
+        stop=lambda *_args, **_kwargs: None,
+        get_usage_records=lambda: [],
+        adapter=SimpleNamespace(provider=provider),
+    )
+    user = SimpleNamespace(stop=lambda *_args, **_kwargs: None)
+    orchestrator = object.__new__(FullDuplexOrchestrator)
+    orchestrator.agent = agent
+    orchestrator.user = user
+    orchestrator.agent_state = None
+    orchestrator.user_state = None
+    orchestrator.pending_agent_tool_results = None
+    orchestrator.pending_user_tool_results = None
+    orchestrator._run_start_perf = time.perf_counter()
+    orchestrator._run_start_time = get_now()
+    orchestrator.get_trajectory = lambda: []
+    orchestrator.get_messages = lambda: [
+        AssistantMessage(role="assistant", content="done", cost=0.0)
+    ]
+    orchestrator.simulation_id = "simulation-1"
+    orchestrator.task = SimpleNamespace(id="task-1")
+    orchestrator.termination_reason = TerminationReason.USER_STOP
+    orchestrator.seed = 300
+    orchestrator.mode = CommunicationMode.FULL_DUPLEX
+
+    simulation = orchestrator._finalize()
+
+    if expected_cost is None:
+        assert simulation.agent_cost is None
+    else:
+        assert simulation.agent_cost == pytest.approx(expected_cost)
+    assert simulation.agent_usage is None
+    assert simulation.provider_session_id == "session-1"
+    assert simulation.provider_cost_report == provider.cost_report
 
 
 # =============================================================================

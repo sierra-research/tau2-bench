@@ -66,8 +66,10 @@ tau2 run \
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--audio-native` | `false` | Enable audio native mode |
-| `--audio-native-provider` | `openai` | Provider: `openai`, `gemini`, `xai` |
-| `--audio-native-model` | *(per-provider)* | Model to use (defaults to provider-specific model if not set) |
+| `--audio-native-provider` | `openai` | Provider: `openai`, `openai_live`, `gemini`, `xai`, `nova`, `qwen`, `elevenlabs`, `ava_zero_pipecat`, `livekit`, or `launa` |
+| `--audio-native-model` | *(per-provider)* | Model to use (defaults to provider-specific model if not set); required ElevenLabs `agent_...` ID for `elevenlabs` |
+| `--ava-zero-base-url` | `ws://localhost:7860` | Base URL of a running Ava Zero server (`ava_zero_pipecat` only) |
+| `--ava-zero-websocket-token-env` | *(none)* | Environment variable holding an Ava Zero WebSocket token, if the server requires one |
 | `--tick-duration` | `0.2` | Tick duration in seconds (simulation timestep) |
 | `--max-steps-seconds` | `600` | Maximum conversation duration in seconds |
 | `--speech-complexity` | `regular` | Speech complexity: `control`, `regular`, or ablation variants (`control_audio`, `control_accents`, `control_behavior`, `control_audio_accents`, `control_audio_behavior`, `control_accents_behavior`) |

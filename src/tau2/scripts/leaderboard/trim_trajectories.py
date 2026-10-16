@@ -59,6 +59,7 @@ SIMULATION_STRIP_FIELDS = {
     "hallucination_retries_used",
     "hallucination_check",
     "provider_session_id",
+    "provider_cost_report",
     "policy",
     "effect_timeline",
     "info",

@@ -2,9 +2,11 @@
 """Out-of-turn speech generator for voice synthesis."""
 
 import random
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future
 from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
+from threading import Lock
 from typing import Optional
 
 from loguru import logger
@@ -22,8 +24,43 @@ from tau2.voice.utils.probability import poisson_should_trigger
 from .noise_generator import BackgroundNoiseGenerator, create_background_noise_generator
 
 
+@dataclass(frozen=True)
+class _SpeechCacheKey:
+    """Content-addressed identity for one generated speech insert."""
+
+    provider: str
+    provider_config: str
+    voice_id: str
+    target_sample_rate: int
+    text: str
+    is_muffled: bool
+
+
+_speech_cache: dict[_SpeechCacheKey, Future[Optional[AudioData]]] = {}
+_speech_cache_lock = Lock()
+
+
+def clear_out_of_turn_speech_cache() -> None:
+    """Clear process-cached out-of-turn speech clips."""
+    with _speech_cache_lock:
+        _speech_cache.clear()
+
+
+def _provider_config_cache_key(provider_config: Optional[object]) -> str:
+    """Serialize provider settings without retaining API key material."""
+    if provider_config is None:
+        return "none"
+    model_dump_json = getattr(provider_config, "model_dump_json", None)
+    if callable(model_dump_json):
+        return model_dump_json(exclude={"api_key"})
+    provider_type = type(provider_config)
+    return (
+        f"{provider_type.__module__}.{provider_type.__qualname__}:{id(provider_config)}"
+    )
+
+
 class OutOfTurnSpeechGenerator:
-    """Pre-generates out-of-turn speech (vocal tics, non-directed phrases)."""
+    """Load process-cached out-of-turn speech for one simulator state."""
 
     def __init__(
         self,
@@ -57,20 +94,20 @@ class OutOfTurnSpeechGenerator:
         return None
 
     def generate_all(self, items: list[UserSpeechInsert]) -> None:
-        """Generate all items concurrently. Non-directed phrases are muffled."""
+        """Load all items from the process cache, generating cache misses."""
         if not items:
             return
 
         self.items = items
         logger.info(f"OutOfTurnSpeechGenerator: loading {len(items)} items")
 
-        with ThreadPoolExecutor(max_workers=min(len(items), 10)) as executor:
-            futures = [executor.submit(self._generate_item, item) for item in items]
-
-            for future in as_completed(futures):
-                item, audio = future.result()
-                if audio is not None:
-                    self.generated_audio[item.text] = audio
+        # Materialize misses sequentially. Batch-level max_concurrency already
+        # parallelizes simulations; another executor here multiplied provider
+        # concurrency by up to ten per simulation.
+        for item in items:
+            item, audio = self._get_or_generate_item(item)
+            if audio is not None:
+                self.generated_audio[item.text] = audio
 
         logger.info(
             f"OutOfTurnSpeechGenerator: loaded {len(self.generated_audio)} items"
@@ -94,6 +131,49 @@ class OutOfTurnSpeechGenerator:
         except Exception as e:
             logger.warning(f"Failed to generate '{item.text}': {e}")
             return (item, None)
+
+    def _cache_key(self, item: UserSpeechInsert) -> _SpeechCacheKey:
+        """Build the cache identity for one fully processed insert."""
+        return _SpeechCacheKey(
+            provider=self.provider,
+            provider_config=_provider_config_cache_key(self.provider_config),
+            voice_id=self.voice_id,
+            target_sample_rate=self.target_sample_rate,
+            text=item.text,
+            is_muffled=item.is_muffled,
+        )
+
+    def _get_or_generate_item(
+        self, item: UserSpeechInsert
+    ) -> tuple[UserSpeechInsert, Optional[AudioData]]:
+        """Return one cached clip, single-flighting concurrent cache misses."""
+        cache_key = self._cache_key(item)
+        with _speech_cache_lock:
+            future = _speech_cache.get(cache_key)
+            is_generator = future is None
+            if future is None:
+                future = Future()
+                _speech_cache[cache_key] = future
+
+        if not is_generator:
+            return item, future.result()
+
+        try:
+            _, audio = self._generate_item(item)
+        except BaseException as error:
+            with _speech_cache_lock:
+                if _speech_cache.get(cache_key) is future:
+                    _speech_cache.pop(cache_key)
+            future.set_exception(error)
+            raise
+
+        if audio is None:
+            # Do not make a transient provider failure sticky for later tasks.
+            with _speech_cache_lock:
+                if _speech_cache.get(cache_key) is future:
+                    _speech_cache.pop(cache_key)
+        future.set_result(audio)
+        return item, audio
 
     def get_audio(self, item: UserSpeechInsert) -> Optional[AudioData]:
         """Get pre-generated audio for an item."""

@@ -98,6 +98,27 @@ PROVIDERS = [
         ),
     ),
     pytest.param(
+        "elevenlabs",
+        marks=pytest.mark.skipif(
+            not (
+                os.environ.get("ELEVENLABS_TEST_ENABLED")
+                and os.environ.get("ELEVENLABS_API_KEY")
+                and os.environ.get("ELEVENLABS_AGENT_ID")
+            ),
+            reason=(
+                "ELEVENLABS_TEST_ENABLED, ELEVENLABS_API_KEY, and "
+                "ELEVENLABS_AGENT_ID are required"
+            ),
+        ),
+    ),
+    pytest.param(
+        "ava_zero_pipecat",
+        marks=pytest.mark.skipif(
+            not os.environ.get("AVA_ZERO_PIPECAT_TEST_ENABLED"),
+            reason="AVA_ZERO_PIPECAT_TEST_ENABLED not set (requires an Ava Zero server)",
+        ),
+    ),
+    pytest.param(
         "livekit",
         marks=pytest.mark.skipif(
             not os.environ.get("LIVEKIT_TEST_ENABLED"),
@@ -361,11 +382,24 @@ def adapter(provider_name: str):
     real_provider = provider_name
     cascaded_config = None
     live_config = None
+    ava_zero_config = None
     model = None
 
     if provider_name == "openai_live":
         model = os.environ.get("OPENAI_LIVE_MODEL", DEFAULT_OPENAI_LIVE_MODEL)
         live_config = LiveConfig(backend_model=os.environ["OPENAI_LIVE_BACKEND_MODEL"])
+    elif provider_name == "elevenlabs":
+        model = os.environ["ELEVENLABS_AGENT_ID"]
+    elif provider_name == "ava_zero_pipecat":
+        from tau2.voice.audio_native.ava_zero_pipecat.config import (
+            AvaZeroPipecatConfig,
+        )
+
+        ava_zero_config = AvaZeroPipecatConfig(
+            base_url=os.environ.get("TAU2_AVA_ZERO_BASE_URL", "ws://localhost:7860"),
+            agent=os.environ.get("TAU2_AVA_ZERO_AGENT", "conductor-v2"),
+        )
+        model = ava_zero_config.agent
 
     if provider_name in CASCADED_CONFIG_ALIASES:
         from tau2.voice.audio_native.livekit.config import CASCADED_CONFIGS
@@ -379,6 +413,7 @@ def adapter(provider_name: str):
         cascaded_config=cascaded_config,
         model=model,
         live_config=live_config,
+        ava_zero_config=ava_zero_config,
     )
     yield adapter
     if adapter.is_connected:

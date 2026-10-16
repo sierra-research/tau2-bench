@@ -99,7 +99,8 @@ DEFAULT_SPEECH_COMPLEXITY = "regular"  # overridable: "control", "regular"
 DEFAULT_AUDIO_NATIVE_AGENT_IMPLEMENTATION = "discrete_time_audio_native_agent"
 DEFAULT_AUDIO_NATIVE_USER_IMPLEMENTATION = "voice_streaming_user_simulator"
 DEFAULT_AUDIO_NATIVE_PROVIDER = (
-    "openai"  # overridable: openai, openai_live, gemini, xai, nova, qwen, livekit
+    "openai"  # overridable: openai, openai_live, gemini, xai, nova, qwen,
+    # elevenlabs, ava_zero_pipecat, livekit
 )
 DEFAULT_TICK_DURATION_SECONDS = 0.20  # overridable
 DEFAULT_MAX_STEPS_SECONDS = 1200  # overridable
@@ -203,6 +204,28 @@ DEFAULT_QWEN_INPUT_SAMPLE_RATE = 16000  # fixed, API-defined
 DEFAULT_QWEN_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 
 # =============================================================================
+# ELEVENLABS AGENTS PLATFORM (hosted agent ID, negotiated audio formats)
+# =============================================================================
+DEFAULT_ELEVENLABS_AGENT_ID = ""  # required; pass via --audio-native-model
+ELEVENLABS_AGENT_ID_PREFIXES = ("agent_", "seng_")
+DEFAULT_ELEVENLABS_API_BASE_URL = "https://api.elevenlabs.io"
+DEFAULT_ELEVENLABS_CONVERSATION_BASE_URL = (
+    "wss://api.elevenlabs.io/v1/convai/conversation"
+)
+
+# =============================================================================
+# AVA ZERO (Pipecat RTVI WebSocket to an already-running server)
+# =============================================================================
+DEFAULT_AVA_ZERO_MODEL = "conductor-v2"  # server-side agent ID
+DEFAULT_AVA_ZERO_BASE_URL = "ws://localhost:7860"
+DEFAULT_AVA_ZERO_INPUT_SAMPLE_RATE = 16000  # fixed by the Pipecat RTVI bridge
+DEFAULT_AVA_ZERO_OUTPUT_SAMPLE_RATE = 24000  # default; each frame may override
+DEFAULT_AVA_ZERO_BOOT_TIMEOUT_SECONDS = 45.0
+DEFAULT_AVA_ZERO_TOOL_REGISTRATION_TIMEOUT_SECONDS = 20.0
+DEFAULT_AVA_ZERO_COST_REPORT_TIMEOUT_SECONDS = 5.0
+DEFAULT_AVA_ZERO_BOOT_ATTEMPTS = 3
+
+# =============================================================================
 # PROVIDER REGISTRY (derived from above)
 # =============================================================================
 DEFAULT_LAUNA_MODEL = "launa-v1"
@@ -216,6 +239,8 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
     "xai": DEFAULT_XAI_MODEL,
     "nova": DEFAULT_NOVA_MODEL,
     "qwen": DEFAULT_QWEN_MODEL,
+    "elevenlabs": DEFAULT_ELEVENLABS_AGENT_ID,
+    "ava_zero_pipecat": DEFAULT_AVA_ZERO_MODEL,
     "livekit": "dummy",
 }
 
@@ -227,6 +252,8 @@ DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
     "xai": "high",
     "nova": None,
     "qwen": None,
+    "elevenlabs": None,
+    "ava_zero_pipecat": None,
     "livekit": None,
 }
 
@@ -238,6 +265,8 @@ AUDIO_NATIVE_PROVIDER_TYPES = {
     "xai": "audio_native",
     "nova": "audio_native",
     "qwen": "audio_native",
+    "elevenlabs": "cascaded",
+    "ava_zero_pipecat": "cascaded",
     "livekit": "cascaded",
 }
 

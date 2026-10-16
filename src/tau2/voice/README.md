@@ -13,8 +13,12 @@ tau2 run --domain retail --audio-native --num-tasks 1 --verbose-logs
 | OpenAI Realtime | `--audio-native-provider openai` | `OPENAI_API_KEY` |
 | Google Gemini Live | `--audio-native-provider gemini` | `GOOGLE_API_KEY` |
 | xAI Grok Voice | `--audio-native-provider xai` | `XAI_API_KEY` |
+| ElevenLabs hosted agent | `--audio-native-provider elevenlabs` | `ELEVENLABS_API_KEY` and an agent ID |
+| Ava Zero (Pipecat RTVI) | `--audio-native-provider ava_zero_pipecat` | A running Ava Zero server |
 
-The default provider is `openai`. Use `--audio-native-model` to override the default model for a provider.
+The default provider is `openai`. Use `--audio-native-model` to override the
+default model for a provider. For ElevenLabs, this flag is required and holds
+the hosted `agent_...` ID; see [audio-native provider setup](audio_native/README.md#elevenlabs-hosted-agents).
 
 ## Speech Complexity
 
@@ -133,6 +137,7 @@ See the [Voice Persona Setup Guide](../../docs/voice-personas.md) for step-by-st
 | `OPENAI_API_KEY` | OpenAI Realtime provider |
 | `GOOGLE_API_KEY` | Gemini Live provider |
 | `XAI_API_KEY` | xAI Grok Voice provider |
-| `ELEVENLABS_API_KEY` | User simulator TTS (synthesis) |
+| `ELEVENLABS_API_KEY` | ElevenLabs hosted-agent signed URLs and fallback user simulator TTS key |
+| `ELEVENLABS_TTS_API_KEY` | Optional dedicated key for direct user simulator TTS |
 | `DEEPGRAM_API_KEY` | Transcription (Deepgram nova-2, nova-3) |
 | `TAU2_VOICE_ID_*` | Custom voice ID overrides (see [Voice Persona Setup](../../docs/voice-personas.md)) |

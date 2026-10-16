@@ -73,6 +73,8 @@ cp .env.example .env
 
 If you're using voice features, add the following to your `.env` file:
 - `ELEVENLABS_API_KEY` — for voice synthesis
+- `ELEVENLABS_TTS_API_KEY` — optional dedicated user-simulator synthesis key;
+  falls back to `ELEVENLABS_API_KEY`
 - `DEEPGRAM_API_KEY` — for voice transcription
 
 ### Voice Persona Setup (for voice-enabled features)

@@ -5,6 +5,7 @@ from tau2.config import (
     DEFAULT_AGENT_IMPLEMENTATION,
     DEFAULT_AUDIO_NATIVE_MODELS,
     DEFAULT_AUDIO_NATIVE_PROVIDER,
+    DEFAULT_AVA_ZERO_BASE_URL,
     DEFAULT_INTEGRATION_DURATION_SECONDS,
     DEFAULT_INTERRUPTION_CHECK_INTERVAL_SECONDS,
     DEFAULT_LLM_AGENT,
@@ -42,6 +43,7 @@ from tau2.data_model.simulation import (
 from tau2.domains.banking_knowledge.retrieval import get_all_variant_names
 from tau2.run import get_options, run_domain
 from tau2.runner.work import parse_provider_limits
+from tau2.voice.audio_native.ava_zero_pipecat.config import AvaZeroPipecatConfig
 
 
 def get_all_retrieval_config_names():
@@ -264,6 +266,8 @@ def add_run_args(parser):
             "xai",
             "nova",
             "qwen",
+            "elevenlabs",
+            "ava_zero_pipecat",
             "livekit",
             "launa",
         ],
@@ -282,7 +286,25 @@ def add_run_args(parser):
         "--audio-native-model",
         type=str,
         default=None,
-        help="Audio native model to use. If not specified, uses the default model for the selected provider.",
+        help="Audio native model to use. If not specified, uses the default model for the selected provider. "
+        "For elevenlabs, this is the required hosted agent ID; for ava_zero_pipecat, "
+        "it is the server-side agent ID.",
+    )
+    parser.add_argument(
+        "--ava-zero-base-url",
+        default=DEFAULT_AVA_ZERO_BASE_URL,
+        help=(
+            "Base URL of a running Ava Zero server (ava_zero_pipecat provider). "
+            f"Default is {DEFAULT_AVA_ZERO_BASE_URL}."
+        ),
+    )
+    parser.add_argument(
+        "--ava-zero-websocket-token-env",
+        default=None,
+        help=(
+            "Name of an environment variable holding a WebSocket token for the "
+            "Ava Zero server, if it requires one."
+        ),
     )
     parser.add_argument(
         "--live-config",
@@ -633,12 +655,33 @@ def main():
         # Build audio-native config if enabled
         audio_native_config = None
         if args.audio_native:
+            if args.audio_native_provider == "elevenlabs" and not (
+                args.audio_native_model and args.audio_native_model.strip()
+            ):
+                run_parser.error(
+                    "--audio-native-model <agent_id> is required when "
+                    "--audio-native-provider elevenlabs"
+                )
+
             # Resolve model based on provider if not specified
-            audio_native_model = args.audio_native_model
+            audio_native_model = (
+                args.audio_native_model.strip() if args.audio_native_model else None
+            )
             if audio_native_model is None:
                 audio_native_model = DEFAULT_AUDIO_NATIVE_MODELS[
                     args.audio_native_provider
                 ]
+
+            ava_zero_config = None
+            if args.audio_native_provider == "ava_zero_pipecat":
+                try:
+                    ava_zero_config = AvaZeroPipecatConfig(
+                        base_url=args.ava_zero_base_url,
+                        agent=audio_native_model,
+                        websocket_token_env=args.ava_zero_websocket_token_env,
+                    )
+                except ValueError as exc:
+                    run_parser.error(f"invalid Ava Zero configuration: {exc}")
 
             # Determine use_xml_prompt: defaults to False (plain text)
             use_xml_prompt = False
@@ -649,6 +692,7 @@ def main():
                 # Provider
                 provider=args.audio_native_provider,
                 model=audio_native_model,
+                ava_zero_config=ava_zero_config,
                 cascaded_config_name=args.cascaded_config,
                 reasoning_effort=args.reasoning_effort,
                 live_config=args.live_config,
