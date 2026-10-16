@@ -235,6 +235,20 @@ test('static author and published blog pages link to community spotlight', async
   }
 })
 
+test('published static pages use the Sierra favicon', async ({ page }) => {
+  for (const path of [
+    '/authors/soham-ray.html',
+    '/blog/tau-knowledge.html',
+    '/blog/tau-voice-examples.html',
+    '/blog/tau3-task-fixes.html',
+    '/community/tau-rec.html',
+    '/talks/stanford-aims-tau.html',
+  ]) {
+    await page.goto(path)
+    await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/sierra-logo.png')
+  }
+})
+
 // ---------------------------------------------------------------------------
 // Prerendered HTML: content and per-route meta exist without JavaScript.
 // ---------------------------------------------------------------------------

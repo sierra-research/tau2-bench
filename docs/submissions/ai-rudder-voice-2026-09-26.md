@@ -1,6 +1,6 @@
 # AI Rudder Voice — evaluation methodology
 
-Prepared 2026-09-26; owner training/data-use declaration confirmed on that date. Public methodology: [Beyond the Model: Building a Harness for a Voice Agent](https://airudder.com/beyond-the-model-building-a-harness-for-a-voice-agent/). These self-run results await maintainer review and an official rerun.
+Prepared 2026-09-26; owner training/data-use declaration confirmed on that date. Public methodology: [Beyond the Model: Building a Harness for a Voice Agent](https://airudder.com/blog-page/blog/beyond-the-model-building-a-harness-for-a-voice-agent/). These self-run results await maintainer review and an official rerun.
 
 ## Identity and results
 
