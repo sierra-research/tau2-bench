@@ -6,6 +6,8 @@ instead of silently evaluating simulation.messages with the half-duplex
 evaluators (reported in PR #386).
 """
 
+import inspect
+
 from tau2.data_model.message import Tick, ToolCall, ToolMessage
 from tau2.data_model.simulation import (
     AudioNativeConfig,
@@ -18,12 +20,16 @@ from tau2.data_model.simulation import (
 )
 from tau2.data_model.tasks import EvaluationCriteria, Task, UserScenario
 from tau2.environment.environment import EnvironmentInfo
+from tau2.evaluator.evaluator import evaluate_simulation
+from tau2.evaluator.evaluator_env import REPLAY_MISMATCHES
 from tau2.orchestrator.modes import CommunicationMode
 from tau2.run import get_tasks
 from tau2.scripts import evaluate_trajectories as evaluate_trajectories_module
 from tau2.scripts.evaluate_trajectories import (
     compute_simulation_rewards,
     get_communication_mode,
+    make_parser,
+    replay_mismatch_summary,
 )
 
 # ---- Fixtures ----
@@ -342,3 +348,101 @@ class TestRegradingOptions:
         )
         captured = self._capture_eval_kwargs(monkeypatch, results)
         assert captured[0]["task"].evaluation_criteria == EvaluationCriteria()
+
+
+class TestReplayDivergenceIsReported:
+    """A file whose replay collapsed must not re-grade quietly.
+
+    Regression coverage for the second half of finding 1 in #502: four telecom
+    files re-graded from recorded 0.7478, 0.7215, 0.9035 and 0.9890 to 0.1601,
+    0.0965, 0.1754 and 0.1732, with no error, because lenient replay logged a
+    warning per mismatched call and carried on. The count is now carried on
+    RewardInfo.info and summarised per file.
+    """
+
+    @staticmethod
+    def _results(*mismatch_counts: int, nested: bool = False) -> Results:
+        """Results carrying `mismatch_counts`, one simulation each.
+
+        `nested` builds the shape the combined evaluation types produce, where
+        each evaluator's info sits under its own key, rather than the top-level
+        shape EvaluationType.ENV produces.
+        """
+        results = Results(
+            info=_make_info(),
+            tasks=[_make_task("t0")],
+            simulations=[_make_half_duplex_sim("t0") for _ in mismatch_counts],
+        )
+        for simulation, count in zip(results.simulations, mismatch_counts):
+            if not count:
+                info = None
+            elif nested:
+                info = {"env": {REPLAY_MISMATCHES: count}, "action": None}
+            else:
+                info = {REPLAY_MISMATCHES: count}
+            simulation.reward_info = RewardInfo(reward=1.0, info=info)
+        return results
+
+    def test_faithful_replay_summarises_as_clean(self):
+        assert replay_mismatch_summary(self._results(0, 0, 0)) == (0, 0)
+
+    def test_summary_counts_simulations_and_mismatches_separately(self):
+        """Two numbers, because one bad simulation and one bad call differ."""
+        assert replay_mismatch_summary(self._results(0, 3, 0, 5)) == (2, 8)
+
+    def test_summary_reads_the_nested_shape_the_default_run_produces(self):
+        """`evaluate-trajs` defaults to a combined evaluation type, which nests
+        each evaluator's info under its own key. Reading only the top level made
+        the count silently zero on every ordinary run."""
+        assert replay_mismatch_summary(self._results(0, 3, 5, nested=True)) == (2, 8)
+
+    def test_summary_matches_across_both_info_shapes(self):
+        flat = replay_mismatch_summary(self._results(0, 3, 5))
+        nested = replay_mismatch_summary(self._results(0, 3, 5, nested=True))
+
+        assert flat == nested == (2, 8)
+
+    def test_evaluator_nests_env_info_under_env(self):
+        """Pins the nesting this reads, so a change upstream fails here."""
+        source = inspect.getsource(evaluate_simulation)
+
+        assert '"env": env_reward_info.info' in source
+
+    def test_summary_tolerates_a_simulation_scored_before_this_change(self):
+        """`info` is None on older results and on clean simulations."""
+        results = self._results(0, 2)
+        results.simulations[0].reward_info = RewardInfo(reward=1.0)
+
+        assert replay_mismatch_summary(results) == (1, 2)
+
+    def test_strict_replay_is_threaded_through_to_the_evaluator(self, monkeypatch):
+        """`--strict-replay` restores the behaviour live evaluation uses."""
+        captured = []
+
+        def fake_evaluate_simulation(**kwargs):
+            captured.append(kwargs)
+            return RewardInfo(reward=1.0)
+
+        monkeypatch.setattr(
+            evaluate_trajectories_module,
+            "evaluate_simulation",
+            fake_evaluate_simulation,
+        )
+        compute_simulation_rewards(self._results(0), strict_replay=True)
+
+        assert captured[0]["strict_replay"] is True
+
+    def test_cli_exposes_both_new_flags(self):
+        args = make_parser().parse_args(
+            ["f.json", "--strict-replay", "--max-mismatch-rate", "0.05"]
+        )
+
+        assert args.strict_replay is True
+        assert args.max_mismatch_rate == 0.05
+
+    def test_cli_defaults_keep_current_behaviour(self):
+        """Lenient replay and no failure threshold, so only reporting changes."""
+        args = make_parser().parse_args(["f.json"])
+
+        assert args.strict_replay is False
+        assert args.max_mismatch_rate == 1.0

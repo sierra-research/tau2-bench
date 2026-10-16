@@ -9,8 +9,9 @@ from loguru import logger
 from rich.console import Console
 from rich.progress import Progress
 
-from tau2.data_model.simulation import Results, SimulationRun
+from tau2.data_model.simulation import Results, RewardInfo, SimulationRun
 from tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
+from tau2.evaluator.evaluator_env import REPLAY_MISMATCHES
 from tau2.metrics.agent_metrics import compute_metrics
 from tau2.orchestrator.modes import CommunicationMode
 from tau2.utils.display import ConsoleDisplay
@@ -93,6 +94,7 @@ def compute_simulation_rewards(
     evaluation_type: EvaluationType = EvaluationType.ALL,
     console: Optional[Console] = None,
     fresh_tasks: bool = False,
+    strict_replay: bool = False,
 ) -> Results:
     """
     Compute and update rewards for all simulations in the results.
@@ -130,7 +132,7 @@ def compute_simulation_rewards(
                 solo_mode=solo_mode,
                 mode=get_communication_mode(results, simulation),
                 env_kwargs=_build_eval_env_kwargs(domain, task),
-                strict_replay=False,
+                strict_replay=strict_replay,
             )
 
             # Update the simulation with new reward info
@@ -145,11 +147,46 @@ def compute_simulation_rewards(
     return results
 
 
+def _replay_mismatches(reward_info: Optional[RewardInfo]) -> int:
+    """Read the replay divergence count out of a RewardInfo.
+
+    The environment evaluator records it at the top level of its own
+    ``RewardInfo.info``, but the combined evaluation types nest each evaluator's
+    info under its own key (``info["env"]``, see evaluator.evaluate_simulation),
+    and ``evaluate-trajs`` uses a combined type by default. Both shapes are read
+    so the count is not silently zero on an ordinary run.
+    """
+    info = (reward_info.info if reward_info else None) or {}
+    nested = info.get("env") or {}
+    return int(info.get(REPLAY_MISMATCHES, 0) or 0) + int(
+        nested.get(REPLAY_MISMATCHES, 0) or 0
+    )
+
+
+def replay_mismatch_summary(results: Results) -> tuple[int, int]:
+    """Count simulations whose replay diverged, and the total divergences.
+
+    A simulation carrying divergences was scored against an environment state
+    that its recorded trajectory did not produce, so its recomputed reward is not
+    a re-grade of the run on file.
+    """
+    simulations = 0
+    mismatches = 0
+    for simulation in results.simulations:
+        count = _replay_mismatches(simulation.reward_info)
+        if count:
+            simulations += 1
+            mismatches += count
+    return simulations, mismatches
+
+
 def evaluate_trajectories(
     input_paths: list[str],
     output_dir: str | None = None,
     evaluation_type: EvaluationType = EvaluationType.ALL,
     fresh_tasks: bool = False,
+    strict_replay: bool = False,
+    max_mismatch_rate: float = 1.0,
 ) -> None:
     """
     Evaluate trajectories and optionally save updated results with recomputed rewards.
@@ -160,6 +197,12 @@ def evaluate_trajectories(
         evaluation_type: Type of evaluation to perform
         fresh_tasks: Re-grade against the current task definitions from the data
             directory instead of the ones embedded in each results file.
+        strict_replay: Raise on the first replayed tool call whose output differs
+            from the recorded ToolMessage, as live evaluation does, instead of
+            warning and continuing against a diverged environment.
+        max_mismatch_rate: Fail a file whose share of simulations with a diverged
+            replay exceeds this. The default of 1.0 never fails, so the count is
+            reported without changing which files are accepted.
     """
     files = expand_paths(input_paths, extension=".json")
     console = ConsoleDisplay.console
@@ -201,11 +244,29 @@ def evaluate_trajectories(
                 evaluation_type=evaluation_type,
                 console=console,
                 fresh_tasks=fresh_tasks,
+                strict_replay=strict_replay,
             )
             console.print(
                 f"  ✅ Computed rewards for {len(updated_results.simulations)} simulation(s)",
                 style="green",
             )
+
+            diverged, mismatches = replay_mismatch_summary(updated_results)
+            total = len(updated_results.simulations)
+            rate = diverged / total if total else 0.0
+            if diverged:
+                console.print(
+                    f"  ⚠️  Replay diverged on {diverged}/{total} simulation(s) "
+                    f"({rate:.1%}), {mismatches} tool call(s) returning content "
+                    f"other than the record. Those rewards were computed against "
+                    f"a state the recorded trajectory did not produce.",
+                    style="yellow",
+                )
+                if rate > max_mismatch_rate:
+                    raise ValueError(
+                        f"replay diverged on {rate:.1%} of simulations, above the "
+                        f"--max-mismatch-rate of {max_mismatch_rate:.1%}"
+                    )
 
             # Display metrics
             metrics = compute_metrics(updated_results)
@@ -265,6 +326,17 @@ def make_parser():
         action="store_true",
         help="Re-grade against the current task definitions from the data directory instead of the ones embedded in each results file.",
     )
+    parser.add_argument(
+        "--strict-replay",
+        action="store_true",
+        help="Raise on the first replayed tool call whose output differs from the recorded one, as live evaluation does, instead of warning and continuing against a diverged environment.",
+    )
+    parser.add_argument(
+        "--max-mismatch-rate",
+        type=float,
+        default=1.0,
+        help="Fail a file when the share of simulations whose replay diverged exceeds this (0.0 to 1.0). Default 1.0 never fails; the count is always reported.",
+    )
     return parser
 
 
@@ -273,7 +345,13 @@ def main():
     logger.configure(handlers=[{"sink": sys.stderr, "level": "ERROR"}])
     parser = make_parser()
     args = parser.parse_args()
-    evaluate_trajectories(args.paths, args.output_dir, fresh_tasks=args.fresh_tasks)
+    evaluate_trajectories(
+        args.paths,
+        args.output_dir,
+        fresh_tasks=args.fresh_tasks,
+        strict_replay=args.strict_replay,
+        max_mismatch_rate=args.max_mismatch_rate,
+    )
 
 
 if __name__ == "__main__":

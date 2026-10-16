@@ -296,9 +296,16 @@ class Environment:
         initialization_actions: Optional[list[EnvFunctionCall]],
         message_history: list[Message],
         strict: bool = True,
-    ):
+    ) -> int:
         """
         Set the state of the environment given initialization data and a list of messages.
+
+        Returns:
+            The number of replayed mutating tool calls whose output differed from
+            the recorded ToolMessage. Always 0 when ``strict`` is True, since the
+            first mismatch raises. A non-zero count under lenient replay means
+            the replay diverged from the recorded trajectory, so the state the
+            score is computed against is not the state that produced it.
 
         Args:
             strict: When True (default), raise if a replayed mutating tool call
@@ -367,6 +374,7 @@ class Environment:
                 self.run_env_function_call(action)
 
         action_responses = get_actions_from_messages(message_history)
+        mismatches = 0
         for tool_call, expected_response in action_responses:
             if not self._has_tool(tool_call.name):
                 # Hallucinated tool name. The live env returned a
@@ -401,6 +409,7 @@ class Environment:
                     raise ValueError(
                         f"Tool call:\n{tool_call}\n\nReturned:\n{response}\n\nExpected:\n{expected_response}"
                     )
+                mismatches += 1
                 logger.warning(
                     f"Replayed tool call '{tool_call.name}' returned different "
                     f"content than the recorded ToolMessage; continuing because "
@@ -408,6 +417,7 @@ class Environment:
                     f"code.\nTool call:\n{tool_call}"
                 )
         self.sync_tools()
+        return mismatches
 
     @classmethod
     def to_json_str(cls, resp: Any) -> str:
