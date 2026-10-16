@@ -50,11 +50,10 @@ def analyze_reward(
         else:
             env_success = None
         if RewardType.DB in reward_info.reward_basis:
-            db_success = (
-                is_successful(reward_breakdown[RewardType.DB])
-                if reward_breakdown is not None
-                else 0
+            db_reward = (
+                reward_breakdown.get(RewardType.DB) if reward_breakdown else None
             )
+            db_success = is_successful(db_reward) if db_reward is not None else 0
         else:
             db_success = None
     except Exception as e:

@@ -127,7 +127,7 @@ class Environment:
             return True
         return False
 
-    def _is_mutating_tool(self, tool_name: str) -> bool:
+    def is_mutating_tool(self, tool_name: str) -> bool:
         """Check if a tool mutates environment state.
 
         Looks up ``mutates_state`` on the underlying function via the toolkit.
@@ -385,7 +385,7 @@ class Environment:
             # Non-mutating tools (reads, thinks, etc.) don't change state --
             # skip them to avoid re-execution and non-deterministic output
             # comparison issues.
-            if not self._is_mutating_tool(tool_call.name):
+            if not self.is_mutating_tool(tool_call.name):
                 continue
             response = self.get_response(tool_call)
             try:

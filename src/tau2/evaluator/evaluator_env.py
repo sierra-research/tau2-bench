@@ -9,9 +9,143 @@ from tau2.data_model.message import (
     UserMessage,
 )
 from tau2.data_model.simulation import DBCheck, EnvAssertionCheck, RewardInfo
-from tau2.data_model.tasks import RewardType, Task
+from tau2.data_model.tasks import Action, RewardType, Task
 from tau2.environment.environment import Environment
 from tau2.evaluator.evaluator_base import EvaluatorBase
+
+
+def replay_golden_actions(
+    gold_environment: Environment,
+    golden_actions: list[Action],
+    task_id: str,
+) -> list[dict]:
+    """Replay the reference trajectory on a fresh gold environment.
+
+    Every golden action is executed, in order, exactly as the loop this helper
+    replaces always did: the calls the gold environment receives, and therefore
+    the DB end state that is hashed afterwards, are unchanged. What it adds is a
+    *classification* of the failures it swallows, not a filter on the replay.
+
+    A read-only action that raises cannot have moved the DB, so it keeps the old
+    treatment -- a warning naming the task, the action and the exception -- and
+    does not invalidate the gold state. A *state-mutating* action that raised
+    asked for a DB change that was never applied, so the gold end state is
+    incomplete and no verdict taken from it is usable; those are returned to the
+    caller (see ``_resolve_db_check``).
+
+    Skipping the non-mutating actions instead of running them -- the way
+    ``Environment.set_state`` does for the *predicted* trajectory -- was measured
+    and rejected: it changes no gold hash on the shipped tasks, so it buys no
+    correctness, and it erases the only record that those references point at
+    users, orders and products the DB does not contain.
+
+    Args:
+        gold_environment: The fresh environment the reference is replayed on.
+        golden_actions: ``task.evaluation_criteria.actions``, one reference
+            trajectory. Not a per-call requirement on the agent.
+        task_id: Used to make a failure attributable in the log.
+
+    Returns:
+        One record per state-mutating action that raised. Such an action asked
+        for a DB change that the gold environment never applied, so the gold end
+        state -- and therefore any verdict derived from it -- is unavailable.
+    """
+    failed_actions = []
+    for action in golden_actions:
+        mutating = gold_environment.is_mutating_tool(action.name)
+        try:
+            gold_environment.make_tool_call(
+                tool_name=action.name,
+                requestor=action.requestor,
+                **action.arguments,
+            )
+        except Exception as e:
+            if not mutating:
+                logger.warning(
+                    f"Gold replay for task {task_id}: read-only golden action "
+                    f"{action.action_id} ({action.name}, "
+                    f"requestor={action.requestor}) raised "
+                    f"{type(e).__name__}: {e} (arguments={action.arguments}). The "
+                    "call cannot change the database, so the gold state and the "
+                    "DB verdict are unaffected by it."
+                )
+                continue
+            failed_actions.append(
+                {
+                    "action_id": action.action_id,
+                    "tool_name": action.name,
+                    "requestor": action.requestor,
+                    "error_type": type(e).__name__,
+                    "error": str(e),
+                }
+            )
+            logger.error(
+                f"Gold replay failed for task {task_id}: action "
+                f"{action.action_id} ({action.name}, requestor={action.requestor}) "
+                f"raised {type(e).__name__}: {e}. The reference trajectory could "
+                "not be applied, so the gold database state is incomplete."
+            )
+    return failed_actions
+
+
+def _resolve_db_check(
+    db_match: bool,
+    db_reward: float,
+    failed_golden_actions: list[dict],
+    task_id: str,
+) -> tuple[DBCheck | None, dict]:
+    """Build the DB check, refusing to certify a match on an incomplete gold state.
+
+    A reference trajectory whose state-mutating actions raised never reached the
+    end state the task author described, so the gold hash is one the agent is not
+    expected to reproduce -- a match against it says nothing. Rule 4 of
+    ``src/tau2/evaluator/AGENTS.md`` defines an unavailable criterion as "not
+    evaluated" rather than "failed", and ``RewardInfo.db_check`` already has a
+    value for that (``None``, which ``metrics/agent_metrics.py`` counts in
+    ``db_not_checked``).
+
+    A *mismatch* keeps reporting ``db_reward=0.0``: it is already the failing
+    verdict, and downgrading it to "not evaluated" would raise the reward of an
+    agent that did the wrong thing. Since only a match (``db_reward=1.0``) is
+    dropped, and 1.0 is the identity of the multiplicative reward, this cannot
+    change any total reward.
+
+    The diagnostics travel with the verdict in both directions. A ``0.0`` scored
+    against a gold state that could not be built is the outcome most likely to be
+    mis-read as "the model failed", so it has to carry its own provenance; a
+    trajectory whose reference replayed cleanly gets an empty ``info``, exactly
+    as before.
+
+    Returns:
+        The DB check (``None`` when the match is not certifiable) and the info
+        records to attach to ``RewardInfo.info``.
+    """
+    if not failed_golden_actions:
+        return DBCheck(db_match=db_match, db_reward=db_reward), {}
+    if db_match:
+        logger.error(
+            f"Task {task_id}: {len(failed_golden_actions)} state-mutating golden "
+            "action(s) could not be applied, so the DB hash match is not a pass. "
+            "Reporting db_check=None instead of db_reward=1.0."
+        )
+        return None, {
+            "gold_replay_incomplete": True,
+            "failed_mutating_actions": failed_golden_actions,
+            "db_evaluated": False,
+        }
+    logger.warning(
+        f"Task {task_id}: the DB check reports a mismatch, but "
+        f"{len(failed_golden_actions)} state-mutating golden action(s) could not "
+        "be applied, so the gold state it was compared against is incomplete. "
+        "Keeping db_reward=0.0 -- downgrading a failing verdict to 'not "
+        "evaluated' would upgrade the score of an agent that did the wrong "
+        "thing -- and recording the reason in RewardInfo.info."
+    )
+    return DBCheck(db_match=db_match, db_reward=db_reward), {
+        "gold_replay_incomplete": True,
+        "failed_mutating_actions": failed_golden_actions,
+        "db_evaluated": True,
+    }
 
 
 class EnvironmentEvaluator(EvaluatorBase[Message]):
@@ -102,17 +236,9 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
             strict=strict_replay,
         )
         golden_actions = task.evaluation_criteria.actions or []
-        for action in golden_actions:
-            try:
-                gold_environment.make_tool_call(
-                    tool_name=action.name,
-                    requestor=action.requestor,
-                    **action.arguments,
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Error in golden actions {action.name}({action.arguments}): {e}"
-                )
+        failed_golden_actions = replay_golden_actions(
+            gold_environment, golden_actions, task_id=task.id
+        )
 
         # Comparing the environments
         agent_db_hash = gold_environment.get_db_hash()
@@ -128,7 +254,12 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
             db_reward = 0.0
             db_match = False
 
-        db_check = DBCheck(db_match=db_match, db_reward=db_reward)
+        db_check, replay_info = _resolve_db_check(
+            db_match=db_match,
+            db_reward=db_reward,
+            failed_golden_actions=failed_golden_actions,
+            task_id=task.id,
+        )
 
         # Run env assertions
         env_assertions = task.evaluation_criteria.env_assertions or []
@@ -149,9 +280,12 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
 
         reward = 1.0
         reward_breakdown = {}
-        if RewardType.DB in task.evaluation_criteria.reward_basis:
-            reward_breakdown[RewardType.DB] = db_reward
-            reward *= db_reward
+        if (
+            RewardType.DB in task.evaluation_criteria.reward_basis
+            and db_check is not None
+        ):
+            reward_breakdown[RewardType.DB] = db_check.db_reward
+            reward *= db_check.db_reward
         if RewardType.ENV_ASSERTION in task.evaluation_criteria.reward_basis:
             reward_breakdown[RewardType.ENV_ASSERTION] = env_assertion_reward
             reward *= env_assertion_reward
@@ -162,6 +296,7 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
             env_assertions=env_assertion_checks,
             reward_basis=task.evaluation_criteria.reward_basis,
             reward_breakdown=reward_breakdown,
+            info=replay_info or None,
         )
 
 
@@ -309,17 +444,9 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
             strict=strict_replay,
         )
         golden_actions = task.evaluation_criteria.actions or []
-        for action in golden_actions:
-            try:
-                gold_environment.make_tool_call(
-                    tool_name=action.name,
-                    requestor=action.requestor,
-                    **action.arguments,
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Error in golden actions {action.name}({action.arguments}): {e}"
-                )
+        failed_golden_actions = replay_golden_actions(
+            gold_environment, golden_actions, task_id=task.id
+        )
 
         # Comparing the environments
         agent_db_hash = gold_environment.get_db_hash()
@@ -335,7 +462,12 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
             db_reward = 0.0
             db_match = False
 
-        db_check = DBCheck(db_match=db_match, db_reward=db_reward)
+        db_check, replay_info = _resolve_db_check(
+            db_match=db_match,
+            db_reward=db_reward,
+            failed_golden_actions=failed_golden_actions,
+            task_id=task.id,
+        )
 
         # Run env assertions
         env_assertions = task.evaluation_criteria.env_assertions or []
@@ -356,9 +488,12 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
 
         reward = 1.0
         reward_breakdown = {}
-        if RewardType.DB in task.evaluation_criteria.reward_basis:
-            reward_breakdown[RewardType.DB] = db_reward
-            reward *= db_reward
+        if (
+            RewardType.DB in task.evaluation_criteria.reward_basis
+            and db_check is not None
+        ):
+            reward_breakdown[RewardType.DB] = db_check.db_reward
+            reward *= db_check.db_reward
         if RewardType.ENV_ASSERTION in task.evaluation_criteria.reward_basis:
             reward_breakdown[RewardType.ENV_ASSERTION] = env_assertion_reward
             reward *= env_assertion_reward
@@ -369,4 +504,5 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
             env_assertions=env_assertion_checks,
             reward_basis=task.evaluation_criteria.reward_basis,
             reward_breakdown=reward_breakdown,
+            info=replay_info or None,
         )
