@@ -32,7 +32,7 @@ tau2 factory <verb> --help
 | Stage | Provider | Key | Main cost driver |
 | --- | --- | --- | --- |
 | `autoform` | generation model | provider key, e.g. `OPENAI_API_KEY` | 1 call |
-| `draft` (pack content) | generation model | provider key | 1 call, plus a repair call if the reply fails validation |
+| `draft` (pack content) | generation model | provider key | 1 call, plus at most 1 repair call (`factory_draft_repair`) with the validation error if the reply fails validation |
 | `draft` (`localization.mode="generate"`) | generation model | provider key | 1 call per 32 authored entries per domain (roughly 270 for airline, 190 for retail and 5 for telecom), plus repair calls for rejected batches, plus 1 airport-catalog call for airline |
 | `draft` (`localization.semantic_review`) | generation model | provider key | Optional: 1 call per task, 50 per domain |
 | `prepare-voices` (`config.mode="design"`) | ElevenLabs | `ELEVENLABS_API_KEY` | 2 voice designs + 2 saved voices |
@@ -116,7 +116,7 @@ tau2 run --audio-native --benchmark none --language fr --domain retail --num-tas
    (see [Customer name facts](#customer-name-facts)).
 3. **Content review.** `draft` compiles the regional database, tasks, reference
    actions, identities, policies and airport labels. It then drafts the
-   language and persona content with the fixed `public-pack-draft-v8` prompt.
+   language and persona content with the fixed `public-pack-draft-v9` prompt.
    Compilation requires complete source coverage and preserved schemas,
    relationships, task cohorts and lookup outcomes. `draft.review/index.html`
    shows the language prompts, full tasks, database content and entity
@@ -390,11 +390,16 @@ needs a release-manifest update (`tau2 benchmarks pin voice` and
 Identical reruns reuse staged output without new generation calls. Changed
 inputs or prompt versions refuse reuse. Generated localization checkpoints live
 in `draft.localization/`. If entity generation fails validation, `draft` writes
-`<domain>.failed.json` with the full proposal and error, and no draft.
+`draft.localization/<domain>/mapping.failed.json` with the full proposal and
+error, and no draft.
 Checkpoints are keyed by the whole generation request: an identical rerun
 replays without calls, and changing an input (for example regional `notes`)
-regenerates all batches for that domain. Finalization publishes atomically. An identical
-publication is a no-op, and a different bundle cannot overwrite an existing
+regenerates all batches for that domain. To repair only the failing entries,
+run [`revise-database-localization`](database-localization.md#selective-repair)
+on the failed file and feed its output back with `mode: "reuse"`. If the
+generated pack content fails validation, `draft` makes one repair call with the
+validation error; a second failure stops with that error and writes nothing.
+Finalization publishes atomically. An identical publication is a no-op, and a different bundle cannot overwrite an existing
 destination.
 
 Voice creation records its intent before contacting the provider. If the

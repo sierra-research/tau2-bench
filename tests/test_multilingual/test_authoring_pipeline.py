@@ -186,7 +186,7 @@ def test_complete_draft_assets_finalize_and_runtime_load(
     assert calls[0]["call_name"] == "factory_draft"
     assert staged.pack.schema_version == 3
     assert (
-        staged.prompt_version == pipeline.DRAFT_PROMPT_VERSION == "public-pack-draft-v8"
+        staged.prompt_version == pipeline.DRAFT_PROMPT_VERSION == "public-pack-draft-v9"
     )
     assert calls[0]["messages"][1].content == pipeline.render_draft_prompt(
         draft_request.form
@@ -319,6 +319,62 @@ def test_invalid_generated_content_stays_unpublished(
     )
     with pytest.raises(ValueError):
         draft(draft_request, tmp_path / "draft.json")
+    assert not (tmp_path / "draft.json").exists()
+
+
+def test_draft_prompt_states_scenario_language_and_phrase_budgets(draft_request):
+    prompt = pipeline.render_draft_prompt(draft_request.form)
+    assert "The scenario language" in prompt
+    assert "is English ('en')" in prompt
+    if draft_request.form.identity.language == "en":
+        assert "must omit language_directive" in prompt
+        assert "MUST supply language_directive.origin" not in prompt
+    else:
+        assert "'ro' differs from the scenario language" in prompt
+        assert "MUST supply language_directive.origin" in prompt
+    assert "backchannel_phrases holds 1-2 pure" in prompt
+    assert "non_directed_phrases holds at most 4 glances" in prompt
+    assert "at most 4 words each" in prompt
+
+
+def test_draft_repairs_one_invalid_reply_with_its_validation_error(
+    draft_request, tmp_path, monkeypatch
+):
+    language = draft_request.form.identity.language
+    bad = reply(language)
+    bad["personas"]["Priya"]["voice"]["non_directed_phrases"] = [
+        "one two three four five six"
+    ]
+    replies = [bad, reply(language)]
+    calls = []
+
+    def generate(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(content=json.dumps(replies[len(calls) - 1]))
+
+    monkeypatch.setattr(pipeline, "generate", generate)
+    staged = draft(draft_request, tmp_path / "draft.json")
+    assert [c["call_name"] for c in calls] == ["factory_draft", "factory_draft_repair"]
+    repair = calls[1]["messages"]
+    assert repair[:2] == calls[0]["messages"]
+    assert "the budget is 4 words" in repair[2].content
+    assert "one two three four five six" in repair[2].content
+    assert staged.pack.personas["Priya"].voice.non_directed_phrases == []
+
+
+def test_draft_repair_is_bounded_to_one_call(draft_request, tmp_path, monkeypatch):
+    bad = reply(draft_request.form.identity.language)
+    bad["personas"]["Priya"]["voice"]["backchannel_phrases"] = ["a b c d e"]
+    calls = []
+
+    def generate(**kwargs):
+        calls.append(kwargs["call_name"])
+        return SimpleNamespace(content=json.dumps(bad))
+
+    monkeypatch.setattr(pipeline, "generate", generate)
+    with pytest.raises(ValueError, match="budget"):
+        draft(draft_request, tmp_path / "draft.json")
+    assert calls == ["factory_draft", "factory_draft_repair"]
     assert not (tmp_path / "draft.json").exists()
 
 

@@ -68,11 +68,13 @@ not establish semantic quality.
 
 Unchanged successful batches reuse their checkpoints under
 `<draft>.localization/<domain>/`. If final validation fails, the factory writes
-`<domain>.failed.json` with the complete proposal and error, and no draft.
+`<draft>.localization/<domain>/mapping.failed.json` with the complete proposal
+and error, and no draft.
 Checkpoint identity includes the whole request, so an identical rerun replays
 the same result without new calls, and any input change (for example regional
-`notes`, or a new `revision`) regenerates every batch. There is no
-selective-repair verb.
+`notes`, or a new `revision`) regenerates every batch.
+To fix a few entries without regenerating the rest,
+use [selective repair](#selective-repair).
 Emails and customer IDs are then derived deterministically from the regional
 names (`regional-email-v1`, `regional-user-ids-v1`): emails use short numeric
 suffixes and are collision-checked, and keep the mailbox domain of the map's
@@ -94,6 +96,62 @@ written into its task (the `set_user_info` action, caller prose and an
 database's single mailbox domain. The bundle's `caller_identities` record each
 task's name source and final identity as provenance; the runtime does not read
 them.
+
+## Selective repair
+
+`tau2 factory revise-database-localization` redrafts only the entries you select
+and keeps every other mapping exactly. It reads a `DatabaseRevisionCommand`
+JSON file; paths inside it are relative to that file:
+
+```json
+{
+  "previous_file": "../draft.localization/retail/mapping.failed.json",
+  "previous_kind": "failed",
+  "revision": "de-retail-v1-fix1",
+  "generation": {"model": "gpt-5.5", "reasoning_effort": "low"},
+  "redraft_ids": ["address:<entry id>", "prose:<entry id>"],
+  "feedback_files": ["feedback.md"]
+}
+```
+
+```sh
+tau2 factory revise-database-localization --request revise-request.json \
+  --output retail-map-fix1.json --checkpoints revise-checkpoints/
+```
+
+- `previous_kind` is `map` (a compact map, the default), `failed` (a
+  `*.failed.json` from a failed draft or revision) or `snapshot` (an expanded
+  map).
+  A failed or snapshot input must match the current inventory, unless you set
+  `refresh_inventory: true` to rebind it explicitly.
+- `revision` must be new. `redraft_ids` lists exact entry IDs from the previous
+  artifact's `source.entries`, and `redraft_categories` selects whole
+  categories. Include dependent prose that mentions a changed value: an
+  unselected entry never changes. Automatic entries (emails, derived customer
+  IDs) cannot be selected.
+- `feedback_files` are review facts, for example "source 98178 is the
+  deliberately wrong postal code: map it to a value different from 23552". They
+  go to the fixed revision prompt
+  (`factory_database_localization_revision`) as evidence, not as permission to
+  change unselected records. `reference_files`, `batch_size` and
+  `max_concurrency` work as in generation.
+
+The output is a compact map that passed the same final domain validation as a
+draft. If validation fails again, the verb writes the proposal and error beside
+the output (`retail-map-fix1.failed.json` here), which can be the
+`previous_file` of the next revision.
+
+To use the repaired map in the factory, switch that domain's
+`localization` to `mode: "reuse"` (below) with `mapping` pointing to the
+output, and rerun `draft` to a new output path. The reference digest is the
+canonical JSON digest of the file:
+
+```sh
+python -c "import json,sys; from tau2.multilingual.factory.request_files import json_digest; print(json_digest(json.load(open(sys.argv[1]))))" retail-map-fix1.json
+```
+
+Domains still in `generate` mode replay from their checkpoints without new
+calls.
 
 ## Reuse (`mode: "reuse"`)
 

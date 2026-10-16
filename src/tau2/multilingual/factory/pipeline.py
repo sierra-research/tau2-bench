@@ -9,9 +9,11 @@ from typing import TYPE_CHECKING
 
 import yaml
 
+from tau2.config import SCENARIO_LANGUAGE
 from tau2.data_model.language import (
     LanguagePack,
     PackVoice,
+    cross_lingual,
 )
 from tau2.data_model.message import SystemMessage, UserMessage
 from tau2.multilingual.factory.prompt_rules import (
@@ -27,10 +29,12 @@ from tau2.multilingual.factory.schema import (
     PackContent,
     PublicationProvenance,
     StagePackRequest,
+    validate_content,
 )
 from tau2.multilingual.factory.task_state import initialize_task_state
 from tau2.user.guidelines import GUIDELINE_TEMPLATE_VERSION
 from tau2.utils.artifacts import ReviewApproval, content_digest, write_artifact
+from tau2.utils.brevity import BACKCHANNEL_INVENTORY, NON_DIRECTED_INVENTORY
 from tau2.utils.llm_utils import extract_json_from_llm_response, generate
 from tau2.voice_config import VOCAL_TICS
 
@@ -38,8 +42,9 @@ if TYPE_CHECKING:
     from tau2.multilingual.factory.voice_assets import VoiceAssetsArtifact
 
 
-DRAFT_PROMPT_VERSION = "public-pack-draft-v8"
+DRAFT_PROMPT_VERSION = "public-pack-draft-v9"
 DRAFT_CALL_NAME = "factory_draft"
+DRAFT_REPAIR_CALL_NAME = "factory_draft_repair"
 DRAFT_SYSTEM_PROMPT = (
     "You are the Tau-Voice language-pack drafting assistant. Produce one JSON object "
     "matching the supplied schema, in the requested language and registers."
@@ -51,9 +56,9 @@ Use exactly its two persona names as keys and preserve their genders.
 Return exactly this schema: {schema}
 Every persona must supply gender_guidance and a voice section whose voice_examples
 fill every required slot of the shared scaffold {template_version}, including
-tools-only slots. When the language is not the scenario language, every persona
-must supply language_directive.origin as an English description of where the
-caller is from; the shared scaffold owns the directive wording. Use reviewed
+tools-only slots. The scenario language (the language of task instructions and
+policies) is {scenario_language}. {language_directive_rule} The shared scaffold
+owns the directive wording. Use reviewed
 language-owned text in each slot; do not supply English template source strings,
 replacement pairs or legacy fields. A nonempty localized agent_greeting that works
 for both typed and spoken conversations is required.
@@ -70,7 +75,12 @@ Runtime semantics of fields:
 - Literal spoken fields (agent_greeting and the voice section's backchannel_phrases,
   non_directed_phrases and voice_examples) are said verbatim and use the target language.
 - agent_language_clause is shared by every call: never mention persona names or IDs.
-- backchannel_phrases: at most two very short listener acknowledgments.
+- Phrase inventories are drawn at random with no context, so each has a hard
+  spoken-word budget: backchannel_phrases holds 1-{backchannel_max_phrases} pure
+  listener acknowledgments of at most {backchannel_max_words} words each;
+  non_directed_phrases holds at most {non_directed_max_phrases} glances away from
+  the phone of at most {non_directed_max_words} words each. Count spoken words
+  (scripts without spaces convert characters to words); never exceed a budget.
 - voice.vocal_tics are fixed non-verbal audio tags owned by the runtime: return an
   empty list; never write filler words there.
 Shared authoring contract ({rules_version}):
@@ -86,12 +96,41 @@ is supplied separately by reviewed inputs. Produce JSON only.
 """
 
 
+DRAFT_REPAIR_PROMPT = """The previous reply failed validation and was rejected.
+Return one complete corrected JSON object for the same schema, fixing every listed
+problem and keeping all other reviewed content unchanged. Produce JSON only.
+Validation error:
+{error}
+Rejected reply:
+{reply}
+"""
+
+
+def _language_directive_rule(language: str) -> str:
+    if cross_lingual(language):
+        return (
+            f"This pack's language {language!r} differs from the scenario language, "
+            "so every persona MUST supply language_directive.origin as an English "
+            "description of where the caller is from."
+        )
+    return (
+        f"This pack's language {language!r} is the scenario language, so personas "
+        "must omit language_directive."
+    )
+
+
 def render_draft_prompt(form) -> str:
     """Render the fixed drafting prompt for one reviewed author form."""
     return DRAFT_USER_PROMPT_TEMPLATE.format(
         author_form=form.model_dump_json(),
         schema=json.dumps(PackContent.model_json_schema()),
         template_version=GUIDELINE_TEMPLATE_VERSION,
+        scenario_language=f"English ({SCENARIO_LANGUAGE!r})",
+        language_directive_rule=_language_directive_rule(form.identity.language),
+        backchannel_max_phrases=BACKCHANNEL_INVENTORY.max_phrases,
+        backchannel_max_words=BACKCHANNEL_INVENTORY.max_words,
+        non_directed_max_phrases=NON_DIRECTED_INVENTORY.max_phrases,
+        non_directed_max_words=NON_DIRECTED_INVENTORY.max_words,
         rules_version=AUTHORING_RULES_VERSION,
         rules=AUTHORING_RULES,
         spelling_section=REQUESTED_SPELLING_SECTION,
@@ -199,35 +238,9 @@ def _write_draft(result, output):
     return result
 
 
-def draft(request: DraftRequest, output: Path) -> DraftArtifact:
-    """Generate once into a typed, reviewable candidate; reject stale resumes."""
-    request = DraftRequest.model_validate(request.model_dump())
-    digest = content_digest(request)
-    if output.exists():
-        previous = DraftArtifact.model_validate_json(output.read_text())
-        if (
-            previous.input_sha256 == digest
-            and previous.prompt_version == DRAFT_PROMPT_VERSION
-        ):
-            return _write_draft(previous, output)
-        raise FileExistsError("authoring inputs changed; use a new output path")
-    if len({d.domain for d in request.domains}) != len(request.domains):
-        raise ValueError("duplicate domain inputs")
-    bundles = _build_domains(
-        request.domains, request.form.identity, output.with_suffix(".localization")
-    )
-    reply = generate(
-        model=request.generation.model,
-        reasoning_effort=request.generation.reasoning_effort,
-        messages=[
-            SystemMessage(role="system", content=DRAFT_SYSTEM_PROMPT),
-            UserMessage(role="user", content=render_draft_prompt(request.form)),
-        ],
-        call_name=DRAFT_CALL_NAME,
-    )
-    content = PackContent.model_validate_json(
-        extract_json_from_llm_response(reply.content or "")
-    )
+def _draft_pack(request: DraftRequest, bundles, raw: str) -> DraftPack:
+    """Validate one generated reply into a draft pack; any defect is a ValueError."""
+    content = PackContent.model_validate_json(extract_json_from_llm_response(raw))
     if {name: p.gender for name, p in content.personas.items()} != {
         p.name: p.gender for p in request.form.personas
     }:
@@ -248,6 +261,57 @@ def draft(request: DraftRequest, output: Path) -> DraftArtifact:
         ),
         domains={name: bundle.binding() for name, bundle in bundles.items()},
     )
+    validate_content(pack)
+    return pack
+
+
+def draft(request: DraftRequest, output: Path) -> DraftArtifact:
+    """Generate (with at most one repair) a typed, reviewable candidate; reject stale resumes."""
+    request = DraftRequest.model_validate(request.model_dump())
+    digest = content_digest(request)
+    if output.exists():
+        previous = DraftArtifact.model_validate_json(output.read_text())
+        if (
+            previous.input_sha256 == digest
+            and previous.prompt_version == DRAFT_PROMPT_VERSION
+        ):
+            return _write_draft(previous, output)
+        raise FileExistsError("authoring inputs changed; use a new output path")
+    if len({d.domain for d in request.domains}) != len(request.domains):
+        raise ValueError("duplicate domain inputs")
+    bundles = _build_domains(
+        request.domains, request.form.identity, output.with_suffix(".localization")
+    )
+    messages = [
+        SystemMessage(role="system", content=DRAFT_SYSTEM_PROMPT),
+        UserMessage(role="user", content=render_draft_prompt(request.form)),
+    ]
+    reply = generate(
+        model=request.generation.model,
+        reasoning_effort=request.generation.reasoning_effort,
+        messages=messages,
+        call_name=DRAFT_CALL_NAME,
+    )
+    try:
+        pack = _draft_pack(request, bundles, reply.content or "")
+    except ValueError as error:
+        # One bounded repair call with the validation error; a second failure
+        # surfaces to the author instead of looping on paid calls.
+        repair = generate(
+            model=request.generation.model,
+            reasoning_effort=request.generation.reasoning_effort,
+            messages=messages
+            + [
+                UserMessage(
+                    role="user",
+                    content=DRAFT_REPAIR_PROMPT.format(
+                        error=error, reply=reply.content or ""
+                    ),
+                )
+            ],
+            call_name=DRAFT_REPAIR_CALL_NAME,
+        )
+        pack = _draft_pack(request, bundles, repair.content or "")
     result = DraftArtifact(
         pack=pack,
         domains=bundles,
