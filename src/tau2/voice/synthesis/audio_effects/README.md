@@ -60,7 +60,8 @@ Background noise generation with natural volume variations:
 
 Out-of-turn speech synthesis:
 
-- **`OutOfTurnSpeechGenerator`** - Pre-generates and caches speech for:
+- **`OutOfTurnSpeechGenerator`** - Loads speech from a process-wide cache and
+  materializes misses sequentially for:
   - **Vocal tics**: "um", "uh", "hmm" (during speech)
   - **Non-directed phrases**: "one sec", "hold on" (during silence, muffled)
 - **`create_streaming_audio_generators(config, voice_id, ...)`** - Creates both noise and speech generators
@@ -194,4 +195,3 @@ Most effects require **PCM_S16LE** (16-bit signed little-endian PCM) input:
 - `numpy` - Array operations
 - `scipy.signal` - Butterworth filters for muffling/bandpass
 - `audioop` - Resampling with state preservation (streaming telephony)
-

@@ -48,6 +48,7 @@ from tau2.config import (
     DEFAULT_WAIT_TO_RESPOND_THRESHOLD_SELF_SECONDS,
     DEFAULT_YIELD_THRESHOLD_WHEN_INTERRUPTED_SECONDS,
     DEFAULT_YIELD_THRESHOLD_WHEN_INTERRUPTING_SECONDS,
+    ELEVENLABS_AGENT_ID_PREFIXES,
 )
 from tau2.data_model.audio_effects import EffectTimeline
 from tau2.data_model.message import Message, Tick
@@ -59,6 +60,7 @@ from tau2.environment.environment import EnvironmentInfo
 from tau2.environment.toolkit import ToolType
 from tau2.orchestrator.modes import CommunicationMode
 from tau2.utils.utils import get_now
+from tau2.voice.audio_native.ava_zero_pipecat.config import AvaZeroPipecatConfig
 from tau2.voice.audio_native.openai.live_config import LiveConfig
 
 SIMULATIONS_DIR = "simulations"
@@ -73,10 +75,19 @@ class AudioNativeConfig(BaseModel):
 
     # Provider selection
     provider: Literal[
-        "openai", "openai_live", "gemini", "xai", "nova", "qwen", "livekit", "launa"
+        "openai",
+        "openai_live",
+        "gemini",
+        "xai",
+        "nova",
+        "qwen",
+        "elevenlabs",
+        "ava_zero_pipecat",
+        "livekit",
+        "launa",
     ] = Field(
         default=DEFAULT_AUDIO_NATIVE_PROVIDER,
-        description="Audio native API provider: 'openai' (OpenAI Realtime), 'openai_live' (OpenAI Live), 'gemini' (Gemini Live), 'xai' (xAI Grok Voice Agent), 'nova' (Amazon Nova Sonic), 'qwen' (Alibaba Qwen Omni), 'launa' (Salesforce Launa), or 'livekit' (LiveKit cascaded STT→LLM→TTS)",
+        description="Audio native API provider: 'openai' (OpenAI Realtime), 'openai_live' (OpenAI Live), 'gemini' (Gemini Live), 'xai' (xAI Grok Voice Agent), 'nova' (Amazon Nova Sonic), 'qwen' (Alibaba Qwen Omni), 'elevenlabs' (hosted ElevenLabs agent), 'ava_zero_pipecat' (Ava Zero over Pipecat RTVI), 'launa' (Salesforce Launa), or 'livekit' (LiveKit cascaded STT→LLM→TTS)",
     )
 
     # Cascaded config (for livekit provider)
@@ -85,9 +96,17 @@ class AudioNativeConfig(BaseModel):
         description="Name of cascaded config preset for livekit provider (e.g., 'default', 'openai-thinking', 'openai-thinking-high')",
     )
 
+    ava_zero_config: Optional[AvaZeroPipecatConfig] = Field(
+        default=None,
+        description="Server connection settings for the ava_zero_pipecat provider",
+    )
+
     model: str = Field(
         default=DEFAULT_AUDIO_NATIVE_MODELS[DEFAULT_AUDIO_NATIVE_PROVIDER],
-        description="Audio native model to use",
+        description=(
+            "Audio native model to use (hosted agent ID for ElevenLabs; "
+            "server-side agent ID for Ava Zero)"
+        ),
     )
     reasoning_effort: Optional[str] = Field(
         default=None,
@@ -115,6 +134,39 @@ class AudioNativeConfig(BaseModel):
         if (self.provider == "openai_live") != (self.live_config is not None):
             raise ValueError(
                 "live_config is required for openai_live and only valid for that provider"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_elevenlabs_agent_id(self):
+        """Require a hosted agent ID instead of another provider's model default."""
+        if self.provider == "elevenlabs" and not self.model.startswith(
+            ELEVENLABS_AGENT_ID_PREFIXES
+        ):
+            raise ValueError(
+                "The elevenlabs provider requires --audio-native-model to be an "
+                "agent ID beginning with 'agent_' or 'seng_'"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_ava_zero_config(self):
+        """Keep the Ava Zero agent ID and the generic model field in sync."""
+        if self.provider == "ava_zero_pipecat":
+            default_model = DEFAULT_AUDIO_NATIVE_MODELS[DEFAULT_AUDIO_NATIVE_PROVIDER]
+            if self.ava_zero_config is None:
+                if self.model == default_model:
+                    self.model = DEFAULT_AUDIO_NATIVE_MODELS["ava_zero_pipecat"]
+                self.ava_zero_config = AvaZeroPipecatConfig(agent=self.model)
+            elif self.model == default_model:
+                self.model = self.ava_zero_config.agent
+            elif self.ava_zero_config.agent != self.model:
+                raise ValueError(
+                    "ava_zero_config.agent must match audio_native_config.model"
+                )
+        elif self.ava_zero_config is not None:
+            raise ValueError(
+                "ava_zero_config is only valid when provider='ava_zero_pipecat'"
             )
         return self
 
@@ -1371,6 +1423,10 @@ class SimulationRun(BaseModel):
     )
     provider_session_id: Optional[str] = Field(
         description="Provider session ID (e.g., OpenAI session ID, xAI conversation ID) for debugging.",
+        default=None,
+    )
+    provider_cost_report: Optional[dict] = Field(
+        description="Provider-native per-session cost and usage metadata.",
         default=None,
     )
     policy: Optional[str] = Field(

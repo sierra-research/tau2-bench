@@ -58,9 +58,16 @@ def tts_elevenlabs(
     Returns:
         AudioData with the specified output format
     """
-    api_key = config.api_key or os.getenv("ELEVENLABS_API_KEY")
+    api_key = (
+        config.api_key
+        or os.getenv("ELEVENLABS_TTS_API_KEY")
+        or os.getenv("ELEVENLABS_API_KEY")
+    )
     if not api_key:
-        raise ValueError("ELEVENLABS_API_KEY not found in config or environment")
+        raise ValueError(
+            "ElevenLabs TTS API key not found in config, "
+            "ELEVENLABS_TTS_API_KEY, or ELEVENLABS_API_KEY"
+        )
 
     is_v3 = "v3" in config.model_id.lower()
 

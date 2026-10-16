@@ -45,6 +45,7 @@ from tau2.runner.work import (
     WorkUnit,
 )
 from tau2.utils.display import ConsoleDisplay, Text
+from tau2.utils.errors import NonRetryableError
 from tau2.utils.llm_utils import llm_log_mode
 from tau2.utils.utils import DATA_DIR, get_now
 
@@ -169,6 +170,7 @@ class Controller:
         )
         self.lease_ttl_seconds = lease_ttl_seconds
         self.monitor = monitor
+        self.fatal_error: Optional[str] = None
         self._written: set[str] = set()
         self._write_lock = threading.Lock()
         self._units_by_id = {unit.unit_id: unit for run in runs for unit in run.units}
@@ -185,6 +187,8 @@ class Controller:
         return f"{unit.task_id}.{unit.trial}"
 
     def handle_lease(self, worker_id: str) -> dict:
+        if self.fatal_error is not None:
+            return {"status": "failed", "error": self.fatal_error}
         unit = self.queue.lease(worker_id)
         if unit is None:
             if self.queue.all_resolved():
@@ -228,7 +232,15 @@ class Controller:
         self._write(run, unit_id, sim)
         return {"status": "ok"}
 
-    def handle_fail(self, worker_id: str, unit_id: str, error: str) -> dict:
+    def handle_fail(
+        self, worker_id: str, unit_id: str, error: str, *, fatal: bool = False
+    ) -> dict:
+        if fatal:
+            # Only a worker holding a current lease may abort the run.
+            if not self.queue.heartbeat(unit_id, worker_id=worker_id):
+                return {"status": "stale"}
+            self.fatal_error = error
+            return {"status": "failed", "error": error}
         outcome = self.queue.fail(unit_id, error, worker_id=worker_id)
         if outcome == FailOutcome.REQUEUED and self.monitor:
             unit = self._unit_from_id(unit_id)
@@ -308,7 +320,10 @@ class Controller:
             check_auth(request)
             body = await request.json()
             return self.handle_fail(
-                body["worker_id"], body["unit_id"], body.get("error", "")
+                body["worker_id"],
+                body["unit_id"],
+                body.get("error", ""),
+                fatal=body.get("fatal") is True,
             )
 
         @app.post("/heartbeat")
@@ -323,6 +338,7 @@ class Controller:
             return {
                 "counts": self.queue.counts(),
                 "done": self.queue.all_resolved(),
+                "fatal_error": self.fatal_error,
             }
 
         return app
@@ -437,6 +453,8 @@ def drive_batches(
 
     try:
         while not controller.queue.all_resolved():
+            if controller.fatal_error is not None:
+                raise NonRetryableError(controller.fatal_error)
             if all(proc.poll() is not None for proc in procs):
                 # Every worker exited while work remains: reap what their
                 # leases owe, then surface the failure with the logs to read.
@@ -473,6 +491,10 @@ def drive_batches(
         )
         os._exit(130)
     finally:
+        if controller.fatal_error is not None:
+            for proc in procs:
+                if proc.poll() is None:
+                    proc.terminate()
         controller.flush_dead_units()
         server.should_exit = True
 

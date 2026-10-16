@@ -16,7 +16,8 @@
 
 | Provider | Env Variable | Used By |
 |----------|-------------|---------|
-| ElevenLabs | `ELEVENLABS_API_KEY` | TTS synthesis |
+| ElevenLabs | `ELEVENLABS_TTS_API_KEY` (falls back to `ELEVENLABS_API_KEY`) | TTS synthesis |
+| ElevenLabs Agents | `ELEVENLABS_API_KEY` | Hosted-agent connections |
 | Deepgram | `DEEPGRAM_API_KEY` | `nova-2`, `nova-3` transcription |
 | OpenAI | `OPENAI_API_KEY` | `whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe` |
 
@@ -67,7 +68,7 @@ Do NOT change this order — it affects noise levels and SNR behavior.
 ### Key Components
 
 - **`BackgroundNoiseGenerator`**: Looping background noise with SNR-based mixing. Also owns burst scheduling (Poisson).
-- **`OutOfTurnSpeechGenerator`**: Pre-generates vocal tics and non-directed phrases via TTS. Non-directed phrases get muffling; vocal tics are clear.
+- **`OutOfTurnSpeechGenerator`**: Loads vocal tics and non-directed phrases from a process-wide TTS cache, materializing misses sequentially. Non-directed phrases get muffling; vocal tics are clear.
 - **`EffectScheduler`**: Poisson for burst noise/speech inserts, Gilbert-Elliott for frame drops.
 
 ### Audio Tags

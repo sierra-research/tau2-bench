@@ -26,6 +26,7 @@ from tau2.data_model.simulation import SimulationRun, TextRunConfig, VoiceRunCon
 from tau2.data_model.tasks import Task
 from tau2.evaluator.evaluator import EvaluationType
 from tau2.runner.work import WorkUnit
+from tau2.utils.errors import NonRetryableError
 
 AUTH_TOKEN_ENV = "TAU2_CONTROLLER_TOKEN"
 
@@ -85,9 +86,17 @@ class ControllerClient:
             {"worker_id": worker_id, "unit_id": unit_id, "result": result},
         )
 
-    def fail(self, worker_id: str, unit_id: str, error: str) -> dict:
+    def fail(
+        self, worker_id: str, unit_id: str, error: str, *, fatal: bool = False
+    ) -> dict:
         return self._post(
-            "/fail", {"worker_id": worker_id, "unit_id": unit_id, "error": error}
+            "/fail",
+            {
+                "worker_id": worker_id,
+                "unit_id": unit_id,
+                "error": error,
+                "fatal": fatal,
+            },
         )
 
     def heartbeat(self, worker_id: str, unit_ids: list[str]) -> dict:
@@ -234,12 +243,19 @@ def worker_loop(
                     sim = future.result()
                 except BaseException as e:
                     logger.error(f"Unit {unit_id} failed in worker: {e}")
-                    resp = client.fail(worker_id, unit_id, f"{type(e).__name__}: {e}")
+                    resp = client.fail(
+                        worker_id,
+                        unit_id,
+                        f"{type(e).__name__}: {e}",
+                        fatal=isinstance(e, NonRetryableError),
+                    )
                 else:
                     resp = client.complete(
                         worker_id, unit_id, sim.model_dump(mode="json")
                     )
                 status = resp.get("status")
+                if status == "failed":
+                    raise NonRetryableError(resp["error"])
                 if status == "stale":
                     logger.warning(
                         f"Result for {unit_id} arrived after its lease was lost; "
@@ -253,6 +269,8 @@ def worker_loop(
             # Fill free slots.
             if len(inflight) < slots:
                 body = client.lease(worker_id)
+                if body["status"] == "failed":
+                    raise NonRetryableError(body["error"])
                 if body["status"] == "unit":
                     _maybe_preregister_livekit(body["run"], preregistered)
                     heartbeats.leased(body["unit"]["unit_id"])

@@ -57,6 +57,7 @@ from tau2.user.user_simulator import (
 )
 from tau2.user_simulation_voice_presets import COMPLEXITY_CONFIGS
 from tau2.utils.display import ConsoleDisplay, Text
+from tau2.utils.errors import NonRetryableError
 from tau2.utils.llm_utils import llm_log_mode, set_llm_log_dir, set_llm_log_mode
 from tau2.utils.utils import DATA_DIR
 
@@ -980,10 +981,11 @@ def run_tasks(
     tasks_by_id = {task.id: task for task in tasks}
     queue = WorkQueue(prep.units, max_attempts=1, lease_ttl_seconds=float("inf"))
     results_lock = threading.Lock()
+    fatal_stop = threading.Event()
 
     def _consume(consumer_idx: int) -> None:
         worker_id = f"local-{consumer_idx}"
-        while not shutdown_event.is_set():
+        while not shutdown_event.is_set() and not fatal_stop.is_set():
             unit = queue.lease(worker_id)
             if unit is None:
                 return
@@ -997,6 +999,8 @@ def run_tasks(
                 )
             except BaseException as e:
                 queue.fail(unit.unit_id, str(e), worker_id=worker_id)
+                if isinstance(e, NonRetryableError):
+                    fatal_stop.set()
                 raise
             queue.complete(unit.unit_id, worker_id=worker_id)
             with results_lock:
@@ -1031,7 +1035,9 @@ def run_tasks(
     finally:
         monitor.stop()
         if not shutdown_event.is_set():
-            executor.shutdown(wait=True)
+            executor.shutdown(
+                wait=not fatal_stop.is_set(), cancel_futures=fatal_stop.is_set()
+            )
 
     ConsoleDisplay.console.print(
         "\n[bold green]Successfully completed all simulations![/bold green]\n"

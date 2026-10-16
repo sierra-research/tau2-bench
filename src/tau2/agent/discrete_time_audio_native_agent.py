@@ -45,6 +45,7 @@ from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
 from loguru import logger
 
 if TYPE_CHECKING:
+    from tau2.voice.audio_native.ava_zero_pipecat.config import AvaZeroPipecatConfig
     from tau2.voice.audio_native.gemini.provider import GeminiVADConfig
     from tau2.voice.audio_native.livekit.config import CascadedConfig
     from tau2.voice.audio_native.nova.provider import NovaVADConfig
@@ -84,7 +85,15 @@ from tau2.voice.pricing import compute_tick_cost
 
 # Provider type alias
 AudioNativeProvider = Literal[
-    "openai", "openai_live", "gemini", "xai", "nova", "qwen", "livekit"
+    "openai",
+    "openai_live",
+    "gemini",
+    "xai",
+    "nova",
+    "qwen",
+    "elevenlabs",
+    "ava_zero_pipecat",
+    "livekit",
 ]
 
 # VAD config union type (string annotations for lazy resolution)
@@ -217,6 +226,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         cascaded_config: Optional["CascadedConfig"] = None,
         audio_taps_dir: Optional[Path] = None,
         live_config: Optional[LiveConfig] = None,
+        ava_zero_config: Optional["AvaZeroPipecatConfig"] = None,
     ):
         """Initialize the discrete-time audio native agent.
 
@@ -237,7 +247,8 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
                 - "openai": OpenAI Realtime API (DEFAULT_AUDIO_NATIVE_PROVIDER)
                 - "gemini": Google Gemini Live API
             model: Model to use. Defaults to None. If not provided, the default
-                model for the provider will be used.
+                model for the provider will be used. For ElevenLabs, this is the
+                required hosted agent ID.
             max_inactive_seconds: Maximum seconds without provider activity before
                 raising a stall error. Set to 0 to disable stall detection.
                 Default is 30 seconds.
@@ -248,6 +259,8 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
                 Only used when provider="livekit". Ignored for other providers.
                 Can be a CascadedConfig instance or None to use defaults.
             audio_taps_dir: Directory to save audio taps. Only used when audio_taps_dir is not None.
+            ava_zero_config: Connection settings for an Ava Zero server. Only
+                used when provider="ava_zero_pipecat".
         """
         self.tools = tools
         self.domain_policy = domain_policy
@@ -261,6 +274,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
         self.max_inactive_seconds = max_inactive_seconds
         self.cascaded_config = cascaded_config
         self.live_config = live_config
+        self.ava_zero_config = ava_zero_config
         self._live_trace_path = (
             audio_taps_dir / "live.jsonl" if audio_taps_dir else None
         )
@@ -298,6 +312,9 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             from tau2.voice.audio_native.qwen.provider import QwenVADConfig
 
             self.vad_config = QwenVADConfig()
+        elif provider in {"elevenlabs", "ava_zero_pipecat"}:
+            # Turn detection is configured on the hosted agent or server.
+            self.vad_config = None
         elif provider == "livekit":
             from tau2.voice.audio_native.livekit.discrete_time_adapter import (
                 LiveKitVADConfig,
@@ -379,6 +396,7 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
                 cascaded_config=self.cascaded_config,
                 live_config=self.live_config,
                 trace_path=self._live_trace_path,
+                ava_zero_config=self.ava_zero_config,
             )
         return self._adapter
 
@@ -860,6 +878,7 @@ def create_discrete_time_audio_native_agent(tools, domain_policy, **kwargs):
             cascaded_config=getattr(audio_native_config, "cascaded_config", None),
             audio_taps_dir=audio_taps_dir,
             live_config=audio_native_config.live_config,
+            ava_zero_config=audio_native_config.ava_zero_config,
         )
     else:
         # Fallback: use individual kwargs or defaults

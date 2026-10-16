@@ -5,6 +5,7 @@ This extends the BaseOrchestrator to support simultaneous bidirectional
 communication between agent and user.
 """
 
+import math
 import time
 from copy import deepcopy
 from typing import Any, Optional, TypeVar, Union
@@ -36,6 +37,22 @@ from tau2.voice.utils.transcript_utils import compute_proportional_user_transcri
 # Type variables for generic full-duplex orchestrator
 StreamingAgentT = TypeVar("StreamingAgentT", bound=FullDuplexAgent)
 StreamingUserT = TypeVar("StreamingUserT", bound=FullDuplexUser)
+
+
+def _agent_cost_from_provider_report(
+    message_cost: Optional[float], provider_cost_report: Any
+) -> Optional[float]:
+    """Prefer a valid provider-native session total over message-level cost."""
+
+    if not isinstance(provider_cost_report, dict):
+        return message_cost
+    total = provider_cost_report.get("total_cost_usd")
+    if isinstance(total, bool) or not isinstance(total, (int, float)):
+        return None if message_cost == 0.0 else message_cost
+    total = float(total)
+    if not math.isfinite(total) or total < 0:
+        return None if message_cost == 0.0 else message_cost
+    return total
 
 
 class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, Tick]):
@@ -599,9 +616,15 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
 
         # Extract provider session ID if available (e.g., OpenAI session ID)
         provider_session_id = None
+        provider_cost_report = None
         if hasattr(self.agent, "adapter") and hasattr(self.agent.adapter, "provider"):
             provider = self.agent.adapter.provider
             provider_session_id = getattr(provider, "session_id", None)
+            provider_cost_report = getattr(provider, "cost_report", None)
+        if agent_usage is None and provider_cost_report is not None:
+            agent_cost = _agent_cost_from_provider_report(
+                agent_cost, provider_cost_report
+            )
 
         # Collect effect timeline from user simulator if available
         effect_timeline = None
@@ -627,6 +650,7 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
             seed=self.seed,
             mode=self.mode.value,
             speech_environment=speech_environment,
+            provider_cost_report=provider_cost_report,
             info=info,
             provider_session_id=provider_session_id,
             effect_timeline=effect_timeline,

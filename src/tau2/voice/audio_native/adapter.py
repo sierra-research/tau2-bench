@@ -33,6 +33,7 @@ from tau2.voice.audio_native.tick_result import (
 )
 
 if TYPE_CHECKING:
+    from tau2.voice.audio_native.ava_zero_pipecat.config import AvaZeroPipecatConfig
     from tau2.voice.audio_native.openai.live_config import LiveConfig
 
 
@@ -389,6 +390,7 @@ def create_adapter(
     cascaded_config: Any = None,
     live_config: Optional["LiveConfig"] = None,
     trace_path: Optional[Path] = None,
+    ava_zero_config: Optional["AvaZeroPipecatConfig"] = None,
 ) -> Tuple[DiscreteTimeAdapter, str]:
     """Create a discrete-time adapter for the given provider.
 
@@ -398,7 +400,7 @@ def create_adapter(
 
     Args:
         provider: Provider identifier (openai, gemini, xai, nova, qwen,
-            livekit).
+            elevenlabs, ava_zero_pipecat, livekit).
         tick_duration_ms: Duration of each tick in milliseconds.
         send_audio_instant: If True, send audio in one call per tick.
         model: Model identifier. If None, uses the provider's default.
@@ -407,6 +409,7 @@ def create_adapter(
         cascaded_config: Configuration for cascaded providers (livekit).
         live_config: Frontend and delegated backend configuration for OpenAI Live.
         trace_path: Optional private protocol trace for OpenAI Live.
+        ava_zero_config: Connection settings for an Ava Zero server.
 
     Returns:
         Tuple of (adapter, resolved_model).
@@ -420,7 +423,9 @@ def create_adapter(
 
     # --- Resolve model default ---
     if model is None:
-        if provider == "livekit":
+        if provider == "ava_zero_pipecat" and ava_zero_config is not None:
+            model = ava_zero_config.agent
+        elif provider == "livekit":
             from tau2.voice.audio_native.livekit.config import CascadedConfig
 
             config = cascaded_config or CascadedConfig()
@@ -521,6 +526,30 @@ def create_adapter(
             send_audio_instant=send_audio_instant,
             model=model,
             reasoning_effort=reasoning_effort,
+        )
+    elif provider == "elevenlabs":
+        from tau2.voice.audio_native.elevenlabs.discrete_time_adapter import (
+            DiscreteTimeElevenLabsAdapter,
+        )
+
+        adapter = DiscreteTimeElevenLabsAdapter(
+            tick_duration_ms=tick_duration_ms,
+            send_audio_instant=send_audio_instant,
+            model=model,
+            reasoning_effort=reasoning_effort,
+        )
+    elif provider == "ava_zero_pipecat":
+        from tau2.voice.audio_native.ava_zero_pipecat.discrete_time_adapter import (
+            DiscreteTimeAvaZeroPipecatAdapter,
+        )
+
+        adapter = DiscreteTimeAvaZeroPipecatAdapter(
+            tick_duration_ms=tick_duration_ms,
+            send_audio_instant=send_audio_instant,
+            model=model,
+            reasoning_effort=reasoning_effort,
+            audio_format=audio_format,
+            ava_zero_config=ava_zero_config,
         )
     elif provider == "livekit":
         from tau2.voice.audio_native.livekit.config import CascadedConfig
