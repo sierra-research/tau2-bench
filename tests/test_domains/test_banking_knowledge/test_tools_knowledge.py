@@ -587,6 +587,104 @@ class TestLogVerification:
         resp = call(environment, "log_verification", args)
         assert "Failed" in resp.content or "already exist" in resp.content
 
+    @pytest.mark.parametrize(
+        "time_verified",
+        [
+            "2025-11-14 03:40:00 EST",
+            "2025-11-14T03:40:00",
+            "2025-11-14 03:40 EST",
+            "2025-11-14 03:40:00",
+            " 2025-11-14 03:40:00 est ",
+            "2025-11-14T03:40:00-05:00",
+            "The current time is 2025-11-14 03:40:00 EST.",
+        ],
+    )
+    def test_equivalent_timestamps_are_canonicalized(
+        self, environment: Environment, time_verified: str
+    ):
+        """Formats of the fixed 'now' all produce the canonical record."""
+        args = {**self.ARGS, "time_verified": time_verified}
+        resp = call(environment, "log_verification", args)
+        assert not resp.error
+        records = environment.tools.db.verification_history.data
+        assert list(records) == ["user_001_20251114_034000_EST"]
+        assert records["user_001_20251114_034000_EST"]["time_verified"] == (
+            "2025-11-14 03:40:00 EST"
+        )
+
+    @pytest.mark.parametrize(
+        "time_verified",
+        [
+            "2024-01-01 00:00:00 EST",
+            "2025-11-14 03:41:00 EST",
+            "2025-11-14 03:40:00 PST",
+            "2025-11-14T03:40:00Z",
+            "2025-11-14T03:40:00+00:00",
+            "now",
+        ],
+    )
+    def test_non_matching_timestamps_are_kept(
+        self, environment: Environment, time_verified: str
+    ):
+        """A fabricated or different time is stored as given, not corrected."""
+        args = {**self.ARGS, "time_verified": time_verified}
+        call(environment, "log_verification", args)
+        records = environment.tools.db.verification_history.data
+        assert [r["time_verified"] for r in records.values()] == [time_verified]
+
+    def test_equivalent_timestamps_give_same_db_hash(self, base_knowledge_db):
+        """DB-graded tasks compare hashes, so format must not change the hash."""
+        hashes = set()
+        for time_verified in ("2025-11-14 03:40:00 EST", "2025-11-14T03:40:00"):
+            env = _create_test_environment(base_knowledge_db.model_copy(deep=True))
+            call(env, "log_verification", {**self.ARGS, "time_verified": time_verified})
+            hashes.add(env.get_db_hash())
+        assert len(hashes) == 1
+
+    def test_response_echoes_caller_timestamp(self, environment: Environment):
+        """The reply text is unchanged, so historical trajectories replay strictly."""
+        args = {**self.ARGS, "time_verified": "2025-11-14T03:40:00"}
+        resp = call(environment, "log_verification", args)
+        assert resp.content.endswith("Verified at: 2025-11-14T03:40:00")
+
+    def test_strict_replay_of_recorded_trajectory(self, base_knowledge_db):
+        """A trajectory recorded before this change replays with strict=True."""
+        from tau2.data_model.message import AssistantMessage, ToolMessage
+
+        args = {**self.ARGS, "time_verified": "2025-11-14T03:40:00"}
+        recorded_output = (
+            "Verification logged successfully.\n"
+            "  - User: Amara Okonkwo (ID: user_001)\n"
+            "  - Verified at: 2025-11-14T03:40:00"
+        )
+        history = [
+            AssistantMessage(
+                role="assistant",
+                tool_calls=[
+                    ToolCall(id="tc1", name="log_verification", arguments=args)
+                ],
+            ),
+            ToolMessage(id="tc1", role="tool", content=recorded_output),
+        ]
+        env = _create_test_environment(base_knowledge_db.model_copy(deep=True))
+        env.set_state(
+            initialization_data=None,
+            initialization_actions=None,
+            message_history=history,
+            strict=True,
+        )
+        records = env.tools.db.verification_history.data
+        assert list(records) == ["user_001_20251114_034000_EST"]
+
+    ARGS = {
+        "name": "Amara Okonkwo",
+        "user_id": "user_001",
+        "address": "305 Magnolia Street, Houston, TX 77002",
+        "email": "amara@icloud.com",
+        "phone_number": "713-555-0963",
+        "date_of_birth": "08/11/1997",
+    }
+
 
 # =============================================================================
 # 4. Referral and Transaction Lookup
