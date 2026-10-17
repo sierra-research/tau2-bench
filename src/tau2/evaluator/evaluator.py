@@ -266,6 +266,12 @@ def evaluate_simulation(
             communicate_checks=communicate_reward_info.communicate_checks,
             reward_basis=task.evaluation_criteria.reward_basis,
             reward_breakdown=reward_breakdown,
+            evaluator_cost=(
+                nl_reward_info.evaluator_cost if nl_reward_info is not None else None
+            ),
+            evaluator_usage=(
+                nl_reward_info.evaluator_usage if nl_reward_info is not None else None
+            ),
             info={
                 "env": env_reward_info.info,
                 "nl": nl_reward_info.info if nl_reward_info is not None else None,
@@ -339,6 +345,12 @@ def evaluate_simulation(
                 *([RewardType.NL_ASSERTION] if nl_reward_info is not None else []),
             ],
             reward_breakdown=reward_breakdown,
+            evaluator_cost=(
+                nl_reward_info.evaluator_cost if nl_reward_info is not None else None
+            ),
+            evaluator_usage=(
+                nl_reward_info.evaluator_usage if nl_reward_info is not None else None
+            ),
             info={
                 "env": env_reward_info.info,
                 "nl": nl_reward_info.info if nl_reward_info is not None else None,

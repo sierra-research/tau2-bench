@@ -1139,6 +1139,20 @@ class RewardInfo(BaseModel):
             default=None,
         ),
     ]
+    evaluator_cost: Annotated[
+        Optional[float],
+        Field(
+            description="Cost of evaluator-side LLM calls, separate from agent/user cost.",
+            default=None,
+        ),
+    ]
+    evaluator_usage: Annotated[
+        Optional[dict],
+        Field(
+            description="Token usage for evaluator-side LLM calls.",
+            default=None,
+        ),
+    ]
     info: Annotated[
         Optional[dict],
         Field(description="Additional information about the reward.", default=None),
@@ -1313,6 +1327,12 @@ class SimulationRun(BaseModel):
     user_cost: Optional[float] = Field(
         description="The cost of the user.", default=None
     )
+    evaluator_cost: Optional[float] = Field(
+        description="Cost of evaluator-side LLM calls.", default=None
+    )
+    evaluator_usage: Optional[dict[str, int]] = Field(
+        description="Token usage for evaluator-side LLM calls.", default=None
+    )
     agent_usage: Optional[SessionUsage] = Field(
         description="Aggregated provider usage (and cost breakdown) for the "
         "agent side. Populated for audio-native full-duplex runs.",
@@ -1417,6 +1437,7 @@ class SimulationIndexEntry(BaseModel):
     reward: float | None = None
     termination_reason: str | None = None
     agent_cost: float | None = None
+    evaluator_cost: float | None = None
     duration: float | None = None
 
 
@@ -1492,6 +1513,7 @@ class Results(BaseModel):
                 reward=sim.reward_info.reward if sim.reward_info else None,
                 termination_reason=sim.termination_reason,
                 agent_cost=sim.agent_cost,
+                evaluator_cost=sim.evaluator_cost,
                 duration=sim.duration,
             )
             for sim in self.simulations
