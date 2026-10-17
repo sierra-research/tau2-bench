@@ -1,0 +1,48 @@
+{
+  "model_name": "Florin-tau2-Retail-30B (Qwen3-30B-A3B-Thinking LoRA)",
+  "model_organization": "Florin",
+  "submitting_organization": "Florin",
+  "submission_date": "2026-09-04",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "shaurya@florin.inc",
+    "name": "Amol Pant",
+    "github": "ammoman21"
+  },
+  "results": {
+    "retail": {
+      "pass_1": 82.45614035087719,
+      "pass_2": 71.9298245614035,
+      "pass_3": 64.91228070175438,
+      "pass_4": 59.64912280701754,
+      "cost": 0.0
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "retail": "results.json"
+  },
+  "references": [
+    {
+      "title": "Florin tau2-retail fine-tune (LoRA adapter, private until approval)",
+      "url": "https://huggingface.co/florin-inc/florin-tau2-retail-30b",
+      "type": "model"
+    },
+    {
+      "title": "Official-run trajectories (private until approval)",
+      "url": "https://huggingface.co/datasets/florin-inc/tau2-retail-trajectories",
+      "type": "dataset"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-09-04",
+    "user_simulator": "gpt-5.2",
+    "notes": "Qwen3-30B-A3B-Thinking-2507 with an attention-only LoRA adapter (r=64, alpha=128, q/k/v/o across all 48 layers) fine-tuned on 2,117 synthetic retail conversations generated entirely with open-weight teachers (agent: Qwen3.5-397B-A17B; user sim: Qwen3-235B-A22B-2507) on a fully synthetic retail database whose entities (users, products, orders) are disjoint from the tau-bench evaluation database. Trajectories filtered by tau2's deterministic DB-state check before training. Evaluation: 114 retail tasks x 4 trials, seed 300, max_steps 200, tau2-bench commit a2c0247 (v1.0.1 task set), agent served via vLLM (temperature 1.0, top_p 0.95, max_tokens 8192). User simulator ran with reasoning_effort=low.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false
+    }
+  }
+}
