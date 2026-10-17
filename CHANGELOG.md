@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `Task.faults`: deterministic tool faults (`timeout_after_commit`, `timeout_before_commit`) on the assistant's nth call to a tool, applied by `Environment.get_response` during the live run and never while `set_state` replays a trajectory. The orchestrator installs a task's faults after setting its initial state.
+- `tau2.plugins` entry points: the registry calls each installed plugin with itself at import, so an external package can register domains and task sets without a fork. A plugin that raises is logged and skipped.
+- A `faults` extra and `make test-faults`, which run the `retail_faults` task set (one faulted task per retail write tool and timeout kind, graded on the live database), and a Tests workflow that runs the grading and fault tests without a model or key.
+
 ### Changed
 
 ### Deprecated
@@ -16,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- The DB check grades the database the live environment held when the simulation ended (`SimulationRun.live_db_hash`, `live_user_db_hash`) instead of a replay of the trajectory. A tool that commits and then reports an error made strict replay raise, and one that reports an error without committing made lenient replay credit a change that never happened. Replay still runs as a consistency check and is reported as `replay_divergence` in the reward info. Stored runs without the live hash are graded as before.
 
 ## [1.0.1] - 2026-07-15
 

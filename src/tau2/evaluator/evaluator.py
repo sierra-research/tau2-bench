@@ -176,6 +176,8 @@ def evaluate_simulation(
             solo_mode=solo_mode,
             env_kwargs=env_kwargs,
             strict_replay=strict_replay,
+            live_db_hash=simulation.live_db_hash,
+            live_user_db_hash=simulation.live_user_db_hash,
         )
     elif evaluation_type == EvaluationType.NL_ASSERTIONS:
         reward_info = NLEvaluator.calculate_reward(
@@ -201,6 +203,8 @@ def evaluate_simulation(
             solo_mode=solo_mode,
             env_kwargs=env_kwargs,
             strict_replay=strict_replay,
+            live_db_hash=simulation.live_db_hash,
+            live_user_db_hash=simulation.live_user_db_hash,
         )
         action_reward_info = ActEvaluator.calculate_reward(
             task=task,
@@ -283,6 +287,9 @@ def evaluate_simulation(
             full_trajectory=trajectory,
             solo_mode=solo_mode,
             env_kwargs=env_kwargs,
+            strict_replay=strict_replay,
+            live_db_hash=simulation.live_db_hash,
+            live_user_db_hash=simulation.live_user_db_hash,
         )
         action_reward_info = ActEvaluator.calculate_reward(
             task=task,

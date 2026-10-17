@@ -4,7 +4,7 @@ import json
 import textwrap
 import uuid
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
@@ -557,6 +557,27 @@ class InitialState(BaseModel):
         return "\n".join(lines)
 
 
+class ToolFault(BaseModel):
+    """
+    A deterministic fault on the assistant's nth call to a tool.
+
+    `timeout_before_commit`: the call never reaches the tool and the agent reads
+    `message` as an error. `timeout_after_commit`: the call runs, its effect on
+    the database stays, and the agent still reads `message` as an error.
+    """
+
+    tool_name: str = Field(description="The tool whose call fails.")
+    nth: int = Field(
+        default=1, ge=1, description="Which of the assistant's calls to the tool fails."
+    )
+    kind: Literal["timeout_after_commit", "timeout_before_commit"] = Field(
+        description="Whether the call takes effect before the fault."
+    )
+    message: str = Field(
+        default="Error: timeout", description="The tool result the agent reads."
+    )
+
+
 class Task(BaseModel):
     """
     A task for a particular domain. This will be sent to the user simulator, the environment and the evaluator.
@@ -608,6 +629,14 @@ class Task(BaseModel):
         Optional[list[str]],
         Field(
             description="List of document titles required to solve the task (knowledge domain).",
+            default=None,
+        ),
+    ]
+    faults: Annotated[
+        Optional[list[ToolFault]],
+        Field(
+            description="Deterministic tool faults applied while the simulation runs, "
+            "never during replay. A task with faults is graded on the live database.",
             default=None,
         ),
     ]

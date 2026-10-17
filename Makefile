@@ -15,7 +15,7 @@ clean:
 ## Run core tests (requires: uv sync --extra dev)
 .PHONY: test
 test:
-	uv run pytest tests/ --ignore=tests/test_voice --ignore=tests/test_streaming --ignore=tests/test_gym --ignore=tests/test_domains/test_banking_knowledge
+	uv run pytest tests/ --ignore=tests/test_voice --ignore=tests/test_streaming --ignore=tests/test_gym --ignore=tests/test_domains/test_banking_knowledge --ignore=tests/test_faults
 
 ## Run voice and streaming tests (requires: uv sync --extra dev --extra voice)
 .PHONY: test-voice
@@ -31,6 +31,11 @@ test-knowledge:
 .PHONY: test-gym
 test-gym:
 	uv run pytest tests/test_gym
+
+## Run the retail_faults task set (requires: uv sync --extra dev --extra faults)
+.PHONY: test-faults
+test-faults:
+	uv run pytest tests/test_faults
 
 ## Run all tests (requires: uv sync --all-extras)
 .PHONY: test-all

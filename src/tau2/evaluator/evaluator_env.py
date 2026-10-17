@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Optional
 
 from loguru import logger
 
@@ -9,9 +9,103 @@ from tau2.data_model.message import (
     UserMessage,
 )
 from tau2.data_model.simulation import DBCheck, EnvAssertionCheck, RewardInfo
-from tau2.data_model.tasks import RewardType, Task
+from tau2.data_model.tasks import (
+    EnvFunctionCall,
+    InitializationData,
+    RewardType,
+    Task,
+)
 from tau2.environment.environment import Environment
 from tau2.evaluator.evaluator_base import EvaluatorBase
+
+
+def replay_predicted_environment(
+    environment_constructor: Callable[..., Environment],
+    solo_mode: bool,
+    env_kwargs: dict,
+    initialization_data: Optional[InitializationData],
+    initialization_actions: Optional[list[EnvFunctionCall]],
+    message_history: list[Message],
+    strict_replay: bool,
+    live_state_recorded: bool,
+) -> tuple[Environment, Optional[str]]:
+    """
+    Rebuild the agent's environment by replaying the trajectory.
+
+    Returns the replayed environment and, when a strict replay raised, the
+    error it raised. Without a recorded live state the error propagates, as
+    before. With one, the replay is only a consistency check: the mismatch is
+    returned so it can be reported, and a lenient replay supplies the
+    environment the env assertions run on.
+    """
+    predicted_environment = environment_constructor(solo_mode=solo_mode, **env_kwargs)
+    try:
+        predicted_environment.set_state(
+            initialization_data=initialization_data,
+            initialization_actions=initialization_actions,
+            message_history=list(message_history),
+            strict=strict_replay,
+        )
+    except ValueError as e:
+        if not live_state_recorded:
+            raise
+        logger.warning(
+            "Replay of the trajectory disagrees with the recorded tool "
+            f"results; grading the DB check against the live state.\n{e}"
+        )
+        predicted_environment = environment_constructor(
+            solo_mode=solo_mode, **env_kwargs
+        )
+        predicted_environment.set_state(
+            initialization_data=initialization_data,
+            initialization_actions=initialization_actions,
+            message_history=list(message_history),
+            strict=False,
+        )
+        return predicted_environment, str(e)
+    return predicted_environment, None
+
+
+def check_db(
+    gold_environment: Environment,
+    predicted_environment: Environment,
+    live_db_hash: Optional[str],
+    live_user_db_hash: Optional[str],
+    replay_error: Optional[str],
+) -> tuple[DBCheck, Optional[dict]]:
+    """
+    Compare the gold databases with the agent's final databases.
+
+    The agent's final databases are the live ones when the simulation recorded
+    them, and the replayed ones otherwise. With a live state recorded, the
+    returned info reports whether the replay reached the same state
+    (`replay_divergence`) and the error a strict replay raised, if any.
+    """
+    replayed_agent_db_hash = predicted_environment.get_db_hash()
+    replayed_user_db_hash = predicted_environment.get_user_db_hash()
+    live_state_recorded = live_db_hash is not None or live_user_db_hash is not None
+    if live_state_recorded:
+        predicted_agent_db_hash = live_db_hash
+        predicted_user_db_hash = live_user_db_hash
+        replay_divergence = (
+            replay_error is not None
+            or replayed_agent_db_hash != live_db_hash
+            or replayed_user_db_hash != live_user_db_hash
+        )
+        if replay_divergence:
+            logger.warning(
+                "The replayed database differs from the live database; the DB "
+                "check grades the live database."
+            )
+        info = {"replay_divergence": replay_divergence, "replay_error": replay_error}
+    else:
+        predicted_agent_db_hash = replayed_agent_db_hash
+        predicted_user_db_hash = replayed_user_db_hash
+        info = None
+    agent_db_match = gold_environment.get_db_hash() == predicted_agent_db_hash
+    user_db_match = gold_environment.get_user_db_hash() == predicted_user_db_hash
+    db_match = agent_db_match and user_db_match
+    return DBCheck(db_match=db_match, db_reward=1.0 if db_match else 0.0), info
 
 
 class EnvironmentEvaluator(EvaluatorBase[Message]):
@@ -30,6 +124,8 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
         solo_mode: bool = False,
         env_kwargs: dict = None,
         strict_replay: bool = True,
+        live_db_hash: Optional[str] = None,
+        live_user_db_hash: Optional[str] = None,
     ) -> RewardInfo:
         """
         Calculate the reward for the simulation.
@@ -41,6 +137,13 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
             strict_replay: forwarded to Environment.set_state(strict=...). Set
                 False when re-grading historical trajectories whose recorded
                 tool outputs may cosmetically differ from current tool code.
+            live_db_hash: agent database hash read from the live environment
+                when the simulation ended (SimulationRun.live_db_hash). When
+                it or live_user_db_hash is set, the DB check grades the live
+                state and the replay is reported as a consistency check in
+                info["replay_divergence"] instead of deciding the reward.
+            live_user_db_hash: user database hash read from the live
+                environment when the simulation ended.
         Returns:
             RewardInfo
         """
@@ -82,15 +185,17 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
         if env_kwargs is None:
             env_kwargs = {}
 
-        predicted_environment = environment_constructor(
-            solo_mode=solo_mode, **env_kwargs
-        )
-
-        predicted_environment.set_state(
+        predicted_environment, replay_error = replay_predicted_environment(
+            environment_constructor=environment_constructor,
+            solo_mode=solo_mode,
+            env_kwargs=env_kwargs,
             initialization_data=initialization_data,
             initialization_actions=initialization_actions,
-            message_history=list(full_trajectory),
-            strict=strict_replay,
+            message_history=full_trajectory,
+            strict_replay=strict_replay,
+            live_state_recorded=(
+                live_db_hash is not None or live_user_db_hash is not None
+            ),
         )
 
         # Setting up gold environment
@@ -115,20 +220,14 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
                 )
 
         # Comparing the environments
-        agent_db_hash = gold_environment.get_db_hash()
-        user_db_hash = gold_environment.get_user_db_hash()
-        predicted_agent_db_hash = predicted_environment.get_db_hash()
-        predicted_user_db_hash = predicted_environment.get_user_db_hash()
-        agent_db_match = agent_db_hash == predicted_agent_db_hash
-        user_db_match = user_db_hash == predicted_user_db_hash
-        if agent_db_match and user_db_match:
-            db_reward = 1.0
-            db_match = True
-        else:
-            db_reward = 0.0
-            db_match = False
-
-        db_check = DBCheck(db_match=db_match, db_reward=db_reward)
+        db_check, replay_info = check_db(
+            gold_environment=gold_environment,
+            predicted_environment=predicted_environment,
+            live_db_hash=live_db_hash,
+            live_user_db_hash=live_user_db_hash,
+            replay_error=replay_error,
+        )
+        db_reward = db_check.db_reward
 
         # Run env assertions
         env_assertions = task.evaluation_criteria.env_assertions or []
@@ -162,6 +261,7 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
             env_assertions=env_assertion_checks,
             reward_basis=task.evaluation_criteria.reward_basis,
             reward_breakdown=reward_breakdown,
+            info=replay_info,
         )
 
 
@@ -234,6 +334,8 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
         solo_mode: bool = False,
         env_kwargs: dict = None,
         strict_replay: bool = True,
+        live_db_hash: Optional[str] = None,
+        live_user_db_hash: Optional[str] = None,
     ) -> RewardInfo:
         """
         Calculate the reward for the simulation.
@@ -246,6 +348,13 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
             strict_replay: forwarded to Environment.set_state(strict=...). Set
                 False when re-grading historical trajectories whose recorded
                 tool outputs may cosmetically differ from current tool code.
+            live_db_hash: agent database hash read from the live environment
+                when the simulation ended (SimulationRun.live_db_hash). When
+                it or live_user_db_hash is set, the DB check grades the live
+                state and the replay is reported as a consistency check in
+                info["replay_divergence"] instead of deciding the reward.
+            live_user_db_hash: user database hash read from the live
+                environment when the simulation ended.
         Returns:
             RewardInfo
         """
@@ -290,14 +399,17 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
         # Note: Audio native does not support task history, so we only use the simulation trajectory
         predicted_message_history = cls.ticks_to_message_history(full_trajectory)
 
-        predicted_environment = environment_constructor(
-            solo_mode=solo_mode, **env_kwargs
-        )
-        predicted_environment.set_state(
+        predicted_environment, replay_error = replay_predicted_environment(
+            environment_constructor=environment_constructor,
+            solo_mode=solo_mode,
+            env_kwargs=env_kwargs,
             initialization_data=initialization_data,
             initialization_actions=initialization_actions,
             message_history=predicted_message_history,
-            strict=strict_replay,
+            strict_replay=strict_replay,
+            live_state_recorded=(
+                live_db_hash is not None or live_user_db_hash is not None
+            ),
         )
 
         # Setting up gold environment
@@ -322,20 +434,14 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
                 )
 
         # Comparing the environments
-        agent_db_hash = gold_environment.get_db_hash()
-        user_db_hash = gold_environment.get_user_db_hash()
-        predicted_agent_db_hash = predicted_environment.get_db_hash()
-        predicted_user_db_hash = predicted_environment.get_user_db_hash()
-        agent_db_match = agent_db_hash == predicted_agent_db_hash
-        user_db_match = user_db_hash == predicted_user_db_hash
-        if agent_db_match and user_db_match:
-            db_reward = 1.0
-            db_match = True
-        else:
-            db_reward = 0.0
-            db_match = False
-
-        db_check = DBCheck(db_match=db_match, db_reward=db_reward)
+        db_check, replay_info = check_db(
+            gold_environment=gold_environment,
+            predicted_environment=predicted_environment,
+            live_db_hash=live_db_hash,
+            live_user_db_hash=live_user_db_hash,
+            replay_error=replay_error,
+        )
+        db_reward = db_check.db_reward
 
         # Run env assertions
         env_assertions = task.evaluation_criteria.env_assertions or []
@@ -369,4 +475,5 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
             env_assertions=env_assertion_checks,
             reward_basis=task.evaluation_criteria.reward_basis,
             reward_breakdown=reward_breakdown,
+            info=replay_info,
         )

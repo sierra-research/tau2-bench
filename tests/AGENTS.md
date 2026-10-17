@@ -18,6 +18,7 @@ tests/
 │       ├── test_retrieval_system.py  # Retrieval pipeline tests
 │       └── test_tools_knowledge.py   # Domain tool tests
 ├── test_streaming/             # Full-duplex / streaming tests
+├── test_faults/                # retail_faults task set (faults extra)
 ├── test_gym/                   # Gymnasium interface tests
 └── test_voice/                 # Voice + audio native provider tests
     └── test_audio_native/
@@ -31,6 +32,7 @@ make test                         # Core tests (no optional deps needed)
 make test-voice                   # Voice + streaming tests
 make test-knowledge               # Banking knowledge tests
 make test-gym                     # Gymnasium tests
+make test-faults                  # retail_faults task set (needs: uv sync --extra dev --extra faults)
 make test-all                     # All tests
 pytest tests/test_domains/test_airline/   # Domain-specific
 pytest tests/test_agent.py        # Single file

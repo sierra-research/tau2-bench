@@ -1,0 +1,39 @@
+name: Tests
+
+# Grading and tool-fault tests that need no model and no API key: the
+# live-database DB check, the Task.faults schedule, the tau2.plugins entry
+# point, and the retail_faults task set from the faults extra.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  faults:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+          enable-cache: true
+
+      # Importing tau2 needs websockets, which only the voice extra declares
+      # (#552); the voice extra itself needs PortAudio to build pyaudio.
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev --extra faults
+          uv pip install websockets==15.0.1
+
+      - name: Live-database grading, tool faults and registry plugins
+        run: uv run pytest tests/test_live_db_grading.py tests/test_tool_faults.py
+
+      - name: retail_faults, graded on the live database
+        run: make test-faults

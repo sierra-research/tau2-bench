@@ -1331,6 +1331,17 @@ class SimulationRun(BaseModel):
         description="The ticks of the simulation. Only available in full-duplex mode.",
         default=None,
     )
+    live_db_hash: Optional[str] = Field(
+        description="Hash of the agent database read from the live environment "
+        "when the simulation ended. When set, the DB check grades this state "
+        "rather than the state rebuilt by replaying the trajectory.",
+        default=None,
+    )
+    live_user_db_hash: Optional[str] = Field(
+        description="Hash of the user database read from the live environment "
+        "when the simulation ended (None when the domain has no user database).",
+        default=None,
+    )
     trial: Optional[int] = Field(description="Trial number", default=None)
     seed: Optional[int] = Field(
         description="Seed used for the simulation.", default=None

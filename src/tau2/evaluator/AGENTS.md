@@ -10,7 +10,7 @@ The evaluator module scores simulation runs. Each evaluator is a classmethod-onl
 
 | Evaluator | What it checks | `RewardType` |
 |-----------|---------------|-------------|
-| `EnvironmentEvaluator` | DB state matches gold after replaying actions | `DB`, `ENV_ASSERTION` |
+| `EnvironmentEvaluator` | Agent's final DB state (live hash, or replay when absent) matches gold after replaying actions | `DB`, `ENV_ASSERTION` |
 | `ActionEvaluator` | Agent called the right tools with right args | `ACTION` |
 | `CommunicateEvaluator` | Agent said required information to user | `COMMUNICATE` |
 | `NLAssertionsEvaluator` | LLM-judged natural language assertions (WIP) | `NL_ASSERTION` |
@@ -59,8 +59,10 @@ The `evaluate_simulation()` function in `evaluator.py` is the main entry point. 
 
 7. **Environment evaluator needs `environment_constructor` and `env_kwargs`**: Unlike other evaluators, `EnvironmentEvaluator.calculate_reward()` takes an `environment_constructor` callable to create fresh environments for gold vs predicted comparison. It also accepts `env_kwargs: dict` for domain-specific parameters (e.g., `retrieval_variant` for `banking_knowledge`). These kwargs are threaded from `evaluate_simulation()` through to both the predicted and gold environment constructors. Always pass `env_kwargs` when calling `calculate_reward()` to ensure domains with custom constructor parameters work correctly.
 
-8. **NL assertions require LLM calls**: `NLAssertionsEvaluator` calls an LLM (configured via `DEFAULT_LLM_NL_ASSERTIONS` in `config.py`). This is experimental/WIP.
+8. **The DB check grades the live state when it was recorded**: Orchestrators record `live_db_hash` and `live_user_db_hash` on `SimulationRun` when a simulation ends, and `evaluate_simulation()` passes them to `EnvironmentEvaluator.calculate_reward()`. With them, the replay of the trajectory is a consistency check: a strict-replay mismatch or a replayed hash that differs from the live one is reported as `replay_divergence` (and `replay_error`) in `RewardInfo.info` instead of raising or deciding the reward. Without them (older stored runs), grading replays the trajectory as before. A tool that reports an error after committing, or without committing, is the case replay alone cannot grade.
 
-9. **Hallucination check**: `check_hallucination()` and `format_hallucination_feedback()` in `reviewer.py` are used by the runner's hallucination retry loop (full-duplex only). The underlying LLM judge is in `hallucination_reviewer.py`. See `tau2.runner.batch` and the `--hallucination-retries` CLI option.
+9. **NL assertions require LLM calls**: `NLAssertionsEvaluator` calls an LLM (configured via `DEFAULT_LLM_NL_ASSERTIONS` in `config.py`). This is experimental/WIP.
+
+10. **Hallucination check**: `check_hallucination()` and `format_hallucination_feedback()` in `reviewer.py` are used by the runner's hallucination retry loop (full-duplex only). The underlying LLM judge is in `hallucination_reviewer.py`. See `tau2.runner.batch` and the `--hallucination-retries` CLI option.
 
 Consider these rules if they affect your changes.

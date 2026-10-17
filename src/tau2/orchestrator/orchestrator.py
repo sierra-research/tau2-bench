@@ -309,6 +309,7 @@ class BaseOrchestrator(ABC, Generic[BaseAgentT, BaseUserT, TrajectoryItemT]):
             initialization_actions=initialization_actions,
             message_history=message_history,
         )
+        self.environment.set_faults(self.task.faults)
 
     def _execute_tool_calls(self, tool_calls: list[ToolCall]) -> list[ToolMessage]:
         """
@@ -810,6 +811,8 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
             user_cost=user_cost,
             agent_cost=agent_cost,
             messages=messages,
+            live_db_hash=self.environment.get_db_hash(),
+            live_user_db_hash=self.environment.get_user_db_hash(),
             seed=self.seed,
             mode=self.mode.value,
             speech_environment=speech_environment,

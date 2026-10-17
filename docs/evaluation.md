@@ -49,7 +49,7 @@ The reward components are evaluated by:
 
 | `RewardType` | Evaluator | What it checks |
 |--------------|-----------|----------------|
-| `DB` | `EnvironmentEvaluator` | After the simulation, does the predicted environment's DB hash match the target DB hash (target = fresh env + replay of `evaluation_criteria.actions`)? Any agent trajectory that produces an equivalent end state passes. |
+| `DB` | `EnvironmentEvaluator` | After the simulation, does the agent's DB hash match the target DB hash (target = fresh env + replay of `evaluation_criteria.actions`)? The agent's hash is the one the live environment had when the simulation ended (`SimulationRun.live_db_hash`); stored runs without it fall back to replaying the trajectory on a fresh environment. When both exist, the replay is a consistency check reported as `replay_divergence` in the reward info. Any agent trajectory that produces an equivalent end state passes. |
 | `ENV_ASSERTION` | `EnvironmentEvaluator` | Do all `env_assertions` pass on the predicted environment? |
 | `COMMUNICATE` | `CommunicateEvaluator` | Does every string in `communicate_info` appear in the agent's messages? |
 | `NL_ASSERTION` | `NLAssertionsEvaluator` | Does an LLM judge return true for every entry in `nl_assertions`? (WIP) |

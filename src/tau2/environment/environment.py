@@ -13,7 +13,12 @@ from tau2.data_model.message import (
     ToolMessage,
     UserMessage,
 )
-from tau2.data_model.tasks import EnvAssertion, EnvFunctionCall, InitializationData
+from tau2.data_model.tasks import (
+    EnvAssertion,
+    EnvFunctionCall,
+    InitializationData,
+    ToolFault,
+)
 from tau2.environment.db import DB
 from tau2.environment.tool import Tool
 from tau2.environment.toolkit import ToolKitBase, ToolSignature, get_tool_signatures
@@ -58,6 +63,9 @@ class Environment:
         self.tools = tools
         self.user_tools = user_tools
         self.solo_mode = solo_mode
+        self.faults: list[ToolFault] = []
+        self.fault_call_counts: dict[str, int] = {}
+        self._replaying = False
         if self.solo_mode:
             self.validate_solo_mode()
         self.sync_tools()
@@ -387,7 +395,13 @@ class Environment:
             # comparison issues.
             if not self._is_mutating_tool(tool_call.name):
                 continue
-            response = self.get_response(tool_call)
+            # A replay reproduces what the trajectory recorded; scheduled faults
+            # belong to the live run only.
+            self._replaying = True
+            try:
+                response = self.get_response(tool_call)
+            finally:
+                self._replaying = False
             try:
                 content = json.loads(response.content)
             except json.JSONDecodeError:
@@ -462,6 +476,26 @@ class Environment:
         if len(overlap) > 0:
             raise ValueError(f"Tool names overlap: {overlap}")
 
+    def set_faults(self, faults: Optional[list[ToolFault]]) -> None:
+        """
+        Set the deterministic tool faults for this run and reset their call counts.
+        Faults apply to the assistant's calls in get_response and never while
+        set_state replays a trajectory.
+        """
+        self.faults = list(faults or [])
+        self.fault_call_counts = {}
+
+    def _next_fault(self, message: ToolCall) -> Optional[ToolFault]:
+        """Count the assistant's call and return the fault scheduled for it, if any."""
+        if not self.faults or self._replaying or message.requestor != "assistant":
+            return None
+        count = self.fault_call_counts.get(message.name, 0) + 1
+        self.fault_call_counts[message.name] = count
+        for fault in self.faults:
+            if fault.tool_name == message.name and fault.nth == count:
+                return fault
+        return None
+
     def get_response(self, message: ToolCall) -> ToolMessage:
         """
         Get the response of the domain. This also calls sync_tools.
@@ -470,6 +504,15 @@ class Environment:
         Returns:
             The response of the tool call.
         """
+        fault = self._next_fault(message)
+        if fault is not None and fault.kind == "timeout_before_commit":
+            return ToolMessage(
+                id=message.id,
+                content=fault.message,
+                requestor=message.requestor,
+                role="tool",
+                error=True,
+            )
         error = False
         try:
             resp = self.make_tool_call(
@@ -480,6 +523,14 @@ class Environment:
             resp = f"Error: {e}"
             error = True
         logger.debug(f"Response: {resp}")
+        if fault is not None:
+            return ToolMessage(
+                id=message.id,
+                content=fault.message,
+                requestor=message.requestor,
+                role="tool",
+                error=True,
+            )
         resp = self.to_json_str(resp)
         return ToolMessage(
             id=message.id,

@@ -1,4 +1,5 @@
 import json
+from importlib.metadata import entry_points
 from typing import Callable, Dict, Optional
 
 from loguru import logger
@@ -275,6 +276,26 @@ class Registry:
             raise
 
 
+PLUGIN_GROUP = "tau2.plugins"
+
+
+def load_registry_plugins(registry: "Registry") -> list[str]:
+    """
+    Call every installed `tau2.plugins` entry point with the registry, so an
+    external package can register domains or task sets without a fork.
+    Returns the names of the plugins that loaded.
+    """
+    loaded = []
+    for ep in entry_points(group=PLUGIN_GROUP):
+        try:
+            ep.load()(registry)
+        except Exception as e:
+            logger.error(f"Error loading registry plugin {ep.name}: {str(e)}")
+            continue
+        loaded.append(ep.name)
+    return loaded
+
+
 # Create a global registry instance
 try:
     registry = Registry()
@@ -346,6 +367,8 @@ try:
 
     registry.register_domain(knowledge_domain_get_environment, "banking_knowledge")
     registry.register_tasks(knowledge_domain_get_tasks, "banking_knowledge")
+
+    load_registry_plugins(registry)
 
     logger.debug(
         f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}"
