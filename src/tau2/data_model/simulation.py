@@ -100,7 +100,7 @@ class AudioNativeConfig(BaseModel):
     realtime_generation: Optional[bool] = Field(
         default=None,
         description="Whether user LLM and TTS generation run without blocking audio ticks. "
-        "Defaults to enabled for openai_live and disabled for other providers.",
+        "Defaults to enabled for openai_live and gemini, and disabled for other providers.",
     )
 
     @property
@@ -108,7 +108,7 @@ class AudioNativeConfig(BaseModel):
         """Resolve the provider-aware default for real-time user generation."""
         if self.realtime_generation is not None:
             return self.realtime_generation
-        return self.provider == "openai_live"
+        return self.provider in ("openai_live", "gemini")
 
     @model_validator(mode="after")
     def validate_live_config(self):

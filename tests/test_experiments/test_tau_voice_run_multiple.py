@@ -153,6 +153,7 @@ def test_cli_parses_realtime_generation_override(flag, expected):
 
 def test_realtime_generation_has_provider_aware_default():
     assert not AudioNativeConfig(provider="xai").realtime_generation_enabled
+    assert AudioNativeConfig(provider="gemini").realtime_generation_enabled
     assert AudioNativeConfig(
         provider="openai_live",
         model="test-live",
@@ -165,6 +166,12 @@ def test_realtime_generation_override_wins_over_provider_default(override):
     assert (
         AudioNativeConfig(
             provider="xai", realtime_generation=override
+        ).realtime_generation_enabled
+        is override
+    )
+    assert (
+        AudioNativeConfig(
+            provider="gemini", realtime_generation=override
         ).realtime_generation_enabled
         is override
     )
