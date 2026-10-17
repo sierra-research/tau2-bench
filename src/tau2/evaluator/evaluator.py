@@ -94,6 +94,8 @@ def evaluate_simulation(
     mode: CommunicationMode = CommunicationMode.HALF_DUPLEX,
     env_kwargs: dict = None,
     strict_replay: bool = True,
+    judge_llm: Optional[str] = None,
+    judge_llm_args: Optional[dict] = None,
 ) -> RewardInfo:
     """
     Evaluate the simulation based on the evaluation type.
@@ -112,6 +114,10 @@ def evaluate_simulation(
               Live evaluation keeps the default (True); trajectory re-grading
               passes False so recorded outputs that cosmetically predate
               current tool code do not abort the replay.
+        judge_llm: The LLM used by the NL assertions judge. Defaults to
+              DEFAULT_LLM_NL_ASSERTIONS when None.
+        judge_llm_args: The arguments passed to the NL assertions judge LLM.
+              Defaults to DEFAULT_LLM_NL_ASSERTIONS_ARGS when None.
 
     Returns:
         RewardInfo with the evaluation results.
@@ -181,6 +187,8 @@ def evaluate_simulation(
         reward_info = NLEvaluator.calculate_reward(
             task=task,
             full_trajectory=trajectory,
+            model=judge_llm,
+            model_args=judge_llm_args,
         )
     elif evaluation_type == EvaluationType.COMMUNICATE:
         reward_info = CommEvaluator.calculate_reward(
@@ -217,6 +225,8 @@ def evaluate_simulation(
             nl_reward_info = NLEvaluator.calculate_reward(
                 task=task,
                 full_trajectory=trajectory,
+                model=judge_llm,
+                model_args=judge_llm_args,
             )
 
         ## Combine all the rewards.
@@ -298,6 +308,8 @@ def evaluate_simulation(
             nl_reward_info = NLEvaluator.calculate_reward(
                 task=task,
                 full_trajectory=trajectory,
+                model=judge_llm,
+                model_args=judge_llm_args,
             )
 
         # Combine all rewards regardless of the task's reward_basis
