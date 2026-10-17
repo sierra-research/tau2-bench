@@ -1,0 +1,49 @@
+name: campus-tests
+
+on:
+  push:
+    branches:
+      - dev/campus
+      - tau2-zh
+    paths:
+      - 'src/tau2/domains/campus/**'
+      - 'data/tau2/domains/campus/**'
+      - 'tests/test_domains/test_campus/**'
+      - '.github/workflows/campus-ci.yml'
+  pull_request:
+    paths:
+      - 'src/tau2/domains/campus/**'
+      - 'data/tau2/domains/campus/**'
+      - 'tests/test_domains/test_campus/**'
+      - '.github/workflows/campus-ci.yml'
+
+jobs:
+  campus-tests:
+    runs-on: ubuntu-latest
+    steps:
+      # Step-level gate (not job-level): the job always runs to completion so
+      # the check reports a real conclusion instead of "skipped".
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        if: github.repository == 'Zitrack/tau2-bench'
+        # Full release tag: the repo stopped publishing floating major tags
+        # after v7 (v8+ are full-semver-only).
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: '3.12'
+          enable-cache: true
+
+      # pytest lives in the optional `dev` extra ([project.optional-dependencies]).
+      - name: Install dependencies
+        if: github.repository == 'Zitrack/tau2-bench'
+        run: uv sync --extra dev
+
+      - name: Run campus tests
+        if: github.repository == 'Zitrack/tau2-bench'
+        run: uv run pytest tests/test_domains/test_campus -q
+
+      - name: Fork-only no-op
+        if: github.repository != 'Zitrack/tau2-bench'
+        run: echo "campus CI runs on Zitrack/tau2-bench only; nothing to do here."

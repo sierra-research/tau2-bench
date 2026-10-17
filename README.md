@@ -1,3 +1,10 @@
+<!-- Tau2-ZH fork banner (release discoverability; upstream content follows below) -->
+> **Tau2-ZH: a native Chinese campus domain for τ²-bench** — the first natively-designed (non-translation) Chinese domain: dual-control, 50 tasks, policy v1.4.2, a 5-LLM pass^k leaderboard.
+>
+> **Latest release:** tag [`campus-v2.3.0`](https://github.com/Zitrack/tau2-bench/releases/tag/campus-v2.3.0) (version manifest) · **Domain README:** [`src/tau2/domains/campus/README.md`](src/tau2/domains/campus/README.md) · **Dataset:** [ZitrackHF/tau2-zh-campus](https://huggingface.co/datasets/ZitrackHF/tau2-zh-campus) · **Scoring:** tau2 v1.0.1-compatible · **Upstream PR:** [#596](https://github.com/sierra-research/tau2-bench/pull/596)
+>
+> The upstream τ²-bench README follows below.
+
 # $\tau$-Bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains
 
 [![python](https://img.shields.io/badge/Python-3.12%2B-blue.svg?style=flat&logo=python&logoColor=white)](https://www.python.org)
