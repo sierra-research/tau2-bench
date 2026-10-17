@@ -191,8 +191,6 @@ class UserSimulator(
             return False
         return (
             STOP in message.content
-            or TRANSFER in message.content
-            or OUT_OF_SCOPE in message.content
         )
 
     def generate_next_message(

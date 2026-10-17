@@ -1,7 +1,7 @@
 import pytest
 
 from tau2.agent.llm_agent import LLMAgent, LLMSoloAgent
-from tau2.data_model.message import AssistantMessage, UserMessage
+from tau2.data_model.message import AssistantMessage, ToolCall, UserMessage
 
 
 @pytest.fixture
@@ -64,3 +64,55 @@ def test_solo_agent(solo_agent: LLMSoloAgent):
     assert isinstance(agent_msg, AssistantMessage)
     assert agent_state is not None
     assert len(agent_state.messages) == 1
+
+
+def test_solo_agent_transfer_tool_is_stop(solo_agent: LLMSoloAgent):
+    msg = AssistantMessage(
+        role="assistant",
+        tool_calls=[
+            ToolCall(
+                id="call_transfer",
+                name="transfer_to_human_agents",
+                arguments={"summary": "Need specialist support"},
+                requestor="assistant",
+            )
+        ],
+    )
+
+    normalized_msg = solo_agent._check_if_stop_toolcall(msg)
+
+    assert normalized_msg.content == solo_agent.STOP_TOKEN
+    assert normalized_msg.tool_calls is None
+    assert solo_agent.is_stop(normalized_msg)
+
+
+def test_llm_agent_transfer_tool_is_stop():
+    msg = AssistantMessage(
+        role="assistant",
+        tool_calls=[
+            ToolCall(
+                id="call_transfer",
+                name="transfer_to_human_agents",
+                arguments={"summary": "Need specialist support"},
+                requestor="assistant",
+            )
+        ],
+    )
+
+    assert LLMAgent.is_stop(msg)
+
+
+def test_llm_agent_non_transfer_tool_is_not_stop():
+    msg = AssistantMessage(
+        role="assistant",
+        tool_calls=[
+            ToolCall(
+                id="call_other",
+                name="get_user_profile",
+                arguments={"user_id": "user_123"},
+                requestor="assistant",
+            )
+        ],
+    )
+
+    assert not LLMAgent.is_stop(msg)
