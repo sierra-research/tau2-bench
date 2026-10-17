@@ -114,6 +114,7 @@ def display_simulation_list(
     termination_color_map = {
         TerminationReason.USER_STOP: "green",
         TerminationReason.AGENT_STOP: "green",
+        TerminationReason.OUT_OF_SCOPE: "yellow",
         TerminationReason.MAX_STEPS: "yellow",
         TerminationReason.TOO_MANY_ERRORS: "red",
         TerminationReason.AGENT_ERROR: "red",
@@ -123,6 +124,7 @@ def display_simulation_list(
     termination_icon_map = {
         TerminationReason.USER_STOP: "👤",
         TerminationReason.AGENT_STOP: "🤖",
+        TerminationReason.OUT_OF_SCOPE: "🚫",
         TerminationReason.MAX_STEPS: "⏱",
         TerminationReason.TOO_MANY_ERRORS: "💥",
         TerminationReason.AGENT_ERROR: "💥",

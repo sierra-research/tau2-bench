@@ -15,12 +15,10 @@ from tau2.data_model.message import (
 from tau2.data_model.persona import PersonaConfig
 from tau2.environment.tool import Tool
 from tau2.user.user_simulator_base import (
-    OUT_OF_SCOPE,
-    STOP,
-    TRANSFER,
     HalfDuplexUser,
     UserState,
     ValidUserInputMessage,
+    classify_user_stop,
     is_valid_user_history_message,
 )
 from tau2.utils import DATA_DIR
@@ -184,16 +182,7 @@ class UserSimulator(
         """
         Check if the message is a stop message.
         """
-        if message.is_tool_call():
-            return False
-        # Audio-only messages (chunks) don't have text content
-        if message.content is None:
-            return False
-        return (
-            STOP in message.content
-            or TRANSFER in message.content
-            or OUT_OF_SCOPE in message.content
-        )
+        return classify_user_stop(message) is not None
 
     def generate_next_message(
         self, message: ValidUserInputMessage, state: UserStateType

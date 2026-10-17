@@ -28,10 +28,11 @@ from tau2.data_model.simulation import SimulationRun, TerminationReason
 from tau2.data_model.tasks import EnvFunctionCall, InitializationData, Task
 from tau2.environment.environment import Environment, EnvironmentInfo
 from tau2.orchestrator.modes import CommunicationMode
-from tau2.user.user_simulator import DummyUser, UserSimulator, UserState
+from tau2.user.user_simulator import DummyUser, UserState
 from tau2.user.user_simulator_base import (
     HalfDuplexUser,
     UserError,
+    classify_user_stop,
     is_valid_user_history_message,
 )
 from tau2.utils.llm_utils import get_cost
@@ -579,9 +580,10 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
                     ]
                 )
                 self.message = last_message
-                self.done = UserSimulator.is_stop(last_message)
+                user_stop_reason = classify_user_stop(last_message)
+                self.done = user_stop_reason is not None
                 if self.done:
-                    self.termination_reason = TerminationReason.USER_STOP
+                    self.termination_reason = user_stop_reason
             # Last message is a tool message
             elif isinstance(last_message, ToolMessage):
                 self.from_role = Role.ENV
@@ -838,9 +840,10 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
                 self.message, self.user_state
             )
             user_msg.validate()
-            if UserSimulator.is_stop(user_msg):
+            user_stop_reason = classify_user_stop(user_msg)
+            if user_stop_reason is not None:
                 self.done = True
-                self.termination_reason = TerminationReason.USER_STOP
+                self.termination_reason = user_stop_reason
             # Update voice metadata if audio was generated
             self._update_voice_metadata(user_msg)
 

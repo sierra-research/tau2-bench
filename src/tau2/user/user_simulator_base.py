@@ -26,6 +26,7 @@ from tau2.data_model.message import (
     ToolMessage,
     UserMessage,
 )
+from tau2.data_model.simulation import TerminationReason
 from tau2.environment.tool import Tool
 
 ValidUserInputMessage = AssistantMessage | ToolMessage | MultiToolMessage
@@ -51,6 +52,39 @@ def is_valid_user_history_message(message: Message) -> bool:
 STOP = "###STOP###"
 TRANSFER = "###TRANSFER###"
 OUT_OF_SCOPE = "###OUT-OF-SCOPE###"
+
+# Maps each user stop token to the termination reason that describes how the run
+# ended. ``###OUT-OF-SCOPE###`` means the simulator gave up because the scenario
+# gave it nothing to continue with, so the run was aborted rather than completed
+# and must not be graded (see rule 5 in ``tau2/evaluator/AGENTS.md``).
+#
+# Order matters: the first match wins, so a message carrying both an abort token
+# and an ordinary stop token is classified as the abort. Getting that wrong is
+# the failure this mapping exists to prevent -- grading a run that never ran.
+USER_STOP_TOKENS: tuple[tuple[str, "TerminationReason"], ...] = (
+    (OUT_OF_SCOPE, TerminationReason.OUT_OF_SCOPE),
+    (STOP, TerminationReason.USER_STOP),
+    (TRANSFER, TerminationReason.USER_STOP),
+)
+
+
+def classify_user_stop(message: UserMessage) -> Optional["TerminationReason"]:
+    """Return the termination reason for a user message, or None if it is not a stop.
+
+    This is the single place that decides *how* a user-side termination is
+    recorded; ``is_stop`` implementations decide *whether* the run is over. Both
+    read ``USER_STOP_TOKENS``, so a token added in one is never missing from the
+    other.
+    """
+    if message.is_tool_call():
+        return None
+    # Audio-only messages (chunks) don't have text content
+    if message.content is None:
+        return None
+    for token, reason in USER_STOP_TOKENS:
+        if token in message.content:
+            return reason
+    return None
 
 
 class UserState(BaseModel):

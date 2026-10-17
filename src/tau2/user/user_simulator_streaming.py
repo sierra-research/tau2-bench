@@ -40,12 +40,10 @@ from tau2.data_model.voice import VoiceSettings
 from tau2.environment.tool import Tool
 from tau2.user.user_simulator import SYSTEM_PROMPT, get_global_user_sim_guidelines_voice
 from tau2.user.user_simulator_base import (
-    OUT_OF_SCOPE,
-    STOP,
-    TRANSFER,
     FullDuplexVoiceUser,
     UserState,
     ValidUserInputMessage,
+    classify_user_stop,
 )
 from tau2.utils.llm_utils import generate
 from tau2.utils.utils import get_now
@@ -664,16 +662,7 @@ class VoiceStreamingUserSimulator(
     @classmethod
     def is_stop(cls, message: UserMessage) -> bool:
         """Check if the message is a stop message."""
-        if message.is_tool_call():
-            return False
-        # Audio-only messages (chunks) don't have text content
-        if message.content is None:
-            return False
-        return (
-            STOP in message.content
-            or TRANSFER in message.content
-            or OUT_OF_SCOPE in message.content
-        )
+        return classify_user_stop(message) is not None
 
     def get_next_chunk(
         self,
