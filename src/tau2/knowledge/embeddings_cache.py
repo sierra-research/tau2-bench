@@ -573,11 +573,13 @@ def _compute_and_cache_embeddings(
     from tau2.knowledge.embedders import (
         OpenAIEmbedder,
         OpenRouterEmbedder,
+        OrcaRouterEmbedder,
     )
 
     EMBEDDER_REGISTRY = {
         "openai": OpenAIEmbedder,
         "openrouter": OpenRouterEmbedder,
+        "orcarouter": OrcaRouterEmbedder,
     }
 
     if embedder_type not in EMBEDDER_REGISTRY:
@@ -624,6 +626,20 @@ def get_unique_embedder_configs_for_retrieval_configs(
         "alltools": ("openai", {"model": "text-embedding-3-large"}),
         "AllTools": ("openai", {"model": "text-embedding-3-large"}),
         "alltools-qwen": ("openrouter", {"model": "qwen3-embedding-8b"}),
+        "orcarouter_embeddings_grep": (
+            "orcarouter",
+            {"model": "text-embedding-3-small"},
+        ),
+        "orcarouter_embeddings_reranker_grep": (
+            "orcarouter",
+            {"model": "text-embedding-3-small"},
+        ),
+        "orcarouter_embeddings": ("orcarouter", {"model": "text-embedding-3-small"}),
+        "orcarouter_embeddings_reranker": (
+            "orcarouter",
+            {"model": "text-embedding-3-small"},
+        ),
+        "alltools-orcarouter": ("orcarouter", {"model": "text-embedding-3-small"}),
     }
 
     seen = set()

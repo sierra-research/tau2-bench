@@ -1108,6 +1108,22 @@ class TestRetrievalVariantRegistry:
         assert variant.kb_search_dense.embedder_type == "openrouter"
         assert variant.kb_search_dense.embedder_model == "qwen3-embedding-8b"
 
+    def test_resolve_variant_alltools_orcarouter(self):
+        from tau2.domains.banking_knowledge.retrieval import resolve_variant
+
+        variant = resolve_variant("alltools-orcarouter")
+        assert variant.kb_search_dense is not None
+        assert variant.kb_search_dense.embedder_type == "orcarouter"
+        assert variant.kb_search_dense.embedder_model == "text-embedding-3-small"
+
+    def test_resolve_variant_orcarouter_embeddings(self):
+        from tau2.domains.banking_knowledge.retrieval import resolve_variant
+
+        variant = resolve_variant("orcarouter_embeddings")
+        assert variant.name == "orcarouter_embeddings"
+        assert variant.kb_search.embedder_type == "orcarouter"
+        assert variant.kb_search.embedder_model == "text-embedding-3-small"
+
     def test_bm25_variant(self):
         from tau2.domains.banking_knowledge.retrieval import resolve_variant
 
@@ -1141,6 +1157,16 @@ class TestAllToolsEmbedderWarmupMapping:
 
         configs = get_unique_embedder_configs_for_retrieval_configs(["alltools-qwen"])
         assert configs == [("openrouter", {"model": "qwen3-embedding-8b"})]
+
+    def test_unique_embedder_config_alltools_orcarouter(self):
+        from tau2.knowledge.embeddings_cache import (
+            get_unique_embedder_configs_for_retrieval_configs,
+        )
+
+        configs = get_unique_embedder_configs_for_retrieval_configs(
+            ["alltools-orcarouter"]
+        )
+        assert configs == [("orcarouter", {"model": "text-embedding-3-small"})]
 
     def test_unique_embedder_config_alltools_variants_dedupe(self):
         from tau2.knowledge.embeddings_cache import (
