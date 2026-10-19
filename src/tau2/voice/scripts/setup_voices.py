@@ -48,9 +48,11 @@ SAMPLE_TEXT = (
 # Voice Design parameters matching the docs/voice-personas.md recommendations.
 # UI percentage → API value mapping:
 #   loudness: UI 0–100% maps to API -1.0–1.0  (75% → 0.5)
-#   guidance_scale: UI 0–100% maps to API 0–100  (38% → 38)
+#   guidance_scale: the UI slider percentage is not the API value. The API
+#   default is 5 and ElevenLabs warns that high values sound artificial or
+#   robotic; 38 produced slow, pause-heavy voices compared with the UI.
 VOICE_DESIGN_LOUDNESS = 0.5  # 75% in the ElevenLabs UI
-VOICE_DESIGN_GUIDANCE_SCALE = 38  # 38% in the ElevenLabs UI
+VOICE_DESIGN_GUIDANCE_SCALE = 5.0  # ElevenLabs API default
 VOICE_DESIGN_MODEL = "eleven_ttv_v3"
 VOICE_DESIGN_MODELS = ["eleven_ttv_v3", "eleven_multilingual_ttv_v2"]
 VOICE_DESIGN_SEED = 42
@@ -82,6 +84,7 @@ def setup_voices(
     seed: int = VOICE_DESIGN_SEED,
     model: str = VOICE_DESIGN_MODEL,
     force: bool = False,
+    guidance_scale: float = VOICE_DESIGN_GUIDANCE_SCALE,
 ) -> dict[str, str]:
     """Create ElevenLabs voices for τ-bench personas.
 
@@ -93,6 +96,7 @@ def setup_voices(
             same prompt = same voice).
         model: ElevenLabs TTV model to use for voice generation.
         force: If True, skip confirmation when voices already exist.
+        guidance_scale: Voice Design guidance_scale in API units (0–100).
 
     Returns:
         Mapping of persona_name → voice_id for all created voices.
@@ -143,7 +147,7 @@ def setup_voices(
         print(f"Voice Design settings:")
         print(f"  Model: {model}")
         print(f"  Loudness: {VOICE_DESIGN_LOUDNESS} (75% in UI)")
-        print(f"  Guidance scale: {VOICE_DESIGN_GUIDANCE_SCALE} (38% in UI)")
+        print(f"  Guidance scale: {guidance_scale}")
         print(f"  Seed: {seed}")
         return {}
 
@@ -189,7 +193,7 @@ def setup_voices(
     print(f"\nCreating {len(personas)} voice(s) via ElevenLabs Voice Design API...\n")
     print(f"  Model: {model}")
     print(f"  Loudness: {VOICE_DESIGN_LOUDNESS} (75% in UI)")
-    print(f"  Guidance scale: {VOICE_DESIGN_GUIDANCE_SCALE} (38% in UI)")
+    print(f"  Guidance scale: {guidance_scale}")
     print(f"  Seed: {seed}")
     print()
 
@@ -223,7 +227,7 @@ def setup_voices(
                 text=SAMPLE_TEXT,
                 model_id=model,
                 loudness=VOICE_DESIGN_LOUDNESS,
-                guidance_scale=VOICE_DESIGN_GUIDANCE_SCALE,
+                guidance_scale=guidance_scale,
                 seed=seed,
                 auto_generate_text=False,
             )
@@ -339,6 +343,13 @@ See docs/voice-personas.md for the full setup guide.
         "Same seed + same prompt = same voice.",
     )
     parser.add_argument(
+        "--guidance-scale",
+        type=float,
+        default=VOICE_DESIGN_GUIDANCE_SCALE,
+        help="Voice Design guidance_scale in API units, 0-100 "
+        f"(default: {VOICE_DESIGN_GUIDANCE_SCALE}). High values sound artificial.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what would be created without calling the API.",
@@ -364,6 +375,7 @@ See docs/voice-personas.md for the full setup guide.
         seed=args.seed,
         model=args.model,
         force=args.force,
+        guidance_scale=args.guidance_scale,
     )
 
     if created_voices:

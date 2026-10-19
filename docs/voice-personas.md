@@ -59,6 +59,8 @@ ElevenLabs Voice Design lets you create voices from a text prompt.
    - **Language**: English
    - **Loudness**: 75%
    - **Guidance scale**: 38%
+
+   The UI shows guidance as a slider percentage, which is not the API value. The automated script uses the API default `guidance_scale=5` (override with `--guidance-scale`).
 5. Generate and save the voice
 6. Copy the **Voice ID** from the voice details page (click the voice → look for the ID string)
 

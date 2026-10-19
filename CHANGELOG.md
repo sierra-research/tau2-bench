@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `setup_voices` sent `guidance_scale=38` to the Voice Design API by treating the UI's 38% slider position as the API value. It now uses the API default of 5, which avoids the slow, pause-heavy voices 38 produced, and adds a `--guidance-scale` flag.
+
 ## [1.0.1] - 2026-07-15
 
 > **⚠️ Grading change — banking_knowledge scores are not comparable across this release.**
