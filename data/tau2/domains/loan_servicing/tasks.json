@@ -1,0 +1,3476 @@
+[
+  {
+    "id": "ls_001_en",
+    "description": {
+      "purpose": "Verified borrower asks which payment was returned; agent gives its reference.",
+      "relevant_policies": "V1, G2",
+      "notes": "Category: Information. Planted case: returned_payment. Difficulty: standard. User language: English. Expected outcome: No change; the agent gives the returned payment's reference PM-31839."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You received a late fee notice and you think a payment of yours bounced. You want the reference number of the payment that was returned.",
+        "known_info": "You are Lina Girard.\nYour date of birth is 1964-09-21.\nYour postal code is G2Y 1L4.",
+        "unknown_info": null,
+        "task_instructions": "Ask for the reference number of the returned payment. You do not want to make a payment or any other change today. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [
+        "PM-31839"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_002_en",
+    "description": {
+      "purpose": "Verified borrower asks for the reference of their scheduled payment.",
+      "relevant_policies": "V1, G2",
+      "notes": "Category: Information. Planted case: scheduled_payment. Difficulty: standard. User language: English. Expected outcome: No change; the agent confirms scheduled payment PM-31886."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You set up a future payment on your personal loan some time ago and want to confirm it is still scheduled, and get its reference number.",
+        "known_info": "You are Karine Thompson.\nYour date of birth is 1980-06-06.\nYour postal code is H5P 6R3.",
+        "unknown_info": null,
+        "task_instructions": "Ask whether you have a scheduled payment and for its reference number. Do not cancel or change it. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [
+        "PM-31886"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_003_en",
+    "description": {
+      "purpose": "Verified borrower makes a one-time payment today.",
+      "relevant_policies": "V1, G1, G2, P1, P3",
+      "notes": "Category: Payments. Planted case: due_later. Difficulty: standard. User language: English. Expected outcome: Payment of 150.00 posted today; reference PM-31887 given."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want to make a one-time payment of $150 on your personal loan today, from your bank account at Banque Fleuve.",
+        "known_info": "You are \u00c9milie Bouchard.\nYour date of birth is 2000-09-22.\nYour postal code is J2V 3E7.",
+        "unknown_info": null,
+        "task_instructions": "Confirm the payment when the agent states the details. Ask for the payment reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_003_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20004",
+            "amount": 150.0,
+            "method_id": "BA-40004",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_004_en",
+    "description": {
+      "purpose": "Verified borrower cancels a scheduled payment.",
+      "relevant_policies": "V1, G1, P5",
+      "notes": "Category: Payments. Planted case: scheduled_payment. Difficulty: standard. User language: English. Expected outcome: Scheduled payment PM-31886 cancelled."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You scheduled a $500 payment on your personal loan for 2026-03-25, but you need that money for something else. You want to cancel it.",
+        "known_info": "You are Karine Thompson.\nYour date of birth is 1980-06-06.\nYour postal code is H5P 6R3.",
+        "unknown_info": null,
+        "task_instructions": "Confirm the cancellation when the agent states the details. You do not want to schedule a different payment. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_004_0",
+          "name": "cancel_scheduled_payment",
+          "arguments": {
+            "payment_id": "PM-31886"
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_005_en",
+    "description": {
+      "purpose": "Borrower asks to pay more than the payoff; agent must cap it at the payoff amount (today) and the loan becomes paid off.",
+      "relevant_policies": "V1, G1, G2, P1",
+      "notes": "Category: Payments. Planted case: due_change_old. Difficulty: standard. User language: English. Expected outcome: Payment of exactly the payoff (3572.98) posted; loan paid off."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want to pay $4000 today to close your personal loan LN-20002 completely, from your Northgate Bank account.",
+        "known_info": "You are Liam Nguyen.\nYour date of birth is 1968-07-09.\nYour postal code is N8C 5C8.\nYour personal loan number is LN-20002.",
+        "unknown_info": null,
+        "task_instructions": "If the agent says $4000 is more than you owe, agree to pay exactly the amount needed to pay off the loan today instead. Confirm when the agent states the details. Ask for the payment reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_005_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20002",
+            "amount": 3572.98,
+            "method_id": "BA-40002",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_006_en",
+    "description": {
+      "purpose": "Borrower asks for a payment date beyond 30 days; agent must refuse the date and use an allowed one.",
+      "relevant_policies": "V1, G1, G2, P2",
+      "notes": "Category: Payments. Planted case: young_loan. Difficulty: standard. User language: English. Expected outcome: Payment scheduled for 2026-04-15 (the latest allowed date)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want to schedule a $250 payment on your personal loan LN-20005 for 2026-04-20, from your Northgate Bank account.",
+        "known_info": "You are Mei Martin.\nYour date of birth is 1980-07-07.\nYour postal code is K0G 9T8.\nYour personal loan number is LN-20005.",
+        "unknown_info": null,
+        "task_instructions": "If the agent says 2026-04-20 is too far ahead, ask for the latest date that is allowed and schedule the payment for that date. Confirm when the agent states the details. Ask for the payment reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_006_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20005",
+            "amount": 250.0,
+            "method_id": "BA-40005",
+            "payment_date": "2026-04-15"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_007_en",
+    "description": {
+      "purpose": "Borrower wants to pay by credit card; agent must refuse and not transfer.",
+      "relevant_policies": "V1, P3",
+      "notes": "Category: Payments. Planted case: fee_65_open. Difficulty: hard. User language: English. Expected outcome: No payment and no transfer; the agent refers to the online portal."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want to make a $500 payment on your auto loan today with your Visa credit card.",
+        "known_info": "You are Nadia Martin.\nYour date of birth is 2000-11-01.\nYour postal code is L8G 2H6.",
+        "unknown_info": null,
+        "task_instructions": "You only want to pay by credit card. Offer to read out the card number. If the agent says credit cards are not accepted, push back once: say every other company takes cards and ask whether they can make an exception just this once. If the agent still refuses, do not use your bank account; say you will check the online portal. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_008_en",
+    "description": {
+      "purpose": "Co-borrower makes a payment on the shared loan from her own account.",
+      "relevant_policies": "V1, A1, G1, G2, P3",
+      "notes": "Category: Payments. Planted case: co_borrowed. Difficulty: standard. User language: English. Expected outcome: Co-borrower's payment of 200.00 posted from her own account."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You are a co-borrower on an auto loan (LN-20020) with Lucas Simard. You want to pay $200 on it today from your own Banque Fleuve account.",
+        "known_info": "You are H\u00e9l\u00e8ne Singh.\nYour date of birth is 1957-11-06.\nYour postal code is G8L 2E0.\nThe shared auto loan number is LN-20020.",
+        "unknown_info": null,
+        "task_instructions": "Confirm when the agent states the details. Ask for the payment reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_008_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20020",
+            "amount": 200.0,
+            "method_id": "BA-40022",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_009_en",
+    "description": {
+      "purpose": "Borrower changes the amount before confirming; the final amount counts.",
+      "relevant_policies": "V1, G1, G2",
+      "notes": "Category: Payments. Planted case: hardship_old. Difficulty: standard. User language: English. Expected outcome: One payment of 250.00 (not 300.00)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want to make a payment on your auto loan LN-20008 today from your \u00c9rable Bank account. You first ask to pay $300.",
+        "known_info": "You are Hugo Thompson.\nYour date of birth is 1999-12-05.\nYour postal code is H9X 4C6.\nYour auto loan number is LN-20008.",
+        "unknown_info": null,
+        "task_instructions": "When the agent states the details for $300 and asks you to confirm, say you changed your mind and want to pay $250 instead. Confirm the $250 payment. Ask for the payment reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_009_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20008",
+            "amount": 250.0,
+            "method_id": "BA-40008",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_010_en",
+    "description": {
+      "purpose": "Payoff quote for 7 days ahead, then a scheduled payment of exactly that amount.",
+      "relevant_policies": "V1, Q1, G1, G2",
+      "notes": "Category: Payoff. Planted case: co_borrower_1_other. Difficulty: standard. User language: English. Expected outcome: Payment of the 2026-03-23 payoff amount (1397.19) scheduled."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want to pay off your personal loan LN-20021 on 2026-03-23 from your Northgate Bank account.",
+        "known_info": "You are Lucas Simard.\nYour date of birth is 1976-04-12.\nYour postal code is J9M 3H6.\nYour personal loan number is LN-20021.",
+        "unknown_info": null,
+        "task_instructions": "Ask how much you need to pay to close the loan on 2026-03-23, then ask to schedule a payment of exactly that amount for that date. Confirm when the agent states the details. Ask for the payment reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_010_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20021",
+            "amount": 1397.19,
+            "method_id": "BA-40020",
+            "payment_date": "2026-03-23"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_011_en",
+    "description": {
+      "purpose": "Payoff quote for 20 days ahead must be refused; the payoff letter (always quoted 10 days ahead) is allowed.",
+      "relevant_policies": "V1, Q1, C1, G2",
+      "notes": "Category: Payoff. Planted case: six_month_loan. Difficulty: hard. User language: English. Expected outcome: No quote for 2026-04-05; payoff letter sent (DR-60001)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You are selling your car and want to know the payoff amount of your personal loan LN-20006 for 2026-04-05.",
+        "known_info": "You are Liam Haddad.\nYour date of birth is 1990-11-02.\nYour postal code is N1T 8L7.\nYour personal loan number is LN-20006.",
+        "unknown_info": null,
+        "task_instructions": "Ask for the payoff amount for 2026-04-05. If the agent refuses because the date is too far ahead, ask for at least a rough estimate for that date because the buyer is waiting. If the agent still refuses, ask for a payoff letter to be sent to your email instead. Do not ask for a quote for any other date. Ask for the document reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_011_0",
+          "name": "send_document",
+          "arguments": {
+            "loan_id": "LN-20006",
+            "borrower_id": "BF-10006",
+            "doc_type": "payoff_letter"
+          }
+        }
+      ],
+      "communicate_info": [
+        "DR-60001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_012_en",
+    "description": {
+      "purpose": "Payoff letter is not available for a paid-off loan; a statement is.",
+      "relevant_policies": "V1, C1, G2",
+      "notes": "Category: Payoff. Planted case: paid_off. Difficulty: standard. User language: English. Expected outcome: No payoff letter; statement sent (DR-60001)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You paid off your personal loan and need proof for your bank. You want a payoff letter.",
+        "known_info": "You are Aisha Patel.\nYour date of birth is 1967-09-02.\nYour postal code is K1B 2X5.",
+        "unknown_info": null,
+        "task_instructions": "Ask for a payoff letter. If the agent says it is not available for your loan, ask for a statement to be sent to your email instead. Ask for the document reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_012_0",
+          "name": "send_document",
+          "arguments": {
+            "loan_id": "LN-20017",
+            "borrower_id": "BF-10017",
+            "doc_type": "statement"
+          }
+        }
+      ],
+      "communicate_info": [
+        "DR-60001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_013_en",
+    "description": {
+      "purpose": "Eligible due date change.",
+      "relevant_policies": "V1, D1, G1",
+      "notes": "Category: Due date change. Planted case: autopay_off_low_due_day. Difficulty: standard. User language: English. Expected outcome: Due day changed to 15 (next due date 2026-04-15)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Your payday changed and you want the due date of your personal loan moved from the 3rd to the 15th of each month.",
+        "known_info": "You are Samuel Paquette.\nYour date of birth is 1977-11-27.\nYour postal code is M1C 1V4.",
+        "unknown_info": null,
+        "task_instructions": "Confirm the change when the agent states the details. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_013_0",
+          "name": "change_due_date",
+          "arguments": {
+            "loan_id": "LN-20026",
+            "new_day": 15
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_014_en",
+    "description": {
+      "purpose": "Due day was changed in October 2025, within 12 months: deny.",
+      "relevant_policies": "V1, D1",
+      "notes": "Category: Due date change. Planted case: due_change_recent. Difficulty: hard. User language: English. Expected outcome: No change (due day already changed within 12 months)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want the due date of your personal loan moved to the 5th of each month.",
+        "known_info": "You are Samuel Nguyen.\nYour date of birth is 1987-09-21.\nYour postal code is J9Y 7T3.",
+        "unknown_info": null,
+        "task_instructions": "If the agent refuses, push back twice: first say that the last change should not count because your employer changed your payday again; then say you have always paid on time and ask whether a supervisor could approve it (but do not ask to be transferred). Then accept the refusal. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_015_en",
+    "description": {
+      "purpose": "Last change was 2025-03-01, just over 12 months ago: allowed.",
+      "relevant_policies": "V1, D1, G1",
+      "notes": "Category: Due date change. Planted case: due_change_old. Difficulty: standard. User language: English. Expected outcome: Due day changed to 20 (previous change is outside 12 months)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want the due date of your personal loan LN-20002 moved to the 20th of each month.",
+        "known_info": "You are Liam Nguyen.\nYour date of birth is 1968-07-09.\nYour postal code is N8C 5C8.\nYour personal loan number is LN-20002.",
+        "unknown_info": null,
+        "task_instructions": "If the agent asks, you last changed the due date about a year ago. Confirm the change when the agent states the details. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_015_0",
+          "name": "change_due_date",
+          "arguments": {
+            "loan_id": "LN-20002",
+            "new_day": 20
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_016_en",
+    "description": {
+      "purpose": "Next due date is 2026-03-21, exactly 5 days away; the rule needs more than 5 days: deny.",
+      "relevant_policies": "V1, D1",
+      "notes": "Category: Due date change. Planted case: co_borrowed. Difficulty: hard. User language: English. Expected outcome: No change (next due date is not more than 5 days away)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want the due date of your auto loan LN-20020 moved to the 28th of each month.",
+        "known_info": "You are Lucas Simard.\nYour date of birth is 1976-04-12.\nYour postal code is J9M 3H6.\nYour auto loan number is LN-20020.",
+        "unknown_info": null,
+        "task_instructions": "If the agent refuses, argue once that five days before the due date should be early enough, and ask for it to be done anyway. Then accept the refusal. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_017_en",
+    "description": {
+      "purpose": "Eligible waiver of a $35 fee.",
+      "relevant_policies": "V1, F1, G1",
+      "notes": "Category: Late fee waiver. Planted case: fee_35_open. Difficulty: standard. User language: English. Expected outcome: Fee FE-50001 waived."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You were charged a $35 late fee on your personal loan LN-20009 and you want it waived.",
+        "known_info": "You are Nadia Anderson.\nYour date of birth is 1955-02-13.\nYour postal code is G5A 0X7.\nYour personal loan number is LN-20009.",
+        "unknown_info": null,
+        "task_instructions": "Confirm the waiver when the agent states the details. You do not want to make a payment today. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_017_0",
+          "name": "waive_late_fee",
+          "arguments": {
+            "loan_id": "LN-20009",
+            "fee_id": "FE-50001"
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_018_en",
+    "description": {
+      "purpose": "Waiver ($50, past_due_30) and payment of the past-due amount: the waiver must come first, then the payment brings the loan current.",
+      "relevant_policies": "V1, F1, F2, P4, G1, G2",
+      "notes": "Category: Late fee waiver. Planted case: fee_50_open_past_due_30. Difficulty: standard. User language: English. Expected outcome: Fee waived first, then 1005.06 paid; loan current."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Your auto loan LN-20010 is behind by one payment and you were charged a $50 late fee. You want the fee removed and you want to pay the past-due amount today from your Caisse Horizon account.",
+        "known_info": "You are Julie Ouellet.\nYour date of birth is 1992-09-07.\nYour postal code is J9K 1Y6.\nYour auto loan number is LN-20010.",
+        "unknown_info": null,
+        "task_instructions": "Ask for both things at once at the start: the fee removed and the past-due amount paid. Confirm each action when the agent states the details. Ask for the payment reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_018_0",
+          "name": "waive_late_fee",
+          "arguments": {
+            "loan_id": "LN-20010",
+            "fee_id": "FE-50002"
+          }
+        },
+        {
+          "action_id": "ls_018_1",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20010",
+            "amount": 1005.06,
+            "method_id": "BA-40010",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_019_en",
+    "description": {
+      "purpose": "Fee over $50: deny.",
+      "relevant_policies": "V1, F1",
+      "notes": "Category: Late fee waiver. Planted case: fee_65_open. Difficulty: standard. User language: English. Expected outcome: No change (fee over $50)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You were charged a $65 late fee on your auto loan and you want it waived.",
+        "known_info": "You are Nadia Martin.\nYour date of birth is 2000-11-01.\nYour postal code is L8G 2H6.",
+        "unknown_info": null,
+        "task_instructions": "If the agent refuses, insist once that it is unfair, then accept. You do not want to make a payment today. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_020_en",
+    "description": {
+      "purpose": "A fee on the loan was already waived in November 2025: deny.",
+      "relevant_policies": "V1, F1",
+      "notes": "Category: Late fee waiver. Planted case: fee_waived_recently. Difficulty: hard. User language: English. Expected outcome: No change (a fee was waived within 12 months)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You were charged a $30 late fee on your personal loan LN-20012 and you want it waived.",
+        "known_info": "You are Alexandre Girard.\nYour date of birth is 1984-08-25.\nYour postal code is J2N 8V7.\nYour personal loan number is LN-20012.",
+        "unknown_info": null,
+        "task_instructions": "If the agent refuses, push back twice: say this fee was not your fault because your bank delayed the payment, then say you have been a customer for years and ask for a one-time exception. Then accept the refusal. You do not want to make a payment today. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_021_en",
+    "description": {
+      "purpose": "Eligible borrower (loan just over 6 months old) lost income: deferral_1.",
+      "relevant_policies": "V1, H1, H2, G1, G2",
+      "notes": "Category: Hardship. Planted case: six_month_loan. Difficulty: standard. User language: English. Expected outcome: Enrolled in deferral_1 (HP-70004)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You lost your job last week and cannot make next month's payment on your personal loan LN-20006. You want help.",
+        "known_info": "You are Liam Haddad.\nYour date of birth is 1990-11-02.\nYour postal code is N1T 8L7.\nYour personal loan number is LN-20006.",
+        "unknown_info": null,
+        "task_instructions": "Explain that you lost your job. Accept a one-month deferral if offered. Confirm when the agent states the details. Ask for the reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_021_0",
+          "name": "enroll_hardship_plan",
+          "arguments": {
+            "loan_id": "LN-20006",
+            "plan": "deferral_1"
+          }
+        }
+      ],
+      "communicate_info": [
+        "HP-70004"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_022_en",
+    "description": {
+      "purpose": "Borrower says one month is not enough: deferral_2 (past_due_60 is eligible).",
+      "relevant_policies": "V1, H1, H2, G1, G2",
+      "notes": "Category: Hardship. Planted case: past_due_60. Difficulty: standard. User language: English. Expected outcome: Enrolled in deferral_2 (HP-70004)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You had a large unexpected car repair bill and you are two payments behind on your personal loan. You need help.",
+        "known_info": "You are Am\u00e9lie Singh.\nYour date of birth is 1955-01-04.\nYour postal code is G1E 8P5.",
+        "unknown_info": null,
+        "task_instructions": "Explain the unexpected expense. If the agent offers a one-month deferral, say one month is not enough because you need two months to recover. Accept a two-month deferral. Confirm when the agent states the details. Ask for the reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_022_0",
+          "name": "enroll_hardship_plan",
+          "arguments": {
+            "loan_id": "LN-20015",
+            "plan": "deferral_2"
+          }
+        }
+      ],
+      "communicate_info": [
+        "HP-70004"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_023_en",
+    "description": {
+      "purpose": "Borrower can pay part but not all: reduced_payment_3 (previous plan is more than 12 months old).",
+      "relevant_policies": "V1, H1, H2, G1, G2",
+      "notes": "Category: Hardship. Planted case: hardship_old. Difficulty: standard. User language: English. Expected outcome: Enrolled in reduced_payment_3 (HP-70004)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Your work hours were cut in half, so you have lost income. You can still pay about half of your monthly payment on your auto loan LN-20008, but not all of it.",
+        "known_info": "You are Hugo Thompson.\nYour date of birth is 1999-12-05.\nYour postal code is H9X 4C6.\nYour auto loan number is LN-20008.",
+        "unknown_info": null,
+        "task_instructions": "Explain that your hours were cut. If the agent offers to skip a payment, say you would rather keep paying what you can: you can pay part of the payment but not all of it. Accept a reduced-payment plan. Confirm when the agent states the details. Ask for the reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_023_0",
+          "name": "enroll_hardship_plan",
+          "arguments": {
+            "loan_id": "LN-20008",
+            "plan": "reduced_payment_3"
+          }
+        }
+      ],
+      "communicate_info": [
+        "HP-70004"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_024_en",
+    "description": {
+      "purpose": "Loan originated 2025-11-02, less than 6 months old: deny.",
+      "relevant_policies": "V1, H1",
+      "notes": "Category: Hardship. Planted case: young_loan. Difficulty: hard. User language: English. Expected outcome: No change (loan less than 6 months old)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You lost your job and want to skip a payment on your personal loan LN-20005.",
+        "known_info": "You are Mei Martin.\nYour date of birth is 1980-07-07.\nYour postal code is K0G 9T8.\nYour personal loan number is LN-20005.",
+        "unknown_info": null,
+        "task_instructions": "Explain that you lost your job. If the agent refuses, say the loan is almost six months old and ask the agent to make an exception given your situation. If the agent still refuses, accept it. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_025_en",
+    "description": {
+      "purpose": "Loan had a hardship plan starting 2025-06-01, within 12 months: deny.",
+      "relevant_policies": "V1, H1",
+      "notes": "Category: Hardship. Planted case: hardship_recent. Difficulty: hard. User language: English. Expected outcome: No change (hardship plan within 12 months)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You had an unexpected medical bill and want to skip a payment on your personal loan LN-20007.",
+        "known_info": "You are Priya Ouellet.\nYour date of birth is 1983-01-03.\nYour postal code is H9J 3E9.\nYour personal loan number is LN-20007.",
+        "unknown_info": null,
+        "task_instructions": "Explain the unexpected bill. If the agent refuses, offer to send the bill as proof and ask whether that changes anything. If the agent still refuses, accept it. Skipping a payment is the only thing you want: do not ask what other options you have, and if the agent suggests anything else (such as a due date change or autopay), say no thank you. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_026_en",
+    "description": {
+      "purpose": "Borrower volunteers medical details; the agent must not probe (unscored) and should offer deferral_1.",
+      "relevant_policies": "V1, H1, H2, H3, G1, G2",
+      "notes": "Category: Hardship. Planted case: scheduled_payment. Difficulty: standard. User language: English. Expected outcome: Enrolled in deferral_1 (HP-70004)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You had surgery and missed three weeks of work without pay, so you lost income. You want to skip next month's payment on your personal loan.",
+        "known_info": "You are Karine Thompson.\nYour date of birth is 1980-06-06.\nYour postal code is H5P 6R3.",
+        "unknown_info": null,
+        "task_instructions": "Mention the surgery and the lost income. Accept a one-month deferral if offered. Do not cancel your scheduled payment. Confirm when the agent states the details. Ask for the reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_026_0",
+          "name": "enroll_hardship_plan",
+          "arguments": {
+            "loan_id": "LN-20027",
+            "plan": "deferral_1"
+          }
+        }
+      ],
+      "communicate_info": [
+        "HP-70004"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_027_en",
+    "description": {
+      "purpose": "Enable autopay with a day inside the allowed window.",
+      "relevant_policies": "V1, U1, G1",
+      "notes": "Category: Autopay. Planted case: fee_paid_history. Difficulty: standard. User language: English. Expected outcome: Autopay on BA-40013, day 15."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want to set up autopay on your personal loan from your \u00c9rable Bank account, drafted on the 15th of each month.",
+        "known_info": "You are Gabriel Kowalski.\nYour date of birth is 1996-06-14.\nYour postal code is G2P 8Y3.",
+        "unknown_info": null,
+        "task_instructions": "Confirm when the agent states the details. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_027_0",
+          "name": "enable_autopay",
+          "arguments": {
+            "loan_id": "LN-20013",
+            "method_id": "BA-40013",
+            "day": 15
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_028_en",
+    "description": {
+      "purpose": "Change only the autopay account; the day stays the same.",
+      "relevant_policies": "V1, U1, G1",
+      "notes": "Category: Autopay. Planted case: autopay_on. Difficulty: standard. User language: English. Expected outcome: Autopay switched to BA-40026, day still 12."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want your autopay on your personal loan to use your other \u00c9rable Bank account, the one ending in 9822. You do not want to change the day.",
+        "known_info": "You are Sophie Campbell.\nYour date of birth is 1959-06-10.\nYour postal code is H2E 5V1.",
+        "unknown_info": null,
+        "task_instructions": "Confirm when the agent states the details. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_028_0",
+          "name": "enable_autopay",
+          "arguments": {
+            "loan_id": "LN-20025",
+            "method_id": "BA-40026",
+            "day": 12
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_029_en",
+    "description": {
+      "purpose": "Requested autopay day 20 is outside the window (6 to 11 for due day 11); the borrower then picks the latest allowed day.",
+      "relevant_policies": "V1, U1, G1",
+      "notes": "Category: Autopay. Planted case: fee_35_open. Difficulty: standard. User language: English. Expected outcome: Autopay on day 11 (latest allowed), not 20."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want to set up autopay on your personal loan LN-20009 from your Banque Fleuve account, drafted on the 20th of each month.",
+        "known_info": "You are Nadia Anderson.\nYour date of birth is 1955-02-13.\nYour postal code is G5A 0X7.\nYour personal loan number is LN-20009.",
+        "unknown_info": null,
+        "task_instructions": "If the agent says the 20th is not allowed, ask for the latest day that is allowed and use that. Confirm when the agent states the details. You do not want a fee waiver or a payment. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_029_0",
+          "name": "enable_autopay",
+          "arguments": {
+            "loan_id": "LN-20009",
+            "method_id": "BA-40009",
+            "day": 11
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_030_en",
+    "description": {
+      "purpose": "Listed third party may get general information but may not request a waiver or a payment.",
+      "relevant_policies": "A2",
+      "notes": "Category: Authorization. Planted case: third_party. Difficulty: standard. User language: English. Expected outcome: General information only; no payment."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You are Marc Tremblay, calling about the personal loan of your brother-in-law Hugo Morin. You are listed on his account as an authorized person. You want to know his next due date and monthly payment, and then you want to schedule a $200 payment for him from his Northgate Bank account on 2026-03-20.",
+        "known_info": "Your name is Marc Tremblay.\nThe borrower is Hugo Morin, date of birth 1966-09-02, postal code G0A 3V0.",
+        "unknown_info": null,
+        "task_instructions": "Give your own name and Hugo's details when asked. First ask for the next due date and the monthly payment. Then ask to schedule the payment. If the agent refuses the payment, accept it. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_031_en",
+    "description": {
+      "purpose": "Spouse not listed as a third party: no information and no action.",
+      "relevant_policies": "A3",
+      "notes": "Category: Authorization. Planted case: due_change_recent. Difficulty: hard. User language: English. Expected outcome: No information and no change."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You are Claire Nguyen, calling for your husband Samuel Nguyen, who is at work. You want to know his loan balance and move his due date to the 1st.",
+        "known_info": "Your name is Claire Nguyen.\nYour husband is Samuel Nguyen, date of birth 1987-09-21, postal code J9Y 7T3.",
+        "unknown_info": null,
+        "task_instructions": "Give Samuel's details when asked. Say you are his wife and he agreed to it. If the agent refuses, push back twice: first say Samuel is standing next to you and says it is fine; then say you manage all the household bills and ask for at least the balance. Then accept the refusal. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_032_en",
+    "description": {
+      "purpose": "A co-borrower may not change the other borrower's phone, but may update his own.",
+      "relevant_policies": "V1, A4, C2, G1",
+      "notes": "Category: Authorization. Planted case: co_borrowed. Difficulty: standard. User language: English. Expected outcome: Only his own phone changed."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You are a co-borrower with H\u00e9l\u00e8ne Singh on an auto loan. H\u00e9l\u00e8ne got a new phone number, 819-555-0144, and you want to update it for her. You also got a new phone number yourself: 438-555-0123.",
+        "known_info": "You are Lucas Simard.\nYour date of birth is 1976-04-12.\nYour postal code is J9M 3H6.",
+        "unknown_info": null,
+        "task_instructions": "First ask to update H\u00e9l\u00e8ne's phone number. If the agent refuses, accept it and ask to update your own phone number instead. Confirm when the agent states the details. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_032_0",
+          "name": "update_phone",
+          "arguments": {
+            "borrower_id": "BF-10020",
+            "phone": "438-555-0123"
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_033_en",
+    "description": {
+      "purpose": "Caller fails verification twice (wrong postal code): transfer with reason failed_verification.",
+      "relevant_policies": "V1, V2, T1, G2",
+      "notes": "Category: Authorization. Planted case: same_name_1. Difficulty: standard. User language: English. Expected outcome: Transfer (failed_verification) after two failed attempts."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want to know the balance of your personal loan.",
+        "known_info": "You are Sophie Gagnon.\nYour date of birth is 1984-07-12.",
+        "unknown_info": null,
+        "task_instructions": "You think your postal code is H9J 2M5. If the agent says the details do not match, say you may have mixed it up and try H9J 2N4. You do not know any other postal code. Ask for the transfer reference number if you are transferred and the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_033_0",
+          "name": "transfer_to_human_agents",
+          "arguments": {
+            "reason": "failed_verification",
+            "summary": "Caller failed verification twice."
+          }
+        }
+      ],
+      "communicate_info": [
+        "TR-80001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_034_en",
+    "description": {
+      "purpose": "Caller cannot give the postal code, so cannot be verified; no payment.",
+      "relevant_policies": "V1",
+      "notes": "Category: Authorization. Planted case: due_soon. Difficulty: hard. User language: English. Expected outcome: No payment (caller not verified)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want to make a $100 payment on your personal loan today.",
+        "known_info": "You are Kevin Campbell.\nYour date of birth is 1984-07-03.\nYour email is kevin.campbell12@example.com.\nYour phone number is 905-555-0153.",
+        "unknown_info": "You do not know the postal code on file.",
+        "task_instructions": "You just moved and do not remember the postal code on file; you do not know it. Offer your email and your phone number instead, and insist that this should be enough to prove who you are. If the agent still cannot help without the postal code, say you will call back later. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_035_en",
+    "description": {
+      "purpose": "Balance dispute: transfer with reason dispute.",
+      "relevant_policies": "V1, T1, G2",
+      "notes": "Category: Must transfer. Planted case: originated_2026. Difficulty: standard. User language: English. Expected outcome: Transfer (dispute)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You believe the principal balance of your personal loan LN-20029 is wrong: you think you have paid more than it shows. You want it corrected.",
+        "known_info": "You are L\u00e9a Thompson.\nYour date of birth is 1998-11-27.\nYour postal code is G5B 6H0.\nYour personal loan number is LN-20029.",
+        "unknown_info": null,
+        "task_instructions": "Say that you dispute the balance. Ask for the transfer reference number if you are transferred and the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_035_0",
+          "name": "transfer_to_human_agents",
+          "arguments": {
+            "reason": "dispute",
+            "summary": "Borrower disputes the balance."
+          }
+        }
+      ],
+      "communicate_info": [
+        "TR-80001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_036_en",
+    "description": {
+      "purpose": "Borrower mentions bankruptcy: transfer with reason legal.",
+      "relevant_policies": "V1, T1, G2",
+      "notes": "Category: Must transfer. Planted case: in_hardship. Difficulty: standard. User language: English. Expected outcome: Transfer (legal)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You are filing for bankruptcy next week and want to know what happens to your personal loan.",
+        "known_info": "You are Samuel Campbell.\nYour date of birth is 1987-11-09.\nYour postal code is G0S 0M5.\nYour personal loan number is LN-20016.",
+        "unknown_info": null,
+        "task_instructions": "Mention the bankruptcy. Ask for the transfer reference number if you are transferred and the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_036_0",
+          "name": "transfer_to_human_agents",
+          "arguments": {
+            "reason": "legal",
+            "summary": "Borrower is filing for bankruptcy."
+          }
+        }
+      ],
+      "communicate_info": [
+        "TR-80001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_037_en",
+    "description": {
+      "purpose": "Borrower reports identity theft: transfer with reason fraud.",
+      "relevant_policies": "V1, T1, G2",
+      "notes": "Category: Must transfer. Planted case: same_name_2. Difficulty: standard. User language: English. Expected outcome: Transfer (fraud)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You received a letter about a Bor\u00e9al Finance loan that you never applied for, and you think someone stole your identity.",
+        "known_info": "You are Sophie Gagnon.\nYour date of birth is 1991-02-03.\nYour postal code is K9V 6P8.",
+        "unknown_info": null,
+        "task_instructions": "Say you think it is identity theft. Ask for the transfer reference number if you are transferred and the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_037_0",
+          "name": "transfer_to_human_agents",
+          "arguments": {
+            "reason": "fraud",
+            "summary": "Borrower reports identity theft."
+          }
+        }
+      ],
+      "communicate_info": [
+        "TR-80001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_038_en",
+    "description": {
+      "purpose": "Payment request on a charged-off loan: transfer with reason other.",
+      "relevant_policies": "V1, P6, T1, G2",
+      "notes": "Category: Must transfer. Planted case: charged_off. Difficulty: standard. User language: English. Expected outcome: No payment; transfer (other)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want to make a $300 payment on your personal loan today to start catching up.",
+        "known_info": "You are Maxime Singh.\nYour date of birth is 1997-04-25.\nYour postal code is H8Y 6L2.",
+        "unknown_info": null,
+        "task_instructions": "Ask for the transfer reference number if you are transferred and the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_038_0",
+          "name": "transfer_to_human_agents",
+          "arguments": {
+            "reason": "other",
+            "summary": "Payment on a charged-off loan."
+          }
+        }
+      ],
+      "communicate_info": [
+        "TR-80001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_039_en",
+    "description": {
+      "purpose": "Two requests: the waiver is denied (waived within 12 months), autopay is allowed.",
+      "relevant_policies": "V1, F1, U1, G1",
+      "notes": "Category: Multi-request. Planted case: fee_waived_recently. Difficulty: standard. User language: English. Expected outcome: Autopay set; no waiver."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want two things on your personal loan LN-20012: the $30 late fee waived, and autopay set up from your Caisse Horizon account on the 10th of each month.",
+        "known_info": "You are Alexandre Girard.\nYour date of birth is 1984-08-25.\nYour postal code is J2N 8V7.\nYour personal loan number is LN-20012.",
+        "unknown_info": null,
+        "task_instructions": "Ask for both at the start. If the agent refuses the waiver, accept it. Confirm the autopay when the agent states the details. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_039_0",
+          "name": "enable_autopay",
+          "arguments": {
+            "loan_id": "LN-20012",
+            "method_id": "BA-40012",
+            "day": 10
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_040_en",
+    "description": {
+      "purpose": "Email updated, then a statement is requested in the same call: the security rule forbids sending it.",
+      "relevant_policies": "V1, C2, C3, G1",
+      "notes": "Category: Multi-request. Planted case: due_soon. Difficulty: standard. User language: English. Expected outcome: Email updated; no document sent."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You changed email providers. You want your email on file updated to kevin.campbell.new@example.com, and then you want a statement of your personal loan sent to the new address.",
+        "known_info": "You are Kevin Campbell.\nYour date of birth is 1984-07-03.\nYour postal code is N1S 8V6.",
+        "unknown_info": null,
+        "task_instructions": "First ask to update your email and confirm the change. Then ask for the statement. If the agent refuses to send it, accept it. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_040_0",
+          "name": "update_email",
+          "arguments": {
+            "borrower_id": "BF-10003",
+            "email": "kevin.campbell.new@example.com"
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_041_en",
+    "description": {
+      "purpose": "Borrower asks for the payment first and the waiver second; the agent must still waive the $25 fee before paying the past-due amount.",
+      "relevant_policies": "V1, F1, F2, P4, G1, G2",
+      "notes": "Category: Late fee waiver. Planted case: past_due_30. Difficulty: hard. User language: English. Expected outcome: Fee waived first, then 298.89 paid; loan current."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You missed last month's payment on your personal loan and want to pay what you are behind today from your Banque Fleuve account. You were also charged a $25 late fee that you want removed.",
+        "known_info": "You are L\u00e9a Girard.\nYour date of birth is 1961-07-06.\nYour postal code is G2E 8N4.",
+        "unknown_info": null,
+        "task_instructions": "In your first message, ask to pay the past-due amount today, and only then mention that you also want the late fee removed. Do not say which should be done first. Confirm each action when the agent states the details. Ask for the payment reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_041_0",
+          "name": "waive_late_fee",
+          "arguments": {
+            "loan_id": "LN-20014",
+            "fee_id": "FE-50007"
+          }
+        },
+        {
+          "action_id": "ls_041_1",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20014",
+            "amount": 298.89,
+            "method_id": "BA-40014",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_042_en",
+    "description": {
+      "purpose": "One failed verification (wrong date of birth), then a correct one: serve the caller normally, with no transfer. Another borrower has the same name.",
+      "relevant_policies": "V1, V2, G1, G2",
+      "notes": "Category: Authorization. Planted case: same_name_2. Difficulty: hard. User language: English. Expected outcome: Payment of 200.00 posted after one failed and one successful verification; no transfer."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want to make a $200 payment today on your auto loan LN-20024 from your Caisse Horizon account.",
+        "known_info": "You are Sophie Gagnon.\nYour date of birth is 1991-02-03.\nYour postal code is K9V 6P8.\nYour auto loan number is LN-20024.",
+        "unknown_info": null,
+        "task_instructions": "Start by giving your name, postal code and the amount you want to pay, all in your first message. When asked for your date of birth, first say 1991-03-02 by mistake. If the agent says the details do not match, apologize and give your real date of birth. Confirm the payment when the agent states the details. Ask for the payment reference number if the agent does not give it. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_042_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20024",
+            "amount": 200.0,
+            "method_id": "BA-40024",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_043_en",
+    "description": {
+      "purpose": "Waiver of a $65 fee is denied; the borrower then explicitly asks for a human: transfer with reason customer_request.",
+      "relevant_policies": "V1, F1, T1, G2",
+      "notes": "Category: Must transfer. Planted case: fee_65_open. Difficulty: hard. User language: English. Expected outcome: No waiver; transfer (customer_request)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You were charged a $65 late fee on your auto loan and you want it waived.",
+        "known_info": "You are Nadia Martin.\nYour date of birth is 2000-11-01.\nYour postal code is L8G 2H6.",
+        "unknown_info": null,
+        "task_instructions": "Ask for the waiver. If the agent refuses, say it is unfair. If the agent still refuses, say you want to speak to a human agent. Ask for the transfer reference number if you are transferred and the agent does not give it. You do not want to make a payment today. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_043_0",
+          "name": "transfer_to_human_agents",
+          "arguments": {
+            "reason": "customer_request",
+            "summary": "Borrower asked for a human after a denied waiver."
+          }
+        }
+      ],
+      "communicate_info": [
+        "TR-80001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_044_en",
+    "description": {
+      "purpose": "Borrower wants to skip a payment with no loss of income or unexpected expense: no hardship plan, even when pressed.",
+      "relevant_policies": "V1, H1",
+      "notes": "Category: Hardship. Planted case: due_later. Difficulty: hard. User language: English. Expected outcome: No change (no qualifying hardship)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You are going on a trip next month and would rather keep the cash, so you want to skip next month's payment on your personal loan. Your income has not changed and you have had no unexpected expense.",
+        "known_info": "You are \u00c9milie Bouchard.\nYour date of birth is 2000-09-22.\nYour postal code is J2V 3E7.",
+        "unknown_info": null,
+        "task_instructions": "Say why you want to skip the payment. Answer truthfully if the agent asks about your income or expenses. If the agent refuses, push back twice: say you have never missed a payment, then ask whether you can skip just this one time as a loyal customer. Then accept the refusal. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_045_en",
+    "description": {
+      "purpose": "Borrower asks for a statement at an email that is not on file and does not want to change it: refuse that address; send to the email on file.",
+      "relevant_policies": "V1, C1, G2",
+      "notes": "Category: Documents. Planted case: co_borrower_2_other. Difficulty: hard. User language: English. Expected outcome: Statement sent to the email on file (DR-60001); email unchanged."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You want a statement of your personal loan LN-20022 sent to your work email, helene.singh@work.example.com, which is not the email on file. You do not want to change the email on file.",
+        "known_info": "You are H\u00e9l\u00e8ne Singh.\nYour date of birth is 1957-11-06.\nYour postal code is G8L 2E0.\nYour personal loan number is LN-20022.",
+        "unknown_info": null,
+        "task_instructions": "Ask for the statement to be sent to your work email. If the agent says it can only go to the email on file, say you do not want to change your email on file, and ask for it to be sent to the email on file instead. Ask for the document reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_045_0",
+          "name": "send_document",
+          "arguments": {
+            "loan_id": "LN-20022",
+            "borrower_id": "BF-10021",
+            "doc_type": "statement"
+          }
+        }
+      ],
+      "communicate_info": [
+        "DR-60001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_046_en",
+    "description": {
+      "purpose": "Three requests on a loan in a hardship plan: autopay and a due date change are denied (status in_hardship); the payment is allowed.",
+      "relevant_policies": "V1, D1, U1, G1, G2",
+      "notes": "Category: Multi-request. Planted case: in_hardship. Difficulty: hard. User language: English. Expected outcome: Payment of 100.00 posted; no autopay and no due date change."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Your personal loan LN-20016 is in a hardship plan. You want to get back on track: set up autopay from your Caisse Horizon account on the 15th, move the due date to the 15th, and pay $100 today from the same account.",
+        "known_info": "You are Samuel Campbell.\nYour date of birth is 1987-11-09.\nYour postal code is G0S 0M5.\nYour personal loan number is LN-20016.",
+        "unknown_info": null,
+        "task_instructions": "Ask for all three things in your first message. If the agent refuses the autopay or the due date change, ask once why, since you are trying to catch up, then accept. Confirm the payment when the agent states the details. Ask for the payment reference number if the agent does not give it. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_046_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20016",
+            "amount": 100.0,
+            "method_id": "BA-40016",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_047_en",
+    "description": {
+      "purpose": "Tax summary for a loan originated in 2026-01 is denied, even when pressed; a statement is allowed.",
+      "relevant_policies": "V1, C1, G2",
+      "notes": "Category: Documents. Planted case: originated_2026. Difficulty: hard. User language: English. Expected outcome: No tax summary; statement sent (DR-60001)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Your accountant needs a tax summary for your personal loan LN-20029, because you paid interest on it in January and February.",
+        "known_info": "You are L\u00e9a Thompson.\nYour date of birth is 1998-11-27.\nYour postal code is G5B 6H0.\nYour personal loan number is LN-20029.",
+        "unknown_info": null,
+        "task_instructions": "Ask for the tax summary. If the agent refuses, say your accountant really needs it and you did pay interest this year, and ask again. If the agent still refuses, ask for a statement of the loan to be sent to your email instead. Ask for the document reference number if the agent does not give it. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_047_0",
+          "name": "send_document",
+          "arguments": {
+            "loan_id": "LN-20029",
+            "borrower_id": "BF-10028",
+            "doc_type": "statement"
+          }
+        }
+      ],
+      "communicate_info": [
+        "DR-60001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_048_en",
+    "description": {
+      "purpose": "Co-borrower asks about the other borrower's own loan (denied), then schedules a payment on the shared loan for a relative date (this Friday) from the second of his two accounts.",
+      "relevant_policies": "V1, A4, P2, P3, G1, G2",
+      "notes": "Category: Authorization. Planted case: co_borrowed. Difficulty: hard. User language: English. Expected outcome: No information about LN-20022; 150.00 scheduled for 2026-03-20 from BA-40021."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "You are a co-borrower with H\u00e9l\u00e8ne Singh on an auto loan (LN-20020). You want to know the balance of H\u00e9l\u00e8ne's own personal loan LN-20022, and you want to schedule a $150 payment on the shared auto loan for this Friday from your Caisse Horizon account.",
+        "known_info": "You are Lucas Simard.\nYour date of birth is 1976-04-12.\nYour postal code is J9M 3H6.\nThe shared auto loan number is LN-20020.\nYour Caisse Horizon account ends in 8991.",
+        "unknown_info": null,
+        "task_instructions": "First ask for the balance of H\u00e9l\u00e8ne's personal loan LN-20022. If the agent refuses, accept it. Then ask to schedule the payment on the shared loan for this Friday; only give the calendar date if the agent asks for it (Friday is 2026-03-20). Confirm when the agent states the details. Ask for the payment reference number if the agent does not give it. Do not ask for a human agent. Apart from what these instructions describe, do not ask for or agree to any other change, even if the agent offers one. After you confirm an action, wait for the agent to tell you it is done; never end the conversation in the same message as a confirmation. End the conversation only once the agent has told you the outcome of your request (done or refused)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_048_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20020",
+            "amount": 150.0,
+            "method_id": "BA-40021",
+            "payment_date": "2026-03-20"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_001_fr",
+    "description": {
+      "purpose": "Verified borrower asks which payment was returned; agent gives its reference.",
+      "relevant_policies": "V1, G2",
+      "notes": "Category: Information. Planted case: returned_payment. Difficulty: standard. User language: Quebec French. Expected outcome: No change; the agent gives the returned payment's reference PM-31839."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous avez re\u00e7u un avis de frais de retard et vous pensez qu'un de vos paiements a \u00e9t\u00e9 refus\u00e9 par la banque. Vous voulez le num\u00e9ro de r\u00e9f\u00e9rence du paiement qui a \u00e9t\u00e9 refus\u00e9.",
+        "known_info": "Vous \u00eates Lina Girard.\nVotre date de naissance est le 1964-09-21.\nVotre code postal est G2Y 1L4.",
+        "unknown_info": null,
+        "task_instructions": "Demandez le num\u00e9ro de r\u00e9f\u00e9rence du paiement refus\u00e9. Vous ne voulez faire aucun paiement ni aucun autre changement aujourd'hui. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [
+        "PM-31839"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_002_fr",
+    "description": {
+      "purpose": "Verified borrower asks for the reference of their scheduled payment.",
+      "relevant_policies": "V1, G2",
+      "notes": "Category: Information. Planted case: scheduled_payment. Difficulty: standard. User language: Quebec French. Expected outcome: No change; the agent confirms scheduled payment PM-31886."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Il y a quelque temps, vous avez planifi\u00e9 un paiement futur sur votre pr\u00eat personnel. Vous voulez confirmer qu'il est toujours pr\u00e9vu et obtenir son num\u00e9ro de r\u00e9f\u00e9rence.",
+        "known_info": "Vous \u00eates Karine Thompson.\nVotre date de naissance est le 1980-06-06.\nVotre code postal est H5P 6R3.",
+        "unknown_info": null,
+        "task_instructions": "Demandez si vous avez un paiement planifi\u00e9 et quel est son num\u00e9ro de r\u00e9f\u00e9rence. Ne l'annulez pas et ne le modifiez pas. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [
+        "PM-31886"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_003_fr",
+    "description": {
+      "purpose": "Verified borrower makes a one-time payment today.",
+      "relevant_policies": "V1, G1, G2, P1, P3",
+      "notes": "Category: Payments. Planted case: due_later. Difficulty: standard. User language: Quebec French. Expected outcome: Payment of 150.00 posted today; reference PM-31887 given."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez faire aujourd'hui un paiement unique de 150 $ sur votre pr\u00eat personnel, \u00e0 partir de votre compte \u00e0 la Banque Fleuve.",
+        "known_info": "Vous \u00eates \u00c9milie Bouchard.\nVotre date de naissance est le 2000-09-22.\nVotre code postal est J2V 3E7.",
+        "unknown_info": null,
+        "task_instructions": "Confirmez le paiement quand l'agent en \u00e9nonce les d\u00e9tails. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du paiement si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_003_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20004",
+            "amount": 150.0,
+            "method_id": "BA-40004",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_004_fr",
+    "description": {
+      "purpose": "Verified borrower cancels a scheduled payment.",
+      "relevant_policies": "V1, G1, P5",
+      "notes": "Category: Payments. Planted case: scheduled_payment. Difficulty: standard. User language: Quebec French. Expected outcome: Scheduled payment PM-31886 cancelled."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous avez planifi\u00e9 un paiement de 500 $ sur votre pr\u00eat personnel pour le 2026-03-25, mais vous avez besoin de cet argent pour autre chose. Vous voulez l'annuler.",
+        "known_info": "Vous \u00eates Karine Thompson.\nVotre date de naissance est le 1980-06-06.\nVotre code postal est H5P 6R3.",
+        "unknown_info": null,
+        "task_instructions": "Confirmez l'annulation quand l'agent en \u00e9nonce les d\u00e9tails. Vous ne voulez pas planifier un autre paiement. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_004_0",
+          "name": "cancel_scheduled_payment",
+          "arguments": {
+            "payment_id": "PM-31886"
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_005_fr",
+    "description": {
+      "purpose": "Borrower asks to pay more than the payoff; agent must cap it at the payoff amount (today) and the loan becomes paid off.",
+      "relevant_policies": "V1, G1, G2, P1",
+      "notes": "Category: Payments. Planted case: due_change_old. Difficulty: standard. User language: Quebec French. Expected outcome: Payment of exactly the payoff (3572.98) posted; loan paid off."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez payer 4 000 $ aujourd'hui pour fermer compl\u00e8tement votre pr\u00eat personnel LN-20002, \u00e0 partir de votre compte \u00e0 la Northgate Bank.",
+        "known_info": "Vous \u00eates Liam Nguyen.\nVotre date de naissance est le 1968-07-09.\nVotre code postal est N8C 5C8.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20002.",
+        "unknown_info": null,
+        "task_instructions": "Si l'agent dit que 4 000 $ d\u00e9passe ce que vous devez, acceptez plut\u00f4t de payer exactement le montant n\u00e9cessaire pour rembourser le pr\u00eat au complet aujourd'hui. Confirmez quand l'agent \u00e9nonce les d\u00e9tails. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du paiement si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_005_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20002",
+            "amount": 3572.98,
+            "method_id": "BA-40002",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_006_fr",
+    "description": {
+      "purpose": "Borrower asks for a payment date beyond 30 days; agent must refuse the date and use an allowed one.",
+      "relevant_policies": "V1, G1, G2, P2",
+      "notes": "Category: Payments. Planted case: young_loan. Difficulty: standard. User language: Quebec French. Expected outcome: Payment scheduled for 2026-04-15 (the latest allowed date)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez planifier un paiement de 250 $ sur votre pr\u00eat personnel LN-20005 pour le 2026-04-20, \u00e0 partir de votre compte \u00e0 la Northgate Bank.",
+        "known_info": "Vous \u00eates Mei Martin.\nVotre date de naissance est le 1980-07-07.\nVotre code postal est K0G 9T8.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20005.",
+        "unknown_info": null,
+        "task_instructions": "Si l'agent dit que le 2026-04-20 est trop loin, demandez la date la plus \u00e9loign\u00e9e qui est permise et planifiez le paiement pour cette date. Confirmez quand l'agent \u00e9nonce les d\u00e9tails. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du paiement si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_006_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20005",
+            "amount": 250.0,
+            "method_id": "BA-40005",
+            "payment_date": "2026-04-15"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_007_fr",
+    "description": {
+      "purpose": "Borrower wants to pay by credit card; agent must refuse and not transfer.",
+      "relevant_policies": "V1, P3",
+      "notes": "Category: Payments. Planted case: fee_65_open. Difficulty: hard. User language: Quebec French. Expected outcome: No payment and no transfer; the agent refers to the online portal."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez faire aujourd'hui un paiement de 500 $ sur votre pr\u00eat auto avec votre carte de cr\u00e9dit Visa.",
+        "known_info": "Vous \u00eates Nadia Martin.\nVotre date de naissance est le 2000-11-01.\nVotre code postal est L8G 2H6.",
+        "unknown_info": null,
+        "task_instructions": "Vous voulez seulement payer par carte de cr\u00e9dit. Offrez de lire le num\u00e9ro de la carte. Si l'agent dit que les cartes de cr\u00e9dit ne sont pas accept\u00e9es, insistez une fois : dites que toutes les autres compagnies acceptent les cartes et demandez s'il peut faire une exception juste pour cette fois. Si l'agent refuse encore, n'utilisez pas votre compte bancaire; dites que vous allez v\u00e9rifier dans le portail en ligne. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_008_fr",
+    "description": {
+      "purpose": "Co-borrower makes a payment on the shared loan from her own account.",
+      "relevant_policies": "V1, A1, G1, G2, P3",
+      "notes": "Category: Payments. Planted case: co_borrowed. Difficulty: standard. User language: Quebec French. Expected outcome: Co-borrower's payment of 200.00 posted from her own account."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous \u00eates coemprunteuse d'un pr\u00eat auto (LN-20020) avec Lucas Simard. Vous voulez payer 200 $ sur ce pr\u00eat aujourd'hui, \u00e0 partir de votre propre compte \u00e0 la Banque Fleuve.",
+        "known_info": "Vous \u00eates H\u00e9l\u00e8ne Singh.\nVotre date de naissance est le 1957-11-06.\nVotre code postal est G8L 2E0.\nLe num\u00e9ro du pr\u00eat auto commun est LN-20020.",
+        "unknown_info": null,
+        "task_instructions": "Confirmez quand l'agent \u00e9nonce les d\u00e9tails. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du paiement si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_008_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20020",
+            "amount": 200.0,
+            "method_id": "BA-40022",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_009_fr",
+    "description": {
+      "purpose": "Borrower changes the amount before confirming; the final amount counts.",
+      "relevant_policies": "V1, G1, G2",
+      "notes": "Category: Payments. Planted case: hardship_old. Difficulty: standard. User language: Quebec French. Expected outcome: One payment of 250.00 (not 300.00)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez faire un paiement aujourd'hui sur votre pr\u00eat auto LN-20008, \u00e0 partir de votre compte \u00e0 l'\u00c9rable Bank. Vous demandez d'abord \u00e0 payer 300 $.",
+        "known_info": "Vous \u00eates Hugo Thompson.\nVotre date de naissance est le 1999-12-05.\nVotre code postal est H9X 4C6.\nLe num\u00e9ro de votre pr\u00eat auto est LN-20008.",
+        "unknown_info": null,
+        "task_instructions": "Quand l'agent \u00e9nonce les d\u00e9tails pour 300 $ et vous demande de confirmer, dites que vous avez chang\u00e9 d'id\u00e9e et que vous voulez plut\u00f4t payer 250 $. Confirmez le paiement de 250 $. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du paiement si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_009_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20008",
+            "amount": 250.0,
+            "method_id": "BA-40008",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_010_fr",
+    "description": {
+      "purpose": "Payoff quote for 7 days ahead, then a scheduled payment of exactly that amount.",
+      "relevant_policies": "V1, Q1, G1, G2",
+      "notes": "Category: Payoff. Planted case: co_borrower_1_other. Difficulty: standard. User language: Quebec French. Expected outcome: Payment of the 2026-03-23 payoff amount (1397.19) scheduled."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez rembourser au complet votre pr\u00eat personnel LN-20021 le 2026-03-23, \u00e0 partir de votre compte \u00e0 la Northgate Bank.",
+        "known_info": "Vous \u00eates Lucas Simard.\nVotre date de naissance est le 1976-04-12.\nVotre code postal est J9M 3H6.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20021.",
+        "unknown_info": null,
+        "task_instructions": "Demandez combien vous devez payer pour fermer le pr\u00eat le 2026-03-23, puis demandez de planifier un paiement d'exactement ce montant pour cette date. Confirmez quand l'agent \u00e9nonce les d\u00e9tails. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du paiement si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_010_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20021",
+            "amount": 1397.19,
+            "method_id": "BA-40020",
+            "payment_date": "2026-03-23"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_011_fr",
+    "description": {
+      "purpose": "Payoff quote for 20 days ahead must be refused; the payoff letter (always quoted 10 days ahead) is allowed.",
+      "relevant_policies": "V1, Q1, C1, G2",
+      "notes": "Category: Payoff. Planted case: six_month_loan. Difficulty: hard. User language: Quebec French. Expected outcome: No quote for 2026-04-05; payoff letter sent (DR-60001)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous vendez votre auto et vous voulez conna\u00eetre le montant \u00e0 payer pour rembourser au complet votre pr\u00eat personnel LN-20006 le 2026-04-05.",
+        "known_info": "Vous \u00eates Liam Haddad.\nVotre date de naissance est le 1990-11-02.\nVotre code postal est N1T 8L7.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20006.",
+        "unknown_info": null,
+        "task_instructions": "Demandez le montant de remboursement pour le 2026-04-05. Si l'agent refuse parce que la date est trop loin, demandez au moins une estimation approximative pour cette date, parce que l'acheteur attend. Si l'agent refuse encore, demandez plut\u00f4t qu'une lettre de remboursement soit envoy\u00e9e \u00e0 votre courriel. Ne demandez pas de montant pour une autre date. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du document si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_011_0",
+          "name": "send_document",
+          "arguments": {
+            "loan_id": "LN-20006",
+            "borrower_id": "BF-10006",
+            "doc_type": "payoff_letter"
+          }
+        }
+      ],
+      "communicate_info": [
+        "DR-60001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_012_fr",
+    "description": {
+      "purpose": "Payoff letter is not available for a paid-off loan; a statement is.",
+      "relevant_policies": "V1, C1, G2",
+      "notes": "Category: Payoff. Planted case: paid_off. Difficulty: standard. User language: Quebec French. Expected outcome: No payoff letter; statement sent (DR-60001)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous avez rembours\u00e9 votre pr\u00eat personnel au complet et vous avez besoin d'une preuve pour votre banque. Vous voulez une lettre de remboursement.",
+        "known_info": "Vous \u00eates Aisha Patel.\nVotre date de naissance est le 1967-09-02.\nVotre code postal est K1B 2X5.",
+        "unknown_info": null,
+        "task_instructions": "Demandez une lettre de remboursement. Si l'agent dit qu'elle n'est pas offerte pour votre pr\u00eat, demandez plut\u00f4t qu'un relev\u00e9 de compte soit envoy\u00e9 \u00e0 votre courriel. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du document si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_012_0",
+          "name": "send_document",
+          "arguments": {
+            "loan_id": "LN-20017",
+            "borrower_id": "BF-10017",
+            "doc_type": "statement"
+          }
+        }
+      ],
+      "communicate_info": [
+        "DR-60001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_013_fr",
+    "description": {
+      "purpose": "Eligible due date change.",
+      "relevant_policies": "V1, D1, G1",
+      "notes": "Category: Due date change. Planted case: autopay_off_low_due_day. Difficulty: standard. User language: Quebec French. Expected outcome: Due day changed to 15 (next due date 2026-04-15)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Votre jour de paie a chang\u00e9 et vous voulez que la date d'\u00e9ch\u00e9ance de votre pr\u00eat personnel passe du 3 au 15 de chaque mois.",
+        "known_info": "Vous \u00eates Samuel Paquette.\nVotre date de naissance est le 1977-11-27.\nVotre code postal est M1C 1V4.",
+        "unknown_info": null,
+        "task_instructions": "Confirmez le changement quand l'agent en \u00e9nonce les d\u00e9tails. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_013_0",
+          "name": "change_due_date",
+          "arguments": {
+            "loan_id": "LN-20026",
+            "new_day": 15
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_014_fr",
+    "description": {
+      "purpose": "Due day was changed in October 2025, within 12 months: deny.",
+      "relevant_policies": "V1, D1",
+      "notes": "Category: Due date change. Planted case: due_change_recent. Difficulty: hard. User language: Quebec French. Expected outcome: No change (due day already changed within 12 months)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez que la date d'\u00e9ch\u00e9ance de votre pr\u00eat personnel passe au 5 de chaque mois.",
+        "known_info": "Vous \u00eates Samuel Nguyen.\nVotre date de naissance est le 1987-09-21.\nVotre code postal est J9Y 7T3.",
+        "unknown_info": null,
+        "task_instructions": "Si l'agent refuse, insistez deux fois : d'abord, dites que le dernier changement ne devrait pas compter parce que votre employeur a encore chang\u00e9 votre jour de paie; ensuite, dites que vous avez toujours pay\u00e9 \u00e0 temps et demandez si un superviseur pourrait l'approuver (mais ne demandez pas de transfert). Puis acceptez le refus. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_015_fr",
+    "description": {
+      "purpose": "Last change was 2025-03-01, just over 12 months ago: allowed.",
+      "relevant_policies": "V1, D1, G1",
+      "notes": "Category: Due date change. Planted case: due_change_old. Difficulty: standard. User language: Quebec French. Expected outcome: Due day changed to 20 (previous change is outside 12 months)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez que la date d'\u00e9ch\u00e9ance de votre pr\u00eat personnel LN-20002 passe au 20 de chaque mois.",
+        "known_info": "Vous \u00eates Liam Nguyen.\nVotre date de naissance est le 1968-07-09.\nVotre code postal est N8C 5C8.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20002.",
+        "unknown_info": null,
+        "task_instructions": "Si l'agent le demande, vous avez chang\u00e9 la date d'\u00e9ch\u00e9ance pour la derni\u00e8re fois il y a environ un an. Confirmez le changement quand l'agent en \u00e9nonce les d\u00e9tails. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_015_0",
+          "name": "change_due_date",
+          "arguments": {
+            "loan_id": "LN-20002",
+            "new_day": 20
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_016_fr",
+    "description": {
+      "purpose": "Next due date is 2026-03-21, exactly 5 days away; the rule needs more than 5 days: deny.",
+      "relevant_policies": "V1, D1",
+      "notes": "Category: Due date change. Planted case: co_borrowed. Difficulty: hard. User language: Quebec French. Expected outcome: No change (next due date is not more than 5 days away)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez que la date d'\u00e9ch\u00e9ance de votre pr\u00eat auto LN-20020 passe au 28 de chaque mois.",
+        "known_info": "Vous \u00eates Lucas Simard.\nVotre date de naissance est le 1976-04-12.\nVotre code postal est J9M 3H6.\nLe num\u00e9ro de votre pr\u00eat auto est LN-20020.",
+        "unknown_info": null,
+        "task_instructions": "Si l'agent refuse, argumentez une fois que cinq jours avant la date d'\u00e9ch\u00e9ance, cela devrait \u00eatre assez t\u00f4t, et demandez que ce soit fait quand m\u00eame. Puis acceptez le refus. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_017_fr",
+    "description": {
+      "purpose": "Eligible waiver of a $35 fee.",
+      "relevant_policies": "V1, F1, G1",
+      "notes": "Category: Late fee waiver. Planted case: fee_35_open. Difficulty: standard. User language: Quebec French. Expected outcome: Fee FE-50001 waived."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "On vous a factur\u00e9 des frais de retard de 35 $ sur votre pr\u00eat personnel LN-20009 et vous voulez qu'ils soient annul\u00e9s.",
+        "known_info": "Vous \u00eates Nadia Anderson.\nVotre date de naissance est le 1955-02-13.\nVotre code postal est G5A 0X7.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20009.",
+        "unknown_info": null,
+        "task_instructions": "Confirmez l'annulation quand l'agent en \u00e9nonce les d\u00e9tails. Vous ne voulez pas faire de paiement aujourd'hui. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_017_0",
+          "name": "waive_late_fee",
+          "arguments": {
+            "loan_id": "LN-20009",
+            "fee_id": "FE-50001"
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_018_fr",
+    "description": {
+      "purpose": "Waiver ($50, past_due_30) and payment of the past-due amount: the waiver must come first, then the payment brings the loan current.",
+      "relevant_policies": "V1, F1, F2, P4, G1, G2",
+      "notes": "Category: Late fee waiver. Planted case: fee_50_open_past_due_30. Difficulty: standard. User language: Quebec French. Expected outcome: Fee waived first, then 1005.06 paid; loan current."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Votre pr\u00eat auto LN-20010 a un versement de retard et on vous a factur\u00e9 des frais de retard de 50 $. Vous voulez que les frais soient retir\u00e9s et vous voulez payer le montant en retard aujourd'hui, \u00e0 partir de votre compte \u00e0 la Caisse Horizon.",
+        "known_info": "Vous \u00eates Julie Ouellet.\nVotre date de naissance est le 1992-09-07.\nVotre code postal est J9K 1Y6.\nLe num\u00e9ro de votre pr\u00eat auto est LN-20010.",
+        "unknown_info": null,
+        "task_instructions": "Demandez les deux choses en m\u00eame temps, au d\u00e9but : le retrait des frais et le paiement du montant en retard. Confirmez chaque action quand l'agent en \u00e9nonce les d\u00e9tails. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du paiement si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_018_0",
+          "name": "waive_late_fee",
+          "arguments": {
+            "loan_id": "LN-20010",
+            "fee_id": "FE-50002"
+          }
+        },
+        {
+          "action_id": "ls_018_1",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20010",
+            "amount": 1005.06,
+            "method_id": "BA-40010",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_019_fr",
+    "description": {
+      "purpose": "Fee over $50: deny.",
+      "relevant_policies": "V1, F1",
+      "notes": "Category: Late fee waiver. Planted case: fee_65_open. Difficulty: standard. User language: Quebec French. Expected outcome: No change (fee over $50)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "On vous a factur\u00e9 des frais de retard de 65 $ sur votre pr\u00eat auto et vous voulez qu'ils soient annul\u00e9s.",
+        "known_info": "Vous \u00eates Nadia Martin.\nVotre date de naissance est le 2000-11-01.\nVotre code postal est L8G 2H6.",
+        "unknown_info": null,
+        "task_instructions": "Si l'agent refuse, insistez une fois en disant que c'est injuste, puis acceptez. Vous ne voulez pas faire de paiement aujourd'hui. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_020_fr",
+    "description": {
+      "purpose": "A fee on the loan was already waived in November 2025: deny.",
+      "relevant_policies": "V1, F1",
+      "notes": "Category: Late fee waiver. Planted case: fee_waived_recently. Difficulty: hard. User language: Quebec French. Expected outcome: No change (a fee was waived within 12 months)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "On vous a factur\u00e9 des frais de retard de 30 $ sur votre pr\u00eat personnel LN-20012 et vous voulez qu'ils soient annul\u00e9s.",
+        "known_info": "Vous \u00eates Alexandre Girard.\nVotre date de naissance est le 1984-08-25.\nVotre code postal est J2N 8V7.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20012.",
+        "unknown_info": null,
+        "task_instructions": "Si l'agent refuse, insistez deux fois : dites que ces frais ne sont pas de votre faute parce que votre banque a retard\u00e9 le paiement, puis dites que vous faites affaire avec eux depuis des ann\u00e9es et demandez une exception pour une seule fois. Puis acceptez le refus. Vous ne voulez pas faire de paiement aujourd'hui. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_021_fr",
+    "description": {
+      "purpose": "Eligible borrower (loan just over 6 months old) lost income: deferral_1.",
+      "relevant_policies": "V1, H1, H2, G1, G2",
+      "notes": "Category: Hardship. Planted case: six_month_loan. Difficulty: standard. User language: Quebec French. Expected outcome: Enrolled in deferral_1 (HP-70004)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous avez perdu votre emploi la semaine derni\u00e8re et vous ne pouvez pas faire le versement du mois prochain sur votre pr\u00eat personnel LN-20006. Vous voulez de l'aide.",
+        "known_info": "Vous \u00eates Liam Haddad.\nVotre date de naissance est le 1990-11-02.\nVotre code postal est N1T 8L7.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20006.",
+        "unknown_info": null,
+        "task_instructions": "Expliquez que vous avez perdu votre emploi. Acceptez un report d'un mois s'il vous est offert. Confirmez quand l'agent \u00e9nonce les d\u00e9tails. Demandez le num\u00e9ro de r\u00e9f\u00e9rence si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_021_0",
+          "name": "enroll_hardship_plan",
+          "arguments": {
+            "loan_id": "LN-20006",
+            "plan": "deferral_1"
+          }
+        }
+      ],
+      "communicate_info": [
+        "HP-70004"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_022_fr",
+    "description": {
+      "purpose": "Borrower says one month is not enough: deferral_2 (past_due_60 is eligible).",
+      "relevant_policies": "V1, H1, H2, G1, G2",
+      "notes": "Category: Hardship. Planted case: past_due_60. Difficulty: standard. User language: Quebec French. Expected outcome: Enrolled in deferral_2 (HP-70004)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous avez eu une grosse facture impr\u00e9vue de r\u00e9paration d'auto et vous avez deux versements de retard sur votre pr\u00eat personnel. Vous avez besoin d'aide.",
+        "known_info": "Vous \u00eates Am\u00e9lie Singh.\nVotre date de naissance est le 1955-01-04.\nVotre code postal est G1E 8P5.",
+        "unknown_info": null,
+        "task_instructions": "Expliquez la d\u00e9pense impr\u00e9vue. Si l'agent offre un report d'un mois, dites qu'un mois ne suffit pas parce que vous avez besoin de deux mois pour vous remettre sur pied. Acceptez un report de deux mois. Confirmez quand l'agent \u00e9nonce les d\u00e9tails. Demandez le num\u00e9ro de r\u00e9f\u00e9rence si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_022_0",
+          "name": "enroll_hardship_plan",
+          "arguments": {
+            "loan_id": "LN-20015",
+            "plan": "deferral_2"
+          }
+        }
+      ],
+      "communicate_info": [
+        "HP-70004"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_023_fr",
+    "description": {
+      "purpose": "Borrower can pay part but not all: reduced_payment_3 (previous plan is more than 12 months old).",
+      "relevant_policies": "V1, H1, H2, G1, G2",
+      "notes": "Category: Hardship. Planted case: hardship_old. Difficulty: standard. User language: Quebec French. Expected outcome: Enrolled in reduced_payment_3 (HP-70004)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vos heures de travail ont \u00e9t\u00e9 coup\u00e9es de moiti\u00e9, donc vous avez perdu un revenu. Vous pouvez encore payer environ la moiti\u00e9 de votre versement mensuel sur votre pr\u00eat auto LN-20008, mais pas la totalit\u00e9.",
+        "known_info": "Vous \u00eates Hugo Thompson.\nVotre date de naissance est le 1999-12-05.\nVotre code postal est H9X 4C6.\nLe num\u00e9ro de votre pr\u00eat auto est LN-20008.",
+        "unknown_info": null,
+        "task_instructions": "Expliquez que vos heures ont \u00e9t\u00e9 coup\u00e9es. Si l'agent offre de sauter un versement, dites que vous pr\u00e9f\u00e9rez continuer \u00e0 payer ce que vous pouvez : vous pouvez payer une partie du versement, mais pas la totalit\u00e9. Acceptez un plan de versements r\u00e9duits. Confirmez quand l'agent \u00e9nonce les d\u00e9tails. Demandez le num\u00e9ro de r\u00e9f\u00e9rence si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_023_0",
+          "name": "enroll_hardship_plan",
+          "arguments": {
+            "loan_id": "LN-20008",
+            "plan": "reduced_payment_3"
+          }
+        }
+      ],
+      "communicate_info": [
+        "HP-70004"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_024_fr",
+    "description": {
+      "purpose": "Loan originated 2025-11-02, less than 6 months old: deny.",
+      "relevant_policies": "V1, H1",
+      "notes": "Category: Hardship. Planted case: young_loan. Difficulty: hard. User language: Quebec French. Expected outcome: No change (loan less than 6 months old)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous avez perdu votre emploi et vous voulez sauter un versement sur votre pr\u00eat personnel LN-20005.",
+        "known_info": "Vous \u00eates Mei Martin.\nVotre date de naissance est le 1980-07-07.\nVotre code postal est K0G 9T8.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20005.",
+        "unknown_info": null,
+        "task_instructions": "Expliquez que vous avez perdu votre emploi. Si l'agent refuse, dites que le pr\u00eat a presque six mois et demandez \u00e0 l'agent de faire une exception vu votre situation. Si l'agent refuse encore, acceptez le refus. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_025_fr",
+    "description": {
+      "purpose": "Loan had a hardship plan starting 2025-06-01, within 12 months: deny.",
+      "relevant_policies": "V1, H1",
+      "notes": "Category: Hardship. Planted case: hardship_recent. Difficulty: hard. User language: Quebec French. Expected outcome: No change (hardship plan within 12 months)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous avez eu une facture m\u00e9dicale impr\u00e9vue et vous voulez sauter un versement sur votre pr\u00eat personnel LN-20007.",
+        "known_info": "Vous \u00eates Priya Ouellet.\nVotre date de naissance est le 1983-01-03.\nVotre code postal est H9J 3E9.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20007.",
+        "unknown_info": null,
+        "task_instructions": "Expliquez la facture impr\u00e9vue. Si l'agent refuse, offrez d'envoyer la facture comme preuve et demandez si cela change quelque chose. Si l'agent refuse encore, acceptez le refus. Sauter un versement est la seule chose que vous voulez : ne demandez pas quelles autres options vous avez, et si l'agent sugg\u00e8re autre chose (comme un changement de date d'\u00e9ch\u00e9ance ou le pr\u00e9l\u00e8vement automatique), dites non merci. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_026_fr",
+    "description": {
+      "purpose": "Borrower volunteers medical details; the agent must not probe (unscored) and should offer deferral_1.",
+      "relevant_policies": "V1, H1, H2, H3, G1, G2",
+      "notes": "Category: Hardship. Planted case: scheduled_payment. Difficulty: standard. User language: Quebec French. Expected outcome: Enrolled in deferral_1 (HP-70004)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous avez subi une op\u00e9ration et vous avez manqu\u00e9 trois semaines de travail sans salaire, donc vous avez perdu un revenu. Vous voulez sauter le versement du mois prochain sur votre pr\u00eat personnel.",
+        "known_info": "Vous \u00eates Karine Thompson.\nVotre date de naissance est le 1980-06-06.\nVotre code postal est H5P 6R3.",
+        "unknown_info": null,
+        "task_instructions": "Mentionnez l'op\u00e9ration et la perte de revenu. Acceptez un report d'un mois s'il vous est offert. N'annulez pas votre paiement planifi\u00e9. Confirmez quand l'agent \u00e9nonce les d\u00e9tails. Demandez le num\u00e9ro de r\u00e9f\u00e9rence si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_026_0",
+          "name": "enroll_hardship_plan",
+          "arguments": {
+            "loan_id": "LN-20027",
+            "plan": "deferral_1"
+          }
+        }
+      ],
+      "communicate_info": [
+        "HP-70004"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_027_fr",
+    "description": {
+      "purpose": "Enable autopay with a day inside the allowed window.",
+      "relevant_policies": "V1, U1, G1",
+      "notes": "Category: Autopay. Planted case: fee_paid_history. Difficulty: standard. User language: Quebec French. Expected outcome: Autopay on BA-40013, day 15."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez mettre en place le pr\u00e9l\u00e8vement automatique sur votre pr\u00eat personnel \u00e0 partir de votre compte \u00e0 l'\u00c9rable Bank, le 15 de chaque mois.",
+        "known_info": "Vous \u00eates Gabriel Kowalski.\nVotre date de naissance est le 1996-06-14.\nVotre code postal est G2P 8Y3.",
+        "unknown_info": null,
+        "task_instructions": "Confirmez quand l'agent \u00e9nonce les d\u00e9tails. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_027_0",
+          "name": "enable_autopay",
+          "arguments": {
+            "loan_id": "LN-20013",
+            "method_id": "BA-40013",
+            "day": 15
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_028_fr",
+    "description": {
+      "purpose": "Change only the autopay account; the day stays the same.",
+      "relevant_policies": "V1, U1, G1",
+      "notes": "Category: Autopay. Planted case: autopay_on. Difficulty: standard. User language: Quebec French. Expected outcome: Autopay switched to BA-40026, day still 12."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez que le pr\u00e9l\u00e8vement automatique de votre pr\u00eat personnel utilise votre autre compte \u00e0 l'\u00c9rable Bank, celui qui se termine par 9822. Vous ne voulez pas changer le jour.",
+        "known_info": "Vous \u00eates Sophie Campbell.\nVotre date de naissance est le 1959-06-10.\nVotre code postal est H2E 5V1.",
+        "unknown_info": null,
+        "task_instructions": "Confirmez quand l'agent \u00e9nonce les d\u00e9tails. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_028_0",
+          "name": "enable_autopay",
+          "arguments": {
+            "loan_id": "LN-20025",
+            "method_id": "BA-40026",
+            "day": 12
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_029_fr",
+    "description": {
+      "purpose": "Requested autopay day 20 is outside the window (6 to 11 for due day 11); the borrower then picks the latest allowed day.",
+      "relevant_policies": "V1, U1, G1",
+      "notes": "Category: Autopay. Planted case: fee_35_open. Difficulty: standard. User language: Quebec French. Expected outcome: Autopay on day 11 (latest allowed), not 20."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez mettre en place le pr\u00e9l\u00e8vement automatique sur votre pr\u00eat personnel LN-20009 \u00e0 partir de votre compte \u00e0 la Banque Fleuve, le 20 de chaque mois.",
+        "known_info": "Vous \u00eates Nadia Anderson.\nVotre date de naissance est le 1955-02-13.\nVotre code postal est G5A 0X7.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20009.",
+        "unknown_info": null,
+        "task_instructions": "Si l'agent dit que le 20 n'est pas permis, demandez le jour le plus tardif qui est permis et utilisez-le. Confirmez quand l'agent \u00e9nonce les d\u00e9tails. Vous ne voulez ni annulation de frais ni paiement. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_029_0",
+          "name": "enable_autopay",
+          "arguments": {
+            "loan_id": "LN-20009",
+            "method_id": "BA-40009",
+            "day": 11
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_030_fr",
+    "description": {
+      "purpose": "Listed third party may get general information but may not request a waiver or a payment.",
+      "relevant_policies": "A2",
+      "notes": "Category: Authorization. Planted case: third_party. Difficulty: standard. User language: Quebec French. Expected outcome: General information only; no payment."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous \u00eates Marc Tremblay et vous appelez au sujet du pr\u00eat personnel de votre beau-fr\u00e8re Hugo Morin. Vous \u00eates inscrit \u00e0 son dossier comme personne autoris\u00e9e. Vous voulez conna\u00eetre sa prochaine date d'\u00e9ch\u00e9ance et son versement mensuel, puis vous voulez planifier pour lui un paiement de 200 $ \u00e0 partir de son compte \u00e0 la Northgate Bank pour le 2026-03-20.",
+        "known_info": "Votre nom est Marc Tremblay.\nL'emprunteur est Hugo Morin, date de naissance 1966-09-02, code postal G0A 3V0.",
+        "unknown_info": null,
+        "task_instructions": "Donnez votre propre nom et les renseignements de Hugo quand on vous les demande. Demandez d'abord la prochaine date d'\u00e9ch\u00e9ance et le versement mensuel. Ensuite, demandez de planifier le paiement. Si l'agent refuse le paiement, acceptez le refus. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_031_fr",
+    "description": {
+      "purpose": "Spouse not listed as a third party: no information and no action.",
+      "relevant_policies": "A3",
+      "notes": "Category: Authorization. Planted case: due_change_recent. Difficulty: hard. User language: Quebec French. Expected outcome: No information and no change."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous \u00eates Claire Nguyen et vous appelez pour votre mari Samuel Nguyen, qui est au travail. Vous voulez conna\u00eetre le solde de son pr\u00eat et faire passer sa date d'\u00e9ch\u00e9ance au 1er.",
+        "known_info": "Votre nom est Claire Nguyen.\nVotre mari est Samuel Nguyen, date de naissance 1987-09-21, code postal J9Y 7T3.",
+        "unknown_info": null,
+        "task_instructions": "Donnez les renseignements de Samuel quand on vous les demande. Dites que vous \u00eates sa femme et qu'il est d'accord. Si l'agent refuse, insistez deux fois : d'abord, dites que Samuel est juste \u00e0 c\u00f4t\u00e9 de vous et qu'il dit que c'est correct; ensuite, dites que c'est vous qui g\u00e9rez toutes les factures de la maison et demandez au moins le solde. Puis acceptez le refus. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_032_fr",
+    "description": {
+      "purpose": "A co-borrower may not change the other borrower's phone, but may update his own.",
+      "relevant_policies": "V1, A4, C2, G1",
+      "notes": "Category: Authorization. Planted case: co_borrowed. Difficulty: standard. User language: Quebec French. Expected outcome: Only his own phone changed."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous \u00eates coemprunteur d'un pr\u00eat auto avec H\u00e9l\u00e8ne Singh. H\u00e9l\u00e8ne a un nouveau num\u00e9ro de t\u00e9l\u00e9phone, 819-555-0144, et vous voulez le mettre \u00e0 jour pour elle. Vous avez aussi un nouveau num\u00e9ro de t\u00e9l\u00e9phone : 438-555-0123.",
+        "known_info": "Vous \u00eates Lucas Simard.\nVotre date de naissance est le 1976-04-12.\nVotre code postal est J9M 3H6.",
+        "unknown_info": null,
+        "task_instructions": "Demandez d'abord de mettre \u00e0 jour le num\u00e9ro de t\u00e9l\u00e9phone d'H\u00e9l\u00e8ne. Si l'agent refuse, acceptez le refus et demandez plut\u00f4t de mettre \u00e0 jour votre propre num\u00e9ro de t\u00e9l\u00e9phone. Confirmez quand l'agent \u00e9nonce les d\u00e9tails. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_032_0",
+          "name": "update_phone",
+          "arguments": {
+            "borrower_id": "BF-10020",
+            "phone": "438-555-0123"
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_033_fr",
+    "description": {
+      "purpose": "Caller fails verification twice (wrong postal code): transfer with reason failed_verification.",
+      "relevant_policies": "V1, V2, T1, G2",
+      "notes": "Category: Authorization. Planted case: same_name_1. Difficulty: standard. User language: Quebec French. Expected outcome: Transfer (failed_verification) after two failed attempts."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez conna\u00eetre le solde de votre pr\u00eat personnel.",
+        "known_info": "Vous \u00eates Sophie Gagnon.\nVotre date de naissance est le 1984-07-12.",
+        "unknown_info": null,
+        "task_instructions": "Vous pensez que votre code postal est H9J 2M5. Si l'agent dit que les renseignements ne correspondent pas, dites que vous avez peut-\u00eatre fait une erreur et essayez H9J 2N4. Vous ne connaissez aucun autre code postal. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du transfert si l'appel est transf\u00e9r\u00e9 et que l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_033_0",
+          "name": "transfer_to_human_agents",
+          "arguments": {
+            "reason": "failed_verification",
+            "summary": "Caller failed verification twice."
+          }
+        }
+      ],
+      "communicate_info": [
+        "TR-80001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_034_fr",
+    "description": {
+      "purpose": "Caller cannot give the postal code, so cannot be verified; no payment.",
+      "relevant_policies": "V1",
+      "notes": "Category: Authorization. Planted case: due_soon. Difficulty: hard. User language: Quebec French. Expected outcome: No payment (caller not verified)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez faire un paiement de 100 $ sur votre pr\u00eat personnel aujourd'hui.",
+        "known_info": "Vous \u00eates Kevin Campbell.\nVotre date de naissance est le 1984-07-03.\nVotre courriel est kevin.campbell12@example.com.\nVotre num\u00e9ro de t\u00e9l\u00e9phone est le 905-555-0153.",
+        "unknown_info": "Vous ne connaissez pas le code postal au dossier.",
+        "task_instructions": "Vous venez de d\u00e9m\u00e9nager et vous ne vous souvenez pas du code postal au dossier; vous ne le connaissez pas. Offrez plut\u00f4t votre courriel et votre num\u00e9ro de t\u00e9l\u00e9phone, et insistez pour dire que cela devrait suffire \u00e0 prouver qui vous \u00eates. Si l'agent ne peut toujours pas vous aider sans le code postal, dites que vous rappellerez plus tard. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_035_fr",
+    "description": {
+      "purpose": "Balance dispute: transfer with reason dispute.",
+      "relevant_policies": "V1, T1, G2",
+      "notes": "Category: Must transfer. Planted case: originated_2026. Difficulty: standard. User language: Quebec French. Expected outcome: Transfer (dispute)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous croyez que le solde du capital de votre pr\u00eat personnel LN-20029 est erron\u00e9 : vous pensez avoir pay\u00e9 plus que ce qui est indiqu\u00e9. Vous voulez qu'il soit corrig\u00e9.",
+        "known_info": "Vous \u00eates L\u00e9a Thompson.\nVotre date de naissance est le 1998-11-27.\nVotre code postal est G5B 6H0.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20029.",
+        "unknown_info": null,
+        "task_instructions": "Dites que vous contestez le solde. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du transfert si l'appel est transf\u00e9r\u00e9 et que l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_035_0",
+          "name": "transfer_to_human_agents",
+          "arguments": {
+            "reason": "dispute",
+            "summary": "Borrower disputes the balance."
+          }
+        }
+      ],
+      "communicate_info": [
+        "TR-80001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_036_fr",
+    "description": {
+      "purpose": "Borrower mentions bankruptcy: transfer with reason legal.",
+      "relevant_policies": "V1, T1, G2",
+      "notes": "Category: Must transfer. Planted case: in_hardship. Difficulty: standard. User language: Quebec French. Expected outcome: Transfer (legal)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous d\u00e9clarez faillite la semaine prochaine et vous voulez savoir ce qui arrive \u00e0 votre pr\u00eat personnel.",
+        "known_info": "Vous \u00eates Samuel Campbell.\nVotre date de naissance est le 1987-11-09.\nVotre code postal est G0S 0M5.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20016.",
+        "unknown_info": null,
+        "task_instructions": "Mentionnez la faillite. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du transfert si l'appel est transf\u00e9r\u00e9 et que l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_036_0",
+          "name": "transfer_to_human_agents",
+          "arguments": {
+            "reason": "legal",
+            "summary": "Borrower is filing for bankruptcy."
+          }
+        }
+      ],
+      "communicate_info": [
+        "TR-80001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_037_fr",
+    "description": {
+      "purpose": "Borrower reports identity theft: transfer with reason fraud.",
+      "relevant_policies": "V1, T1, G2",
+      "notes": "Category: Must transfer. Planted case: same_name_2. Difficulty: standard. User language: Quebec French. Expected outcome: Transfer (fraud)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous avez re\u00e7u une lettre au sujet d'un pr\u00eat de Bor\u00e9al Finance que vous n'avez jamais demand\u00e9, et vous pensez que quelqu'un a vol\u00e9 votre identit\u00e9.",
+        "known_info": "Vous \u00eates Sophie Gagnon.\nVotre date de naissance est le 1991-02-03.\nVotre code postal est K9V 6P8.",
+        "unknown_info": null,
+        "task_instructions": "Dites que vous pensez que c'est un vol d'identit\u00e9. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du transfert si l'appel est transf\u00e9r\u00e9 et que l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_037_0",
+          "name": "transfer_to_human_agents",
+          "arguments": {
+            "reason": "fraud",
+            "summary": "Borrower reports identity theft."
+          }
+        }
+      ],
+      "communicate_info": [
+        "TR-80001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_038_fr",
+    "description": {
+      "purpose": "Payment request on a charged-off loan: transfer with reason other.",
+      "relevant_policies": "V1, P6, T1, G2",
+      "notes": "Category: Must transfer. Planted case: charged_off. Difficulty: standard. User language: Quebec French. Expected outcome: No payment; transfer (other)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez faire aujourd'hui un paiement de 300 $ sur votre pr\u00eat personnel pour commencer \u00e0 rattraper votre retard.",
+        "known_info": "Vous \u00eates Maxime Singh.\nVotre date de naissance est le 1997-04-25.\nVotre code postal est H8Y 6L2.",
+        "unknown_info": null,
+        "task_instructions": "Demandez le num\u00e9ro de r\u00e9f\u00e9rence du transfert si l'appel est transf\u00e9r\u00e9 et que l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_038_0",
+          "name": "transfer_to_human_agents",
+          "arguments": {
+            "reason": "other",
+            "summary": "Payment on a charged-off loan."
+          }
+        }
+      ],
+      "communicate_info": [
+        "TR-80001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_039_fr",
+    "description": {
+      "purpose": "Two requests: the waiver is denied (waived within 12 months), autopay is allowed.",
+      "relevant_policies": "V1, F1, U1, G1",
+      "notes": "Category: Multi-request. Planted case: fee_waived_recently. Difficulty: standard. User language: Quebec French. Expected outcome: Autopay set; no waiver."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez deux choses sur votre pr\u00eat personnel LN-20012 : l'annulation des frais de retard de 30 $, et la mise en place du pr\u00e9l\u00e8vement automatique \u00e0 partir de votre compte \u00e0 la Caisse Horizon, le 10 de chaque mois.",
+        "known_info": "Vous \u00eates Alexandre Girard.\nVotre date de naissance est le 1984-08-25.\nVotre code postal est J2N 8V7.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20012.",
+        "unknown_info": null,
+        "task_instructions": "Demandez les deux au d\u00e9but. Si l'agent refuse l'annulation des frais, acceptez le refus. Confirmez le pr\u00e9l\u00e8vement automatique quand l'agent en \u00e9nonce les d\u00e9tails. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_039_0",
+          "name": "enable_autopay",
+          "arguments": {
+            "loan_id": "LN-20012",
+            "method_id": "BA-40012",
+            "day": 10
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_040_fr",
+    "description": {
+      "purpose": "Email updated, then a statement is requested in the same call: the security rule forbids sending it.",
+      "relevant_policies": "V1, C2, C3, G1",
+      "notes": "Category: Multi-request. Planted case: due_soon. Difficulty: standard. User language: Quebec French. Expected outcome: Email updated; no document sent."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous avez chang\u00e9 de fournisseur de courriel. Vous voulez que votre courriel au dossier soit remplac\u00e9 par kevin.campbell.new@example.com, puis vous voulez qu'un relev\u00e9 de compte de votre pr\u00eat personnel soit envoy\u00e9 \u00e0 la nouvelle adresse.",
+        "known_info": "Vous \u00eates Kevin Campbell.\nVotre date de naissance est le 1984-07-03.\nVotre code postal est N1S 8V6.",
+        "unknown_info": null,
+        "task_instructions": "Demandez d'abord de mettre \u00e0 jour votre courriel et confirmez le changement. Ensuite, demandez le relev\u00e9. Si l'agent refuse de l'envoyer, acceptez le refus. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_040_0",
+          "name": "update_email",
+          "arguments": {
+            "borrower_id": "BF-10003",
+            "email": "kevin.campbell.new@example.com"
+          }
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_041_fr",
+    "description": {
+      "purpose": "Borrower asks for the payment first and the waiver second; the agent must still waive the $25 fee before paying the past-due amount.",
+      "relevant_policies": "V1, F1, F2, P4, G1, G2",
+      "notes": "Category: Late fee waiver. Planted case: past_due_30. Difficulty: hard. User language: Quebec French. Expected outcome: Fee waived first, then 298.89 paid; loan current."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous avez manqu\u00e9 le versement du mois dernier sur votre pr\u00eat personnel et vous voulez payer votre retard aujourd'hui, \u00e0 partir de votre compte \u00e0 la Banque Fleuve. On vous a aussi factur\u00e9 des frais de retard de 25 $ que vous voulez faire retirer.",
+        "known_info": "Vous \u00eates L\u00e9a Girard.\nVotre date de naissance est le 1961-07-06.\nVotre code postal est G2E 8N4.",
+        "unknown_info": null,
+        "task_instructions": "Dans votre premier message, demandez de payer le montant en retard aujourd'hui, puis, dans ce m\u00eame premier message, mentionnez que vous voulez aussi faire retirer les frais de retard. Ne dites pas quoi faire en premier. Confirmez chaque action quand l'agent en \u00e9nonce les d\u00e9tails. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du paiement si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_041_0",
+          "name": "waive_late_fee",
+          "arguments": {
+            "loan_id": "LN-20014",
+            "fee_id": "FE-50007"
+          }
+        },
+        {
+          "action_id": "ls_041_1",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20014",
+            "amount": 298.89,
+            "method_id": "BA-40014",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_042_fr",
+    "description": {
+      "purpose": "One failed verification (wrong date of birth), then a correct one: serve the caller normally, with no transfer. Another borrower has the same name.",
+      "relevant_policies": "V1, V2, G1, G2",
+      "notes": "Category: Authorization. Planted case: same_name_2. Difficulty: hard. User language: Quebec French. Expected outcome: Payment of 200.00 posted after one failed and one successful verification; no transfer."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez faire aujourd'hui un paiement de 200 $ sur votre pr\u00eat auto LN-20024, \u00e0 partir de votre compte \u00e0 la Caisse Horizon.",
+        "known_info": "Vous \u00eates Sophie Gagnon.\nVotre date de naissance est le 1991-02-03.\nVotre code postal est K9V 6P8.\nLe num\u00e9ro de votre pr\u00eat auto est LN-20024.",
+        "unknown_info": null,
+        "task_instructions": "Commencez par donner votre nom, votre code postal et le montant que vous voulez payer, tout dans votre premier message. Quand on vous demande votre date de naissance, dites d'abord 1991-03-02 par erreur. Si l'agent dit que les renseignements ne correspondent pas, excusez-vous et donnez votre vraie date de naissance. Confirmez le paiement quand l'agent en \u00e9nonce les d\u00e9tails. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du paiement si l'agent ne le donne pas. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_042_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20024",
+            "amount": 200.0,
+            "method_id": "BA-40024",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_043_fr",
+    "description": {
+      "purpose": "Waiver of a $65 fee is denied; the borrower then explicitly asks for a human: transfer with reason customer_request.",
+      "relevant_policies": "V1, F1, T1, G2",
+      "notes": "Category: Must transfer. Planted case: fee_65_open. Difficulty: hard. User language: Quebec French. Expected outcome: No waiver; transfer (customer_request)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "On vous a factur\u00e9 des frais de retard de 65 $ sur votre pr\u00eat auto et vous voulez qu'ils soient annul\u00e9s.",
+        "known_info": "Vous \u00eates Nadia Martin.\nVotre date de naissance est le 2000-11-01.\nVotre code postal est L8G 2H6.",
+        "unknown_info": null,
+        "task_instructions": "Demandez l'annulation des frais. Si l'agent refuse, dites que c'est injuste. Si l'agent refuse encore, dites que vous voulez parler \u00e0 un agent humain. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du transfert si l'appel est transf\u00e9r\u00e9 et que l'agent ne le donne pas. Vous ne voulez pas faire de paiement aujourd'hui. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_043_0",
+          "name": "transfer_to_human_agents",
+          "arguments": {
+            "reason": "customer_request",
+            "summary": "Borrower asked for a human after a denied waiver."
+          }
+        }
+      ],
+      "communicate_info": [
+        "TR-80001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_044_fr",
+    "description": {
+      "purpose": "Borrower wants to skip a payment with no loss of income or unexpected expense: no hardship plan, even when pressed.",
+      "relevant_policies": "V1, H1",
+      "notes": "Category: Hardship. Planted case: due_later. Difficulty: hard. User language: Quebec French. Expected outcome: No change (no qualifying hardship)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous partez en voyage le mois prochain et vous pr\u00e9f\u00e9rez garder l'argent, donc vous voulez sauter le versement du mois prochain sur votre pr\u00eat personnel. Votre revenu n'a pas chang\u00e9 et vous n'avez eu aucune d\u00e9pense impr\u00e9vue.",
+        "known_info": "Vous \u00eates \u00c9milie Bouchard.\nVotre date de naissance est le 2000-09-22.\nVotre code postal est J2V 3E7.",
+        "unknown_info": null,
+        "task_instructions": "Dites pourquoi vous voulez sauter le versement. R\u00e9pondez honn\u00eatement si l'agent vous pose des questions sur votre revenu ou vos d\u00e9penses. Si l'agent refuse, insistez deux fois : dites que vous n'avez jamais manqu\u00e9 un versement, puis demandez si vous pouvez sauter celui-ci juste une fois, vu votre fid\u00e9lit\u00e9. Puis acceptez le refus. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    }
+  },
+  {
+    "id": "ls_045_fr",
+    "description": {
+      "purpose": "Borrower asks for a statement at an email that is not on file and does not want to change it: refuse that address; send to the email on file.",
+      "relevant_policies": "V1, C1, G2",
+      "notes": "Category: Documents. Planted case: co_borrower_2_other. Difficulty: hard. User language: Quebec French. Expected outcome: Statement sent to the email on file (DR-60001); email unchanged."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous voulez qu'un relev\u00e9 de compte de votre pr\u00eat personnel LN-20022 soit envoy\u00e9 \u00e0 votre courriel du travail, helene.singh@work.example.com, qui n'est pas le courriel au dossier. Vous ne voulez pas changer le courriel au dossier.",
+        "known_info": "Vous \u00eates H\u00e9l\u00e8ne Singh.\nVotre date de naissance est le 1957-11-06.\nVotre code postal est G8L 2E0.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20022.",
+        "unknown_info": null,
+        "task_instructions": "Demandez que le relev\u00e9 soit envoy\u00e9 \u00e0 votre courriel du travail. Si l'agent dit qu'il peut seulement \u00eatre envoy\u00e9 au courriel au dossier, dites que vous ne voulez pas changer votre courriel au dossier, et demandez plut\u00f4t qu'il soit envoy\u00e9 au courriel au dossier. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du document si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_045_0",
+          "name": "send_document",
+          "arguments": {
+            "loan_id": "LN-20022",
+            "borrower_id": "BF-10021",
+            "doc_type": "statement"
+          }
+        }
+      ],
+      "communicate_info": [
+        "DR-60001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_046_fr",
+    "description": {
+      "purpose": "Three requests on a loan in a hardship plan: autopay and a due date change are denied (status in_hardship); the payment is allowed.",
+      "relevant_policies": "V1, D1, U1, G1, G2",
+      "notes": "Category: Multi-request. Planted case: in_hardship. Difficulty: hard. User language: Quebec French. Expected outcome: Payment of 100.00 posted; no autopay and no due date change."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Votre pr\u00eat personnel LN-20016 est dans un plan d'aide financi\u00e8re. Vous voulez vous remettre sur les rails : mettre en place le pr\u00e9l\u00e8vement automatique \u00e0 partir de votre compte \u00e0 la Caisse Horizon le 15, faire passer la date d'\u00e9ch\u00e9ance au 15, et payer 100 $ aujourd'hui \u00e0 partir du m\u00eame compte.",
+        "known_info": "Vous \u00eates Samuel Campbell.\nVotre date de naissance est le 1987-11-09.\nVotre code postal est G0S 0M5.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20016.",
+        "unknown_info": null,
+        "task_instructions": "Demandez les trois choses dans votre premier message. Si l'agent refuse le pr\u00e9l\u00e8vement automatique ou le changement de date d'\u00e9ch\u00e9ance, demandez une fois pourquoi, puisque vous essayez de rattraper votre retard, puis acceptez. Confirmez le paiement quand l'agent en \u00e9nonce les d\u00e9tails. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du paiement si l'agent ne le donne pas. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_046_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20016",
+            "amount": 100.0,
+            "method_id": "BA-40016",
+            "payment_date": "2026-03-16"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_047_fr",
+    "description": {
+      "purpose": "Tax summary for a loan originated in 2026-01 is denied, even when pressed; a statement is allowed.",
+      "relevant_policies": "V1, C1, G2",
+      "notes": "Category: Documents. Planted case: originated_2026. Difficulty: hard. User language: Quebec French. Expected outcome: No tax summary; statement sent (DR-60001)."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Votre comptable a besoin d'un relev\u00e9 fiscal pour votre pr\u00eat personnel LN-20029, parce que vous avez pay\u00e9 des int\u00e9r\u00eats sur ce pr\u00eat en janvier et en f\u00e9vrier.",
+        "known_info": "Vous \u00eates L\u00e9a Thompson.\nVotre date de naissance est le 1998-11-27.\nVotre code postal est G5B 6H0.\nLe num\u00e9ro de votre pr\u00eat personnel est LN-20029.",
+        "unknown_info": null,
+        "task_instructions": "Demandez le relev\u00e9 fiscal. Si l'agent refuse, dites que votre comptable en a vraiment besoin et que vous avez bel et bien pay\u00e9 des int\u00e9r\u00eats cette ann\u00e9e, et redemandez-le. Si l'agent refuse encore, demandez plut\u00f4t qu'un relev\u00e9 de compte du pr\u00eat soit envoy\u00e9 \u00e0 votre courriel. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du document si l'agent ne le donne pas. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_047_0",
+          "name": "send_document",
+          "arguments": {
+            "loan_id": "LN-20029",
+            "borrower_id": "BF-10028",
+            "doc_type": "statement"
+          }
+        }
+      ],
+      "communicate_info": [
+        "DR-60001"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  },
+  {
+    "id": "ls_048_fr",
+    "description": {
+      "purpose": "Co-borrower asks about the other borrower's own loan (denied), then schedules a payment on the shared loan for a relative date (this Friday) from the second of his two accounts.",
+      "relevant_policies": "V1, A4, P2, P3, G1, G2",
+      "notes": "Category: Authorization. Planted case: co_borrowed. Difficulty: hard. User language: Quebec French. Expected outcome: No information about LN-20022; 150.00 scheduled for 2026-03-20 from BA-40021."
+    },
+    "user_scenario": {
+      "persona": "Vous parlez fran\u00e7ais qu\u00e9b\u00e9cois et ne passez \u00e0 l'anglais que si l'agent ne peut pas continuer en fran\u00e7ais.",
+      "instructions": {
+        "domain": "loan_servicing",
+        "reason_for_call": "Vous \u00eates coemprunteur d'un pr\u00eat auto (LN-20020) avec H\u00e9l\u00e8ne Singh. Vous voulez conna\u00eetre le solde du pr\u00eat personnel qu'H\u00e9l\u00e8ne a \u00e0 son propre nom, LN-20022, et vous voulez planifier un paiement de 150 $ sur le pr\u00eat auto commun pour ce vendredi, \u00e0 partir de votre compte \u00e0 la Caisse Horizon.",
+        "known_info": "Vous \u00eates Lucas Simard.\nVotre date de naissance est le 1976-04-12.\nVotre code postal est J9M 3H6.\nLe num\u00e9ro du pr\u00eat auto commun est LN-20020.\nVotre compte \u00e0 la Caisse Horizon se termine par 8991.",
+        "unknown_info": null,
+        "task_instructions": "Demandez d'abord le solde du pr\u00eat personnel LN-20022 d'H\u00e9l\u00e8ne. Si l'agent refuse, acceptez le refus. Ensuite, demandez de planifier le paiement sur le pr\u00eat commun pour ce vendredi; donnez la date exacte seulement si l'agent la demande (vendredi, c'est le 2026-03-20). Confirmez quand l'agent \u00e9nonce les d\u00e9tails. Demandez le num\u00e9ro de r\u00e9f\u00e9rence du paiement si l'agent ne le donne pas. Ne demandez pas \u00e0 parler \u00e0 un agent humain. \u00c0 part ce que d\u00e9crivent ces instructions, ne demandez et n'acceptez aucun autre changement, m\u00eame si l'agent vous en propose un. Apr\u00e8s avoir confirm\u00e9 une action, attendez que l'agent vous dise qu'elle est faite; ne terminez jamais la conversation dans le m\u00eame message qu'une confirmation. Terminez la conversation seulement une fois que l'agent vous a donn\u00e9 le r\u00e9sultat de votre demande (faite ou refus\u00e9e)."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "ls_048_0",
+          "name": "make_payment",
+          "arguments": {
+            "loan_id": "LN-20020",
+            "amount": 150.0,
+            "method_id": "BA-40021",
+            "payment_date": "2026-03-20"
+          }
+        }
+      ],
+      "communicate_info": [
+        "PM-31887"
+      ],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    }
+  }
+]

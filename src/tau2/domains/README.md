@@ -67,6 +67,7 @@ pytest tests/test_domains/test_<domain_name>
 | `retail` | Order management, returns, and product inquiries |
 | `telecom` | Telecom account management and troubleshooting |
 | `banking_knowledge` | Knowledge-retrieval-based banking customer service with configurable RAG pipelines |
+| `loan_servicing` / `loan_servicing_fr` | Consumer-loan servicing with English and Quebec French policies and customers ([README](loan_servicing/README.md)) |
 
 ### `banking_knowledge` Domain
 
