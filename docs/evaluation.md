@@ -19,8 +19,8 @@ required of the agent, this page is for you.
   tool calls that produces an equivalent DB end state passes the DB
   check.
 - The agent is required to match `actions` *only* when `RewardType.ACTION`
-  is in `reward_basis` (used in a small subset of `banking_knowledge`
-  tasks; **not used at all** in airline / retail / telecom). When that
+  is in `reward_basis` (a small subset of `banking_knowledge` tasks, and
+  32 telecom tasks). Airline and retail do not use it. When that
   flag is set, the listed actions are treated as the assumed-unique
   correct trajectory — which is a strong assumption and is why most
   τ-bench tasks deliberately do not use it.
@@ -194,11 +194,12 @@ changed by these diagnostic options.
 
 ## When does `RewardType.ACTION` get used?
 
-In the bundled tasks, `ACTION` only appears in `reward_basis` for a
-small subset of `banking_knowledge` tasks (about 9 out of ~100), where
-the *path* through specific knowledge-retrieval tools is the thing
-being evaluated. Airline, retail, and telecom never put `ACTION` in
-`reward_basis` — their evaluation is end-state only, by design.
+In the bundled tasks, `ACTION` appears in `reward_basis` for 9 of 97
+`banking_knowledge` tasks, where the *path* through specific
+knowledge-retrieval tools is the thing being evaluated, and for 32 of
+2285 telecom tasks (all `[ENV_ASSERTION, ACTION]`). Airline (50 tasks)
+and retail (114 tasks) never put `ACTION` in `reward_basis`. The other
+2253 telecom tasks use `[ENV_ASSERTION]` only.
 
 If you build your own domain or task and want the agent's tool calls to
 be a hard requirement (not just a side-effect on the DB), you can put
