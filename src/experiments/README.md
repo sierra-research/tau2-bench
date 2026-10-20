@@ -12,6 +12,9 @@ The `experiments/` folder is used for experimental features and research code th
 
 This directory is organized into subdirectories for different types of experimental components. Each subdirectory should contain its own README with specific documentation and usage instructions.
 
+[Bayes@N](bayes_at_n/README.md) analyzes complete repeated text-agent trials from
+saved results and reports posterior full-success estimates with uncertainty.
+
 ## Quick Start
 
 To contribute experimental code:
