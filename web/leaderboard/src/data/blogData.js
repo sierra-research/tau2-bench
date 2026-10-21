@@ -3,6 +3,11 @@
 // photos are served locally from public/authors/<slug>.jpg.
 
 export const PAPERS = {
+  tauAuthority: {
+    title: "Attempted versus Happened: Checking an Agent's Authority Before It Acts on τ²-bench",
+    href: 'https://doi.org/10.5281/zenodo.23423057',
+    venue: 'Zenodo 2026',
+  },
   seataubench: {
     title: 'SEATauBench: Progressively Adapting Tool-Agent-User Evaluation Into Low-Resource Southeast Asian Languages',
     href: 'https://arxiv.org/abs/2606.28715v2',
@@ -36,6 +41,24 @@ export const PAPERS = {
 }
 
 export const AUTHORS = {
+  'inam-haq': {
+    name: 'Inam Haq',
+    role: 'Founder, Delegus',
+    photo: '/authors/inam-haq.jpg',
+    bio: "Inam Haq is the founder of Delegus, which checks whether an AI agent has been given the authority to take an action before the action runs, and leaves a signed record anyone can verify. The idea came from his previous company, RREV, where he led engineering and built the hardware and software that run its expedition vehicles. There, an AI agent, told not to, operated a live vehicle's suspension anyway. His work now focuses on testing agents by the consequences of their actions in simulated companies, and on keeping what an agent can do separate from what it is allowed to do. Delegus is his fourth company.",
+    bioSegments: [
+      {
+        text: 'Inam Haq',
+        href: 'https://orcid.org/0009-0005-4331-0409',
+      },
+      {
+        text: " is the founder of Delegus, which checks whether an AI agent has been given the authority to take an action before the action runs, and leaves a signed record anyone can verify. The idea came from his previous company, RREV, where he led engineering and built the hardware and software that run its expedition vehicles. There, an AI agent, told not to, operated a live vehicle's suspension anyway. His work now focuses on testing agents by the consequences of their actions in simulated companies, and on keeping what an agent can do separate from what it is allowed to do. Delegus is his fourth company.",
+      },
+    ],
+    paperKeys: ['tauAuthority'],
+    backHref: '/community',
+    backLabel: 'Community spotlight',
+  },
   'my-chiffon-nguyen': {
     name: 'My Chiffon Nguyen',
     role: 'AI Researcher at SEACrowd',
