@@ -504,6 +504,15 @@ def _apply_anthropic_adaptive_thinking(model: str, kwargs: dict[str, Any]) -> No
         kwargs.setdefault("output_config", {"effort": effort})
 
 
+class ToolCallArgumentsError(json.JSONDecodeError):
+    """The model returned tool-call arguments that are not valid JSON.
+
+    This is the model's own output, not a transport or provider failure, so
+    the orchestrator can score it as an agent error. It subclasses
+    ``json.JSONDecodeError`` so existing handlers still catch it.
+    """
+
+
 class LLMResponseValidationError(ValueError):
     """A model reply remained invalid after response validation retries."""
 
@@ -701,14 +710,19 @@ def _generate_once(
     )
     content = response_choice.message.content
     raw_tool_calls = response_choice.message.tool_calls or []
-    tool_calls = [
-        ToolCall(
-            id=tool_call.id,
-            name=tool_call.function.name,
-            arguments=json.loads(tool_call.function.arguments),
-        )
-        for tool_call in raw_tool_calls
-    ]
+    try:
+        tool_calls = [
+            ToolCall(
+                id=tool_call.id,
+                name=tool_call.function.name,
+                arguments=json.loads(tool_call.function.arguments),
+            )
+            for tool_call in raw_tool_calls
+        ]
+    except json.JSONDecodeError as e:
+        raise ToolCallArgumentsError(
+            f"Tool call arguments are not valid JSON: {e.msg}", e.doc, e.pos
+        ) from e
     tool_calls = tool_calls or None
 
     message = AssistantMessage(
