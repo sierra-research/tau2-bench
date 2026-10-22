@@ -53,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   excluded. `VerdictFingerprint` gains `input_error_units`, so voice-v2
   packages prepared before this change must be re-prepared.
 
+### Fixed
+- Retail `exchange_delivered_order_items` rejects an exchange whose new item
+  ID equals the original item ID, matching the policy's "different product
+  option" rule and the existing check in `modify_pending_order_items`. No
+  reference action uses a same-item exchange, so gold states are unchanged.
+
 ## [2.0.0] - 2026-10-19
 
 > **⚠️ Scoring change — scores are not comparable with 1.x.** Communication checks,
