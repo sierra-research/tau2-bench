@@ -659,9 +659,23 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
                 self.to_role = Role.USER
             else:
                 self.agent_state = self.agent.get_init_state()
-                first_message, self.agent_state = self.agent.generate_next_message(
-                    None, self.agent_state
-                )
+                try:
+                    first_message, self.agent_state = self.agent.generate_next_message(
+                        None, self.agent_state
+                    )
+                except ToolCallArgumentsError as e:
+                    # The agent model's own malformed tool call, as in `step`: score it
+                    # as AGENT_ERROR rather than let it become an infrastructure error.
+                    # Nothing parseable was sent, so nothing is recorded.
+                    logger.warning(f"Agent sent a malformed tool call: {e}")
+                    self.trajectory = []
+                    self.message = AssistantMessage(role="assistant", content=None)
+                    self.from_role = Role.AGENT
+                    self.to_role = Role.USER
+                    self.done = True
+                    self.termination_reason = TerminationReason.AGENT_ERROR
+                    self.environment.sync_tools()
+                    return
                 self.trajectory = [first_message]
                 self.message = first_message
                 # In solo mode, there is no user, so if the message is not a tool call, then we end and report an agent error

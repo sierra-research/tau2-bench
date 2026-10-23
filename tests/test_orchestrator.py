@@ -539,9 +539,28 @@ def _model_response(content=None, tool_calls=None):
                 }
             ]
         },
+        # Valid JSON that is not an object: tool arguments must be a mapping.
+        *(
+            {
+                "tool_calls": [
+                    {
+                        "id": "call_0",
+                        "type": "function",
+                        "function": {"name": "create_task", "arguments": arguments},
+                    }
+                ]
+            }
+            for arguments in ("42", "null", "[]")
+        ),
         {"content": ""},
     ],
-    ids=["malformed-tool-arguments", "empty-reply"],
+    ids=[
+        "malformed-tool-arguments",
+        "number-arguments",
+        "null-arguments",
+        "list-arguments",
+        "empty-reply",
+    ],
 )
 def test_agent_output_failures_end_as_agent_errors(
     monkeypatch,
@@ -575,3 +594,47 @@ def test_agent_output_failures_end_as_agent_errors(
     simulation = orchestrator.run()
 
     assert simulation.termination_reason == TerminationReason.AGENT_ERROR
+
+
+@pytest.mark.parametrize(
+    "arguments", ['{"task_id": "ta', "42"], ids=["truncated", "number"]
+)
+def test_solo_agent_malformed_first_tool_call_is_an_agent_error(
+    monkeypatch,
+    domain_name: str,
+    dummy_user: DummyUser,
+    solo_agent: LLMSoloAgent,
+    base_task: Task,
+    get_environment: Callable[[], Environment],
+    arguments: str,
+):
+    """The solo agent's first turn is generated in initialize(); a malformed tool call
+    there must also end as AGENT_ERROR rather than escape as an infrastructure error."""
+    from tau2.data_model.simulation import TerminationReason
+    from tau2.utils import llm_utils
+
+    tool_calls = [
+        {
+            "id": "call_0",
+            "type": "function",
+            "function": {"name": "update_task_status", "arguments": arguments},
+        }
+    ]
+    monkeypatch.setattr(
+        llm_utils, "completion", lambda **kwargs: _model_response(tool_calls=tool_calls)
+    )
+    orchestrator = Orchestrator(
+        domain=domain_name,
+        environment=get_environment(solo_mode=True),
+        user=dummy_user,
+        agent=solo_agent,
+        task=base_task,
+        max_steps=10,
+        solo_mode=True,
+        validate_communication=True,
+    )
+
+    simulation = orchestrator.run()
+
+    assert simulation.termination_reason == TerminationReason.AGENT_ERROR
+    assert simulation.messages == []

@@ -505,12 +505,29 @@ def _apply_anthropic_adaptive_thinking(model: str, kwargs: dict[str, Any]) -> No
 
 
 class ToolCallArgumentsError(json.JSONDecodeError):
-    """The model returned tool-call arguments that are not valid JSON.
+    """The model returned tool-call arguments that are not a JSON object.
 
     This is the model's own output, not a transport or provider failure, so
     the orchestrator can score it as an agent error. It subclasses
     ``json.JSONDecodeError`` so existing handlers still catch it.
     """
+
+
+def _parse_tool_arguments(arguments: str) -> dict:
+    """Parse a tool call's arguments, which must be a JSON object."""
+    try:
+        parsed = json.loads(arguments)
+    except json.JSONDecodeError as e:
+        raise ToolCallArgumentsError(
+            f"Tool call arguments are not valid JSON: {e.msg}", e.doc, e.pos
+        ) from e
+    if not isinstance(parsed, dict):
+        raise ToolCallArgumentsError(
+            f"Tool call arguments must be a JSON object, got {type(parsed).__name__}",
+            arguments,
+            0,
+        )
+    return parsed
 
 
 class LLMResponseValidationError(ValueError):
@@ -710,19 +727,14 @@ def _generate_once(
     )
     content = response_choice.message.content
     raw_tool_calls = response_choice.message.tool_calls or []
-    try:
-        tool_calls = [
-            ToolCall(
-                id=tool_call.id,
-                name=tool_call.function.name,
-                arguments=json.loads(tool_call.function.arguments),
-            )
-            for tool_call in raw_tool_calls
-        ]
-    except json.JSONDecodeError as e:
-        raise ToolCallArgumentsError(
-            f"Tool call arguments are not valid JSON: {e.msg}", e.doc, e.pos
-        ) from e
+    tool_calls = [
+        ToolCall(
+            id=tool_call.id,
+            name=tool_call.function.name,
+            arguments=_parse_tool_arguments(tool_call.function.arguments),
+        )
+        for tool_call in raw_tool_calls
+    ]
     tool_calls = tool_calls or None
 
     message = AssistantMessage(
