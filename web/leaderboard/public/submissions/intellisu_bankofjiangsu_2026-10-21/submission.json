@@ -1,0 +1,54 @@
+{
+  "model_name": "intellisu",
+  "model_organization": "Not publicly disclosed (Bank of Jiangsu internal model service)",
+  "submitting_organization": "Bank of Jiangsu",
+  "submission_date": "2026-10-21",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "weirunpo@jsbchina.cn",
+    "name": "Runpu Wei",
+    "github": "RunpuWei"
+  },
+  "results": {
+    "banking_knowledge": {
+      "pass_1": 38.659793814432994,
+      "pass_2": 27.663230240549826,
+      "pass_3": 21.90721649484536,
+      "pass_4": 18.556701030927837,
+      "retrieval_config": "bm25"
+    }
+  },
+  "is_new": false,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "banking_knowledge": "intellisu_banking_knowledge_4trials.json"
+  },
+  "references": [
+    {
+      "title": "Custom evaluation methodology and access disclosure",
+      "url": "https://huggingface.co/datasets/BaiLing/intellisu-tau2-banking/blob/269b49a50e8ae9a119fae7de260179926393a01c/METHOD.md",
+      "type": "documentation"
+    },
+    {
+      "title": "Complete 97-task, four-trial trajectory review archive",
+      "url": "https://huggingface.co/datasets/BaiLing/intellisu-tau2-banking/resolve/269b49a50e8ae9a119fae7de260179926393a01c/intellisu_tau2_20261020.zip",
+      "type": "huggingface"
+    },
+    {
+      "title": "Original framework at evaluated commit",
+      "url": "https://github.com/sierra-research/tau2-bench/tree/4ce7c0397c1eb65c9bbe59aeacfe1ca44a1cd699",
+      "type": "github"
+    }
+  ],
+  "methodology": {
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "intellisu-reasoning-pro",
+    "notes": "Custom 1.x text submission at commit 4ce7c0397c1eb65c9bbe59aeacfe1ca44a1cd699 (pyproject version 1.0.1; not the exact v1.0.1 release tag). Complete banking_knowledge domain: 97 tasks, four independent trials each, BM25 retrieval. Agent service: intellisu-coder-pro (leaderboard name: intellisu). Both the user simulator and natural-language assertion judge use the internal intellisu-reasoning-pro service instead of the benchmark defaults. Original task policies, tools, prompts, evaluator rubric and Pass^k functions were retained. Agent/user temperature 0, max_tokens 32768; NL judge max_tokens 16384 with JSON response format. Request-level response caching was bypassed for independent trials. No correctness-based retries or omitted tasks. The service is hosted on the Bank of Jiangsu intranet; public model endpoints, weights, model developer information and internal implementation details are unavailable. Public method notes describe the setup, but authorized service access would be required to reproduce inference; please review whether this disclosure suffices for custom inclusion. Costs in USD are unverified and omitted; logged zeros must not be interpreted as measured dollar costs. Results cover only this text domain, not 2.0, voice or a multi-domain overall score. The linked archive retains packaging metadata dated 2026-10-20; this submission.json is the current leaderboard metadata, and trajectories/rewards are unchanged.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "All 97 canonical banking_knowledge tasks, exactly four distinct trials each (388 simulations), zero infrastructure errors. Saved model messages and rewards are retained; the public file uses metadata prepared for disclosure. Model name intellisu is a display alias for openai/intellisu-coder-pro; the user simulator identifier openai/intellisu-reasoning-pro is reported without the transport prefix. Dollar costs are omitted because unavailable."
+    }
+  }
+}
