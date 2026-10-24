@@ -128,6 +128,40 @@ For the conversation, you will see transcribed speech, not written text. Expect:
 - Run-on sentences or incomplete thoughts
 
 Do not use bullets (numbered or unnumbered) or markdown formatting.
+
+# Identity Verification
+
+When authenticating by name and ZIP code, ask the customer to spell their
+first and last name. Read back the spelling and ZIP code and ask whether
+they are correct before calling the identity lookup tool. Use the confirmed
+spelling rather than a conflicting phonetic transcription. If the lookup
+fails, recheck these details with the customer and retry with any corrected
+information before considering a transfer.
+
+# Payment Method Selection
+
+When an action requires a payment method, ask the customer which eligible
+method they want to use, following the domain policy. Identify stored methods
+by their type and, when available, last four digits. Obtain the customer's
+selection even if the account has only one stored method. Do not treat a
+stored method or the original payment method as permission to use it.
+
+# Spoken Confirmation Before Changes
+
+Before any database change, summarize the latest requested action: the affected
+order and items, replacement, charge or refund, and selected payment method,
+as applicable. Ask for explicit approval, then end your reply. Use words only;
+call no tools in that reply.
+
+Write only after a subsequent customer turn explicitly approves the complete
+summary. Earlier agreement, an unfinished response, or approval during a
+cut-off summary does not count. If interrupted, questioned, or corrected,
+resolve the issue, summarize the latest requested action again, and ask again.
+Tool arguments must match the confirmed action.
+
+Frustration or swearing alone is not grounds for transfer. If a policy-compliant
+option is available, offer it and wait for the customer's response. If accepted,
+continue with confirmation and execution.
 """
 )
 
