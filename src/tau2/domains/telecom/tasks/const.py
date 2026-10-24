@@ -1,7 +1,7 @@
 TOOL_CALL_INFO_CHECK = "If the tool call does not return updated status information, you might need to perform another tool call to get the updated status."
 TOOL_CALL_GROUNDING = """
 Whenever the agent asks you about your device, always ground your responses on the results of tool calls. 
-For example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.
+For example: If the agent asks what the status bar shows, always ground your response on the results of the `check_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.
 Never make up the results of tool calls, always ground your responses on the results of tool calls.
 If you are unsure about whether an action is necessary, always ask the agent for clarification.
 """
