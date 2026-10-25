@@ -53,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   excluded. `VerdictFingerprint` gains `input_error_units`, so voice-v2
   packages prepared before this change must be re-prepared.
 
+### Fixed
+- Telecom `can_send_mms` treats an empty MMSC URL as unconfigured, matching
+  `check_apn_settings` (which reports it as "Not Set") and
+  `APNSettings.is_mms_basic_configured()`. Previously `mmsc_url=""` passed
+  `assert_can_send_mms`.
+
 ## [2.0.0] - 2026-10-19
 
 > **⚠️ Scoring change — scores are not comparable with 1.x.** Communication checks,

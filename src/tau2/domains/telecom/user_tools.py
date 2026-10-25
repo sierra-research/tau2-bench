@@ -945,8 +945,8 @@ class TelecomUserTools(ToolKitBase):
         if self.device.wifi_calling_enabled and self.device.wifi_calling_mms_over_wifi:
             return False
 
-        # MMSC url not configured
-        if self.device.active_apn_settings.mmsc_url is None:
+        # MMSC url not configured (None or empty)
+        if not self.device.active_apn_settings.is_mms_basic_configured():
             return False
 
         # Check messaging app existence and permissions
