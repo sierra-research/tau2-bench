@@ -1,0 +1,37 @@
+{
+  "model_name": "Qwen3.8-27B-FP8",
+  "model_organization": "Qwen",
+  "submitting_organization": "Geunho Lee (independent)",
+  "submission_date": "2026-10-12",
+  "submission_type": "standard",
+  "modality": "text",
+  "contact_info": {
+    "email": "beingrelative@gmail.com",
+    "name": "Geunho Lee",
+    "github": "beingrelative"
+  },
+  "results": {
+    "banking_knowledge": {
+      "pass_1": 49.48453608247423,
+      "pass_2": 39.69072164948453,
+      "pass_3": 33.50515463917525,
+      "retrieval_config": "alltools"
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "banking_knowledge": "qwen3.8-27b-fp8_default_banking_knowledge_gpt-5.2_4trials.json"
+  },
+  "methodology": {
+    "evaluation_date": "2026-09-21",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "gpt-5.2",
+    "notes": "Standard tau2-bench text scaffold (llm_agent, default prompts and tools). Qwen/Qwen3.8-27B-FP8 (public FP8 weights, not fine-tuned) self-hosted with vLLM (max_model_len 131072), agent temperature 0.0. Retrieval: AllTools (BM25 + OpenAI text-embedding-3-large dense + sandboxed shell). User simulator: gpt-5.2 via OpenRouter, reasoning_effort low, temperature 0.0. 4 trials, seed 300, tau2-bench v1.0.1 (fc0055d). Execution was sharded one task per process (--task-ids) across several vLLM endpoints serving the same weights. All 97 tasks x 4 trials are included. The runner wrapper stubs only the sandbox dependency pre-check (sandbox binaries were installed and the shell tool ran sandboxed) and points the NL-assertion judge at gpt-5.2. That judge is not used by banking_knowledge, whose reward basis is DB or ACTION only.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "Standard scaffold, all 97 base-split tasks x 4 trials."
+    }
+  }
+}
