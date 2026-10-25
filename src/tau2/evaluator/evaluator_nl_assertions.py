@@ -120,7 +120,19 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             call_name="nl_assertions_eval",
             **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
         )
-        result_data = json.loads(assistant_message.content)
+        response = assistant_message.content
+        try:
+            result_data = json.loads(response)
+        except json.JSONDecodeError:
+            # Unwrap only a whole-response fence; backticks inside JSON are data.
+            lines = response.strip().split("\n")
+            if (
+                len(lines) < 3
+                or lines[0].strip(" \t\r") not in ("```json", "```")
+                or lines[-1].strip(" \t\r") != "```"
+            ):
+                raise
+            result_data = json.loads("\n".join(lines[1:-1]))
         return [
             NLAssertionCheck(
                 nl_assertion=result["expectedOutcome"],
