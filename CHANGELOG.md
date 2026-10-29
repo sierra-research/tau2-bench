@@ -78,6 +78,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   excluded. `VerdictFingerprint` gains `input_error_units`, so voice-v2
   packages prepared before this change must be re-prepared.
 
+### Fixed
+- `ActionEvaluator` matches gold actions to tool calls one-to-one, so one call
+  no longer satisfies every repeated gold entry. banking_knowledge task_034
+  (8 transfer requests) and task_032 (3 initial-transfer calls) now need every
+  listed call. Released 1.x result files keep every ACTION-gated verdict.
+
 ## [2.0.0] - 2026-10-19
 
 > **⚠️ Scoring change — scores are not comparable with 1.x.** Communication checks,

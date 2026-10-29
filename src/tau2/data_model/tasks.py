@@ -251,8 +251,9 @@ class RewardType(str, Enum):
       in the agent's messages.
     - NL_ASSERTION: every `nl_assertions` entry is judged true by an
       LLM (experimental / WIP).
-    - ACTION: every entry in `actions` is matched by an agent tool call
-      (per `Action.compare_with_tool_call`). The only reward type that
+    - ACTION: every entry in `actions` is matched by its own agent tool
+      call (per `Action.compare_with_tool_call`), so an entry listed N
+      times needs N matching calls. The only reward type that
       makes the action list a hard requirement — promotes it to the
       assumed-unique correct trajectory. Used in a few
       `banking_knowledge` tasks; not used in airline/retail/telecom.

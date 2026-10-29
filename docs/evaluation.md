@@ -39,7 +39,7 @@ fields:
 
 | Field | What it is | When it gates the reward |
 |-------|-----------|--------------------------|
-| `actions` | A list of `Action`s recording **one** reference trajectory of tool calls that solves the task. Always replayed on a fresh "gold" environment to derive the target DB end state. Other trajectories may produce an equivalent end state and also pass. | Only when `RewardType.ACTION` is in `reward_basis` (then each entry must also appear among the agent's tool calls — i.e., this list is treated as the only acceptable trajectory). |
+| `actions` | A list of `Action`s recording **one** reference trajectory of tool calls that solves the task. Always replayed on a fresh "gold" environment to derive the target DB end state. Other trajectories may produce an equivalent end state and also pass. | Only when `RewardType.ACTION` is in `reward_basis` (then each entry must be matched by its own agent tool call, so an entry listed N times needs N matching calls — i.e., this list is treated as the only acceptable trajectory). |
 | `env_assertions` | A list of assertions to run against the predicted environment after the simulation. | Only when `RewardType.ENV_ASSERTION` is in `reward_basis`. |
 | `communicate_info` | Required information, checked by substring matching or the configured semantic judge. | Only when `RewardType.COMMUNICATE` is in `reward_basis`. |
 | `nl_assertions` | Natural-language assertions judged by an LLM. | Only when `RewardType.NL_ASSERTION` is in `reward_basis`. (Experimental / WIP.) |
@@ -53,7 +53,7 @@ The reward components are evaluated by:
 | `ENV_ASSERTION` | `EnvironmentEvaluator` | Do all `env_assertions` pass on the predicted environment? |
 | `COMMUNICATE` | `CommunicateEvaluator` | Was every required item communicated? Uses the semantic LLM judge by default; substring matching only with `--communicate-scorer substring`. |
 | `NL_ASSERTION` | `NLAssertionsEvaluator` | Does an LLM judge return true for every entry in `nl_assertions`? (WIP) |
-| `ACTION` | `ActionEvaluator` | For every entry in `actions`, did the agent produce a matching tool call (per `Action.compare_with_tool_call`)? Use this only when you are confident `actions` enumerates the only acceptable trajectory. |
+| `ACTION` | `ActionEvaluator` | For every entry in `actions`, did the agent produce a matching tool call (per `Action.compare_with_tool_call`)? Each tool call satisfies at most one entry. Order and tool success are not checked. Use this only when you are confident `actions` enumerates the only acceptable trajectory. |
 
 The final reward is the product. So if `reward_basis = [DB, COMMUNICATE]`,
 the reward is `db_reward * communicate_reward`. `actions` is consumed
