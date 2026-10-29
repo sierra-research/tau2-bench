@@ -101,7 +101,7 @@ def binding_revision(loaded: "LoadedLanguage") -> str:
     """
     from tau2.backchannel import BACKCHANNEL_PROMPT_VERSION
     from tau2.data_model.language import LANGUAGE_PROMPT_VERSION, LanguageTaskInfo
-    from tau2.user.guidelines import GUIDELINE_TEMPLATE_VERSION
+    from tau2.user.guidelines import guideline_template_version
 
     content = {
         "mode": loaded.mode,
@@ -109,7 +109,7 @@ def binding_revision(loaded: "LoadedLanguage") -> str:
         "domain_revision": loaded.binding.revision,
         **loaded.artifact_pins.model_dump(mode="json"),
         "prompt_version": LANGUAGE_PROMPT_VERSION,
-        "guideline_template_version": GUIDELINE_TEMPLATE_VERSION,
+        "guideline_template_version": guideline_template_version(loaded.mode),
         "assignment_version": LanguageTaskInfo.model_fields[
             "assignment_version"
         ].default,

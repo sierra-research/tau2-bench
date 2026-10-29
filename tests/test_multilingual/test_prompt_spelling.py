@@ -18,8 +18,8 @@ from tau2.data_model.language import (
 )
 from tau2.multilingual.runtime import agent_language_guidance
 from tau2.user.guidelines import (
-    GUIDELINE_TEMPLATE_VERSION,
     finalize_system_prompt,
+    guideline_template_version,
     render_simulation_guidelines,
     simulation_guidelines,
 )
@@ -72,7 +72,13 @@ def persona(reviewed, mode="voice", *, directive=False):
 @pytest.mark.parametrize("mode", ["voice", "text"])
 @pytest.mark.parametrize("use_tools", [False, True])
 def test_english_guidelines_match_reviewed_scaffold(reviewed, mode, use_tools):
-    assert GUIDELINE_TEMPLATE_VERSION == "language-guidelines-v4"
+    assert (
+        guideline_template_version(mode)
+        == {
+            "text": "language-guidelines-text-v5",
+            "voice": "language-guidelines-v4",
+        }[mode]
+    )
     assert (
         render_simulation_guidelines(persona(reviewed, mode), use_tools=use_tools)
         == reviewed["en"]["guidelines"][f"{mode}:{use_tools}"]
