@@ -6,7 +6,15 @@ from types import SimpleNamespace
 import pytest
 
 import tau2.utils.llm_utils as llm_utils
-from tau2.data_model.message import Message, SystemMessage, UserMessage
+from tau2.agent.llm_agent import create_llm_agent
+from tau2.data_model.message import (
+    AssistantMessage,
+    Message,
+    SystemMessage,
+    ToolCall,
+    ToolMessage,
+    UserMessage,
+)
 
 
 @pytest.fixture
@@ -269,3 +277,92 @@ def test_litellm_bridge_param_mapping_keeps_tool_choice_quietly(capsys):
     )
     assert params["tool_choice"] == "required"
     assert "Provider List" not in capsys.readouterr().out
+
+
+_THINKING_BLOCKS = [{"type": "thinking", "thinking": "plan", "signature": "sig"}]
+_PROVIDER_FIELDS = {"thought_signatures": ["gsig"]}
+
+
+def _assistant_with_raw_reasoning(**raw_message_fields) -> AssistantMessage:
+    raw_message = {
+        "role": "assistant",
+        "content": "raw content",
+        "tool_calls": None,
+        **raw_message_fields,
+    }
+    return AssistantMessage(
+        role="assistant",
+        content="Let me look that up.",
+        tool_calls=[ToolCall(id="call_1", name="get_x", arguments={"k": 1})],
+        raw_data={"id": "resp", "choices": [{"index": 0, "message": raw_message}]},
+    )
+
+
+def test_reasoning_dropped_by_default():
+    message = _assistant_with_raw_reasoning(reasoning_content="I should call get_x.")
+    [out] = llm_utils.to_litellm_messages([message])
+    assert set(out) == {"role", "content", "tool_calls"}
+
+
+def test_preserve_reasoning_copies_raw_reasoning_fields():
+    message = _assistant_with_raw_reasoning(
+        reasoning_content="I should call get_x.",
+        thinking_blocks=_THINKING_BLOCKS,
+        provider_specific_fields=_PROVIDER_FIELDS,
+    )
+    [out] = llm_utils.to_litellm_messages([message], preserve_reasoning=True)
+    assert out["reasoning_content"] == "I should call get_x."
+    assert out["thinking_blocks"] == _THINKING_BLOCKS
+    assert out["provider_specific_fields"] == _PROVIDER_FIELDS
+    # Content and tool calls still come from the Tau2 message, not raw_data.
+    assert out["content"] == "Let me look that up."
+    assert out["tool_calls"][0]["id"] == "call_1"
+
+
+@pytest.mark.parametrize(
+    "raw_data",
+    [
+        None,
+        {},
+        {"choices": []},
+        {"choices": [{"message": {"reasoning_content": None, "thinking_blocks": []}}]},
+    ],
+)
+def test_preserve_reasoning_without_raw_reasoning_adds_nothing(raw_data):
+    message = AssistantMessage(role="assistant", content="hi", raw_data=raw_data)
+    [out] = llm_utils.to_litellm_messages([message], preserve_reasoning=True)
+    assert out == {"role": "assistant", "content": "hi", "tool_calls": None}
+
+
+@pytest.mark.parametrize("preserve_reasoning", [False, True])
+def test_generate_sends_reasoning_only_when_preserved(
+    capture_completion, messages, preserve_reasoning
+):
+    history = [
+        *messages,
+        _assistant_with_raw_reasoning(reasoning_content="I should call get_x."),
+        ToolMessage(id="call_1", role="tool", content="x=1"),
+    ]
+    llm_utils.generate("qwen/qwen3", history, preserve_reasoning=preserve_reasoning)
+    assistant = capture_completion["messages"][2]
+    assert ("reasoning_content" in assistant) is preserve_reasoning
+    assert "preserve_reasoning" not in capture_completion
+
+
+@pytest.mark.parametrize("llm_args", [{}, {"preserve_reasoning": True}])
+def test_llm_agent_reads_preserve_reasoning_from_llm_args(capture_completion, llm_args):
+    agent = create_llm_agent(
+        tools=[], domain_policy="", llm="qwen/qwen3", llm_args=llm_args
+    )
+    prior = _assistant_with_raw_reasoning(reasoning_content="I should call get_x.")
+    state = agent.get_init_state(
+        message_history=[UserMessage(role="user", content="Hello."), prior]
+    )
+    agent.generate_next_message(
+        ToolMessage(id="call_1", role="tool", content="x=1"), state
+    )
+    assistant = next(
+        m for m in capture_completion["messages"] if m["role"] == "assistant"
+    )
+    assert ("reasoning_content" in assistant) is bool(llm_args)
+    assert "preserve_reasoning" not in capture_completion

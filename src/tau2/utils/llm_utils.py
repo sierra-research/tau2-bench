@@ -204,13 +204,38 @@ def _input_audio_format(message: UserMessage) -> str:
     return "wav"
 
 
-def to_litellm_messages(messages: list[Message]) -> list[dict]:
+# Fields LiteLLM attaches to an assistant reply that carry the model's reasoning
+# (Qwen/DeepSeek reasoning_content, Anthropic thinking_blocks, Gemini text-part
+# thought_signatures inside provider_specific_fields).
+REASONING_FIELDS = ("reasoning_content", "thinking_blocks", "provider_specific_fields")
+
+
+def _reasoning_fields(message: AssistantMessage) -> dict:
+    """Return the reasoning fields from the raw LiteLLM reply, if any."""
+    choices = (message.raw_data or {}).get("choices") or []
+    if not choices:
+        return {}
+    raw_message = choices[0].get("message") or {}
+    return {
+        field: raw_message[field]
+        for field in REASONING_FIELDS
+        if raw_message.get(field)
+    }
+
+
+def to_litellm_messages(
+    messages: list[Message], preserve_reasoning: bool = False
+) -> list[dict]:
     """
     Convert a list of Tau2 messages to a list of litellm messages.
 
     A UserMessage carrying ``audio_content`` becomes multipart content
     (text part + ``input_audio`` part) so multimodal judges can send audio
     through the single ``generate()`` seam.
+
+    If ``preserve_reasoning`` is set, assistant messages also carry the
+    reasoning fields of their raw LiteLLM reply, so the model sees its prior
+    reasoning. Content and tool calls always come from the Tau2 message.
     """
     litellm_messages = []
     for message in messages:
@@ -246,13 +271,14 @@ def to_litellm_messages(messages: list[Message]) -> list[dict]:
                     }
                     for tc in message.tool_calls
                 ]
-            litellm_messages.append(
-                {
-                    "role": "assistant",
-                    "content": message.content,
-                    "tool_calls": tool_calls,
-                }
-            )
+            litellm_message = {
+                "role": "assistant",
+                "content": message.content,
+                "tool_calls": tool_calls,
+            }
+            if preserve_reasoning:
+                litellm_message.update(_reasoning_fields(message))
+            litellm_messages.append(litellm_message)
         elif isinstance(message, ToolMessage):
             litellm_messages.append(
                 {
@@ -521,6 +547,7 @@ def generate(
     call_name: Optional[str] = None,
     response_model: type[BaseModel] | None = None,
     response_validation_retries: int = 0,
+    preserve_reasoning: bool = False,
     **kwargs: Any,
 ) -> UserMessage | AssistantMessage:
     """Generate a reply, retrying invalid structured responses in this boundary.
@@ -528,6 +555,9 @@ def generate(
     The response model validates an extracted JSON object. On a validation
     failure, the model sees its prior reply and one short correction request.
     All invalid replies are retained on the raised exception for diagnosis.
+
+    If ``preserve_reasoning`` is set, prior assistant messages are sent back
+    with the reasoning fields of their raw replies (see ``to_litellm_messages``).
     """
     if response_validation_retries < 0:
         raise ValueError("response_validation_retries must be nonnegative")
@@ -545,6 +575,7 @@ def generate(
             tools=tools,
             tool_choice=tool_choice,
             call_name=call_name,
+            preserve_reasoning=preserve_reasoning,
             **kwargs,
         )
         if response_model is None:
@@ -591,6 +622,7 @@ def _generate_once(
     tools: Optional[list[Tool]] = None,
     tool_choice: Optional[str] = None,
     call_name: Optional[str] = None,
+    preserve_reasoning: bool = False,
     **kwargs: Any,
 ) -> UserMessage | AssistantMessage:
     """
@@ -604,6 +636,7 @@ def _generate_once(
         call_name: Optional name identifying the purpose of this LLM call
                    (e.g., "detect_interrupt", "generate_agent_message").
                    Used for logging and debugging.
+        preserve_reasoning: Send prior assistant reasoning back to the model.
         **kwargs: Additional arguments to pass to the model.
 
     Returns: A tuple containing the message and the cost.
@@ -640,7 +673,9 @@ def _generate_once(
         else model
     )
     _apply_anthropic_adaptive_thinking(model, kwargs)
-    litellm_messages = to_litellm_messages(messages)
+    litellm_messages = to_litellm_messages(
+        messages, preserve_reasoning=preserve_reasoning
+    )
     if api_model.startswith("openai/responses/"):
         litellm_messages = _keep_non_leading_system_messages_positional(
             litellm_messages

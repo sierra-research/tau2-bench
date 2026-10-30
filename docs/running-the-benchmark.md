@@ -98,6 +98,15 @@ tau2 run --benchmark text \
 Always pass `--agent-llm` (and `--agent-llm-args` if needed). The user simulator
 defaults to `openai/gpt-5.5` with `reasoning_effort: low`.
 
+By default, the agent's history keeps only the visible text and tool calls of its
+earlier replies; its reasoning is dropped between calls. Add
+`"preserve_reasoning": true` to `--agent-llm-args` to send the reasoning fields
+LiteLLM returned (`reasoning_content`, `thinking_blocks`,
+`provider_specific_fields`) back with each earlier reply. The setting is recorded
+with the run's agent arguments. GPT-5 models go through LiteLLM's Responses
+bridge, which does not send these fields back, so the setting has no effect for
+them.
+
 ## Run the voice benchmark (voice-v2)
 
 ```bash
