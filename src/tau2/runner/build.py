@@ -564,6 +564,8 @@ def _build_env_kwargs(
             env_kwargs["retrieval_kwargs"] = rk
     if getattr(config, "domain", None) == "banking_knowledge":
         env_kwargs["read_log_allowlist"] = _derive_read_log_allowlist(task)
+    if getattr(config, "domain", None) == "food":
+        env_kwargs["task"] = task
     return env_kwargs
 
 

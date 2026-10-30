@@ -27,6 +27,15 @@ from tau2.domains.banking_knowledge.environment import (
 from tau2.domains.banking_knowledge.environment import (
     get_tasks as knowledge_domain_get_tasks,
 )
+from tau2.domains.food.environment import (
+    get_environment as food_domain_get_environment,
+)
+from tau2.domains.food.environment import (
+    get_tasks as food_domain_get_tasks,
+)
+from tau2.domains.food.environment import (
+    get_tasks_split as food_domain_get_tasks_split,
+)
 from tau2.domains.intake.environment import (
     get_environment as intake_get_environment,
 )
@@ -357,6 +366,12 @@ try:
         intake_get_tasks,
         "intake",
         get_task_splits=intake_get_tasks_split,
+    )
+    registry.register_domain(food_domain_get_environment, "food")
+    registry.register_tasks(
+        food_domain_get_tasks,
+        "food",
+        get_task_splits=food_domain_get_tasks_split,
     )
 
 
