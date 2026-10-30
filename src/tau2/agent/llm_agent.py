@@ -371,7 +371,8 @@ class LLMSoloAgent(
             """Call this function when you are done with the task."""
             return self.STOP_TOKEN
 
-        self.tools.append(as_tool(done))
+        # Keep the private stop tool out of tool lists shared with other agents.
+        self.tools = [*self.tools, as_tool(done)]
 
     def validate_tools(self) -> None:
         """Check if the tools are valid."""
