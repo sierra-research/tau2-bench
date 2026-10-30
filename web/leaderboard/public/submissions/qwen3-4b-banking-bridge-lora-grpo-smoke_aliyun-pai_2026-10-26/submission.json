@@ -1,0 +1,56 @@
+{
+  "model_name": "Qwen3-4B-Banking-Bridge-LoRA-GRPO-Smoke",
+  "model_organization": "aliyun pai",
+  "submitting_organization": "aliyun pai",
+  "submission_date": "2026-10-26",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "name": "李鹏",
+    "email": "jerry.lp@alibaba-inc.com",
+    "github": "jerryli1981"
+  },
+  "is_new": true,
+  "trajectories_available": false,
+  "trajectory_files": {
+    "banking_knowledge": "qwen3-4b-banking-bridge-lora-grpo_banking-knowledge_bm25_local-27b_4trials.json"
+  },
+  "references": [
+    {
+      "title": "Unmodified native LLMAgent used for evaluation",
+      "type": "github",
+      "url": "https://github.com/sierra-research/tau2-bench/blob/fc0055dc4e0a316c3f83133267fbd6faaa770992/src/tau2/agent/llm_agent.py"
+    },
+    {
+      "title": "NVIDIA Megatron-Bridge source pin",
+      "type": "github",
+      "url": "https://github.com/NVIDIA-NeMo/Megatron-Bridge/tree/afcc7eee4cd916aedcf90562b01f3948ed76d82d"
+    },
+    {
+      "title": "NVIDIA Megatron-LM source pin",
+      "type": "github",
+      "url": "https://github.com/NVIDIA/Megatron-LM/tree/ed9c2c8c1cf4a5438922ae8d215181e7c8b9e0fe"
+    }
+  ],
+  "results": {
+    "banking_knowledge": {
+      "pass_1": 2.8350515463917527,
+      "pass_2": 1.2027491408934707,
+      "pass_3": 0.5154639175257731,
+      "pass_4": 0.0,
+      "cost": null,
+      "retrieval_config": "bm25"
+    }
+  },
+  "methodology": {
+    "evaluation_date": "2026-10-26",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "openai/banking-local-user-teacher",
+    "notes": "Infrastructure smoke experiment: native NVIDIA Megatron-Bridge LoRA is used in BOTH SFT and GRPO. Qwen/Qwen3-4B BF16 on H20; PAI-Megatron-Patch v2 a9328594d8d9475d2e1b2f72395e88be2da6de6c; pai-slime master-v2 base b93e12c97313befb0ec9d60e927928cc2feaae9f with native-resume compatibility fix ec019c0ba490dfd20356c1a26e5e9f7b6f92c52f (explicit restore_training_state=True when supported); Bridge 0.8.0 source afcc7eee4cd916aedcf90562b01f3948ed76d82d; MCore 0.21.0 source ed9c2c8c1cf4a5438922ae8d215181e7c8b9e0fe. Torch 2.9.1+cu129, Transformers 5.20.2. Bridge fused LoRA r8/alpha16/dropout0 on linear_qkv, linear_proj, linear_fc1, linear_fc2: 14,303,232 trainable parameters, 288 adapter tensors; 4,022,468,096 frozen base parameters. Native SFT: 60 independent scripted synthetic decisions generated/validated, 25 consumed in 5 updates, batch5, LR1e-4, completion-only loss. The original SFT base AND same adapter are restored from the native checkpoint for pai-slime synchronous GRPO; no SFT merge followed by full-parameter RL. Native optimizer verified to contain exactly adapter parameters; frozen base hashes unchanged. GRPO: 2 updates, fresh-process exact reload, then optimizer/RNG resume and 1 additional real update; 3 effective updates total at LR1e-5, group4, batch4, micro1, clip0.2, KL0, entropy0. 16 real synthetic episodes sampled including skipped zero-variance groups; 12 episodes used. Native sample-standard-deviation advantages. Temperature1, top_p1, no top_k, max256 tokens per decision and four decisions per episode. Exact sampled tokens/logprobs retained; environment/tool tokens masked out. Actor recomputes old logprobs on exact tokens (use_rollout_logprobs=False; TIS disabled). Reward: exact whole native DB target-hash success 1, otherwise .25 exact verification state + .5 exact user state, minus .01 per redundant real tool call capped at .05. Independent fictional customers/example.test email corrections; no formal evaluation tasks, customer DB, or gold actions used for training. Native checkpoints include optimizer/RNG; fresh reloads compare adapter, optimizer and RNG exactly, and complete exported HF tensors exactly. Every sync also exports a standalone LoRA revision. Rollout transport remains merged full HF through the native disk/HTTP updater, with no adapter-only bandwidth claim. Final model is exported AFTER the resumed third update and reloaded in a fresh process. Evaluation: unmodified native LLMAgent, all 97 Banking tasks x4, BM25, all policies/tools/NL assertions retained; independent native regrade. Custom local Qwen3.6-27B user AND NL judge; SGLang0.5.10.post1, thinking disabled, agent/user max1024 tokens, judge max2048, 200steps, 10errors. Explicit context exhaustion retains actual trajectories and returns native context_window_exceeded/reward0 without truncation or fabricated responses. Private implementation/data/logs/weights; public metadata and native evaluation trajectories only. Not directly comparable to Standard/gpt-5.2/alltools. No complete base/SFT controlled evaluation; this short run demonstrates integration, not training gain.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "All 97 Banking tasks x4; custom local 27B user/NL judge; explicit context exhaustion retains actual messages and uses native context_window_exceeded termination/reward0. External trajectories await maintainer review and S3 upload."
+    }
+  }
+}
