@@ -223,6 +223,28 @@ def _reasoning_fields(message: AssistantMessage) -> dict:
     }
 
 
+def _to_openrouter_reasoning(litellm_messages: list[dict]) -> list[dict]:
+    """Move preserved reasoning to the top-level fields OpenRouter reads.
+
+    LiteLLM nests OpenRouter's ``reasoning`` and ``reasoning_details`` under
+    ``provider_specific_fields``, and OpenRouter ignores both that key and
+    ``reasoning_content`` on input.
+    """
+    converted = []
+    for message in litellm_messages:
+        if message.get("role") == "assistant":
+            message = dict(message)
+            provider_fields = message.pop("provider_specific_fields", None) or {}
+            reasoning = message.pop("reasoning_content", None)
+            reasoning = provider_fields.get("reasoning") or reasoning
+            if provider_fields.get("reasoning_details"):
+                message["reasoning_details"] = provider_fields["reasoning_details"]
+            if reasoning:
+                message["reasoning"] = reasoning
+        converted.append(message)
+    return converted
+
+
 def to_litellm_messages(
     messages: list[Message], preserve_reasoning: bool = False
 ) -> list[dict]:
@@ -676,6 +698,8 @@ def _generate_once(
     litellm_messages = to_litellm_messages(
         messages, preserve_reasoning=preserve_reasoning
     )
+    if preserve_reasoning and api_model.startswith("openrouter/"):
+        litellm_messages = _to_openrouter_reasoning(litellm_messages)
     if api_model.startswith("openai/responses/"):
         litellm_messages = _keep_non_leading_system_messages_positional(
             litellm_messages

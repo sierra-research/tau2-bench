@@ -102,8 +102,10 @@ By default, the agent's history keeps only the visible text and tool calls of it
 earlier replies; its reasoning is dropped between calls. Add
 `"preserve_reasoning": true` to `--agent-llm-args` to send the reasoning fields
 LiteLLM returned (`reasoning_content`, `thinking_blocks`,
-`provider_specific_fields`) back with each earlier reply. The setting is recorded
-with the run's agent arguments. GPT-5 models go through LiteLLM's Responses
+`provider_specific_fields`) back with each earlier reply, for every earlier turn.
+For `openrouter/` models they are sent as OpenRouter's top-level `reasoning` and
+`reasoning_details` fields. The setting is recorded with the run's agent
+arguments. GPT-5 models go through LiteLLM's Responses
 bridge, which does not send these fields back, so the setting has no effect for
 them.
 

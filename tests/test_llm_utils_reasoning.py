@@ -366,3 +366,40 @@ def test_llm_agent_reads_preserve_reasoning_from_llm_args(capture_completion, ll
     )
     assert ("reasoning_content" in assistant) is bool(llm_args)
     assert "preserve_reasoning" not in capture_completion
+
+
+_OPENROUTER_DETAILS = [{"type": "reasoning.text", "text": "I should call get_x."}]
+
+
+@pytest.mark.parametrize("preserve_reasoning", [False, True])
+def test_openrouter_reasoning_sent_as_top_level_fields(
+    capture_completion, messages, preserve_reasoning
+):
+    prior = _assistant_with_raw_reasoning(
+        reasoning_content="I should call get_x.",
+        provider_specific_fields={
+            "reasoning": "I should call get_x.",
+            "reasoning_details": _OPENROUTER_DETAILS,
+        },
+    )
+    history = [*messages, prior, ToolMessage(id="call_1", role="tool", content="x=1")]
+    llm_utils.generate(
+        "openrouter/qwen/qwen3.8-max", history, preserve_reasoning=preserve_reasoning
+    )
+    assistant = capture_completion["messages"][2]
+    assert "provider_specific_fields" not in assistant
+    assert "reasoning_content" not in assistant
+    if preserve_reasoning:
+        assert assistant["reasoning"] == "I should call get_x."
+        assert assistant["reasoning_details"] == _OPENROUTER_DETAILS
+    else:
+        assert set(assistant) == {"role", "content", "tool_calls"}
+
+
+def test_openrouter_falls_back_to_reasoning_content(capture_completion, messages):
+    prior = _assistant_with_raw_reasoning(reasoning_content="I should call get_x.")
+    history = [*messages, prior, ToolMessage(id="call_1", role="tool", content="x=1")]
+    llm_utils.generate("openrouter/qwen/qwen3.8-max", history, preserve_reasoning=True)
+    assistant = capture_completion["messages"][2]
+    assert assistant["reasoning"] == "I should call get_x."
+    assert "reasoning_details" not in assistant
