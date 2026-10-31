@@ -334,12 +334,24 @@ def test_pinned_artifacts_reject_mutation_and_resume(language_tree):
     original = get_info(config)
     validate_language_resume(original, original.model_copy(deep=True))
     assert original.language_tasks[task.id].prompt_version == "language-runtime-v8"
-    from tau2.user.guidelines import GUIDELINE_TEMPLATE_VERSION
+    from tau2.user.guidelines import (
+        GUIDELINE_TEMPLATE_VERSION,
+        TEXT_GUIDELINE_TEMPLATE_VERSION,
+    )
 
+    # A text run records the text scaffold's revision, so a text-only scaffold change
+    # makes resuming an older text run fail instead of silently mixing prompts.
     assert (
         original.language_tasks[task.id].guideline_template_version
-        == GUIDELINE_TEMPLATE_VERSION
+        == TEXT_GUIDELINE_TEMPLATE_VERSION
     )
+    assert TEXT_GUIDELINE_TEMPLATE_VERSION != GUIDELINE_TEMPLATE_VERSION
+    voice_scaffold = original.model_copy(deep=True)
+    voice_scaffold.language_tasks[
+        task.id
+    ].guideline_template_version = GUIDELINE_TEMPLATE_VERSION
+    with pytest.raises(ValueError, match="resume changed"):
+        validate_language_resume(voice_scaffold, original)
     old_scaffold = original.model_copy(deep=True)
     old_scaffold.language_tasks[task.id].guideline_template_version = "older"
     with pytest.raises(ValueError, match="resume changed"):

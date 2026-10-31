@@ -46,7 +46,7 @@ from tau2.multilingual.scenario_dispatch import (
     runtime_rules_digest,
     scenario_environment_kwargs,
 )
-from tau2.user.guidelines import GUIDELINE_TEMPLATE_VERSION
+from tau2.user.guidelines import guideline_template_version
 from tau2.utils.artifacts import content_digest
 
 _LANGUAGE_ID = re.compile(r"[a-z]{2,3}(?:-[A-Za-z0-9]+)*")
@@ -654,7 +654,7 @@ def resolve_task(loaded: LoadedLanguage, task: Task, seed: int) -> LanguageTaskI
         else None,
         caller_gender=entry.caller_gender,
         persona=persona,
-        guideline_template_version=GUIDELINE_TEMPLATE_VERSION,
+        guideline_template_version=guideline_template_version(loaded.mode),
         spelling_normalization_version=SPELLING_NORMALIZATION_VERSION
         if tables is not None
         else None,
