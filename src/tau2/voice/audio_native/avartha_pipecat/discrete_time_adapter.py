@@ -754,6 +754,10 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 if not task.done():
                     task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+        # Sending can outlast the receive window, especially when a paced
+        # tick is behind its wall-clock deadline. Include events that arrived
+        # before send completion instead of delaying them until the next tick.
+        events.extend(self.provider.drain_pending_events())
         for event in events:
             self._process_event(result, event)
         self._hold_utterance_end(result)

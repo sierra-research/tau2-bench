@@ -17,6 +17,7 @@ from tau2.voice.audio_native.avartha_pipecat.provider import (
     AgentStartedSpeakingEvent,
     AgentWordEvent,
     AvarthaBootError,
+    AvarthaPipecatProvider,
     AvarthaProtocolError,
     SpeechEvent,
     ToolCallEvent,
@@ -64,6 +65,9 @@ class FakeProvider:
 
     async def receive_events_for_duration(self, _duration):
         return self.events_by_tick.popleft() if self.events_by_tick else []
+
+    def drain_pending_events(self):
+        return []
 
     async def disconnect(self):
         self.is_connected = False
@@ -1131,3 +1135,118 @@ def test_failed_audio_send_drains_receive_task_before_loop_stops():
         assert asyncio.all_tasks() == {asyncio.current_task()}
 
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("deadline_lag", [0.0, 1.0])
+@pytest.mark.parametrize("cut", [False, True])
+def test_tick_includes_events_queued_while_sender_finishes(deadline_lag, cut):
+    """A closed receive window must not hide events queued before send completion."""
+
+    class WindowProvider(AvarthaPipecatProvider):
+        def __init__(self):
+            super().__init__(AvarthaPipecatConfig(base_url=AGENT_URL))
+            self.window_closed = asyncio.Event()
+            self.sent = False
+            self.before = [AgentStartedSpeakingEvent()]
+            self.after = [
+                AgentAudioEvent(b"\xe8\x03" * 480, 24000),
+                AgentPlaybackEvent(text="", cut=False),
+                ToolCallEvent("call-window", "lookup", {"order_id": "A"}),
+            ]
+            if cut:
+                self.after.extend(
+                    [
+                        SpeechEvent(kind="interrupted"),
+                        AgentStartedSpeakingEvent(),
+                        AgentAudioEvent(b"\xd0\x07" * 480, 24000),
+                        AgentPlaybackEvent(text="", cut=False),
+                    ]
+                )
+
+        async def receive_events_for_duration(self, duration):
+            # A barrier controls the race, independent of scheduler timing.
+            self.window_closed.set()
+            return list(self.before) if not self.sent else []
+
+        async def send_audio(self, audio_data, sample_rate):
+            await self.window_closed.wait()
+            if not self.sent:
+                self.sent = True
+                for event in self.after:
+                    self._queue.put_nowait(event)
+
+    async def check():
+        provider = WindowProvider()
+        adapter = DiscreteTimeAvarthaPipecatAdapter(
+            tick_duration_ms=20, provider=provider
+        )
+        adapter._next_tick_start = asyncio.get_running_loop().time() - deadline_lag
+        first = await adapter._async_run_tick(b"\xff" * 160, 0)
+        second = await adapter._async_run_tick(b"\xff" * 160, 1)
+        assert first.events == provider.before + provider.after
+        assert len(first.agent_audio_data) == (0 if cut else 160)
+        assert first.was_truncated is cut
+        assert first.tool_calls[0].id == "call-window"
+        assert provider._queue.empty()
+        assert len(second.agent_audio_data) == (160 if cut else 0)
+        assert not second.tool_calls
+
+    asyncio.run(check())
+
+
+def test_pending_event_drain_is_fifo_and_nonblocking():
+    provider = AvarthaPipecatProvider(AvarthaPipecatConfig(base_url=AGENT_URL))
+    events = [
+        AgentAudioEvent(b"\xe8\x03" * 480, 24000),
+        SpeechEvent(kind="interrupted"),
+        ToolCallEvent("call-cut", "lookup", {}),
+        AgentStartedSpeakingEvent(),
+    ]
+    for event in events:
+        provider._queue.put_nowait(event)
+    assert provider.drain_pending_events() == events
+    assert provider.drain_pending_events() == []
+
+
+def test_cancelled_tick_drains_tasks_without_consuming_pending_events():
+    class BlockingProvider(FakeProvider):
+        def __init__(self):
+            super().__init__()
+            self.sending = asyncio.Event()
+            self.receiving = asyncio.Event()
+            self.stopped = []
+            self.events_drained = False
+
+        async def send_audio(self, audio, sample_rate):
+            self.sending.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                self.stopped.append("send")
+
+        async def receive_events_for_duration(self, duration):
+            self.receiving.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                self.stopped.append("receive")
+
+        def drain_pending_events(self):
+            self.events_drained = True
+            return []
+
+    async def check():
+        provider = BlockingProvider()
+        adapter = DiscreteTimeAvarthaPipecatAdapter(
+            tick_duration_ms=20, provider=provider
+        )
+        task = asyncio.create_task(adapter._async_run_tick(b"\xff" * 160, 0))
+        await asyncio.wait_for(provider.sending.wait(), 1)
+        await asyncio.wait_for(provider.receiving.wait(), 1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert sorted(provider.stopped) == ["receive", "send"]
+        assert not provider.events_drained
+
+    asyncio.run(check())
