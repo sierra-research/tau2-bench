@@ -87,6 +87,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   errors still block, as does a measure whose applicable calls are all
   excluded. `VerdictFingerprint` gains `input_error_units`, so voice-v2
   packages prepared before this change must be re-prepared.
+- Call-level Interaction no longer flags nonresponse for a mean reply latency
+  of exactly 3 s. Latencies are differences of float tick times, so an exact
+  15-tick mean at 0.2 s ticks came out as 3.0000000000000004 and counted as
+  over 3 s. The comparison now allows 1e-9 s, far below any tick; means above
+  3 s are still flagged.
 
 ## [2.0.0] - 2026-10-19
 

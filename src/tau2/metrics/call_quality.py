@@ -49,6 +49,11 @@ INTERACTION_COMPONENTS = (
     "tool_misuse",
 )
 RESPONSE_LATENCY_SECONDS = 3.0
+# Reply latencies are differences of float tick times, so a mean of exactly
+# 3 s can come out a few ulps above it (17 * 0.2 - 2 * 0.2 is
+# 3.0000000000000004). Means within this tolerance, far below any tick, are
+# not over the threshold.
+LATENCY_TOLERANCE_SECONDS = 1e-9
 MONOLOGUE_SECONDS = 45.0
 # Flags fire only above these event counts.
 INTERRUPTION_EVENTS = 3
@@ -76,7 +81,10 @@ def _nonresponse(measured: InteractionMeasurements) -> int | None:
         latency = measured.response_latency_mean
         checks.append(
             measured.responses != measured.response_total
-            or (latency is not None and latency > RESPONSE_LATENCY_SECONDS)
+            or (
+                latency is not None
+                and latency > RESPONSE_LATENCY_SECONDS + LATENCY_TOLERANCE_SECONDS
+            )
         )
     if measured.yield_total:
         checks.append(measured.yields != measured.yield_total)
