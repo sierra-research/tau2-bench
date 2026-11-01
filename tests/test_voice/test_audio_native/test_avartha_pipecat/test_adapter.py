@@ -906,7 +906,7 @@ def test_a_pause_inside_an_utterance_keeps_its_id_and_the_caption_ends_it():
 def test_a_cut_starts_a_new_utterance():
     ticks = _ticks(
         [
-            [TranscriptEvent("Old line."), _audio_ticks(1)],
+            [TranscriptEvent("Old line, long."), _audio_ticks(3)],
             [SpeechEvent("speech_started")],
             [
                 AgentLLMStartedEvent(),
@@ -918,7 +918,126 @@ def test_a_cut_starts_a_new_utterance():
         ]
     )
 
-    assert [t.item_ids for t in ticks] == [["avartha-1"], [], ["avartha-2"]]
+    # The cut discarded the old line's queued audio, so its silent tick belongs
+    # to that line and carries the truncation; the next reply opens a new one.
+    assert [t.item_ids for t in ticks] == [
+        ["avartha-1"],
+        ["avartha-1"],
+        ["avartha-2"],
+    ]
+    assert [t.was_truncated for t in ticks] == [False, True, False]
+
+
+def test_caller_speech_after_a_fully_played_reply_does_not_mark_it_cut():
+    """A reply stays open until its played caption, which can come late. Caller
+    speech after its last audio discards only the 1 ms held tail: marking that
+    cut told judges a complete reply was cut off."""
+
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Done."), _audio_ticks(1), AgentWordEvent("Done.")],
+            [],
+            [SpeechEvent("speech_started")],
+        ]
+    )
+
+    assert ticks[-1].was_truncated
+    assert ticks[-1].item_ids == []
+
+
+def test_replacement_audio_in_the_cut_tick_keeps_both_utterances_apart():
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Old line, long."), _audio_ticks(3)],
+            [
+                SpeechEvent("speech_started"),
+                AgentLLMStartedEvent(),
+                TranscriptEvent("New."),
+                AgentStartedSpeakingEvent(),
+                _audio_ticks(1),
+            ],
+            [_played("New.")],
+        ]
+    )
+
+    assert [t.item_ids for t in ticks] == [
+        ["avartha-1"],
+        ["avartha-1"],
+        ["avartha-2"],
+    ]
+    assert ticks[1].was_truncated and not ticks[2].was_truncated
+
+
+def test_the_first_cut_in_a_tick_names_the_utterance():
+    """A second cut in the same tick, after a new reply's audio arrived, must not
+    move the truncation to that reply, which played nothing."""
+
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Old line, long."), _audio_ticks(3)],
+            [
+                SpeechEvent("speech_started"),
+                AgentLLMStartedEvent(),
+                AgentStartedSpeakingEvent(),
+                _audio_ticks(2),
+                SpeechEvent("interrupted"),
+            ],
+        ]
+    )
+
+    assert ticks[1].item_ids == ["avartha-1"]
+    assert ticks[1].was_truncated
+
+
+def test_a_cut_before_the_ticks_streamed_audio_still_names_the_reply():
+    """A reply streamed at playback pace has only its held tail queued when a
+    cut opens a tick; the rest of its audio arrives after the cut, stale."""
+
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Old line, long."), _audio_ticks(1)],
+            [_audio_ticks(1)],
+            [
+                SpeechEvent("speech_started"),
+                SpeechEvent("interrupted"),
+                _audio_ticks(1),
+            ],
+        ]
+    )
+
+    assert ticks[-1].item_ids == ["avartha-1"]
+    assert ticks[-1].was_truncated
+
+
+def test_a_replacement_cut_does_not_mark_a_completed_previous_reply():
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Done."), _audio_ticks(1), AgentWordEvent("Done.")],
+            [],
+            [
+                SpeechEvent("speech_started"),
+                AgentLLMStartedEvent(),
+                AgentStartedSpeakingEvent(),
+                SpeechEvent("interrupted"),
+                _audio_ticks(1),
+            ],
+        ]
+    )
+
+    assert ticks[-1].was_truncated
+    assert ticks[-1].item_ids == []
+
+
+def test_caller_speech_with_no_open_utterance_labels_nothing():
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Done."), _audio_ticks(1), _played("Done.")],
+            [],
+            [SpeechEvent("speech_started")],
+        ]
+    )
+
+    assert [t.item_ids for t in ticks] == [["avartha-1"], [], []]
 
 
 def test_non_telephony_audio_format_is_rejected():

@@ -319,6 +319,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `LinearizationStrategy` moved to `tau2.data_model.transcript`.
 
 ### Fixed
+- `avartha_pipecat` keeps the utterance ID on a silent tick that cuts queued
+  or still-streaming reply audio. Turn-based judges receive that reply's cut-off
+  marker; caller speech after a fully played reply does not mark it cut off.
 - GPT-5 calls routed through the LiteLLM Responses bridge silently dropped
   `tool_choice` (including `"required"` for solo agents), and printed LiteLLM's
   "Provider List" banner twice per call.

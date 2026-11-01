@@ -448,6 +448,12 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         # has queued, in arrival order. See _label_utterances.
         self._utterance_id: Optional[str] = None
         self._utterance_audio: deque[list] = deque()
+        # The utterance whose audio a cut in this tick discarded. The cut tick
+        # plays none of it, but it carries the truncation, so it keeps that ID.
+        self._cut_utterance_id: Optional[str] = None
+        # The utterance open when this tick's cut came. Its stale audio arriving
+        # later in the same tick shows it was still streaming, so it was cut.
+        self._open_at_cut: Optional[str] = None
 
     @property
     def provider(self) -> AvarthaPipecatProvider:
@@ -640,14 +646,22 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         on, so a pause inside a sentence cut it in two and a judge clip ran a
         word or two past its text. Each utterance gets its own ID from its
         first audio until its played caption or a cut; a tick inside it that
-        plays no audio still carries it. A tick that plays two utterances goes
+        plays no audio still carries it, and so does the silent tick of a cut
+        that discarded its audio. Without that ID the cut tick stood alone, so
+        its truncation never reached the utterance it cut: judges saw a reply cut
+        mid-word with no cut-off marker. A tick that plays two utterances goes
         to the one it plays most of. Labels are set after the tick's text is
         taken, so text and audio are unchanged.
         """
 
+        cut, self._cut_utterance_id = self._cut_utterance_id, None
+        self._open_at_cut = None
         played = sum(len(chunk) for chunk, _ in result.agent_audio_chunks)
         if played == 0:
-            if self._utterance_id is not None and not result.was_truncated:
+            if result.was_truncated:
+                if cut is not None:
+                    result.agent_audio_chunks.append((b"", cut))
+            elif self._utterance_id is not None:
                 result.agent_audio_chunks.append((b"", self._utterance_id))
             return
         shares: dict[str, int] = {}
@@ -668,6 +682,25 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         result.agent_audio_chunks = [
             (chunk, label) for chunk, _ in result.agent_audio_chunks
         ]
+
+    def _discarded_utterance(self) -> Optional[str]:
+        """The utterance whose audio a cut now discards, if any.
+
+        Queued audio is unplayed, oldest first, so the first utterance with
+        more than the held 1 ms tail left is the one the caller cut. A reply
+        that has played all its audio only waits for its caption: caller
+        speech after it cuts nothing, and the reply is not marked cut off.
+        Audio of a reply streamed at playback pace can reach the adapter after
+        the cut in the same tick; that stale audio names the reply instead
+        (see the AgentAudioEvent branch). A cut in a TTS pause, with no audio
+        queued or arriving, is deliberately unmarked even though unspoken
+        text is dropped: the caller cut no audio there.
+        """
+
+        for utterance_id, remaining in self._utterance_audio:
+            if remaining > self._end_hold_bytes:
+                return utterance_id
+        return None
 
     def _queue_utterance_audio(self, num_bytes: int) -> None:
         """Count arriving audio toward its utterance, opening one if none is."""
@@ -777,6 +810,8 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
             if telephony_audio:
                 if self._stale_audio:
                     result.truncated_audio_bytes += len(telephony_audio)
+                    if self._cut_utterance_id is None:
+                        self._cut_utterance_id = self._open_at_cut
                     return
                 chunk = (telephony_audio, _ITEM_ID)
                 self._queue_utterance_audio(len(telephony_audio))
@@ -824,6 +859,9 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
             self._stale_text = False
             self._llm_carryover = self._llm_unsent
         elif isinstance(event, AgentStartedSpeakingEvent):
+            # Subsequent stale audio belongs to this replacement, not to an
+            # earlier reply that was merely waiting for its played caption.
+            self._open_at_cut = None
             if self._stale_audio:
                 self._stale_audio = False
                 for converter in self._output_converters.values():
@@ -840,6 +878,9 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 self._audio_after_cut.clear()
                 self._held_end = []
                 self._awaiting_playback = False
+                if self._cut_utterance_id is None:
+                    self._cut_utterance_id = self._discarded_utterance()
+                    self._open_at_cut = self._open_at_cut or self._utterance_id
                 self._utterance_id = None
                 self._utterance_audio.clear()
                 self._transcript().interrupt()
