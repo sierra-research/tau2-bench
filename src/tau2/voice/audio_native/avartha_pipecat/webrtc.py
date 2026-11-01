@@ -275,25 +275,33 @@ class AvarthaWebRTCProvider(AvarthaPipecatProvider):
             task.add_done_callback(self._audio_tasks.discard)
 
     async def _receive_audio(self, track: Any) -> None:
-        resampler = AudioResampler(
-            format="s16", layout="mono", rate=DEFAULT_AVARTHA_OUTPUT_SAMPLE_RATE
-        )
-        while not self._closing:
-            try:
-                frame = await track.recv()
-            except MediaStreamError:
-                if not self._closing:
-                    self._fail_session("Avartha audio track ended before disconnect")
-                return
-            for converted in resampler.resample(frame):
-                pcm = converted.to_ndarray().reshape(-1).astype(np.int16).tobytes()
-                if not is_digital_silence(pcm):
-                    await self._queue.put(
-                        AgentAudioEvent(
-                            audio=pcm,
-                            sample_rate=DEFAULT_AVARTHA_OUTPUT_SAMPLE_RATE,
+        try:
+            resampler = AudioResampler(
+                format="s16", layout="mono", rate=DEFAULT_AVARTHA_OUTPUT_SAMPLE_RATE
+            )
+            while not self._closing:
+                try:
+                    frame = await track.recv()
+                except MediaStreamError:
+                    if not self._closing:
+                        self._fail_session(
+                            "Avartha audio track ended before disconnect"
                         )
-                    )
+                    return
+                for converted in resampler.resample(frame):
+                    pcm = converted.to_ndarray().reshape(-1).astype(np.int16).tobytes()
+                    if not is_digital_silence(pcm):
+                        await self._queue.put(
+                            AgentAudioEvent(
+                                audio=pcm,
+                                sample_rate=DEFAULT_AVARTHA_OUTPUT_SAMPLE_RATE,
+                            )
+                        )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            if not self._closing:
+                self._fail_session(f"Avartha audio receive failed: {exc}")
 
     async def send_audio(self, audio_data: bytes, sample_rate: int) -> None:
         """Queue one mono PCM16 chunk on the caller track."""
