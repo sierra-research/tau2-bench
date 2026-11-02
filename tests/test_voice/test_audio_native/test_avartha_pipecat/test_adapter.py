@@ -1013,6 +1013,52 @@ def test_a_cut_before_the_ticks_streamed_audio_still_names_the_reply():
     assert ticks[-1].was_truncated
 
 
+def test_stale_audio_after_cutting_a_finished_reply_does_not_mark_it_cut():
+    """A reply whose audio stopped a tick before the cut only waits for its
+    played caption. Audio arriving after the cut in the same tick did not
+    belong to it, so the reply must not get a cut-off marker."""
+
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Done."), _audio_ticks(1), AgentWordEvent("Done.")],
+            [],
+            [SpeechEvent("speech_started"), _audio_ticks(1)],
+        ]
+    )
+
+    assert ticks[-1].was_truncated
+    assert ticks[-1].item_ids == []
+
+
+def test_stale_audio_after_a_cut_in_a_tts_pause_does_not_mark_the_reply():
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Old line, long."), _audio_ticks(1)],
+            [],
+            [],
+            [SpeechEvent("interrupted"), _audio_ticks(1)],
+        ]
+    )
+
+    assert ticks[-1].was_truncated
+    assert ticks[-1].item_ids == []
+
+
+def test_a_cut_in_the_tick_after_streamed_audio_names_the_reply():
+    """The reply's first audio arrived the tick before the cut, so it was still
+    streaming when cut, even with only its held tail queued."""
+
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Old line, long."), _audio_ticks(1)],
+            [SpeechEvent("speech_started"), _audio_ticks(1)],
+        ]
+    )
+
+    assert ticks[-1].item_ids == ["avartha-1"]
+    assert ticks[-1].was_truncated
+
+
 def test_a_replacement_cut_does_not_mark_a_completed_previous_reply():
     ticks = _ticks(
         [
