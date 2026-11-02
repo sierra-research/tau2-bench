@@ -59,6 +59,7 @@ const pooled = (pkg, measure, keep = () => true) => {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.route('**/voice-leaderboard.json', route => route.fulfill({ status: 404, body: '' }))
   await page.route('**/submissions/manifest.json', async route => {
     const manifest = await (await route.fetch()).json()
     await route.fulfill({ json: { ...manifest, voice_v2_submissions: Object.keys(packages), voice_v2_domain_submissions: [] } })

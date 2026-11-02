@@ -43,6 +43,8 @@ const packages = {
 const percent = value => `${(100 * value).toFixed(1)}%`
 
 test.beforeEach(async ({ page }) => {
+  // Exercise compatibility with deployments that do not have a snapshot.
+  await page.route('**/voice-leaderboard.json', route => route.fulfill({ status: 404, body: '' }))
   await page.route('**/submissions/manifest.json', async route => {
     const manifest = await (await route.fetch()).json()
     await route.fulfill({ json: { ...manifest, voice_v2_submissions: ['fixture_core', 'fixture_core_duplicate'], voice_v2_domain_submissions: ['fixture_banking', 'fixture_entity'] } })

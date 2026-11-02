@@ -76,10 +76,30 @@ export function useVoiceV2Packages() {
       results.filter(result => result.status === 'rejected').map(result => result.reason.message),
     ]
     const load = async () => {
+      // One small same-origin snapshot, generated at every build, replaces the
+      // S3 manifest → packages → quality waterfall. All score breakdowns are
+      // included; only detailed judge evidence needs another request.
+      try {
+        const response = await fetch(`${import.meta.env.BASE_URL}voice-leaderboard.json`, NO_CACHE)
+        if (!response.ok) throw new Error(`Leaderboard snapshot: HTTP ${response.status}`)
+        const snapshot = await response.json()
+        if (snapshot.schema_version !== 1 || !Array.isArray(snapshot.rows) || !Array.isArray(snapshot.errors)) throw new Error('Invalid leaderboard snapshot')
+        if (!cancelled) {
+          setPackages(snapshot.rows)
+          setErrors(snapshot.errors)
+        }
+        return
+      } catch {
+        // Older/self-hosted deployments can still serve packages directly.
+      }
       const response = await fetch(`${SUBMISSIONS_BASE}/manifest.json`, NO_CACHE)
       const manifest = await response.json()
-      const [cores, coreErrors] = settle(await Promise.allSettled((manifest.voice_v2_submissions || []).map(dir => loadPackage(dir, version => version === 'voice-v2'))))
-      const [extras, extraErrors] = settle(await Promise.allSettled((manifest.voice_v2_domain_submissions || []).map(dir => loadPackage(dir, version => version in DOMAIN_BENCHMARKS))))
+      const [coreResults, extraResults] = await Promise.all([
+        Promise.allSettled((manifest.voice_v2_submissions || []).map(dir => loadPackage(dir, version => version === 'voice-v2'))),
+        Promise.allSettled((manifest.voice_v2_domain_submissions || []).map(dir => loadPackage(dir, version => version in DOMAIN_BENCHMARKS))),
+      ])
+      const [cores, coreErrors] = settle(coreResults)
+      const [extras, extraErrors] = settle(extraResults)
       if (cancelled) return
       const grouped = groupPackages(cores, extras)
       setPackages(grouped.rows)
