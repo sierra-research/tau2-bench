@@ -38,6 +38,8 @@ const pkg = {
 const files = { 'benchmark-metadata.json': pkg.metadata, 'benchmark-submission.json': pkg.submission, 'benchmark-diagnostics.json': pkg.diagnostics }
 
 test.beforeEach(async ({ page }) => {
+  // Exercise compatibility with deployments that do not have a snapshot.
+  await page.route('**/voice-leaderboard.json', route => route.fulfill({ status: 404, body: '' }))
   await page.route('**/submissions/manifest.json', async route => {
     const manifest = await (await route.fetch()).json()
     await route.fulfill({ json: { ...manifest, voice_v2_submissions: ['fixture_v2'] } })

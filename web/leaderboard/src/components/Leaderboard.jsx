@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import './Leaderboard.css'
 import ProgressView from './ProgressView'
 import MultilingualVoice from './MultilingualVoice'
@@ -293,6 +293,8 @@ const Leaderboard = () => {
   // Voice ranking mode: 'passk' (default) or 'interaction' (τ-voice panel)
   const [rankBy, setRankBy] = useState('passk')
   const [voiceEdition, setVoiceEdition] = useState(editionForPath)
+  const isMultilingual = benchmark === 'voice' && voiceEdition === 'multilingual'
+  const legacyRequested = useRef(false)
   // null = keep the pass^1 ordering; set by clicking a metric column header
   const [interactionMetric, setInteractionMetric] = useState(null)
   // Expanded rows state (set of model names)
@@ -474,10 +476,14 @@ const Leaderboard = () => {
     }
   }
 
-  // Load data on component mount
+  // The multilingual board has its own compact snapshot. Fetch the legacy
+  // text/English packages only when a view that uses them is first opened.
   useEffect(() => {
-    loadSubmissionData()
-  }, [])
+    if (!isMultilingual && !legacyRequested.current) {
+      legacyRequested.current = true
+      loadSubmissionData()
+    }
+  }, [isMultilingual])
 
   // Save leaderboard state to localStorage
   useEffect(() => {
@@ -601,7 +607,7 @@ const Leaderboard = () => {
   }
 
   // Loading and error states
-  if (isLoading) {
+  if (!isMultilingual && isLoading) {
     return (
       <div className="leaderboard-wrapper">
       <div className="leaderboard-container">
@@ -615,7 +621,7 @@ const Leaderboard = () => {
     )
   }
 
-  if (loadError) {
+  if (!isMultilingual && loadError) {
     return (
       <div className="leaderboard-wrapper">
       <div className="leaderboard-container">
@@ -631,7 +637,7 @@ const Leaderboard = () => {
     )
   }
 
-  if (Object.keys(passKData).length === 0) {
+  if (!isMultilingual && Object.keys(passKData).length === 0) {
     return (
       <div className="leaderboard-wrapper">
       <div className="leaderboard-container">
