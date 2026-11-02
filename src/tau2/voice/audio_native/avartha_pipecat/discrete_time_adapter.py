@@ -451,9 +451,13 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         # The utterance whose audio a cut in this tick discarded. The cut tick
         # plays none of it, but it carries the truncation, so it keeps that ID.
         self._cut_utterance_id: Optional[str] = None
-        # The utterance open when this tick's cut came. Its stale audio arriving
-        # later in the same tick shows it was still streaming, so it was cut.
+        # The utterance still streaming when this tick's cut came. Its stale
+        # audio arriving later in the same tick shows the cut stopped it.
         self._open_at_cut: Optional[str] = None
+        # Whether agent audio arrived in this tick and in the one before. See
+        # _streaming_utterance.
+        self._audio_in_tick = False
+        self._audio_in_last_tick = False
 
     @property
     def provider(self) -> AvarthaPipecatProvider:
@@ -635,6 +639,7 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         self._buffered_agent_audio.extend(self._held_end)
         self._held_end = []
         self._label_utterances(result)
+        self._audio_in_last_tick, self._audio_in_tick = self._audio_in_tick, False
         return result
 
     def _label_utterances(self, result: TickResult) -> None:
@@ -692,7 +697,7 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         speech after it cuts nothing, and the reply is not marked cut off.
         Audio of a reply streamed at playback pace can reach the adapter after
         the cut in the same tick; that stale audio names the reply instead
-        (see the AgentAudioEvent branch). A cut in a TTS pause, with no audio
+        (see _streaming_utterance). A cut in a TTS pause, with no audio
         queued or arriving, is deliberately unmarked even though unspoken
         text is dropped: the caller cut no audio there.
         """
@@ -700,6 +705,22 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         for utterance_id, remaining in self._utterance_audio:
             if remaining > self._end_hold_bytes:
                 return utterance_id
+        return None
+
+    def _streaming_utterance(self) -> Optional[str]:
+        """The utterance whose audio was still arriving when a cut came, if any.
+
+        A reply streamed at playback pace has only its held tail queued at a
+        cut, so _discarded_utterance finds nothing; if its stale audio then
+        arrives in the cut tick, the cut stopped it (see the AgentAudioEvent
+        branch). Such a reply receives audio every tick. One that received
+        none in this tick or the last has finished and only waits for its
+        played caption, or is in a TTS pause; audio arriving after the cut
+        does not show the caller cut it, so it is not named.
+        """
+
+        if self._audio_in_tick or self._audio_in_last_tick:
+            return self._utterance_id
         return None
 
     def _queue_utterance_audio(self, num_bytes: int) -> None:
@@ -815,6 +836,7 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                     return
                 chunk = (telephony_audio, _ITEM_ID)
                 self._queue_utterance_audio(len(telephony_audio))
+                self._audio_in_tick = True
                 self._awaiting_playback = True
                 if result.was_truncated:
                     self._audio_after_cut.append(chunk)
@@ -880,7 +902,7 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 self._awaiting_playback = False
                 if self._cut_utterance_id is None:
                     self._cut_utterance_id = self._discarded_utterance()
-                    self._open_at_cut = self._open_at_cut or self._utterance_id
+                    self._open_at_cut = self._open_at_cut or self._streaming_utterance()
                 self._utterance_id = None
                 self._utterance_audio.clear()
                 self._transcript().interrupt()
