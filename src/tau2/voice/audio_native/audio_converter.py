@@ -5,6 +5,12 @@ the simulation framework uses telephony format (8kHz mu-law). This module
 provides a single converter that handles both directions with streaming
 resample state to avoid artifacts at chunk boundaries.
 
+Resampling is band-limited (see ``tau2.voice.utils.streaming_resampler``): no
+aliasing into the 8 kHz telephone band on the way down and no mirror images
+above 4 kHz on the way up. Each direction delays the audio content by a
+fixed 3.625 ms (the filter's group delay); sample counts follow the rate ratio
+exactly, and ``reset()`` discards the filter state.
+
 Usage:
     converter = StreamingTelephonyConverter(
         input_sample_rate=16000,   # provider expects 16kHz PCM16 input
@@ -19,10 +25,14 @@ Usage:
     converter.reset()
 """
 
-import audioop
 from typing import Optional, Tuple
 
 from tau2.config import DEFAULT_TELEPHONY_RATE
+from tau2.voice.utils.streaming_resampler import (
+    StreamingResampler,
+    pcm16_to_ulaw,
+    ulaw_to_pcm16,
+)
 
 TELEPHONY_SAMPLE_RATE = DEFAULT_TELEPHONY_RATE
 
@@ -30,8 +40,8 @@ TELEPHONY_SAMPLE_RATE = DEFAULT_TELEPHONY_RATE
 def telephony_to_pcm16(
     audio_bytes: bytes,
     target_sample_rate: int,
-    resample_state: Optional[Tuple] = None,
-) -> Tuple[bytes, Optional[Tuple]]:
+    resample_state: Optional[StreamingResampler] = None,
+) -> Tuple[bytes, Optional[StreamingResampler]]:
     """Convert telephony audio (8kHz mu-law) to PCM16 at target rate.
 
     Returns:
@@ -39,26 +49,16 @@ def telephony_to_pcm16(
     """
     if len(audio_bytes) == 0:
         return b"", resample_state
-
-    pcm16_8khz = audioop.ulaw2lin(audio_bytes, 2)
-
-    pcm16_resampled, new_state = audioop.ratecv(
-        pcm16_8khz,
-        2,  # sample width (16-bit)
-        1,  # channels (mono)
-        TELEPHONY_SAMPLE_RATE,
-        target_sample_rate,
-        resample_state,
-    )
-
-    return pcm16_resampled, new_state
+    if resample_state is None:
+        resample_state = StreamingResampler(TELEPHONY_SAMPLE_RATE, target_sample_rate)
+    return resample_state.process(ulaw_to_pcm16(audio_bytes)), resample_state
 
 
 def pcm16_to_telephony(
     audio_bytes: bytes,
     source_sample_rate: int,
-    resample_state: Optional[Tuple] = None,
-) -> Tuple[bytes, Optional[Tuple]]:
+    resample_state: Optional[StreamingResampler] = None,
+) -> Tuple[bytes, Optional[StreamingResampler]]:
     """Convert PCM16 at source rate to telephony audio (8kHz mu-law).
 
     Returns:
@@ -66,19 +66,9 @@ def pcm16_to_telephony(
     """
     if len(audio_bytes) == 0:
         return b"", resample_state
-
-    pcm16_8khz, new_state = audioop.ratecv(
-        audio_bytes,
-        2,  # sample width (16-bit)
-        1,  # channels (mono)
-        source_sample_rate,
-        TELEPHONY_SAMPLE_RATE,
-        resample_state,
-    )
-
-    ulaw_8khz = audioop.lin2ulaw(pcm16_8khz, 2)
-
-    return ulaw_8khz, new_state
+    if resample_state is None:
+        resample_state = StreamingResampler(source_sample_rate, TELEPHONY_SAMPLE_RATE)
+    return pcm16_to_ulaw(resample_state.process(audio_bytes)), resample_state
 
 
 class StreamingTelephonyConverter:
@@ -100,8 +90,8 @@ class StreamingTelephonyConverter:
     ):
         self.input_sample_rate = input_sample_rate
         self.output_sample_rate = output_sample_rate
-        self._input_resample_state: Optional[Tuple] = None
-        self._output_resample_state: Optional[Tuple] = None
+        self._input_resample_state: Optional[StreamingResampler] = None
+        self._output_resample_state: Optional[StreamingResampler] = None
 
     def convert_input(self, telephony_audio: bytes) -> bytes:
         """Convert telephony (8kHz mu-law) to provider input (PCM16)."""
