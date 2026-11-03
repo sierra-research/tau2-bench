@@ -99,12 +99,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   above 4 kHz on the way up. Both now use
   `tau2.voice.utils.streaming_resampler.StreamingResampler`, a streaming
   polyphase FIR (flat to 3.4 kHz, >= 60 dB rejection at and above 4 kHz) with
-  a numpy mu-law codec that is bit-exact with `audioop`. Downsampling to
-  8 kHz returns the same number of bytes per chunk as before (upsampling
-  returns a few more samples at the start of a stream, where `ratecv` came up
-  short); the audio content gains a fixed 3.625 ms delay per conversion. The
-  user simulator's converter now rejects non-mono input instead of
-  misreading it. Voice scores may shift slightly, most for providers whose
+  a numpy mu-law codec that is bit-exact with `audioop`. Downsampling 16, 24 or
+  48 kHz to 8 kHz returns the same number of bytes per chunk as before;
+  22.05 and 44.1 kHz match per 20 ms tick and may otherwise shift one sample
+  between chunks; upsampling returns a few more samples at the start of a
+  stream, where `ratecv` came up short. The audio content gains a fixed
+  3.625 ms delay per conversion. The user simulator's converter now rejects
+  non-mono input instead of misreading it. Voice scores may shift slightly, most for providers whose
   output carries energy above 4 kHz.
 
 ## [2.0.0] - 2026-10-19

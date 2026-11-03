@@ -8,8 +8,8 @@ resample state to avoid artifacts at chunk boundaries.
 Resampling is band-limited (see ``tau2.voice.utils.streaming_resampler``): no
 aliasing into the 8 kHz telephone band on the way down and no mirror images
 above 4 kHz on the way up. Each direction delays the audio content by a
-fixed 3.625 ms (the filter's group delay); sample counts follow the rate ratio
-exactly, and ``reset()`` discards the filter state.
+fixed 3.625 ms (the filter's group delay); cumulative sample counts follow the
+rate ratio exactly, and ``reset()`` discards the filter state.
 
 Usage:
     converter = StreamingTelephonyConverter(
