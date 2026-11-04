@@ -252,6 +252,16 @@ class AvarthaPipecatProvider:
             events.append(event)
         return events
 
+    def drain_pending_events(self) -> list[Any]:
+        """Take events already queued, in order, without extending the tick."""
+
+        events: list[Any] = []
+        while True:
+            try:
+                events.append(self._queue.get_nowait())
+            except asyncio.QueueEmpty:
+                return events
+
     async def disconnect(self) -> None:
         """Hang up and release the call."""
 

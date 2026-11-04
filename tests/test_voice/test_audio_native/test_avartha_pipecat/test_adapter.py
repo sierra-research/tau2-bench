@@ -17,6 +17,7 @@ from tau2.voice.audio_native.avartha_pipecat.provider import (
     AgentStartedSpeakingEvent,
     AgentWordEvent,
     AvarthaBootError,
+    AvarthaPipecatProvider,
     AvarthaProtocolError,
     SpeechEvent,
     ToolCallEvent,
@@ -64,6 +65,9 @@ class FakeProvider:
 
     async def receive_events_for_duration(self, _duration):
         return self.events_by_tick.popleft() if self.events_by_tick else []
+
+    def drain_pending_events(self):
+        return []
 
     async def disconnect(self):
         self.is_connected = False
@@ -906,7 +910,7 @@ def test_a_pause_inside_an_utterance_keeps_its_id_and_the_caption_ends_it():
 def test_a_cut_starts_a_new_utterance():
     ticks = _ticks(
         [
-            [TranscriptEvent("Old line."), _audio_ticks(1)],
+            [TranscriptEvent("Old line, long."), _audio_ticks(3)],
             [SpeechEvent("speech_started")],
             [
                 AgentLLMStartedEvent(),
@@ -918,7 +922,172 @@ def test_a_cut_starts_a_new_utterance():
         ]
     )
 
-    assert [t.item_ids for t in ticks] == [["avartha-1"], [], ["avartha-2"]]
+    # The cut discarded the old line's queued audio, so its silent tick belongs
+    # to that line and carries the truncation; the next reply opens a new one.
+    assert [t.item_ids for t in ticks] == [
+        ["avartha-1"],
+        ["avartha-1"],
+        ["avartha-2"],
+    ]
+    assert [t.was_truncated for t in ticks] == [False, True, False]
+
+
+def test_caller_speech_after_a_fully_played_reply_does_not_mark_it_cut():
+    """A reply stays open until its played caption, which can come late. Caller
+    speech after its last audio discards only the 1 ms held tail: marking that
+    cut told judges a complete reply was cut off."""
+
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Done."), _audio_ticks(1), AgentWordEvent("Done.")],
+            [],
+            [SpeechEvent("speech_started")],
+        ]
+    )
+
+    assert ticks[-1].was_truncated
+    assert ticks[-1].item_ids == []
+
+
+def test_replacement_audio_in_the_cut_tick_keeps_both_utterances_apart():
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Old line, long."), _audio_ticks(3)],
+            [
+                SpeechEvent("speech_started"),
+                AgentLLMStartedEvent(),
+                TranscriptEvent("New."),
+                AgentStartedSpeakingEvent(),
+                _audio_ticks(1),
+            ],
+            [_played("New.")],
+        ]
+    )
+
+    assert [t.item_ids for t in ticks] == [
+        ["avartha-1"],
+        ["avartha-1"],
+        ["avartha-2"],
+    ]
+    assert ticks[1].was_truncated and not ticks[2].was_truncated
+
+
+def test_the_first_cut_in_a_tick_names_the_utterance():
+    """A second cut in the same tick, after a new reply's audio arrived, must not
+    move the truncation to that reply, which played nothing."""
+
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Old line, long."), _audio_ticks(3)],
+            [
+                SpeechEvent("speech_started"),
+                AgentLLMStartedEvent(),
+                AgentStartedSpeakingEvent(),
+                _audio_ticks(2),
+                SpeechEvent("interrupted"),
+            ],
+        ]
+    )
+
+    assert ticks[1].item_ids == ["avartha-1"]
+    assert ticks[1].was_truncated
+
+
+def test_a_cut_before_the_ticks_streamed_audio_still_names_the_reply():
+    """A reply streamed at playback pace has only its held tail queued when a
+    cut opens a tick; the rest of its audio arrives after the cut, stale."""
+
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Old line, long."), _audio_ticks(1)],
+            [_audio_ticks(1)],
+            [
+                SpeechEvent("speech_started"),
+                SpeechEvent("interrupted"),
+                _audio_ticks(1),
+            ],
+        ]
+    )
+
+    assert ticks[-1].item_ids == ["avartha-1"]
+    assert ticks[-1].was_truncated
+
+
+def test_stale_audio_after_cutting_a_finished_reply_does_not_mark_it_cut():
+    """A reply whose audio stopped a tick before the cut only waits for its
+    played caption. Audio arriving after the cut in the same tick did not
+    belong to it, so the reply must not get a cut-off marker."""
+
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Done."), _audio_ticks(1), AgentWordEvent("Done.")],
+            [],
+            [SpeechEvent("speech_started"), _audio_ticks(1)],
+        ]
+    )
+
+    assert ticks[-1].was_truncated
+    assert ticks[-1].item_ids == []
+
+
+def test_stale_audio_after_a_cut_in_a_tts_pause_does_not_mark_the_reply():
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Old line, long."), _audio_ticks(1)],
+            [],
+            [],
+            [SpeechEvent("interrupted"), _audio_ticks(1)],
+        ]
+    )
+
+    assert ticks[-1].was_truncated
+    assert ticks[-1].item_ids == []
+
+
+def test_a_cut_in_the_tick_after_streamed_audio_names_the_reply():
+    """The reply's first audio arrived the tick before the cut, so it was still
+    streaming when cut, even with only its held tail queued."""
+
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Old line, long."), _audio_ticks(1)],
+            [SpeechEvent("speech_started"), _audio_ticks(1)],
+        ]
+    )
+
+    assert ticks[-1].item_ids == ["avartha-1"]
+    assert ticks[-1].was_truncated
+
+
+def test_a_replacement_cut_does_not_mark_a_completed_previous_reply():
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Done."), _audio_ticks(1), AgentWordEvent("Done.")],
+            [],
+            [
+                SpeechEvent("speech_started"),
+                AgentLLMStartedEvent(),
+                AgentStartedSpeakingEvent(),
+                SpeechEvent("interrupted"),
+                _audio_ticks(1),
+            ],
+        ]
+    )
+
+    assert ticks[-1].was_truncated
+    assert ticks[-1].item_ids == []
+
+
+def test_caller_speech_with_no_open_utterance_labels_nothing():
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Done."), _audio_ticks(1), _played("Done.")],
+            [],
+            [SpeechEvent("speech_started")],
+        ]
+    )
+
+    assert [t.item_ids for t in ticks] == [["avartha-1"], [], []]
 
 
 def test_non_telephony_audio_format_is_rejected():
@@ -1012,3 +1181,118 @@ def test_failed_audio_send_drains_receive_task_before_loop_stops():
         assert asyncio.all_tasks() == {asyncio.current_task()}
 
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("deadline_lag", [0.0, 1.0])
+@pytest.mark.parametrize("cut", [False, True])
+def test_tick_includes_events_queued_while_sender_finishes(deadline_lag, cut):
+    """A closed receive window must not hide events queued before send completion."""
+
+    class WindowProvider(AvarthaPipecatProvider):
+        def __init__(self):
+            super().__init__(AvarthaPipecatConfig(base_url=AGENT_URL))
+            self.window_closed = asyncio.Event()
+            self.sent = False
+            self.before = [AgentStartedSpeakingEvent()]
+            self.after = [
+                AgentAudioEvent(b"\xe8\x03" * 480, 24000),
+                AgentPlaybackEvent(text="", cut=False),
+                ToolCallEvent("call-window", "lookup", {"order_id": "A"}),
+            ]
+            if cut:
+                self.after.extend(
+                    [
+                        SpeechEvent(kind="interrupted"),
+                        AgentStartedSpeakingEvent(),
+                        AgentAudioEvent(b"\xd0\x07" * 480, 24000),
+                        AgentPlaybackEvent(text="", cut=False),
+                    ]
+                )
+
+        async def receive_events_for_duration(self, duration):
+            # A barrier controls the race, independent of scheduler timing.
+            self.window_closed.set()
+            return list(self.before) if not self.sent else []
+
+        async def send_audio(self, audio_data, sample_rate):
+            await self.window_closed.wait()
+            if not self.sent:
+                self.sent = True
+                for event in self.after:
+                    self._queue.put_nowait(event)
+
+    async def check():
+        provider = WindowProvider()
+        adapter = DiscreteTimeAvarthaPipecatAdapter(
+            tick_duration_ms=20, provider=provider
+        )
+        adapter._next_tick_start = asyncio.get_running_loop().time() - deadline_lag
+        first = await adapter._async_run_tick(b"\xff" * 160, 0)
+        second = await adapter._async_run_tick(b"\xff" * 160, 1)
+        assert first.events == provider.before + provider.after
+        assert len(first.agent_audio_data) == (0 if cut else 160)
+        assert first.was_truncated is cut
+        assert first.tool_calls[0].id == "call-window"
+        assert provider._queue.empty()
+        assert len(second.agent_audio_data) == (160 if cut else 0)
+        assert not second.tool_calls
+
+    asyncio.run(check())
+
+
+def test_pending_event_drain_is_fifo_and_nonblocking():
+    provider = AvarthaPipecatProvider(AvarthaPipecatConfig(base_url=AGENT_URL))
+    events = [
+        AgentAudioEvent(b"\xe8\x03" * 480, 24000),
+        SpeechEvent(kind="interrupted"),
+        ToolCallEvent("call-cut", "lookup", {}),
+        AgentStartedSpeakingEvent(),
+    ]
+    for event in events:
+        provider._queue.put_nowait(event)
+    assert provider.drain_pending_events() == events
+    assert provider.drain_pending_events() == []
+
+
+def test_cancelled_tick_drains_tasks_without_consuming_pending_events():
+    class BlockingProvider(FakeProvider):
+        def __init__(self):
+            super().__init__()
+            self.sending = asyncio.Event()
+            self.receiving = asyncio.Event()
+            self.stopped = []
+            self.events_drained = False
+
+        async def send_audio(self, audio, sample_rate):
+            self.sending.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                self.stopped.append("send")
+
+        async def receive_events_for_duration(self, duration):
+            self.receiving.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                self.stopped.append("receive")
+
+        def drain_pending_events(self):
+            self.events_drained = True
+            return []
+
+    async def check():
+        provider = BlockingProvider()
+        adapter = DiscreteTimeAvarthaPipecatAdapter(
+            tick_duration_ms=20, provider=provider
+        )
+        task = asyncio.create_task(adapter._async_run_tick(b"\xff" * 160, 0))
+        await asyncio.wait_for(provider.sending.wait(), 1)
+        await asyncio.wait_for(provider.receiving.wait(), 1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert sorted(provider.stopped) == ["receive", "send"]
+        assert not provider.events_drained
+
+    asyncio.run(check())
