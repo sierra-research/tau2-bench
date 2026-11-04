@@ -10,6 +10,7 @@ const ORG_LOGOS = {
   'Qwen': 'qwen-color.png',
   'Alibaba Cloud': 'qwen-color.png',
   'NVIDIA': 'Logo-nvidia-transparent-PNG.png',
+  'Avartha': 'avartha-logo.svg',
   'Moonshot AI': null, // emoji fallback
 }
 
@@ -25,6 +26,7 @@ const ORG_TINT = {
   'Moonshot AI': '#000000',
   'Zhipu AI': '#3268FB',
   'Distyl AI': '#7C3AED',
+  'Avartha': '#18171C',
 }
 
 const ORG_EMOJI = {

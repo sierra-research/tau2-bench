@@ -64,6 +64,7 @@ class LLMAgent(
         domain_policy: str,
         llm: str,
         llm_args: Optional[dict] = None,
+        additional_stop_tool_names: frozenset[str] = frozenset(),
     ):
         """
         Initialize the LLMAgent.
@@ -73,6 +74,15 @@ class LLMAgent(
             domain_policy=domain_policy,
             llm=llm,
             llm_args=llm_args,
+        )
+
+        self.additional_stop_tool_names = additional_stop_tool_names
+
+    def is_stop(self, message: AssistantMessage) -> bool:
+        """Recognize domain-configured terminating tools; ordinary agents keep running."""
+        return any(
+            call.name in self.additional_stop_tool_names
+            for call in message.tool_calls or []
         )
 
     @property
@@ -501,6 +511,9 @@ def create_llm_agent(tools, domain_policy, **kwargs):
         domain_policy=domain_policy,
         llm=kwargs.get("llm"),
         llm_args=kwargs.get("llm_args"),
+        additional_stop_tool_names=kwargs.get(
+            "additional_stop_tool_names", frozenset()
+        ),
     )
 
 

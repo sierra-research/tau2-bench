@@ -228,6 +228,7 @@ def test_orchestrator_initialize_with_initialization_actions(
     )
 
 
+@pytest.mark.live_api
 def test_orchestrator_step(
     domain_name: str,
     user_simulator: UserSimulator,
@@ -267,6 +268,7 @@ def test_orchestrator_step(
     assert isinstance(orchestrator.message, AssistantMessage)
 
 
+@pytest.mark.live_api
 def test_orchestrator_restart(
     domain_name: str,
     user_simulator: UserSimulator,
@@ -330,6 +332,7 @@ def test_orchestrator_restart(
         print("--------------------------------")
 
 
+@pytest.mark.live_api
 def test_orchestrator_run(
     domain_name: str,
     user_simulator: UserSimulator,
@@ -349,6 +352,7 @@ def test_orchestrator_run(
     assert simulation_run is not None
 
 
+@pytest.mark.live_api
 def test_orchestrator_run_with_solo_agent(
     domain_name: str,
     dummy_user: DummyUser,

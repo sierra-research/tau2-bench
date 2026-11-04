@@ -5,6 +5,7 @@ from typing import Optional
 
 from tau2.data_model.tasks import Task
 from tau2.domains.telecom.data_model import LineStatus, TelecomDB
+from tau2.domains.telecom.region import TelecomRegionalSettings
 from tau2.domains.telecom.tools import TelecomTools
 from tau2.domains.telecom.user_data_model import PaymentRequest, TelecomUserDB
 from tau2.domains.telecom.user_tools import TelecomUserTools
@@ -98,13 +99,19 @@ def get_environment(
     user_db: Optional[TelecomUserDB] = None,
     solo_mode: bool = False,
     policy_type: str = "manual",  # "manual" or "workflow"
+    policy: str | None = None,
+    regional_settings: TelecomRegionalSettings | None = None,
 ) -> TelecomEnvironment:
     if db is None:
         db = TelecomDB.load(TELECOM_DB_PATH)
-    tools = TelecomTools(db)
+    else:
+        db = db.model_copy(deep=True)
+    tools = TelecomTools(db, regional_settings=regional_settings)
     if user_db is None:
         user_db = TelecomUserDB.load(TELECOM_USER_DB_PATH)
-    user_tools = TelecomUserTools(user_db)
+    else:
+        user_db = user_db.model_copy(deep=True)
+    user_tools = TelecomUserTools(user_db, regional_settings=regional_settings)
     if not solo_mode:
         policy_path = TELECOM_MAIN_POLICY_PATH
         if policy_type == "manual":
@@ -121,16 +128,17 @@ def get_environment(
             tech_support_policy_path = TELECOM_TECH_SUPPORT_POLICY_WORKFLOW_SOLO_PATH
         else:
             raise ValueError(f"Invalid policy type: {policy_type}")
-    main_policy = load_file(policy_path)
-    tech_support_policy = load_file(tech_support_policy_path)
-    policy = (
-        "<main_policy>\n"
-        + main_policy
-        + "\n</main_policy>\n"
-        + "<tech_support_policy>\n"
-        + tech_support_policy
-        + "\n</tech_support_policy>"
-    )
+    if policy is None:
+        main_policy = load_file(policy_path)
+        tech_support_policy = load_file(tech_support_policy_path)
+        policy = (
+            "<main_policy>\n"
+            + main_policy
+            + "\n</main_policy>\n"
+            + "<tech_support_policy>\n"
+            + tech_support_policy
+            + "\n</tech_support_policy>"
+        )
     if policy_type == "manual":
         domain_name = "telecom"
     else:

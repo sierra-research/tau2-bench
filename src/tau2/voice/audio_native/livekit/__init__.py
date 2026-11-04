@@ -17,15 +17,12 @@ Architecture:
     - Audio buffering for tick alignment
     - Event mapping to TickResult
 
-- config.py: Configuration models
-    - STT configs (DeepgramSTTConfig)
-    - LLM configs (OpenAILLMConfig, AnthropicLLMConfig)
-    - TTS configs (DeepgramTTSConfig, ElevenLabsTTSConfig)
-    - Named presets (CASCADED_CONFIGS)
+Configuration models and named presets live in ``tau2.data_model.cascaded`` so
+run configs never import the optional voice runtime.
 
 Usage:
-    from tau2.voice.audio_native.livekit import (
-        CASCADED_CONFIGS,
+    from tau2.data_model.cascaded import CASCADED_CONFIGS
+    from tau2.voice.audio_native.livekit.discrete_time_adapter import (
         LiveKitCascadedAdapter,
     )
 
@@ -34,31 +31,6 @@ Usage:
         cascaded_config=CASCADED_CONFIGS["openai-thinking"],
     )
 """
-
-from tau2.voice.audio_native.livekit.config import (
-    CASCADED_CONFIGS,
-    AnthropicLLMConfig,
-    CascadedConfig,
-    DeepgramSTTConfig,
-    DeepgramTTSConfig,
-    ElevenLabsTTSConfig,
-    LLMConfig,
-    OpenAILLMConfig,
-    STTConfig,
-    TTSConfig,
-)
-from tau2.voice.audio_native.livekit.discrete_time_adapter import (
-    LiveKitCascadedAdapter,
-    LiveKitVADConfig,
-)
-from tau2.voice.audio_native.livekit.provider import (
-    CascadedEvent,
-    CascadedEventType,
-    CascadedVoiceProvider,
-    ConversationContext,
-    ProviderState,
-    TurnTakingConfig,
-)
 
 
 def preregister_livekit_plugins() -> None:
@@ -70,48 +42,18 @@ def preregister_livekit_plugins() -> None:
 
     Must be called from the main thread before any workers are created.
     """
+    from importlib import import_module
+
     from loguru import logger
 
-    try:
-        # Import the plugins - this triggers their registration
-        from livekit.plugins import (  # noqa: F401
-            anthropic,
-            deepgram,
-            elevenlabs,
-            openai,
-        )
-
-        logger.debug("LiveKit plugins pre-registered on main thread")
-    except ImportError as e:
-        logger.warning(
-            f"Failed to pre-register LiveKit plugins: {e}. "
-            "Install with: pip install livekit-plugins-openai livekit-plugins-deepgram "
-            "livekit-plugins-anthropic livekit-plugins-elevenlabs"
-        )
+    # A missing optional component must not prevent the installed components
+    # from registering before workers start.
+    for plugin in ("anthropic", "deepgram", "elevenlabs", "openai"):
+        try:
+            import_module(f"livekit.plugins.{plugin}")
+            logger.debug(f"Pre-registered LiveKit {plugin} plugin on main thread")
+        except ImportError as e:
+            logger.warning(f"Could not pre-register LiveKit {plugin} plugin: {e}")
 
 
-__all__ = [
-    # Main adapter for discrete-time simulation
-    "LiveKitCascadedAdapter",
-    "LiveKitVADConfig",
-    # Core provider
-    "CascadedVoiceProvider",
-    "CascadedEvent",
-    "CascadedEventType",
-    "ProviderState",
-    "ConversationContext",
-    "TurnTakingConfig",
-    # Utilities
-    "preregister_livekit_plugins",
-    # Configuration
-    "CascadedConfig",
-    "STTConfig",
-    "LLMConfig",
-    "TTSConfig",
-    "DeepgramSTTConfig",
-    "OpenAILLMConfig",
-    "AnthropicLLMConfig",
-    "DeepgramTTSConfig",
-    "ElevenLabsTTSConfig",
-    "CASCADED_CONFIGS",
-]
+__all__ = ["preregister_livekit_plugins"]

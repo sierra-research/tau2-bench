@@ -103,3 +103,11 @@ Retrieval e2e tests use skip markers to gate tests that require external depende
 - Do not add tests that require live API keys to the default test suite — gate them with markers or environment variables.
 - Do not modify shared test audio files in `testdata/` without regenerating via `generate_test_audio.py`.
 - Do not use `mock` domain tasks for testing domain-specific behavior — use the actual domain's fixtures.
+
+## Live text-provider tests
+
+Tests marked `live_api` are skipped by default, including in `make test`.
+With provider credentials configured, explicitly opt in with
+`uv run pytest --run-live-api -m live_api`. This can incur API charges.
+Audio-provider tests retain their existing provider-specific environment gates
+and `full_duplex_integration` selection.

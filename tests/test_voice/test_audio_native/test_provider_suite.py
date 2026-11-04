@@ -56,9 +56,9 @@ from typing import List, Optional
 import pytest
 
 from tau2.config import DEFAULT_OPENAI_LIVE_MODEL, TELEPHONY_ULAW_SILENCE
+from tau2.data_model.live_config import LiveConfig
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter, create_adapter
-from tau2.voice.audio_native.openai.live_config import LiveConfig
 from tau2.voice.audio_native.tick_result import TickResult
 
 pytestmark = pytest.mark.full_duplex_integration
@@ -98,6 +98,20 @@ PROVIDERS = [
         ),
     ),
     pytest.param(
+        "avartha_pipecat",
+        marks=pytest.mark.skipif(
+            not (
+                os.environ.get("AVARTHA_PIPECAT_TEST_ENABLED")
+                and os.environ.get("TAU2_AVARTHA_BASE_URL")
+                and os.environ.get("AVARTHA_API_KEY")
+            ),
+            reason=(
+                "AVARTHA_PIPECAT_TEST_ENABLED, TAU2_AVARTHA_BASE_URL (a hosted "
+                "agent's URL), and AVARTHA_API_KEY are required"
+            ),
+        ),
+    ),
+    pytest.param(
         "livekit",
         marks=pytest.mark.skipif(
             not os.environ.get("LIVEKIT_TEST_ENABLED"),
@@ -123,6 +137,13 @@ PROVIDERS = [
         marks=pytest.mark.skipif(
             not os.environ.get("OPENAI_API_KEY"),
             reason="OPENAI_API_KEY not set",
+        ),
+    ),
+    pytest.param(
+        "phonic",
+        marks=pytest.mark.skipif(
+            not os.environ.get("PHONIC_API_KEY"),
+            reason="PHONIC_API_KEY not set",
         ),
     ),
     pytest.param(
@@ -361,14 +382,23 @@ def adapter(provider_name: str):
     real_provider = provider_name
     cascaded_config = None
     live_config = None
+    avartha_config = None
     model = None
 
     if provider_name == "openai_live":
         model = os.environ.get("OPENAI_LIVE_MODEL", DEFAULT_OPENAI_LIVE_MODEL)
         live_config = LiveConfig(backend_model=os.environ["OPENAI_LIVE_BACKEND_MODEL"])
+    elif provider_name == "avartha_pipecat":
+        from tau2.voice.audio_native.avartha_pipecat.config import (
+            AvarthaPipecatConfig,
+        )
+
+        avartha_config = AvarthaPipecatConfig(
+            base_url=os.environ["TAU2_AVARTHA_BASE_URL"]
+        )
 
     if provider_name in CASCADED_CONFIG_ALIASES:
-        from tau2.voice.audio_native.livekit.config import CASCADED_CONFIGS
+        from tau2.data_model.cascaded import CASCADED_CONFIGS
 
         real_provider, config_name = CASCADED_CONFIG_ALIASES[provider_name]
         cascaded_config = CASCADED_CONFIGS[config_name]
@@ -379,6 +409,7 @@ def adapter(provider_name: str):
         cascaded_config=cascaded_config,
         model=model,
         live_config=live_config,
+        avartha_config=avartha_config,
     )
     yield adapter
     if adapter.is_connected:

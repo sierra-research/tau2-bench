@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from tau2.config import DEFAULT_TELEPHONY_RATE, TELEPHONY_ULAW_SILENCE
 from tau2.data_model.message import ToolCall
+from tau2.data_model.transcript import LiveTranscriptTick
 from tau2.data_model.usage import UsageRecord
 from tau2.voice.utils.transcript_utils import get_proportional_text
 
@@ -101,6 +102,7 @@ class TickResult(BaseModel):
         description="All API events received during this tick (provider-specific types)",
         exclude=True,  # Exclude from serialization (may contain bytes)
     )
+    live_transcript: LiveTranscriptTick | None = None
 
     # --- VAD events (provider-agnostic) ---
     # Normalized VAD event types detected this tick:

@@ -164,7 +164,36 @@ EffectType = Literal[
     "out_of_turn_speech",
     "telephony",
     "frame_drop",
+    "spell_out",
 ]
+
+
+class SpellOutDetection(BaseModel):
+    """One detected spell-out of a tracked entity field in a user-sim
+    utterance (the ``spell_out`` effect event's params contract).
+
+    Produced by a domain-owned detector on the exact pre-synthesis
+    utterance text, providing deterministic caller-effort observations."""
+
+    field: str = Field(description="The tracked entity field whose value was spelled.")
+    letters_spoken: int = Field(
+        ge=2,
+        description="Number of spell tokens rendered (single characters or "
+        "digit words), summed over the utterance's runs for this field.",
+    )
+    spelled_text: str = Field(
+        description="The matched spell-out run(s) verbatim, ' / '-joined, "
+        "faltered restart attempts included, in utterance order."
+    )
+    restarts: int = Field(
+        default=0,
+        ge=0,
+        description="Number of FALTERED attempts before the complete run: "
+        "runs in the same utterance whose skeleton is one edit away from a "
+        "prefix of this field's value skeleton (the spell_correction "
+        "complication's construct). Their tokens count in letters_spoken — "
+        "restarts are re-delivery effort.",
+    )
 
 
 class EffectEvent(BaseModel):

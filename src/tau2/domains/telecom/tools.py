@@ -18,10 +18,19 @@ from tau2.domains.telecom.data_model import (
     Plan,
     TelecomDB,
 )
+from tau2.domains.telecom.region import TelecomRegionalSettings
 from tau2.domains.telecom.utils import get_today
+from tau2.environment.regional import describe_regional_tool
+from tau2.environment.tool import Tool
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.utils.text_match import fold_for_match
 
 # TODO: Add an abstract base class for the tools
+
+
+def _phone_digits(phone_number: str) -> str:
+    """Ignore formatting punctuation when matching a spoken phone number."""
+    return "".join(ch for ch in phone_number if ch.isdigit())
 
 
 class IDGenerator:
@@ -39,10 +48,35 @@ class TelecomTools(ToolKitBase):
 
     db: TelecomDB
 
-    def __init__(self, db: TelecomDB) -> None:
+    def __init__(
+        self, db: TelecomDB, regional_settings: TelecomRegionalSettings | None = None
+    ) -> None:
         """Initialize the telecom tools with a database instance."""
         super().__init__(db)
         self.id_generator = IDGenerator()
+        self.regional_settings = (
+            TelecomRegionalSettings.model_validate(regional_settings).model_copy(
+                deep=True
+            )
+            if regional_settings is not None
+            else None
+        )
+
+    def get_tools(self, include: Optional[list[str]] = None) -> dict[str, Tool]:
+        """Expose billing units and the regional scenario clock in tool descriptions."""
+        tools = super().get_tools(include)
+        if self.regional_settings is not None:
+            for tool in tools.values():
+                describe_regional_tool(tool, self.regional_settings)
+        return tools
+
+    def _get_today(self) -> date:
+        """Keep every billing and initialization action on the same scenario clock."""
+        return (
+            self.regional_settings.current_datetime.date()
+            if self.regional_settings is not None
+            else get_today()
+        )
 
     # Customer Lookup
     @is_tool(ToolType.READ)
@@ -56,18 +90,21 @@ class TelecomTools(ToolKitBase):
         Returns:
             Customer object if found, None otherwise.
         """
-        # Check primary contact number
+        wanted = _phone_digits(phone_number)
+        matches = []
         for customer in self.db.customers:
-            if customer.phone_number == phone_number:
-                return customer
-
-            # Check lines
+            numbers = [customer.phone_number]
             for line_id in customer.line_ids:
                 line = self._get_line_by_id(line_id)
-                if line and line.phone_number == phone_number:
-                    return customer
-
-        raise ValueError(f"Customer with phone number {phone_number} not found")
+                if line is not None:
+                    numbers.append(line.phone_number)
+            if wanted and any(_phone_digits(number) == wanted for number in numbers):
+                matches.append(customer)
+        if len(matches) == 1:
+            return matches[0]
+        raise ValueError(
+            f"Customer with phone number {phone_number} not found or ambiguous"
+        )
 
     @is_tool(ToolType.READ)
     def get_customer_by_id(self, customer_id: str) -> Customer:
@@ -99,11 +136,13 @@ class TelecomTools(ToolKitBase):
         Returns:
             List of matching Customer objects.
         """
+        wanted_name = fold_for_match(full_name)
+
         matching_customers = []
 
         for customer in self.db.customers:
             if (
-                customer.full_name.lower() == full_name.lower()
+                fold_for_match(customer.full_name) == wanted_name
                 and customer.date_of_birth == dob
             ):
                 matching_customers.append(customer)
@@ -124,10 +163,17 @@ class TelecomTools(ToolKitBase):
         Raises:
             ValueError: If the line with the specified phone number is not found.
         """
-        for line in self.db.lines:
-            if line.phone_number == phone_number:
-                return line
-        raise ValueError(f"Line with phone number {phone_number} not found")
+        wanted = _phone_digits(phone_number)
+        matches = [
+            line
+            for line in self.db.lines
+            if wanted and _phone_digits(line.phone_number) == wanted
+        ]
+        if len(matches) == 1:
+            return matches[0]
+        raise ValueError(
+            f"Line with phone number {phone_number} not found or ambiguous"
+        )
 
     # Helper method to get a line by ID
     def _get_line_by_id(self, line_id: str) -> Line:
@@ -245,6 +291,10 @@ class TelecomTools(ToolKitBase):
         Raises:
             ValueError: If the ID is not found or if the ID format is invalid.
         """
+        # Regional customer IDs are derived from names; only other record IDs
+        # retain their canonical type prefix.
+        if any(customer.customer_id == id for customer in self.db.customers):
+            return self.get_customer_by_id(id)
         if id.startswith("L"):
             return self._get_line_by_id(id)
         elif id.startswith("D"):
@@ -284,13 +334,23 @@ class TelecomTools(ToolKitBase):
             raise ValueError("Line must be active to suspend")
 
         target_line.status = LineStatus.SUSPENDED
-        target_line.suspension_start_date = get_today()
+        target_line.suspension_start_date = self._get_today()
 
         # Log reason
         logger.info(f"Line {line_id} suspended. Reason: {reason}")
 
         return {
-            "message": "Line suspended successfully. $5/month holding fee will apply.",
+            "message": (
+                "Line suspended successfully. "
+                + (
+                    self.regional_settings.format_money(
+                        self.regional_settings.scale_fee(5)
+                    )
+                    if self.regional_settings is not None
+                    else "$5"
+                )
+                + "/month holding fee will apply."
+            ),
             "line": target_line,
         }
 
@@ -442,7 +502,7 @@ class TelecomTools(ToolKitBase):
 
         if not draft_bill:
             # Create a new draft bill for next cycle
-            today = get_today()
+            today = self._get_today()
             next_month = today.replace(day=1) + timedelta(days=32)
             next_month = next_month.replace(day=1)  # First day of next month
 
@@ -472,7 +532,7 @@ class TelecomTools(ToolKitBase):
         line_item = LineItem(
             description=description,
             amount=amount,
-            date=get_today(),
+            date=self._get_today(),
             item_type="Credit" if amount < 0 else "Charge",
         )
         draft_bill.line_items.append(line_item)
@@ -500,7 +560,7 @@ class TelecomTools(ToolKitBase):
         target_line = self._get_target_line(customer_id, line_id)
         plan = self._get_plan_by_id(target_line.plan_id)
 
-        today = get_today()
+        today = self._get_today()
         cycle_end_date = date(
             today.year, today.month + 1 if today.month < 12 else 1, 1
         ) - timedelta(days=1)
@@ -637,21 +697,31 @@ class TelecomTools(ToolKitBase):
             raise ValueError("Plan not found for this line")
 
         charge_amount = gb_amount * plan.data_refueling_price_per_gb
+        rate_text = (
+            self.regional_settings.format_money(plan.data_refueling_price_per_gb)
+            if self.regional_settings is not None
+            else f"${plan.data_refueling_price_per_gb}"
+        )
+        charge_text = (
+            self.regional_settings.format_money(charge_amount)
+            if self.regional_settings is not None
+            else f"${charge_amount:.2f}"
+        )
 
         target_line.data_refueling_gb += gb_amount
 
         self._apply_one_time_charge(
             customer_id,
             charge_amount,
-            f"Data refueling: {gb_amount} GB at ${plan.data_refueling_price_per_gb}/GB",
+            f"Data refueling: {gb_amount} GB at {rate_text}/GB",
         )
 
         logger.info(
-            f"Data refueled for line {line_id}: {gb_amount} GB added, charge: ${charge_amount:.2f}"
+            f"Data refueled for line {line_id}: {gb_amount} GB added, charge: {charge_text}"
         )
 
         return {
-            "message": f"Successfully added {gb_amount} GB of data for line {line_id} for ${charge_amount:.2f}",
+            "message": f"Successfully added {gb_amount} GB of data for line {line_id} for {charge_text}",
             "new_data_refueling_gb": target_line.data_refueling_gb,
             "charge": charge_amount,
         }
@@ -685,7 +755,7 @@ class TelecomTools(ToolKitBase):
         if len(overdue_bill_ids) > 0:
             raise ValueError("Customer already has an overdue bill")
 
-        today = get_today()
+        today = self._get_today()
 
         # Calculate the first day of the previous month using the same method as _apply_one_time_charge
         first_day_of_last_month = today.replace(day=1) - timedelta(days=1)
@@ -707,7 +777,7 @@ class TelecomTools(ToolKitBase):
         line_item = LineItem(
             description=description,
             amount=amount,
-            date=get_today(),
+            date=self._get_today(),
             item_type="Charge" if amount > 0 else "Credit",
         )
         overdue_bill.line_items.append(line_item)
@@ -715,7 +785,7 @@ class TelecomTools(ToolKitBase):
         self.db.bills.append(overdue_bill)
         customer.bill_ids.append(new_bill_id)
         line.status = LineStatus.SUSPENDED
-        line.suspension_start_date = get_today()
+        line.suspension_start_date = self._get_today()
         if contract_ended:
             line.contract_end_date = last_day_of_last_month
         return f"Line {line_id} suspended for unpaid bill {new_bill_id}. Contract ended: {contract_ended}"

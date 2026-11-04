@@ -4,7 +4,7 @@ single checkpoint writer. Kill a worker and its leases expire back into the
 queue; nothing is lost.
 
 Run as ``tau2 worker --controller http://host:port --slots 10`` or
-``python -m tau2.runner.worker ...``. See docs/designs/parallel-runner.md.
+``python -m tau2.runner.worker ...``. See docs/cli-reference.md.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from tau2.data_model.simulation import SimulationRun, TextRunConfig, VoiceRunCon
 from tau2.data_model.tasks import Task
 from tau2.evaluator.evaluator import EvaluationType
 from tau2.runner.work import WorkUnit
+from tau2.utils.errors import NonRetryableError
 
 AUTH_TOKEN_ENV = "TAU2_CONTROLLER_TOKEN"
 
@@ -85,9 +86,17 @@ class ControllerClient:
             {"worker_id": worker_id, "unit_id": unit_id, "result": result},
         )
 
-    def fail(self, worker_id: str, unit_id: str, error: str) -> dict:
+    def fail(
+        self, worker_id: str, unit_id: str, error: str, *, fatal: bool = False
+    ) -> dict:
         return self._post(
-            "/fail", {"worker_id": worker_id, "unit_id": unit_id, "error": error}
+            "/fail",
+            {
+                "worker_id": worker_id,
+                "unit_id": unit_id,
+                "error": error,
+                "fatal": fatal,
+            },
         )
 
     def heartbeat(self, worker_id: str, unit_ids: list[str]) -> dict:
@@ -172,6 +181,7 @@ def execute_lease(payload: dict) -> SimulationRun:
     user_voice_settings, user_persona_config = make_voice_run_settings(config)
     info = get_info(
         config,
+        tasks=[task],
         user_persona_config=user_persona_config,
         user_voice_settings=user_voice_settings,
     )
@@ -234,12 +244,19 @@ def worker_loop(
                     sim = future.result()
                 except BaseException as e:
                     logger.error(f"Unit {unit_id} failed in worker: {e}")
-                    resp = client.fail(worker_id, unit_id, f"{type(e).__name__}: {e}")
+                    resp = client.fail(
+                        worker_id,
+                        unit_id,
+                        f"{type(e).__name__}: {e}",
+                        fatal=isinstance(e, NonRetryableError),
+                    )
                 else:
                     resp = client.complete(
                         worker_id, unit_id, sim.model_dump(mode="json")
                     )
                 status = resp.get("status")
+                if status == "failed":
+                    raise NonRetryableError(resp["error"])
                 if status == "stale":
                     logger.warning(
                         f"Result for {unit_id} arrived after its lease was lost; "
@@ -253,6 +270,8 @@ def worker_loop(
             # Fill free slots.
             if len(inflight) < slots:
                 body = client.lease(worker_id)
+                if body["status"] == "failed":
+                    raise NonRetryableError(body["error"])
                 if body["status"] == "unit":
                     _maybe_preregister_livekit(body["run"], preregistered)
                     heartbeats.leased(body["unit"]["unit_id"])

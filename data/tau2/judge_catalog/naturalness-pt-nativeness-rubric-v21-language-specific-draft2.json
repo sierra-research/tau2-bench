@@ -1,0 +1,112 @@
+{
+  "status": "unvalidated",
+  "revision": "nativeness-rubric-v21-language-specific-draft2",
+  "language_variety": "Portuguese · Brazil",
+  "contract": {
+    "contract_id": "naturalness-pt-nativeness-rubric-v21-language-specific-draft2",
+    "implementation": "naturalness-v17",
+    "evaluation_level": "utterance",
+    "input_exclusions": "injected-opener-and-transfer-line-v1",
+    "source_revision": "judge-authoring-v1",
+    "model": "gpt-5.5",
+    "model_args": {
+      "reasoning_effort": "xhigh"
+    },
+    "prompt": {
+      "prompt_version": "v17",
+      "rubric_version": "nativeness-rubric-v21-language-specific-draft2",
+      "system_prompt": "You evaluate language use in an AI agent's speech. Return JSON only.",
+      "user_prompt_template": "Language: {language}\nEvaluation unit: {evaluation_unit}\n\nFor every criterion:\n- opportunity is true only when this speech gave the agent a genuine chance to exhibit the criterion.\n- violated is true only when the agent actually violated the criterion. The criterion question asks about the desired behavior; answer violated=true when the answer is no.\n- severity is 0 when violated is false. When violated is true: 1 = minor, 2 = clear, 3 = major, 4 = egregious. Repetition may increase severity at call level.\n- quote is an exact offending span copied from AGENT SPEECH. Use an empty string for no violation or for a diffuse call-level pattern.\n- Judge only AGENT SPEECH. Use CUSTOMER CONTEXT only to interpret it.\n- A turn ending in \"[cut off by caller]\" was interrupted mid-delivery: its final word may be truncated mid-word and endings (agreement suffixes, polite verb endings, sentence-final particles) may be missing. Never count a truncation artifact at the cut-off point as a violation of any criterion; judge only what was audibly complete.\n- When violated is true and the violation localizes to a quoted span, reasoning must also give the natural way a native speaker would phrase that span, in the target language.\n\nCriteria:\n{criteria_json}\n\nAbout the agent being judged:\n{agent_context}\n\nCUSTOMER CONTEXT — DO NOT JUDGE:\n{customer_context}\n\nAGENT SPEECH TO JUDGE:\n{agent_speech}\n\nReturn JSON only:\n{\n  \"results\": [\n    {\n      \"factor_id\": \"<exact factor_id>\",\n      \"opportunity\": true,\n      \"violated\": false,\n      \"severity\": 0,\n      \"reasoning\": \"<brief explanation>\",\n      \"quote\": \"\"\n    }\n  ]\n}\n",
+      "factor_instructions": {}
+    },
+    "nativeness_criteria": {
+      "pt": [
+        {
+          "factor_id": "naturalness",
+          "question": "This is a customer-service call in Brazilian Portuguese. Does this utterance contain any translationese, verb-morphology or basic function-word error, or unnatural word choice?",
+          "opportunity": "every non-empty agent utterance",
+          "positive_examples": "Natural conversational Brazilian Portuguese passes, whether colloquial or ordinarily formal for customer service. English words are allowed when they are established in Brazilian usage or are literal names, product, interface, or status labels, or identifiers and are integrated naturally. Judge language use only, not factual or task correctness.\n\nNatural gender agreement includes \"a mala despachada\", \"duas passagens\", and \"duzentas milhas\". \"Obrigado\" passes from any speaker, as does the set phrase \"um ida e volta\". Spoken quantities use the Brazilian short scale and decimal vírgula: \"um bilhão\", \"quinhentos mil\", \"dois vírgula cinco\", and \"cinquenta reais e noventa centavos\" pass. Você with te and locally natural Brazilian tu patterns pass.",
+          "negative_examples": "Flag any language that would sound odd to a native Brazilian-Portuguese speaker, including English-shaped phrasing, incorrect verb person or mood, wrong or missing basic articles or prepositions, unnatural word choice, or avoidable English that a Brazilian speaker would not normally use in this context.\n\nAlso flag clear gender disagreement in articles, adjectives, participles, noun phrases, gendered numbers, or references to known people: \"a passageiro\", \"o mala despachada\", \"dois passagens\", and \"duzentos milhas\" fail. Use only supplied or explicitly established participant gender, never a name or voice; internal agreement needs no participant gender. Senhor for a known female customer, senhora for a known male customer, and \"obrigada\" from a known male agent fail. Ignore likely transcription errors when judging gender. For spoken quantities, flag \"mil milhões\" for a billion, \"quinhentos milhares\", and \"dois ponto cinco\". Exclude \"ponto\" in emails/websites, digit-by-digit codes/phones, and a figure merely echoed from the customer. Within this utterance, flag a clear mismatch between address and verb form or an abrupt socially incompatible switch, such as \"O senhor poderia confirmar?\" to \"tu me diz aí\", without a reason. Do not infer call-wide address drift from this utterance."
+        }
+      ]
+    },
+    "quality_criteria": [],
+    "scope_note": "Candidate for Portuguese · Brazil; requires held-out validation.",
+    "speech_material": null
+  },
+  "scope": {
+    "language": "pt",
+    "measure": "naturalness",
+    "contract_id": "naturalness-pt-nativeness-rubric-v21-language-specific-draft2",
+    "evaluation_level": "utterance",
+    "agent_gender": null,
+    "domains": [
+      "airline",
+      "retail",
+      "telecom",
+      "banking_knowledge",
+      "intake"
+    ],
+    "needs_audio": false
+  },
+  "authoring": {
+    "request": {
+      "mode": "naturalness_extension",
+      "diagnostic_id": "naturalness",
+      "language": "pt",
+      "variety": "Portuguese · Brazil",
+      "agent_requirements": "Use the exact wording approved by the user in naturalness-language-criteria-review-v2. Preserve the existing naturalness wrapper and utterance evidence scope; add only the reviewed language-specific rules. The approved HTML and source contract are in docs/designs/naturalness-language-criteria/. Prompt wording approval is not accuracy validation.",
+      "domains": [
+        "airline",
+        "retail",
+        "telecom",
+        "banking_knowledge",
+        "intake"
+      ],
+      "evaluation_level": "utterance",
+      "agent_gender": null,
+      "source_contract_id": null,
+      "source_language": null,
+      "source_measure": null,
+      "author_model": "gpt-6",
+      "author_model_args": {},
+      "judge_model": "gpt-5.5",
+      "judge_model_args": {
+        "reasoning_effort": "xhigh"
+      }
+    },
+    "prompt_version": "judge-authoring-v1",
+    "reference": {
+      "source": "validated_contract",
+      "source_revision": "validated-measures-v3",
+      "source_sha256": "e985cfafb78a8119fb4d7b468acaa99cb3ca060ea51d7b066f0e8c9a0dfc53d2",
+      "language": "pt",
+      "source_agent_requirements": null,
+      "source_review": null,
+      "template": {
+        "prompt_version": "v17",
+        "rubric_version": "nativeness-rubric-v20",
+        "system_prompt": "You evaluate language use in an AI agent's speech. Return JSON only.",
+        "user_prompt_template": "Language: {language}\nEvaluation unit: {evaluation_unit}\n\nFor every criterion:\n- opportunity is true only when this speech gave the agent a genuine chance to exhibit the criterion.\n- violated is true only when the agent actually violated the criterion. The criterion question asks about the desired behavior; answer violated=true when the answer is no.\n- severity is 0 when violated is false. When violated is true: 1 = minor, 2 = clear, 3 = major, 4 = egregious. Repetition may increase severity at call level.\n- quote is an exact offending span copied from AGENT SPEECH. Use an empty string for no violation or for a diffuse call-level pattern.\n- Judge only AGENT SPEECH. Use CUSTOMER CONTEXT only to interpret it.\n- A turn ending in \"[cut off by caller]\" was interrupted mid-delivery: its final word may be truncated mid-word and endings (agreement suffixes, polite verb endings, sentence-final particles) may be missing. Never count a truncation artifact at the cut-off point as a violation of any criterion; judge only what was audibly complete.\n- When violated is true and the violation localizes to a quoted span, reasoning must also give the natural way a native speaker would phrase that span, in the target language.\n\nCriteria:\n{criteria_json}\n\nAbout the agent being judged:\n{agent_context}\n\nCUSTOMER CONTEXT — DO NOT JUDGE:\n{customer_context}\n\nAGENT SPEECH TO JUDGE:\n{agent_speech}\n\nReturn JSON only:\n{\n  \"results\": [\n    {\n      \"factor_id\": \"<exact factor_id>\",\n      \"opportunity\": true,\n      \"violated\": false,\n      \"severity\": 0,\n      \"reasoning\": \"<brief explanation>\",\n      \"quote\": \"\"\n    }\n  ]\n}\n",
+        "factor_instructions": {}
+      },
+      "criterion": {
+        "factor_id": "naturalness",
+        "question": "This is a customer-service call in Brazilian Portuguese. Does this utterance contain any translationese, verb-morphology or basic function-word error, or unnatural word choice?",
+        "opportunity": "every non-empty agent utterance",
+        "positive_examples": "Natural conversational Brazilian Portuguese passes, whether colloquial or ordinarily formal for customer service. English words are allowed when they are established in Brazilian usage or are literal names, product, interface, or status labels, or identifiers and are integrated naturally. Judge language use only, not factual or task correctness.",
+        "negative_examples": "Flag any language that would sound odd to a native Brazilian-Portuguese speaker, including English-shaped phrasing, incorrect verb person or mood, wrong or missing basic articles or prepositions, unnatural word choice, or avoidable English that a Brazilian speaker would not normally use in this context."
+      }
+    },
+    "criteria": {
+      "question": "This is a customer-service call in Brazilian Portuguese. Does this utterance contain any translationese, verb-morphology or basic function-word error, or unnatural word choice?",
+      "opportunity": "every non-empty agent utterance",
+      "positive_examples": "Natural conversational Brazilian Portuguese passes, whether colloquial or ordinarily formal for customer service. English words are allowed when they are established in Brazilian usage or are literal names, product, interface, or status labels, or identifiers and are integrated naturally. Judge language use only, not factual or task correctness.\n\nNatural gender agreement includes \"a mala despachada\", \"duas passagens\", and \"duzentas milhas\". \"Obrigado\" passes from any speaker, as does the set phrase \"um ida e volta\". Spoken quantities use the Brazilian short scale and decimal vírgula: \"um bilhão\", \"quinhentos mil\", \"dois vírgula cinco\", and \"cinquenta reais e noventa centavos\" pass. Você with te and locally natural Brazilian tu patterns pass.",
+      "negative_examples": "Flag any language that would sound odd to a native Brazilian-Portuguese speaker, including English-shaped phrasing, incorrect verb person or mood, wrong or missing basic articles or prepositions, unnatural word choice, or avoidable English that a Brazilian speaker would not normally use in this context.\n\nAlso flag clear gender disagreement in articles, adjectives, participles, noun phrases, gendered numbers, or references to known people: \"a passageiro\", \"o mala despachada\", \"dois passagens\", and \"duzentos milhas\" fail. Use only supplied or explicitly established participant gender, never a name or voice; internal agreement needs no participant gender. Senhor for a known female customer, senhora for a known male customer, and \"obrigada\" from a known male agent fail. Ignore likely transcription errors when judging gender. For spoken quantities, flag \"mil milhões\" for a billion, \"quinhentos milhares\", and \"dois ponto cinco\". Exclude \"ponto\" in emails/websites, digit-by-digit codes/phones, and a figure merely echoed from the customer. Within this utterance, flag a clear mismatch between address and verb form or an abrupt socially incompatible switch, such as \"O senhor poderia confirmar?\" to \"tu me diz aí\", without a reason. Do not infer call-wide address drift from this utterance."
+    }
+  },
+  "review": {
+    "content_sha256": "4702944adc586f901e05e6aa99d1310613832b59e498362a78e649280bba90a2",
+    "reviewed_by": "User approval of naturalness-language-criteria-review-v2 in Codex task"
+  }
+}

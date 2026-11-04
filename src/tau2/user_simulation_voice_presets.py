@@ -12,15 +12,17 @@ Used by run.py and audio effects scheduler.
 import json
 import random
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Literal, Optional
 
 from loguru import logger
 from pydantic import BaseModel, Field
 
+from tau2.config import DEFAULT_CHANNEL_EFFECTS_MODE, DEFAULT_SPEECH_EFFECTS_MODE
 from tau2.data_model.audio_effects import (
     ChannelEffectsConfig,
     SourceEffectsConfig,
     SpeechEffectsConfig,
+    UserSpeechInsert,
 )
 from tau2.data_model.persona import InterruptTendency, PersonaConfig, Verbosity
 from tau2.data_model.voice import SampledVoiceConfig, SpeechComplexity, SynthesisConfig
@@ -30,6 +32,44 @@ from tau2.data_model.voice_personas import (
     get_persona_name_by_voice_id,
 )
 from tau2.voice_config import BACKGROUND_NOISE_CONTINUOUS_DIR, BURST_NOISE_DIR
+
+EffectsMode = Literal["light", "regular", "heavy"]
+
+# Version 1.2 of the established condition cross. Regular is an empty overlay
+# so existing voice runs retain their exact sampled configuration.
+CHANNEL_EFFECTS_MODES: dict[EffectsMode, dict] = {
+    "light": {"frame_drop_rate": 0.0, "enable_muffling": False},
+    "regular": {},
+    "heavy": {
+        "frame_drop_rate": 0.03,
+        "frame_drop_burst_duration_ms": 300,
+        "enable_muffling": True,
+        "muffle_probability": 0.5,
+        "noise_snr_db": 10.0,
+        "burst_noise_events_per_minute": 4.0,
+        "burst_snr_range_db": (-5.0, 0.0),
+    },
+}
+SPEECH_EFFECTS_MODES: dict[EffectsMode, dict] = {
+    "light": {
+        "speech_insert_events_per_minute": 0.0,
+        "enable_vocal_tics": False,
+        "enable_non_directed_phrases": False,
+        "use_llm_backchannel": False,
+        "backchannel_min_threshold": None,
+        "enable_interruptions": False,
+        "interrupt_tendency": "waits",
+    },
+    "regular": {},
+    "heavy": {
+        "speech_insert_events_per_minute": 1.5,
+        "enable_vocal_tics": True,
+        "enable_non_directed_phrases": True,
+        "use_llm_backchannel": True,
+        "enable_interruptions": True,
+        "interrupt_tendency": "interrupts",
+    },
+}
 
 # Seed offsets for each complexity level to ensure different voice selections
 # Control and regular offsets are fixed for backward compatibility
@@ -266,10 +306,32 @@ COMPLEXITY_CONFIGS: dict[SpeechComplexity, dict] = {
 # ============================================================================
 
 
+class VoiceSelection(BaseModel):
+    """Resolved language behavior, independent of canonical acoustic sampling."""
+
+    persona_name: Annotated[str, Field(description="Already selected language persona")]
+    persona_config: Annotated[
+        PersonaConfig, Field(description="Reviewed persona behavior")
+    ]
+    vocal_tics: Annotated[
+        list[UserSpeechInsert], Field(description="Reviewed in-turn inserts")
+    ]
+    non_directed_phrases: Annotated[
+        list[UserSpeechInsert], Field(description="Reviewed aside inserts")
+    ]
+    speech_insert_events_per_minute: Annotated[
+        float, Field(ge=0, description="Reviewed shared insert rate")
+    ]
+
+
 def sample_voice_config(
     seed: int,
     synthesis_config: SynthesisConfig,
     complexity: SpeechComplexity = "regular",
+    *,
+    selection: Optional[VoiceSelection] = None,
+    channel_effects_mode: EffectsMode = DEFAULT_CHANNEL_EFFECTS_MODE,
+    speech_effects_mode: EffectsMode = DEFAULT_SPEECH_EFFECTS_MODE,
 ) -> SampledVoiceConfig:
     """Sample a complete voice configuration from complexity presets.
 
@@ -288,6 +350,8 @@ def sample_voice_config(
         seed: Random seed for reproducibility.
         synthesis_config: Base synthesis configuration with effect configs.
         complexity: Speech environment complexity level ("control" or "regular").
+        selection: Already resolved language persona and inserts. When supplied,
+            only acoustic settings are sampled from the complexity preset.
 
     Returns:
         SampledVoiceConfig with all configs instantiated and complexity settings applied.
@@ -295,7 +359,11 @@ def sample_voice_config(
     # Apply complexity-specific seed offset to ensure different selections per complexity
     complexity_seed = seed + COMPLEXITY_SEED_OFFSETS.get(complexity, 0)
     rng = random.Random(complexity_seed)
-    preset = COMPLEXITY_CONFIGS[complexity]
+    preset = {
+        **COMPLEXITY_CONFIGS[complexity],
+        **CHANNEL_EFFECTS_MODES[channel_effects_mode],
+        **SPEECH_EFFECTS_MODES[speech_effects_mode],
+    }
 
     # Get base configs from synthesis_config
     base_channel = synthesis_config.channel_effects_config
@@ -307,10 +375,18 @@ def sample_voice_config(
     # -------------------------------------------------------------------------
     provider_config = synthesis_config.provider_config
     voice_id = provider_config.voice_id if provider_config else None
-    persona_name = get_persona_name_by_voice_id(voice_id) if voice_id else None
-    if not persona_name:
-        persona_names = preset.get("persona_names", CONTROL_PERSONA_NAMES)
-        persona_name = rng.choice(persona_names)
+    if selection is None:
+        persona_name = get_persona_name_by_voice_id(voice_id) if voice_id else None
+        if not persona_name:
+            persona_names = preset.get("persona_names", CONTROL_PERSONA_NAMES)
+            persona_name = rng.choice(persona_names)
+    else:
+        persona_name = selection.persona_name
+        if not voice_id or not get_persona_name_by_voice_id(voice_id):
+            # Canonical acoustic assignments historically follow one persona
+            # index draw. Preserve that RNG position without selecting a legacy
+            # persona; changing it would redraw approved background noise beds.
+            rng.randrange(len(preset.get("persona_names", CONTROL_PERSONA_NAMES)))
 
     # -------------------------------------------------------------------------
     # Select environment and audio files
@@ -372,14 +448,16 @@ def sample_voice_config(
     # -------------------------------------------------------------------------
     merged_source = SourceEffectsConfig(
         enable_background_noise=preset.get("enable_background_noise", False),
-        noise_snr_db=base_source.noise_snr_db,
+        noise_snr_db=preset.get("noise_snr_db", base_source.noise_snr_db),
         noise_snr_drift_db=base_source.noise_snr_drift_db,
         noise_variation_speed=base_source.noise_variation_speed,
         enable_burst_noise=preset.get("enable_burst_noise", False),
         burst_noise_events_per_minute=preset.get(
             "burst_noise_events_per_minute", base_source.burst_noise_events_per_minute
         ),
-        burst_snr_range_db=base_source.burst_snr_range_db,
+        burst_snr_range_db=preset.get(
+            "burst_snr_range_db", base_source.burst_snr_range_db
+        ),
     )
 
     # -------------------------------------------------------------------------
@@ -387,7 +465,9 @@ def sample_voice_config(
     # -------------------------------------------------------------------------
     merged_speech = SpeechEffectsConfig(
         enable_dynamic_muffling=preset.get("enable_muffling", False),
-        muffle_probability=base_speech.muffle_probability
+        muffle_probability=preset.get(
+            "muffle_probability", base_speech.muffle_probability
+        )
         if preset.get("enable_muffling")
         else 0.0,
         muffle_segment_count=base_speech.muffle_segment_count,
@@ -397,24 +477,42 @@ def sample_voice_config(
         enable_vocal_tics=preset.get(
             "enable_vocal_tics", base_speech.enable_vocal_tics
         ),
-        vocal_tics=base_speech.vocal_tics,
+        vocal_tics=selection.vocal_tics if selection else base_speech.vocal_tics,
         min_words_for_vocal_tics=base_speech.min_words_for_vocal_tics,
         enable_non_directed_phrases=preset.get(
             "enable_non_directed_phrases", base_speech.enable_non_directed_phrases
         ),
-        non_directed_phrases=base_speech.non_directed_phrases,
-        speech_insert_events_per_minute=preset.get(
-            "speech_insert_events_per_minute",
-            base_speech.speech_insert_events_per_minute,
+        non_directed_phrases=(
+            selection.non_directed_phrases
+            if selection
+            else base_speech.non_directed_phrases
+        ),
+        speech_insert_events_per_minute=(
+            selection.speech_insert_events_per_minute
+            if selection and speech_effects_mode == "regular"
+            else preset.get(
+                "speech_insert_events_per_minute",
+                base_speech.speech_insert_events_per_minute,
+            )
         ),
     )
 
     # -------------------------------------------------------------------------
     # Create PersonaConfig from complexity settings
     # -------------------------------------------------------------------------
-    persona_config = PersonaConfig(
-        verbosity=Verbosity(preset["verbosity"]),
-        interrupt_tendency=InterruptTendency(preset["interrupt_tendency"]),
+    persona_config = (
+        selection.persona_config.model_copy(
+            update={
+                "interrupt_tendency": InterruptTendency(preset["interrupt_tendency"])
+            }
+        )
+        if selection and speech_effects_mode != "regular"
+        else selection.persona_config
+        if selection
+        else PersonaConfig(
+            verbosity=Verbosity(preset["verbosity"]),
+            interrupt_tendency=InterruptTendency(preset["interrupt_tendency"]),
+        )
     )
 
     return SampledVoiceConfig(
@@ -424,13 +522,19 @@ def sample_voice_config(
         environment=environment,
         backchannel_min_threshold=preset.get("backchannel_min_threshold"),
         use_llm_backchannel=preset.get("use_llm_backchannel", True),
-        enable_interruptions=preset.get("enable_interruptions", False),
+        enable_interruptions=(
+            persona_config.interrupt_tendency == InterruptTendency.INTERRUPTS
+        )
+        if selection
+        else preset.get("enable_interruptions", False),
         telephony_enabled=preset.get("telephony_enabled", True),
         channel_effects_config=merged_channel,
         source_effects_config=merged_source,
         speech_effects_config=merged_speech,
         persona_config=persona_config,
         complexity=complexity,
+        channel_effects_mode=channel_effects_mode,
+        speech_effects_mode=speech_effects_mode,
     )
 
 
@@ -623,6 +727,11 @@ def get_or_load_task_voice_config(
     task_seed: int,
     complexity: SpeechComplexity,
     synthesis_config: SynthesisConfig,
+    *,
+    selection: Optional[VoiceSelection] = None,
+    channel_effects_mode: EffectsMode = DEFAULT_CHANNEL_EFFECTS_MODE,
+    speech_effects_mode: EffectsMode = DEFAULT_SPEECH_EFFECTS_MODE,
+    force_sample: bool = False,
 ) -> SampledVoiceConfig:
     """Get voice config for a task, loading from file if available.
 
@@ -632,10 +741,26 @@ def get_or_load_task_voice_config(
         task_seed: Seed to use if sampling is needed.
         complexity: Speech complexity level.
         synthesis_config: Base synthesis config for sampling.
+        selection: Explicit language behavior; loaded files contribute canonical
+            acoustics without replacing this selection.
 
     Returns:
         SampledVoiceConfig for the task.
     """
+    if (
+        force_sample
+        or channel_effects_mode != "regular"
+        or speech_effects_mode != "regular"
+    ):
+        return sample_voice_config(
+            seed=task_seed,
+            synthesis_config=synthesis_config,
+            complexity=complexity,
+            selection=selection,
+            channel_effects_mode=channel_effects_mode,
+            speech_effects_mode=speech_effects_mode,
+        )
+
     config_path = get_task_voice_configs_path(domain)
 
     if config_path.exists():
@@ -647,7 +772,26 @@ def get_or_load_task_voice_config(
                     f"Using pre-sampled voice config for task {task_id} "
                     f"(complexity={complexity}) from {config_path}"
                 )
-                return config
+                if selection is None:
+                    return config
+                # Retain the canonical acoustic draw, not its historical caller.
+                # Construct the resolved config before any simulator is built.
+                speech = config.speech_effects_config.model_copy(
+                    update={
+                        "vocal_tics": selection.vocal_tics,
+                        "non_directed_phrases": selection.non_directed_phrases,
+                        "speech_insert_events_per_minute": selection.speech_insert_events_per_minute,
+                    }
+                )
+                return config.model_copy(
+                    update={
+                        "persona_name": selection.persona_name,
+                        "persona_config": selection.persona_config,
+                        "enable_interruptions": selection.persona_config.interrupt_tendency
+                        == InterruptTendency.INTERRUPTS,
+                        "speech_effects_config": speech,
+                    }
+                )
             else:
                 logger.warning(
                     f"Task {task_id} not found in {config_path}, sampling on the fly"
@@ -668,6 +812,7 @@ def get_or_load_task_voice_config(
         seed=task_seed,
         synthesis_config=synthesis_config,
         complexity=complexity,
+        selection=selection,
     )
 
 

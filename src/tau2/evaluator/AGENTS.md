@@ -37,10 +37,10 @@ The `evaluate_simulation()` function in `evaluator.py` is the main entry point. 
 
 ### `EvaluationType` Controls What Gets Evaluated
 
-- `ALL` — runs ENV + ACTION + COMMUNICATE, but only includes each in the final reward if it's in the task's `reward_basis`
+- `ALL` — runs ENV + ACTION, plus COMMUNICATE and NL_ASSERTIONS when listed in the task's `reward_basis`; only listed components affect the final reward
 - `ALL_IGNORE_BASIS` — runs all three and always multiplies them together
 - `ENV`, `ACTION`, `COMMUNICATE` — run a single evaluator
-- `NL_ASSERTIONS`, `ALL_WITH_NL_ASSERTIONS` — include NL assertions (WIP)
+- `NL_ASSERTIONS`, `ALL_WITH_NL_ASSERTIONS` — explicitly include NL assertions; the latter still skips COMMUNICATE when it is outside the reward basis (WIP)
 - `ALL_WITH_NL_ASSERTIONS_IGNORE_BASIS` — like `ALL_IGNORE_BASIS` but also includes NL assertions (WIP)
 
 ## Rules When Modifying This Module
@@ -59,8 +59,10 @@ The `evaluate_simulation()` function in `evaluator.py` is the main entry point. 
 
 7. **Environment evaluator needs `environment_constructor` and `env_kwargs`**: Unlike other evaluators, `EnvironmentEvaluator.calculate_reward()` takes an `environment_constructor` callable to create fresh environments for gold vs predicted comparison. It also accepts `env_kwargs: dict` for domain-specific parameters (e.g., `retrieval_variant` for `banking_knowledge`). These kwargs are threaded from `evaluate_simulation()` through to both the predicted and gold environment constructors. Always pass `env_kwargs` when calling `calculate_reward()` to ensure domains with custom constructor parameters work correctly.
 
-8. **NL assertions require LLM calls**: `NLAssertionsEvaluator` calls an LLM (configured via `DEFAULT_LLM_NL_ASSERTIONS` in `config.py`). This is experimental/WIP.
+8. **Communication matching**: `CommunicateScoring` selects the scorer. The pinned semantic judge is the default in both communication evaluator variants; substring matching (with comma stripping) runs only when `scorer="substring"` is explicit. Semantic matching makes one `communicate_info_eval` call per expected fact and records the scoring settings; the language addendum is added only when `customer_language` (a cross-lingual call) is set. Missing/empty criteria are neutral and make no LLM calls. Explicit `COMMUNICATE` and both ignore-basis modes still evaluate communication even when it is outside the task reward basis.
 
-9. **Hallucination check**: `check_hallucination()` and `format_hallucination_feedback()` in `reviewer.py` are used by the runner's hallucination retry loop (full-duplex only). The underlying LLM judge is in `hallucination_reviewer.py`. See `tau2.runner.batch` and the `--hallucination-retries` CLI option.
+9. **NL assertions require LLM calls**: `NLAssertionsEvaluator` calls an LLM (configured via `DEFAULT_LLM_NL_ASSERTIONS` in `config.py`). This is experimental/WIP.
+
+10. **Hallucination check**: `check_hallucination()` and `format_hallucination_feedback()` in `reviewer.py` are used by the runner's hallucination retry loop (full-duplex only). The underlying LLM judge is in `hallucination_reviewer.py`. See `tau2.runner.batch` and the `--hallucination-retries` CLI option.
 
 Consider these rules if they affect your changes.

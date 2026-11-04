@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tau2"
-version = "1.0.1"
+version = "2.0.0"
 description = "tau-bench: Benchmarking tool-agent-user interaction in real-world domains"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
@@ -33,9 +33,13 @@ dependencies = [
     "requests>=2.31.0",
     "numpy>=1.24.0",
     "httpx>=0.24.0",
+    "pydantic>=2.12",
 ]
 
 [project.optional-dependencies]
+localization-review = [
+    "openpyxl>=3.1.5,<4",
+]
 live = [
     "tau2[voice]",
     "aiortc==1.15.0",
@@ -51,13 +55,15 @@ voice = [
     "pydub>=0.25.0",
     "tqdm>=4.0",
     "aiohttp>=3.0",
-    "google-genai>=2.15.0",
+    "google-genai>=2.30.1,<3.0.0",
     "boto3>=1.35.0",
     "aws-sdk-bedrock-runtime>=0.3.0",
+    "phonic>=0.32.39",
     "google-cloud-aiplatform>=1.38.0",
     "google-auth>=2.23.0",
     "livekit-agents>=1.5.0",
     "livekit-plugins-deepgram>=1.5.0",
+    "livekit-plugins-elevenlabs>=1.5.0",
     "livekit-plugins-openai>=1.5.0",
 ]
 knowledge = [
@@ -80,7 +86,7 @@ experiments = [
     "scikit-learn>=1.6.1",
 ]
 all = [
-    "tau2[voice,live,knowledge,gym,dev,experiments]",
+    "tau2[voice,live,knowledge,gym,dev,experiments,localization-review]",
 ]
 [project.urls]
 Homepage = "https://taubench.com/"
@@ -96,6 +102,8 @@ filterwarnings = [
 ]
 asyncio_default_fixture_loop_scope = "function"
 markers = [
+    "live_api: calls paid model APIs (opt in with --run-live-api)",
+    "slow: full-bundle multilingual checks (deselect with '-m \"not slow\"')",
     "full_duplex_integration: marks tests as full-duplex integration tests requiring OpenAI Realtime API and TTS (deselect with '-m \"not full_duplex_integration\"')",
 ]
 

@@ -111,6 +111,7 @@ class XAIRealtimeProvider:
         voice: Optional[str] = None,
         audio_format: XAIAudioFormat = XAIAudioFormat.PCMU,
         sample_rate: int = DEFAULT_TELEPHONY_RATE,
+        language_hint: Optional[str] = None,
     ):
         """Initialize the xAI Realtime provider.
 
@@ -123,6 +124,7 @@ class XAIRealtimeProvider:
                 leo). Defaults to ara.
             audio_format: Audio format for input/output. Defaults to PCMU (G.711 μ-law)
                 which is optimal for telephony (no conversion needed).
+            language_hint: BCP-47 ASR bias sent in audio.input.transcription.
             sample_rate: Sample rate for PCM format (ignored for PCMU/PCMA).
                 Supported: 8000, 16000, 24000, 32000, 44100, 48000. Default: 8000.
 
@@ -137,6 +139,7 @@ class XAIRealtimeProvider:
         self.voice = voice or self.DEFAULT_VOICE
         self.audio_format = audio_format
         self.sample_rate = sample_rate
+        self.language_hint = language_hint
         self.ws: Optional[websockets.WebSocketClientProtocol] = None
         self._current_vad_config: Optional[XAIVADConfig] = None
         self.session_id: Optional[str] = None
@@ -201,22 +204,25 @@ class XAIRealtimeProvider:
         """Build the audio configuration for the session."""
         if self.audio_format == XAIAudioFormat.PCMU:
             # G.711 μ-law at 8kHz (telephony)
-            return {
+            config = {
                 "input": {"format": {"type": "audio/pcmu"}},
                 "output": {"format": {"type": "audio/pcmu"}},
             }
         elif self.audio_format == XAIAudioFormat.PCMA:
             # G.711 A-law at 8kHz
-            return {
+            config = {
                 "input": {"format": {"type": "audio/pcma"}},
                 "output": {"format": {"type": "audio/pcma"}},
             }
         else:
             # PCM with configurable sample rate
-            return {
+            config = {
                 "input": {"format": {"type": "audio/pcm", "rate": self.sample_rate}},
                 "output": {"format": {"type": "audio/pcm", "rate": self.sample_rate}},
             }
+        if self.language_hint:
+            config["input"]["transcription"] = {"language_hint": self.language_hint}
+        return config
 
     def _build_turn_detection_config(self, vad_config: XAIVADConfig) -> Optional[Dict]:
         """Build the turn detection configuration."""

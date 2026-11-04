@@ -103,6 +103,7 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
         provider: Optional[GeminiLiveProvider] = None,
         max_resumptions: int = 3,
         resume_only_on_timeout: bool = True,
+        language: Optional[str] = None,
     ):
         """Initialize the discrete-time Gemini adapter.
 
@@ -119,6 +120,7 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
             max_resumptions: Maximum number of session resumptions to attempt
                 when the WebSocket connection is closed. Set to 0 to disable
                 session resumption. Defaults to 3.
+            language: Resolved run language for supported speech-language settings.
             resume_only_on_timeout: If True (default), only attempt resumption
                 when the connection closes due to the planned ~10 minute timeout
                 (indicated by a GoAway message). If False, attempt resumption
@@ -141,6 +143,7 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
             raise ValueError("model and provider cannot be provided together")
 
         self.model = model
+        self.language = language
         self.reasoning_effort = reasoning_effort
         self._max_resumptions = max_resumptions
         self._resume_only_on_timeout = resume_only_on_timeout
@@ -236,6 +239,7 @@ class DiscreteTimeGeminiAdapter(DiscreteTimeAdapter):
             tools=tools,
             vad_config=vad_config,
             modality=modality,
+            language=self.language,
         )
 
     def disconnect(self) -> None:

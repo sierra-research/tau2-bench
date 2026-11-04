@@ -456,3 +456,38 @@ if __name__ == "__main__":
     # test_update_reservation_baggages()
     # test_update_reservation_flights()
     # test_update_reservation_passengers()
+
+
+def test_spoken_ids_write_canonical_reservation(environment, reservation_call):
+    reservation_call.arguments["user_id"] = " MÍA_LI_3668 "
+    reservation_call.arguments["flights"][0].flight_number = "hat001"
+    response = environment.get_response(reservation_call)
+    assert not response.error
+    reservation = json.loads(response.content)
+    assert reservation["user_id"] == "mia_li_3668"
+    assert reservation["flights"][0]["flight_number"] == "HAT001"
+    response = environment.get_response(
+        ToolCall(
+            id="update",
+            name="update_reservation_flights",
+            arguments={
+                "reservation_id": reservation["reservation_id"].lower(),
+                "cabin": "economy",
+                "flights": [{"flight_number": "hat001", "date": "2024-05-16"}],
+                "payment_id": "credit_card_4421486",
+            },
+        )
+    )
+    assert not response.error
+    updated = json.loads(response.content)
+    assert updated["flights"] == reservation["flights"]
+
+
+def test_folded_identifier_ambiguity_and_exact_precedence():
+    from tau2.domains.airline.tools import _resolve_key_folded
+
+    mapping = {"José": 1, "Jose": 2}
+    assert _resolve_key_folded(mapping, "José") == "José"
+    assert _resolve_key_folded(mapping, "JOSE") is None
+    assert _resolve_key_folded({"HAT001": 1}, " hat001 ") == "HAT001"
+    assert _resolve_key_folded({"HAT001": 1}, "HAT002") is None

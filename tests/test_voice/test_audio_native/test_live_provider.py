@@ -10,10 +10,12 @@ import pytest
 from aiortc.rtcpeerconnection import CODECS
 from aiortc.sdp import SessionDescription
 
-from tau2.agent.base.streaming import _has_meaningful_content
 from tau2.config import DEFAULT_OPENAI_LIVE_MODEL
+from tau2.data_model.live_config import LiveConfig
 from tau2.data_model.message import AssistantMessage
-from tau2.data_model.simulation import AudioNativeConfig
+from tau2.data_model.run_config import AudioNativeConfig
+from tau2.data_model.transcript import LiveTranscriptTick
+from tau2.utils.transcript.linearization import has_meaningful_content
 from tau2.voice.audio_native.adapter import create_adapter
 from tau2.voice.audio_native.audio_converter import StreamingTelephonyConverter
 from tau2.voice.audio_native.openai.discrete_time_adapter import (
@@ -24,7 +26,6 @@ from tau2.voice.audio_native.openai.events import (
     FunctionCallArgumentsDoneEvent,
 )
 from tau2.voice.audio_native.openai.live_adapter import DiscreteTimeOpenAILiveAdapter
-from tau2.voice.audio_native.openai.live_config import LiveConfig
 from tau2.voice.audio_native.openai.live_provider import (
     LiveInputTranscriptDelta,
     LiveTranscriptDelta,
@@ -71,11 +72,7 @@ def test_default_templates_slot_system_prompt_and_keep_tools_backend_only(provid
         "speaking immediately when the user speaks."
     )
     backend = session["delegation"]["responses"]
-    assert backend["instructions"] == (
-        "ORIGINAL DOMAIN POLICY\n\n"
-        "Normalize ten spoken phone-number digits as XXX-XXX-XXXX before "
-        "calling a phone lookup."
-    )
+    assert backend["instructions"] == "ORIGINAL DOMAIN POLICY"
     assert backend["model"] == "test-backend"
     assert backend["reasoning"] == {"effort": "low"}
     assert backend["tools"][0]["name"] == "lookup"
@@ -121,7 +118,7 @@ def test_create_adapter_uses_default_live_frontend_model(monkeypatch):
         live_config=LiveConfig(backend_model="test-backend"),
     )
 
-    assert model == DEFAULT_OPENAI_LIVE_MODEL == "gpt-live-1-diamond-alpha"
+    assert model == DEFAULT_OPENAI_LIVE_MODEL == "gpt-live-1"
     assert adapter.model == DEFAULT_OPENAI_LIVE_MODEL
 
 
@@ -331,10 +328,12 @@ def test_stock_activity_does_not_confuse_continuous_silence_with_speech(
         audio_sent_bytes=1600,
         audio_sent_duration_ms=200,
         agent_audio_chunks=[(audio, "speech")],
+        live_transcript=LiveTranscriptTick(session_id="test-session"),
     )
     monkeypatch.setattr(DiscreteTimeOpenAIAdapter, "run_tick", lambda *args: result)
     assert adapter.run_tick(b"\xff" * 1600).contains_speech is speech
     assert result.agent_audio_data == audio
+    assert bool(result.live_transcript.speech_intervals_ms) is speech
     if not speech:
         # Native text can arrive on a quiet PCM boundary. The stock caller
         # must retain it, then resume treating transport silence as silence.
@@ -344,6 +343,7 @@ def test_stock_activity_does_not_confuse_continuous_silence_with_speech(
                 LiveTranscriptDelta(
                     type="response.output_audio_transcript.delta",
                     delta="Your order shipped.",
+                    event_id="fragment-test",
                     audio_position_bytes=0,
                     start_ms=0,
                     end_ms=200,
@@ -357,8 +357,12 @@ def test_stock_activity_does_not_confuse_continuous_silence_with_speech(
             contains_speech=late.contains_speech,
         )
         assert message.content == "Your order shipped."
+        saved = late.model_dump()["live_transcript"]["fragments"][0]
+        assert saved["event_id"] == "fragment-test"
+        assert saved["text"] == message.content
+        assert saved["ingress_audio_bytes"] == 0
         assert late.contains_speech is False
-        assert _has_meaningful_content(message)
+        assert has_meaningful_content(message)
         assert late.agent_audio_data == audio
         assert adapter.run_tick(b"\xff" * 1600).contains_speech is False
 

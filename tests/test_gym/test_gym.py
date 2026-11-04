@@ -1,6 +1,7 @@
 import pytest
 
 from tau2.gym.gym_agent import AgentGymEnv, GymAgent, TauSpace
+from tau2.user.user_simulator import UserSimulator
 
 from .utils import timeout
 
@@ -21,6 +22,7 @@ class TestTauGymEnv:
         assert isinstance(env.observation_space, TauSpace)
         assert isinstance(env.action_space, TauSpace)
 
+    @pytest.mark.live_api
     @timeout(10)
     def test_tau_gym_env_reset(self):
         """Test that TauGymEnv reset works correctly."""
@@ -43,6 +45,7 @@ class TestTauGymEnv:
         assert env._orchestrator_thread is not None
         assert env._orchestrator_thread.is_alive()
 
+    @pytest.mark.live_api
     @timeout(15)
     def test_tau_gym_env_step(self):
         """Test that TauGymEnv step works correctly."""
@@ -65,6 +68,7 @@ class TestTauGymEnv:
         # Check that the action was processed
         assert len(observation) > 0
 
+    @pytest.mark.live_api
     @timeout(20)
     def test_tau_gym_env_multiple_steps(self):
         """Test that TauGymEnv can handle multiple steps."""
@@ -102,6 +106,7 @@ class TestTauGymEnv:
         with pytest.raises(RuntimeError, match="Orchestrator not initialized"):
             env.step("test action")
 
+    @pytest.mark.live_api
     @timeout(15)
     def test_tau_gym_env_reset_multiple_times(self):
         """Test that TauGymEnv can be reset multiple times."""
@@ -117,6 +122,7 @@ class TestTauGymEnv:
             assert env._orchestrator is not None
             assert env._agent is not None
 
+    @pytest.mark.live_api
     @timeout(15)
     def test_tau_gym_env_observation_format(self):
         """Test that TauGymEnv formats observations correctly."""
@@ -140,6 +146,7 @@ class TestTauGymEnv:
                 if line.strip():  # Skip empty lines
                     assert ":" in line, f"Line '{line}' should contain ':'"
 
+    @pytest.mark.live_api
     @timeout(30)
     def test_tau_gym_env_termination(self):
         """Test that TauGymEnv properly handles simulation termination."""
@@ -164,6 +171,7 @@ class TestTauGymEnv:
         # Check that we either terminated or reached max steps
         assert step_count <= max_steps
 
+    @pytest.mark.live_api
     @timeout(15)
     def test_tau_gym_env_thread_safety(self):
         """Test that TauGymEnv handles threading correctly."""
@@ -196,54 +204,105 @@ class TestTauGymEnv:
             env.reset()
 
     def test_tau_gym_env_reset_simple(self):
-        """Test that TauGymEnv reset creates components correctly without running full simulation."""
+        """The shared text builder constructs every component without running."""
         env = AgentGymEnv(domain="mock", task_id="create_task_1")
 
-        # Test that components can be created
-        environment = env._get_environment()
         task = env._get_task()
-        agent = env._get_agent()
-        user = env._get_user()
         orchestrator = env._get_orchestrator()
 
-        # Check that all components are created successfully
-        assert environment is not None
-        assert task is not None
-        assert agent is not None
-        assert user is not None
-        assert orchestrator is not None
         assert task.id == "create_task_1"
-
-        # Check that the agent is a GymAgent
-        assert isinstance(agent, GymAgent)
-
-        print("✅ Simple reset test completed successfully!")
+        assert orchestrator.environment is not None
+        assert isinstance(orchestrator.agent, GymAgent)
+        assert isinstance(orchestrator.user, UserSimulator)
+        assert orchestrator.task.id == "create_task_1"
 
     def test_tau_gym_env_basic_functionality(self):
         """Test basic TauGymEnv functionality without running full simulation."""
         env = AgentGymEnv(domain="mock", task_id="create_task_1")
 
-        # Test initialization
         assert env.domain == "mock"
         assert env.task_id == "create_task_1"
         assert env._orchestrator is None
-
-        # Test that we can create the components
-        environment = env._get_environment()
-        task = env._get_task()
-        agent = env._get_agent()
-        user = env._get_user()
         orchestrator = env._get_orchestrator()
+        assert orchestrator.solo_mode is False
+        assert orchestrator.max_steps == env.max_steps
 
-        # Check that all components are created successfully
-        assert environment is not None
-        assert task is not None
-        assert agent is not None
-        assert user is not None
-        assert orchestrator is not None
-        assert task.id == "create_task_1"
+    def test_gym_resolves_english_language_context_like_text_runs(self):
+        """No language means the canonical English pack, as for `tau2 run`."""
+        from tau2.config import DEFAULT_LANGUAGE
+        from tau2.data_model.language import RuntimePersona
+        from tau2.data_model.semantic_communication import CommunicateScoring
 
-        print("✅ Basic functionality test passed!")
+        orchestrator = AgentGymEnv(
+            domain="mock", task_id="create_task_1"
+        )._get_orchestrator()
+        context = orchestrator.call_context
+        assert context is not None
+        assert context.language.language == DEFAULT_LANGUAGE
+        assert context.language.mode == "text"
+        assert context.communicate_scoring == CommunicateScoring()
+        assert isinstance(orchestrator.user.persona_config, RuntimePersona)
+        assert orchestrator.user.persona_config.language == DEFAULT_LANGUAGE
+
+    def test_gym_uses_configured_communicate_scoring(self):
+        from tau2.data_model.semantic_communication import (
+            CommunicateScorer,
+            CommunicateScoring,
+        )
+
+        scoring = CommunicateScoring(scorer=CommunicateScorer.SUBSTRING)
+        env = AgentGymEnv(
+            domain="mock", task_id="create_task_1", communicate_scoring=scoring
+        )
+        assert env._get_orchestrator().call_context.communicate_scoring == scoring
+
+    def test_gym_resolves_a_non_english_language(self):
+        from tau2.multilingual.runtime import load_language
+
+        task_id = load_language("es", "retail", mode="text").tasks[0].id
+        env = AgentGymEnv(domain="retail", task_id=task_id, language="es")
+        orchestrator = env._get_orchestrator()
+        assert orchestrator.call_context.language.language == "es"
+        assert orchestrator.user.persona_config.language == "es"
+        assert "Spanish" in orchestrator.agent.domain_policy
+
+    def test_solo_gym_uses_the_shared_dummy_user(self):
+        from tau2.user.user_simulator import DummyUser
+
+        env = AgentGymEnv(domain="mock", task_id="create_task_1", solo_mode=True)
+        orchestrator = env._get_orchestrator()
+        assert orchestrator.solo_mode is True
+        assert isinstance(orchestrator.user, DummyUser)
+        assert isinstance(orchestrator.agent, GymAgent)
+
+    def test_reward_comes_from_the_shared_run_evaluation(self, monkeypatch):
+        """The thread runs run_simulation; the reward is its reward_info."""
+        from tau2.data_model.simulation import RewardInfo, SimulationRun
+        from tau2.gym import gym_agent
+
+        seen = {}
+
+        def fake_run_simulation(orchestrator):
+            seen["orchestrator"] = orchestrator
+            return SimulationRun(
+                id="fixture",
+                task_id="create_task_1",
+                start_time="t0",
+                end_time="t1",
+                duration=0.0,
+                termination_reason="agent_stop",
+                messages=[],
+                reward_info=RewardInfo(reward=0.5),
+            )
+
+        monkeypatch.setattr(gym_agent, "run_simulation", fake_run_simulation)
+        env = AgentGymEnv(domain="mock", task_id="create_task_1")
+        env._orchestrator = env._get_orchestrator()
+        env._run_orchestrator()
+        assert seen["orchestrator"] is env._orchestrator
+        reward, info = env._get_reward()
+        assert reward == 0.5
+        assert '"reward": 0.5' in info
 
 
 if __name__ == "__main__":

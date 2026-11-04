@@ -3,55 +3,49 @@ from collections.abc import Iterator
 from copy import deepcopy
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import Literal, Optional, Union
 
 import pandas as pd
 from pydantic import BaseModel, Field, model_validator
 from typing_extensions import Annotated
 
-if TYPE_CHECKING:
-    from tau2.voice.audio_native.livekit.config import CascadedConfig
-
 from tau2.config import (
     DEFAULT_AUDIO_NATIVE_AGENT_IMPLEMENTATION,
-    DEFAULT_AUDIO_NATIVE_MODELS,
-    DEFAULT_AUDIO_NATIVE_PROVIDER,
     DEFAULT_AUDIO_NATIVE_USER_IMPLEMENTATION,
-    DEFAULT_BACKCHANNEL_MAX_THRESHOLD_SECONDS,
-    DEFAULT_BACKCHANNEL_MIN_THRESHOLD_SECONDS,
-    DEFAULT_BACKCHANNEL_POISSON_RATE,
-    DEFAULT_INTEGRATION_DURATION_SECONDS,
-    DEFAULT_INTERRUPTION_CHECK_INTERVAL_SECONDS,
-    DEFAULT_LLM_AGENT,
-    DEFAULT_LLM_ARGS_AGENT,
-    DEFAULT_LLM_ARGS_USER,
-    DEFAULT_LLM_EVAL_USER_SIMULATOR,
-    DEFAULT_LLM_USER,
-    DEFAULT_LOG_LEVEL,
-    DEFAULT_MAX_CONCURRENCY,
-    DEFAULT_MAX_ERRORS,
-    DEFAULT_MAX_STEPS,
-    DEFAULT_MAX_STEPS_SECONDS,
-    DEFAULT_NUM_TRIALS,
-    DEFAULT_PCM_SAMPLE_RATE,
-    DEFAULT_RETRY_ATTEMPTS,
-    DEFAULT_RETRY_MIN_WAIT,
+    DEFAULT_BANKING_RETRIEVAL_CONFIG,
+    DEFAULT_ELICITATION_LLM_ARGS_USER,
+    DEFAULT_ELICITATION_LLM_USER,
+    DEFAULT_ELICITATION_MAX_STEPS_SECONDS,
+    DEFAULT_LANGUAGE,
+    DEFAULT_LOCALIZE_DB,
     DEFAULT_SAVE_TO,
-    DEFAULT_SEED,
-    DEFAULT_SEND_AUDIO_INSTANT,
-    DEFAULT_SILENCE_ANNOTATION_THRESHOLD_SECONDS,
-    DEFAULT_TELEPHONY_RATE,
     DEFAULT_TEXT_STREAMING_CONFIG,
-    DEFAULT_TICK_DURATION_SECONDS,
-    DEFAULT_USE_LLM_BACKCHANNEL,
-    DEFAULT_WAIT_TO_RESPOND_THRESHOLD_OTHER_SECONDS,
-    DEFAULT_WAIT_TO_RESPOND_THRESHOLD_SELF_SECONDS,
-    DEFAULT_YIELD_THRESHOLD_WHEN_INTERRUPTED_SECONDS,
-    DEFAULT_YIELD_THRESHOLD_WHEN_INTERRUPTING_SECONDS,
+    ELICITATION_DOMAINS,
 )
 from tau2.data_model.audio_effects import EffectTimeline
+from tau2.data_model.benchmark import BenchmarkRunInfo
+from tau2.data_model.elicitation import (
+    ElicitationConfig,
+    ElicitationStrategy,
+    SampledComplication,
+)
+from tau2.data_model.language import (
+    LanguageArtifactPins,
+    RecordedLanguageContext,
+)
 from tau2.data_model.message import Message, Tick
 from tau2.data_model.persona import PersonaConfig
+from tau2.data_model.run_config import (
+    AudioNativeConfig,
+    RunSettings,
+    TextRunSettings,
+    VoiceRunSettings,
+)
+from tau2.data_model.semantic_communication import (
+    CommunicateScorer,
+    CommunicateScoring,
+    SemanticCommunicateSettings,
+)
 from tau2.data_model.tasks import Action, EnvAssertion, RewardType, Task
 from tau2.data_model.usage import SessionUsage
 from tau2.data_model.voice import SpeechComplexity, SpeechEnvironment, VoiceSettings
@@ -59,245 +53,74 @@ from tau2.environment.environment import EnvironmentInfo
 from tau2.environment.toolkit import ToolType
 from tau2.orchestrator.modes import CommunicationMode
 from tau2.utils.utils import get_now
-from tau2.voice.audio_native.openai.live_config import LiveConfig
 
 SIMULATIONS_DIR = "simulations"
 
 
-class AudioNativeConfig(BaseModel):
-    """Configuration for audio-native mode using DiscreteTimeAudioNativeAgent.
-
-    This configuration is used when running full-duplex voice simulations
-    with audio native APIs (OpenAI Realtime or Gemini Live).
-    """
-
-    # Provider selection
-    provider: Literal[
-        "openai", "openai_live", "gemini", "xai", "nova", "qwen", "livekit"
-    ] = Field(
-        default=DEFAULT_AUDIO_NATIVE_PROVIDER,
-        description="Audio native API provider: 'openai' (OpenAI Realtime), 'openai_live' (OpenAI Live), 'gemini' (Gemini Live), 'xai' (xAI Grok Voice Agent), 'nova' (Amazon Nova Sonic), 'qwen' (Alibaba Qwen Omni), or 'livekit' (LiveKit cascaded STT→LLM→TTS)",
-    )
-
-    # Cascaded config (for livekit provider)
-    cascaded_config_name: Optional[str] = Field(
-        default=None,
-        description="Name of cascaded config preset for livekit provider (e.g., 'default', 'openai-thinking', 'openai-thinking-high')",
-    )
-
-    model: str = Field(
-        default=DEFAULT_AUDIO_NATIVE_MODELS[DEFAULT_AUDIO_NATIVE_PROVIDER],
-        description="Audio native model to use",
-    )
-    reasoning_effort: Optional[str] = Field(
-        default=None,
-        description="Reasoning effort for thinking models: 'minimal', 'low', 'medium', 'high'. If None, not sent.",
-    )
-    live_config: Optional[LiveConfig] = Field(
-        default=None,
-        description="Backend model, voice, and optional prompt overrides for the openai_live provider",
-    )
-    realtime_generation: Optional[bool] = Field(
-        default=None,
-        description="Whether user LLM and TTS generation run without blocking audio ticks. "
-        "Defaults to enabled for openai_live and disabled for other providers.",
-    )
-
-    @property
-    def realtime_generation_enabled(self) -> bool:
-        """Resolve the provider-aware default for real-time user generation."""
-        if self.realtime_generation is not None:
-            return self.realtime_generation
-        return self.provider == "openai_live"
-
-    @model_validator(mode="after")
-    def validate_live_config(self):
-        if (self.provider == "openai_live") != (self.live_config is not None):
-            raise ValueError(
-                "live_config is required for openai_live and only valid for that provider"
-            )
-        return self
-
-    # Timing configuration
-    tick_duration_seconds: float = Field(
-        default=DEFAULT_TICK_DURATION_SECONDS,
-        description="Duration of each tick in seconds (e.g., 0.2 = 200ms)",
-    )
-    max_steps_seconds: int = Field(
-        default=DEFAULT_MAX_STEPS_SECONDS,
-        description="Maximum conversation duration in seconds",
-    )
-
-    # Audio configuration
-    pcm_sample_rate: int = Field(
-        default=DEFAULT_PCM_SAMPLE_RATE,
-        description="User simulator PCM synthesis sample rate",
-    )
-    telephony_rate: int = Field(
-        default=DEFAULT_TELEPHONY_RATE,
-        description="API/agent telephony sample rate (OpenAI Realtime API)",
-    )
-
-    # User simulator turn-taking thresholds (in seconds)
-    wait_to_respond_threshold_other_seconds: float = Field(
-        default=DEFAULT_WAIT_TO_RESPOND_THRESHOLD_OTHER_SECONDS,
-        description="Min time to wait since OTHER (agent) last spoke before responding",
-    )
-    wait_to_respond_threshold_self_seconds: float = Field(
-        default=DEFAULT_WAIT_TO_RESPOND_THRESHOLD_SELF_SECONDS,
-        description="Min time to wait since SELF (user) last spoke before responding",
-    )
-    yield_threshold_when_interrupted_seconds: float = Field(
-        default=DEFAULT_YIELD_THRESHOLD_WHEN_INTERRUPTED_SECONDS,
-        description="How long user keeps speaking when agent interrupts user",
-    )
-    yield_threshold_when_interrupting_seconds: float = Field(
-        default=DEFAULT_YIELD_THRESHOLD_WHEN_INTERRUPTING_SECONDS,
-        description="How long user keeps speaking when user interrupts agent",
-    )
-    interruption_check_interval_seconds: float = Field(
-        default=DEFAULT_INTERRUPTION_CHECK_INTERVAL_SECONDS,
-        description="Interval for checking interruptions",
-    )
-    integration_duration_seconds: float = Field(
-        default=DEFAULT_INTEGRATION_DURATION_SECONDS,
-        description="Integration duration for linearization",
-    )
-    silence_annotation_threshold_seconds: float = Field(
-        default=DEFAULT_SILENCE_ANNOTATION_THRESHOLD_SECONDS,
-        description="Silence threshold for adding annotations to conversation history",
-    )
-    backchannel_min_threshold_seconds: Optional[float] = Field(
-        default=DEFAULT_BACKCHANNEL_MIN_THRESHOLD_SECONDS,
-        description="Backchannel min threshold in seconds (None = disabled). Used with Poisson policy.",
-    )
-    backchannel_max_threshold_seconds: Optional[float] = Field(
-        default=DEFAULT_BACKCHANNEL_MAX_THRESHOLD_SECONDS,
-        description="Backchannel max threshold in seconds - force backchannel after this duration. Used with Poisson policy.",
-    )
-    backchannel_poisson_rate: float = Field(
-        default=DEFAULT_BACKCHANNEL_POISSON_RATE,
-        description="Backchannel Poisson rate (events per second). Used with Poisson policy.",
-    )
-    use_llm_backchannel: bool = Field(
-        default=DEFAULT_USE_LLM_BACKCHANNEL,
-        description="If True, use LLM-based backchannel policy. If False, use Poisson-based policy with min/max thresholds.",
-    )
-
-    # Agent behavior
-    use_xml_prompt: bool = Field(
-        default=False,
-        description="Use XML tags in system prompt. Defaults to False (plain text) for all providers.",
-    )
-    send_audio_instant: bool = Field(
-        default=DEFAULT_SEND_AUDIO_INSTANT,
-        description="If True, send all audio at once per tick. If False (default), stream audio in 20ms chunks at real-time rate.",
-    )
-
-    # Derived properties (computed from seconds and tick_duration)
-    @property
-    def tick_duration_ms(self) -> float:
-        """Tick duration in milliseconds."""
-        return self.tick_duration_seconds * 1000
-
-    @property
-    def user_chunk_size(self) -> int:
-        """User audio chunk size in samples."""
-        return int(self.pcm_sample_rate * self.tick_duration_seconds)
-
-    @property
-    def wait_to_respond_threshold_other_ticks(self) -> int:
-        """Wait to respond threshold (other) in ticks."""
-        return int(
-            self.wait_to_respond_threshold_other_seconds / self.tick_duration_seconds
-        )
-
-    @property
-    def wait_to_respond_threshold_self_ticks(self) -> int:
-        """Wait to respond threshold (self) in ticks."""
-        return int(
-            self.wait_to_respond_threshold_self_seconds / self.tick_duration_seconds
-        )
-
-    @property
-    def yield_threshold_when_interrupted_ticks(self) -> int:
-        """Yield threshold when interrupted (agent interrupts user) in ticks."""
-        return int(
-            self.yield_threshold_when_interrupted_seconds / self.tick_duration_seconds
-        )
-
-    @property
-    def yield_threshold_when_interrupting_ticks(self) -> int:
-        """Yield threshold when interrupting (user interrupts agent) in ticks."""
-        return int(
-            self.yield_threshold_when_interrupting_seconds / self.tick_duration_seconds
-        )
-
-    @property
-    def interruption_check_interval_ticks(self) -> int:
-        """Interruption check interval in ticks."""
-        return int(
-            self.interruption_check_interval_seconds / self.tick_duration_seconds
-        )
-
-    @property
-    def integration_ticks(self) -> int:
-        """Integration ticks for linearization."""
-        return max(
-            1, int(self.integration_duration_seconds / self.tick_duration_seconds)
-        )
-
-    @property
-    def silence_annotation_threshold_ticks(self) -> int:
-        """Silence annotation threshold in ticks."""
-        return int(
-            self.silence_annotation_threshold_seconds / self.tick_duration_seconds
-        )
-
-    @property
-    def backchannel_min_threshold_ticks(self) -> Optional[int]:
-        """Backchannel min threshold in ticks (None if disabled)."""
-        if self.backchannel_min_threshold_seconds is None:
-            return None
-        return int(self.backchannel_min_threshold_seconds / self.tick_duration_seconds)
-
-    @property
-    def backchannel_max_threshold_ticks(self) -> Optional[int]:
-        """Backchannel max threshold in ticks (None if not set)."""
-        if self.backchannel_max_threshold_seconds is None:
-            return None
-        return int(self.backchannel_max_threshold_seconds / self.tick_duration_seconds)
-
-    @property
-    def max_steps_ticks(self) -> int:
-        """Maximum steps in ticks."""
-        return int(self.max_steps_seconds / self.tick_duration_seconds)
-
-    @property
-    def cascaded_config(self) -> Optional["CascadedConfig"]:
-        """Get the CascadedConfig for livekit provider.
-
-        Returns the config from CASCADED_CONFIGS if a name is specified,
-        otherwise returns None (will use defaults).
-        """
-        if self.cascaded_config_name is None:
-            return None
-
-        from tau2.voice.audio_native.livekit.config import CASCADED_CONFIGS
-
-        if self.cascaded_config_name not in CASCADED_CONFIGS:
-            raise ValueError(
-                f"Unknown cascaded config: '{self.cascaded_config_name}'. "
-                f"Available: {list(CASCADED_CONFIGS.keys())}"
-            )
-        return CASCADED_CONFIGS[self.cascaded_config_name]
-
-
-class BaseRunConfig(BaseModel):
+class BaseRunConfig(RunSettings):
     """Base configuration shared by both text (half-duplex) and voice (full-duplex) modes.
 
     Do not instantiate directly. Use TextRunConfig or VoiceRunConfig.
     """
+
+    language: str = Field(
+        default=DEFAULT_LANGUAGE,
+        description="Published language pack; canonical English unless a language is requested.",
+    )
+    pack_extension: Optional[str] = Field(
+        default=None,
+        pattern=r"^[a-z][a-z0-9_-]*$",
+        description="Explicit separate-run domain extension.",
+    )
+
+    localize_db: Optional[bool] = Field(
+        default=None,
+        description="Use the language's published regional database, tasks and policy "
+        "where it has one (default). False keeps canonical scenarios with the same "
+        "call language.",
+    )
+
+    language_artifacts: Optional[LanguageArtifactPins] = Field(
+        default=None,
+        description="Resolved content pins carried to workers; mutations fail before provider use.",
+    )
+
+    @model_validator(mode="after")
+    def _resolve_elicitation(self) -> "BaseRunConfig":
+        """Resolve domain defaults before either CLI or programmatic execution."""
+        if self.domain not in ELICITATION_DOMAINS:
+            if self.elicitation is not None:
+                raise ValueError("elicitation settings require an elicitation domain")
+            return self
+        if self.elicitation is None:
+            self.elicitation = ElicitationConfig()
+        if (
+            self.elicitation.strategy == ElicitationStrategy.AGENT_DIRECTED
+            and not self.is_voice
+        ):
+            raise ValueError(
+                "Agent-directed intake requires a voice run; "
+                "select the scaffolded strategy for the text ablation"
+            )
+        if "llm_user" not in self.model_fields_set:
+            self.llm_user = DEFAULT_ELICITATION_LLM_USER
+        if (
+            "llm_args_user" not in self.model_fields_set
+            and self.llm_user == DEFAULT_ELICITATION_LLM_USER
+        ):
+            self.llm_args_user = deepcopy(DEFAULT_ELICITATION_LLM_ARGS_USER)
+        if (
+            self.is_voice
+            and "max_steps_seconds" not in self.audio_native_config.model_fields_set
+        ):
+            self.audio_native_config = self.audio_native_config.model_copy(
+                update={"max_steps_seconds": DEFAULT_ELICITATION_MAX_STEPS_SECONDS}
+            )
+        return self
+
+    benchmark: Optional[BenchmarkRunInfo] = Field(
+        default=None, description="Explicit versioned benchmark selection, if any."
+    )
 
     # ---- Domain and task selection ----
     domain: Annotated[
@@ -336,176 +159,12 @@ class BaseRunConfig(BaseModel):
         ),
     ]
 
-    # ---- User simulator ----
-    llm_user: Annotated[
-        str,
-        Field(
-            description="The model to use for the user simulator",
-            default=DEFAULT_LLM_USER,
-        ),
-    ]
-    llm_args_user: Annotated[
-        dict,
-        Field(
-            description="The arguments to pass to the LLM for the user simulator",
-            default_factory=lambda: deepcopy(DEFAULT_LLM_ARGS_USER),
-        ),
-    ]
-
     # ---- Execution parameters ----
-    num_trials: Annotated[
-        int,
-        Field(
-            description="The number of trials to run the simulation on",
-            default=DEFAULT_NUM_TRIALS,
-        ),
-    ]
-    max_errors: Annotated[
-        int,
-        Field(
-            description="The maximum number of tool errors allowed in a row in the simulation",
-            default=DEFAULT_MAX_ERRORS,
-        ),
-    ]
-    timeout: Annotated[
-        Optional[float],
-        Field(
-            description="Maximum wallclock time in seconds for a single simulation. None means no timeout.",
-            default=None,
-        ),
-    ]
     save_to: Annotated[
         Optional[str],
         Field(
             description="The path to json file where to save the simulation results",
             default=DEFAULT_SAVE_TO,
-        ),
-    ]
-    max_concurrency: Annotated[
-        int,
-        Field(
-            description="The maximum number of concurrent simulations to run",
-            default=DEFAULT_MAX_CONCURRENCY,
-        ),
-    ]
-    workers: Annotated[
-        int,
-        Field(
-            description="Number of worker processes to spawn. 0 (default) runs "
-            "simulations in this process; N > 0 makes this process a controller "
-            "that schedules and checkpoints while N workers execute, each "
-            "holding up to max_concurrency simulations in flight.",
-            default=0,
-        ),
-    ]
-    provider_limits: Annotated[
-        Optional[dict[str, int]],
-        Field(
-            description="Max concurrently-running simulations per provider, "
-            "enforced at lease time in controller mode (workers > 0), "
-            'e.g. {"openai": 40, "gemini": 20}.',
-            default=None,
-        ),
-    ]
-    seed: Annotated[
-        Optional[int],
-        Field(
-            description="The seed to use for the simulation",
-            default=DEFAULT_SEED,
-        ),
-    ]
-    log_level: Annotated[
-        Optional[str],
-        Field(
-            description="The log level to use for the simulation",
-            default=DEFAULT_LOG_LEVEL,
-        ),
-    ]
-    verbose_logs: Annotated[
-        bool,
-        Field(
-            description="Enable verbose logging: saves LLM call logs, audio files, per-task logs, and ticks (for audio-native).",
-            default=False,
-        ),
-    ]
-
-    # ---- Retry ----
-    max_retries: Annotated[
-        int,
-        Field(
-            description="Maximum number of retries for failed tasks.",
-            default=DEFAULT_RETRY_ATTEMPTS,
-        ),
-    ]
-    retry_delay: Annotated[
-        float,
-        Field(
-            description="Delay in seconds between retries.",
-            default=DEFAULT_RETRY_MIN_WAIT,
-        ),
-    ]
-
-    # ---- Resume and review ----
-    auto_resume: Annotated[
-        bool,
-        Field(
-            description="Automatically resume from existing save file without prompting.",
-            default=False,
-        ),
-    ]
-    auto_review: Annotated[
-        bool,
-        Field(
-            description="Automatically run LLM conversation review after each simulation.",
-            default=False,
-        ),
-    ]
-    review_mode: Annotated[
-        Literal["full", "user"],
-        Field(
-            description="Review mode when auto_review is enabled: 'full' (agent+user errors, default) or 'user' (user simulator only).",
-            default="full",
-        ),
-    ]
-    review_model: Annotated[
-        str,
-        Field(
-            description="LLM model for conversation review and hallucination checks.",
-            default=DEFAULT_LLM_EVAL_USER_SIMULATOR,
-        ),
-    ]
-    hallucination_retries: Annotated[
-        int,
-        Field(
-            description="Maximum number of retries when a user simulator hallucination is detected. "
-            "Set to 0 to disable. "
-            "Each retry re-runs the simulation with a different seed and feedback.",
-            default=3,
-        ),
-    ]
-
-    # ---- Misc ----
-    is_remote: Annotated[
-        bool,
-        Field(
-            description="Whether to run the simulation remotely",
-            default=False,
-        ),
-    ]
-
-    # ---- Knowledge retrieval ----
-    retrieval_config: Annotated[
-        Optional[str],
-        Field(
-            description="Knowledge retrieval config name (knowledge domain only).",
-            default=None,
-        ),
-    ]
-    retrieval_config_kwargs: Annotated[
-        Optional[dict],
-        Field(
-            description="Arguments to pass to the retrieval config constructor (e.g., top_k for RAG configs).",
-            default=None,
         ),
     ]
 
@@ -515,8 +174,87 @@ class BaseRunConfig(BaseModel):
     def _default_banking_retrieval_config(self) -> "BaseRunConfig":
         """Default retrieval_config to alltools for banking_knowledge."""
         if self.domain == "banking_knowledge" and self.retrieval_config is None:
-            object.__setattr__(self, "retrieval_config", "alltools")
+            object.__setattr__(
+                self, "retrieval_config", DEFAULT_BANKING_RETRIEVAL_CONFIG
+            )
         return self
+
+    @model_validator(mode="after")
+    def _resolve_language_settings(self) -> "BaseRunConfig":
+        """Resolve provider language settings from the run's call language."""
+        audio = getattr(self, "audio_native_config", None)
+        if audio is None:
+            return self
+        recorded_language = audio.language
+        if audio.language is not None and audio.language != self.language:
+            raise ValueError("provider language must match the run language")
+        audio = audio.model_copy(deep=True)
+        # Derived values are not marked as explicitly set, so an unset-only dump
+        # of this config retargets cleanly to another language.
+        derived = set()
+        if audio.language is None:
+            audio.language = self.language
+            derived.add("language")
+        if audio.provider == "openai" and audio.transcription_language is None:
+            audio.transcription_language = self.language.split("-")[0]
+            derived.add("transcription_language")
+        if audio.transcription_language is not None and audio.provider != "openai":
+            raise ValueError("transcription_language applies only to OpenAI Realtime")
+        if audio.voice is not None and audio.provider != "openai":
+            raise ValueError(
+                "voice override is supported for openai; openai_live uses live_config.voice"
+            )
+        if audio.provider == "livekit":
+            from tau2.data_model.cascaded import CascadedConfigRequest
+
+            request = audio.cascaded_request or CascadedConfigRequest()
+            if (
+                audio.cascaded_config is not None
+                and audio.cascaded_config != request.resolve(recorded_language)
+            ):
+                raise ValueError(
+                    "Recorded LiveKit settings differ from the requested pipeline; "
+                    "supply overrides through CascadedConfigRequest(config=...)"
+                )
+            if audio.cascaded_config is None:
+                derived.add("cascaded_config")
+            audio.cascaded_config = request.resolve(self.language)
+        elif audio.cascaded_config is not None or audio.cascaded_request is not None:
+            raise ValueError("cascaded configuration applies only to LiveKit")
+        audio.__pydantic_fields_set__.difference_update(derived)
+        self.audio_native_config = audio
+        return self
+
+    def template_values(self) -> dict:
+        """This config's explicit request, without its language binding.
+
+        Settings equal to what the run language derives are dropped, so a
+        (possibly serialized) config can be re-resolved for another language.
+        """
+        values = self.model_dump(mode="python", exclude_unset=True)
+        values.pop("language", None)
+        audio = getattr(self, "audio_native_config", None)
+        requested = values.get("audio_native_config")
+        if audio is not None and requested is not None:
+            if audio.language == self.language:
+                requested.pop("language", None)
+            if (
+                audio.provider == "openai"
+                and audio.transcription_language == self.language.split("-")[0]
+            ):
+                requested.pop("transcription_language", None)
+            if audio.provider == "livekit":
+                from tau2.data_model.cascaded import CascadedConfigRequest
+
+                request = audio.cascaded_request or CascadedConfigRequest()
+                if audio.cascaded_config == request.resolve(self.language):
+                    requested.pop("cascaded_config", None)
+        return values
+
+    @property
+    def effective_localize_db(self) -> bool:
+        """Regional scenarios are the default wherever a language publishes one."""
+        return DEFAULT_LOCALIZE_DB if self.localize_db is None else self.localize_db
 
     @property
     def effective_agent(self) -> str:
@@ -554,71 +292,24 @@ class BaseRunConfig(BaseModel):
         return isinstance(self, VoiceRunConfig)
 
     def validate(self) -> None:
-        """Validate the run config."""
-        pass
+        """Validate executable benchmark conditions before starting providers."""
+        if self.pack_extension is not None and not self.effective_localize_db:
+            raise ValueError("pack extensions require a localized language")
+        if (
+            self.benchmark is not None
+            and self.communicate_scoring.scorer != CommunicateScorer.SEMANTIC
+        ):
+            raise ValueError(
+                "Benchmark scoring requires the pinned semantic communicate-info judge"
+            )
 
 
-class TextRunConfig(BaseRunConfig):
+class TextRunConfig(BaseRunConfig, TextRunSettings):
     """Configuration for half-duplex (text) simulations.
 
     Text mode uses turn-based message exchange between an LLM agent and a
     user simulator, with an Orchestrator managing the conversation.
     """
-
-    # ---- Agent ----
-    agent: Annotated[
-        str,
-        Field(
-            description="The agent implementation to use (e.g., 'llm_agent', 'llm_agent_gt', 'llm_agent_solo')",
-            default="llm_agent",
-        ),
-    ]
-    llm_agent: Annotated[
-        str,
-        Field(
-            description="The model to use for the agent",
-            default=DEFAULT_LLM_AGENT,
-        ),
-    ]
-    llm_args_agent: Annotated[
-        dict,
-        Field(
-            description="The arguments to pass to the LLM for the agent",
-            default_factory=lambda: deepcopy(DEFAULT_LLM_ARGS_AGENT),
-        ),
-    ]
-
-    # ---- User ----
-    user: Annotated[
-        str,
-        Field(
-            description="The user implementation to use (e.g., 'user_simulator', 'dummy_user')",
-            default="user_simulator",
-        ),
-    ]
-
-    # ---- Text-specific ----
-    max_steps: Annotated[
-        int,
-        Field(
-            description="The maximum number of conversation turns",
-            default=DEFAULT_MAX_STEPS,
-        ),
-    ]
-    enforce_communication_protocol: Annotated[
-        bool,
-        Field(
-            description="Whether to enforce communication protocol rules (e.g., no mixed messages with text and tool calls)",
-            default=False,
-        ),
-    ]
-    text_streaming_config: Annotated[
-        Optional[dict],
-        Field(
-            description="Text streaming configuration",
-            default=None,
-        ),
-    ]
 
     # ---- Properties ----
 
@@ -643,7 +334,7 @@ class TextRunConfig(BaseRunConfig):
         return None
 
 
-class VoiceRunConfig(BaseRunConfig):
+class VoiceRunConfig(BaseRunConfig, VoiceRunSettings):
     """Configuration for full-duplex (voice/audio-native) simulations.
 
     Voice mode uses real-time audio exchange between a discrete-time audio-native
@@ -651,50 +342,15 @@ class VoiceRunConfig(BaseRunConfig):
     managing the tick-based simulation.
     """
 
-    # ---- Audio-native config (required) ----
-    audio_native_config: Annotated[
-        AudioNativeConfig,
-        Field(
-            description="Configuration for audio-native mode (provider, model, timing, thresholds, etc.).",
-        ),
-    ]
+    def validate(self) -> None:
+        """Validate voice-provider requirements before any simulation starts."""
+        super().validate()
+        if self.audio_native_config.provider == "gemini":
+            from tau2.voice.audio_native.gemini.provider import (
+                require_extended_thinking_sdk,
+            )
 
-    # ---- Voice-specific ----
-    speech_complexity: Annotated[
-        SpeechComplexity,
-        Field(
-            description="Speech environment complexity level: 'control' (clean speech, no effects), 'regular' (realistic with background noise and effects), plus ablation variants",
-            default="regular",
-        ),
-    ]
-    agent_voice_settings: Annotated[
-        Optional[VoiceSettings],
-        Field(
-            description="Voice synthesis and transcription settings for the agent",
-            default=None,
-        ),
-    ]
-    user_voice_settings: Annotated[
-        Optional[VoiceSettings],
-        Field(
-            description="Voice synthesis and transcription settings for the user",
-            default=None,
-        ),
-    ]
-    audio_debug: Annotated[
-        bool,
-        Field(
-            description="Enable audio debugging: saves per-tick audio files and analysis report.",
-            default=False,
-        ),
-    ]
-    audio_taps: Annotated[
-        bool,
-        Field(
-            description="Enable audio tap recording at each pipeline stage for signal analysis.",
-            default=False,
-        ),
-    ]
+            require_extended_thinking_sdk(self.audio_native_config.model)
 
     # ---- Properties ----
 
@@ -946,18 +602,37 @@ class HallucinationCheckError(BaseModel):
     )
 
 
+class HallucinationReviewFailure(BaseModel):
+    """Evidence retained when the post-call reviewer cannot return a verdict."""
+
+    error_type: str = Field(description="Class of the reviewer failure.")
+    message: str = Field(description="Reviewer error message.")
+    raw_responses: list[str] = Field(
+        description="Invalid raw LLM replies, when a response was received.",
+        default_factory=list,
+    )
+
+
 class HallucinationCheck(BaseModel):
     """
     Result of checking a conversation for user simulator hallucinations.
     """
 
     reasoning: str = Field(
-        description="Step-by-step reasoning about the conversation before the decision.",
+        description="Concise evidence summary for the hallucination verdict.",
         default="",
     )
-    hallucination_found: bool = Field(
-        description="Whether any hallucinations were detected.",
+    hallucination_found: Optional[bool] = Field(
+        description="Whether hallucinations were detected; null when review failed.",
         default=False,
+    )
+    review_status: Literal["completed", "failed"] = Field(
+        description="Whether the reviewer produced a valid verdict.",
+        default="completed",
+    )
+    review_failure: Optional[HallucinationReviewFailure] = Field(
+        description="Failure evidence when the reviewer could not return a verdict.",
+        default=None,
     )
     errors: list[HallucinationCheckError] = Field(
         description="List of hallucinations found.",
@@ -971,6 +646,27 @@ class HallucinationCheck(BaseModel):
         description="The cost of the hallucination check.",
         default=None,
     )
+    review_model: Optional[str] = Field(
+        description="Exact model used for this hallucination review.", default=None
+    )
+    prompt_version: Optional[str] = Field(
+        description="Version of the hallucination review prompt.", default=None
+    )
+    response_validation_retries: Optional[int] = Field(
+        description="Maximum structured-response repair attempts for the review.",
+        default=None,
+    )
+
+    @model_validator(mode="after")
+    def _verdict_matches_status(self) -> "HallucinationCheck":
+        if self.review_status == "failed":
+            if self.hallucination_found is not None or self.review_failure is None:
+                raise ValueError(
+                    "Failed review requires no verdict and failure evidence"
+                )
+        elif self.hallucination_found is None or self.review_failure is not None:
+            raise ValueError("Completed review requires a verdict without failure")
+        return self
 
 
 class AuthenticationClassification(BaseModel):
@@ -1246,7 +942,91 @@ class UserInfo(BaseModel):
 class Info(BaseModel):
     """Information about the simulator."""
 
+    domain_tools_version: Optional[str] = Field(
+        default=None,
+        description="Observed domain lookup semantics; absent for legacy results.",
+    )
+    voice_instruction_prompt_version: Optional[str] = Field(
+        default=None,
+        description="Revision of shared voice instructions used by this run; absent for text, domain overrides, or unrecorded older results.",
+    )
+
+    language: Optional[str] = Field(
+        default=None,
+        description="Resolved published language; absent only in results recorded "
+        "before every run resolved a language pack.",
+    )
+    pack_extension: Optional[str] = Field(
+        default=None, description="Explicit separate-run extension, if selected."
+    )
+    localize_db: Optional[bool] = Field(
+        default=None,
+        description="Recorded regional database request; null when not requested.",
+    )
+    language_artifacts: Optional[LanguageArtifactPins] = Field(
+        default=None,
+        description="Exact published scenario and language artifacts used by this run.",
+    )
+    language_tasks: dict[str, RecordedLanguageContext] = Field(
+        default_factory=dict,
+        description="Resolved per-task pack, identity, persona and artifact provenance.",
+    )
+
+    communicate_scoring: Optional[CommunicateScoring] = Field(
+        default=None,
+        description="Communicate-info scorer used by this run; null only in results "
+        "recorded before it was explicit (substring matching).",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def read_recorded_semantic_communicate(cls, value):
+        """Read the scorer that results saved before ``communicate_scoring`` used."""
+        if not isinstance(value, dict) or "semantic_communicate" not in value:
+            return value
+        value = dict(value)
+        judge = value.pop("semantic_communicate")
+        if value.get("communicate_scoring") is None:
+            value["communicate_scoring"] = (
+                CommunicateScoring(scorer=CommunicateScorer.SUBSTRING)
+                if judge is None
+                else CommunicateScoring(
+                    judge=SemanticCommunicateSettings.model_validate(judge)
+                )
+            )
+        return value
+
+    @property
+    def effective_communicate_scoring(self) -> CommunicateScoring:
+        """The recorded scorer; unrecorded results used substring matching."""
+        return self.communicate_scoring or CommunicateScoring(
+            scorer=CommunicateScorer.SUBSTRING
+        )
+
+    benchmark: Optional[BenchmarkRunInfo] = Field(
+        default=None, description="Recorded versioned benchmark selection, if any."
+    )
+
     git_commit: str = Field(description="The git commit hash.")
+    elicitation: Optional[ElicitationConfig] = Field(
+        default=None, description="Resolved elicitation caller settings, when enabled."
+    )
+    elicitation_scoring_version: Optional[str] = Field(
+        default=None,
+        description="Version of the elicitation value normalization and reward contract.",
+    )
+    elicitation_prompt_version: Optional[str] = Field(
+        default=None,
+        description="Version of the elicitation-specific agent and caller prompts.",
+    )
+    elicitation_catalog_version: Optional[str] = Field(
+        default=None,
+        description="Version of the elicitation stimulus catalog, including clean draws.",
+    )
+    elicitation_spell_detection_version: Optional[str] = Field(
+        default=None,
+        description="Version of the spell-event detector used by agent-directed voice runs.",
+    )
     num_trials: int = Field(description="The number of trials.")
     max_steps: int = Field(description="The maximum number of steps.")
     max_errors: int = Field(description="The maximum number of errors.")
@@ -1263,6 +1043,15 @@ class Info(BaseModel):
     speech_complexity: Optional[SpeechComplexity] = Field(
         description="Speech complexity level for audio-native mode",
         default=None,
+    )
+    channel_effects_mode: Optional[Literal["light", "regular", "heavy"]] = None
+    speech_effects_mode: Optional[Literal["light", "regular", "heavy"]] = None
+    pass3_condition: Optional[Literal["regular", "channel_heavy", "speech_heavy"]] = (
+        None
+    )
+    voice_sampling_seed: Optional[int] = Field(
+        default=None,
+        description="Caller voice sampling seed, separate from the task and trial seed.",
     )
     audio_native_config: Optional["AudioNativeConfig"] = Field(
         description="Configuration for audio-native mode",
@@ -1296,7 +1085,25 @@ class SimulationRun(BaseModel):
     Simulation run for the given task.
     """
 
+    language_context: Optional[RecordedLanguageContext] = Field(
+        default=None,
+        description="Exact published language/task/persona used for this simulation.",
+    )
+    agent_voice: Optional[str] = Field(
+        default=None, description="Effective selected agent voice, when known."
+    )
+    agent_voice_gender: Optional[str] = Field(
+        default=None,
+        description="Gender resolved by the pinned benchmark voice catalog.",
+    )
+    agent_voice_catalog: Optional[str] = Field(
+        default=None, description="Source revision of the voice metadata catalog."
+    )
     id: str = Field(description="The unique identifier for the simulation run.")
+    complication: Optional[SampledComplication] = Field(
+        default=None,
+        description="The seeded elicitation stimulus used for this simulation.",
+    )
     task_id: str = Field(description="The unique identifier for the task.")
     timestamp: str = Field(
         description="The timestamp of the simulation.", default_factory=get_now
@@ -1374,7 +1181,7 @@ class SimulationRun(BaseModel):
         default=None,
     )
     policy: Optional[str] = Field(
-        description="The policy/system prompt used for this simulation (knowledge domain only).",
+        description="The actual domain policy used for this simulation, including any task-specific context.",
         default=None,
     )
     effect_timeline: Optional[EffectTimeline] = Field(
@@ -1614,7 +1421,7 @@ class Results(BaseModel):
     # ---- Streaming / lightweight access ----
 
     @classmethod
-    def load_metadata(cls, path: Path) -> "Results":
+    def load_metadata(cls, path: Path, *, context: dict | None = None) -> "Results":
         """Load only metadata without simulations.
 
         Returns a Results instance with simulations=[]. For dir format,
@@ -1634,10 +1441,12 @@ class Results(BaseModel):
         data.pop("format_version", None)
         data.pop("simulations", None)
         data["simulations"] = []
-        return cls.model_validate(data)
+        return cls.model_validate(data, context=context)
 
     @classmethod
-    def iter_simulations(cls, path: Path) -> Iterator[SimulationRun]:
+    def iter_simulations(
+        cls, path: Path, *, context: dict | None = None
+    ) -> Iterator[SimulationRun]:
         """Yield simulations one at a time without loading all into memory.
 
         For directory format, reads each simulation file individually —
@@ -1652,13 +1461,15 @@ class Results(BaseModel):
             with open(path, "r") as f:
                 data = json.loads(f.read())
             for sim_data in data.get("simulations", []):
-                yield SimulationRun.model_validate(sim_data)
+                yield SimulationRun.model_validate(sim_data, context=context)
         else:
             _, sims_dir = cls._resolve_paths(path)
             if sims_dir.exists():
                 for sim_file in sorted(sims_dir.glob("*.json")):
                     with open(sim_file, "r") as f:
-                        yield SimulationRun.model_validate_json(f.read())
+                        yield SimulationRun.model_validate_json(
+                            f.read(), context=context
+                        )
 
     # ---- DataFrame construction helpers ----
 

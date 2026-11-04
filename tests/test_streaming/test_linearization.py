@@ -21,20 +21,19 @@ Algorithm Summary (CONTAINMENT_AWARE):
 See: src/experiments/tau_voice/linearization/cases.md
 """
 
-from tau2.agent.base.streaming import (
-    LinearizationStrategy,
-    ParticipantTick,
-    _expand_env_chunks,
-    _has_meaningful_content,
-    consolidate_messages,
-    linearize_ticks,
-)
 from tau2.data_model.message import (
     AssistantMessage,
     MultiToolMessage,
     ToolCall,
     ToolMessage,
     UserMessage,
+)
+from tau2.data_model.transcript import LinearizationStrategy, ParticipantTick
+from tau2.utils.transcript.linearization import (
+    consolidate_messages,
+    expand_env_chunks,
+    has_meaningful_content,
+    linearize_ticks,
 )
 
 # =============================================================================
@@ -549,31 +548,31 @@ class TestEdgeCases:
 
 
 class TestHasSpeechContent:
-    """Tests for _has_meaningful_content helper function."""
+    """Tests for has_meaningful_content helper function."""
 
     def test_none_chunk(self):
         """None returns False."""
-        assert _has_meaningful_content(None) is False
+        assert has_meaningful_content(None) is False
 
     def test_chunk_with_content(self):
         """Chunk with content returns True."""
         msg = UserMessage(role="user", content="Hello", contains_speech=True)
-        assert _has_meaningful_content(msg) is True
+        assert has_meaningful_content(msg) is True
 
     def test_chunk_with_empty_content(self):
         """Chunk with empty content and contains_speech=False returns False."""
         msg = UserMessage(role="user", content="", contains_speech=False)
-        assert _has_meaningful_content(msg) is False
+        assert has_meaningful_content(msg) is False
 
     def test_chunk_with_contains_speech_true(self):
         """Chunk with contains_speech=True returns True even without content."""
         msg = AssistantMessage(role="assistant", content=None, contains_speech=True)
-        assert _has_meaningful_content(msg) is True
+        assert has_meaningful_content(msg) is True
 
     def test_tool_message_always_meaningful(self):
         """ToolMessage is always considered meaningful."""
         msg = ToolMessage(id="call_1", role="tool", content="")
-        assert _has_meaningful_content(msg) is True
+        assert has_meaningful_content(msg) is True
 
     def test_multi_tool_message_always_meaningful(self):
         """MultiToolMessage is always considered meaningful."""
@@ -581,7 +580,7 @@ class TestHasSpeechContent:
             role="tool",
             tool_messages=[ToolMessage(id="call_1", role="tool", content="")],
         )
-        assert _has_meaningful_content(msg) is True
+        assert has_meaningful_content(msg) is True
 
     def test_tool_call_is_meaningful(self):
         """Messages with tool_calls are meaningful even if contains_speech=False."""
@@ -592,7 +591,7 @@ class TestHasSpeechContent:
             tool_calls=[tool_call],
             contains_speech=False,
         )
-        assert _has_meaningful_content(msg) is True
+        assert has_meaningful_content(msg) is True
 
 
 class TestConsolidateMessages:
@@ -754,12 +753,12 @@ class TestFixtures:
 
 
 # =============================================================================
-# _expand_env_chunks Tests
+# expand_env_chunks Tests
 # =============================================================================
 
 
 class TestExpandEnvChunks:
-    """Tests for the _expand_env_chunks transformation."""
+    """Tests for the expand_env_chunks transformation."""
 
     def test_no_env_chunks_passthrough(self):
         """Ticks without env_chunk pass through unchanged."""
@@ -770,7 +769,7 @@ class TestExpandEnvChunks:
                 2, self_chunk=assistant_msg("How?"), other_chunk=user_msg("Good")
             ),
         ]
-        expanded = _expand_env_chunks(ticks)
+        expanded = expand_env_chunks(ticks)
 
         assert len(expanded) == 3
         assert expanded[0].self_chunk.content == "Hello"
@@ -790,7 +789,7 @@ class TestExpandEnvChunks:
                 env_chunk=tool_result,
             ),
         ]
-        expanded = _expand_env_chunks(ticks)
+        expanded = expand_env_chunks(ticks)
 
         assert len(expanded) == 1
         assert expanded[0].other_chunk is tool_result
@@ -812,7 +811,7 @@ class TestExpandEnvChunks:
                 env_chunk=tool_result,
             ),
         ]
-        expanded = _expand_env_chunks(ticks)
+        expanded = expand_env_chunks(ticks)
 
         assert len(expanded) == 2
         # First tick: tool result with response
@@ -837,7 +836,7 @@ class TestExpandEnvChunks:
             ),
             create_tick(2, other_chunk=user_msg("D")),
         ]
-        expanded = _expand_env_chunks(ticks)
+        expanded = expand_env_chunks(ticks)
 
         assert len(expanded) == 4
         assert [t.tick_id for t in expanded] == [0, 1, 2, 3]
@@ -864,7 +863,7 @@ class TestExpandEnvChunks:
                 env_chunk=multi_tool,
             ),
         ]
-        expanded = _expand_env_chunks(ticks)
+        expanded = expand_env_chunks(ticks)
 
         assert len(expanded) == 1
         assert expanded[0].other_chunk is multi_tool
@@ -912,7 +911,7 @@ class TestLinearizationWithEnvChunk:
         ]
 
         # Expand new format, then linearize both
-        expanded_ticks = _expand_env_chunks(new_ticks)
+        expanded_ticks = expand_env_chunks(new_ticks)
         old_messages = linearize_ticks(
             old_ticks, LinearizationStrategy.CONTAINMENT_AWARE
         )
@@ -942,7 +941,7 @@ class TestLinearizationWithEnvChunk:
             ),
         ]
 
-        expanded = _expand_env_chunks(ticks)
+        expanded = expand_env_chunks(ticks)
         messages = linearize_ticks(expanded, LinearizationStrategy.CONTAINMENT_AWARE)
 
         # Verify all content is present
@@ -989,7 +988,7 @@ class TestLinearizationWithEnvChunk:
             ),
         ]
 
-        expanded = _expand_env_chunks(new_ticks)
+        expanded = expand_env_chunks(new_ticks)
         old_messages = linearize_ticks(
             old_ticks, LinearizationStrategy.OTHER_FIRST_PER_TICK
         )
@@ -1033,7 +1032,7 @@ class TestLinearizationWithEnvChunk:
             ),
         ]
 
-        expanded = _expand_env_chunks(ticks)
+        expanded = expand_env_chunks(ticks)
         messages = linearize_ticks(expanded, LinearizationStrategy.CONTAINMENT_AWARE)
 
         # Find tool call and tool result indices
@@ -1057,3 +1056,25 @@ class TestLinearizationWithEnvChunk:
         assert '{"success": true}' in contents
         assert any("toggling" in (c or "") for c in contents)
         assert any("moment" in (c or "") for c in contents)
+
+
+def test_public_segments_keep_speech_and_pending_tool_messages():
+    from tau2.utils.transcript.linearization import collect_containment_segments
+
+    call = tool_call_msg("call_1", "lookup")
+    result = tool_result_msg("call_1", "found")
+    caller = user_msg("Are you there?")
+    ticks = [
+        create_tick(0, self_chunk=call),
+        create_tick(1, other_chunk=caller),
+    ]
+    pending = collect_containment_segments(ticks, integration_ticks=1)
+    assert pending.other_speech[0].start_index == 1
+    assert pending.other_speech[0].chunks == {1: caller}
+    assert pending.tool_exchanges[0].call_index == 0
+    assert pending.tool_exchanges[0].call == call
+    assert pending.tool_exchanges[0].result is None
+    matched = collect_containment_segments(
+        ticks + [create_tick(2, other_chunk=result)], integration_ticks=1
+    )
+    assert matched.tool_exchanges[0].result == result

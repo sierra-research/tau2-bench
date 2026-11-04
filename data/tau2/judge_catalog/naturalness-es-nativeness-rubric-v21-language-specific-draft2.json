@@ -1,0 +1,112 @@
+{
+  "status": "unvalidated",
+  "revision": "nativeness-rubric-v21-language-specific-draft2",
+  "language_variety": "Spanish · Madrid",
+  "contract": {
+    "contract_id": "naturalness-es-nativeness-rubric-v21-language-specific-draft2",
+    "implementation": "naturalness-v17",
+    "evaluation_level": "utterance",
+    "input_exclusions": "injected-opener-and-transfer-line-v1",
+    "source_revision": "judge-authoring-v1",
+    "model": "gpt-5.5",
+    "model_args": {
+      "reasoning_effort": "xhigh"
+    },
+    "prompt": {
+      "prompt_version": "v17",
+      "rubric_version": "nativeness-rubric-v21-language-specific-draft2",
+      "system_prompt": "You evaluate language use in an AI agent's speech. Return JSON only.",
+      "user_prompt_template": "Language: {language}\nEvaluation unit: {evaluation_unit}\n\nFor every criterion:\n- opportunity is true only when this speech gave the agent a genuine chance to exhibit the criterion.\n- violated is true only when the agent actually violated the criterion. The criterion question asks about the desired behavior; answer violated=true when the answer is no.\n- severity is 0 when violated is false. When violated is true: 1 = minor, 2 = clear, 3 = major, 4 = egregious. Repetition may increase severity at call level.\n- quote is an exact offending span copied from AGENT SPEECH. Use an empty string for no violation or for a diffuse call-level pattern.\n- Judge only AGENT SPEECH. Use CUSTOMER CONTEXT only to interpret it.\n- A turn ending in \"[cut off by caller]\" was interrupted mid-delivery: its final word may be truncated mid-word and endings (agreement suffixes, polite verb endings, sentence-final particles) may be missing. Never count a truncation artifact at the cut-off point as a violation of any criterion; judge only what was audibly complete.\n- When violated is true and the violation localizes to a quoted span, reasoning must also give the natural way a native speaker would phrase that span, in the target language.\n\nCriteria:\n{criteria_json}\n\nAbout the agent being judged:\n{agent_context}\n\nCUSTOMER CONTEXT — DO NOT JUDGE:\n{customer_context}\n\nAGENT SPEECH TO JUDGE:\n{agent_speech}\n\nReturn JSON only:\n{\n  \"results\": [\n    {\n      \"factor_id\": \"<exact factor_id>\",\n      \"opportunity\": true,\n      \"violated\": false,\n      \"severity\": 0,\n      \"reasoning\": \"<brief explanation>\",\n      \"quote\": \"\"\n    }\n  ]\n}\n",
+      "factor_instructions": {}
+    },
+    "nativeness_criteria": {
+      "es": [
+        {
+          "factor_id": "naturalness",
+          "question": "This is a customer-service call in contemporary Spanish as spoken in Madrid, Spain. Does this utterance use natural Madrid Spanish without translationese or unnatural word choice, and with correct verb forms and basic function words?",
+          "opportunity": "every non-empty agent utterance",
+          "positive_examples": "Natural conversational Madrid Spanish appropriate to a customer-service call passes, including ordinary formal or informal speech and established English borrowings or code-switching when they sound natural in context. Literal names, identifiers, and genuinely user-visible product, interface, setting, or status labels that must be preserved may remain in English when naturally integrated. Vocabulary and grammar must be natural in contemporary Madrid Spanish, with an internally consistent regional variety; regional validity elsewhere does not by itself pass. Judge language use only, not factual or task correctness.\n\n\"La pasajera\" and \"dos maletas pequeñas\" show natural gender agreement. Grammatical masculine for a generic or mixed group is not itself an error. Spoken quantities use the Spanish long scale and decimal comma: \"mil millones\" for the English billion, \"quinientos mil\", \"dos coma cinco\", and \"treinta y cinco euros con cincuenta\" pass. \"Un billón\" passes when a million millions is meant. In spoken email addresses, \"arroba\" for @ and \"punto\" for . are natural; \"punto\" is also natural in websites.",
+          "negative_examples": "Inspect every complete clause independently. Permitted English, technical material, or natural wording elsewhere does not excuse a separate defect. Flag language that would sound clearly odd, ungrammatical, or non-Madrid in this setting, including English-shaped or word-for-word service phrasing or result constructions; unnatural word choice, collocation, or customer-facing backend language; avoidable raw English where Spanish is ordinarily expected; a clear error in verb form, subject-verb person or number, required clitics or governed prepositions, ser/estar, por/para, or other basic function words; and lexical, grammatical, or second-person forms that are not natural in contemporary Madrid Spanish. Also flag within-utterance mixing of Madrid and non-Madrid regional varieties. One clear marker in the utterance is sufficient; it need not recur across the call. Also flag missing, extra, or misplaced written Spanish diacritics, including accent marks, ñ, and ü, when standard orthography requires them. Ignore only a diacritic issue that is part of an obvious transcription artifact or the clipped ending of an interrupted turn. Quotation marks or apparent system provenance alone do not make an untranslated generic category or ordinary service term acceptable. Also flag a generic customer-data word when its ordinary Spanish meaning does not naturally identify the specific field being requested. A merely smoother, more specialized, or more formal alternative is not enough. Do not flag politeness, or mere switching between otherwise natural Madrid formal and informal forms of address. For interrupted turns, judge complete material before the cutoff and ignore only the clipped ending.\n\nAlso flag clear gender disagreement within a noun phrase or with an explicitly known agent or customer: \"la pasajero\", \"dos maletas pequeños\", or \"Estoy preparada\" from a known male agent. Use only supplied or explicitly established participant gender; do not infer missing gender from a name or voice. Internal grammatical agreement remains judgeable without participant gender. Ignore likely transcription errors when judging gender. For spoken quantities, flag \"un billón\" for the English billion, \"quinientos miles\", and \"dos punto cinco\". Do not flag natural email or website conventions, or transcript symbols alone. Flag an unnatural English reading such as \"at\" for @ only when the supplied speech explicitly establishes that reading. Do not flag digit-by-digit codes or phone numbers, or a figure merely echoed from the customer."
+        }
+      ]
+    },
+    "quality_criteria": [],
+    "scope_note": "Candidate for Spanish · Madrid; requires held-out validation.",
+    "speech_material": null
+  },
+  "scope": {
+    "language": "es",
+    "measure": "naturalness",
+    "contract_id": "naturalness-es-nativeness-rubric-v21-language-specific-draft2",
+    "evaluation_level": "utterance",
+    "agent_gender": null,
+    "domains": [
+      "airline",
+      "retail",
+      "telecom",
+      "banking_knowledge",
+      "intake"
+    ],
+    "needs_audio": false
+  },
+  "authoring": {
+    "request": {
+      "mode": "naturalness_extension",
+      "diagnostic_id": "naturalness",
+      "language": "es",
+      "variety": "Spanish · Madrid",
+      "agent_requirements": "Use the exact wording approved by the user in naturalness-language-criteria-review-v2. Preserve the existing naturalness wrapper and utterance evidence scope; add only the reviewed language-specific rules. The approved HTML and source contract are in docs/designs/naturalness-language-criteria/. Prompt wording approval is not accuracy validation.",
+      "domains": [
+        "airline",
+        "retail",
+        "telecom",
+        "banking_knowledge",
+        "intake"
+      ],
+      "evaluation_level": "utterance",
+      "agent_gender": null,
+      "source_contract_id": null,
+      "source_language": null,
+      "source_measure": null,
+      "author_model": "gpt-6",
+      "author_model_args": {},
+      "judge_model": "gpt-5.5",
+      "judge_model_args": {
+        "reasoning_effort": "xhigh"
+      }
+    },
+    "prompt_version": "judge-authoring-v1",
+    "reference": {
+      "source": "validated_contract",
+      "source_revision": "validated-measures-v3",
+      "source_sha256": "e985cfafb78a8119fb4d7b468acaa99cb3ca060ea51d7b066f0e8c9a0dfc53d2",
+      "language": "es",
+      "source_agent_requirements": null,
+      "source_review": null,
+      "template": {
+        "prompt_version": "v17",
+        "rubric_version": "nativeness-rubric-v20",
+        "system_prompt": "You evaluate language use in an AI agent's speech. Return JSON only.",
+        "user_prompt_template": "Language: {language}\nEvaluation unit: {evaluation_unit}\n\nFor every criterion:\n- opportunity is true only when this speech gave the agent a genuine chance to exhibit the criterion.\n- violated is true only when the agent actually violated the criterion. The criterion question asks about the desired behavior; answer violated=true when the answer is no.\n- severity is 0 when violated is false. When violated is true: 1 = minor, 2 = clear, 3 = major, 4 = egregious. Repetition may increase severity at call level.\n- quote is an exact offending span copied from AGENT SPEECH. Use an empty string for no violation or for a diffuse call-level pattern.\n- Judge only AGENT SPEECH. Use CUSTOMER CONTEXT only to interpret it.\n- A turn ending in \"[cut off by caller]\" was interrupted mid-delivery: its final word may be truncated mid-word and endings (agreement suffixes, polite verb endings, sentence-final particles) may be missing. Never count a truncation artifact at the cut-off point as a violation of any criterion; judge only what was audibly complete.\n- When violated is true and the violation localizes to a quoted span, reasoning must also give the natural way a native speaker would phrase that span, in the target language.\n\nCriteria:\n{criteria_json}\n\nAbout the agent being judged:\n{agent_context}\n\nCUSTOMER CONTEXT — DO NOT JUDGE:\n{customer_context}\n\nAGENT SPEECH TO JUDGE:\n{agent_speech}\n\nReturn JSON only:\n{\n  \"results\": [\n    {\n      \"factor_id\": \"<exact factor_id>\",\n      \"opportunity\": true,\n      \"violated\": false,\n      \"severity\": 0,\n      \"reasoning\": \"<brief explanation>\",\n      \"quote\": \"\"\n    }\n  ]\n}\n",
+        "factor_instructions": {}
+      },
+      "criterion": {
+        "factor_id": "naturalness",
+        "question": "This is a customer-service call in contemporary Spanish as spoken in Madrid, Spain. Does this utterance use natural Madrid Spanish without translationese or unnatural word choice, and with correct verb forms and basic function words?",
+        "opportunity": "every non-empty agent utterance",
+        "positive_examples": "Natural conversational Madrid Spanish appropriate to a customer-service call passes, including ordinary formal or informal speech and established English borrowings or code-switching when they sound natural in context. Literal names, identifiers, and genuinely user-visible product, interface, setting, or status labels that must be preserved may remain in English when naturally integrated. Vocabulary and grammar must be natural in contemporary Madrid Spanish, with an internally consistent regional variety; regional validity elsewhere does not by itself pass. Judge language use only, not factual or task correctness.",
+        "negative_examples": "Inspect every complete clause independently. Permitted English, technical material, or natural wording elsewhere does not excuse a separate defect. Flag language that would sound clearly odd, ungrammatical, or non-Madrid in this setting, including English-shaped or word-for-word service phrasing or result constructions; unnatural word choice, collocation, or customer-facing backend language; avoidable raw English where Spanish is ordinarily expected; a clear error in verb form, subject-verb person or number, required clitics or governed prepositions, ser/estar, por/para, or other basic function words; and lexical, grammatical, or second-person forms that are not natural in contemporary Madrid Spanish. Also flag within-utterance mixing of Madrid and non-Madrid regional varieties. One clear marker in the utterance is sufficient; it need not recur across the call. Also flag missing, extra, or misplaced written Spanish diacritics, including accent marks, ñ, and ü, when standard orthography requires them. Ignore only a diacritic issue that is part of an obvious transcription artifact or the clipped ending of an interrupted turn. Quotation marks or apparent system provenance alone do not make an untranslated generic category or ordinary service term acceptable. Also flag a generic customer-data word when its ordinary Spanish meaning does not naturally identify the specific field being requested. A merely smoother, more specialized, or more formal alternative is not enough. Do not flag gender agreement, politeness, or mere switching between otherwise natural Madrid formal and informal forms of address. For interrupted turns, judge complete material before the cutoff and ignore only the clipped ending."
+      }
+    },
+    "criteria": {
+      "question": "This is a customer-service call in contemporary Spanish as spoken in Madrid, Spain. Does this utterance use natural Madrid Spanish without translationese or unnatural word choice, and with correct verb forms and basic function words?",
+      "opportunity": "every non-empty agent utterance",
+      "positive_examples": "Natural conversational Madrid Spanish appropriate to a customer-service call passes, including ordinary formal or informal speech and established English borrowings or code-switching when they sound natural in context. Literal names, identifiers, and genuinely user-visible product, interface, setting, or status labels that must be preserved may remain in English when naturally integrated. Vocabulary and grammar must be natural in contemporary Madrid Spanish, with an internally consistent regional variety; regional validity elsewhere does not by itself pass. Judge language use only, not factual or task correctness.\n\n\"La pasajera\" and \"dos maletas pequeñas\" show natural gender agreement. Grammatical masculine for a generic or mixed group is not itself an error. Spoken quantities use the Spanish long scale and decimal comma: \"mil millones\" for the English billion, \"quinientos mil\", \"dos coma cinco\", and \"treinta y cinco euros con cincuenta\" pass. \"Un billón\" passes when a million millions is meant. In spoken email addresses, \"arroba\" for @ and \"punto\" for . are natural; \"punto\" is also natural in websites.",
+      "negative_examples": "Inspect every complete clause independently. Permitted English, technical material, or natural wording elsewhere does not excuse a separate defect. Flag language that would sound clearly odd, ungrammatical, or non-Madrid in this setting, including English-shaped or word-for-word service phrasing or result constructions; unnatural word choice, collocation, or customer-facing backend language; avoidable raw English where Spanish is ordinarily expected; a clear error in verb form, subject-verb person or number, required clitics or governed prepositions, ser/estar, por/para, or other basic function words; and lexical, grammatical, or second-person forms that are not natural in contemporary Madrid Spanish. Also flag within-utterance mixing of Madrid and non-Madrid regional varieties. One clear marker in the utterance is sufficient; it need not recur across the call. Also flag missing, extra, or misplaced written Spanish diacritics, including accent marks, ñ, and ü, when standard orthography requires them. Ignore only a diacritic issue that is part of an obvious transcription artifact or the clipped ending of an interrupted turn. Quotation marks or apparent system provenance alone do not make an untranslated generic category or ordinary service term acceptable. Also flag a generic customer-data word when its ordinary Spanish meaning does not naturally identify the specific field being requested. A merely smoother, more specialized, or more formal alternative is not enough. Do not flag politeness, or mere switching between otherwise natural Madrid formal and informal forms of address. For interrupted turns, judge complete material before the cutoff and ignore only the clipped ending.\n\nAlso flag clear gender disagreement within a noun phrase or with an explicitly known agent or customer: \"la pasajero\", \"dos maletas pequeños\", or \"Estoy preparada\" from a known male agent. Use only supplied or explicitly established participant gender; do not infer missing gender from a name or voice. Internal grammatical agreement remains judgeable without participant gender. Ignore likely transcription errors when judging gender. For spoken quantities, flag \"un billón\" for the English billion, \"quinientos miles\", and \"dos punto cinco\". Do not flag natural email or website conventions, or transcript symbols alone. Flag an unnatural English reading such as \"at\" for @ only when the supplied speech explicitly establishes that reading. Do not flag digit-by-digit codes or phone numbers, or a figure merely echoed from the customer."
+    }
+  },
+  "review": {
+    "content_sha256": "eea362a05961749f296446e4a2dec09336e2a6192c6e4fa6ea88d63f455e3c44",
+    "reviewed_by": "User approval of naturalness-language-criteria-review-v2 in Codex task"
+  }
+}

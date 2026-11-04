@@ -1,35 +1,35 @@
 import { useState, useEffect } from 'react'
 import './DocsContent.css'
 
+// Domain documentation content
+const domainDocs = {
+  airline: {
+    title: "Airline Agent Policy",
+    description: "Documentation for the airline customer service domain",
+    policyPath: "task-data/domains/airline/policy.md"
+  },
+  retail: {
+    title: "Retail Agent Policy", 
+    description: "Documentation for the retail customer service domain",
+    policyPath: "task-data/domains/retail/policy.md"
+  },
+  telecom: {
+    title: "Telecom Agent Policy",
+    description: "Documentation for the telecom customer service domain", 
+    policyPath: "task-data/domains/telecom/main_policy.md"
+  },
+  mock: {
+    title: "Mock Domain Policy",
+    description: "Documentation for the mock testing domain",
+    policyPath: "task-data/domains/mock/policy.md"
+  }
+}
+
 const DocsContent = ({ domain }) => {
   const [policyContent, setPolicyContent] = useState('')
   const [toolsData, setToolsData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-
-  // Domain documentation content
-  const domainDocs = {
-    airline: {
-      title: "Airline Agent Policy",
-      description: "Documentation for the airline customer service domain",
-      policyPath: "task-data/domains/airline/policy.md"
-    },
-    retail: {
-      title: "Retail Agent Policy", 
-      description: "Documentation for the retail customer service domain",
-      policyPath: "task-data/domains/retail/policy.md"
-    },
-    telecom: {
-      title: "Telecom Agent Policy",
-      description: "Documentation for the telecom customer service domain", 
-      policyPath: "task-data/domains/telecom/main_policy.md"
-    },
-    mock: {
-      title: "Mock Domain Policy",
-      description: "Documentation for the mock testing domain",
-      policyPath: "task-data/domains/mock/policy.md"
-    }
-  }
 
   useEffect(() => {
     const loadContent = async () => {

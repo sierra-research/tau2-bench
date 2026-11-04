@@ -22,12 +22,25 @@ Example:
         web/leaderboard/public/submissions/my-model_org_2026-01-01 \\
         /tmp/downloaded-trajectories/ \\
         --verify-only --aws-profile tau-bench-ci
+
+    # 2.0 package (benchmark-submission.json): the source is the submitter's
+    # saved matrix root; cells upload to trajectories/<language>/<domain>/.
+    python -m tau2.scripts.leaderboard.review_submission \\
+        web/leaderboard/public/submissions/my-voice-model_org_2026-10-20 \\
+        /tmp/downloaded-matrix-root/ --upload
+
+    # The frozen 2026-10-02 release export, with its saved verdicts
+    python -m tau2.scripts.leaderboard.review_submission \\
+        web/leaderboard/public/submissions/<name> /path/to/release-export \\
+        --historical-voice-v2 --judges-root /path/to/verdicts/<provider> \\
+        [--judges-root ...]
 """
 
 import argparse
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from urllib.request import urlopen
 
@@ -35,6 +48,14 @@ from rich.console import Console
 
 from tau2.data_model.simulation import Results as TrajectoryResults
 from tau2.metrics.voice_interaction_metrics import NoVoiceTicksError
+from tau2.scripts.leaderboard.benchmark_package import (
+    HISTORICAL_PASS3_DIRS,
+    PACKAGE_FILE_NAMES,
+    BenchmarkPackage,
+    evidence_cells,
+    is_package,
+    load_package,
+)
 from tau2.scripts.leaderboard.compute_interaction_metrics import (
     build_interaction_metrics_block,
     compute_metrics_for_loaded_results,
@@ -42,6 +63,7 @@ from tau2.scripts.leaderboard.compute_interaction_metrics import (
     resolve_experiment_config,
 )
 from tau2.scripts.leaderboard.prepare_submission import (
+    validate_benchmark_submission,
     validate_submission_metrics,
     validate_submission_traj_set,
 )
@@ -53,6 +75,11 @@ from tau2.scripts.leaderboard.submission import (
 from tau2.scripts.leaderboard.verify_trajectories import (
     VerificationMode,
     verify_single_file,
+)
+from tau2.scripts.leaderboard.viewer_data import sync as sync_viewer_tree
+from tau2.scripts.leaderboard.viewer_data import viewer_cell_dir, write_viewer_cell
+from tau2.scripts.leaderboard.voice_v2_publication import (
+    validate_historical_package,
 )
 from tau2.utils.io_utils import expand_paths
 
@@ -240,6 +267,28 @@ def _run_aws(cmd: list[str], profile: str, console: Console) -> bool:
     return True
 
 
+def _upload_viewer_cells(
+    submission_dir: Path,
+    trajectory_files: list[str],
+    trajectory_map: dict[str, str],
+    profile: str,
+    console: Console,
+) -> None:
+    """Split a text submission's trajectory files into viewer cells and sync them."""
+    with tempfile.TemporaryDirectory() as staging:
+        for path_str, domain in zip(trajectory_files, trajectory_map):
+            cell = (
+                Path(staging)
+                / submission_dir.name
+                / TRAJECTORY_FILES_DIR_NAME
+                / viewer_cell_dir(domain)
+            )
+            count = write_viewer_cell(json.loads(Path(path_str).read_bytes()), cell)
+            console.print(f"  {domain}: {count} simulations")
+        # The staging dir holds only this submission's text cells.
+        sync_viewer_tree(Path(staging), profile, dry_run=False)
+
+
 def _upload(
     submission_dir: Path,
     trajectory_files: list[str],
@@ -276,6 +325,21 @@ def _upload(
                 ["s3", "cp", path_str, s3_dest],
                 profile,
                 console,
+            )
+
+        # The visualizer reads text trajectories split per simulation, next
+        # to the monolithic files (which stay the download). A failure here
+        # leaves the visualizer on the monolithic files, so it must not stop
+        # submission.json from being uploaded.
+        console.print("\n[bold]Uploading viewer cells to S3...[/bold]")
+        try:
+            _upload_viewer_cells(
+                submission_dir, trajectory_files, trajectory_map, profile, console
+            )
+        except Exception as error:
+            console.print(
+                f"[yellow]Viewer cell upload failed ({error}); rerun "
+                "`viewer_data split` + `upload` for this submission.[/yellow]"
             )
 
     console.print("\n[bold]Uploading submission.json to S3...[/bold]")
@@ -366,6 +430,143 @@ def _verify_upload(
         )
 
 
+def _package_uploads(
+    package: BenchmarkPackage,
+    source: Path,
+    judges_roots: list[Path],
+) -> list[tuple[Path, str]]:
+    """Local evidence → S3 key under ``submissions/<name>/``, language layer first.
+
+    Cells go to ``trajectories/<language>/<domain>/`` for both evidence layouts.
+    A matrix root's own files (frame, plan, execution record) go to
+    ``trajectories/``. For the historical export, its ``correction.json`` goes
+    to ``source_correction.json`` and saved verdicts to
+    ``judges/<agent_provider>/<language>/``, the layout of the 2026-10-09 Gemini
+    upload. An entity package's other two crossed Pass^3 conditions go to
+    ``pass3/<language>/intake/<condition>/``.
+    """
+    cells = [(cell.language, cell.domain) for cell in package.submission.frame.cells]
+    uploads = [
+        (local, f"{TRAJECTORY_FILES_DIR_NAME}/{key}/")
+        for key, local in evidence_cells(
+            source, package.metadata.evidence, cells
+        ).items()
+    ]
+    if package.metadata.evidence == "matrix":
+        uploads.extend(
+            (path, f"{TRAJECTORY_FILES_DIR_NAME}/{path.name}")
+            for path in sorted(source.glob("*.json"))
+        )
+    else:
+        # Crossed Pass^3 cites the other two intake conditions too.
+        if package.pass3 is not None:
+            uploads.extend(
+                (
+                    source / "trajectories" / language / directory,
+                    f"pass3/{language}/{directory}/",
+                )
+                for language, _ in cells
+                for directory in HISTORICAL_PASS3_DIRS.values()
+            )
+        if (source / "correction.json").is_file():
+            uploads.append((source / "correction.json", "source_correction.json"))
+        languages = dict.fromkeys(language for language, _ in cells)
+        provider = package.metadata.agent_provider
+        uploads.extend(
+            (root / language, f"judges/{provider}/{language}/")
+            for root in judges_roots
+            for language in languages
+            if (root / language).is_dir()
+        )
+    missing = [str(local) for local, _ in uploads if not local.exists()]
+    if missing:
+        raise ValueError("Missing evidence: " + ", ".join(missing))
+    return uploads
+
+
+def _review_package(
+    package_dir: Path, source: Path, args: argparse.Namespace, console: Console
+) -> None:
+    """Validate a 2.0 package against its evidence, then (optionally) upload."""
+    prefix = _s3_key_prefix(package_dir)
+    if args.verify_only:
+        package = load_package(package_dir)
+    elif args.historical_voice_v2:
+        console.print("\n[bold]Recomputing from the frozen release export...[/bold]")
+        package = validate_historical_package(package_dir, source, args.judges_root)
+    else:
+        console.print("\n[bold]Recomputing from the saved matrix...[/bold]")
+        package = validate_benchmark_submission(package_dir, source)
+    summary = package.submission.summary
+    console.print(
+        f"  {package.metadata.model_name} ({package.metadata.model_organization}): "
+        f"{summary.benchmark_version} pass@1 {100 * summary.score:.1f}% over "
+        f"{summary.scored_trials} calls"
+    )
+    if package.name != package_dir.name:
+        raise ValueError(f"Package directory must be named {package.name}")
+    uploads = _package_uploads(package, source, args.judges_root)
+    if args.verify_only:
+        _verify_package_upload(package, prefix, console)
+        return
+    console.print(f"\n[bold]Upload plan (s3://{S3_BUCKET}/{prefix}/):[/bold]")
+    for local, key in uploads:
+        console.print(f"  {local} -> {key}")
+    if not args.upload:
+        console.print(
+            "\n[yellow]Dry run complete. Re-run with --upload to push to S3.[/yellow]"
+        )
+        return
+    failed = False
+    for local, key in uploads:
+        command = "sync" if local.is_dir() else "cp"
+        failed |= not _run_aws(
+            ["s3", command, str(local), f"s3://{S3_BUCKET}/{prefix}/{key}"],
+            args.aws_profile,
+            console,
+        )
+    if failed:
+        raise SystemExit("Upload failed; benchmark-metadata.json was not updated")
+    package.metadata.trajectories = f"s3://{S3_BUCKET}/{prefix}"
+    package.write(package_dir)
+    for name in PACKAGE_FILE_NAMES:
+        if (package_dir / name).is_file():
+            _run_aws(
+                [
+                    "s3",
+                    "cp",
+                    str(package_dir / name),
+                    f"s3://{S3_BUCKET}/{prefix}/{name}",
+                ],
+                args.aws_profile,
+                console,
+            )
+    console.print(f"  Set trajectories to {package.metadata.trajectories}")
+    _verify_package_upload(package, prefix, console)
+
+
+def _verify_package_upload(
+    package: BenchmarkPackage, prefix: str, console: Console
+) -> None:
+    """Every cell's results.json is publicly readable at the language layer."""
+    console.print("\n[bold]Verifying S3 upload...[/bold]")
+    base = f"https://{S3_BUCKET}.s3.us-west-2.amazonaws.com/{prefix}"
+    missing = []
+    for cell in package.submission.frame.cells:
+        url = (
+            f"{base}/{TRAJECTORY_FILES_DIR_NAME}/{cell.language}/{cell.domain}/"
+            "results.json"
+        )
+        try:
+            with urlopen(url, timeout=30):
+                pass
+        except OSError:
+            missing.append(f"{cell.language}/{cell.domain}")
+    if missing:
+        raise SystemExit("Not publicly readable: " + ", ".join(missing))
+    console.print(f"  All {len(package.submission.frame.cells)} cells are readable")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Review and upload a leaderboard submission (maintainer tool).",
@@ -395,6 +596,18 @@ def main():
         action="store_true",
         help="Only verify an existing S3 upload (skip validation and upload)",
     )
+    parser.add_argument(
+        "--historical-voice-v2",
+        action="store_true",
+        help="2.0 package citing the frozen 2026-10-02 release export",
+    )
+    parser.add_argument(
+        "--judges-root",
+        type=Path,
+        action="append",
+        default=[],
+        help="With --historical-voice-v2: saved verdicts (<language>/<id>.json)",
+    )
     args = parser.parse_args()
 
     console = Console()
@@ -406,6 +619,12 @@ def main():
     )
     console.print(f"  Submission dir: {submission_dir}")
     console.print(f"  Trajectory source: {source}")
+
+    if is_package(submission_dir):
+        _review_package(submission_dir, source, args, console)
+        return
+    if args.historical_voice_v2 or args.judges_root:
+        raise ValueError("--historical-voice-v2 applies only to 2.0 packages")
 
     # Step 1: Load submission.json
     console.print("\n[bold]Step 1: Loading submission.json...[/bold]")

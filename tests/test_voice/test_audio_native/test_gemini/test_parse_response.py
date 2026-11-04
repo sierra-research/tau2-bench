@@ -17,6 +17,7 @@ import pytest
 
 from tau2.voice.audio_native.gemini.events import (
     GeminiAudioDeltaEvent,
+    GeminiAudioDoneEvent,
     GeminiFunctionCallDoneEvent,
     GeminiGoAwayEvent,
     GeminiInputTranscriptionEvent,
@@ -39,6 +40,7 @@ def _make_provider() -> GeminiLiveProvider:
     provider = object.__new__(GeminiLiveProvider)
     # Set the minimal attributes _parse_response relies on
     provider._current_item_id = "test_item_1"
+    provider.model = "gemini-3.1-flash-live-preview"
     provider._go_away_received = False
     provider._reconnect_at_turn_boundary = False
     provider._reconnect_deadline = None
@@ -72,6 +74,172 @@ def _make_server_content(**overrides) -> SimpleNamespace:
     }
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
+
+
+@pytest.mark.parametrize("raw_schema", [True, False])
+def test_extended_thinking_tools_are_non_blocking(raw_schema):
+    from google.genai import types
+
+    provider = _make_provider()
+    provider.model = "gemini-3.8-live-extended-thinking"
+    provider._use_raw_json_schema = raw_schema
+    tool = SimpleNamespace(
+        openai_schema={
+            "function": {
+                "name": "get_user_details",
+                "description": "Find a customer",
+                "parameters": {"type": "object", "properties": {}},
+            }
+        }
+    )
+
+    declaration = provider._format_tools_for_api([tool])[0]
+
+    assert declaration.behavior == types.Behavior.NON_BLOCKING
+
+
+def test_existing_gemini_tools_keep_default_behavior():
+    provider = _make_provider()
+    provider._use_raw_json_schema = True
+    tool = SimpleNamespace(
+        openai_schema={
+            "function": {
+                "name": "get_user_details",
+                "description": "Find a customer",
+                "parameters": {"type": "object", "properties": {}},
+            }
+        }
+    )
+
+    declaration = provider._format_tools_for_api([tool])[0]
+
+    assert declaration.behavior is None
+
+
+def test_sdk_receive_waits_for_extended_thinking_idle():
+    from google.genai import types
+    from google.genai.live import AsyncSession
+
+    responses = iter(
+        [
+            types.LiveServerMessage(
+                server_content=types.LiveServerContent(
+                    turn_complete=True,
+                    interaction_status=types.InteractionStatus.IN_PROGRESS,
+                )
+            ),
+            types.LiveServerMessage(
+                server_content=types.LiveServerContent(
+                    turn_complete=True,
+                    interaction_status=types.InteractionStatus.IDLE,
+                )
+            ),
+        ]
+    )
+    session = object.__new__(AsyncSession)
+
+    async def receive_one():
+        return next(responses)
+
+    session._receive = receive_one
+
+    async def collect():
+        return [response async for response in session.receive()]
+
+    assert len(asyncio.run(collect())) == 2
+
+
+def test_receive_loop_rotates_audio_item_at_intermediate_turn():
+    """Later speech gets its own item before the interaction becomes idle."""
+    from google.genai import types
+
+    async def check():
+        provider = _make_provider()
+        provider.model = "gemini-3.8-live-extended-thinking"
+        provider._stop_receive = False
+        provider._event_queue = asyncio.Queue()
+        provider._generate_item_id = Mock(return_value="test_item_2")
+
+        async def responses():
+            yield _empty_response(data=b"first utterance")
+            yield _empty_response(
+                server_content=_make_server_content(
+                    turn_complete=True,
+                    interaction_status=types.InteractionStatus.IN_PROGRESS,
+                )
+            )
+            yield _empty_response(data=b"second utterance")
+            provider._stop_receive = True
+
+        provider._session = Mock()
+        provider._session.receive.return_value = responses()
+
+        await provider._receive_loop_coro()
+        events = []
+        while not provider._event_queue.empty():
+            events.append(provider._event_queue.get_nowait())
+
+        audio_items = [
+            event.item_id
+            for event in events
+            if isinstance(event, GeminiAudioDeltaEvent)
+        ]
+        completed_items = [
+            event.item_id for event in events if isinstance(event, GeminiAudioDoneEvent)
+        ]
+        assert audio_items == ["test_item_1", "test_item_2"]
+        assert completed_items == ["test_item_1"]
+        assert (
+            len(
+                [
+                    event
+                    for event in events
+                    if isinstance(event, GeminiTurnCompleteEvent)
+                ]
+            )
+            == 1
+        )
+
+    asyncio.run(check())
+
+
+def test_receive_loop_does_not_duplicate_idle_completion_without_turn_complete():
+    """An IDLE-only response completes the interaction once at iterator end."""
+    from google.genai import types
+
+    async def check():
+        provider = _make_provider()
+        provider.model = "gemini-3.8-live-extended-thinking"
+        provider._stop_receive = False
+        provider._event_queue = asyncio.Queue()
+        provider._reconnect_at_turn_boundary = True
+        provider._reconnect_deadline = None
+        provider.session_id = "test-session"
+        provider._generate_item_id = Mock(return_value="test_item_2")
+
+        async def responses():
+            yield _empty_response(data=b"spoken answer")
+            yield _empty_response(
+                server_content=_make_server_content(
+                    turn_complete=False,
+                    interaction_status=types.InteractionStatus.IDLE,
+                )
+            )
+
+        provider._session = Mock()
+        provider._session.receive.return_value = responses()
+
+        await provider._receive_loop_coro()
+        events = []
+        while not provider._event_queue.empty():
+            events.append(provider._event_queue.get_nowait())
+
+        assert sum(isinstance(e, GeminiTurnCompleteEvent) for e in events) == 1
+        assert [e.item_id for e in events if isinstance(e, GeminiAudioDoneEvent)] == [
+            "test_item_1"
+        ]
+
+    asyncio.run(check())
 
 
 # =============================================================================
@@ -158,6 +326,38 @@ class TestCorrectParsingPaths:
         events = provider._parse_response(response)
 
         assert len([e for e in events if isinstance(e, GeminiTurnCompleteEvent)]) == 1
+
+    def test_extended_thinking_utterance_is_not_interaction_complete(self):
+        provider = _make_provider()
+        provider.model = "gemini-3.8-live-extended-thinking"
+        sc = _make_server_content(turn_complete=True, interaction_status="IN_PROGRESS")
+
+        events = provider._parse_response(_empty_response(server_content=sc))
+
+        assert events == []
+
+    def test_extended_thinking_idle_completes_interaction(self):
+        from google.genai import types
+
+        provider = _make_provider()
+        provider.model = "gemini-3.8-live-extended-thinking"
+        sc = _make_server_content(
+            turn_complete=True,
+            interaction_status=types.InteractionStatus.IDLE,
+        )
+
+        events = provider._parse_response(_empty_response(server_content=sc))
+
+        assert len([e for e in events if isinstance(e, GeminiTurnCompleteEvent)]) == 1
+
+    def test_extended_thinking_status_only_is_not_unknown(self):
+        provider = _make_provider()
+        provider.model = "gemini-3.8-live-extended-thinking"
+        sc = _make_server_content(interaction_status="IN_PROGRESS")
+
+        events = provider._parse_response(_empty_response(server_content=sc))
+
+        assert events == []
 
     def test_input_transcription(self):
         """server_content.input_transcription produces GeminiInputTranscriptionEvent."""
@@ -385,6 +585,40 @@ class TestInputAudioTranscriptionConfig:
             assert (
                 setup["inputAudioTranscription"].get("language_codes", []) == expected
             )
+
+
+@pytest.mark.parametrize(
+    "model,expected",
+    [
+        ("gemini-2.5-flash-native-audio-preview-12-2025", True),
+        ("gemini-3.1-flash-live-preview", False),
+        ("gemini-3.8-live-extended-thinking", False),
+    ],
+)
+def test_connect_proactivity_config(model, expected):
+    from google.genai import _live_converters, types
+
+    provider = GeminiLiveProvider(api_key="test-key", model=model)
+    session_manager = AsyncMock()
+    connect = Mock(return_value=session_manager)
+    provider._client = SimpleNamespace(
+        aio=SimpleNamespace(live=SimpleNamespace(connect=connect))
+    )
+
+    async def connect_and_disconnect():
+        await provider.connect(system_prompt="Test instructions", tools=[])
+        await provider.disconnect()
+
+    asyncio.run(connect_and_disconnect())
+    config = connect.call_args.kwargs["config"]
+    params = types.LiveConnectParameters(model=model, config=config).model_dump(
+        exclude_none=True
+    )
+    setup = _live_converters._LiveConnectParameters_to_mldev(
+        SimpleNamespace(vertexai=False), params
+    )["setup"]
+    assert (config.proactivity is not None) is expected
+    assert ("proactivity" in setup) is expected
 
 
 class TestGeminiInputSampleRate:

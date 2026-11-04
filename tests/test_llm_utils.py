@@ -1,8 +1,10 @@
 import logging
+from types import SimpleNamespace
 
 import pytest
 from loguru import logger
 
+import tau2.utils.llm_utils as llm_utils
 from tau2.data_model.message import (
     AssistantMessage,
     Message,
@@ -58,12 +60,14 @@ def tool_call_messages() -> list[Message]:
     return messages
 
 
+@pytest.mark.live_api
 def test_generate_no_tool_call(model: str, messages: list[Message]):
     response = generate(model, messages)
     assert isinstance(response, AssistantMessage)
     assert response.content is not None
 
 
+@pytest.mark.live_api
 def test_generate_tool_call(model: str, tool_call_messages: list[Message], tool: Tool):
     response = generate(model, tool_call_messages, tools=[tool])
     assert isinstance(response, AssistantMessage)
@@ -122,7 +126,9 @@ class TestWarnIfParamUnsupported:
         messages: list[str] = []
         handle = logger.add(lambda m: messages.append(m), level="WARNING")
         try:
-            result = warn_if_param_unsupported("not-a-real-provider/not-a-model", "seed")
+            result = warn_if_param_unsupported(
+                "not-a-real-provider/not-a-model", "seed"
+            )
         finally:
             logger.remove(handle)
 
@@ -145,3 +151,57 @@ class TestWarnIfParamUnsupported:
         assert len(messages) == 1
         assert "has no effect" in messages[0]
         assert "NOT seeded" not in messages[0]
+
+
+def test_gpt_5_5_xhigh_uses_responses_api_and_preserves_system_turns(
+    monkeypatch: pytest.MonkeyPatch, tool: Tool
+):
+    captured = {}
+
+    def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    finish_reason="stop",
+                    message=SimpleNamespace(
+                        role="assistant", content="Done", tool_calls=None
+                    ),
+                )
+            ],
+            to_dict=lambda: {},
+        )
+
+    monkeypatch.setattr(llm_utils, "completion", fake_completion)
+    monkeypatch.setattr(llm_utils, "get_response_cost", lambda response: 0.0)
+    monkeypatch.setattr(
+        llm_utils,
+        "get_response_usage",
+        lambda response: {"prompt_tokens": 1, "completion_tokens": 1},
+    )
+    monkeypatch.setattr(llm_utils, "_write_llm_log", lambda *args, **kwargs: None)
+
+    response = generate(
+        "gpt-5.5",
+        [
+            SystemMessage(role="system", content="You are a customer."),
+            UserMessage(role="user", content="Hello"),
+            SystemMessage(role="system", content="The agent is silent."),
+        ],
+        tools=[tool],
+        reasoning_effort="xhigh",
+        extra_body={"metadata": {"source": "test"}},
+    )
+
+    assert response.content == "Done"
+    assert captured["model"] == "openai/responses/gpt-5.5"
+    assert captured["extra_body"] == {
+        "metadata": {"source": "test"},
+        "reasoning": {"effort": "xhigh"},
+    }
+    assert "reasoning_effort" not in captured
+    assert captured["messages"][0]["content"] == "You are a customer."
+    assert captured["messages"][2]["content"] == [
+        {"type": "text", "text": "The agent is silent."}
+    ]
+    assert captured["tools"] == [tool.openai_schema]

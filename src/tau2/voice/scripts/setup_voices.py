@@ -1,24 +1,22 @@
 #!/usr/bin/env python3
 # Copyright Sierra
-"""Create ElevenLabs voices for all τ-bench personas via the Voice Design API.
+"""Create ElevenLabs caller voices for language-pack personas via Voice Design.
 
 This script automates the voice setup described in docs/voice-personas.md.
-It generates a voice for each persona using the ElevenLabs Voice Design API,
-saves it to your ElevenLabs account, and prints the environment variables
-you need to add to your .env file.
+It designs a voice for each caller persona of the selected language packs from
+the prompts in ``data/tau2/voice_design/<lang>.yaml``, saves it to your
+ElevenLabs account, and prints the ``TAU2_VOICE_ID_<LANG>_<PERSONA>``
+environment variables to add to your .env file.
 
 Usage:
-    # Create all 7 voices
+    # Create the English caller voices
     python -m tau2.voice.scripts.setup_voices
 
-    # Create only the 2 control personas (for quick testing)
-    python -m tau2.voice.scripts.setup_voices --complexity control
-
-    # Create only the 5 regular personas
-    python -m tau2.voice.scripts.setup_voices --complexity regular
+    # Create the caller voices for every voice-v2 language
+    python -m tau2.voice.scripts.setup_voices --language all
 
     # Dry run — show what would be created without calling the API
-    python -m tau2.voice.scripts.setup_voices --dry-run
+    python -m tau2.voice.scripts.setup_voices --language es --language hi --dry-run
 
     # Preview voices before saving (plays audio)
     python -m tau2.voice.scripts.setup_voices --preview
@@ -32,18 +30,22 @@ import argparse
 import sys
 import time
 
+import yaml
 from dotenv import load_dotenv
 from loguru import logger
+from pydantic import BaseModel
+
+from tau2.data_model.voice import (
+    LanguageVoiceDesign,
+    PersonaVoiceDesign,
+    VoiceCreateRequest,
+    VoiceDesignRequest,
+)
+from tau2.multilingual.runtime import load_pack, voice_id_env_key
+from tau2.utils import DATA_DIR
+from tau2.voice.elevenlabs_operations import create_voice, design_voice
 
 load_dotenv()
-
-SAMPLE_TEXT = (
-    "Hi, I'm calling about an issue with my account. "
-    "I tried logging in earlier today but it keeps saying my password is wrong. "
-    "I'm pretty sure I haven't changed it recently, "
-    "so I'm not sure what's going on. "
-    "Could you help me figure this out?"
-)
 
 # Voice Design parameters matching the docs/voice-personas.md recommendations.
 # UI percentage → API value mapping:
@@ -51,10 +53,11 @@ SAMPLE_TEXT = (
 #   guidance_scale: UI 0–100% maps to API 0–100  (38% → 38)
 VOICE_DESIGN_LOUDNESS = 0.5  # 75% in the ElevenLabs UI
 VOICE_DESIGN_GUIDANCE_SCALE = 38  # 38% in the ElevenLabs UI
-VOICE_DESIGN_MODEL = "eleven_ttv_v3"
 VOICE_DESIGN_MODELS = ["eleven_ttv_v3", "eleven_multilingual_ttv_v2"]
 VOICE_DESIGN_SEED = 42
 VOICE_NAME_PREFIX = "tau2"
+DEFAULT_LANGUAGE = "en"
+ALL_LANGUAGES = "all"
 
 
 def _get_existing_tau2_voices(client) -> dict[str, list[tuple[str, str]]]:
@@ -75,42 +78,107 @@ def _get_existing_tau2_voices(client) -> dict[str, list[tuple[str, str]]]:
     return existing
 
 
+class PersonaDesignTarget(BaseModel):
+    """One pack persona to design, with the names it is saved and exported under."""
+
+    language: str
+    persona_id: str
+    design: PersonaVoiceDesign
+
+    @property
+    def voice_name(self) -> str:
+        """Account voice name; the language prefix keeps packs from colliding."""
+        return f"{VOICE_NAME_PREFIX}_{self.language}_{self.persona_id}"
+
+    @property
+    def env_key(self) -> str:
+        """The runtime override variable for this persona's voice."""
+        return voice_id_env_key(self.language, self.persona_id)
+
+    @property
+    def account_description(self) -> str:
+        """Short account label for the saved voice."""
+        return f"tau2 {self.language} caller {self.persona_id} ({self.design.gender})"
+
+
+def released_voice_languages() -> list[str]:
+    """Languages of the released voice benchmark, in manifest order."""
+    from tau2.runner.presets import load_manifest
+
+    manifest, _ = load_manifest("voice")
+    return list(dict.fromkeys(cell.language for cell in manifest.cells))
+
+
+def resolve_languages(requested: list[str] | None) -> list[str]:
+    """Expand ``--language`` values: none means English, ``all`` means voice-v2."""
+    if not requested:
+        return [DEFAULT_LANGUAGE]
+    languages: list[str] = []
+    for language in requested:
+        expanded = (
+            released_voice_languages() if language == ALL_LANGUAGES else [language]
+        )
+        for lang in expanded:
+            if lang not in languages:
+                languages.append(lang)
+    return languages
+
+
+def load_voice_design(language: str) -> LanguageVoiceDesign:
+    """Read a language's design prompts; they must cover exactly its pack personas."""
+    pack = load_pack(language)  # validates the identifier before the path join
+    path = DATA_DIR / "tau2" / "voice_design" / f"{language}.yaml"
+    if not path.is_file():
+        raise ValueError(f"no voice design prompts for language {language!r}")
+    design = LanguageVoiceDesign.model_validate(yaml.safe_load(path.read_text()))
+    if design.language != language:
+        raise ValueError(f"{path.name} declares language {design.language!r}")
+    if set(design.personas) != set(pack.personas):
+        raise ValueError(
+            f"{path.name} personas {sorted(design.personas)} differ from the "
+            f"{language} pack personas {sorted(pack.personas)}"
+        )
+    for persona_id, persona in design.personas.items():
+        if persona.gender != pack.personas[persona_id].gender:
+            raise ValueError(f"{path.name} gender differs for persona {persona_id!r}")
+    return design
+
+
+def design_targets(languages: list[str]) -> list[PersonaDesignTarget]:
+    """Every persona to design for the selected languages, in pack order."""
+    return [
+        PersonaDesignTarget(language=language, persona_id=persona_id, design=design)
+        for language in languages
+        for persona_id, design in load_voice_design(language).personas.items()
+    ]
+
+
 def setup_voices(
-    complexity: str = "all",
+    languages: list[str] | None = None,
     dry_run: bool = False,
     preview: bool = False,
     seed: int = VOICE_DESIGN_SEED,
-    model: str = VOICE_DESIGN_MODEL,
+    model: str | None = None,
     force: bool = False,
 ) -> dict[str, str]:
-    """Create ElevenLabs voices for τ-bench personas.
+    """Create ElevenLabs voices for the selected language packs' personas.
 
     Args:
-        complexity: Which persona group to create — "control", "regular", or "all".
+        languages: Language pack codes; None selects English only.
         dry_run: If True, print what would be created without calling the API.
         preview: If True, play each voice preview before saving.
         seed: Random seed for reproducible voice generation (same seed +
             same prompt = same voice).
-        model: ElevenLabs TTV model to use for voice generation.
+        model: ElevenLabs TTV model override; None uses each persona's model.
         force: If True, skip confirmation when voices already exist.
 
     Returns:
-        Mapping of persona_name → voice_id for all created voices.
+        Mapping of ``TAU2_VOICE_ID_<LANG>_<PERSONA>`` → voice_id for all
+        created voices.
     """
     from elevenlabs import ElevenLabs
 
-    from tau2.data_model.voice_personas import (
-        ALL_PERSONAS,
-        CONTROL_PERSONAS,
-        REGULAR_PERSONAS,
-    )
-
-    if complexity == "control":
-        personas = CONTROL_PERSONAS
-    elif complexity == "regular":
-        personas = REGULAR_PERSONAS
-    else:
-        personas = list(ALL_PERSONAS.values())
+    personas = design_targets(languages or [DEFAULT_LANGUAGE])
 
     if dry_run:
         print("\n=== DRY RUN — no API calls will be made ===\n")
@@ -128,20 +196,16 @@ def setup_voices(
 
         print("Would create voices for the following personas:\n")
         for p in personas:
-            env_key = f"TAU2_VOICE_ID_{p.name.upper()}"
-            voice_name = f"{VOICE_NAME_PREFIX}_{p.name}"
-            conflict = voice_name in existing_voices
-            print(f"  {p.display_name} ({p.name})")
-            print(f"    Complexity: {p.complexity}")
-            print(f"    Env var: {env_key}")
-            print(f"    Voice name: {voice_name}")
-            if conflict:
-                existing_ids = [vid for vid, _ in existing_voices[voice_name]]
+            print(f"  {p.persona_id} ({p.language}, {p.design.gender})")
+            print(f"    Env var: {p.env_key}")
+            print(f"    Voice name: {p.voice_name}")
+            if p.voice_name in existing_voices:
+                existing_ids = [vid for vid, _ in existing_voices[p.voice_name]]
                 print(f"    *** ALREADY EXISTS (id: {', '.join(existing_ids)}) ***")
-            print(f"    Prompt: {p.prompt[:80]}...")
+            print(f"    Model: {model or p.design.model}")
+            print(f"    Prompt: {p.design.prompt[:80]}...")
             print()
         print(f"Voice Design settings:")
-        print(f"  Model: {model}")
         print(f"  Loudness: {VOICE_DESIGN_LOUDNESS} (75% in UI)")
         print(f"  Guidance scale: {VOICE_DESIGN_GUIDANCE_SCALE} (38% in UI)")
         print(f"  Seed: {seed}")
@@ -162,11 +226,9 @@ def setup_voices(
             for voice_id, _ in entries:
                 print(f"  {voice_name} (id: {voice_id})")
 
-        conflicting = [
-            p for p in personas if f"{VOICE_NAME_PREFIX}_{p.name}" in existing_voices
-        ]
+        conflicting = [p for p in personas if p.voice_name in existing_voices]
         if conflicting and not force:
-            names = ", ".join(p.display_name for p in conflicting)
+            names = ", ".join(p.voice_name for p in conflicting)
             print(f"\nThe following voices already exist: {names}")
             print("Options:")
             print("  [r]eplace  — delete existing voice(s), create new")
@@ -187,16 +249,17 @@ def setup_voices(
         print("  No existing tau2 voices found.")
 
     print(f"\nCreating {len(personas)} voice(s) via ElevenLabs Voice Design API...\n")
-    print(f"  Model: {model}")
+    if model:
+        print(f"  Model (override): {model}")
     print(f"  Loudness: {VOICE_DESIGN_LOUDNESS} (75% in UI)")
     print(f"  Guidance scale: {VOICE_DESIGN_GUIDANCE_SCALE} (38% in UI)")
     print(f"  Seed: {seed}")
     print()
 
     for i, persona in enumerate(personas, 1):
-        voice_name = f"{VOICE_NAME_PREFIX}_{persona.name}"
-        print(f"[{i}/{len(personas)}] Creating voice: {persona.display_name}")
-        print(f"  Description: {persona.short_description}")
+        voice_name = persona.voice_name
+        print(f"[{i}/{len(personas)}] Creating voice: {voice_name}")
+        print(f"  Model: {model or persona.design.model}")
 
         if voice_name in existing_voices:
             existing_ids = [vid for vid, _ in existing_voices[voice_name]]
@@ -218,44 +281,49 @@ def setup_voices(
                 print("  Creating duplicate.")
 
         try:
-            result = client.text_to_voice.design(
-                voice_description=persona.prompt,
-                text=SAMPLE_TEXT,
-                model_id=model,
-                loudness=VOICE_DESIGN_LOUDNESS,
-                guidance_scale=VOICE_DESIGN_GUIDANCE_SCALE,
-                seed=seed,
-                auto_generate_text=False,
+            previews = design_voice(
+                client,
+                VoiceDesignRequest(
+                    description=persona.design.prompt,
+                    text=persona.design.audition_text,
+                    model=model or persona.design.model,
+                    loudness=VOICE_DESIGN_LOUDNESS,
+                    guidance_scale=VOICE_DESIGN_GUIDANCE_SCALE,
+                    seed=seed,
+                ),
             )
 
-            if not result.previews:
-                print(f"  ERROR: No previews returned for {persona.display_name}")
+            if not previews:
+                print(f"  ERROR: No previews returned for {voice_name}")
                 continue
 
-            selected_preview = result.previews[0]
+            selected_preview = previews[0]
             print(
-                f"  Generated {len(result.previews)} preview(s), "
+                f"  Generated {len(previews)} preview(s), "
                 f"using first: {selected_preview.generated_voice_id}"
             )
 
             if preview:
                 _play_preview(selected_preview)
 
-            voice = client.text_to_voice.create(
-                voice_name=voice_name,
-                voice_description=persona.short_description,
-                generated_voice_id=selected_preview.generated_voice_id,
+            voice_id = create_voice(
+                client,
+                VoiceCreateRequest(
+                    name=voice_name,
+                    description=persona.account_description,
+                    generated_voice_id=selected_preview.generated_voice_id,
+                ),
             )
 
-            created_voices[persona.name] = voice.voice_id
-            print(f"  Saved as voice_id: {voice.voice_id}")
+            created_voices[persona.env_key] = voice_id
+            print(f"  Saved as voice_id: {voice_id}")
             print()
 
             if i < len(personas):
                 time.sleep(1)
 
         except Exception as e:
-            print(f"  ERROR: Failed to create voice for {persona.display_name}: {e}")
+            print(f"  ERROR: Failed to create voice for {voice_name}: {e}")
             print()
             continue
 
@@ -287,8 +355,7 @@ def print_env_block(created_voices: dict[str, str]) -> None:
     print("Add the following to your .env file:")
     print("=" * 60)
     print()
-    for name, voice_id in created_voices.items():
-        env_key = f"TAU2_VOICE_ID_{name.upper()}"
+    for env_key, voice_id in created_voices.items():
         print(f"{env_key}={voice_id}")
     print()
     print("=" * 60)
@@ -296,18 +363,18 @@ def print_env_block(created_voices: dict[str, str]) -> None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Create ElevenLabs voices for τ-bench personas.",
+        description="Create ElevenLabs caller voices for language-pack personas.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Create all 7 voices
+  # Create the English caller voices
   python -m tau2.voice.scripts.setup_voices
 
-  # Create only the 2 control personas (for quick testing)
-  python -m tau2.voice.scripts.setup_voices --complexity control
+  # Create the caller voices for every voice-v2 language
+  python -m tau2.voice.scripts.setup_voices --language all
 
-  # Create only the 5 regular personas
-  python -m tau2.voice.scripts.setup_voices --complexity regular
+  # Only Spanish and Hindi
+  python -m tau2.voice.scripts.setup_voices --language es --language hi
 
   # See what would be created without calling the API
   python -m tau2.voice.scripts.setup_voices --dry-run
@@ -319,17 +386,19 @@ See docs/voice-personas.md for the full setup guide.
 """,
     )
     parser.add_argument(
-        "--complexity",
-        choices=["all", "control", "regular"],
-        default="all",
-        help="Which persona group to create: 'control' (2 American accents), "
-        "'regular' (5 diverse accents), or 'all' (default).",
+        "--language",
+        action="append",
+        metavar="CODE",
+        help="Language pack to create caller voices for (repeatable); "
+        f"'{ALL_LANGUAGES}' selects every voice-v2 language "
+        f"(default: {DEFAULT_LANGUAGE}).",
     )
     parser.add_argument(
         "--model",
         choices=VOICE_DESIGN_MODELS,
-        default=VOICE_DESIGN_MODEL,
-        help=f"ElevenLabs TTV model (default: {VOICE_DESIGN_MODEL}).",
+        default=None,
+        help="ElevenLabs TTV model override (default: each persona's model "
+        "from data/tau2/voice_design/<lang>.yaml).",
     )
     parser.add_argument(
         "--seed",
@@ -358,7 +427,7 @@ See docs/voice-personas.md for the full setup guide.
     logger.configure(handlers=[{"sink": sys.stderr, "level": "WARNING"}])
 
     created_voices = setup_voices(
-        complexity=args.complexity,
+        languages=resolve_languages(args.language),
         dry_run=args.dry_run,
         preview=args.preview,
         seed=args.seed,

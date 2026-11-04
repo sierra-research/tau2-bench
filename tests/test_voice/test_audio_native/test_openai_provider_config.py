@@ -30,3 +30,19 @@ def test_pine_model_requires_pine_base_url(monkeypatch):
 
     with pytest.raises(ValueError, match="PINE_REALTIME_BASE_URL"):
         OpenAIRealtimeProvider(model="pine-voice-preview")
+
+
+def test_language_voice_reaches_provider_without_connecting(monkeypatch):
+    from tau2.config import DEFAULT_OPENAI_VOICE
+    from tau2.voice.audio_native.adapter import create_adapter
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-only")
+    adapter, _ = create_adapter(
+        "openai", tick_duration_ms=100, voice="marin", transcription_language="es"
+    )
+    assert not adapter.is_connected
+    assert adapter.provider.voice == "marin"
+    assert adapter.provider.transcription_language == "es"
+    legacy = OpenAIRealtimeProvider(model="gpt-realtime")
+    assert legacy.voice == DEFAULT_OPENAI_VOICE
+    assert legacy.transcription_language == "en"

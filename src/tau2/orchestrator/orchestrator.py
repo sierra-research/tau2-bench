@@ -16,6 +16,7 @@ from tau2.agent.base_agent import (
     is_valid_agent_history_message,
 )
 from tau2.agent.llm_agent import LLMSoloAgent
+from tau2.data_model.language import CallContext
 from tau2.data_model.message import (
     AssistantMessage,
     Message,
@@ -99,6 +100,7 @@ class BaseOrchestrator(ABC, Generic[BaseAgentT, BaseUserT, TrajectoryItemT]):
         seed: Optional[int] = None,
         simulation_id: Optional[str] = None,
         timeout: Optional[float] = None,
+        call_context: Optional[CallContext] = None,
     ):
         """
         Initialize the base orchestrator.
@@ -114,7 +116,10 @@ class BaseOrchestrator(ABC, Generic[BaseAgentT, BaseUserT, TrajectoryItemT]):
             seed: Optional random seed for reproducibility. Defaults to None.
             simulation_id: Optional simulation ID. Defaults to generated UUID.
             timeout: Maximum wallclock time in seconds. None means no timeout.
+            call_context: Resolved language, persona and scoring context of a
+                runner-built call; None for hand-built orchestrators.
         """
+        self.call_context = call_context
         self.domain = domain
         self.agent: BaseAgentT = agent
         self.user: BaseUserT = user
@@ -137,6 +142,15 @@ class BaseOrchestrator(ABC, Generic[BaseAgentT, BaseUserT, TrajectoryItemT]):
         self.num_errors: int = 0
         self._run_start_time: Optional[str] = None
         self._run_start_perf: Optional[float] = None
+
+    @property
+    def initial_agent_message(self) -> Optional[AssistantMessage]:
+        """The call's greeting for this mode; None uses the ordinary default."""
+        if self.call_context is None:
+            return None
+        return AssistantMessage(
+            role="assistant", content=self.call_context.language.agent_greeting
+        )
 
     @abstractmethod
     def initialize(self) -> None:
@@ -405,6 +419,7 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
         simulation_id: Optional[str] = None,
         validate_communication: bool = False,
         timeout: Optional[float] = None,
+        call_context: Optional[CallContext] = None,
     ):
         """
         Initialize the Orchestrator for managing simulation between Agent, User, and Environment.
@@ -428,6 +443,7 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
             validate_communication: If True, validates communication protocol rules (e.g., no mixed
                                    messages with both text and tool calls). Defaults to False.
             timeout: Maximum wallclock time in seconds. None means no timeout.
+            call_context: Resolved language, persona and scoring context.
         """
         # Initialize base class
         super().__init__(
@@ -441,6 +457,7 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
             seed=seed,
             simulation_id=simulation_id,
             timeout=timeout,
+            call_context=call_context,
         )
 
         # Half-duplex specific attributes
@@ -627,7 +644,11 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
             # No message history - initialize fresh
             self.user_state = self.user.get_init_state()
             if not self.solo_mode:
-                first_message = deepcopy(DEFAULT_FIRST_AGENT_MESSAGE)
+                first_message = deepcopy(
+                    self.initial_agent_message or DEFAULT_FIRST_AGENT_MESSAGE
+                )
+                if self.task.agent_opener is not None:
+                    first_message.content = self.task.agent_opener
                 first_message.timestamp = get_now()
                 self.agent_state = self.agent.get_init_state(
                     message_history=[first_message]
@@ -859,7 +880,8 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
                 self.message, self.agent_state
             )
             agent_msg.validate()
-            if self.agent.is_stop(agent_msg):
+            configured_stop = self._is_configured_stop_tool_call(agent_msg)
+            if self.agent.is_stop(agent_msg) and not configured_stop:
                 self.done = True
                 self.termination_reason = TerminationReason.AGENT_STOP
 
@@ -867,7 +889,31 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
             self.message = agent_msg
             self.from_role = Role.AGENT
             if agent_msg.is_tool_call():
-                self.to_role = Role.ENV
+                if configured_stop and len(agent_msg.tool_calls) > 1:
+                    # A terminating call must have its own turn. Apply this
+                    # protocol only to agents with domain-configured stop tools.
+                    # Keep a matched rejection for each attempted call so replay
+                    # preserves the trace without executing the rejected writes.
+                    tool_results = [
+                        ToolMessage(
+                            id=call.id,
+                            role="tool",
+                            requestor=call.requestor,
+                            content="Call rejected: a terminating tool must be "
+                            "called on its own turn. No bundled calls executed.",
+                            error=True,
+                            execution_status="rejected",
+                        )
+                        for call in agent_msg.tool_calls
+                    ]
+                    self.trajectory.extend(tool_results)
+                    self.message = self._wrap_tool_results(tool_results)
+                    self.done = True
+                    self.termination_reason = TerminationReason.AGENT_STOP
+                    self.from_role = Role.ENV
+                    self.to_role = Role.AGENT
+                else:
+                    self.to_role = Role.ENV
             else:
                 self.to_role = Role.USER
                 # In solo mode, there is no user, so if the message is not a tool call and not a stop, then we end and report an agent error
@@ -878,6 +924,10 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
         elif self.from_role in [Role.AGENT, Role.USER] and self.to_role == Role.ENV:
             if not self.message.is_tool_call():
                 raise ValueError("Agent or User should send tool call to environment")
+            configured_stop = (
+                self.from_role == Role.AGENT
+                and self._is_configured_stop_tool_call(self.message)
+            )
             tool_results = self._execute_tool_calls(self.message.tool_calls)
             assert len(self.message.tool_calls) == len(tool_results), (
                 "Number of tool calls and tool messages should be the same"
@@ -886,6 +936,9 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
             self.message = self._wrap_tool_results(tool_results)
             self.to_role = self.from_role
             self.from_role = Role.ENV
+            if configured_stop:
+                self.done = True
+                self.termination_reason = TerminationReason.AGENT_STOP
         else:
             raise ValueError(
                 f"Invalid role combination. From role: {self.from_role}, To role: {self.to_role}"
@@ -894,6 +947,11 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
             self.check_communication_error()
         self.step_count += 1
         self.environment.sync_tools()
+
+    def _is_configured_stop_tool_call(self, message: Message) -> bool:
+        """Whether a call uses an explicitly configured domain termination tool."""
+        names = getattr(self.agent, "additional_stop_tool_names", frozenset())
+        return any(call.name in names for call in message.tool_calls or [])
 
     def get_trajectory(self) -> list[Message]:
         """

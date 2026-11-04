@@ -22,7 +22,6 @@ See: src/experiments/tau_voice/linearization/cases.md
 from dataclasses import dataclass
 from typing import Optional
 
-from tau2.agent.base.streaming import LinearizationStrategy, ParticipantTick
 from tau2.data_model.message import (
     AssistantMessage,
     MultiToolMessage,
@@ -30,6 +29,7 @@ from tau2.data_model.message import (
     ToolMessage,
     UserMessage,
 )
+from tau2.data_model.transcript import LinearizationStrategy, ParticipantTick
 
 
 @dataclass

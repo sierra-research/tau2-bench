@@ -48,6 +48,9 @@ def get_available_simulations(sim_dir: Optional[Path] = None):
     sim_files = []
     for subdir in sim_dir.iterdir():
         if subdir.is_dir():
+            if (subdir / "benchmark-frame.json").is_file():
+                sim_files.append(subdir)
+                continue
             reviewed_file = subdir / "results_reviewed.json"
             results_file = subdir / "results.json"
             if reviewed_file.exists():
@@ -344,8 +347,88 @@ def display_available_files(files):
     """Display a numbered list of available simulation files."""
     ConsoleDisplay.console.print("\n[bold blue]Available Simulation Files:[/]")
     for i, file in enumerate(files, 1):
-        dir_name = file.parent.name
+        dir_name = file.name if file.is_dir() else file.parent.name
         ConsoleDisplay.console.print(f"[cyan]{i}.[/] {dir_name}")
+
+
+def view_benchmark(
+    root: Path,
+    *,
+    only_show_failed: bool = False,
+    only_show_all_failed: bool = False,
+    expanded_ticks: bool = False,
+    max_tool_result_length: Optional[int] = 500,
+) -> None:
+    """Display official coverage, then drill into an ordinary cell's saved calls."""
+    from tau2.metrics.benchmark import load_saved_benchmark
+
+    while True:
+        matrix = load_saved_benchmark(root)
+        summary = matrix.submission.summary
+        score = f"{summary.score:.1%}" if summary.complete else "incomplete"
+        ConsoleDisplay.console.print(
+            f"\n[bold]{summary.benchmark_version}[/] — {summary.frame_revision}"
+        )
+        ConsoleDisplay.console.print(f"Official pass@1: {score}")
+        ConsoleDisplay.console.print(
+            f"{summary.scored_trials}/{summary.expected_trials} scored; "
+            f"{summary.missing_trials} missing; {summary.error_trials} errors; "
+            f"{summary.unscored_trials} unscored"
+        )
+        requested = matrix.submission.requested
+        if requested is not None:
+            requested_score = (
+                f"{requested.score:.1%}" if requested.complete else "incomplete"
+            )
+            ConsoleDisplay.console.print(
+                f"Requested selection pass@1: {requested_score}; "
+                f"{requested.scored_trials}/{requested.expected_trials} scored"
+            )
+        table = Table(title="Released language/domain cells")
+        for column in (
+            "#",
+            "Language",
+            "Domain",
+            "Scored",
+            "Missing",
+            "Errors",
+            "Unscored",
+            "Pass@1",
+        ):
+            table.add_column(column)
+        paths = []
+        for saved, cell in zip(matrix.cells, summary.cells, strict=True):
+            number = "—"
+            if saved.results_path is not None:
+                paths.append(saved.results_path)
+                number = str(len(paths))
+            table.add_row(
+                number,
+                cell.language,
+                cell.domain,
+                f"{cell.scored_trials}/{cell.expected_trials}",
+                str(cell.missing_trials),
+                str(cell.error_trials),
+                str(cell.unscored_trials),
+                f"{cell.score:.1%}" if cell.complete else "incomplete",
+            )
+        ConsoleDisplay.console.print(table)
+        if not paths:
+            return
+        choice = IntPrompt.ask(
+            "Select a cell to view its calls (0 to exit)",
+            choices=[str(i) for i in range(len(paths) + 1)],
+            default=0,
+        )
+        if choice == 0:
+            return
+        main(
+            sim_file=str(paths[choice - 1]),
+            only_show_failed=only_show_failed,
+            only_show_all_failed=only_show_all_failed,
+            expanded_ticks=expanded_ticks,
+            max_tool_result_length=max_tool_result_length,
+        )
 
 
 def display_simulation_with_task(
@@ -830,6 +913,20 @@ def main(
 ):
     ConsoleDisplay.max_tool_result_length = max_tool_result_length
 
+    requested_path = Path(sim_file or sim_dir) if sim_file or sim_dir else None
+    if (
+        requested_path is not None
+        and (requested_path / "benchmark-frame.json").is_file()
+    ):
+        view_benchmark(
+            requested_path,
+            only_show_failed=only_show_failed,
+            only_show_all_failed=only_show_all_failed,
+            expanded_ticks=expanded_ticks,
+            max_tool_result_length=max_tool_result_length,
+        )
+        return
+
     # Get available simulation files
     if sim_file is None:
         custom_sim_dir = Path(sim_dir) if sim_dir else None
@@ -935,6 +1032,16 @@ def main(
 
             if 1 <= file_num <= len(sim_files):
                 try:
+                    selected_file = sim_files[file_num - 1]
+                    if (selected_file / "benchmark-frame.json").is_file():
+                        view_benchmark(
+                            selected_file,
+                            only_show_failed=only_show_failed,
+                            only_show_all_failed=only_show_all_failed,
+                            expanded_ticks=expanded_ticks,
+                            max_tool_result_length=max_tool_result_length,
+                        )
+                        continue
                     current_results_file = str(sim_files[file_num - 1])
                     current_sim_path = sim_files[file_num - 1].parent
                     current_file = current_sim_path.name

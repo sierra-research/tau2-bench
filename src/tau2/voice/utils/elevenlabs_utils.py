@@ -94,6 +94,11 @@ def tts_elevenlabs(
             model_id=config.model_id,
             output_format=config.output_format_name,
             seed=config.seed,
+            **(
+                {"language_code": config.language_code}
+                if config.language_code is not None
+                else {}
+            ),
         )
 
         audio_bytes = b"".join(audio)

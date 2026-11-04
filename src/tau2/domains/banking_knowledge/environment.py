@@ -40,6 +40,7 @@ def get_environment(
     task: Optional[Task] = None,
     solo_mode: bool = False,
     read_log_allowlist: Optional[set] = None,
+    knowledge_base: Optional[KnowledgeBase] = None,
 ) -> Environment:
     """Get the banking_knowledge domain environment.
 
@@ -49,6 +50,7 @@ def get_environment(
 
     Args:
         db: Optional TransactionalDB instance. If None, loads from default.
+        knowledge_base: Optional document set. If None, loads canonical English KB.
         retrieval_variant: Variant name (e.g. ``"qwen_embeddings_grep"``).
             Defaults to :data:`DEFAULT_RETRIEVAL_VARIANT` when ``None``.
         retrieval_kwargs: Optional overrides passed to ``resolve_variant()``
@@ -71,7 +73,8 @@ def get_environment(
     if db is None:
         db = get_db()
 
-    knowledge_base = get_knowledge_base()
+    if knowledge_base is None:
+        knowledge_base = get_knowledge_base()
 
     variant_name = retrieval_variant or DEFAULT_RETRIEVAL_VARIANT
     kwargs = retrieval_kwargs or {}

@@ -1,0 +1,205 @@
+{
+  "$defs": {
+    "PackageContact": {
+      "additionalProperties": false,
+      "description": "Who to contact about the submission.",
+      "properties": {
+        "email": {
+          "description": "Contact email.",
+          "minLength": 1,
+          "title": "Email",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Submitter name.",
+          "title": "Name"
+        },
+        "github": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "GitHub username.",
+          "title": "Github"
+        }
+      },
+      "required": [
+        "email"
+      ],
+      "title": "PackageContact",
+      "type": "object"
+    },
+    "Reference": {
+      "additionalProperties": false,
+      "description": "A reference link (paper, blog post, github repo, etc.).",
+      "properties": {
+        "title": {
+          "description": "Title or description of the reference",
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "description": "URL to the reference",
+          "title": "Url",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Type of reference: paper, blog_post, documentation, model_card, github, huggingface, other",
+          "title": "Type"
+        }
+      },
+      "required": [
+        "title",
+        "url"
+      ],
+      "title": "Reference",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "benchmark-metadata.json in a 2.0 leaderboard package. Auto-generated from src/tau2/scripts/leaderboard/benchmark_package.py \u2014 do not edit by hand.",
+  "properties": {
+    "model_name": {
+      "description": "Displayed name.",
+      "minLength": 1,
+      "title": "Model Name",
+      "type": "string"
+    },
+    "model_organization": {
+      "description": "Organization that built the model.",
+      "minLength": 1,
+      "title": "Model Organization",
+      "type": "string"
+    },
+    "submitting_organization": {
+      "description": "Organization that ran the benchmark.",
+      "minLength": 1,
+      "title": "Submitting Organization",
+      "type": "string"
+    },
+    "submission_date": {
+      "description": "Submission date.",
+      "format": "date",
+      "title": "Submission Date",
+      "type": "string"
+    },
+    "contact_info": {
+      "$ref": "#/$defs/PackageContact"
+    },
+    "submission_type": {
+      "default": "standard",
+      "description": "custom: modified benchmark-side setup (see the guide).",
+      "enum": [
+        "standard",
+        "custom"
+      ],
+      "title": "Submission Type",
+      "type": "string"
+    },
+    "references": {
+      "default": [],
+      "description": "Papers, blog posts, model cards.",
+      "items": {
+        "$ref": "#/$defs/Reference"
+      },
+      "title": "References",
+      "type": "array"
+    },
+    "notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "How the agent was configured and run.",
+      "title": "Notes"
+    },
+    "schema_version": {
+      "const": "benchmark-metadata-v1",
+      "default": "benchmark-metadata-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "agent_provider": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Recorded audio-native provider; null for text.",
+      "title": "Agent Provider"
+    },
+    "agent_model": {
+      "description": "Recorded agent model.",
+      "minLength": 1,
+      "title": "Agent Model",
+      "type": "string"
+    },
+    "evidence": {
+      "default": "matrix",
+      "description": "Layout of the saved evidence the package cites.",
+      "enum": [
+        "matrix",
+        "historical-voice-v2-2026-10-02"
+      ],
+      "title": "Evidence",
+      "type": "string"
+    },
+    "trajectories": {
+      "anyOf": [
+        {
+          "pattern": "^s3://[a-z0-9.-]+/.+[^/]$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "S3 prefix of the uploaded evidence; set by maintainers.",
+      "title": "Trajectories"
+    }
+  },
+  "required": [
+    "model_name",
+    "model_organization",
+    "submitting_organization",
+    "submission_date",
+    "contact_info",
+    "agent_provider",
+    "agent_model"
+  ],
+  "title": "Tau2-Bench 2.0 Package Metadata",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

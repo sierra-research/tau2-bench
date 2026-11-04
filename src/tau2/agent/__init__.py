@@ -3,15 +3,6 @@ import warnings
 from tau2.agent.base.llm_config import LLMConfigMixin
 from tau2.agent.base.participant import FullDuplexParticipant, HalfDuplexParticipant
 from tau2.agent.base.streaming import StreamingMixin, StreamingState
-from tau2.agent.base.streaming_utils import (
-    extract_active_chunk_ids,
-    extract_all_chunk_ids,
-    extract_chunks_with_text,
-    extract_gold_text,
-    extract_message_uuid,
-    format_transcript_comparison,
-    merge_audio_script_gold,
-)
 from tau2.agent.base_agent import (
     FullDuplexAgent,
     FullDuplexVoiceAgent,
@@ -69,14 +60,6 @@ __all__ = [
     # Generic streaming mixins
     "StreamingMixin",
     "StreamingState",
-    # Streaming utilities
-    "extract_message_uuid",
-    "extract_active_chunk_ids",
-    "extract_all_chunk_ids",
-    "merge_audio_script_gold",
-    "extract_gold_text",
-    "extract_chunks_with_text",
-    "format_transcript_comparison",
     # Agent-specific base classes
     "HalfDuplexAgent",
     "FullDuplexAgent",

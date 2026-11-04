@@ -278,6 +278,18 @@ class TestPricing:
         )
         assert compute_record_cost(record) == pytest.approx(0.75)
 
+    def test_gemini_extended_thinking_cost(self):
+        record = UsageRecord(
+            provider="gemini",
+            model="gemini-3.8-live-extended-thinking",
+            component="realtime",
+            input_text_tokens=1_000_000,
+            input_audio_tokens=1_000_000,
+            output_text_tokens=1_000_000,
+            output_audio_tokens=1_000_000,
+        )
+        assert compute_record_cost(record) == pytest.approx(20.25)
+
     def test_unknown_model_is_none_not_zero(self):
         record = UsageRecord(
             provider="mystery", model="m", component="realtime", input_tokens=100

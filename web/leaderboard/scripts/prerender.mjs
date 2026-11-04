@@ -56,6 +56,11 @@ const GUARDS = {
     required: [/τ-voice/i],
     forbidden: [],
   },
+  '/community': {
+    required: [/Community Spotlight/, /community\/tau-rec\.html/],
+    forbidden: [],
+    minBytes: 6000,
+  },
 }
 
 const MIME = {

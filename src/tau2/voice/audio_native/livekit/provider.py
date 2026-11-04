@@ -16,6 +16,7 @@ The DiscreteTimeAdapter wraps this provider for tick-based simulation.
 
 import asyncio
 import json
+import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -26,9 +27,7 @@ import aiohttp
 from loguru import logger
 
 from tau2.config import DEFAULT_PCM_SAMPLE_RATE
-from tau2.data_model.message import ToolCall
-from tau2.environment.tool import Tool
-from tau2.voice.audio_native.livekit.config import (
+from tau2.data_model.cascaded import (
     AnthropicLLMConfig,
     CascadedConfig,
     DeepgramSTTConfig,
@@ -36,6 +35,8 @@ from tau2.voice.audio_native.livekit.config import (
     ElevenLabsTTSConfig,
     OpenAILLMConfig,
 )
+from tau2.data_model.message import ToolCall
+from tau2.environment.tool import Tool
 
 # =============================================================================
 # Event Types
@@ -356,21 +357,25 @@ class CascadedVoiceProvider:
         # Stop STT stream
         await self._stop_stt_stream()
 
-        # Cleanup clients
-        self._stt_client = None
-        self._llm_client = None
-        self._tts_client = None
+        try:
+            # Streaming TTS owns a reusable websocket and background tasks;
+            # close those before tearing down its shared HTTP session.
+            if self._tts_client is not None:
+                await self._tts_client.aclose()
+        finally:
+            self._stt_client = None
+            self._llm_client = None
+            self._tts_client = None
 
-        # Close HTTP session
-        if self._http_session is not None:
-            await self._http_session.close()
-            self._http_session = None
+            if self._http_session is not None:
+                await self._http_session.close()
+                self._http_session = None
 
-        self._state = ProviderState.DISCONNECTED
-        self._accumulated_transcript = ""
-        self._current_transcript = ""
-        self._is_user_speaking = False
-        self._last_transcript_time = None
+            self._state = ProviderState.DISCONNECTED
+            self._accumulated_transcript = ""
+            self._current_transcript = ""
+            self._is_user_speaking = False
+            self._last_transcript_time = None
         logger.info("CascadedVoiceProvider disconnected")
 
     # =========================================================================
@@ -455,6 +460,7 @@ class CascadedVoiceProvider:
 
                 self._tts_client = deepgram.TTS(
                     model=config.model,
+                    sample_rate=config.sample_rate,
                     http_session=self._http_session,
                 )
                 logger.debug(f"Initialized Deepgram TTS: {config.model}")
@@ -466,9 +472,25 @@ class CascadedVoiceProvider:
             try:
                 from livekit.plugins import elevenlabs
 
+                api_key = os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVEN_API_KEY")
+                if not api_key:
+                    raise ValueError(
+                        "ELEVENLABS_API_KEY (or ELEVEN_API_KEY) is required for ElevenLabs TTS"
+                    )
                 self._tts_client = elevenlabs.TTS(
-                    voice=config.voice_id,
+                    voice_id=config.voice_id,
                     model=config.model,
+                    encoding=f"pcm_{config.sample_rate}",
+                    voice_settings=elevenlabs.VoiceSettings(
+                        stability=config.stability,
+                        similarity_boost=config.similarity_boost,
+                    ),
+                    api_key=api_key,
+                    **(
+                        {"language": config.language}
+                        if config.language is not None
+                        else {}
+                    ),
                     http_session=self._http_session,
                 )
                 logger.debug(f"Initialized ElevenLabs TTS: {config.voice_id}")
@@ -904,20 +926,31 @@ class CascadedVoiceProvider:
         )
 
         try:
-            # Use synthesize for simpler TTS
-            async for event in self._tts_client.synthesize(text):
-                # Check for cancellation (barge-in)
-                if self._cancel_event.is_set():
-                    break
+            # ElevenLabs' HTTP synthesize path omits the language hint in the
+            # pinned SDK. Its streaming path serializes language_code.
+            is_elevenlabs = isinstance(self.config.tts, ElevenLabsTTSConfig)
+            stream = (
+                self._tts_client.stream()
+                if is_elevenlabs
+                else self._tts_client.synthesize(text)
+            )
+            async with stream:
+                if is_elevenlabs:
+                    stream.push_text(text)
+                    stream.end_input()
+                async for event in stream:
+                    # Closing the stream also cleans up cancellation/barge-in.
+                    if self._cancel_event.is_set():
+                        break
 
-                if hasattr(event, "frame") and event.frame:
-                    audio_data = event.frame.data
-                    if isinstance(audio_data, memoryview):
-                        audio_data = bytes(audio_data)
-                    yield CascadedEvent(
-                        type=CascadedEventType.TTS_AUDIO,
-                        data={"audio": audio_data},
-                    )
+                    if hasattr(event, "frame") and event.frame:
+                        audio_data = event.frame.data
+                        if isinstance(audio_data, memoryview):
+                            audio_data = bytes(audio_data)
+                        yield CascadedEvent(
+                            type=CascadedEventType.TTS_AUDIO,
+                            data={"audio": audio_data},
+                        )
 
             yield CascadedEvent(type=CascadedEventType.TTS_COMPLETED)
 

@@ -3,7 +3,7 @@
 A **work unit** is one simulation attempt: ``(run_id, task_id, trial, seed)``.
 Units are in-memory only and never persisted — the checkpoint (results.json)
 is the single source of truth, and the queue is recomputed from it on resume.
-See docs/designs/parallel-runner.md.
+See docs/cli-reference.md.
 
 The queue is transport-agnostic: the local batch loop consumes it directly,
 and the HTTP controller serves it to worker processes. Policy lives at lease

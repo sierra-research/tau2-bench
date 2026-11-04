@@ -7,8 +7,8 @@ evaluators (reported in PR #386).
 """
 
 from tau2.data_model.message import Tick, ToolCall, ToolMessage
+from tau2.data_model.run_config import AudioNativeConfig
 from tau2.data_model.simulation import (
-    AudioNativeConfig,
     Info,
     Results,
     RewardInfo,
@@ -342,3 +342,110 @@ class TestRegradingOptions:
         )
         captured = self._capture_eval_kwargs(monkeypatch, results)
         assert captured[0]["task"].evaluation_criteria == EvaluationCriteria()
+
+
+def test_rescoring_preserves_semantic_settings_in_both_modes(monkeypatch):
+    from tau2.data_model.semantic_communication import (
+        CommunicateScoring,
+        SemanticCommunicateSettings,
+    )
+    from tau2.data_model.simulation import TextRunConfig
+    from tau2.runner.batch import _load_run_tasks
+    from tau2.runner.helpers import get_info
+
+    config = TextRunConfig(
+        domain="retail",
+        language="es",
+        num_tasks=1,
+        communicate_scoring=CommunicateScoring(
+            judge=SemanticCommunicateSettings(
+                model="recorded-judge", model_args={"reasoning_effort": "low"}
+            )
+        ),
+    )
+    tasks = _load_run_tasks(config)
+    info = get_info(config, tasks=tasks)
+    seen = []
+
+    def evaluate(**kwargs):
+        seen.append(kwargs)
+        return RewardInfo(reward=1)
+
+    monkeypatch.setattr(evaluate_trajectories_module, "evaluate_simulation", evaluate)
+    original = Results(
+        info=info,
+        tasks=tasks,
+        simulations=[
+            _make_half_duplex_sim(tasks[0].id),
+            _make_full_duplex_sim(tasks[0].id),
+        ],
+    )
+    restored = Results.model_validate_json(original.model_dump_json())
+    rescored = compute_simulation_rewards(restored)
+    assert rescored.info == info
+    assert len(seen) == 2
+    assert {call["mode"] for call in seen} == {
+        CommunicationMode.HALF_DUPLEX,
+        CommunicationMode.FULL_DUPLEX,
+    }
+    assert all(
+        call["customer_language"] == "es"
+        and call["communicate_scoring"] == info.communicate_scoring
+        for call in seen
+    )
+    assert all(sim.reward_info.reward == 1 for sim in rescored.simulations)
+
+
+def test_fresh_tasks_cannot_replace_pinned_language_tasks():
+    import pytest
+
+    info = _make_info()
+    info.language = "es"
+    original = Results(
+        info=info, tasks=[_make_task("t")], simulations=[_make_half_duplex_sim("t")]
+    )
+    with pytest.raises(ValueError, match="pinned language"):
+        compute_simulation_rewards(original, fresh_tasks=True)
+
+
+def test_rescoring_ignores_voice_id_overrides_but_not_persona_changes(monkeypatch):
+    """TAU2_VOICE_ID_* changes delivery only; re-grading must not depend on it."""
+    import pytest
+
+    from tau2.data_model.run_config import AudioNativeConfig
+    from tau2.data_model.simulation import VoiceRunConfig
+    from tau2.runner.batch import _load_run_tasks
+    from tau2.runner.helpers import get_info
+
+    config = VoiceRunConfig(
+        domain="retail",
+        language="es",
+        num_tasks=1,
+        audio_native_config=AudioNativeConfig(),
+    )
+    tasks = _load_run_tasks(config)
+    info = get_info(config, tasks=tasks)
+    persona_id = info.language_tasks[tasks[0].id].persona_id
+    monkeypatch.setattr(
+        evaluate_trajectories_module,
+        "evaluate_simulation",
+        lambda **kwargs: RewardInfo(reward=1),
+    )
+
+    def rescore(recorded):
+        results = Results(
+            info=recorded,
+            tasks=tasks,
+            simulations=[_make_full_duplex_sim(tasks[0].id)],
+        )
+        return compute_simulation_rewards(
+            Results.model_validate_json(results.model_dump_json())
+        )
+
+    monkeypatch.setenv(f"TAU2_VOICE_ID_ES_{persona_id}".upper(), "unofficial-voice")
+    assert rescore(info).simulations[0].reward_info.reward == 1
+
+    changed = info.model_copy(deep=True)
+    changed.language_tasks[tasks[0].id].persona.gender_guidance = "changed"
+    with pytest.raises(ValueError, match="persona differs"):
+        rescore(changed)

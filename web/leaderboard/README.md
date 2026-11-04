@@ -44,6 +44,18 @@ See the **[Leaderboard Submission Guide](../../docs/leaderboard-submission.md)**
 
 ## 🔧 Development
 
+### Voice leaderboard data
+
+`npm run index` (also run before dev/build) generates
+`public/voice-leaderboard.json` from the committed submission manifest and
+packages. This same-origin snapshot includes all score aggregates, quality
+counts and Pass³ scores needed by the τ-i18n table, explorer and breakdowns;
+it omits trial lists and per-call evidence. It is regenerated on each deployment,
+so no separate S3 summary upload or manual score maintenance is needed.
+Judge diagnostics still load on demand from the configured submissions base.
+Text and English voice packages load only when those views are opened.
+An unavailable or incompatible snapshot falls back to the package loader.
+
 ### Routing, Prerendering & SEO
 
 The site uses **path-based routing** (`/leaderboard`, `/blog`, …) driven by

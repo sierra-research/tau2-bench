@@ -19,7 +19,6 @@ from typing import List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
-from tau2.voice.audio_native.openai.tick_runner import TickResult
 
 from tau2.agent.discrete_time_audio_native_agent import (
     DiscreteTimeAgentState,
@@ -33,6 +32,7 @@ from tau2.data_model.message import (
     UserMessage,
 )
 from tau2.environment.tool import Tool
+from tau2.voice.audio_native.tick_result import TickResult
 
 # =============================================================================
 # Mock TickResult Helper
@@ -48,26 +48,20 @@ def make_mock_tick_result(
     item_ids: Optional[List[str]] = None,
     tool_calls: Optional[List] = None,
 ) -> TickResult:
-    """Create a mock TickResult for testing."""
-    result = MagicMock(spec=TickResult)
-    result.tick_number = tick_number
-    result.agent_audio_data = agent_audio
-    result.proportional_transcript = transcript
-    result.events = events or []
-    result.was_truncated = was_truncated
-    result.get_played_agent_audio.return_value = agent_audio or b"\x7f" * 8000
-    result.item_ids = item_ids or []
-    result.tool_calls = tool_calls or []
-    result.model_dump.return_value = {
-        "tick_number": tick_number,
-        "agent_audio_bytes": len(agent_audio),
-        "proportional_transcript": transcript,
-        "events": events or [],
-        "was_truncated": was_truncated,
-        "item_ids": item_ids or [],
-        "tool_calls": tool_calls or [],
-    }
-    return result
+    """Build the current provider-independent tick contract for a fake adapter."""
+    return TickResult(
+        tick_number=tick_number,
+        audio_sent_bytes=0,
+        audio_sent_duration_ms=0,
+        agent_audio_chunks=[(agent_audio, (item_ids or [None])[0])]
+        if agent_audio
+        else [],
+        proportional_transcript=transcript,
+        events=events or [],
+        was_truncated=was_truncated,
+        tool_calls=tool_calls or [],
+        bytes_per_tick=8000,
+    )
 
 
 # =============================================================================

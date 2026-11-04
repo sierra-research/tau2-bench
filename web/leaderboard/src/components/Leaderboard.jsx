@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import './Leaderboard.css'
 import ProgressView from './ProgressView'
+import MultilingualVoice from './MultilingualVoice'
 
 // The leaderboard is split into three buckets, one per benchmark track:
 // τ³-Banking (published as τ-knowledge), τ³-Voice (published as τ-voice:
@@ -235,6 +236,9 @@ const formatInteractionValue = (value, unit) => {
   return unit === 's' ? `${value.toFixed(2)}s` : `${(value * 100).toFixed(1)}%`
 }
 
+// /progress deep-links the English-only voice view (its progress chart).
+const editionForPath = () => window.location.pathname.replace(/\/$/, '') === '/progress' ? 'english' : 'multilingual'
+
 const Leaderboard = () => {
   // Benchmark selector: 'core' (τ²-bench), 'knowledge' (τ-knowledge), or
   // 'voice' (τ-voice)
@@ -288,6 +292,9 @@ const Leaderboard = () => {
   const [showFilterInfo, setShowFilterInfo] = useState(false)
   // Voice ranking mode: 'passk' (default) or 'interaction' (τ-voice panel)
   const [rankBy, setRankBy] = useState('passk')
+  const [voiceEdition, setVoiceEdition] = useState(editionForPath)
+  const isMultilingual = benchmark === 'voice' && voiceEdition === 'multilingual'
+  const legacyRequested = useRef(false)
   // null = keep the pass^1 ordering; set by clicking a metric column header
   const [interactionMetric, setInteractionMetric] = useState(null)
   // Expanded rows state (set of model names)
@@ -449,22 +456,17 @@ const Leaderboard = () => {
         }
       }
       
-      // Load current text submissions
-      for (const dir of currentDirs) {
-        await loadSubmission(dir, false, 'text')
-      }
+      // Fetch every submission in parallel, then keep manifest order
+      // (current text, legacy text, voice).
+      await Promise.all([
+        ...currentDirs.map(dir => loadSubmission(dir, false, 'text')),
+        ...legacyDirs.map(dir => loadSubmission(dir, true, 'text')),
+        ...voiceDirs.map(dir => loadSubmission(dir, false, 'voice')),
+      ])
+      const ordered = Object.fromEntries([...currentDirs, ...legacyDirs, ...voiceDirs]
+        .filter(dir => dir in loadedData).map(dir => [dir, loadedData[dir]]))
       
-      // Load legacy text submissions
-      for (const dir of legacyDirs) {
-        await loadSubmission(dir, true, 'text')
-      }
-      
-      // Load voice submissions
-      for (const dir of voiceDirs) {
-        await loadSubmission(dir, false, 'voice')
-      }
-      
-      setPassKData(loadedData)
+      setPassKData(ordered)
       setFullSubmissionData(fullSubmissions)
     } catch (error) {
       console.error('Error loading submission data:', error)
@@ -474,10 +476,14 @@ const Leaderboard = () => {
     }
   }
 
-  // Load data on component mount
+  // The multilingual board has its own compact snapshot. Fetch the legacy
+  // text/English packages only when a view that uses them is first opened.
   useEffect(() => {
-    loadSubmissionData()
-  }, [])
+    if (!isMultilingual && !legacyRequested.current) {
+      legacyRequested.current = true
+      loadSubmissionData()
+    }
+  }, [isMultilingual])
 
   // Save leaderboard state to localStorage
   useEffect(() => {
@@ -491,7 +497,8 @@ const Leaderboard = () => {
 
     const params = new URLSearchParams(window.location.search)
     params.set('benchmark', benchmark)
-    params.delete('view')
+    // Drop the legacy table/progress `view`; keep the τ-i18n language map's.
+    if (!(benchmark === 'voice' && params.get('view') === 'languages')) params.delete('view')
 
     const next = `${window.location.pathname}?${params.toString()}`
     if (`${window.location.pathname}${window.location.search}` !== next) {
@@ -501,10 +508,18 @@ const Leaderboard = () => {
 
   // React to browser navigation events (back/forward).
   useEffect(() => {
+    let lastPath = window.location.pathname
     const syncFromUrl = () => {
       const benchmarkFromUrl = getBenchmarkFromUrl()
       if (benchmarkFromUrl) {
         setBenchmark(prev => (prev === benchmarkFromUrl ? prev : benchmarkFromUrl))
+      }
+      // /progress is the English voice view; the component stays mounted
+      // across /leaderboard ↔ /progress, so re-derive it when the path
+      // changes. A same-path popstate keeps the reader's toggle.
+      if (window.location.pathname !== lastPath) {
+        lastPath = window.location.pathname
+        setVoiceEdition(editionForPath())
       }
     }
 
@@ -592,7 +607,7 @@ const Leaderboard = () => {
   }
 
   // Loading and error states
-  if (isLoading) {
+  if (!isMultilingual && isLoading) {
     return (
       <div className="leaderboard-wrapper">
       <div className="leaderboard-container">
@@ -606,7 +621,7 @@ const Leaderboard = () => {
     )
   }
 
-  if (loadError) {
+  if (!isMultilingual && loadError) {
     return (
       <div className="leaderboard-wrapper">
       <div className="leaderboard-container">
@@ -622,7 +637,7 @@ const Leaderboard = () => {
     )
   }
 
-  if (Object.keys(passKData).length === 0) {
+  if (!isMultilingual && Object.keys(passKData).length === 0) {
     return (
       <div className="leaderboard-wrapper">
       <div className="leaderboard-container">
@@ -661,64 +676,7 @@ const Leaderboard = () => {
   // shown as its own column but excluded so older submissions stay comparable
   const voiceDomains = ['retail', 'airline', 'telecom']
 
-  return (
-    <div className="leaderboard-wrapper">
-    <div className="leaderboard-container">
-      {/* Benchmark Selector */}
-      <div className="benchmark-selector">
-        <div className="benchmark-toggle-container" style={{ '--benchmark-count': benchmarkKeys.length }}>
-          {benchmarkKeys.map((key) => (
-            <button
-              key={key}
-              className={`benchmark-toggle-option ${benchmark === key ? 'active' : ''}`}
-              onClick={() => handleBenchmarkChange(key)}
-              title={BENCHMARK_CONFIG[key].hoverNote}
-            >
-              <span className="benchmark-icon">{BENCHMARK_CONFIG[key].icon}</span> {BENCHMARK_CONFIG[key].label}
-            </button>
-          ))}
-          <div
-            className="benchmark-toggle-slider"
-            style={{
-              width: `calc((100% - 8px) / ${benchmarkKeys.length})`,
-              transform: `translateX(${benchmarkKeys.indexOf(benchmark) * 100}%)`
-            }}
-          />
-        </div>
-      </div>
-
-      <div className="leaderboard-title-row">
-        <h2 className="leaderboard-title">{benchConfig.title}</h2>
-      </div>
-      <p className="leaderboard-subtitle">{benchConfig.description}</p>
-
-      {/* Combined Controls Row — applies to both ranking and progress views */}
-      <div className="leaderboard-controls">
-        {/* Domain Toggle Switch (hidden when the bucket has a single domain) */}
-        {availableDomains.length > 1 && (
-        <div className="domain-toggle-switch">
-          <div className="toggle-container domain-toggle-container" style={{ '--domain-count': availableDomains.length }}>
-            {availableDomains.map(d => (
-              <button
-                key={d.key}
-                className={`toggle-option domain-toggle-option ${domain === d.key ? 'active' : ''}`}
-                onClick={() => setDomain(d.key)}
-              >
-                {d.label}
-              </button>
-            ))}
-            <div 
-              className="toggle-slider domain-toggle-slider"
-              style={{
-                width: `calc((100% - 8px) / ${availableDomains.length})`,
-                transform: `translateX(${availableDomains.findIndex(d => d.key === domain) * 100}%)`
-              }}
-            />
-          </div>
-        </div>
-        )}
-
-        {/* Submission Type Filter */}
+  const submissionTypeFilters = (
         <div className="submission-type-filter">
           <label className="checkbox-container">
             <input 
@@ -779,6 +737,73 @@ const Leaderboard = () => {
             )}
           </div>
         </div>
+  )
+
+  return (
+    <div className="leaderboard-wrapper">
+    <div className="leaderboard-container">
+      {/* Benchmark Selector */}
+      <div className="benchmark-selector">
+        <div className="benchmark-toggle-container" style={{ '--benchmark-count': benchmarkKeys.length }}>
+          {benchmarkKeys.map((key) => (
+            <button
+              key={key}
+              className={`benchmark-toggle-option ${benchmark === key ? 'active' : ''}`}
+              onClick={() => handleBenchmarkChange(key)}
+              title={BENCHMARK_CONFIG[key].hoverNote}
+            >
+              <span className="benchmark-icon">{BENCHMARK_CONFIG[key].icon}</span> {BENCHMARK_CONFIG[key].label}
+            </button>
+          ))}
+          <div
+            className="benchmark-toggle-slider"
+            style={{
+              width: `calc((100% - 8px) / ${benchmarkKeys.length})`,
+              transform: `translateX(${benchmarkKeys.indexOf(benchmark) * 100}%)`
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="leaderboard-title-row">
+        <h2 className="leaderboard-title">{benchConfig.title}</h2>
+      </div>
+      <p className="leaderboard-subtitle">{benchConfig.description}</p>
+
+      {isVoice && <div className="voice-edition" aria-label="Voice edition">
+        <button className={voiceEdition === 'multilingual' ? 'active' : ''} aria-pressed={voiceEdition === 'multilingual'} onClick={() => setVoiceEdition('multilingual')}>Multilingual</button>
+        <button className={voiceEdition === 'english' ? 'active' : ''} aria-pressed={voiceEdition === 'english'} onClick={() => setVoiceEdition('english')}>English</button>
+      </div>}
+      {isVoice && voiceEdition === 'multilingual' ? <MultilingualVoice submissionTypeFilters={submissionTypeFilters} showStandard={showStandard} showCustom={showCustom} /> : <>
+
+      {/* Combined Controls Row — applies to both ranking and progress views */}
+      <div className="leaderboard-controls">
+        {/* Domain Toggle Switch (hidden when the bucket has a single domain) */}
+        {availableDomains.length > 1 && (
+        <div className="domain-toggle-switch">
+          <div className="toggle-container domain-toggle-container" style={{ '--domain-count': availableDomains.length }}>
+            {availableDomains.map(d => (
+              <button
+                key={d.key}
+                className={`toggle-option domain-toggle-option ${domain === d.key ? 'active' : ''}`}
+                onClick={() => setDomain(d.key)}
+              >
+                {d.label}
+              </button>
+            ))}
+            <div
+              className="toggle-slider domain-toggle-slider"
+              style={{
+                width: `calc((100% - 8px) / ${availableDomains.length})`,
+                transform: `translateX(${availableDomains.findIndex(d => d.key === domain) * 100}%)`
+              }}
+            />
+          </div>
+        </div>
+        )}
+
+        {/* Submission Type Filter */}
+        {submissionTypeFilters}
       </div>
 
       {/* Voice Overall scope note */}
@@ -1136,6 +1161,9 @@ const Leaderboard = () => {
                         )}
                         {displayOrg === 'xAI' && (
                           <img src={`${import.meta.env.BASE_URL}xai-logo.svg`} alt="xAI" className="logo-img" />
+                        )}
+                        {displayOrg === 'Avartha' && (
+                          <img src={`${import.meta.env.BASE_URL}avartha-logo.svg`} alt="Avartha" className="logo-img" />
                         )}
                        </div>
                         <div className="org-text">
@@ -1587,6 +1615,7 @@ const Leaderboard = () => {
           </div>
         </div>
       )}
+      </>}
     </div>
     </div>
   )

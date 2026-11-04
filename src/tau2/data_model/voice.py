@@ -4,9 +4,13 @@
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
-from tau2.config import DEFAULT_SEED
+from tau2.config import (
+    DEFAULT_CHANNEL_EFFECTS_MODE,
+    DEFAULT_SEED,
+    DEFAULT_SPEECH_EFFECTS_MODE,
+)
 from tau2.data_model.audio import AudioEncoding, AudioFormat
 from tau2.data_model.audio_effects import (
     ChannelEffectsConfig,
@@ -81,6 +85,10 @@ class ElevenLabsTTSConfig(BaseModel):
     """Configuration for ElevenLabs TTS."""
 
     model_id: str = Field(default="eleven_v3")
+    language_code: Optional[str] = Field(
+        default=None,
+        description="Optional pinned synthesis language; None preserves provider behavior.",
+    )
     voice_id: Optional[str] = Field(default=None)
     api_key: Optional[str] = Field(default=None)
     voice_settings: Any = Field(default=DEFAULT_ELEVENLABS_VOICE_SETTINGS)
@@ -98,6 +106,66 @@ class ElevenLabsTTSConfig(BaseModel):
     seed: Optional[int] = Field(default=None)
 
 
+class VoiceDesignRequest(BaseModel):
+    """Explicit ElevenLabs design inputs shared by setup and reviewed authoring."""
+
+    description: str = Field(
+        description="Full acoustic description sent to voice design."
+    )
+    text: str = Field(
+        description="Caller-supplied audition text; never provider-generated."
+    )
+    model: str = Field(description="Explicit provider design model.")
+    seed: int = Field(description="Explicit design seed.")
+    loudness: float = Field(description="Explicit provider loudness setting.")
+    guidance_scale: float = Field(description="Explicit description guidance strength.")
+
+
+class VoiceDesignPreview(BaseModel):
+    """One transient provider preview before account creation or artifact storage."""
+
+    generated_voice_id: str = Field(description="Provider's generated preview ID.")
+    audio_base_64: str = Field(description="Provider preview audio encoded as base64.")
+    media_type: str = Field(description="Provider audio media type.")
+
+
+class VoiceCreateRequest(BaseModel):
+    """Explicit account name, description and selected design preview."""
+
+    name: str = Field(description="Voice name to save in the provider account.")
+    description: str = Field(
+        description="Account description, which may differ from the design brief."
+    )
+    generated_voice_id: str = Field(
+        description="Exactly the selected generated preview ID."
+    )
+
+
+class PersonaVoiceDesign(BaseModel):
+    """Voice Design inputs that recreate one pack persona's caller voice."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    gender: Literal["male", "female"] = Field(description="Pack persona gender.")
+    model: str = Field(min_length=1, description="ElevenLabs voice-design model.")
+    prompt: str = Field(min_length=1, description="Acoustic voice-design brief.")
+    audition_text: str = Field(
+        min_length=100,
+        description="Native preview line the designed voice speaks (API minimum 100).",
+    )
+
+
+class LanguageVoiceDesign(BaseModel):
+    """Voice Design inputs for every persona of one language pack."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    language: str = Field(min_length=1, description="Language pack code.")
+    personas: dict[str, PersonaVoiceDesign] = Field(
+        min_length=1, description="Design inputs keyed by pack persona ID."
+    )
+
+
 ProviderConfig = ElevenLabsTTSConfig
 
 
@@ -106,9 +174,74 @@ ProviderConfig = ElevenLabsTTSConfig
 # ============================================================================
 
 
+class SpelledEntityTables(BaseModel):
+    """Native names and TTS hints for explicit spelling.
+
+    A persona opts in through ``RuntimePersona.spelled_entity_tables``. Runtime
+    passes these tables to synthesis for that persona; absent tables leave text
+    unchanged. PT-BR hints such as S -> "éssi" repair letter pronunciation in the
+    TTS input while preserving the original message text.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    letter_names: dict[str, str] = Field(
+        description="Native spoken letter names, keyed by UPPERCASE letter "
+        "A-Z (complete table; e.g. pt 'S' -> 'ésse')."
+    )
+    digit_names: dict[str, str] = Field(
+        description="Native spoken digit words, keyed by digit '0'-'9' "
+        "(complete table; e.g. pl '3' -> 'trzy')."
+    )
+    symbol_names: dict[str, str] = Field(
+        description="Native readout per technical symbol ('_', '-', '@', "
+        "'.'; the most natural form from the pack's symbol_readouts)."
+    )
+    letter_name_tts: dict[str, str] = Field(
+        default_factory=dict,
+        description="Pronunciation-hint respelling per UPPERCASE letter, used "
+        "in the TTS-bound text in place of the orthographic letter name "
+        "(e.g. pt 'S' -> 'éssi' so the final vowel is voiced Brazilian, not "
+        "European). Partial by design: only the letters the TTS gets wrong.",
+    )
+
+    @model_validator(mode="after")
+    def complete_tables(self) -> "SpelledEntityTables":
+        """Require complete letter/digit tables and usable pronunciation hints."""
+        if set(self.letter_names) != set("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):
+            raise ValueError("letter_names must cover exactly uppercase A-Z")
+        if set(self.digit_names) != set("0123456789"):
+            raise ValueError("digit_names must cover exactly digits 0-9")
+        if "_" not in self.symbol_names:
+            raise ValueError("spelled entity tables require an underscore readout")
+        if set(self.letter_name_tts) - set(self.letter_names):
+            raise ValueError("letter_name_tts keys must be uppercase A-Z")
+        for table in (
+            self.letter_names,
+            self.digit_names,
+            self.symbol_names,
+            self.letter_name_tts,
+        ):
+            if any(not value.strip() for value in table.values()):
+                raise ValueError("spelled entity table values must be non-empty")
+        names = {name.casefold() for name in self.letter_names.values()}
+        if any(hint.casefold() in names for hint in self.letter_name_tts.values()):
+            raise ValueError("TTS hints must not repeat orthographic letter names")
+        return self
+
+    def spoken_letter(self, letter: str) -> Optional[str]:
+        """The word the TTS should receive for ``letter``, hint-first."""
+        upper = letter.upper()
+        return self.letter_name_tts.get(upper) or self.letter_names.get(upper)
+
+
 class SynthesisConfig(BaseModel):
     """Voice synthesis configuration with 3-tier effect taxonomy."""
 
+    spelled_entity_tables: Optional[SpelledEntityTables] = Field(
+        default=None,
+        description="Reviewed pre-TTS normalization tables; None leaves transcript text unchanged.",
+    )
     provider: str = Field(default="elevenlabs")
     provider_config: Optional[ProviderConfig] = Field(default=ElevenLabsTTSConfig())
     channel_effects_config: ChannelEffectsConfig = Field(
@@ -268,6 +401,12 @@ class SampledVoiceConfig(BaseModel):
 
     # Complexity level (stored for reference)
     complexity: SpeechComplexity = Field(description="The complexity level used")
+    channel_effects_mode: Literal["light", "regular", "heavy"] = (
+        DEFAULT_CHANNEL_EFFECTS_MODE
+    )
+    speech_effects_mode: Literal["light", "regular", "heavy"] = (
+        DEFAULT_SPEECH_EFFECTS_MODE
+    )
 
     def to_speech_environment(self, seed: int) -> "SpeechEnvironment":
         """Create a SpeechEnvironment from this sampled config."""
@@ -299,6 +438,17 @@ class VoiceSettings(BaseModel):
     output_dir: Optional[Path] = Field(default=None)
     speech_environment: Optional[SpeechEnvironment] = Field(
         default_factory=SpeechEnvironment
+    )
+
+    pronunciation_map: Optional[dict[str, str]] = Field(
+        default=None,
+        description="Optional pre-synthesis substitutions. The caller transcript stays "
+        "unchanged; audio_script_gold records the text actually synthesized.",
+    )
+
+    pronunciation_grapheme_tokens: list[str] = Field(
+        default_factory=list,
+        description="Explicit reviewed pronunciation tokens that match grapheme boundaries in unsegmented speech. Other tokens retain whole-word matching.",
     )
 
     @computed_field

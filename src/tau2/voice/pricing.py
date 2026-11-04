@@ -16,7 +16,8 @@ Rules:
 - Cascaded LLM legs fall back to litellm's cost registry for models not in
   the table.
 
-Rates last verified against official pricing pages on PRICING_VERSION date.
+PRICING_VERSION records the last rate-table change; individual rates may have
+been verified on earlier dates.
 """
 
 from dataclasses import dataclass
@@ -26,7 +27,7 @@ from loguru import logger
 
 from tau2.data_model.usage import SessionUsage, UsageRecord, aggregate_usage
 
-PRICING_VERSION = "2026-08-04"
+PRICING_VERSION = "2026-10-01"
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,12 @@ PRICING: Dict[Tuple[str, str], Rates] = {
     # No cached-token discount published for Live models: cached tokens are
     # charged at the full input rate (conservative). ---
     ("gemini", "gemini-3.1-flash-live-preview"): Rates(
+        input_text=0.75,
+        input_audio=3.00,
+        output_text=4.50,
+        output_audio=12.00,
+    ),
+    ("gemini", "gemini-3.8-live-extended-thinking"): Rates(
         input_text=0.75,
         input_audio=3.00,
         output_text=4.50,
@@ -129,6 +136,8 @@ PRICING: Dict[Tuple[str, str], Rates] = {
     ("xai", "xai-realtime"): Rates(per_audio_input_minute=0.05),
     ("xai", "grok-voice-think-fast-1.0"): Rates(per_audio_input_minute=0.05),
     ("xai", "grok-voice-think-fast-2.0"): Rates(per_audio_input_minute=0.08),
+    # --- Phonic. Billed per minute of conversation. ---
+    ("phonic", "phonic-1"): Rates(per_audio_input_minute=0.06),
     # --- Cascaded legs (verified: deepgram.com/pricing, elevenlabs.io/pricing,
     # developers.openai.com, platform.claude.com) ---
     ("deepgram", "nova-3"): Rates(per_audio_input_minute=0.0048),  # streaming, en

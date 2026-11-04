@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from tau2.agent.base_agent import HalfDuplexAgent, ValidAgentInputMessage
 from tau2.agent.llm_agent import LLMAgent
 from tau2.config import (
+    DEFAULT_LANGUAGE,
     DEFAULT_LLM_AGENT,
     DEFAULT_LLM_ARGS_AGENT,
     DEFAULT_LLM_ARGS_USER,
@@ -23,14 +24,15 @@ from tau2.data_model.message import (
     MultiToolMessage,
     UserMessage,
 )
-from tau2.data_model.simulation import SimulationRun
+from tau2.data_model.semantic_communication import CommunicateScoring
+from tau2.data_model.simulation import SimulationRun, TextRunConfig
 from tau2.data_model.tasks import Task
-from tau2.environment.environment import Environment
 from tau2.environment.tool import Tool, as_tool
-from tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
+from tau2.multilingual.runtime import load_run_language
 from tau2.orchestrator.orchestrator import Orchestrator
 from tau2.registry import registry
-from tau2.user.user_simulator import DummyUser, UserSimulator
+from tau2.runner.build import build_text_orchestrator
+from tau2.runner.simulation import run_simulation
 from tau2.user.user_simulator_base import (
     OUT_OF_SCOPE,
     STOP,
@@ -47,6 +49,12 @@ TAU_BENCH_ENV_ID = f"{TAU_BENCH_ENV_NAME}-{TAU_BENCH_ENV_VERSION}"
 TAU_BENCH_USER_ENV_NAME = "tau-bench-user"
 TAU_BENCH_USER_ENV_VERSION = "v0"
 TAU_BENCH_USER_ENV_ID = f"{TAU_BENCH_USER_ENV_NAME}-{TAU_BENCH_USER_ENV_VERSION}"
+
+# Registry names of the externally controlled participants, so gym simulations
+# are built by the same text-run builder (and language resolution) as `tau2 run`.
+GYM_AGENT = "gym_agent"
+GYM_SOLO_AGENT = "gym_agent_solo"
+GYM_USER = "gym_user"
 
 
 class TauSpace(gym.spaces.Space):
@@ -363,7 +371,11 @@ class GymUser(HalfDuplexUser):
     """
 
     def __init__(
-        self, tools: Optional[List[Tool]] = None, instructions: Optional[str] = None
+        self,
+        tools: Optional[List[Tool]] = None,
+        instructions: Optional[str] = None,
+        llm: Optional[str] = None,
+        llm_args: Optional[dict] = None,
     ):
         """
         Initialize the gym user with optional tools and instructions.
@@ -371,6 +383,8 @@ class GymUser(HalfDuplexUser):
         Args:
             tools: List of tools available to the user (optional)
             instructions: Instructions for the user scenario (optional)
+            llm: Ignored; the gym caller supplies every user action.
+            llm_args: Ignored; accepted so the shared text builder can construct it.
         """
         super().__init__(instructions=instructions, tools=tools)
         self.tools = tools
@@ -546,6 +560,32 @@ class GymUser(HalfDuplexUser):
         )
 
 
+def _register_gym_participants() -> None:
+    """Register the gym participants so the shared text builder can construct them."""
+    if registry.get_agent_factory(GYM_AGENT) is None:
+        registry.register_agent_factory(create_gym_agent, GYM_AGENT)
+    if registry.get_agent_factory(GYM_SOLO_AGENT) is None:
+        registry.register_agent_factory(
+            create_gym_agent, GYM_SOLO_AGENT, metadata={"solo_mode": True}
+        )
+    if GYM_USER not in registry.get_users():
+        registry.register_user(GymUser, GYM_USER)
+
+
+_register_gym_participants()
+
+
+def _find_task(config: TextRunConfig, task_id: str) -> Task:
+    """One task from the run's language binding (English: the registry tasks)."""
+    for task in load_run_language(config).tasks:
+        if task.id == task_id:
+            return task
+    raise ValueError(
+        f"No task found with id {task_id} for domain {config.domain} "
+        f"in language {config.language}"
+    )
+
+
 class AgentGymEnv(gym.Env):
     """
     A Gymnasium environment that wraps the Tau2 simulation system.
@@ -593,6 +633,8 @@ class AgentGymEnv(gym.Env):
         user_llm: Optional[str] = None,
         user_llm_args: Optional[dict] = None,
         all_messages_as_observation: bool = False,
+        language: str = DEFAULT_LANGUAGE,
+        communicate_scoring: Optional[CommunicateScoring] = None,
     ):
         """
         Initialize the Tau2 gym environment.
@@ -600,6 +642,10 @@ class AgentGymEnv(gym.Env):
         Args:
             domain: The domain name (e.g., 'retail', 'telecom', 'airline')
             task_id: The specific task ID to run within the domain
+            language: Published language pack (canonical English by default);
+                resolved exactly as for `tau2 run --language`.
+            communicate_scoring: Communicate-info scorer; the run default
+                (pinned semantic judge) when omitted.
         """
         self.domain = domain
         self.task_id = task_id
@@ -610,10 +656,13 @@ class AgentGymEnv(gym.Env):
             user_llm_args if user_llm_args else deepcopy(DEFAULT_LLM_ARGS_USER)
         )
         self.all_messages_as_observation = all_messages_as_observation
+        self.language = language
+        self.communicate_scoring = communicate_scoring
+        self._task: Optional[Task] = None
 
         self._lock = threading.Lock()
         self._agent: Optional[GymAgent] = None
-        self._user: Optional[UserSimulator] = None
+        self._user: Optional[HalfDuplexUser] = None
         self._orchestrator: Optional[Orchestrator] = None
         self._orchestrator_thread: Optional[threading.Thread] = None
         self._simulation_done = threading.Event()
@@ -690,7 +739,7 @@ class AgentGymEnv(gym.Env):
                     )
 
             # Create new orchestrator
-            self._orchestrator = self._get_orchestrator()
+            self._orchestrator = self._get_orchestrator(seed)
             self._agent = self._orchestrator.agent
             self._user = self._orchestrator.user
 
@@ -831,29 +880,21 @@ class AgentGymEnv(gym.Env):
 
     def _get_reward(self) -> tuple[float, str]:
         """
-        Compute the reward for the current simulation run.
+        The reward of the finished simulation run.
 
-        This method evaluates the simulation using the Tau2 evaluation
-        system and returns the computed reward value. It uses the ALL
-        evaluation type and non-solo mode for comprehensive assessment.
-        The reward value for the current simulation, or 0.0 if no simulation has been completed.
+        The run is evaluated by the shared text-run path (``run_simulation``)
+        with the call context's communicate scorer and language environment.
+
         Returns:
             A tuple containing:
-            - reward: The computed reward value based on simulation performance.
+            - reward: The computed reward value, or 0.0 before a run finishes.
             - reward_info: A JSON string containing the reward information.
         """
-        if self._simulation_run is None:
+        if self._simulation_run is None or self._simulation_run.reward_info is None:
             return 0.0, json.dumps({}, indent=2)
-        evaluation_type = EvaluationType.ALL
-        evaluation_result = evaluate_simulation(
-            simulation=self._simulation_run,
-            task=self._get_task(),
-            evaluation_type=evaluation_type,
-            solo_mode=self.solo_mode,
-            domain=self.domain,
-        )
-        self._log(f"Evaluation result: {evaluation_result}", "INFO")
-        return evaluation_result.reward, evaluation_result.model_dump_json(indent=2)
+        reward_info = self._simulation_run.reward_info
+        self._log(f"Evaluation result: {reward_info}", "INFO")
+        return reward_info.reward, reward_info.model_dump_json(indent=2)
 
     def _run_orchestrator(self):
         """
@@ -882,7 +923,7 @@ class AgentGymEnv(gym.Env):
         try:
             if self._orchestrator:
                 self._log("Starting orchestrator", "INFO")
-                simulation_run = self._orchestrator.run()
+                simulation_run = run_simulation(self._orchestrator)
                 self._log("Orchestrator finished", "INFO")
         except Exception as e:
             self._log(f"Orchestrator error: {e}", "ERROR")
@@ -940,152 +981,46 @@ class AgentGymEnv(gym.Env):
                 turns.append(f"{m.role}: {m.content}")
         return "\n".join(turns)
 
-    def _get_environment(self) -> Environment:
-        """
-        Create and return the environment for the specified domain.
-
-        This method uses the registry to construct the appropriate
-        environment instance based on the domain name. The registry
-        provides domain-specific environment constructors that are
-        configured with the appropriate tools, policies, and data.
-
-        Returns:
-            An Environment instance configured for the specified domain.
-            The environment contains domain-specific tools, policies,
-            and data structures needed for simulation.
-
-        Raises:
-            ValueError: If the domain is not registered in the registry
-        """
-        return registry.get_env_constructor(self.domain)(solo_mode=self.solo_mode)
+    def _run_config(self, seed: Optional[int] = None) -> TextRunConfig:
+        """The text run this environment executes, as `tau2 run` would."""
+        return TextRunConfig(
+            domain=self.domain,
+            language=self.language,
+            agent=GYM_SOLO_AGENT if self.solo_mode else GYM_AGENT,
+            user="dummy_user" if self.solo_mode else "user_simulator",
+            llm_user=self.user_llm,
+            llm_args_user=self.user_llm_args,
+            max_steps=self.max_steps,
+            **({} if seed is None else {"seed": seed}),
+            **(
+                {}
+                if self.communicate_scoring is None
+                else {"communicate_scoring": self.communicate_scoring}
+            ),
+        )
 
     def _get_task(self) -> Task:
         """
-        Retrieve the task configuration for the specified task ID.
-
-        This method loads all tasks for the domain using the registry's
-        task loader and finds the one matching the specified task_id.
-        Tasks contain the scenario, user instructions, and evaluation
-        criteria for the simulation.
-
-        Returns:
-            The Task object corresponding to the specified task_id.
-            The task contains the complete scenario definition including
-            user instructions, success criteria, and evaluation parameters.
+        The configured task from the run's resolved language binding.
 
         Raises:
-            ValueError: If no task is found with the specified task_id
-                       for the given domain
+            ValueError: If no task with the configured ID exists for the domain
+                in this language.
         """
-        tasks = registry.get_tasks_loader(self.domain)()
-        for task in tasks:
-            if task.id == self.task_id:
-                return task
-        raise ValueError(
-            f"No task found with id {self.task_id} for domain {self.domain}"
-        )
+        if self._task is None:
+            self._task = _find_task(self._run_config(), self.task_id)
+        return self._task
 
-    def _get_agent(self) -> GymAgent:
+    def _get_orchestrator(self, seed: Optional[int] = None) -> Orchestrator:
         """
-        Create and return a GymAgent instance for the domain.
+        Build the orchestrator with the shared text-run builder.
 
-        This method creates a GymAgent with the tools and policy
-        from the domain's environment. The GymAgent provides the
-        step-by-step interface that allows external control of
-        the agent's actions through the gym environment.
-
-        The agent is configured with:
-        - Domain-specific tools for performing actions
-        - Domain policy that defines the agent's behavior and constraints
-
-        Returns:
-            A GymAgent instance configured with the domain's tools and policy.
-            The agent is ready to participate in simulations with external
-            step-by-step control.
+        Language resolution, persona, agent language guidance, environment
+        bindings and the communicate scorer are identical to a `tau2 run`
+        text call; only the agent (or, in solo mode, the dummy user) is the
+        externally controlled gym participant.
         """
-        environment = self._get_environment()
-        task = self._get_task()
-        tools = environment.get_tools()
-        user_tools = (
-            environment.get_user_tools(include=task.user_tools)
-            if environment.user_tools
-            else []
-        )
-        if self.solo_mode:
-            tools = tools + user_tools
-        return GymAgent(
-            tools=tools,
-            domain_policy=environment.get_policy(),
-        )
-
-    def _get_user(self) -> UserSimulator:
-        """
-        Create and return a UserSimulator instance for the task.
-
-        This method creates a UserSimulator with the task's user scenario
-        and any available user tools from the environment. If user tools
-        are not available for the domain, they are set to None.
-
-        The user simulator is configured with:
-        - Task-specific user scenario and instructions
-        - Task-specific user tools (filtered from domain user tools)
-        - Default LLM configuration for user simulation
-
-        Error Handling:
-            If the environment does not support user tools (raises ValueError),
-            the user tools are set to None and the simulator continues without them.
-
-        Returns:
-            A UserSimulator instance configured with the task's user scenario
-            and task-specific user tools (if available). The simulator is
-            ready to participate in the conversation simulation.
-        """
-        environment = self._get_environment()
-        task = self._get_task()
-        try:
-            user_tools = environment.get_user_tools(include=task.user_tools) or None
-        except ValueError:
-            user_tools = None
-        if self.solo_mode:
-            user_simulator = DummyUser()
-        else:
-            user_simulator = UserSimulator(
-                tools=user_tools,
-                instructions=task.user_scenario,
-                llm=self.user_llm,
-                llm_args=self.user_llm_args,
-            )
-        return user_simulator
-
-    def _get_orchestrator(self) -> Orchestrator:
-        """
-        Create and return an Orchestrator instance for the simulation.
-
-        This method creates a complete Orchestrator with all necessary
-        components: agent, user, environment, and task. The orchestrator
-        coordinates the interaction between these components during the
-        simulation.
-
-        The orchestrator manages:
-        - Message flow between agent and user
-        - Tool execution and environment state
-        - Simulation lifecycle and termination conditions
-        - Thread-safe coordination between components
-
-        Returns:
-            An Orchestrator instance configured with all simulation components.
-            The orchestrator is ready to run the complete simulation with
-            proper coordination between agent, user, and environment.
-        """
-        return Orchestrator(
-            domain=self.domain,
-            agent=self._get_agent(),
-            user=self._get_user(),
-            environment=self._get_environment(),
-            task=self._get_task(),
-            max_steps=self.max_steps,
-            solo_mode=self.solo_mode,
-        )
+        return build_text_orchestrator(self._run_config(seed), self._get_task())
 
 
 class UserGymEnv(gym.Env):
@@ -1129,6 +1064,8 @@ class UserGymEnv(gym.Env):
         agent_llm: Optional[str] = None,
         agent_llm_args: Optional[dict] = None,
         all_messages_as_observation: bool = False,
+        language: str = DEFAULT_LANGUAGE,
+        communicate_scoring: Optional[CommunicateScoring] = None,
     ):
         """
         Initialize the Tau2 user gym environment.
@@ -1140,6 +1077,10 @@ class UserGymEnv(gym.Env):
             agent_llm: LLM to use for the automated agent (default: from config)
             agent_llm_args: Arguments to pass to the agent LLM
             all_messages_as_observation: If True, show all messages; if False, only show agent responses
+            language: Published language pack (canonical English by default);
+                resolved exactly as for `tau2 run --language`.
+            communicate_scoring: Communicate-info scorer; the run default
+                (pinned semantic judge) when omitted.
         """
         self.domain = domain
         self.task_id = task_id
@@ -1149,6 +1090,9 @@ class UserGymEnv(gym.Env):
             agent_llm_args if agent_llm_args else deepcopy(DEFAULT_LLM_ARGS_AGENT)
         )
         self.all_messages_as_observation = all_messages_as_observation
+        self.language = language
+        self.communicate_scoring = communicate_scoring
+        self._task: Optional[Task] = None
 
         self._lock = threading.Lock()
         self._user: Optional[GymUser] = None
@@ -1232,7 +1176,7 @@ class UserGymEnv(gym.Env):
                     )
 
             # Create new orchestrator
-            self._orchestrator = self._get_orchestrator()
+            self._orchestrator = self._get_orchestrator(seed)
             self._user = self._orchestrator.user
             self._agent = self._orchestrator.agent
 
@@ -1363,25 +1307,21 @@ class UserGymEnv(gym.Env):
 
     def _get_reward(self) -> tuple[float, str]:
         """
-        Compute the reward for the current simulation run.
+        The reward of the finished simulation run.
+
+        The run is evaluated by the shared text-run path (``run_simulation``)
+        with the call context's communicate scorer and language environment.
 
         Returns:
             A tuple containing:
-            - reward: The computed reward value based on simulation performance.
+            - reward: The computed reward value, or 0.0 before a run finishes.
             - reward_info: A JSON string containing the reward information.
         """
-        if self._simulation_run is None:
+        if self._simulation_run is None or self._simulation_run.reward_info is None:
             return 0.0, json.dumps({}, indent=2)
-        evaluation_type = EvaluationType.ALL
-        evaluation_result = evaluate_simulation(
-            simulation=self._simulation_run,
-            task=self._get_task(),
-            evaluation_type=evaluation_type,
-            solo_mode=False,  # UserGymEnv doesn't support solo mode
-            domain=self.domain,
-        )
-        self._log(f"Evaluation result: {evaluation_result}", "INFO")
-        return evaluation_result.reward, evaluation_result.model_dump_json(indent=2)
+        reward_info = self._simulation_run.reward_info
+        self._log(f"Evaluation result: {reward_info}", "INFO")
+        return reward_info.reward, reward_info.model_dump_json(indent=2)
 
     def _run_orchestrator(self):
         """
@@ -1395,7 +1335,7 @@ class UserGymEnv(gym.Env):
         try:
             if self._orchestrator:
                 self._log("Starting orchestrator", "INFO")
-                simulation_run = self._orchestrator.run()
+                simulation_run = run_simulation(self._orchestrator)
                 self._log("Orchestrator finished", "INFO")
         except Exception as e:
             self._log(f"Orchestrator error: {e}", "ERROR")
@@ -1445,95 +1385,41 @@ class UserGymEnv(gym.Env):
                 turns.append(f"{m.role}: {m.content}")
         return "\n".join(turns)
 
-    def _get_environment(self) -> Environment:
-        """
-        Create and return the environment for the specified domain.
-
-        Returns:
-            An Environment instance configured for the specified domain.
-        """
-        return registry.get_env_constructor(self.domain)(solo_mode=False)
+    def _run_config(self, seed: Optional[int] = None) -> TextRunConfig:
+        """The text run this environment executes, as `tau2 run` would."""
+        return TextRunConfig(
+            domain=self.domain,
+            language=self.language,
+            agent="llm_agent",
+            llm_agent=self.agent_llm,
+            llm_args_agent=self.agent_llm_args,
+            user=GYM_USER,
+            max_steps=self.max_steps,
+            **({} if seed is None else {"seed": seed}),
+            **(
+                {}
+                if self.communicate_scoring is None
+                else {"communicate_scoring": self.communicate_scoring}
+            ),
+        )
 
     def _get_task(self) -> Task:
         """
-        Retrieve the task configuration for the specified task ID.
-
-        Returns:
-            The Task object corresponding to the specified task_id.
+        The configured task from the run's resolved language binding.
 
         Raises:
-            ValueError: If no task is found with the specified task_id
+            ValueError: If no task with the configured ID exists for the domain
+                in this language.
         """
-        tasks = registry.get_tasks_loader(self.domain)()
-        for task in tasks:
-            if task.id == self.task_id:
-                return task
-        raise ValueError(
-            f"No task found with id {self.task_id} for domain {self.domain}"
-        )
+        if self._task is None:
+            self._task = _find_task(self._run_config(), self.task_id)
+        return self._task
 
-    def _get_agent(self) -> LLMAgent:
+    def _get_orchestrator(self, seed: Optional[int] = None) -> Orchestrator:
         """
-        Create and return an automated LLMAgent for the domain.
+        Build the orchestrator with the shared text-run builder.
 
-        The agent is configured with:
-        - Domain-specific tools for performing actions
-        - Domain policy that defines the agent's behavior and constraints
-        - LLM configuration for generating responses
-
-        Returns:
-            An LLMAgent instance configured with the domain's tools and policy.
+        The automated LLMAgent receives the same language guidance as a
+        `tau2 run` text call; the user is the externally controlled GymUser.
         """
-        environment = self._get_environment()
-        tools = environment.get_tools()
-        return LLMAgent(
-            tools=tools,
-            domain_policy=environment.get_policy(),
-            llm=self.agent_llm,
-            llm_args=self.agent_llm_args,
-        )
-
-    def _get_user(self) -> GymUser:
-        """
-        Create and return a GymUser instance for external control.
-
-        The user is configured with:
-        - Task-specific user tools (filtered from domain user tools)
-        - Task instructions (user scenario)
-
-        Returns:
-            A GymUser instance ready for step-by-step external control.
-        """
-        environment = self._get_environment()
-        task = self._get_task()
-        try:
-            user_tools = environment.get_user_tools(include=task.user_tools) or None
-        except ValueError:
-            user_tools = None
-        return GymUser(
-            tools=user_tools,
-            instructions=task.user_scenario,
-        )
-
-    def _get_orchestrator(self) -> Orchestrator:
-        """
-        Create and return an Orchestrator instance for the simulation.
-
-        The orchestrator coordinates between:
-        - The automated LLMAgent
-        - The externally-controlled GymUser
-        - The domain environment
-        - The task definition
-
-        Returns:
-            An Orchestrator instance configured with all simulation components.
-        """
-        return Orchestrator(
-            domain=self.domain,
-            agent=self._get_agent(),
-            user=self._get_user(),
-            environment=self._get_environment(),
-            task=self._get_task(),
-            max_steps=self.max_steps,
-            solo_mode=False,  # UserGymEnv doesn't support solo mode
-        )
+        return build_text_orchestrator(self._run_config(seed), self._get_task())

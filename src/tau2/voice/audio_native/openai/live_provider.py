@@ -1,4 +1,4 @@
-"""OpenAI Live V3 over WebRTC, with server-owned Responses delegation."""
+"""OpenAI Live over WebRTC, with server-owned Responses delegation."""
 
 import asyncio
 import audioop
@@ -28,6 +28,7 @@ from loguru import logger
 
 from tau2.config import DEFAULT_OPENAI_OUTPUT_SAMPLE_RATE
 from tau2.data_model.audio import AudioEncoding, AudioFormat
+from tau2.data_model.live_config import LiveConfig
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.openai.events import (
     AudioTranscriptDeltaEvent,
@@ -35,7 +36,6 @@ from tau2.voice.audio_native.openai.events import (
     TimeoutEvent,
     parse_realtime_event,
 )
-from tau2.voice.audio_native.openai.live_config import LiveConfig
 from tau2.voice.audio_native.openai.provider import (
     OpenAIRealtimeProvider,
     OpenAIVADConfig,
@@ -116,7 +116,7 @@ class _LiveInputAudioTrack(AudioStreamTrack):
 class OpenAILiveProvider(OpenAIRealtimeProvider):
     """Keep media continuous while exposing the existing agent event contract.
 
-    V3 tool continuations are client-triggered. A response is continued only
+    Tool continuations are client-triggered. A response is continued only
     after its complete batch of function calls has been returned. Speech and
     transcript arrival never trigger a response or truncate the media track.
     """
@@ -331,7 +331,6 @@ class OpenAILiveProvider(OpenAIRealtimeProvider):
             await self._peer.setLocalDescription(offer)
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
-                "OpenAI-Alpha": "quicksilver=v3",
             }
             async with aiohttp.ClientSession(
                 timeout=aiohttp.ClientTimeout(total=25)
@@ -407,6 +406,7 @@ class OpenAILiveProvider(OpenAIRealtimeProvider):
             return [
                 LiveTranscriptDelta(
                     type="response.output_audio_transcript.delta",
+                    event_id=data.get("event_id"),
                     delta=data["delta"],
                     audio_position_bytes=data["audio_position_bytes"],
                     start_ms=data["start_ms"],

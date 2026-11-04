@@ -97,7 +97,7 @@ export function renderVoiceViewer(container, D, audioSrc) {
       ['Task Instructions', D.taskInfo.taskInstructions],
       ['Known Info', D.taskInfo.knownInfo],
       ['Unknown Info', D.taskInfo.unknownInfo],
-    ].filter(([_, v]) => v)
+    ].filter(([, v]) => v)
 
     if (taskItems.length) {
       container.appendChild(

@@ -350,16 +350,19 @@ class Environment:
             return actions
 
         if initialization_data is not None:
+            shared_db = (
+                self.user_tools is not None and self.user_tools.db is self.tools.db
+            )
             if initialization_data.agent_data is not None:
                 self.tools.update_db(initialization_data.agent_data)
                 # Sync user_tools.db to point to the same db instance as tools.db
                 # This is necessary because update_db creates a new db instance
-                if self.user_tools is not None and self.user_tools.db is not None:
+                if shared_db:
                     self.user_tools.db = self.tools.db
             if initialization_data.user_data is not None:
                 self.user_tools.update_db(initialization_data.user_data)
                 # Sync tools.db to point to the same db instance as user_tools.db
-                if self.tools is not None and self.tools.db is not None:
+                if shared_db:
                     self.tools.db = self.user_tools.db
 
         if initialization_actions is not None:
@@ -368,6 +371,11 @@ class Environment:
 
         action_responses = get_actions_from_messages(message_history)
         for tool_call, expected_response in action_responses:
+            if expected_response.execution_status == "rejected":
+                # The orchestrator rejected this call before the environment
+                # executed it. Failed executed calls still replay normally:
+                # a tool may have changed state before returning an error.
+                continue
             if not self._has_tool(tool_call.name):
                 # Hallucinated tool name. The live env returned a
                 # ToolMessage(error=True) for this call and made no state

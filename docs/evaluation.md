@@ -9,8 +9,8 @@ required of the agent, this page is for you.
 
 - A task's final reward is the **product** of the components listed in
   `evaluation_criteria.reward_basis`.
-- The default `reward_basis` for the airline, retail, and telecom domains
-  is `["DB", "COMMUNICATE"]` — matching the original τ-bench paper.
+- The task schema defaults `reward_basis` to `["DB", "COMMUNICATE"]`.
+  A task's explicit basis takes precedence; domains can score different components.
 - `evaluation_criteria.actions` is **one reference trajectory** that
   solves the task — not the only correct one. It is replayed on a fresh
   "gold" environment to derive a target DB end state, which is then
@@ -41,7 +41,7 @@ fields:
 |-------|-----------|--------------------------|
 | `actions` | A list of `Action`s recording **one** reference trajectory of tool calls that solves the task. Always replayed on a fresh "gold" environment to derive the target DB end state. Other trajectories may produce an equivalent end state and also pass. | Only when `RewardType.ACTION` is in `reward_basis` (then each entry must also appear among the agent's tool calls — i.e., this list is treated as the only acceptable trajectory). |
 | `env_assertions` | A list of assertions to run against the predicted environment after the simulation. | Only when `RewardType.ENV_ASSERTION` is in `reward_basis`. |
-| `communicate_info` | A list of strings the agent must say to the user (substring match). | Only when `RewardType.COMMUNICATE` is in `reward_basis`. |
+| `communicate_info` | Required information, checked by substring matching or the configured semantic judge. | Only when `RewardType.COMMUNICATE` is in `reward_basis`. |
 | `nl_assertions` | Natural-language assertions judged by an LLM. | Only when `RewardType.NL_ASSERTION` is in `reward_basis`. (Experimental / WIP.) |
 | `reward_basis` | The list of `RewardType`s that gate the final reward. | Always. Default is `[DB, COMMUNICATE]`. |
 
@@ -51,7 +51,7 @@ The reward components are evaluated by:
 |--------------|-----------|----------------|
 | `DB` | `EnvironmentEvaluator` | After the simulation, does the predicted environment's DB hash match the target DB hash (target = fresh env + replay of `evaluation_criteria.actions`)? Any agent trajectory that produces an equivalent end state passes. |
 | `ENV_ASSERTION` | `EnvironmentEvaluator` | Do all `env_assertions` pass on the predicted environment? |
-| `COMMUNICATE` | `CommunicateEvaluator` | Does every string in `communicate_info` appear in the agent's messages? |
+| `COMMUNICATE` | `CommunicateEvaluator` | Was every required item communicated? Uses the semantic LLM judge by default; substring matching only with `--communicate-scorer substring`. |
 | `NL_ASSERTION` | `NLAssertionsEvaluator` | Does an LLM judge return true for every entry in `nl_assertions`? (WIP) |
 | `ACTION` | `ActionEvaluator` | For every entry in `actions`, did the agent produce a matching tool call (per `Action.compare_with_tool_call`)? Use this only when you are confident `actions` enumerates the only acceptable trajectory. |
 
@@ -59,6 +59,29 @@ The final reward is the product. So if `reward_basis = [DB, COMMUNICATE]`,
 the reward is `db_reward * communicate_reward`. `actions` is consumed
 silently by `EnvironmentEvaluator` to set up the target environment, but
 the agent's tool-call trajectory is never directly compared to it.
+
+## Communication checks
+
+`CommunicateEvaluator` and its full-duplex variant own both matching modes,
+selected by `CommunicateScoring`. By default the pinned semantic judge checks
+meaning, including paraphrases and translations, once per expected fact; the
+judge's language addendum is added only for cross-lingual calls. With
+`scorer="substring"` they use the original case-insensitive substring check,
+removing commas from agent text. Full-duplex runs use the same merged agent-message transcript in either mode.
+NL assertions remain a separate evaluator.
+
+The default semantic communication judge is `gpt-5.5` with
+`reasoning_effort: low`. Explicit model and reasoning overrides are preserved.
+
+Normal `ALL` and `ALL_WITH_NL_ASSERTIONS` scoring runs communication checks only
+when `COMMUNICATE` is in the task's `reward_basis`. Otherwise,
+`communicate_checks` and its evaluation metadata are `null`, and no communication
+reward is added. Explicit `COMMUNICATE` evaluation and both ignore-basis modes
+still evaluate it. Missing criteria, `communicate_info: null`, or an empty list
+are neutral and make no communication-judge calls.
+
+This does not change task requirements or their reward basis. Communication
+success cannot compensate for a failed DB check when both components gate reward.
 
 ## Why `actions` looks like a requirement (and isn't)
 
@@ -184,6 +207,29 @@ so promotes `actions` from "one reference trajectory" to "the only
 acceptable trajectory", so it should be reserved for tasks where you
 have actually enumerated all valid solutions (or where there genuinely
 is only one).
+
+## GPT Live transcript segments
+
+New Live recordings retain provider transcript fragments and their session timestamps,
+plus speech activity measured from delivered audio in 20 ms frames. Completed-call
+transcript views derive stable `live-segment:` IDs without rewriting recorded ticks.
+Other providers retain their native utterance grouping. Older Live recordings without
+this evidence retain their existing behavior; they cannot be precisely reconstructed
+from caption arrival times.
+
+The versioned `live-audio-gap-v1` rule groups exact fragment text across short pauses.
+A 1.5-second source-time gap or a complete intervening caller speech run starts a new
+candidate segment. Overlapping caller speech and trailing fragments from an already
+active caller turn do not by themselves split the assistant. Packet arrival times,
+backend responses, and tool completions are not boundaries.
+
+For fidelity, candidates must match ordered delivered-audio speech blocks: the counts
+must agree, each duration must agree within one second, and the spread of start-time
+offsets must be at most one second. Source-gap boundaries also require at least 1.5
+seconds of delivered-audio silence. These are conservative matching heuristics, not
+word-level forced alignment. WAV clips use the matched playback ticks, never provider
+timestamps directly. Ambiguous audio matches produce unavailable evidence rather than
+a fidelity verdict. Text diagnostics and fidelity share the derived segment IDs.
 
 ## Pointers
 

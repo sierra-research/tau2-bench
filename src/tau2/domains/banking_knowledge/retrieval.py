@@ -38,7 +38,6 @@ from tau2.domains.banking_knowledge.retrieval_toolkits import (
     KnowledgeToolsWithShell,
 )
 from tau2.domains.banking_knowledge.tools import KnowledgeTools
-from tau2.knowledge.embeddings_cache import get_cached_docs, set_cached_docs
 from tau2.utils.utils import DATA_DIR
 
 if TYPE_CHECKING:
@@ -143,17 +142,11 @@ def format_full_knowledge_base(knowledge_base: KnowledgeBase) -> str:
 
 
 def get_or_create_docs(knowledge_base: KnowledgeBase) -> List[Dict[str, Any]]:
-    """Get documents from the knowledge base for indexing (cached)."""
-    cached_docs = get_cached_docs()
-    if cached_docs is not None:
-        return cached_docs
-
-    docs = [
+    """Build retrieval input from this call's selected knowledge base."""
+    return [
         {"id": doc.id, "text": doc.content, "title": doc.title}
         for doc in knowledge_base.documents.values()
     ]
-    set_cached_docs(docs)
-    return docs
 
 
 # ---------------------------------------------------------------------------

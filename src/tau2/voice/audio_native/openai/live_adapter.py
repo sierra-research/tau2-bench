@@ -8,13 +8,14 @@ from pathlib import Path
 
 from tau2.config import DEFAULT_OPENAI_OUTPUT_SAMPLE_RATE
 from tau2.data_model.audio import TELEPHONY_AUDIO_FORMAT, AudioFormat
+from tau2.data_model.live_config import LiveConfig
+from tau2.data_model.transcript import LiveTranscriptFragment, LiveTranscriptTick
 from tau2.voice.audio_native.async_loop import BackgroundAsyncLoop
 from tau2.voice.audio_native.audio_converter import StreamingTelephonyConverter
 from tau2.voice.audio_native.openai.discrete_time_adapter import (
     DiscreteTimeOpenAIAdapter,
 )
 from tau2.voice.audio_native.openai.events import AudioDeltaEvent
-from tau2.voice.audio_native.openai.live_config import LiveConfig
 from tau2.voice.audio_native.openai.live_provider import (
     LiveInputTranscriptDelta,
     LiveTranscriptDelta,
@@ -86,6 +87,9 @@ class DiscreteTimeOpenAILiveAdapter(DiscreteTimeOpenAIAdapter):
     async def _execute_tick(
         self, user_audio: bytes, tick_number: int, result: TickResult, tick_start: float
     ) -> None:
+        result.live_transcript = LiveTranscriptTick(
+            session_id=self.provider.session_id or "unconnected"
+        )
         await super()._execute_tick(
             self._converter.convert_input(user_audio), tick_number, result, tick_start
         )
@@ -96,6 +100,16 @@ class DiscreteTimeOpenAILiveAdapter(DiscreteTimeOpenAIAdapter):
             # delta is its structured indication that user speech was detected.
             result.events.append(event)
             result.vad_events.append("speech_started")
+            if result.live_transcript is not None:
+                result.live_transcript.fragments.append(
+                    LiveTranscriptFragment(
+                        event_id=event.event_id,
+                        speaker="caller",
+                        text=event.delta,
+                        start_ms=event.start_ms,
+                        end_ms=event.end_ms,
+                    )
+                )
             return
         if isinstance(event, LiveTranscriptDelta):
             result.events.append(event)
@@ -130,12 +144,35 @@ class DiscreteTimeOpenAILiveAdapter(DiscreteTimeOpenAIAdapter):
             self._transcript_deltas
             and self._transcript_deltas[0].audio_position_bytes <= played_pcm_bytes
         ):
-            text.append(self._transcript_deltas.popleft().delta)
+            fragment = self._transcript_deltas.popleft()
+            text.append(fragment.delta)
+            if result.live_transcript is not None:
+                result.live_transcript.fragments.append(
+                    LiveTranscriptFragment(
+                        event_id=fragment.event_id,
+                        speaker="agent",
+                        text=fragment.delta,
+                        start_ms=fragment.start_ms,
+                        end_ms=fragment.end_ms,
+                        ingress_audio_bytes=fragment.audio_position_bytes,
+                    )
+                )
         result.proportional_transcript = "".join(text)
         # WebRTC also transports silence. Classify the delivered audio, without
         # deleting quiet frames or changing the shared tick buffering lifecycle.
         pcm = audioop.ulaw2lin(result.agent_audio_data, 2)
         result.contains_speech = bool(pcm) and audioop.max(pcm, 2) > 32
+        if result.live_transcript is not None:
+            frame_bytes = self.audio_format.sample_rate * 2 // 50
+            for offset in range(0, len(pcm), frame_bytes):
+                frame = pcm[offset : offset + frame_bytes]
+                if audioop.max(frame, 2) > 32:
+                    result.live_transcript.speech_intervals_ms.append(
+                        (
+                            offset * 500 / self.audio_format.sample_rate,
+                            (offset + len(frame)) * 500 / self.audio_format.sample_rate,
+                        )
+                    )
         return result
 
     async def _async_disconnect(self) -> None:

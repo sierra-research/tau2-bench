@@ -22,14 +22,6 @@ if len(CONTINUOUS_NOISE_FILES) == 0:
     logger.warning(
         f"No continuous noise files found in the directory {BACKGROUND_NOISE_CONTINUOUS_DIR}"
     )
-else:
-    logger.info(
-        f"Found {len(CONTINUOUS_NOISE_FILES)} continuous noise files in the directory {BACKGROUND_NOISE_CONTINUOUS_DIR}"
-    )
 
 if len(BURST_NOISE_FILES) == 0:
     logger.warning(f"No burst noise files found in the directory {BURST_NOISE_DIR}")
-else:
-    logger.info(
-        f"Found {len(BURST_NOISE_FILES)} burst noise files in the directory {BURST_NOISE_DIR}"
-    )

@@ -8,6 +8,8 @@ checkpointed, and a resume runs nothing.
 import json
 import uuid
 
+import pytest
+
 from tau2.data_model.simulation import (
     SimulationRun,
     TerminationReason,
@@ -16,6 +18,7 @@ from tau2.data_model.simulation import (
 from tau2.run import get_tasks
 from tau2.runner import batch as batch_mod
 from tau2.runner.batch import run_tasks
+from tau2.utils.errors import NonRetryableError
 
 
 def _make_config(**overrides) -> TextRunConfig:
@@ -100,3 +103,26 @@ def test_resume_runs_nothing_when_complete(tmp_path, monkeypatch):
 
     assert len(calls) == first_run_calls  # nothing re-ran
     assert len(results.simulations) == 4
+
+
+@pytest.mark.parametrize("concurrency", [1, 2])
+def test_nonretryable_error_aborts_local_batch_without_failed_scores(
+    tmp_path, monkeypatch, concurrency
+):
+    calls = []
+
+    def fail(config, task, **kwargs):
+        calls.append(task.id)
+        raise NonRetryableError("incompatible server protocol")
+
+    monkeypatch.setattr(batch_mod, "run_single_task", fail)
+    config = _make_config(max_concurrency=concurrency)
+    tasks = get_tasks("mock", task_ids=config.task_ids)
+    save_path = tmp_path / "results.json"
+    with pytest.raises(NonRetryableError, match="incompatible server protocol"):
+        run_tasks(
+            config, tasks, save_path=save_path, save_dir=tmp_path, console_display=False
+        )
+
+    assert 1 <= len(calls) <= concurrency
+    assert json.loads(save_path.read_text())["simulations"] == []

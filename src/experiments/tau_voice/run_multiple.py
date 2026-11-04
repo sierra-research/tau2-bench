@@ -23,7 +23,7 @@ Usage:
 
 By default the grid runs sequentially, one `tau2 run` subprocess per combo.
 With --workers N the combos are registered as producers in one controller and
-run concurrently across N worker processes (see docs/designs/parallel-runner.md):
+run concurrently across N worker processes (see docs/cli-reference.md):
 
     python -m experiments.tau_voice.run_multiple --providers openai,gemini \\
         --save-to data/exp/run --workers 4
@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Optional
 
 from tau2.config import DEFAULT_AUDIO_NATIVE_MODELS, DEFAULT_LLM_USER, DEFAULT_SEED
+from tau2.data_model.cascaded import CascadedConfigRequest
 
 DEFAULT_DOMAINS = ["airline", "retail"]
 DEFAULT_COMPLEXITIES = ["control", "regular"]
@@ -190,7 +191,11 @@ def build_config(
     audio_kwargs = dict(
         provider=spec.provider,
         model=spec.model,
-        cascaded_config_name=spec.cascaded_config,
+        cascaded_request=(
+            CascadedConfigRequest(preset=spec.cascaded_config)
+            if spec.cascaded_config is not None
+            else None
+        ),
         reasoning_effort=spec.reasoning_effort,
         realtime_generation=realtime_generation,
     )

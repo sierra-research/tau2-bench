@@ -72,6 +72,8 @@ class DiscreteTimeOpenAIAdapter(DiscreteTimeAdapter):
         reasoning_effort: Optional[str] = None,
         provider: Optional[OpenAIRealtimeProvider] = None,
         audio_format: Optional[AudioFormat] = None,
+        voice: Optional[str] = None,
+        transcription_language: Optional[str] = None,
     ):
         super().__init__(
             tick_duration_ms,
@@ -86,6 +88,8 @@ class DiscreteTimeOpenAIAdapter(DiscreteTimeAdapter):
         if model is not None and provider is not None:
             raise ValueError("model and provider cannot be provided together")
 
+        self.voice = voice
+        self.transcription_language = transcription_language
         self.model = model
         self.reasoning_effort = reasoning_effort
         self._provider = provider
@@ -100,6 +104,8 @@ class DiscreteTimeOpenAIAdapter(DiscreteTimeAdapter):
             self._provider = OpenAIRealtimeProvider(
                 model=self.model,
                 reasoning_effort=self.reasoning_effort,
+                voice=self.voice,
+                transcription_language=self.transcription_language,
             )
         return self._provider
 

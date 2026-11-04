@@ -14,6 +14,24 @@ from tau2.registry import registry  # noqa: E402
 from tau2.run import get_tasks  # noqa: E402
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-live-api",
+        action="store_true",
+        default=False,
+        help="Run live_api tests; requires provider credentials and may incur costs",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--run-live-api"):
+        return
+    skip = pytest.mark.skip(reason="Live model calls require --run-live-api")
+    for item in items:
+        if item.get_closest_marker("live_api") is not None:
+            item.add_marker(skip)
+
+
 @pytest.fixture
 def domain_name():
     return "mock"

@@ -3,14 +3,29 @@
 This module provides utilities for creating sandboxed environments where agents
 can interact with knowledge base documents through shell commands (cat, grep, etc.).
 
-SECURITY WARNING: This is BEST-EFFORT sandboxing only. The agent MAY be able to
-escape the knowledge base directory and read files from elsewhere on the filesystem.
-Use with caution and do not rely on this for security-critical applications.
+Read isolation:
+srt's read restrictions are "deny-only" (``filesystem.denyRead``; there is no
+allow-list for reads). We emulate an allow-list: starting from ``/``, every
+directory entry that is neither inside an allowed path nor an ancestor of one is
+denied, and ancestors are walked recursively (see ``_compute_read_denies``).
+Allowed paths are the knowledge base copy, a small set of system directories
+needed to run standard tools (cat, grep, rg, find, python3, ...), and, only when
+no python3 is available from those directories, the install prefix of the
+running interpreter. The deny list is recomputed before every command so files
+created after the sandbox started are covered too. Sandboxes live under a
+dedicated per-user root (``/var/tmp/tau2-kb-sandboxes-<uid>`` by default) so the
+walk does not have to enumerate a large shared temp directory.
+
+The command pattern filter (``_has_escape_pattern``) is a convenience, NOT a
+security boundary: it ignores quoted text, so e.g.
+``python3 -c "print(open('/abs/path').read())"`` passes it. The srt read policy
+is what keeps the agent inside the knowledge base.
 
 Limitations:
-- Read restrictions are "deny-only" in srt, so we cannot strictly limit reads to kb_dir
-- We block obvious escape patterns (.., ~, absolute paths) but sophisticated attacks may bypass
-- Write access is properly restricted via srt's "allow-only" pattern
+- Directory *names* along the path to an allowed directory (e.g. the entries of
+  ``/`` or of the sandbox root) can be listed; their contents cannot be read.
+- Allowed system directories are readable in full.
+- Write access is restricted via srt's "allow-only" pattern.
 
 Requires Anthropic's sandbox-runtime (srt) for filesystem isolation:
 https://github.com/anthropic-experimental/sandbox-runtime
@@ -38,12 +53,14 @@ but is actually an install-time failure).
 
 import getpass
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import uuid
+import weakref
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -129,6 +146,238 @@ def _check_sandbox_dependencies(force: bool = False) -> None:
     _DEPS_VERIFIED = True
 
 
+# Environment variables passed through to ``srt`` and the sandboxed command.
+#
+# The sandboxed command must NOT inherit the parent environment: tau2 loads
+# provider API keys from ``.env`` into ``os.environ``, and an agent calling the
+# shell tool with ``env`` would otherwise receive every key in its tool result
+# (which is then saved to trajectories and logs). Only what ``srt`` (a node
+# script) and the read-only search tools (cat, ls, grep, rg, find, python3, ...)
+# need is kept:
+# - PATH: to resolve ``node`` (srt's shebang), the shell, and the search tools.
+# - LANG / LC_*: so tools handle non-ASCII document text consistently.
+# - TERM, TZ: harmless formatting hints for tools.
+# - TMPDIR: srt on macOS derives its allowed per-user temp dirs from it.
+# HOME is not inherited; it is set to the sandbox directory (see
+# ``SandboxManager.run_command``). Anything whose name looks secret-like is
+# dropped even if it appears here.
+_SANDBOX_ENV_ALLOWLIST: tuple[str, ...] = ("PATH", "LANG", "TERM", "TZ", "TMPDIR")
+_SANDBOX_ENV_ALLOWED_PREFIXES: tuple[str, ...] = ("LC_",)
+
+# Env var names that are treated as secrets: never passed into the sandbox, and
+# their values are redacted from command output as defense in depth.
+_SECRET_ENV_NAME_RE = re.compile(
+    r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|PRIVATE|AUTH", re.IGNORECASE
+)
+# Shorter values are too likely to collide with ordinary output text.
+_MIN_REDACT_LEN = 8
+_REDACTED = "[REDACTED]"
+
+
+def _build_sandbox_env(home: str) -> Dict[str, str]:
+    """Return the minimal allow-listed environment for a sandboxed command."""
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if (
+            name in _SANDBOX_ENV_ALLOWLIST
+            or name.startswith(_SANDBOX_ENV_ALLOWED_PREFIXES)
+        )
+        and not _SECRET_ENV_NAME_RE.search(name)
+    }
+    env["HOME"] = home
+    return env
+
+
+def _redact_secret_env_values(text: str) -> str:
+    """Replace values of secret-like parent env vars in ``text`` with a marker."""
+    if not text:
+        return text
+    secrets = {
+        value
+        for name, value in os.environ.items()
+        if _SECRET_ENV_NAME_RE.search(name) and len(value) >= _MIN_REDACT_LEN
+    }
+    # Longest first so a secret containing another is replaced whole.
+    for value in sorted(secrets, key=len, reverse=True):
+        text = text.replace(value, _REDACTED)
+    return text
+
+
+# --- Read policy ---------------------------------------------------------------
+#
+# System directories the sandboxed shell may read. Everything else on the
+# machine is denied except the knowledge base itself (see
+# ``_compute_read_denies``). Paths that do not exist are ignored.
+_SYSTEM_READ_ALLOW_DARWIN: tuple[str, ...] = (
+    "/bin",
+    "/sbin",
+    "/usr",
+    "/dev",
+    "/Library",
+    "/System/Library",
+    "/System/Cryptexes",
+    "/System/DriverKit",
+    "/System/iOSSupport",
+    # dyld shared cache / cryptex OS content.
+    "/System/Volumes/Preboot",
+    "/private/etc",
+    "/private/var/select",
+    "/private/var/db/timezone",
+    "/private/var/db/dyld",
+    "/opt/homebrew",
+)
+_SYSTEM_READ_ALLOW_LINUX: tuple[str, ...] = (
+    "/bin",
+    "/sbin",
+    "/usr",
+    "/lib",
+    "/lib32",
+    "/lib64",
+    "/libx32",
+    "/etc",
+    "/dev",
+    "/proc",
+    "/sys",
+    "/nix/store",
+)
+
+# python3 launchers that do not work under the read policy. macOS's
+# /usr/bin/python3 is an xcrun shim that writes a cache in the (denied) per-user
+# temp dir and prints an error on every call.
+_UNUSABLE_PYTHONS: frozenset[Path] = frozenset(
+    {Path("/usr/bin/python3")} if sys.platform == "darwin" else set()
+)
+
+# Always denied, even inside an allowed system directory.
+_SENSITIVE_READ_DENY: tuple[str, ...] = ("/etc/passwd", "/etc/shadow")
+
+
+def _system_read_allow() -> tuple[str, ...]:
+    if sys.platform == "darwin":
+        return _SYSTEM_READ_ALLOW_DARWIN
+    return _SYSTEM_READ_ALLOW_LINUX
+
+
+def _real(path: os.PathLike | str) -> Path:
+    return Path(os.path.realpath(path))
+
+
+def _is_within(path: Path, root: Path) -> bool:
+    return path == root or root in path.parents
+
+
+def _compute_read_denies(allowed: List[Path], root: Path = Path("/")) -> List[str]:
+    """Emulate a read allow-list with srt's deny-only ``denyRead``.
+
+    Walks the filesystem from ``/`` and denies every entry that is neither
+    inside an ``allowed`` path nor an ancestor of one; ancestors are walked
+    recursively. Symlinks are skipped: srt (and macOS seatbelt) match the
+    resolved path, which the walk reaches through its real location.
+
+    Args:
+        allowed: Real (symlink-resolved) paths that must stay readable.
+        root: Where the walk starts (``/``; overridable for tests).
+
+    Returns:
+        Sorted absolute paths to pass as ``filesystem.denyRead``.
+    """
+    allowed = [a for a in allowed if a.exists()]
+    denies: List[str] = []
+
+    def visit(directory: Path) -> None:
+        # Child names on the way to an allowed path, and whether that child is
+        # itself allowed (keep whole) or only an ancestor (walk into it).
+        on_path: Dict[str, bool] = {}
+        for a in allowed:
+            if directory in a.parents:
+                rel = a.relative_to(directory)
+                name = rel.parts[0]
+                on_path[name] = on_path.get(name, False) or len(rel.parts) == 1
+        try:
+            entries = list(os.scandir(directory))
+        except OSError:
+            # Unlistable by us; its children are unreadable without srt too.
+            return
+        for entry in entries:
+            if entry.name in on_path:
+                if not on_path[entry.name] and not entry.is_symlink():
+                    visit(directory / entry.name)
+            elif not entry.is_symlink():
+                denies.append(entry.path)
+
+    if not any(_is_within(root, a) for a in allowed):
+        visit(root)
+    return sorted(denies)
+
+
+def _default_sandbox_root() -> Path:
+    """Return a private, per-user directory to hold sandboxes.
+
+    A dedicated directory keeps the deny-list walk small: the shared temp dir
+    can hold tens of thousands of entries (other runs' logs, other tools'
+    scratch files), and every one of them would otherwise need a deny rule.
+    """
+    name = f"tau2-kb-sandboxes-{os.getuid()}"
+    for base in ("/var/tmp", tempfile.gettempdir()):
+        root = Path(base) / name
+        try:
+            root.mkdir(mode=0o700, exist_ok=True)
+            st = root.lstat()
+        except OSError:
+            continue
+        if (
+            not root.is_symlink()
+            and root.is_dir()
+            and st.st_uid == os.getuid()
+            and os.access(root, os.W_OK)
+        ):
+            return root
+    raise SandboxRuntimeError(
+        "Could not create a private sandbox root under /var/tmp or "
+        f"{tempfile.gettempdir()}."
+    )
+
+
+def _extra_read_denies() -> List[Path]:
+    """Locations holding task data that must be denied even if a system
+    directory that contains them is allowed (e.g. a container that installs the
+    repository under /usr/src)."""
+    paths = [Path.cwd()]
+    if sys.prefix != sys.base_prefix:  # a virtualenv, not the base interpreter
+        paths.append(Path(sys.prefix))
+    try:
+        from tau2.utils.utils import DATA_DIR
+
+        paths.append(Path(DATA_DIR))
+    except Exception:
+        pass
+    package_dir = Path(__file__).resolve().parents[1]  # .../tau2
+    paths.append(package_dir)
+    if package_dir.parent.name == "src":  # source checkout: deny the whole repo
+        paths.append(package_dir.parent.parent)
+    return [_real(p) for p in paths]
+
+
+def _build_read_denies(allowed: List[Path]) -> List[str]:
+    """Full ``denyRead`` list: the allow-list walk plus targeted denies."""
+    denies = _compute_read_denies(allowed)
+    covered = [Path(d) for d in denies]
+    for extra in [*_extra_read_denies(), *map(_real, _SENSITIVE_READ_DENY)]:
+        if not extra.exists():
+            continue
+        # Never deny an allowed path or one of its ancestors (on Linux this
+        # would mount an empty tmpfs over the knowledge base).
+        if any(_is_within(a, extra) for a in allowed):
+            continue
+        # Already denied by the walk; a nested deny is redundant.
+        if any(_is_within(extra, c) for c in covered):
+            continue
+        denies.append(str(extra))
+        covered.append(extra)
+    return sorted(set(denies))
+
+
 # Static metadata for sanitized output
 _SANDBOX_USER = "kb_user"
 _SANDBOX_GROUP = "kb_group"
@@ -138,23 +387,19 @@ _SANDBOX_DATE = "Jan  1 00:00"
 class SandboxManager:
     """Manages sandboxed file system environments for agentic search.
 
-    WARNING: Best-effort sandboxing only. The agent may escape read restrictions.
-    Write access is properly sandboxed; read access is NOT strictly enforced.
-
     Each sandbox:
-    - Gets its own isolated temp directory with KB documents exported as files
-    - Blocks obvious escape patterns (../, ~, absolute paths, $HOME)
-    - Uses srt for OS-level protection of some sensitive paths
-    - Properly restricts write access (if allow_writes=False)
+    - Gets its own directory under a private per-user sandbox root, with KB
+      documents exported as files
+    - Blocks obvious escape patterns (../, ~, absolute paths, $HOME) as a
+      convenience; this filter is not a security boundary
+    - Uses srt to deny reads of everything except the knowledge base and the
+      system directories standard tools need (see module docstring)
+    - Restricts write access (if allow_writes=False, nothing is writable)
 
-    What IS enforced:
+    What IS enforced (by srt, at the OS level):
+    - Reads outside the knowledge base and allowed system directories fail
     - Write access is blocked unless allow_writes=True (srt allow-only pattern)
     - Network access is blocked
-    - Some sensitive paths are denied (~/.ssh, /etc/passwd, etc.)
-
-    What is NOT strictly enforced:
-    - Read access to arbitrary filesystem paths (srt uses deny-only for reads)
-    - Sophisticated escape attempts may bypass pattern checks
 
     Requires: sandbox-runtime (srt) must be installed globally via npm.
     """
@@ -173,7 +418,11 @@ class SandboxManager:
             sandbox_id: Optional unique identifier for this sandbox.
                        If not provided, a UUID will be generated.
             base_temp_dir: Optional base directory for creating sandboxes.
-                          Defaults to system temp directory.
+                          Defaults to a private per-user root
+                          (``/var/tmp/tau2-kb-sandboxes-<uid>``, falling back
+                          to the system temp dir). Every sibling entry along
+                          the path to the sandbox gets its own deny rule, so
+                          prefer a directory with few entries.
 
         Raises:
             SandboxRuntimeError: If sandbox-runtime (``srt``) or any of its
@@ -185,51 +434,119 @@ class SandboxManager:
         _check_sandbox_dependencies()
         self.sandbox_id = sandbox_id or str(uuid.uuid4())[:8]
         self.allow_writes = allow_writes
-        self.base_temp_dir = base_temp_dir or tempfile.gettempdir()
-
-        # Create the sandbox directory
-        self.sandbox_dir = (
-            Path(self.base_temp_dir) / f"agentic_search_{self.sandbox_id}"
+        self.base_temp_dir = str(
+            Path(base_temp_dir) if base_temp_dir else _default_sandbox_root()
         )
-        self.sandbox_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create the sandbox directory. Resolve symlinks (e.g. macOS
+        # /var -> /private/var) so the read policy sees real paths.
+        sandbox_dir = Path(self.base_temp_dir) / f"agentic_search_{self.sandbox_id}"
+        sandbox_dir.mkdir(parents=True, exist_ok=True)
+        self.sandbox_dir = _real(sandbox_dir)
+        # Sandboxes created by the retrieval toolkits are never cleaned up
+        # explicitly; remove the directory once the manager is garbage
+        # collected or at interpreter exit. Leftover sandboxes would otherwise
+        # pile up in the shared root (each needs its own deny rule).
+        self._finalizer = weakref.finalize(
+            self, shutil.rmtree, str(self.sandbox_dir), ignore_errors=True
+        )
 
         # Create subdirectory for knowledge base files
         self.kb_dir = self.sandbox_dir / "knowledge_base"
         self.kb_dir.mkdir(exist_ok=True)
 
-        # Create settings file for srt
+        # Holds a python3 link when no python3 is available from the allowed
+        # system directories. Readable from inside the sandbox; not writable.
+        self.bin_dir = self.sandbox_dir / "bin"
+
+        # Settings for srt. They live next to (not inside) kb_dir, so the read
+        # policy denies them to the sandboxed command.
         self.settings_path = self.sandbox_dir / "srt-settings.json"
+
+        self._read_allow, self._sandbox_path = self._plan_read_access()
         self._create_srt_settings()
 
-    def _create_srt_settings(self) -> None:
-        """Create the srt-settings.json configuration file.
+    def _plan_read_access(self) -> Tuple[List[Path], str]:
+        """Choose the readable paths and the PATH for the sandboxed command.
 
-        NOTE: srt's read restrictions use a "deny-only" pattern, meaning we can only
-        block specific paths, not restrict reads to only kb_dir. Write restrictions
-        use "allow-only" and ARE properly enforced.
+        Returns:
+            (allowed real paths, PATH string). PATH keeps the parent PATH
+            entries that remain readable under the policy, plus the
+            directories of srt's own dependencies (srt runs unsandboxed with
+            this same environment and must find node, rg, bwrap, socat).
         """
+        allowed = [self.kb_dir]
+        allowed += [_real(p) for p in _system_read_allow() if os.path.exists(p)]
+
+        parent_path = os.environ.get("PATH", os.defpath).split(os.pathsep)
+        readable = [
+            d
+            for d in parent_path
+            if d and any(_is_within(_real(d), a) for a in allowed)
+        ]
+
+        pythons = [
+            os.path.join(d, "python3")
+            for d in readable
+            if os.access(os.path.join(d, "python3"), os.X_OK)
+        ]
+        usable = [p for p in pythons if _real(p) not in _UNUSABLE_PYTHONS]
+        if not pythons or pythons[0] not in usable:
+            if usable:
+                target = _real(usable[0])
+            else:
+                # No usable python3 in an allowed system directory (e.g. only
+                # a pyenv shim or a uv-managed interpreter under the home
+                # directory). Allow just the running interpreter's install
+                # prefix.
+                target = _real(getattr(sys, "_base_executable", None) or sys.executable)
+                prefix = _real(sys.base_prefix)
+                allowed.append(prefix)
+                if not _is_within(target, prefix):
+                    allowed.append(target)
+            # Expose the chosen interpreter as the first ``python3`` on PATH.
+            self.bin_dir.mkdir(exist_ok=True)
+            link = self.bin_dir / "python3"
+            if not link.is_symlink():
+                link.symlink_to(target)
+            allowed.append(self.bin_dir)
+            readable.insert(0, str(self.bin_dir))
+
+        for tool in ("node", *_required_binaries()):
+            found = shutil.which(tool)
+            if found and os.path.dirname(found) not in readable:
+                readable.append(os.path.dirname(found))
+
+        return allowed, os.pathsep.join(readable)
+
+    def _create_srt_settings(self) -> None:
+        """Write the srt-settings.json configuration file.
+
+        Called again before every command so the deny list covers files that
+        appeared on the machine after the sandbox was created.
+        """
+        # Must exist before the walk so the settings file itself is denied.
+        self.settings_path.touch(exist_ok=True)
         settings = {
             "network": {
                 "allowedDomains": [],  # No network access
                 "deniedDomains": [],
             },
             "filesystem": {
-                # Best-effort: block some sensitive paths (but agent may still read elsewhere)
-                "denyRead": [
-                    "~/.ssh",
-                    "~/.aws",
-                    "~/.config",
-                    "~/.gnupg",
-                    "/etc/passwd",
-                    "/etc/shadow",
-                ],
+                # Everything outside the knowledge base and the allowed system
+                # directories (see ``_compute_read_denies``). Paths are
+                # absolute: srt would expand "~" via HOME, which the sandboxed
+                # process sets to the sandbox dir.
+                "denyRead": _build_read_denies(self._read_allow),
                 "allowWrite": [str(self.kb_dir)] if self.allow_writes else [],
                 "denyWrite": [str(self.settings_path)],
             },
         }
 
-        with open(self.settings_path, "w") as f:
+        tmp_path = self.settings_path.with_suffix(".json.tmp")
+        with open(tmp_path, "w") as f:
             json.dump(settings, f, indent=2)
+        os.replace(tmp_path, self.settings_path)
 
     def _has_escape_pattern(self, command: str) -> Optional[str]:
         """Check if command contains obvious patterns that could escape the sandbox.
@@ -270,6 +587,8 @@ class SandboxManager:
         - Real username/group with generic values in ls output
         - Real timestamps with static date in ls output
         - Real username in paths (e.g., /Users/username/...)
+        - Values of secret-like parent env vars (API keys, tokens) with
+          "[REDACTED]" (defense in depth; the sandbox env excludes them)
 
         Args:
             output: The raw command output
@@ -281,7 +600,7 @@ class SandboxManager:
         if not output:
             return output
 
-        result = output
+        result = _redact_secret_env_values(output)
 
         # Get the real username to replace
         try:
@@ -427,13 +746,24 @@ class SandboxManager:
         # Execute via srt with working directory set to kb_dir
         srt_command = ["srt", "--settings", str(self.settings_path), command]
 
+        # Never inherit os.environ: it holds provider API keys.
+        env = _build_sandbox_env(home=str(self.sandbox_dir))
+        # Only PATH entries that stay readable under the read policy (plus the
+        # directories srt itself needs).
+        env["PATH"] = self._sandbox_path
+
         try:
+            # Refresh the deny list so it covers entries created since the
+            # last command (e.g. another sandbox or log next to an allowed
+            # directory).
+            self._create_srt_settings()
             result = subprocess.run(
                 srt_command,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
                 cwd=str(self.kb_dir),
+                env=env,
             )
             # Sanitize output to remove real user metadata
             sanitized_stdout = self._sanitize_output(result.stdout, command)
@@ -489,8 +819,7 @@ class SandboxManager:
 
     def cleanup(self) -> None:
         """Remove the sandbox directory and all its contents."""
-        if self.sandbox_dir.exists():
-            shutil.rmtree(self.sandbox_dir)
+        self._finalizer()
 
     def __enter__(self) -> "SandboxManager":
         """Context manager entry."""

@@ -3,16 +3,22 @@
 τ-bench supports end-to-end voice evaluation using real-time audio APIs. In this mode, a user simulator streams synthesized speech to the agent, and the agent responds with audio — both sides operating simultaneously (full-duplex).
 
 ```bash
+# One frozen retail task in each voice-v2 language (6 calls).
 tau2 run --domain retail --audio-native --num-tasks 1 --verbose-logs
 ```
+
+`--audio-native` runs the released voice-v2 benchmark by default; add
+`--benchmark none` for an ordinary single-domain run. See
+[Running the benchmark](../../../docs/running-the-benchmark.md).
 
 ## Providers
 
 | Provider | Flag | Requirements |
 |----------|------|-------------|
 | OpenAI Realtime | `--audio-native-provider openai` | `OPENAI_API_KEY` |
-| Google Gemini Live | `--audio-native-provider gemini` | `GOOGLE_API_KEY` |
+| Google Gemini Live | `--audio-native-provider gemini` | `GEMINI_API_KEY` (or Vertex AI credentials) |
 | xAI Grok Voice | `--audio-native-provider xai` | `XAI_API_KEY` |
+| Avartha (Pipecat RTVI) | `--audio-native-provider avartha_pipecat` | A hosted agent URL and `AVARTHA_API_KEY` |
 
 The default provider is `openai`. Use `--audio-native-model` to override the default model for a provider.
 
@@ -44,10 +50,10 @@ tau2 run --domain retail --audio-native --speech-complexity regular
 | `--audio-native-model` | per-provider | Override model |
 | `--speech-complexity` | `regular` | Speech complexity level |
 | `--tick-duration` | `0.2` | Simulation timestep in seconds |
-| `--max-steps-seconds` | `600` | Maximum conversation duration |
+| `--max-steps-seconds` | `2400` for released benchmarks, `1200` for `--benchmark none`, `240` for intake | Maximum conversation duration in simulated seconds |
 | `--verbose-logs` | — | Save audio files, LLM logs, and tick data |
 
-See `tau2 run --help` or the [CLI Reference](../../docs/cli-reference.md) for the full list including turn-taking thresholds and debugging options.
+See `tau2 run --help` or the [CLI Reference](../../../docs/cli-reference.md) for the full list including turn-taking thresholds and debugging options.
 
 ## Programmatic Usage
 
@@ -69,7 +75,7 @@ config = VoiceRunConfig(
 results = run_domain(config)
 ```
 
-See [Running Simulations](../../docs/running_simulations.md) for more examples and instance-level control.
+See [Running Simulations](../../../docs/running_simulations.md) for more examples and instance-level control.
 
 ## Output Structure
 
@@ -111,28 +117,28 @@ The voice module has two main components:
 
 ## Voice Persona Setup
 
-The user simulator uses ElevenLabs voices defined in `src/tau2/data_model/voice_personas.py`. The default voice IDs are Sierra-internal and **will not work** for external users.
+The user simulator speaks with each language pack persona's ElevenLabs voice (`voice.voice_id` in `data/tau2/multilingual/<lang>/pack.yaml`). The default voice IDs are Sierra-internal and **will not work** for external users.
 
-To run voice evaluations, create your own voices in ElevenLabs and configure them via environment variables:
+To run voice evaluations, create your own voices in ElevenLabs and configure them via environment variables (`TAU2_VOICE_ID_<LANG>_<PERSONA>`):
 
 ```bash
 # In your .env file:
-TAU2_VOICE_ID_MATT_DELANEY=your_voice_id_here
-TAU2_VOICE_ID_LISA_BRENNER=your_voice_id_here
-# ... (one per persona)
+TAU2_VOICE_ID_EN_MAMADOU_DIALLO=your_voice_id_here
+TAU2_VOICE_ID_EN_PRIYA_PATIL=your_voice_id_here
 ```
 
-For a minimal setup, create just the two control personas and use `--speech-complexity control`.
+`python -m tau2.voice.scripts.setup_voices` creates the English voices and prints these lines; add `--language all` for every voice-v2 language.
 
-See the [Voice Persona Setup Guide](../../docs/voice-personas.md) for step-by-step instructions on creating matching voices with ElevenLabs Voice Design.
+See the [Voice Persona Setup Guide](../../../docs/voice-personas.md) for step-by-step instructions on creating matching voices with ElevenLabs Voice Design.
 
 ## Environment Variables
 
 | Variable | Used by |
 |----------|---------|
 | `OPENAI_API_KEY` | OpenAI Realtime provider |
-| `GOOGLE_API_KEY` | Gemini Live provider |
+| `GEMINI_API_KEY` | Gemini Live provider, and the speech-fidelity judge |
 | `XAI_API_KEY` | xAI Grok Voice provider |
 | `ELEVENLABS_API_KEY` | User simulator TTS (synthesis) |
+| `AVARTHA_API_KEY` | Avartha hosted-agent calls (`--audio-native-provider avartha_pipecat`) |
 | `DEEPGRAM_API_KEY` | Transcription (Deepgram nova-2, nova-3) |
-| `TAU2_VOICE_ID_*` | Custom voice ID overrides (see [Voice Persona Setup](../../docs/voice-personas.md)) |
+| `TAU2_VOICE_ID_<LANG>_<PERSONA>` | Custom voice ID overrides (see [Voice Persona Setup](../../../docs/voice-personas.md)) |

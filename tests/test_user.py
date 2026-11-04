@@ -28,6 +28,7 @@ def user_simulator(user_instructions: str) -> UserSimulator:
     return UserSimulator(llm="gpt-4o-mini", instructions=user_instructions)
 
 
+@pytest.mark.live_api
 def test_user_simulator(
     user_simulator: UserSimulator, first_agent_message: AssistantMessage
 ):

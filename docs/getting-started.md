@@ -19,7 +19,7 @@ cd tau2-bench
 ### 2. Install τ-bench
 
 ```bash
-uv sync                        # core only (text-mode: airline, retail, telecom, mock)
+uv sync                        # core, including scaffolded intake text runs
 ```
 
 This creates a virtual environment, installs core dependencies from the lockfile, and enables the `tau2` command. The Python version is pinned via `.python-version` (3.12) — uv will download it automatically if needed.
@@ -77,15 +77,14 @@ If you're using voice features, add the following to your `.env` file:
 
 ### Voice Persona Setup (for voice-enabled features)
 
-The voice pipeline uses ElevenLabs voices for the user simulator. The default voice IDs are Sierra-internal and won't work for external users. You need to create your own voices and configure them via environment variables in your `.env` file:
+The voice pipeline uses ElevenLabs voices for the user simulator. The default voice IDs are Sierra-internal and won't work for external users. You need to create your own voices and configure them via environment variables in your `.env` file, one per language-pack persona (`TAU2_VOICE_ID_<LANG>_<PERSONA>`):
 
 ```bash
-TAU2_VOICE_ID_MATT_DELANEY=your_voice_id_here
-TAU2_VOICE_ID_LISA_BRENNER=your_voice_id_here
-# ... (one per persona)
+TAU2_VOICE_ID_EN_MAMADOU_DIALLO=your_voice_id_here
+TAU2_VOICE_ID_EN_PRIYA_PATIL=your_voice_id_here
 ```
 
-See the [Voice Persona Setup Guide](voice-personas.md) for step-by-step instructions on creating matching voices using ElevenLabs Voice Design.
+`python -m tau2.voice.scripts.setup_voices --language all` creates the voices for every voice-v2 language and prints these lines. See the [Voice Persona Setup Guide](voice-personas.md) for details and the manual ElevenLabs Voice Design steps.
 
 ## Running Your First Evaluation
 
@@ -103,10 +102,18 @@ Results are saved in `data/simulations/`.
 > **Prerequisite:** Voice mode requires custom ElevenLabs voices for the user simulator. You must set these up before running voice evaluations. See the [Voice Persona Setup Guide](voice-personas.md) — the automated script takes care of everything in one command.
 
 ```bash
+# One frozen retail task in each of the six voice-v2 languages: 6 calls.
 tau2 run --domain retail --audio-native --num-tasks 1 --verbose-logs
+
+# One English retail call, outside the released benchmark.
+tau2 run --domain retail --audio-native --benchmark none --language en --num-tasks 1 --verbose-logs
 ```
 
-See the [Audio Native Documentation](../src/tau2/voice/audio_native/README.md) for provider configuration and all options.
+`--audio-native` runs the released voice-v2 benchmark by default, so `--domain`
+and `--num-tasks` select a slice of it. `--benchmark none` makes an ordinary
+single-domain run. See [Running the benchmark](running-the-benchmark.md) for
+the full benchmark, and the [voice docs](../src/tau2/voice/README.md) for
+providers and options.
 
 ### Knowledge retrieval evaluation
 
@@ -118,11 +125,15 @@ tau2 run --domain banking_knowledge --retrieval-config bm25 \
 See the [Knowledge Retrieval Documentation](../src/tau2/knowledge/README.md) for retrieval configuration options.
 
 
-> **tip**: for full agent evaluation that matches the original τ-bench methodology, remove `--num-tasks` to evaluate on the complete task set (the `base` split is used by default).
+> **Tip:** these are custom runs. To run the released 2.0 benchmarks, see
+> [Running the benchmark](running-the-benchmark.md).
 
 ## Simulation Output Structure
 
-Results are stored in one of two formats, chosen automatically based on modality:
+A released benchmark run writes one directory per language × domain cell under
+its root; see [where results are saved](running-the-benchmark.md#where-results-are-saved).
+Inside each cell, and for a custom run, results are stored in one of two
+formats, chosen automatically based on modality:
 
 ### Text runs — monolithic JSON
 
@@ -194,6 +205,34 @@ LLM call caching is disabled by default. To enable it:
 3. Update the redis config in `config.py` if necessary
 4. Set `LLM_CACHE_ENABLED` to `True` in `config.py`
 
+## Other ways to run
+
+### Environment CLI (beta)
+
+An interactive CLI for querying a domain's environment and tools directly,
+without starting a full simulation:
+
+```bash
+make env-cli
+```
+
+Commands: `:q` quits, `:d` changes domain, `:n` starts a new session.
+
+### Telecom ablations
+
+The `telecom` domain supports research ablations:
+
+```bash
+# No user: the agent gets all tools and information up front.
+tau2 run --domain telecom --agent llm_agent_solo --agent-llm gpt-4.1 --user dummy_user
+
+# Oracle plan: the agent gets the ground-truth plan.
+tau2 run --domain telecom --agent llm_agent_gt --agent-llm gpt-4.1 --user-llm gpt-4.1
+
+# Workflow-format policy.
+tau2 run --domain telecom-workflow --agent-llm gpt-4.1 --user-llm gpt-4.1
+```
+
 ## Cleanup
 
 To remove all generated files and the virtual environment:
@@ -204,9 +243,13 @@ make clean
 
 ## Next Steps
 
+- [Running the benchmark](running-the-benchmark.md) — the released text and voice benchmarks
+- [Submission guide](leaderboard-submission.md) — submitting results to the leaderboard
+- [Glossary](glossary.md) — terms used across the docs
 - [CLI Reference](cli-reference.md) — all `tau2` commands and options
 - [Agent Developer Guide](../src/tau2/agent/README.md) — build and evaluate your own agent
 - [Domain Documentation](../src/tau2/domains/README.md) — understand the available domains
+- [τ-Entity](elicitation.md) — the `intake` benchmark and its scaffolded strategy ablation
 - [Communication Modes](../src/tau2/orchestrator/README.md) — half-duplex and full-duplex orchestration
 - [Task Schema & Evaluation](evaluation.md) — how a task is scored, what `actions`/`communicate_info`/`reward_basis` actually do
 - [Knowledge Retrieval](../src/tau2/knowledge/README.md) — retrieval pipeline setup and configuration for banking_knowledge domain

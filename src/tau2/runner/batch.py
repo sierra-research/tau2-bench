@@ -24,9 +24,11 @@ from typing import Callable, Optional
 
 from loguru import logger
 
+from tau2.data_model.elicitation import ElicitationStrategy
+from tau2.data_model.language import LanguageTaskInfo
 from tau2.data_model.persona import InterruptTendency, PersonaConfig, Verbosity
+from tau2.data_model.run_config import AudioNativeConfig
 from tau2.data_model.simulation import (
-    AudioNativeConfig,
     Info,
     Results,
     RunConfig,
@@ -39,6 +41,7 @@ from tau2.data_model.tasks import Task
 from tau2.data_model.voice import SynthesisConfig, VoiceSettings
 from tau2.data_model.voice_personas import warn_if_non_official_voices
 from tau2.evaluator.evaluator import EvaluationType
+from tau2.evaluator.hallucination_reviewer import failed_hallucination_check
 from tau2.evaluator.reviewer import check_hallucination, format_hallucination_feedback
 from tau2.metrics.agent_metrics import compute_metrics
 from tau2.registry import registry
@@ -47,16 +50,22 @@ from tau2.runner.checkpoint import (
     create_checkpoint_fns,
     try_resume,
 )
-from tau2.runner.helpers import get_info, get_tasks, make_run_name
+from tau2.runner.elicitation import sample_run_complication, user_prompt_task
+from tau2.runner.hallucination_checkpoint import (
+    HallucinationReviewCheckpoint,
+    load_review_checkpoint,
+    review_checkpoint_path,
+    review_config_hash,
+    save_review_checkpoint,
+)
+from tau2.runner.helpers import get_info, make_run_name, select_run_tasks
+from tau2.runner.presets import uses_canonical_tasks
 from tau2.runner.progress import StatusMonitor, run_with_retry
 from tau2.runner.simulation import run_simulation
 from tau2.runner.work import WorkQueue, WorkUnit, make_unit_id
-from tau2.user.user_simulator import (
-    get_global_user_sim_guidelines,
-    get_global_user_sim_guidelines_voice,
-)
 from tau2.user_simulation_voice_presets import COMPLEXITY_CONFIGS
 from tau2.utils.display import ConsoleDisplay, Text
+from tau2.utils.errors import NonRetryableError
 from tau2.utils.llm_utils import llm_log_mode, set_llm_log_dir, set_llm_log_mode
 from tau2.utils.utils import DATA_DIR
 
@@ -143,6 +152,9 @@ def run_auto_review(
     user_voice_settings: Optional[VoiceSettings],
     policy: str,
     is_audio_native: bool,
+    global_guidelines_override: Optional[str] = None,
+    language_context: Optional[LanguageTaskInfo] = None,
+    user_has_tools: bool = False,
 ) -> None:
     """Run LLM conversation review on a simulation and attach results.
 
@@ -158,24 +170,32 @@ def run_auto_review(
         user_voice_settings: Voice settings for user.
         policy: Environment policy string.
         is_audio_native: Whether audio-native mode was used.
+        global_guidelines_override: Domain-owned caller guidelines used in the run.
+        language_context: Exact language persona recorded for a pack-voiced call;
+            None for domain-owned callers, which pass their guidelines instead.
+        user_has_tools: Whether this constructed caller actually received user tools.
     """
     from tau2.evaluator.reviewer import ReviewMode, review_simulation
 
     review_mode_enum = ReviewMode.FULL if review_mode == "full" else ReviewMode.USER
 
-    if is_audio_native:
-        review_guidelines = get_global_user_sim_guidelines_voice()
-    else:
-        review_guidelines = get_global_user_sim_guidelines()
-
     review_user_info = UserInfo(
         implementation=user,
         llm=llm_user,
         llm_args=llm_args_user,
-        global_simulation_guidelines=review_guidelines,
+        global_simulation_guidelines=global_guidelines_override,
         persona_config=user_persona_config,
         voice_settings=user_voice_settings,
     )
+    if language_context is not None:
+        from tau2.multilingual.runtime import language_review_user_info
+
+        review_user_info = language_review_user_info(
+            review_user_info,
+            task,
+            language_context,
+            use_tools=user_has_tools,
+        )
 
     logger.info(f"Starting review for task {task.id} (mode: {review_mode})...")
 
@@ -357,6 +377,7 @@ def run_single_task(
     review_mode: str = "full",
     review_model: Optional[str] = None,
     hallucination_feedback: Optional[str] = None,
+    language_context: Optional[LanguageTaskInfo] = None,
 ) -> SimulationRun:
     """Run a single task simulation with logging and optional side effects.
 
@@ -415,28 +436,69 @@ def run_single_task(
             user_persona_config=user_persona_config,
             hallucination_feedback=hallucination_feedback,
             audio_taps_dir=taps_dir,
+            language_context=language_context,
         )
 
         # Layer 1: Run the simulation
-        env_kwargs = _build_env_kwargs(config, task) or None
-        simulation = run_simulation(
-            orchestrator, evaluation_type=evaluation_type, env_kwargs=env_kwargs
+        call_language = orchestrator.call_context.language
+        env_kwargs = (
+            _build_env_kwargs(config, task, language_context=call_language) or None
         )
+        simulation = run_simulation(
+            orchestrator,
+            evaluation_type=evaluation_type,
+            env_kwargs=env_kwargs,
+            canonical_tasks=uses_canonical_tasks(config.benchmark),
+        )
+
+        simulation.complication = sample_run_complication(config, task)
 
         # Side effects
         if auto_review:
+            review_guidelines = None
+            review_context = (
+                call_language if call_language.persona is not None else None
+            )
+            review_persona = user_persona_config
+            if config.elicitation is not None:
+                agent_directed = (
+                    config.elicitation.strategy == ElicitationStrategy.AGENT_DIRECTED
+                )
+                if review_context is not None and review_context.cross_lingual:
+                    # Localized intake: the pack persona voices the outbound caller.
+                    from tau2.multilingual.runtime import intake_review_user_info
+
+                    localized = intake_review_user_info(
+                        UserInfo(implementation=config.effective_user),
+                        review_context,
+                        agent_directed=agent_directed,
+                    )
+                    review_guidelines = localized.global_simulation_guidelines
+                    review_persona = localized.persona_config
+                    review_context = None
+                else:
+                    from tau2.domains.intake.prompts import get_user_guidelines
+
+                    review_guidelines = get_user_guidelines(
+                        is_voice=is_voice, agent_directed=agent_directed
+                    )
             run_auto_review(
                 simulation=simulation,
-                task=task,
+                task=user_prompt_task(config, task),
                 review_mode=review_mode,
                 review_model=review_model or config.review_model,
                 user=config.effective_user,
                 llm_user=config.llm_user,
                 llm_args_user=config.llm_args_user,
-                user_persona_config=user_persona_config,
+                user_persona_config=review_persona,
                 user_voice_settings=user_voice_settings,
                 policy=orchestrator.environment.get_policy(),
                 is_audio_native=is_voice,
+                global_guidelines_override=review_guidelines,
+                language_context=review_context,
+                user_has_tools=orchestrator.user.tools is not None
+                if review_context
+                else False,
             )
 
         if is_voice and save_dir:
@@ -556,6 +618,7 @@ def run_unit(
             config,
             task,
             seed=run_seed,
+            language_context=ctx.info.language_tasks[task.id],
             evaluation_type=ctx.evaluation_type,
             save_dir=save_dir,
             user_voice_settings=ctx.user_voice_settings,
@@ -570,30 +633,61 @@ def run_unit(
         )
 
     try:
-        result = run_with_retry(
-            _execute,
-            task=task,
+        review_path = review_checkpoint_path(
+            save_dir if hallucination_retries > 0 else None, task.id, trial, seed
+        )
+        config_hash = review_config_hash(config) if review_path is not None else ""
+        review_checkpoint = load_review_checkpoint(
+            review_path,
+            task_id=task.id,
             trial=trial,
             seed=seed,
-            max_retries=config.max_retries,
-            retry_delay=config.retry_delay,
-            console_display=ctx.console_display,
-            on_retry=(lambda: monitor.task_restarted(task_key)) if monitor else None,
-            shutdown_event=ctx.shutdown_event,
+            config_hash=config_hash,
         )
+        if review_checkpoint is not None:
+            result = review_checkpoint.simulation
+            logger.info(
+                f"Reusing reviewed simulation {result.id} after checkpoint failure "
+                f"(task {task.id}, trial {trial})"
+            )
+        else:
+            result = run_with_retry(
+                _execute,
+                task=task,
+                trial=trial,
+                seed=seed,
+                max_retries=config.max_retries,
+                retry_delay=config.retry_delay,
+                console_display=ctx.console_display,
+                on_retry=(lambda: monitor.task_restarted(task_key))
+                if monitor
+                else None,
+                shutdown_event=ctx.shutdown_event,
+            )
 
         # Hallucination retry: if check detects fabricated info, re-run
         is_full_duplex = result.ticks is not None and len(result.ticks) > 0
-        if hallucination_retries > 0 and is_full_duplex:
+        if hallucination_retries > 0 and is_full_duplex and review_checkpoint is None:
             hallucination_retry_count = 0
+            prompt_task = user_prompt_task(config, task)
             while True:
-                h_check = check_hallucination(
-                    result, task, review_model=config.review_model
-                )
+                try:
+                    h_check = check_hallucination(
+                        result,
+                        prompt_task,
+                        review_model=config.review_model,
+                    )
+                except Exception as exc:
+                    h_check = failed_hallucination_check(exc, config.review_model)
+                    logger.error(
+                        f"Hallucination review failed for scored simulation "
+                        f"{result.id} (task {task.id}): {exc}"
+                    )
                 result.hallucination_check = h_check
 
                 if (
-                    not h_check.hallucination_found
+                    h_check.review_status == "failed"
+                    or not h_check.hallucination_found
                     or hallucination_retry_count >= hallucination_retries
                 ):
                     break
@@ -664,10 +758,53 @@ def run_unit(
                 # Use the original seed so resume matching stays consistent.
                 result.seed = seed
 
-        # A failed reviewer must not leave an unreviewed success checkpoint.
-        # Raw attempt artifacts are already retained by the simulation runner.
+        from tau2.voice.voice_gender import (
+            VOICE_GENDER_CATALOG_REVISION,
+            selected_agent_voice,
+        )
+
+        # Infrastructure failures also retain the preflight task assignment.
+        result.language_context = ctx.info.language_tasks[task.id]
+        result.agent_voice, result.agent_voice_gender = selected_agent_voice(config)
+        if result.agent_voice or result.agent_voice_gender:
+            result.agent_voice_catalog = VOICE_GENDER_CATALOG_REVISION
+
+        # A failed reviewer is a recorded, unavailable verdict, not a failed
+        # scored call. Retain its raw replies and simulation if a worker dies
+        # before the controller receives the result.
+        if (
+            review_path is not None
+            and review_checkpoint is None
+            and result.hallucination_check is not None
+            and result.hallucination_check.review_status == "failed"
+        ):
+            review_checkpoint = HallucinationReviewCheckpoint(
+                task_id=task.id,
+                trial=trial,
+                seed=seed,
+                config_hash=config_hash,
+                simulation=result,
+            )
+            save_review_checkpoint(review_path, review_checkpoint)
+
         if ctx.save_fn:
-            ctx.save_fn(result)
+            try:
+                ctx.save_fn(result)
+            except Exception:
+                if review_path is not None and review_checkpoint is None:
+                    review_checkpoint = HallucinationReviewCheckpoint(
+                        task_id=task.id,
+                        trial=trial,
+                        seed=seed,
+                        config_hash=config_hash,
+                        simulation=result,
+                    )
+                    save_review_checkpoint(review_path, review_checkpoint)
+                raise
+            # The result is delivered, so no checkpoint for this unit may
+            # survive to replace a later run of it.
+            if review_path is not None:
+                review_path.unlink(missing_ok=True)
 
         # Mark the final sim as the one used in results
         if save_dir is not None:
@@ -783,6 +920,7 @@ def prepare_batch(
     # Build Info and initial Results
     info = get_info(
         config,
+        tasks=tasks,
         user_persona_config=user_persona_config,
         user_voice_settings=user_voice_settings,
         policy_override=policy_override,
@@ -980,10 +1118,11 @@ def run_tasks(
     tasks_by_id = {task.id: task for task in tasks}
     queue = WorkQueue(prep.units, max_attempts=1, lease_ttl_seconds=float("inf"))
     results_lock = threading.Lock()
+    fatal_stop = threading.Event()
 
     def _consume(consumer_idx: int) -> None:
         worker_id = f"local-{consumer_idx}"
-        while not shutdown_event.is_set():
+        while not shutdown_event.is_set() and not fatal_stop.is_set():
             unit = queue.lease(worker_id)
             if unit is None:
                 return
@@ -997,6 +1136,8 @@ def run_tasks(
                 )
             except BaseException as e:
                 queue.fail(unit.unit_id, str(e), worker_id=worker_id)
+                if isinstance(e, NonRetryableError):
+                    fatal_stop.set()
                 raise
             queue.complete(unit.unit_id, worker_id=worker_id)
             with results_lock:
@@ -1031,7 +1172,9 @@ def run_tasks(
     finally:
         monitor.stop()
         if not shutdown_event.is_set():
-            executor.shutdown(wait=True)
+            executor.shutdown(
+                wait=not fatal_stop.is_set(), cancel_futures=fatal_stop.is_set()
+            )
 
     ConsoleDisplay.console.print(
         "\n[bold green]Successfully completed all simulations![/bold green]\n"
@@ -1047,13 +1190,17 @@ def run_tasks(
 
 def _load_run_tasks(config: RunConfig) -> list[Task]:
     """Load a config's tasks and apply the agent's registered task filter."""
+    from tau2.multilingual.runtime import pin_language_artifacts
+
     task_set_name = config.task_set_name or config.domain
-    tasks = get_tasks(
-        task_set_name=task_set_name,
-        task_split_name=config.task_split_name,
-        task_ids=config.task_ids,
-        num_tasks=config.num_tasks,
-    )
+    if config.elicitation is not None and task_set_name != config.domain:
+        raise ValueError(
+            f"Elicitation task set {task_set_name!r} must match selected domain "
+            f"{config.domain!r}; intake requires its own caller and tool contracts."
+        )
+    tasks = select_run_tasks(config, pin_language_artifacts(config))
+    if config.elicitation is not None and not tasks:
+        raise ValueError("No elicitation tasks match the selected task IDs")
 
     effective_agent = config.effective_agent
     task_filter = registry.get_agent_task_filter(effective_agent)

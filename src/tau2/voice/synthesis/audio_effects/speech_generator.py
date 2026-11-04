@@ -109,6 +109,7 @@ def create_streaming_audio_generators(
     persona_name: str,
     sample_rate: int,
     background_noise_file: Optional[Path] = None,
+    voice_id: Optional[str] = None,
 ) -> tuple[BackgroundNoiseGenerator, Optional[OutOfTurnSpeechGenerator]]:
     """Create audio generators for streaming mode."""
     source_config = synthesis_config.source_effects_config
@@ -124,7 +125,7 @@ def create_streaming_audio_generators(
     out_of_turn_items = speech_config.get_out_of_turn_speech_inserts()
 
     if out_of_turn_items:
-        voice_id = get_elevenlabs_voice_id(persona_name)
+        voice_id = voice_id or get_elevenlabs_voice_id(persona_name)
         provider_config_with_voice = deepcopy(synthesis_config.provider_config)
         provider_config_with_voice.voice_id = voice_id
         out_of_turn_speech_generator = OutOfTurnSpeechGenerator(

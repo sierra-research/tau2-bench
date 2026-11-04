@@ -3,6 +3,11 @@
 // photos are served locally from public/authors/<slug>.jpg.
 
 export const PAPERS = {
+  seataubench: {
+    title: 'SEATauBench: Progressively Adapting Tool-Agent-User Evaluation Into Low-Resource Southeast Asian Languages',
+    href: 'https://arxiv.org/abs/2606.28715v2',
+    venue: 'Findings of EMNLP 2026',
+  },
   tauBench: {
     title: 'τ-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains',
     href: 'https://arxiv.org/abs/2406.12045',
@@ -23,9 +28,199 @@ export const PAPERS = {
     href: 'https://arxiv.org/abs/2603.13686',
     venue: 'arXiv 2026',
   },
+  tauRec: {
+    title: 'τ-Rec: A Verifiable Benchmark for Agentic Recommender Systems',
+    href: 'https://doi.org/10.1145/3773078.3831847',
+    venue: 'ACM RecSys 2026',
+  },
 }
 
 export const AUTHORS = {
+  'my-chiffon-nguyen': {
+    name: 'My Chiffon Nguyen',
+    role: 'AI Researcher at SEACrowd',
+    photo: '/community/assets/seataubench/my-chiffon-nguyen.jpg',
+    bio: 'My (Chiffon) Nguyen is an AI researcher at SEACrowd working on AI safety and governance, multilingual and multicultural AI, and cooperative agents. A Fall 2026 SPAR Fellow, she has worked on AI policy simulation and multilingual agent evaluation, including SEATauBench.',
+    bioSegments: [
+      {
+        text: 'My (Chiffon) Nguyen',
+        href: 'https://mychiffonn.com/',
+      },
+      {
+        text: ' is an AI researcher at SEACrowd working on ',
+      },
+      {
+        text: 'AI safety and governance',
+        strong: true,
+      },
+      {
+        text: ', multilingual and multicultural AI, and cooperative agents. A Fall 2026 SPAR Fellow, she has worked on AI policy simulation and multilingual agent evaluation, including SEATauBench.',
+      },
+    ],
+    paperKeys: ['seataubench'],
+    backHref: '/community',
+    backLabel: 'Community spotlight',
+  },
+  'aulia-adila': {
+    name: 'Aulia Adila',
+    role: 'AI Engineer at AI Singapore',
+    photo: '/community/assets/seataubench/aulia-adila.jpg',
+    bio: 'Aulia Adila is an AI Engineer at AI Singapore. Her research spans speech processing and privacy, deepfake detection, and multilingual agent evaluation. She holds a master\'s degree in Information Science from JAIST and a bachelor\'s degree in Computer Science from Institut Teknologi Bandung.',
+    bioSegments: [
+      {
+        text: 'Aulia Adila',
+        href: 'https://www.linkedin.com/in/aulia-adila/?isSelfProfile=false',
+      },
+      {
+        text: ' is an AI Engineer at AI Singapore. Her research spans ',
+      },
+      {
+        text: 'speech processing and privacy',
+        strong: true,
+      },
+      {
+        text: ', deepfake detection, and multilingual agent evaluation. She holds a master\'s degree in Information Science from JAIST and a bachelor\'s degree in Computer Science from Institut Teknologi Bandung.',
+      },
+    ],
+    paperKeys: ['seataubench'],
+    backHref: '/community',
+    backLabel: 'Community spotlight',
+  },
+  'saksorn-ruangtanusak': {
+    name: 'Saksorn Ruangtanusak',
+    role: 'Researcher at SCBX Group',
+    paperAffiliation: 'SEACrowd; SCB DataX, SCBX Group',
+    photo: '/authors/saksorn-ruangtanusak.jpg',
+    bio: 'Saksorn (Harry) Ruangtanusak is an AI researcher at SCBX Group, where he works with the Typhoon team on language models and AI agents. His research focuses on language agents, spanning multilingual agent evaluation (SEATauBench), behavioral fidelity in simulated personas (RoleCapBench), and efficient tool use (Talk Less, Call Right). He also collaborated with Professor Michael S. Bernstein on human behavioral simulation in “Can Vision-Language Models Simulate Human Behavioral Responses to Online Advertising Content?”',
+    bioSegments: [
+      {
+        text: 'Saksorn (Harry) Ruangtanusak',
+        href: 'https://saksornr.github.io/',
+      },
+      {
+        text: ' is an AI researcher at SCBX Group, where he works with the Typhoon team on language models and AI agents. His research focuses on ',
+      },
+      {
+        text: 'language agents',
+        strong: true,
+      },
+      {
+        text: ', spanning multilingual agent evaluation (SEATauBench), behavioral fidelity in simulated personas (RoleCapBench), and efficient tool use (Talk Less, Call Right). He also collaborated with Professor Michael S. Bernstein on human behavioral simulation in “Can Vision-Language Models Simulate Human Behavioral Responses to Online Advertising Content?”',
+      },
+    ],
+    paperKeys: ['seataubench'],
+    backHref: '/community',
+    backLabel: 'Community spotlight',
+  },
+  'kittiphat-leesombatwathana': {
+    name: 'Kittiphat Leesombatwathana',
+    role: 'Student at VISTEC',
+    photo: '/community/assets/seataubench/kittiphat-leesombatwathana.jpg',
+    bio: 'Kittiphat Leesombatwathana is a student at VISTEC whose research spans multilingual natural language processing, promise verification, and agent evaluation. He previously studied Computer Science at Chulalongkorn University and co-authored a Best System Paper at SemEval 2025.',
+    bioSegments: [
+      {
+        text: 'Kittiphat Leesombatwathana',
+        href: 'https://www.linkedin.com/in/kittiphat-leesombatwathana-a05170256/?isSelfProfile=false',
+      },
+      {
+        text: ' is a student at VISTEC whose research spans ',
+      },
+      {
+        text: 'multilingual natural language processing',
+        strong: true,
+      },
+      {
+        text: ', promise verification, and agent evaluation. He previously studied Computer Science at Chulalongkorn University and co-authored a Best System Paper at SemEval 2025.',
+      },
+    ],
+    paperKeys: ['seataubench'],
+    backHref: '/community',
+    backLabel: 'Community spotlight',
+  },
+  'vissuta-gunawan-lim': {
+    name: 'Vissuta Gunawan Lim',
+    role: 'Computer Science Undergraduate at University of Indonesia',
+    photo: '/community/assets/seataubench/vissuta-gunawan-lim.jpg',
+    bio: 'Vissuta Gunawan Lim is a Computer Science undergraduate at the University of Indonesia. His research interests span multilingual agent evaluation, efficient AI agents, and medical computer vision. He contributes to Southeast Asian LLM benchmarking through SEACrowd and to radiology report generation research at MLCV Lab.',
+    bioSegments: [
+      {
+        text: 'Vissuta Gunawan Lim',
+        href: 'https://vissutalim.com/',
+      },
+      {
+        text: ' is a Computer Science undergraduate at the University of Indonesia. His research interests span ',
+      },
+      {
+        text: 'multilingual agent evaluation',
+        strong: true,
+      },
+      {
+        text: ', efficient AI agents, and medical computer vision. He contributes to Southeast Asian LLM benchmarking through SEACrowd and to radiology report generation research at MLCV Lab.',
+      },
+    ],
+    paperKeys: ['seataubench'],
+    backHref: '/community',
+    backLabel: 'Community spotlight',
+  },
+  'patomporn-payoungkhamdee': {
+    name: 'Patomporn Payoungkhamdee',
+    role: 'PhD Student at VISTEC',
+    photo: '/community/assets/seataubench/patomporn-payoungkhamdee.jpg',
+    bio: 'Patomporn Payoungkhamdee is a PhD student at VISTEC\'s Natural Language and Representation Lab. His research focuses on multilingual distillation, tool-integrated reasoning, and cross-lingual AI, building on his contributions to Thai language models and benchmarks. He also mentors researchers through the SEACrowd Apprentice Program.',
+    bioSegments: [
+      {
+        text: 'Patomporn Payoungkhamdee',
+        href: 'https://calzonelover.github.io/',
+      },
+      {
+        text: ' is a PhD student at VISTEC\'s Natural Language and Representation Lab. His research focuses on ',
+      },
+      {
+        text: 'multilingual distillation',
+        strong: true,
+      },
+      {
+        text: ', tool-integrated reasoning, and cross-lingual AI, building on his contributions to Thai language models and benchmarks. He also mentors researchers through the SEACrowd Apprentice Program.',
+      },
+    ],
+    paperKeys: ['seataubench'],
+    backHref: '/community',
+    backLabel: 'Community spotlight',
+  },
+  'samuel-cahyawijaya': {
+    name: 'Samuel Cahyawijaya',
+    role: 'Member of Technical Staff at Cohere',
+    photo: '/community/assets/seataubench/samuel-cahyawijaya.jpg',
+    bio: 'Samuel Cahyawijaya is a Member of Technical Staff at Cohere and a research leader in Southeast Asian multilingual NLP. His work spans multilingual language modeling, resources for low-resource languages, and culturally grounded AI evaluation. He also mentors researchers through SEACrowd\'s apprenticeship program.',
+    bioSegments: [
+      {
+        text: 'Samuel Cahyawijaya',
+        href: 'https://samuelcahyawijaya.github.io/',
+      },
+      {
+        text: ' is a Member of Technical Staff at Cohere and a research leader in ',
+      },
+      {
+        text: 'Southeast Asian multilingual NLP',
+        strong: true,
+      },
+      {
+        text: '. His work spans multilingual language modeling, resources for low-resource languages, and culturally grounded AI evaluation. He also mentors researchers through SEACrowd\'s apprenticeship program.',
+      },
+    ],
+    paperKeys: ['seataubench'],
+    backHref: '/community',
+    backLabel: 'Community spotlight',
+  },
+  'bharath-narasimhan': {
+    name: 'Bharath Sivaram Narasimhan',
+    role: 'Independent Researcher',
+    photo: '/community/assets/bharath-narasimhan.jpg',
+    bio: 'Bharath Sivaram Narasimhan is an independent researcher focused on verifiable evaluation methods for reliable agentic AI.',
+    paperKeys: ['tauRec'],
+    backHref: '/community',
+    backLabel: 'Community spotlight',
+  },
   'victor-barres': {
     name: 'Victor Barres',
     role: 'Research Scientist at Sierra',
@@ -73,7 +268,7 @@ export const AUTHORS = {
     role: 'Head of Research at Sierra',
     sierraProfile: 'https://sierra.ai/author/karthik-narasimhan',
     bio: 'Karthik is Head of Research at Sierra and an associate professor of Computer Science at Princeton. He holds a PhD from MIT and co-authored the first GPT paper at OpenAI. He has been researching natural language processing, reinforcement learning, and AI agents for over a decade and has co-authored works like ReAct, Tree of Thoughts, CoALA and SWE-agent.',
-    paperKeys: ['tauBench', 'tau2Bench', 'tauKnowledge', 'tauVoice'],
+    paperKeys: ['tauBench', 'tau2Bench', 'tauKnowledge', 'tauVoice', 'tauRec'],
   },
   'shunyu-yao': {
     name: 'Shunyu Yao',
@@ -102,6 +297,16 @@ export const AUTHORS = {
 // Newest first. `href` values starting with http are external; everything else
 // is resolved against import.meta.env.BASE_URL.
 export const BLOG_POSTS = [
+  {
+    slug: 'hyper-tau-bench-announcement',
+    title: 'Hyper-τ-bench: Evaluating Agents That Build Agents',
+    category: 'Announcement',
+    date: 'September 2026',
+    description:
+      'Hyper-τ-bench makes agent construction the task: a developer agent recovers requirements from a business’s records and client, builds a customer-service agent within a model and cost budget, and is scored on held-out τ-bench-style traffic.',
+    href: 'https://sierra.ai/blog/hyper-t-bench-evaluating-agents-that-build-agents',
+    authorSlugs: ['ben-shi', 'keshav-dhandhania', 'karthik-narasimhan', 'victor-barres'],
+  },
   {
     slug: 'stanford-aims-talk',
     title: 'The τ-bench Family: Guest Lecture at the Stanford AIMS Seminar',
@@ -186,4 +391,5 @@ export const BLOG_POSTS = [
 
 export const postsByAuthor = (slug) => BLOG_POSTS.filter((p) => p.authorSlugs.includes(slug))
 
-export const authorPhoto = (slug) => `${import.meta.env.BASE_URL}authors/${slug}.jpg`
+export const authorPhoto = (slug) =>
+  AUTHORS[slug].photo ?? `${import.meta.env.BASE_URL}authors/${slug}.jpg`

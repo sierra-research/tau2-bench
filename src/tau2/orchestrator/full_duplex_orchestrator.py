@@ -13,6 +13,7 @@ from loguru import logger
 
 from tau2.agent.base.streaming import compute_responsiveness_info
 from tau2.agent.base_agent import FullDuplexAgent
+from tau2.data_model.language import CallContext
 from tau2.data_model.message import (
     AssistantMessage,
     Message,
@@ -74,6 +75,7 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
         simulation_id: Optional[str] = None,
         tick_duration_seconds: Optional[float] = None,
         timeout: Optional[float] = None,
+        call_context: Optional[CallContext] = None,
     ):
         """
         Initialize FullDuplexOrchestrator.
@@ -90,6 +92,7 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
             simulation_id: Optional simulation ID.
             tick_duration_seconds: Duration of each simulation tick in seconds (for timing metadata).
             timeout: Maximum wallclock time in seconds. None means no timeout.
+            call_context: Resolved language, persona and scoring context.
         """
         super().__init__(
             domain=domain,
@@ -102,6 +105,7 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
             seed=seed,
             simulation_id=simulation_id,
             timeout=timeout,
+            call_context=call_context,
         )
 
         # Set mode to FULL_DUPLEX
@@ -195,9 +199,24 @@ class FullDuplexOrchestrator(BaseOrchestrator[StreamingAgentT, StreamingUserT, T
         # If agent has create_initial_message (audio-native agents), use it to get
         # a message with proper audio content. Otherwise, use the text-only default.
         if hasattr(self.agent, "create_initial_message"):
-            first_agent_message = self.agent.create_initial_message()
+            opener = (
+                self.task.agent_opener
+                if self.task.agent_opener is not None
+                else self.initial_agent_message.content
+                if self.initial_agent_message is not None
+                else None
+            )
+            first_agent_message = (
+                self.agent.create_initial_message(content=opener)
+                if opener is not None
+                else self.agent.create_initial_message()
+            )
         else:
-            first_agent_message = deepcopy(DEFAULT_FIRST_AGENT_MESSAGE)
+            first_agent_message = deepcopy(
+                self.initial_agent_message or DEFAULT_FIRST_AGENT_MESSAGE
+            )
+            if self.task.agent_opener is not None:
+                first_agent_message.content = self.task.agent_opener
             first_agent_message.chunk_id = 0
             first_agent_message.is_final_chunk = True
             first_agent_message.timestamp = get_now()
