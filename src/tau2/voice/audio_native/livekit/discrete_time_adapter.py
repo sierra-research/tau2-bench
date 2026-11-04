@@ -44,19 +44,23 @@ from tau2.config import (
     DEFAULT_AUDIO_NATIVE_TICK_TIMEOUT_BUFFER,
 )
 from tau2.data_model.audio import AudioFormat
+from tau2.data_model.cascaded import CascadedConfig
 from tau2.data_model.message import ToolCall
 from tau2.data_model.usage import UsageRecord
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter
 from tau2.voice.audio_native.audio_converter import StreamingTelephonyConverter
-from tau2.voice.audio_native.livekit.config import CascadedConfig, DeepgramTTSConfig
 from tau2.voice.audio_native.livekit.provider import (
     CascadedEvent,
     CascadedEventType,
     CascadedVoiceProvider,
     TurnTakingConfig,
 )
-from tau2.voice.audio_native.tick_result import TickResult, UtteranceTranscript
+from tau2.voice.audio_native.tick_result import (
+    TickResult,
+    UtteranceTranscript,
+    get_proportional_transcript,
+)
 
 
 class LiveKitVADConfig(BaseModel):
@@ -141,13 +145,9 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
         self._stt_session_counter: int = 0
 
         # Audio format conversion (telephony ↔ internal formats)
-        # TTS sample rate depends on config (Deepgram=24kHz, ElevenLabs varies)
-        tts_sample_rate = 24000  # default
-        if isinstance(self.cascaded_config.tts, DeepgramTTSConfig):
-            tts_sample_rate = self.cascaded_config.tts.sample_rate
         self._audio_converter = StreamingTelephonyConverter(
             input_sample_rate=16000,
-            output_sample_rate=tts_sample_rate,
+            output_sample_rate=self.cascaded_config.tts.sample_rate,
         )
 
     @property
@@ -657,32 +657,8 @@ class LiveKitCascadedAdapter(DiscreteTimeAdapter):
         self,
         chunks: List[Tuple[bytes, Optional[str]]],
     ) -> str:
-        """Get proportional transcript for the audio played this tick.
-
-        Distributes LLM response text across ticks proportionally to how
-        much TTS audio plays per tick. This ensures the user simulator sees
-        text at roughly the same rate the agent is speaking.
-        """
-        if not chunks:
-            return ""
-
-        # Group audio bytes by utterance_id
-        audio_by_item: dict[str, int] = {}
-        for chunk_data, item_id in chunks:
-            if item_id:
-                audio_by_item[item_id] = audio_by_item.get(item_id, 0) + len(chunk_data)
-
-        # Get proportional transcript for each utterance
-        transcript_parts = []
-        for item_id, audio_bytes in audio_by_item.items():
-            if item_id in self._utterance_transcripts:
-                text = self._utterance_transcripts[item_id].get_transcript_for_audio(
-                    audio_bytes
-                )
-                if text:
-                    transcript_parts.append(text)
-
-        return " ".join(transcript_parts)
+        """Use the provider-shared accounting for audio emitted this tick."""
+        return get_proportional_transcript(chunks, self._utterance_transcripts)
 
     # =========================================================================
     # Tool Handling

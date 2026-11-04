@@ -1,0 +1,88 @@
+[
+  {
+    "task_id": "intake_person_names_easy_04",
+    "sample": {
+      "kind": "lazy_omission",
+      "line": "Scripted complication (lazy omission): the first time you give the requested name, say only the first name. Supply the last name only when the caller asks for the last name or the full name specifically. You are omitting a part of the true value, never changing it: the full name, including the last name, still comes only from your get_entity look-up.",
+      "params": {
+        "omitted_component": "last_name"
+      },
+      "catalog_version": "2.4.0",
+      "injected": true,
+      "mispronunciation": null
+    }
+  },
+  {
+    "task_id": "intake_person_names_easy_05",
+    "sample": {
+      "kind": "spelling_style",
+      "line": "Scripted complication (spelling style): whenever you read out or spell a value that contains the same character twice in a row, voice the pair with the word \"double\": say \"double five\" for 55 and \"double L\" for LL. This changes only HOW you voice those characters. The value itself is unchanged and still comes only from your get_entity look-up; you never invent, add, or drop a character.",
+      "params": {
+        "style": "doubled_letters"
+      },
+      "catalog_version": "2.4.0",
+      "injected": true,
+      "mispronunciation": null
+    }
+  },
+  {
+    "task_id": "intake_person_names_easy_06",
+    "sample": {
+      "kind": "wrong_slot",
+      "line": "Scripted complication (wrong slot): the first time the caller asks you for the missing detail, misunderstand which detail they want and answer with a different fact from your own records instead: say \"(307) 555-0144\" (your contact phone). When the caller asks again, clarifies, or points out that this is not what they asked for, give the correct value from your get_entity look-up. The mistaken answer \"(307) 555-0144\" is a real value from your own record, handed to you here as a script, not something you invented: say it once and do not bring it up again. Every other value you speak still comes only from your get_entity look-up; this scripted misunderstanding is the ONLY exception to answering exactly what you are asked.",
+      "params": {
+        "off_slot_field": "contact_phone",
+        "off_slot_value": "(307) 555-0144"
+      },
+      "catalog_version": "2.4.0",
+      "injected": true,
+      "mispronunciation": null
+    }
+  },
+  {
+    "task_id": "intake_person_names_easy_07",
+    "sample": {
+      "kind": "spell_correction",
+      "line": "Scripted complication (spell correction): the FIRST time you spell the requested value out character by character, or read it out digit by digit, falter partway through: say \"S, A, N, C\", break off, say \"let me start again\", and then start over, giving the complete correct sequence character by character from the beginning, from your get_entity look-up. The faltered partial \"S, A, N, C\" is a scripted slip handed to you here, not something you invented: say it exactly once, in that first faltered attempt only, and never repeat it after the restart. This applies only when you actually spell or read the value out character by character; if that never happens on this call, this script never fires. After the restart you are accurate and complete. The true value still comes only from your get_entity look-up; this scripted slip is the ONLY exception to your rule against speaking values you have not fetched.",
+      "params": {
+        "operator": "substitute",
+        "error_index": 3,
+        "extra_units": 0,
+        "faltered_partial": "S, A, N, C",
+        "marker": "let me start again",
+        "sequence_length": 12
+      },
+      "catalog_version": "2.4.0",
+      "injected": true,
+      "mispronunciation": null
+    }
+  },
+  {
+    "task_id": "intake_person_names_hard_04",
+    "sample": {
+      "kind": "mispronounced_term",
+      "line": "Scripted complication (mispronounced term): the caller consistently mispronounces \"Freston\" as \"ferstun\" (correct respelling \"FREH-stuhn\"; distortion operator: metathesis). NOT injected; applied at the voice-synthesis seam. The user-simulator prompt is byte-identical to an uncomplicated run and the transcript keeps the gold spelling; only the synthesized audio carries the bad pronunciation.",
+      "params": {
+        "term": "Freston",
+        "respelling": "FREH-stuhn",
+        "operator": "metathesis"
+      },
+      "catalog_version": "2.4.0",
+      "injected": false,
+      "mispronunciation": "ferstun"
+    }
+  },
+  {
+    "task_id": "intake_person_names_hard_05",
+    "sample": {
+      "kind": "self_correction",
+      "line": "Scripted complication (self-correction): the first time you say the value the caller asked you to provide, misspeak it: say \"Elene Mernick\" first, then immediately correct yourself in the same turn with words like \"no wait, sorry\" and give the true value from your get_entity look-up. The misspoken value \"Elene Mernick\" is a scripted slip handed to you here, not something you invented: say it exactly once, never spell it, never confirm it, and never repeat it after the correction. From the correction onward you are accurate. The true value still comes only from your get_entity look-up; this scripted slip is the ONLY exception to your rule against speaking values you have not fetched.",
+      "params": {
+        "decoy_value": "Elene Mernick"
+      },
+      "catalog_version": "2.4.0",
+      "injected": true,
+      "mispronunciation": null
+    }
+  }
+]

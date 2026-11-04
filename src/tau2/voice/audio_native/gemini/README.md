@@ -13,7 +13,8 @@ Vertex AI also requires `GOOGLE_CLOUD_PROJECT` (or extracted from service accoun
 
 ## Gemini 3.1 vs 2.5
 
-The default model is `gemini-3.1-flash-live-preview`. The provider auto-detects 3.1 models and applies feature gates:
+The older `gemini-3.1-flash-live-preview` model remains available via
+`--audio-native-model`. The provider auto-detects 3.1 models and applies feature gates:
 
 | Feature | 2.5 | 3.1 |
 |---------|-----|-----|
@@ -22,6 +23,18 @@ The default model is `gemini-3.1-flash-live-preview`. The provider auto-detects 
 | Proactive audio | Yes | No (not supported) |
 | Thinking config | No | Yes (`DEFAULT_GEMINI_THINKING_LEVEL`) |
 | Text input path | `session.send()` | `send_realtime_input()` (non-Vertex) |
+
+## Gemini 3.8 Live Extended Thinking
+
+The default model is `gemini-3.8-live-extended-thinking`.
+Use `--reasoning-effort low`, `medium`, or `high` (the current provider default
+is `high`). Extended Thinking requires nonblocking tool declarations. Its
+`turn_complete` marks a spoken utterance, while `interaction_status=IDLE` marks
+the end of the full interaction. The Google Gen AI SDK must be at least 2.30.1.
+The provider rotates audio items at each spoken turn boundary even while
+`session.receive()` stays open until the interaction is idle.
+Confirm the configured Gemini credential can open a session before scheduling
+a full evaluation.
 
 ## Session Resumption
 

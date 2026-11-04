@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, List, Optional, Tuple
 from loguru import logger
 
 from tau2.data_model.message import Tick
+from tau2.utils.transcript.segments import contiguous_ranges
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -488,39 +489,21 @@ def extract_user_segments(
         List of UserSpeechSegment objects
     """
     segments: List[UserSpeechSegment] = []
-    current_segment: Optional[UserSpeechSegment] = None
-    prev_active_effects: List[_ActiveEffect] = []
-
-    for i, tick in enumerate(ticks):
-        user_chunk = tick.user_chunk
-        has_speech = user_chunk is not None and getattr(
-            user_chunk, "contains_speech", False
+    ranges = contiguous_ranges(
+        tick.user_chunk is not None and tick.user_chunk.contains_speech
+        for tick in ticks
+    )
+    for span in ranges:
+        segment, effects = _create_user_segment_start(
+            ticks[span.start], span.start, ticks, tick_duration_sec
         )
-
-        if has_speech:
-            if current_segment is None:
-                # Start new segment
-                current_segment, prev_active_effects = _create_user_segment_start(
-                    tick, i, ticks, tick_duration_sec
-                )
-            else:
-                # Extend current segment
-                prev_active_effects = _extend_user_segment(
-                    current_segment, tick, i, tick_duration_sec, prev_active_effects
-                )
-        else:
-            # No speech - finalize current segment if any
-            if current_segment is not None:
-                _finalize_segment(current_segment, i, tick, ticks, tick_duration_sec)
-                segments.append(current_segment)
-                current_segment = None
-                prev_active_effects = []
-
-    # Handle segment continuing to end
-    if current_segment is not None:
-        _finalize_segment(current_segment, len(ticks), None, ticks, tick_duration_sec)
-        segments.append(current_segment)
-
+        for index in range(span.start + 1, span.end):
+            effects = _extend_user_segment(
+                segment, ticks[index], index, tick_duration_sec, effects
+            )
+        next_tick = ticks[span.end] if span.end < len(ticks) else None
+        _finalize_segment(segment, span.end, next_tick, ticks, tick_duration_sec)
+        segments.append(segment)
     return segments
 
 
@@ -655,39 +638,21 @@ def extract_agent_segments(
         List of AgentSpeechSegment objects
     """
     segments: List[AgentSpeechSegment] = []
-    current_segment: Optional[AgentSpeechSegment] = None
-    prev_active_effects: List[_ActiveEffect] = []
-
-    for i, tick in enumerate(ticks):
-        agent_chunk = tick.agent_chunk
-        has_speech = agent_chunk is not None and getattr(
-            agent_chunk, "contains_speech", False
+    ranges = contiguous_ranges(
+        tick.agent_chunk is not None and tick.agent_chunk.contains_speech
+        for tick in ticks
+    )
+    for span in ranges:
+        segment, effects = _create_agent_segment_start(
+            ticks[span.start], span.start, ticks, tick_duration_sec
         )
-
-        if has_speech:
-            if current_segment is None:
-                # Start new segment
-                current_segment, prev_active_effects = _create_agent_segment_start(
-                    tick, i, ticks, tick_duration_sec
-                )
-            else:
-                # Extend current segment
-                prev_active_effects = _extend_agent_segment(
-                    current_segment, tick, i, tick_duration_sec, prev_active_effects
-                )
-        else:
-            # No speech - finalize current segment if any
-            if current_segment is not None:
-                _finalize_segment(current_segment, i, tick, ticks, tick_duration_sec)
-                segments.append(current_segment)
-                current_segment = None
-                prev_active_effects = []
-
-    # Handle segment continuing to end
-    if current_segment is not None:
-        _finalize_segment(current_segment, len(ticks), None, ticks, tick_duration_sec)
-        segments.append(current_segment)
-
+        for index in range(span.start + 1, span.end):
+            effects = _extend_agent_segment(
+                segment, ticks[index], index, tick_duration_sec, effects
+            )
+        next_tick = ticks[span.end] if span.end < len(ticks) else None
+        _finalize_segment(segment, span.end, next_tick, ticks, tick_duration_sec)
+        segments.append(segment)
     return segments
 
 

@@ -147,3 +147,20 @@ def test_user_gym_env_tool_call_parsing():
     assert parsed_with_args.tool_calls[0].name == "set_user_location"
     assert parsed_with_args.tool_calls[0].arguments == {"abroad": True}
     assert parsed_with_args.tool_calls[0].requestor == "user"
+
+
+def test_user_gym_env_builds_through_the_text_builder_with_language():
+    """The automated agent gets the same language guidance as a text run."""
+    from tau2.gym.gym_agent import GymUser
+    from tau2.multilingual.runtime import load_language
+
+    english = UserGymEnv(domain="mock", task_id="create_task_1")._get_orchestrator()
+    assert english.call_context.language.language == "en"
+    assert isinstance(english.user, GymUser)
+
+    task_id = load_language("es", "retail", mode="text").tasks[0].id
+    env = UserGymEnv(domain="retail", task_id=task_id, language="es")
+    orchestrator = env._get_orchestrator()
+    assert orchestrator.call_context.language.language == "es"
+    assert "Spanish" in orchestrator.agent.domain_policy
+    assert isinstance(orchestrator.user, GymUser)

@@ -1,5 +1,6 @@
 from typing import Any, Dict, Literal, Optional, Tuple, Union
 
+from tau2.domains.telecom.region import TelecomRegionalSettings
 from tau2.domains.telecom.user_data_model import (
     APNNames,
     APNSettings,
@@ -17,6 +18,8 @@ from tau2.domains.telecom.user_data_model import (
     UserSurroundings,
     VpnDetails,
 )
+from tau2.environment.regional import describe_regional_tool
+from tau2.environment.tool import Tool
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
 
 
@@ -41,11 +44,27 @@ class TelecomUserTools(ToolKitBase):
     def __init__(
         self,
         db: TelecomUserDB,
+        regional_settings: TelecomRegionalSettings | None = None,
     ):
         """
         Initializes
         """
         super().__init__(db)
+        self.regional_settings = (
+            TelecomRegionalSettings.model_validate(regional_settings).model_copy(
+                deep=True
+            )
+            if regional_settings is not None
+            else None
+        )
+
+    def get_tools(self, include: Optional[list[str]] = None) -> dict[str, Tool]:
+        """Use the same regional billing context as the agent tools."""
+        tools = super().get_tools(include)
+        if self.regional_settings is not None:
+            for tool in tools.values():
+                describe_regional_tool(tool, self.regional_settings)
+        return tools
 
     # --- Properties ---
     @property
@@ -1059,7 +1078,12 @@ class TelecomUserTools(ToolKitBase):
         payment_request = self._check_payment_request()
         if payment_request is None:
             return "No payment request has been made."
-        return f"You have a payment request for bill {payment_request.bill_id} of {payment_request.amount_due} USD."
+        currency = (
+            self.regional_settings.currency_code
+            if self.regional_settings is not None
+            else "USD"
+        )
+        return f"You have a payment request for bill {payment_request.bill_id} of {payment_request.amount_due} {currency}."
 
     def _check_payment_request(self) -> Optional[PaymentRequest]:
         """
@@ -1087,7 +1111,12 @@ class TelecomUserTools(ToolKitBase):
         if payment_request is None:
             return None
         payment_request.paid = True
-        return f"Payment of {payment_request.amount_due} USD has been made for bill {payment_request.bill_id}."
+        currency = (
+            self.regional_settings.currency_code
+            if self.regional_settings is not None
+            else "USD"
+        )
+        return f"Payment of {payment_request.amount_due} {currency} has been made for bill {payment_request.bill_id}."
 
     # --- Assertion Methods ---
     def assert_airplane_mode_status(self, expected_status: bool) -> bool:

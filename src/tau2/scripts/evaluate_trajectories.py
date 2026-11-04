@@ -9,10 +9,15 @@ from loguru import logger
 from rich.console import Console
 from rich.progress import Progress
 
+from tau2.config import ELICITATION_DOMAINS
+from tau2.data_model.elicitation import ElicitationStrategy
+from tau2.data_model.language import LanguageTaskInfo, cross_lingual
 from tau2.data_model.simulation import Results, RewardInfo, SimulationRun
+from tau2.data_model.tasks import Task
 from tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
 from tau2.evaluator.evaluator_env import REPLAY_MISMATCHES
 from tau2.metrics.agent_metrics import compute_metrics
+from tau2.multilingual.runtime import LoadedLanguage
 from tau2.orchestrator.modes import CommunicationMode
 from tau2.utils.display import ConsoleDisplay
 from tau2.utils.io_utils import expand_paths
@@ -60,10 +65,29 @@ def _load_fresh_tasks(results: Results, console: Optional[Console] = None) -> Re
     requires reloading them; simulations whose task id no longer exists keep
     their embedded definition and a warning is emitted.
     """
+    language = results.info.language
+    if (
+        results.info.benchmark is not None
+        or (language is not None and cross_lingual(language))
+        or any(
+            not isinstance(context, LanguageTaskInfo) or context.cross_lingual
+            for context in results.info.language_tasks.values()
+        )
+    ):
+        raise ValueError(
+            "fresh_tasks cannot replace pinned language or benchmark tasks; "
+            "rescore their embedded task definitions instead"
+        )
     from tau2.registry import registry
 
     domain = results.info.environment_info.domain_name
-    fresh = {task.id: task for task in registry.get_tasks_loader(domain)(None)}
+    loader_kwargs = {}
+    if domain in ELICITATION_DOMAINS:
+        loader_kwargs["strategy"] = _recorded_elicitation_strategy(results)
+    fresh = {
+        task.id: task
+        for task in registry.get_tasks_loader(domain)(None, **loader_kwargs)
+    }
     missing = [task.id for task in results.tasks if task.id not in fresh]
     if missing and console:
         console.print(
@@ -75,18 +99,100 @@ def _load_fresh_tasks(results: Results, console: Optional[Console] = None) -> Re
     return results
 
 
-def _build_eval_env_kwargs(domain: str, task) -> Optional[dict]:
-    """Env kwargs needed so re-grading matches live grading for a domain.
+def _recorded_elicitation_strategy(results: Results) -> ElicitationStrategy:
+    """Read the strategy that owns the saved caller and submission contracts."""
+    if results.info.elicitation is None:
+        raise ValueError("Intake re-evaluation requires recorded elicitation settings")
+    return results.info.elicitation.strategy
 
-    banking_knowledge needs the per-task read_log_allowlist: without it the
-    required-read assertions (derived from the golden trajectory) silently
-    stop discriminating. Mirrors tau2.runner.build._build_env_kwargs.
+
+def _recorded_language(results: Results) -> LoadedLanguage | None:
+    """Reopen only the exact scenario binding recorded by a run.
+
+    Results recorded before every run resolved a language pack carry no
+    context and are rescored against the ordinary domain environment.
     """
+    contexts = list(results.info.language_tasks.values())
+    if not contexts:
+        if results.info.language is not None:
+            raise ValueError("Saved language run lacks its per-task contexts")
+        return None
+    if not all(isinstance(context, LanguageTaskInfo) for context in contexts):
+        raise ValueError(
+            "Saved language contexts predate the installed pack schema; "
+            "rescore them with the release that produced them"
+        )
+    from tau2.runner.presets import reload_recorded_call, uses_canonical_tasks
+
+    loaded = reload_recorded_call(
+        contexts[0],
+        results.info.environment_info.domain_name,
+        canonical_tasks=uses_canonical_tasks(results.info.benchmark),
+    )
+    if loaded.artifact_pins != results.info.language_artifacts:
+        raise ValueError(
+            "Saved language artifacts do not match the installed scenario binding"
+        )
+    return loaded
+
+
+def _build_eval_env_kwargs(
+    results: Results,
+    task: Task,
+    simulation: SimulationRun,
+    *,
+    loaded_language: LoadedLanguage | None = None,
+) -> Optional[dict]:
+    """Build the evaluation environment from the recorded run conditions.
+
+    Intake needs the saved strategy and channel to reproduce the submission
+    schema. Banking knowledge needs the per-task read-log allowlist so its
+    required-read assertions retain the live grading behavior.
+    """
+    domain = results.info.environment_info.domain_name
+    env_kwargs: dict = {}
+    if loaded_language is not None:
+        from tau2.multilingual.runtime import (
+            language_environment_kwargs,
+            resolve_task,
+            without_delivery_details,
+        )
+
+        context = results.info.language_tasks.get(task.id)
+        if context is None or context.artifact_pins != loaded_language.artifact_pins:
+            raise ValueError("Saved task context lacks the recorded scenario binding")
+        if (
+            simulation.language_context is not None
+            and simulation.language_context != context
+        ):
+            raise ValueError("Simulation language context differs from its saved run")
+        resolved = resolve_task(loaded_language, task, results.info.seed or 0)
+        # Voice-ID overrides change delivery, not the graded task or persona.
+        if without_delivery_details(resolved) != without_delivery_details(context):
+            raise ValueError(
+                "Saved task or persona differs from the pinned language binding"
+            )
+        env_kwargs.update(language_environment_kwargs(loaded_language))
+    if domain in ELICITATION_DOMAINS:
+        is_voice = (
+            get_communication_mode(results, simulation) == CommunicationMode.FULL_DUPLEX
+        )
+        env_kwargs.update(
+            strategy=_recorded_elicitation_strategy(results),
+            channel="voice" if is_voice else "text",
+            task=task,
+        )
     if domain == "banking_knowledge":
         from tau2.runner.build import _derive_read_log_allowlist
 
-        return {"read_log_allowlist": _derive_read_log_allowlist(task)}
-    return None
+        env_kwargs["read_log_allowlist"] = _derive_read_log_allowlist(task)
+    return env_kwargs or None
+
+
+def _customer_language(results: Results, task_id: str) -> Optional[str]:
+    """The recorded cross-lingual call language, if the call was cross-lingual."""
+    context = results.info.language_tasks.get(task_id)
+    return context.provider_language if isinstance(context, LanguageTaskInfo) else None
 
 
 def compute_simulation_rewards(
@@ -112,6 +218,10 @@ def compute_simulation_rewards(
     domain = results.info.environment_info.domain_name
     solo_mode = is_solo_mode(results)
     tasks = {task.id: task for task in results.tasks}
+    # Fresh tasks replace the pinned population; English contexts then score
+    # against the ordinary canonical environment.
+    loaded_language = None if fresh_tasks else _recorded_language(results)
+    scoring = results.info.effective_communicate_scoring
 
     progress_context = Progress(console=console) if console else None
 
@@ -131,8 +241,12 @@ def compute_simulation_rewards(
                 evaluation_type=evaluation_type,
                 solo_mode=solo_mode,
                 mode=get_communication_mode(results, simulation),
-                env_kwargs=_build_eval_env_kwargs(domain, task),
+                env_kwargs=_build_eval_env_kwargs(
+                    results, task, simulation, loaded_language=loaded_language
+                ),
                 strict_replay=strict_replay,
+                communicate_scoring=scoring,
+                customer_language=_customer_language(results, task.id),
             )
 
             # Update the simulation with new reward info

@@ -2,7 +2,7 @@ import json
 from copy import deepcopy
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from tau2.data_model.audio import (
     AudioFormat,
@@ -564,12 +564,24 @@ class ToolMessage(BaseModel):
         description="The requestor of the tool call.",
     )
     error: bool = Field(description="Whether the tool call failed.", default=False)
+    execution_status: Literal["executed", "rejected"] = Field(
+        default="executed",
+        description="Whether the environment executed the call, or the orchestrator "
+        "rejected it before execution. Rejected calls have no replay side effects.",
+    )
     turn_idx: Optional[int] = Field(
         description="The index of the turn in the conversation.", default=None
     )
     timestamp: Optional[str] = Field(
         description="The timestamp of the message.", default_factory=get_now
     )
+
+    @model_validator(mode="after")
+    def validate_rejection(self) -> "ToolMessage":
+        """A call rejected before execution must report a tool error."""
+        if self.execution_status == "rejected" and not self.error:
+            raise ValueError("A rejected tool call must have error=True")
+        return self
 
     def __str__(self) -> str:
         lines = [f"ToolMessage (responding to {self.requestor})"]
@@ -592,6 +604,7 @@ class ToolMessage(BaseModel):
             and self.content == other.content
             and self.requestor == other.requestor
             and self.error == other.error
+            and self.execution_status == other.execution_status
         )
 
 
@@ -674,75 +687,10 @@ class Tick(BaseModel):
     )
 
     def get_all_messages(self) -> list[Message]:
-        """Return all messages in this tick as a flat list."""
-        messages: list[Message] = []
-        # Include agent chunk with tool_calls if any were made
-        if self.agent_chunk or self.agent_tool_calls:
-            agent_msg = AssistantMessage(
-                role="assistant",
-                content=self.agent_chunk.content if self.agent_chunk else None,
-                tool_calls=self.agent_tool_calls or None,
-                timestamp=(
-                    self.agent_chunk.timestamp if self.agent_chunk else self.timestamp
-                ),
-                contains_speech=(
-                    self.agent_chunk.contains_speech if self.agent_chunk else False
-                ),
-                # Audio fields
-                is_audio=self.agent_chunk.is_audio if self.agent_chunk else False,
-                audio_content=(
-                    self.agent_chunk.audio_content if self.agent_chunk else None
-                ),
-                audio_format=(
-                    self.agent_chunk.audio_format if self.agent_chunk else None
-                ),
-                # Audio effects (agents typically only have speech effects)
-                speech_effects=(
-                    self.agent_chunk.speech_effects if self.agent_chunk else None
-                ),
-                source_effects=(
-                    self.agent_chunk.source_effects if self.agent_chunk else None
-                ),
-                channel_effects=(
-                    self.agent_chunk.channel_effects if self.agent_chunk else None
-                ),
-            )
-            messages.append(agent_msg)
-        messages.extend(self.agent_tool_results)
-        # Include user chunk with tool_calls if any were made
-        if self.user_chunk or self.user_tool_calls:
-            user_msg = UserMessage(
-                role="user",
-                content=self.user_chunk.content if self.user_chunk else None,
-                tool_calls=self.user_tool_calls or None,
-                timestamp=(
-                    self.user_chunk.timestamp if self.user_chunk else self.timestamp
-                ),
-                contains_speech=(
-                    self.user_chunk.contains_speech if self.user_chunk else False
-                ),
-                # Audio fields
-                is_audio=self.user_chunk.is_audio if self.user_chunk else False,
-                audio_content=(
-                    self.user_chunk.audio_content if self.user_chunk else None
-                ),
-                audio_format=(
-                    self.user_chunk.audio_format if self.user_chunk else None
-                ),
-                # Audio effects by source taxonomy
-                speech_effects=(
-                    self.user_chunk.speech_effects if self.user_chunk else None
-                ),
-                source_effects=(
-                    self.user_chunk.source_effects if self.user_chunk else None
-                ),
-                channel_effects=(
-                    self.user_chunk.channel_effects if self.user_chunk else None
-                ),
-            )
-            messages.append(user_msg)
-        messages.extend(self.user_tool_results)
-        return messages
+        """Return the shared full-row view: agent first, then caller."""
+        from tau2.utils.transcript.views import tick_messages
+
+        return tick_messages(self)
 
 
 # ---------------------------------------------------------------------------
@@ -817,9 +765,8 @@ def merge_message_chunks(
         )
         merged_audio_content = audio_bytes_to_string(merged_audio_bytes)
 
-        # Lazy import to avoid circular dependency:
-        # message -> agent.base.streaming_utils -> agent.__init__ -> message
-        from tau2.agent.base.streaming_utils import merge_audio_script_gold
+        # Gold markup is shared by runtime, evaluators and transcript readers.
+        from tau2.utils.transcript.audio_text import merge_audio_script_gold
 
         script_golds = [chunk.audio_script_gold for chunk in chunks]
         merged_script_gold = merge_audio_script_gold(script_golds)

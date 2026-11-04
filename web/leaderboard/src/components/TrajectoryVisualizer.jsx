@@ -1,31 +1,36 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import VoiceViewer from './VoiceViewer'
+import ModelPicker, { EntryChips } from './ModelPicker'
+import JudgeFindings, { CallVerdicts } from './JudgeFindings'
+import {
+  BENCHMARKS, DOMAINS, LANGUAGES, S3_SUBMISSIONS, SUBMISSIONS_BASE,
+  loadCell, loadCellQuality, loadSimulation, loadVisualizerIndex,
+} from '../data/visualizerIndex'
 import './TrajectoryVisualizer.css'
-
-const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
-  || `${import.meta.env.BASE_URL}submissions`
-
-const NO_CACHE = { cache: 'no-cache' }
-
-const S3_BUCKET = 'sierra-tau-bench-public'
-const S3_SUBMISSIONS_PREFIX = 'submissions'
 
 const TrajectoryVisualizer = () => {
   // --- Top-level selector state ---
   const [viewMode, setViewMode] = useState('trajectories') // 'trajectories' or 'tasks'
-  const [submissions, setSubmissions] = useState([])
-  const [submissionsLoading, setSubmissionsLoading] = useState(true)
+  const [entries, setEntries] = useState(null) // visualizer index; null while loading
+  const [indexError, setIndexError] = useState(null)
 
-  // Trajectory mode selectors
-  const [selectedModelDir, setSelectedModelDir] = useState('')
+  // Trajectory mode selectors: benchmark → model → language → domain
+  const [benchmark, setBenchmark] = useState(BENCHMARKS[0].id)
+  const [selectedId, setSelectedId] = useState('')
+  const [language, setLanguage] = useState('en')
   const [selectedDomain, setSelectedDomain] = useState('')
   const [selectedTrialIdx, setSelectedTrialIdx] = useState(0)
   const [selectedTaskId, setSelectedTaskId] = useState(null)
 
-  // Loaded trajectory data for current model+domain
+  // Loaded trajectory data for the current cell
   const [trajectoryData, setTrajectoryData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  // Full text simulations fetched on open, by id: { loading } | { data } | { error }
+  const [simDetails, setSimDetails] = useState({})
+  // Judged cells: per-call verdicts by simulation id, and the task-list filter
+  const [cellQuality, setCellQuality] = useState(null)
+  const [verdictFilter, setVerdictFilter] = useState('all')
 
   // Task mode state
   const [taskData, setTaskData] = useState(null)
@@ -36,8 +41,8 @@ const TrajectoryVisualizer = () => {
   const [showConfigModal, setShowConfigModal] = useState(false)
   const [modalClosing, setModalClosing] = useState(false)
 
-  // CLI download popover
-  const [showCliDownload, setShowCliDownload] = useState(false)
+  // Download popover
+  const [showDownload, setShowDownload] = useState(false)
   const [cliCopied, setCliCopied] = useState(false)
 
   // Document viewer state
@@ -80,7 +85,7 @@ const TrajectoryVisualizer = () => {
     }
   }
 
-  // Available domains
+  // Task-definition domains (Tasks view)
   const domains = [
     { id: 'airline', label: 'Airline', icon: '✈️', color: '#3b82f6' },
     { id: 'retail', label: 'Retail', icon: '🛍️', color: '#8b5cf6' },
@@ -93,7 +98,9 @@ const TrajectoryVisualizer = () => {
     const params = new URLSearchParams(window.location.search)
     const trialRaw = params.get('trial')
     return {
+      bench: params.get('bench'),
       model: params.get('model'),
+      lang: params.get('lang'),
       domain: params.get('domain'),
       task: params.get('task'),
       trial: trialRaw != null ? Number(trialRaw) : null,
@@ -106,14 +113,52 @@ const TrajectoryVisualizer = () => {
   // Suppress URL updates while we're restoring from URL
   const restoringFromUrl = useRef(false)
 
+  // --- Derived selection ---
+  const currentEntry = useMemo(
+    () => entries?.find(e => e.id === selectedId) || null,
+    [entries, selectedId]
+  )
+  const benchmarkEntries = useMemo(
+    () => (entries || []).filter(e => e.benchmark === benchmark),
+    [entries, benchmark]
+  )
+  const entryLanguages = useMemo(() => {
+    if (!currentEntry) return []
+    const ids = new Set(currentEntry.cells.map(c => c.language))
+    return LANGUAGES.filter(l => ids.has(l.id))
+  }, [currentEntry])
+  const languageCells = useMemo(
+    () => (currentEntry?.cells || []).filter(c => c.language === language),
+    [currentEntry, language]
+  )
+  const currentCell = languageCells.find(c => c.domain === selectedDomain) || null
+  const isVoice = BENCHMARKS.find(b => b.id === (currentEntry?.benchmark || benchmark))?.modality === 'voice'
+
+  // Pick an entry, keeping the current language and domain when it has them.
+  const selectEntry = (entry, prefer = {}) => {
+    const langs = [...new Set(entry.cells.map(c => c.language))]
+    const lang = [prefer.lang, language].find(l => l && langs.includes(l)) || langs[0]
+    const cellDomains = entry.cells.filter(c => c.language === lang).map(c => c.domain)
+    const domain = [prefer.domain, selectedDomain].find(d => d && cellDomains.includes(d)) || cellDomains[0]
+    setBenchmark(entry.benchmark)
+    setSelectedId(entry.id)
+    setLanguage(lang)
+    setSelectedDomain(domain || '')
+    setSelectedTaskId(null)
+    setSelectedTrialIdx(0)
+    setShowDownload(false)
+  }
+
   // --- Sync state → URL query (replaceState to avoid history clutter) ---
   useEffect(() => {
     if (restoringFromUrl.current) return
-    if (submissionsLoading) return
+    if (!entries) return
 
     const params = new URLSearchParams()
-    if (selectedModelDir) params.set('model', selectedModelDir)
-    if (selectedDomain) params.set('domain', selectedDomain)
+    if (viewMode === 'trajectories') params.set('bench', benchmark)
+    if (selectedId) params.set('model', selectedId)
+    if (selectedId && entryLanguages.length > 1) params.set('lang', language)
+    if (selectedDomain && selectedId) params.set('domain', selectedDomain)
     if (viewMode === 'tasks') params.set('view', 'tasks')
     if (selectedTaskId != null) params.set('task', String(selectedTaskId))
     if (selectedTrialIdx > 0) params.set('trial', String(selectedTrialIdx))
@@ -123,181 +168,123 @@ const TrajectoryVisualizer = () => {
     if (`${window.location.pathname}${window.location.search}` !== newUrl) {
       window.history.replaceState(null, '', newUrl)
     }
-  }, [selectedModelDir, selectedDomain, selectedTaskId, selectedTrialIdx, viewMode, submissionsLoading])
+  }, [benchmark, selectedId, language, entryLanguages, selectedDomain, selectedTaskId, selectedTrialIdx, viewMode, entries])
 
-  // --- Load submissions on mount ---
+  // --- Load the submission index on mount; restore a deep link ---
   useEffect(() => {
-    const loadSubmissions = async () => {
-      try {
-        setSubmissionsLoading(true)
-        const res = await fetch(`${SUBMISSIONS_BASE}/manifest.json`, NO_CACHE)
-        if (!res.ok) throw new Error('Failed to load manifest')
-        const manifest = await res.json()
-        const textDirs = manifest.submissions || []
-        const voiceDirs = manifest.voice_submissions || []
-
-        const loaded = []
-
-        const loadDir = async (dir, modality) => {
-          try {
-            const r = await fetch(`${SUBMISSIONS_BASE}/${dir}/submission.json`, NO_CACHE)
-            if (!r.ok) return
-            const sub = await r.json()
-            if (sub.trajectories_available && sub.trajectory_files) {
-              loaded.push({
-                dir,
-                model_name: sub.model_name,
-                model_organization: sub.model_organization || '',
-                reasoning_effort: sub.reasoning_effort || null,
-                submission_type: sub.submission_type || 'standard',
-                user_simulator: sub.methodology?.user_simulator || null,
-                trajectory_files: sub.trajectory_files,
-                availableDomains: Object.keys(sub.trajectory_files),
-                modality,
-                voice_config: sub.voice_config || null,
-              })
-            }
-          } catch { /* skip */ }
+    let cancelled = false
+    loadVisualizerIndex().then(loaded => {
+      if (cancelled) return
+      setEntries(loaded)
+      const urlParams = getUrlParams()
+      if (urlParams.view === 'tasks') setViewMode('tasks')
+      const match = urlParams.model && loaded.find(e => e.id === urlParams.model)
+      if (match) {
+        restoringFromUrl.current = true
+        selectEntry(match, { lang: urlParams.lang, domain: urlParams.domain })
+        if (urlParams.task != null || urlParams.trial != null) {
+          pendingUrlParams.current = { task: urlParams.task, trial: urlParams.trial }
+        } else {
+          restoringFromUrl.current = false
         }
-
-        for (const dir of textDirs) await loadDir(dir, 'text')
-        for (const dir of voiceDirs) await loadDir(dir, 'voice')
-
-        loaded.sort((a, b) => {
-          if (a.modality !== b.modality) return a.modality === 'text' ? -1 : 1
-          return a.model_name.localeCompare(b.model_name)
-        })
-        setSubmissions(loaded)
-
-        // Restore state from URL params
-        const urlParams = getUrlParams()
-        if (urlParams.model) {
-          restoringFromUrl.current = true
-          const match = loaded.find(s => s.dir === urlParams.model)
-          if (match) {
-            setSelectedModelDir(match.dir)
-            const dom = urlParams.domain && match.availableDomains.includes(urlParams.domain)
-              ? urlParams.domain
-              : match.availableDomains[0]
-            setSelectedDomain(dom || '')
-            if (urlParams.view === 'tasks') {
-              setViewMode('tasks')
-            } else {
-              setViewMode('trajectories')
-            }
-            // task and trial need trajectory data to be loaded first
-            if (urlParams.task != null || urlParams.trial != null) {
-              pendingUrlParams.current = { task: urlParams.task, trial: urlParams.trial }
-            } else {
-              restoringFromUrl.current = false
-            }
-          } else {
-            restoringFromUrl.current = false
-            if (loaded.length > 0) {
-              setSelectedModelDir(loaded[0].dir)
-              setSelectedDomain(loaded[0].availableDomains[0] || '')
-            }
-          }
-        } else if (loaded.length > 0) {
-          setSelectedModelDir(loaded[0].dir)
-          setSelectedDomain(loaded[0].availableDomains[0] || '')
-        }
-      } catch (err) {
-        setError(err.message)
-      } finally {
-        setSubmissionsLoading(false)
+      } else if (BENCHMARKS.some(b => b.id === urlParams.bench)) {
+        setBenchmark(urlParams.bench)
       }
-    }
-    loadSubmissions()
+    }).catch(err => !cancelled && setIndexError(err.message))
+    return () => { cancelled = true }
+    // selectEntry reads state only to keep it; on mount there is none.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // --- Load trajectory data when model+domain changes ---
+  // --- Load a judged cell's per-call verdicts (alongside its task list) ---
   useEffect(() => {
-    if (viewMode !== 'trajectories' || !selectedModelDir || !selectedDomain) return
+    setCellQuality(null)
+    setVerdictFilter('all')
+    if (viewMode !== 'trajectories' || !currentCell?.quality) return
+    let cancelled = false
+    // Verdicts are optional: on failure the task list shows without them.
+    loadCellQuality(currentCell).then(calls => !cancelled && setCellQuality(calls)).catch(() => {})
+    return () => { cancelled = true }
+  }, [currentCell, viewMode])
 
-    const sub = submissions.find(s => s.dir === selectedModelDir)
-    if (!sub) return
-    const fileName = sub.trajectory_files[selectedDomain]
-    if (!fileName) return
+  // --- Load the selected cell's task list ---
+  useEffect(() => {
+    if (viewMode !== 'trajectories' || !currentCell) return
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    setTrajectoryData(null)
 
-    const loadData = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        setTrajectoryData(null)
-        setSelectedTaskId(null)
-        setSelectedTrialIdx(0)
+    loadCell(currentCell).then(({ data }) => {
+      if (cancelled) return
+      setTrajectoryData(data)
 
-        // Voice trajectories are directories containing results.json;
-        // text trajectories are flat JSON files.
-        const url = sub.modality === 'voice'
-          ? `${SUBMISSIONS_BASE}/${sub.dir}/trajectories/${fileName}/results.json`
-          : `${SUBMISSIONS_BASE}/${sub.dir}/trajectories/${fileName}`
-        const res = await fetch(url, NO_CACHE)
-        if (!res.ok) throw new Error(`Failed to load trajectory: ${res.statusText}`)
-        const data = await res.json()
-
-        // For dir-format voice results, simulations are stored in separate
-        // files and results.json only contains a simulation_index. Synthesize
-        // the simulations array from the index so existing UI logic works.
-        if ((!data.simulations || data.simulations.length === 0) && data.simulation_index) {
-          data.simulations = data.simulation_index.map(entry => ({
-            id: entry.id,
-            task_id: entry.task_id,
-            trial: entry.trial,
-            reward_info: entry.reward != null ? { reward: entry.reward } : null,
-            termination_reason: entry.termination_reason || null,
-            agent_cost: entry.agent_cost ?? null,
-            duration: entry.duration ?? null,
-          }))
-        }
-
-        setTrajectoryData(data)
-
-        // Apply pending URL params (task/trial) now that data is loaded.
-        // These state updates are batched with setTrajectoryData above.
-        if (pendingUrlParams.current) {
-          const { task, trial } = pendingUrlParams.current
-          pendingUrlParams.current = null
-          if (task != null) {
-            const taskExists = data.tasks?.some(t => String(t.id) === String(task))
-              || data.simulations?.some(s => String(s.task_id) === String(task))
-            if (taskExists) {
-              // Use the actual ID from the data to preserve its native type
-              const actualTask = data.tasks?.find(t => String(t.id) === String(task))
-              const actualSim = !actualTask && data.simulations?.find(s => String(s.task_id) === String(task))
-              setSelectedTaskId(actualTask ? actualTask.id : actualSim ? actualSim.task_id : task)
-              if (trial != null && trial > 0) {
-                setSelectedTrialIdx(trial)
-              }
-            }
+      // Apply pending URL params (task/trial) now that data is loaded.
+      if (pendingUrlParams.current) {
+        const { task, trial } = pendingUrlParams.current
+        pendingUrlParams.current = null
+        if (task != null) {
+          // Use the actual ID from the data to preserve its native type
+          const actualTask = data.tasks?.find(t => String(t.id) === String(task))
+          const actualSim = !actualTask && data.simulations?.find(s => String(s.task_id) === String(task))
+          if (actualTask || actualSim) {
+            setSelectedTaskId(actualTask ? actualTask.id : actualSim.task_id)
+            if (trial != null && trial > 0) setSelectedTrialIdx(trial)
           }
-          restoringFromUrl.current = false
         }
-      } catch (err) {
-        setError(err.message)
-        if (pendingUrlParams.current) {
-          pendingUrlParams.current = null
-          restoringFromUrl.current = false
-        }
-      } finally {
-        setLoading(false)
+        restoringFromUrl.current = false
       }
-    }
-    loadData()
-  }, [selectedModelDir, selectedDomain, viewMode, submissions])
+    }).catch(err => {
+      if (cancelled) return
+      setError(err.message)
+      if (pendingUrlParams.current) {
+        pendingUrlParams.current = null
+        restoringFromUrl.current = false
+      }
+    }).finally(() => !cancelled && setLoading(false))
+    // A cancelled load must not leave the spinner up (e.g. in the Tasks view).
+    return () => { cancelled = true; setLoading(false) }
+  }, [currentCell, viewMode])
 
   // --- Derived data ---
-  const currentSubmission = useMemo(
-    () => submissions.find(s => s.dir === selectedModelDir),
-    [submissions, selectedModelDir]
-  )
-
   // All unique tasks from trajectory data
   const tasks = useMemo(() => {
     if (!trajectoryData?.tasks) return []
     return trajectoryData.tasks
   }, [trajectoryData])
+
+  // Simulations grouped by task, each sorted by trial
+  const simulationsByTask = useMemo(() => {
+    const groups = new Map()
+    for (const sim of trajectoryData?.simulations || []) {
+      if (!groups.has(sim.task_id)) groups.set(sim.task_id, [])
+      groups.get(sim.task_id).push(sim)
+    }
+    for (const sims of groups.values()) sims.sort((a, b) => a.trial - b.trial)
+    return groups
+  }, [trajectoryData])
+
+  // Judged cells score one call per task (the earliest trial with a quality
+  // record); its card chips and the task-list filter both read that call.
+  const taskCalls = useMemo(() => {
+    const calls = new Map()
+    if (!cellQuality) return calls
+    for (const [taskId, sims] of simulationsByTask) {
+      const call = sims.map(sim => cellQuality.get(sim.id)).find(Boolean)
+      if (call) calls.set(taskId, call)
+    }
+    return calls
+  }, [cellQuality, simulationsByTask])
+  const failedTasks = useMemo(() => {
+    const failed = { interaction: new Set(), experience: new Set() }
+    for (const [taskId, call] of taskCalls) {
+      if (call.interaction === 'fail') failed.interaction.add(taskId)
+      if (call.experience === 'fail') failed.experience.add(taskId)
+    }
+    return failed
+  }, [taskCalls])
+  const verdictCounts = { interaction: failedTasks.interaction.size, experience: failedTasks.experience.size }
+  const shownTasks = verdictFilter === 'all' ? tasks : tasks.filter(task => failedTasks[verdictFilter].has(task.id))
 
   // Number of distinct trials available
   const numTrials = useMemo(() => {
@@ -308,17 +295,31 @@ const TrajectoryVisualizer = () => {
 
   // Simulations for the selected task, sorted by trial
   const taskSimulations = useMemo(() => {
-    if (!trajectoryData?.simulations || selectedTaskId === null) return []
-    return trajectoryData.simulations
-      .filter(s => s.task_id === selectedTaskId)
-      .sort((a, b) => a.trial - b.trial)
-  }, [trajectoryData, selectedTaskId])
+    if (selectedTaskId === null) return []
+    return simulationsByTask.get(selectedTaskId) || []
+  }, [simulationsByTask, selectedTaskId])
 
   // The current simulation (for the selected trial)
   const currentSimulation = useMemo(() => {
     if (!taskSimulations.length) return null
     return taskSimulations[selectedTrialIdx] || taskSimulations[0]
   }, [taskSimulations, selectedTrialIdx])
+
+  // A text conversation in the dir layout loads when opened; voice
+  // conversations are loaded by VoiceViewer.
+  useEffect(() => {
+    if (isVoice || !currentCell || !currentSimulation?.stub) return
+    const id = currentSimulation.id
+    if (simDetails[id]) return
+    setSimDetails(d => ({ ...d, [id]: { loading: true } }))
+    loadSimulation(currentCell, id)
+      .then(data => setSimDetails(d => ({ ...d, [id]: { data } })))
+      .catch(err => setSimDetails(d => ({ ...d, [id]: { error: err.message } })))
+  }, [isVoice, currentCell, currentSimulation, simDetails])
+
+  const simDetail = currentSimulation?.stub ? simDetails[currentSimulation.id] : null
+  // The full simulation when it is loaded, else its index entry.
+  const shownSimulation = simDetail?.data || currentSimulation
 
   // Task metadata for the selected task
   const currentTask = useMemo(() => {
@@ -373,7 +374,18 @@ const TrajectoryVisualizer = () => {
     return scores
   }, [trajectoryData, tasks])
 
-  const isVoice = currentSubmission?.modality === 'voice'
+  // The cell's own audio-native config, else the submission's voice_config.
+  const voiceConfig = useMemo(() => {
+    const native = trajectoryData?.info?.audio_native_config
+    const config = currentEntry?.voiceConfig || {}
+    return {
+      ...config,
+      provider: config.provider || native?.provider || '',
+      model: config.model || native?.model || '',
+      tick_duration_seconds: config.tick_duration_seconds || native?.tick_duration_seconds,
+      domain: selectedDomain,
+    }
+  }, [trajectoryData, currentEntry, selectedDomain])
 
   // Build task info for the voice viewer from the current task's user scenario
   const voiceTaskInfo = useMemo(() => {
@@ -388,56 +400,50 @@ const TrajectoryVisualizer = () => {
     }
   }, [currentTask])
 
-  const handleDownload = () => {
-    if (!trajectoryData || !currentSubmission) return
-    const blob = new Blob([JSON.stringify(trajectoryData, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${currentSubmission.model_name}_${selectedDomain}_trajectories.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
-  const getVoiceS3Command = () => {
-    if (!currentSubmission || !selectedDomain) return ''
-    const fileName = currentSubmission.trajectory_files[selectedDomain]
-    if (!fileName) return ''
-    const s3Path = `s3://${S3_BUCKET}/${S3_SUBMISSIONS_PREFIX}/${currentSubmission.dir}/trajectories/${fileName}/`
-    const localDir = `./${currentSubmission.model_name}_${selectedDomain}/`
-    return `aws s3 sync ${s3Path} ${localDir} --no-sign-request`
+  // Text cells download as their monolithic file; dir cells (voice, and
+  // anything else with per-simulation files) sync as a directory.
+  const getDownloadCommand = () => {
+    if (!currentCell || !currentEntry) return ''
+    const slug = [currentEntry.model, language, selectedDomain].join('_').replace(/[^\w.-]+/g, '-')
+    if (currentCell.flat) {
+      return `aws s3 cp ${S3_SUBMISSIONS}/${currentCell.flat} ./${slug}.json --no-sign-request`
+    }
+    return `aws s3 sync ${S3_SUBMISSIONS}/${currentCell.path}/ ./${slug}/ --no-sign-request`
   }
 
   const handleCopyCliCommand = () => {
-    const cmd = getVoiceS3Command()
-    navigator.clipboard.writeText(cmd).then(() => {
+    navigator.clipboard.writeText(getDownloadCommand()).then(() => {
       setCliCopied(true)
       setTimeout(() => setCliCopied(false), 2000)
     })
   }
 
   // --- Handlers ---
-  const handleModelChange = (dir) => {
-    setSelectedModelDir(dir)
+  const handleBenchmarkChange = (id) => {
+    if (id === benchmark) return
+    setBenchmark(id)
+    setSelectedId('')
+    setSelectedDomain('')
     setSelectedTaskId(null)
     setSelectedTrialIdx(0)
-    setShowCliDownload(false)
-    const sub = submissions.find(s => s.dir === dir)
-    if (sub && sub.availableDomains.length > 0) {
-      // Keep current domain if available, else pick first
-      if (!sub.availableDomains.includes(selectedDomain)) {
-        setSelectedDomain(sub.availableDomains[0])
-      }
-    }
+    setTrajectoryData(null)
+    setError(null)
+  }
+
+  const handleLanguageChange = (lang) => {
+    const cellDomains = currentEntry.cells.filter(c => c.language === lang).map(c => c.domain)
+    setLanguage(lang)
+    if (!cellDomains.includes(selectedDomain)) setSelectedDomain(cellDomains[0] || '')
+    setSelectedTaskId(null)
+    setSelectedTrialIdx(0)
+    setShowDownload(false)
   }
 
   const handleDomainChange = (domain) => {
     setSelectedDomain(domain)
     setSelectedTaskId(null)
     setSelectedTrialIdx(0)
-    setShowCliDownload(false)
+    setShowDownload(false)
   }
 
   // --- Task mode ---
@@ -486,12 +492,15 @@ const TrajectoryVisualizer = () => {
     // Handle "task_001" format — extract just the number
     const taskNumMatch = String(taskId).match(/^task_0*(\d+)$/)
     if (taskNumMatch) return taskNumMatch[1]
+    // Localized voice-v2 ids carry their language: "8_ko_identity" → "8"
+    const localizedMatch = String(taskId).match(/^(\d+)_[a-z]{2}_identity$/)
+    if (localizedMatch) return localizedMatch[1]
     if (String(taskId).length < 15) return String(taskId)
     const bracketMatch = String(taskId).match(/\[([^\]]+)\]/)
     if (bracketMatch) {
       return bracketMatch[1].replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
     }
-    const cleaned = String(taskId).split(/[[\|]/)[0].replace(/_/g, ' ')
+    const cleaned = String(taskId).split(/[[|]/)[0].replace(/_/g, ' ')
     return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
   }
 
@@ -514,12 +523,9 @@ const TrajectoryVisualizer = () => {
   return (
     <div className="trajectory-visualizer">
       <div className="visualizer-header">
-        <h2>{isVoice ? 'τ-voice Visualizer' : 'τ-bench Visualizer'}</h2>
+        <h2>τ-bench Visualizer</h2>
         <p className="visualizer-description">
-          {isVoice
-            ? 'Explore τ-voice results: view task outcomes for audio-native voice agent evaluations, or examine the underlying task definitions.'
-            : 'Explore τ-bench dataset: view conversation trajectories showing AI agent interactions with users, or examine the underlying task definitions across airline, retail, telecom, and banking domains.'
-          }
+          Explore published trajectories: every task outcome and conversation from text and voice submissions, in every language they were run, or examine the underlying task definitions.
         </p>
 
         {/* View Mode Toggle */}
@@ -552,72 +558,72 @@ const TrajectoryVisualizer = () => {
         <>
           {/* ===== SELECTOR BAR ===== */}
           <div className="selector-bar">
-            {/* Model dropdown */}
-            <div className="selector-group">
-              <label className="selector-label">Model</label>
-              <select
-                className="selector-dropdown"
-                value={selectedModelDir}
-                onChange={e => handleModelChange(e.target.value)}
-                disabled={submissionsLoading}
-              >
-                {submissionsLoading && <option value="">Loading...</option>}
-                {submissions.some(s => s.modality === 'text') && (
-                  <optgroup label="τ-bench (Text)">
-                    {submissions.filter(s => s.modality === 'text').map(s => (
-                      <option key={s.dir} value={s.dir}>
-                        {s.model_name}{s.reasoning_effort ? ` [${s.reasoning_effort.charAt(0).toUpperCase() + s.reasoning_effort.slice(1)}]` : ''} ({s.model_organization})
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {submissions.some(s => s.modality === 'voice') && (
-                  <optgroup label="τ-voice (Voice)">
-                    {submissions.filter(s => s.modality === 'voice').map(s => (
-                      <option key={s.dir} value={s.dir}>
-                        {s.model_name} ({s.model_organization}){s.submission_type === 'custom' ? ` [Custom]${s.user_simulator ? ` — user sim: ${s.user_simulator}` : ''}` : ''}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            </div>
-
-            {/* Domain dropdown */}
-            <div className="selector-group">
-              <label className="selector-label">Domain</label>
-              <div className="domain-pills">
-                {domains.map(d => {
-                  const available = currentSubmission?.availableDomains?.includes(d.id)
+            <div className="selector-group selector-group-full">
+              <label className="selector-label">Benchmark</label>
+              <div className="benchmark-tabs" role="tablist">
+                {BENCHMARKS.map(b => {
+                  const count = (entries || []).filter(e => e.benchmark === b.id).length
                   return (
                     <button
-                      key={d.id}
-                      className={`domain-pill ${selectedDomain === d.id ? 'active' : ''} ${!available ? 'disabled' : ''}`}
-                      style={selectedDomain === d.id ? { background: d.color, borderColor: d.color } : {}}
-                      onClick={() => available && handleDomainChange(d.id)}
-                      disabled={!available}
+                      key={b.id}
+                      role="tab"
+                      aria-selected={benchmark === b.id}
+                      className={`benchmark-tab ${benchmark === b.id ? 'active' : ''}`}
+                      onClick={() => handleBenchmarkChange(b.id)}
+                      disabled={!entries || !count}
                     >
-                      {d.icon} {d.label}
+                      <span className="benchmark-tab-label">{b.label}</span>
+                      <span className="benchmark-tab-sub">{b.sub}{entries ? ` · ${count}` : ''}</span>
                     </button>
                   )
                 })}
               </div>
             </div>
 
-            {/* Trial selector */}
-            {numTrials > 0 && selectedTaskId !== null && (
+            {currentEntry && (
               <div className="selector-group">
-                <label className="selector-label">Trial</label>
-                <div className="trial-pills">
-                  {Array.from({ length: numTrials }, (_, i) => (
+                <label className="selector-label">Model</label>
+                <ModelPicker entries={benchmarkEntries} selected={currentEntry} onSelect={entry => selectEntry(entry)} />
+              </div>
+            )}
+
+            {entryLanguages.length > 1 && (
+              <div className="selector-group">
+                <label className="selector-label">Language</label>
+                <div className="domain-pills">
+                  {entryLanguages.map(l => (
                     <button
-                      key={i}
-                      className={`trial-pill ${selectedTrialIdx === i ? 'active' : ''}`}
-                      onClick={() => setSelectedTrialIdx(i)}
+                      key={l.id}
+                      className={`domain-pill language-pill ${language === l.id ? 'active' : ''}`}
+                      onClick={() => handleLanguageChange(l.id)}
                     >
-                      {i + 1}
+                      {l.name}
                     </button>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {currentEntry && (
+              <div className="selector-group">
+                <label className="selector-label">Domain</label>
+                <div className="domain-pills">
+                  {languageCells.map(cell => {
+                    const d = DOMAINS[cell.domain] || { label: cell.domain, icon: '•', color: '#475569' }
+                    const active = selectedDomain === cell.domain
+                    return (
+                      <button
+                        key={cell.domain}
+                        className={`domain-pill ${active ? 'active' : ''}`}
+                        style={active ? { background: d.color, borderColor: d.color } : {}}
+                        onClick={() => handleDomainChange(cell.domain)}
+                        title={cell.score != null ? `pass^1 ${cell.score.toFixed(1)}%` : undefined}
+                      >
+                        {d.icon} {d.label}
+                        {cell.score != null && <span className="domain-pill-score">{Math.round(cell.score)}%</span>}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -634,72 +640,85 @@ const TrajectoryVisualizer = () => {
 
           {/* ===== MAIN CONTENT ===== */}
           <div className="viz-content">
-            {loading && (
+            {indexError && (
+              <div className="error-state"><p>⚠️ {indexError}</p></div>
+            )}
+
+            {!entries && !indexError && (
               <div className="loading-state">
                 <div className="loading-spinner"></div>
-                <p>Loading trajectory data...</p>
-                <p className="loading-note">Large files may take a moment</p>
+                <p>Loading submissions...</p>
               </div>
             )}
 
-            {error && !loading && (
+            {/* Landing: no model chosen yet */}
+            {entries && !currentEntry && (
+              <div className="picker-landing">
+                <div className="picker-landing-header">
+                  <h3>Choose a model</h3>
+                  <p>{BENCHMARKS.find(b => b.id === benchmark)?.label} · {BENCHMARKS.find(b => b.id === benchmark)?.sub} — {benchmarkEntries.length} submissions with published trajectories.</p>
+                </div>
+                <ModelPicker inline entries={benchmarkEntries} selected={null} onSelect={entry => selectEntry(entry)} />
+              </div>
+            )}
+
+            {currentEntry && loading && (
+              <div className="loading-state">
+                <div className="loading-spinner"></div>
+                <p>Loading tasks...</p>
+              </div>
+            )}
+
+            {currentEntry && error && !loading && (
               <div className="error-state">
                 <p>⚠️ {error}</p>
               </div>
             )}
 
-            {!loading && !error && !trajectoryData && !submissionsLoading && (
-              <div className="empty-state">
-                <h3>Select a Model &amp; Domain</h3>
-                <p>Choose a model and domain above to explore trajectory data.</p>
-              </div>
-            )}
-
             {/* Task list view — no task selected yet */}
-            {!loading && !error && trajectoryData && selectedTaskId === null && (
+            {currentEntry && !loading && !error && trajectoryData && selectedTaskId === null && (
               <div className="task-list-view">
                 <div className="task-list-header">
                   <div className="task-list-header-left">
                     <h3>
                       {isVoice && <span className="voice-badge">🎙️ Voice</span>}
-                      {currentSubmission?.model_name}{currentSubmission?.reasoning_effort ? ` [${currentSubmission.reasoning_effort.charAt(0).toUpperCase() + currentSubmission.reasoning_effort.slice(1)}]` : ''} — {selectedDomain.charAt(0).toUpperCase() + selectedDomain.slice(1)}
+                      {currentEntry.model} <EntryChips entry={currentEntry} /> — {DOMAINS[selectedDomain]?.label || selectedDomain}
+                      {entryLanguages.length > 1 && ` · ${LANGUAGES.find(l => l.id === language)?.name}`}
                     </h3>
                     <p className="task-list-subtitle">
-                      {tasks.length} tasks · {numTrials} trial{numTrials !== 1 ? 's' : ''} each
-                      {isVoice ? '' : ' · Select a task to view conversations'}
+                      {tasks.length} tasks · {numTrials} trial{numTrials !== 1 ? 's' : ''} each · Select a task to view conversations
                     </p>
                   </div>
                   <div className="task-list-header-right">
-                    {trajectoryData && !isVoice && (
-                      <button className="download-btn" onClick={handleDownload} title="Download raw trajectory data as JSON">
-                        ⬇ Download JSON
+                    <div className="cli-download-wrapper">
+                      <button
+                        className="download-btn"
+                        onClick={() => setShowDownload(!showDownload)}
+                        title="Download the raw trajectory data"
+                      >
+                        ⬇ Download
                       </button>
-                    )}
-                    {trajectoryData && isVoice && (
-                      <div className="cli-download-wrapper">
-                        <button
-                          className="download-btn"
-                          onClick={() => setShowCliDownload(!showCliDownload)}
-                          title="Voice trajectory data is too large for browser download. Use AWS CLI instead."
-                        >
-                          ⬇ Download via CLI
-                        </button>
-                        {showCliDownload && (
-                          <div className="cli-download-popover">
-                            <p className="cli-download-note">Voice trajectories are large and must be downloaded via CLI:</p>
-                            <pre className="cli-download-command">{getVoiceS3Command()}</pre>
-                            <div className="cli-download-actions">
-                              <button className="cli-copy-btn" onClick={handleCopyCliCommand}>
-                                {cliCopied ? '✓ Copied' : 'Copy command'}
-                              </button>
-                              <button className="cli-close-btn" onClick={() => setShowCliDownload(false)}>
-                                Close
-                              </button>
-                            </div>
+                      {showDownload && (
+                        <div className="cli-download-popover">
+                          {currentCell?.flat ? (
+                            <p className="cli-download-note">
+                              The full results file for this domain (<a href={`${SUBMISSIONS_BASE}/${currentCell.flat}`} target="_blank" rel="noopener noreferrer">open JSON</a>), or with the AWS CLI:
+                            </p>
+                          ) : (
+                            <p className="cli-download-note">Voice trajectories include audio and are large; download them with the AWS CLI:</p>
+                          )}
+                          <pre className="cli-download-command">{getDownloadCommand()}</pre>
+                          <div className="cli-download-actions">
+                            <button className="cli-copy-btn" onClick={handleCopyCliCommand}>
+                              {cliCopied ? '✓ Copied' : 'Copy command'}
+                            </button>
+                            <button className="cli-close-btn" onClick={() => setShowDownload(false)}>
+                              Close
+                            </button>
                           </div>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      )}
+                    </div>
                     {passKScores && (
                       <div className="pass-k-scores">
                         {Object.entries(passKScores).map(([k, score]) => (
@@ -715,9 +734,23 @@ const TrajectoryVisualizer = () => {
                   </div>
                 </div>
 
+                {cellQuality && (
+                  <div className="verdict-filter" role="group" aria-label="Filter by judge verdict">
+                    <span>Show</span>
+                    {[
+                      ['all', 'All tasks'],
+                      ['interaction', `Interaction fails (${verdictCounts.interaction})`],
+                      ['experience', `Generation quality fails (${verdictCounts.experience})`],
+                    ].map(([key, text]) => (
+                      <button key={key} className={verdictFilter === key ? 'active' : ''} aria-pressed={verdictFilter === key} onClick={() => setVerdictFilter(key)}>{text}</button>
+                    ))}
+                  </div>
+                )}
+
                 <div className="task-grid">
-                  {tasks.map((task, idx) => {
-                    const sims = trajectoryData.simulations?.filter(s => s.task_id === task.id) || []
+                  {shownTasks.map((task, idx) => {
+                    const sims = simulationsByTask.get(task.id) || []
+                    const call = taskCalls.get(task.id)
                     const avgReward = sims.length > 0
                       ? (sims.reduce((sum, s) => sum + (s.reward_info?.reward || 0), 0) / sims.length)
                       : null
@@ -745,6 +778,7 @@ const TrajectoryVisualizer = () => {
                           <span>{sims.length} trial{sims.length !== 1 ? 's' : ''}</span>
                           <span>{scenario ? '📞 ' + scenario.slice(0, 50) + (scenario.length > 50 ? '…' : '') : ''}</span>
                         </div>
+                        {call && <div className="task-verdicts"><CallVerdicts call={call} compact /></div>}
                       </div>
                     )
                   })}
@@ -753,7 +787,7 @@ const TrajectoryVisualizer = () => {
             )}
 
             {/* Conversation view — task selected */}
-            {!loading && !error && trajectoryData && selectedTaskId !== null && currentSimulation && (
+            {currentEntry && !loading && !error && trajectoryData && selectedTaskId !== null && currentSimulation && (
               <div className="conversation-view">
                 <div className="conversation-header">
                   <div className="conversation-meta">
@@ -808,29 +842,29 @@ const TrajectoryVisualizer = () => {
                     <div className="results-grid">
                       <div className="result-item">
                         <span className="result-label">Reward</span>
-                        <span className={`result-value ${(currentSimulation.reward_info?.reward ?? 0) >= 0.5 ? 'good' : 'bad'}`}>
-                          {currentSimulation.reward_info?.reward?.toFixed(2) ?? 'N/A'}
+                        <span className={`result-value ${(shownSimulation.reward_info?.reward ?? 0) >= 0.5 ? 'good' : 'bad'}`}>
+                          {shownSimulation.reward_info?.reward?.toFixed(2) ?? 'N/A'}
                         </span>
                       </div>
                       <div className="result-item">
                         <span className="result-label">Termination</span>
-                        <span className="result-value">{currentSimulation.termination_reason || '—'}</span>
+                        <span className="result-value">{shownSimulation.termination_reason || '—'}</span>
                       </div>
                       <div className="result-item">
                         <span className="result-label">Agent Cost</span>
-                        <span className="result-value">${currentSimulation.agent_cost?.toFixed(4) ?? '—'}</span>
+                        <span className="result-value">${shownSimulation.agent_cost?.toFixed(4) ?? '—'}</span>
                       </div>
                       <div className="result-item">
                         <span className="result-label">Duration</span>
-                        <span className="result-value">{currentSimulation.duration ? `${Math.round(currentSimulation.duration)}s` : '—'}</span>
+                        <span className="result-value">{shownSimulation.duration ? `${Math.round(shownSimulation.duration)}s` : '—'}</span>
                       </div>
                     </div>
 
-                    {currentSimulation.reward_info?.nl_assertions?.length > 0 && (
+                    {shownSimulation.reward_info?.nl_assertions?.length > 0 && (
                       <div className="assertions">
                         <h5>Evaluation Assertions</h5>
                         <div className="assertion-list">
-                          {currentSimulation.reward_info.nl_assertions.map((a, i) => (
+                          {shownSimulation.reward_info.nl_assertions.map((a, i) => (
                             <div key={i} className={`assertion ${a.met ? 'passed' : 'failed'}`}>
                               <span className="assertion-status">{a.met ? '✅' : '❌'}</span>
                               <span className="assertion-text">{a.nl_assertion}</span>
@@ -843,20 +877,43 @@ const TrajectoryVisualizer = () => {
                   </div>
                 </div>
 
+                {(currentCell.judges || currentCell.verdicts) && (
+                  <JudgeFindings
+                    key={currentSimulation.id}
+                    cell={currentCell}
+                    simulationId={currentSimulation.id}
+                    call={cellQuality?.get(currentSimulation.id)}
+                  />
+                )}
+
                 {/* Voice: timeline + conversation table; Text: message bubbles */}
                 {isVoice ? (
                   <VoiceViewer
                     key={`${currentSimulation.id}-${selectedTrialIdx}`}
-                    submissionDir={currentSubmission.dir}
-                    trajectoryDir={currentSubmission.trajectory_files[selectedDomain]}
+                    cellUrl={`${SUBMISSIONS_BASE}/${currentCell.path}`}
                     simulationId={currentSimulation.id}
                     taskId={selectedTaskId}
-                    voiceConfig={currentSubmission.voice_config}
+                    voiceConfig={voiceConfig}
                     taskInfo={voiceTaskInfo}
                   />
+                ) : simDetail?.error ? (
+                  <div className="error-state">
+                    <p>⚠️ {simDetail.error}</p>
+                    {/* Dropping the entry makes the load effect fetch it again. */}
+                    <button className="retry-btn" onClick={() => setSimDetails(d => {
+                      const next = { ...d }
+                      delete next[currentSimulation.id]
+                      return next
+                    })}>Retry</button>
+                  </div>
+                ) : !shownSimulation.messages ? (
+                  <div className="loading-state">
+                    <div className="loading-spinner"></div>
+                    <p>Loading conversation...</p>
+                  </div>
                 ) : (
                   <div className="conversation-messages">
-                    {getDisplayMessages(currentSimulation).map((msg, i) => (
+                    {getDisplayMessages(shownSimulation).map((msg, i) => (
                       <div key={i} className={`message ${msg.role}`}>
                         <div className="message-header">
                           <span className="message-role">
@@ -875,9 +932,9 @@ const TrajectoryVisualizer = () => {
                         )}
                       </div>
                     ))}
-                    {currentSimulation.messages?.length > 60 && (
+                    {shownSimulation.messages.length > 60 && (
                       <div className="message-truncated">
-                        <p>… and {currentSimulation.messages.length - 60} more messages (showing first 60)</p>
+                        <p>… and {shownSimulation.messages.length - 60} more messages (showing first 60)</p>
                       </div>
                     )}
                   </div>

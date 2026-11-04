@@ -1,0 +1,112 @@
+{
+  "status": "unvalidated",
+  "revision": "nativeness-rubric-v21-language-specific-draft2",
+  "language_variety": "Mandarin · Mainland China",
+  "contract": {
+    "contract_id": "naturalness-zh-nativeness-rubric-v21-language-specific-draft2",
+    "implementation": "naturalness-v17",
+    "evaluation_level": "utterance",
+    "input_exclusions": "injected-opener-and-transfer-line-v1",
+    "source_revision": "judge-authoring-v1",
+    "model": "gpt-5.5",
+    "model_args": {
+      "reasoning_effort": "xhigh"
+    },
+    "prompt": {
+      "prompt_version": "v17",
+      "rubric_version": "nativeness-rubric-v21-language-specific-draft2",
+      "system_prompt": "You evaluate language use in an AI agent's speech. Return JSON only.",
+      "user_prompt_template": "Language: {language}\nEvaluation unit: {evaluation_unit}\n\nFor every criterion:\n- opportunity is true only when this speech gave the agent a genuine chance to exhibit the criterion.\n- violated is true only when the agent actually violated the criterion. The criterion question asks about the desired behavior; answer violated=true when the answer is no.\n- severity is 0 when violated is false. When violated is true: 1 = minor, 2 = clear, 3 = major, 4 = egregious. Repetition may increase severity at call level.\n- quote is an exact offending span copied from AGENT SPEECH. Use an empty string for no violation or for a diffuse call-level pattern.\n- Judge only AGENT SPEECH. Use CUSTOMER CONTEXT only to interpret it.\n- A turn ending in \"[cut off by caller]\" was interrupted mid-delivery: its final word may be truncated mid-word and endings (agreement suffixes, polite verb endings, sentence-final particles) may be missing. Never count a truncation artifact at the cut-off point as a violation of any criterion; judge only what was audibly complete.\n- When violated is true and the violation localizes to a quoted span, reasoning must also give the natural way a native speaker would phrase that span, in the target language.\n\nCriteria:\n{criteria_json}\n\nAbout the agent being judged:\n{agent_context}\n\nCUSTOMER CONTEXT — DO NOT JUDGE:\n{customer_context}\n\nAGENT SPEECH TO JUDGE:\n{agent_speech}\n\nReturn JSON only:\n{\n  \"results\": [\n    {\n      \"factor_id\": \"<exact factor_id>\",\n      \"opportunity\": true,\n      \"violated\": false,\n      \"severity\": 0,\n      \"reasoning\": \"<brief explanation>\",\n      \"quote\": \"\"\n    }\n  ]\n}\n",
+      "factor_instructions": {}
+    },
+    "nativeness_criteria": {
+      "zh": [
+        {
+          "factor_id": "naturalness",
+          "question": "This is one agent utterance from a customer-service call in Mainland Mandarin. Does it contain English-shaped translationese or clearly unnatural word choice?",
+          "opportunity": "every non-empty agent utterance",
+          "positive_examples": "Pass natural spoken Mainland Mandarin, including ordinary service formality, colloquial phrasing, and established borrowings or code-switching that sound natural. Names, identifiers, codes, and product names may remain as given. An English interface, setting, or status label passes when the context establishes that it is the actual displayed label or it is naturally mirrored from the customer; do not assume that every generic English technical phrase is such a label. Ignore harmless transcription spacing or punctuation. Judge language use only, not listening accuracy, facts, policy compliance, or task success.\n\n两张票 and 两个订单 are natural counted quantities. 二 remains natural in ordinals and fixed strings such as 第二个 and 二零二五年; both 二百 and 两百 pass, as do common broad measure words such as 几个问题. Natural sentence-final particles such as 吗, 呢, 吧, and 啊 pass, including 这样可以吗 and 您稍等一下吧; not every sentence needs one.",
+          "negative_examples": "Inspect every complete clause and phrase independently. A clearly unnatural local collocation or selectional mismatch is a violation even when the rest of the utterance is fluent. Flag wording that would sound clearly odd to a Mainland Mandarin speaker because it follows English structure or idiom word for word; uses forced nominal or passive phrasing, unnatural pronouns, connectors, or aspect particles; uses an unnatural word choice, collocation, or literal coinage; inserts unnecessary English, especially a cluster of generic settings, permissions, or statuses where ordinary Chinese is expected; or exposes raw backend or system language as customer-facing speech. One clear instance is enough. Do not flag mere formality, a smoother alternative, or wording that is only slightly awkward. For interrupted turns, judge complete material before the cutoff and ignore only the clipped ending.\n\nAlso flag clearly incompatible measure words or an unnatural form of two in counted quantities: 一位字母, 二个订单, and 二张票 fail. Do not flag a plain sentence for lacking a particle, or infer persistently flat delivery or mechanical particle repetition across a call from this utterance."
+        }
+      ]
+    },
+    "quality_criteria": [],
+    "scope_note": "Candidate for Mandarin · Mainland China; requires held-out validation.",
+    "speech_material": null
+  },
+  "scope": {
+    "language": "zh",
+    "measure": "naturalness",
+    "contract_id": "naturalness-zh-nativeness-rubric-v21-language-specific-draft2",
+    "evaluation_level": "utterance",
+    "agent_gender": null,
+    "domains": [
+      "airline",
+      "retail",
+      "telecom",
+      "banking_knowledge",
+      "intake"
+    ],
+    "needs_audio": false
+  },
+  "authoring": {
+    "request": {
+      "mode": "naturalness_extension",
+      "diagnostic_id": "naturalness",
+      "language": "zh",
+      "variety": "Mandarin · Mainland China",
+      "agent_requirements": "Use the exact wording approved by the user in naturalness-language-criteria-review-v2. Preserve the existing naturalness wrapper and utterance evidence scope; add only the reviewed language-specific rules. The approved HTML and source contract are in docs/designs/naturalness-language-criteria/. Prompt wording approval is not accuracy validation.",
+      "domains": [
+        "airline",
+        "retail",
+        "telecom",
+        "banking_knowledge",
+        "intake"
+      ],
+      "evaluation_level": "utterance",
+      "agent_gender": null,
+      "source_contract_id": null,
+      "source_language": null,
+      "source_measure": null,
+      "author_model": "gpt-6",
+      "author_model_args": {},
+      "judge_model": "gpt-5.5",
+      "judge_model_args": {
+        "reasoning_effort": "xhigh"
+      }
+    },
+    "prompt_version": "judge-authoring-v1",
+    "reference": {
+      "source": "validated_contract",
+      "source_revision": "validated-measures-v3",
+      "source_sha256": "e985cfafb78a8119fb4d7b468acaa99cb3ca060ea51d7b066f0e8c9a0dfc53d2",
+      "language": "zh",
+      "source_agent_requirements": null,
+      "source_review": null,
+      "template": {
+        "prompt_version": "v17",
+        "rubric_version": "nativeness-rubric-v20",
+        "system_prompt": "You evaluate language use in an AI agent's speech. Return JSON only.",
+        "user_prompt_template": "Language: {language}\nEvaluation unit: {evaluation_unit}\n\nFor every criterion:\n- opportunity is true only when this speech gave the agent a genuine chance to exhibit the criterion.\n- violated is true only when the agent actually violated the criterion. The criterion question asks about the desired behavior; answer violated=true when the answer is no.\n- severity is 0 when violated is false. When violated is true: 1 = minor, 2 = clear, 3 = major, 4 = egregious. Repetition may increase severity at call level.\n- quote is an exact offending span copied from AGENT SPEECH. Use an empty string for no violation or for a diffuse call-level pattern.\n- Judge only AGENT SPEECH. Use CUSTOMER CONTEXT only to interpret it.\n- A turn ending in \"[cut off by caller]\" was interrupted mid-delivery: its final word may be truncated mid-word and endings (agreement suffixes, polite verb endings, sentence-final particles) may be missing. Never count a truncation artifact at the cut-off point as a violation of any criterion; judge only what was audibly complete.\n- When violated is true and the violation localizes to a quoted span, reasoning must also give the natural way a native speaker would phrase that span, in the target language.\n\nCriteria:\n{criteria_json}\n\nAbout the agent being judged:\n{agent_context}\n\nCUSTOMER CONTEXT — DO NOT JUDGE:\n{customer_context}\n\nAGENT SPEECH TO JUDGE:\n{agent_speech}\n\nReturn JSON only:\n{\n  \"results\": [\n    {\n      \"factor_id\": \"<exact factor_id>\",\n      \"opportunity\": true,\n      \"violated\": false,\n      \"severity\": 0,\n      \"reasoning\": \"<brief explanation>\",\n      \"quote\": \"\"\n    }\n  ]\n}\n",
+        "factor_instructions": {}
+      },
+      "criterion": {
+        "factor_id": "naturalness",
+        "question": "This is one agent utterance from a customer-service call in Mainland Mandarin. Does it contain English-shaped translationese or clearly unnatural word choice?",
+        "opportunity": "every non-empty agent utterance",
+        "positive_examples": "Pass natural spoken Mainland Mandarin, including ordinary service formality, colloquial phrasing, and established borrowings or code-switching that sound natural. Names, identifiers, codes, and product names may remain as given. An English interface, setting, or status label passes when the context establishes that it is the actual displayed label or it is naturally mirrored from the customer; do not assume that every generic English technical phrase is such a label. Ignore harmless transcription spacing or punctuation. Judge language use only, not listening accuracy, facts, policy compliance, or task success.",
+        "negative_examples": "Inspect every complete clause and phrase independently. A clearly unnatural local collocation or selectional mismatch is a violation even when the rest of the utterance is fluent. Flag wording that would sound clearly odd to a Mainland Mandarin speaker because it follows English structure or idiom word for word; uses forced nominal or passive phrasing, unnatural pronouns, connectors, or aspect particles; uses an unnatural word choice, collocation, or literal coinage; inserts unnecessary English, especially a cluster of generic settings, permissions, or statuses where ordinary Chinese is expected; or exposes raw backend or system language as customer-facing speech. One clear instance is enough. Do not flag mere formality, a smoother alternative, or wording that is only slightly awkward. For interrupted turns, judge complete material before the cutoff and ignore only the clipped ending."
+      }
+    },
+    "criteria": {
+      "question": "This is one agent utterance from a customer-service call in Mainland Mandarin. Does it contain English-shaped translationese or clearly unnatural word choice?",
+      "opportunity": "every non-empty agent utterance",
+      "positive_examples": "Pass natural spoken Mainland Mandarin, including ordinary service formality, colloquial phrasing, and established borrowings or code-switching that sound natural. Names, identifiers, codes, and product names may remain as given. An English interface, setting, or status label passes when the context establishes that it is the actual displayed label or it is naturally mirrored from the customer; do not assume that every generic English technical phrase is such a label. Ignore harmless transcription spacing or punctuation. Judge language use only, not listening accuracy, facts, policy compliance, or task success.\n\n两张票 and 两个订单 are natural counted quantities. 二 remains natural in ordinals and fixed strings such as 第二个 and 二零二五年; both 二百 and 两百 pass, as do common broad measure words such as 几个问题. Natural sentence-final particles such as 吗, 呢, 吧, and 啊 pass, including 这样可以吗 and 您稍等一下吧; not every sentence needs one.",
+      "negative_examples": "Inspect every complete clause and phrase independently. A clearly unnatural local collocation or selectional mismatch is a violation even when the rest of the utterance is fluent. Flag wording that would sound clearly odd to a Mainland Mandarin speaker because it follows English structure or idiom word for word; uses forced nominal or passive phrasing, unnatural pronouns, connectors, or aspect particles; uses an unnatural word choice, collocation, or literal coinage; inserts unnecessary English, especially a cluster of generic settings, permissions, or statuses where ordinary Chinese is expected; or exposes raw backend or system language as customer-facing speech. One clear instance is enough. Do not flag mere formality, a smoother alternative, or wording that is only slightly awkward. For interrupted turns, judge complete material before the cutoff and ignore only the clipped ending.\n\nAlso flag clearly incompatible measure words or an unnatural form of two in counted quantities: 一位字母, 二个订单, and 二张票 fail. Do not flag a plain sentence for lacking a particle, or infer persistently flat delivery or mechanical particle repetition across a call from this utterance."
+    }
+  },
+  "review": {
+    "content_sha256": "e49d57d1be74719d136873223d30455232752ab1fa1ec544d60b75c9c58709d4",
+    "reviewed_by": "User approval of naturalness-language-criteria-review-v2 in Codex task"
+  }
+}

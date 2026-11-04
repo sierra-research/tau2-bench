@@ -1,7 +1,9 @@
 from collections import defaultdict
 from pathlib import Path
 
+from tau2.config import DEFAULT_LOCALIZE_DB
 from tau2.data_model.simulation import Results
+from tau2.data_model.tasks import Task
 from tau2.registry import registry
 from tau2.utils.pydantic_utils import get_pydantic_hash
 from tau2.utils.utils import show_dict_diff
@@ -16,14 +18,49 @@ def check_format(path: str | Path) -> tuple[Results | None, bool, str]:
         return None, False, f"Error loading results: {e}"
 
 
+def _expected_tasks(results: Results) -> list[Task]:
+    """The base-split tasks the recorded language binding runs.
+
+    A language pack may replace registry tasks with reviewed same-ID versions
+    (the English retail and telecom bindings do), so runs that recorded a
+    language are checked against that binding. Results recorded before every
+    run resolved a language pack used the registry tasks directly.
+    """
+    info = results.info
+    domain = info.environment_info.domain_name
+    if info.language is None:
+        return registry.get_tasks_loader(domain)("base")
+
+    from tau2.multilingual.runtime import TaskSelection, load_language
+
+    canonical_voice_v1 = (
+        info.benchmark is not None and info.benchmark.benchmark_version == "voice-v1"
+    )
+    loaded = load_language(
+        info.language,
+        domain,
+        mode="voice" if info.audio_native_config is not None else "text",
+        localize_db=DEFAULT_LOCALIZE_DB
+        if info.localize_db is None
+        else info.localize_db,
+        selection=TaskSelection(
+            task_split_name="base",
+            # Intake strategies select their own task variant (as at run time).
+            task_kwargs={"strategy": info.elicitation.strategy.value}
+            if info.elicitation is not None
+            else {},
+        ),
+        pack_extension=info.pack_extension,
+        **({"canonical_tasks": True} if canonical_voice_v1 else {}),
+    )
+    return loaded.tasks
+
+
 def check_tasks(results: Results) -> tuple[bool, str]:
     """Checks that Results contains all the tasks for the specified domain.
-    Uses the base task split by default.
+    Uses the base task split of the recorded language binding.
     """
-    domain = results.info.environment_info.domain_name
-    tasks_loader = registry.get_tasks_loader(domain)
-    tasks_for_split = tasks_loader("base")
-    domain_tasks = {task.id: task for task in tasks_for_split}
+    domain_tasks = {task.id: task for task in _expected_tasks(results)}
     results_tasks = {task.id: task for task in results.tasks}
     domains_tasks_ids = set(domain_tasks.keys())
     results_tasks_ids = set(results_tasks.keys())

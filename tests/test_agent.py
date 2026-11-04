@@ -28,6 +28,7 @@ def first_user_message():
     return UserMessage(content="Hello can you help me create a task?", role="user")
 
 
+@pytest.mark.live_api
 def test_agent(agent: LLMAgent, first_user_message: UserMessage):
     agent_state = agent.get_init_state()
     assert agent_state is not None
@@ -57,6 +58,7 @@ def test_agent_set_state(agent: LLMAgent, first_user_message: UserMessage):
     )
 
 
+@pytest.mark.live_api
 def test_solo_agent(solo_agent: LLMSoloAgent):
     agent_state = solo_agent.get_init_state()
     assert agent_state is not None

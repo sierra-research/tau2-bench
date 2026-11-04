@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import { getViewFromPath, HYPER_TAU_URL, LEADERBOARD_MENU, PAGE_META, SITE_ORIGIN, VIEW_PATHS } from './routes'
+import { getViewFromPath, HYPER_TAU_URL, LEADERBOARD_MENU, TAU_ENTITY_PATH, PAGE_META, SITE_ORIGIN, VIEW_PATHS } from './routes'
 import TrajectoryVisualizer from './components/TrajectoryVisualizer'
 import Leaderboard from './components/Leaderboard'
 import LeaderboardPreview from './components/LeaderboardPreview'
 import EvolutionTimeline from './components/EvolutionTimeline'
 import Blog from './components/Blog'
+import Community from './components/Community'
 
 // Update the document head to match the current view. The prerender step
 // (scripts/prerender.mjs) snapshots the DOM after this runs, which is how
@@ -217,6 +218,7 @@ function App() {
                     >
                       <span className="nav-dropdown-item-label">
                         <span className="nav-dropdown-item-name">{renderBenchName(item.label)}</span>
+                        {item.badge && <span className="nav-dropdown-badge">{item.badge}</span>}
                       </span>
                       <span className="nav-dropdown-item-note">{item.note}</span>
                     </button>
@@ -226,6 +228,7 @@ function App() {
             </div>
             <button onClick={() => navigateTo('trajectory-visualizer')} className={`nav-link ${currentView === 'trajectory-visualizer' ? 'active' : ''}`}>Visualizer</button>
             <button onClick={() => navigateTo('blog')} className={`nav-link ${currentView === 'blog' ? 'active' : ''}`}>Blog</button>
+            <button onClick={() => navigateTo('community')} className={`nav-link ${currentView === 'community' ? 'active' : ''}`}>Community</button>
             <a href="https://github.com/sierra-research/tau2-bench" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)}>GitHub</a>
             <a href="https://github.com/sierra-research/tau2-bench/blob/main/docs/leaderboard-submission.md" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)}>Submit Results</a>
           </div>
@@ -236,50 +239,63 @@ function App() {
       <div className="update-notification">
         <div className="notification-container">
           <span className="notification-badge">NEW</span>
-          <span className="notification-text">
-            τ<sup>τ</sup>-bench is here: can coding agents <em>build</em> the customer-service agents τ-bench evaluates?{' '}
-            <a href={HYPER_TAU_URL} className="notification-link" target="_blank" rel="noopener noreferrer"><strong>Explore the τ<sup>τ</sup>-bench leaderboard →</strong></a>
-          </span>
+          <div className="notification-announcements">
+            <a href={HYPER_TAU_URL} className="notification-link" target="_blank" rel="noopener noreferrer">
+              <strong>τ<sup>τ</sup></strong><span>Agents building agents →</span>
+            </a>
+            <span className="notification-divider" aria-hidden="true" />
+            <a href="/leaderboard?benchmark=voice" className="notification-link">
+              <strong>τ-i18n</strong><span>Voice agents across six languages →</span>
+            </a>
+            <span className="notification-divider" aria-hidden="true" />
+            <a href={TAU_ENTITY_PATH} className="notification-link">
+              <strong>τ-Entity</strong><span>Capturing entities over voice →</span>
+            </a>
+          </div>
         </div>
       </div>
 
-      {/* Conditional Content Rendering */}
-      {currentView === 'home' ? (
-        <>
-          {/* Hero Section */}
-          <section className="hero">
-            <div className="hero-container-vertical">
-              <div className="hero-content-vertical">
-                <div className="hero-title-section">
-                  <h1 className="hero-main-title">
-                    <span className="tau-symbol">τ</span>
-                    <span className="bench-text">-bench</span>
-                  </h1>
+      <main className="app-content">
+        {/* Conditional Content Rendering */}
+        {currentView === 'home' ? (
+          <>
+            {/* Hero Section */}
+            <section className="hero">
+              <div className="hero-container-vertical">
+                <div className="hero-content-vertical">
+                  <div className="hero-title-section">
+                    <h1 className="hero-main-title">
+                      <span className="tau-symbol">τ</span>
+                      <span className="bench-text">-bench</span>
+                    </h1>
+                  </div>
+
+                  <p className="hero-description">
+                    Can AI agents reliably complete real-world tasks?
+                    τ-bench measures how well agents converse with users, call tools,
+                    retrieve knowledge, and follow policy across enterprise domains — in text and voice.
+                  </p>
+
+                  <LeaderboardPreview
+                    onViewFullLeaderboard={() => navigateTo('leaderboard')}
+                    onNavigate={navigateToUrl}
+                  />
                 </div>
-
-                <p className="hero-description">
-                  Can AI agents reliably complete real-world tasks? 
-                  τ-bench measures how well agents converse with users, call tools, 
-                  retrieve knowledge, and follow policy across enterprise domains — in text and voice.
-                </p>
-
-                <LeaderboardPreview
-                  onViewFullLeaderboard={() => navigateTo('leaderboard')}
-                  onNavigate={navigateToUrl}
-                />
               </div>
-            </div>
-          </section>
+            </section>
 
-          <EvolutionTimeline />
-        </>
-      ) : currentView === 'leaderboard' ? (
-        <Leaderboard />
-      ) : currentView === 'trajectory-visualizer' ? (
-        <TrajectoryVisualizer />
-      ) : currentView === 'blog' ? (
-        <Blog />
-      ) : null}
+            <EvolutionTimeline />
+          </>
+        ) : currentView === 'leaderboard' ? (
+          <Leaderboard />
+        ) : currentView === 'trajectory-visualizer' ? (
+          <TrajectoryVisualizer />
+        ) : currentView === 'blog' ? (
+          <Blog />
+        ) : currentView === 'community' ? (
+          <Community />
+        ) : null}
+      </main>
 
       {/* Simple Footer */}
       <footer className="simple-footer">

@@ -9,14 +9,22 @@ simulation is re-run with feedback.
 Only full-duplex (tick-based) mode is supported for now.
 """
 
-import json
+from pydantic import BaseModel, Field
 
 from tau2.config import DEFAULT_LLM_EVAL_USER_SIMULATOR
 from tau2.data_model.message import SystemMessage, Tick, UserMessage
-from tau2.data_model.simulation import HallucinationCheck, HallucinationCheckError
+from tau2.data_model.simulation import (
+    HallucinationCheck,
+    HallucinationCheckError,
+    HallucinationReviewFailure,
+)
 from tau2.data_model.tasks import Task
 from tau2.utils.display import MarkdownDisplay
-from tau2.utils.llm_utils import extract_json_from_llm_response, generate
+from tau2.utils.llm_utils import (
+    LLMResponseValidationError,
+    extract_json_from_llm_response,
+    generate,
+)
 
 # =============================================================================
 # Prompts
@@ -78,12 +86,14 @@ The conversation is displayed in a consolidated format where:
 5. For each hallucination, explain what was fabricated and what the user should have said instead.
 
 # Output
-Think step-by-step FIRST in the "reasoning" field, then give your verdict.
+Check every factual claim. In "reasoning", summarize the evidence in at most four
+short sentences; put claim-specific detail in the "hallucinations" entries.
+Escape quotation marks and newlines within JSON strings.
 
 Structure your answer in the following JSON format:
 ```json
 {{
-    "reasoning": "<step-by-step analysis of the conversation: list every factual claim the user made, what source (if any) it maps to, and whether it checks out>",
+    "reasoning": "<brief evidence summary>",
     "hallucinations": [
         {{
             "reasoning": "<why this specific claim is fabricated — what source was checked and missing>",
@@ -95,7 +105,7 @@ Structure your answer in the following JSON format:
 }}
 ```
 
-- "reasoning": Your step-by-step fact-checking analysis. This MUST come before the hallucinations list.
+- "reasoning": A short evidence summary. This MUST come before the hallucinations list.
 - "hallucinations": List of hallucinations found. Empty list if none.
 - "summary": A brief summary of the fact-check.
 
@@ -118,6 +128,19 @@ FULL_DUPLEX_USER_PROMPT = """
 # Parsing
 # =============================================================================
 
+HALLUCINATION_REVIEW_PROMPT_VERSION = "2.0.0"
+HALLUCINATION_REVIEW_RESPONSE_VALIDATION_RETRIES = 3
+
+
+class HallucinationReviewResponse(BaseModel):
+    """Validated reply from the hallucination reviewer."""
+
+    reasoning: str = Field(description="Concise factual basis for the verdict.")
+    hallucinations: list[HallucinationCheckError] = Field(
+        description="Unsupported factual claims made by the user simulator."
+    )
+    summary: str = Field(description="Brief summary of the fact-check.")
+
 
 def _parse_hallucination_response(
     response: str,
@@ -129,25 +152,31 @@ def _parse_hallucination_response(
         Tuple of (reasoning, hallucination_found, list of HallucinationCheckError, summary)
     """
     json_str = extract_json_from_llm_response(response)
-    result_data = json.loads(json_str)
-    reasoning = result_data.get("reasoning", "")
-    summary = result_data.get("summary", "")
+    result = HallucinationReviewResponse.model_validate_json(json_str)
+    errors = result.hallucinations
+    return result.reasoning, bool(errors), errors, result.summary
 
-    errors: list[HallucinationCheckError] = []
-    hallucinations = result_data["hallucinations"]
-    if not isinstance(hallucinations, list):
-        raise ValueError("Reviewer hallucinations must be a list")
-    for h in hallucinations:
-        errors.append(
-            HallucinationCheckError(
-                reasoning=h.get("reasoning", ""),
-                user_message=h.get("user_message"),
-                correct_behavior=h.get("correct_behavior"),
-            )
-        )
 
-    hallucination_found = len(errors) > 0
-    return reasoning, hallucination_found, errors, summary
+def failed_hallucination_check(
+    error: Exception, review_model: str
+) -> HallucinationCheck:
+    """Record an unavailable verdict without claiming that the user was clean."""
+    raw_responses = (
+        error.raw_responses if isinstance(error, LLMResponseValidationError) else []
+    )
+    return HallucinationCheck(
+        hallucination_found=None,
+        review_status="failed",
+        review_failure=HallucinationReviewFailure(
+            error_type=type(error).__name__,
+            message=str(error),
+            raw_responses=raw_responses,
+        ),
+        summary="Hallucination review unavailable; scored simulation retained.",
+        review_model=review_model,
+        prompt_version=HALLUCINATION_REVIEW_PROMPT_VERSION,
+        response_validation_retries=HALLUCINATION_REVIEW_RESPONSE_VALIDATION_RETRIES,
+    )
 
 
 # =============================================================================
@@ -201,7 +230,9 @@ class FullDuplexHallucinationReviewer:
         assistant_message = generate(
             model=review_model,
             messages=messages,
-            call_name="llm_judge_hallucination_check",
+            call_name=f"llm_judge_hallucination_check_v{HALLUCINATION_REVIEW_PROMPT_VERSION}",
+            response_model=HallucinationReviewResponse,
+            response_validation_retries=HALLUCINATION_REVIEW_RESPONSE_VALIDATION_RETRIES,
         )
 
         # Invalid judge output is a review failure, never evidence of a clean user.
@@ -214,4 +245,7 @@ class FullDuplexHallucinationReviewer:
             errors=errors,
             summary=summary,
             cost=assistant_message.cost,
+            review_model=review_model,
+            prompt_version=HALLUCINATION_REVIEW_PROMPT_VERSION,
+            response_validation_retries=HALLUCINATION_REVIEW_RESPONSE_VALIDATION_RETRIES,
         )

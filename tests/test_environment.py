@@ -21,6 +21,57 @@ from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
 from tau2.evaluator.evaluator_env import EnvironmentEvaluator
 
 
+def test_rejected_tool_result_requires_error():
+    with pytest.raises(ValueError, match="error=True"):
+        ToolMessage(id="rejected", role="tool", execution_status="rejected")
+
+
+def test_replay_skips_only_explicit_pre_execution_rejections():
+    class FailingWriteToolkit(ToolKitBase):
+        def __init__(self):
+            self.val = 0
+
+        @is_tool(ToolType.WRITE)
+        def write_then_fail(self, value: int) -> str:
+            """Change state before reporting a tool failure.
+
+            Args:
+                value: Value to write before raising an error.
+            """
+            self.val = value
+            raise ValueError("Failed after writing")
+
+    tool_call = ToolCall(id="write", name="write_then_fail", arguments={"value": 3})
+    attempted = AssistantMessage(role="assistant", tool_calls=[tool_call])
+    executed_env = Environment(
+        domain_name="test", policy="", tools=FailingWriteToolkit()
+    )
+    executed_response = executed_env.get_response(tool_call)
+    assert executed_response.error
+    assert executed_response.execution_status == "executed"
+    assert executed_env.tools.val == 3
+
+    replayed_env = Environment(
+        domain_name="test", policy="", tools=FailingWriteToolkit()
+    )
+    replayed_env.set_state(None, None, [attempted, executed_response])
+    assert replayed_env.tools.val == 3
+
+    rejected = ToolMessage(
+        id="write",
+        role="tool",
+        content="Rejected before execution",
+        error=True,
+        execution_status="rejected",
+    )
+    restored = ToolMessage.model_validate_json(rejected.model_dump_json())
+    rejected_env = Environment(
+        domain_name="test", policy="", tools=FailingWriteToolkit()
+    )
+    rejected_env.set_state(None, None, [attempted, restored])
+    assert rejected_env.tools.val == 0
+
+
 @pytest.fixture
 def domain_name() -> str:
     return "mock_domain"

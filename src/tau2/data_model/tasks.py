@@ -620,6 +620,16 @@ class Task(BaseModel):
             default=None,
         ),
     ]
+    agent_opener: Annotated[
+        Optional[str],
+        Field(
+            description="Deterministic text of the agent's scripted first message. "
+            "Overrides the run-level greeting when set. In voice runs it seeds "
+            "the conversation with silence audio; otherwise it is the first "
+            "assistant text message. None preserves the default greeting.",
+            default=None,
+        ),
+    ]
 
     def __str__(self) -> str:
         lines = []

@@ -32,8 +32,8 @@ from typing import Optional
 
 from tau2.config import DEFAULT_LLM_EVAL_USER_SIMULATOR
 from tau2.data_model.persona import PersonaConfig
+from tau2.data_model.run_config import AudioNativeConfig
 from tau2.data_model.simulation import (
-    AudioNativeConfig,
     Results,
     RunConfig,
     SimulationRun,

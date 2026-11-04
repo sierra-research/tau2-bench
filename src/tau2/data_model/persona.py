@@ -2,7 +2,7 @@
 Persona configuration for user simulator behavior.
 
 IMPORTANT: User behavior/persona is controlled in THREE places:
-1. Global simulation guidelines (data/tau2/user_simulator/*.md) - Base behavior for all users
+1. Shared simulation scaffolds (tau2.user.guidelines) with the run's language pack persona
 2. Task-specific persona (UserScenario.persona field) - Baked into task JSON at creation time
 3. Runtime persona config (PersonaConfig, this file) - Configurable at simulation time
 
@@ -18,7 +18,7 @@ FUTURE: To support different persona attributes for text vs voice users, conside
 
 import random
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -59,7 +59,9 @@ class PersonaConfig(BaseModel):
     # technical_skill: TechnicalSkill = TechnicalSkill.AVERAGE
     # speech_quirks: list[str] = []
 
-    def to_guidelines_text(self) -> Optional[str]:
+    def to_guidelines_text(
+        self, mode: Literal["text", "voice"] = "text"
+    ) -> Optional[str]:
         """
         Convert persona config to additional guidelines text to append to system prompt.
         Returns None if no modifications needed (all defaults).

@@ -8,6 +8,7 @@ simulation execution is monkeypatched so no LLM is called.
 import json
 import time
 import uuid
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -15,11 +16,13 @@ from fastapi.testclient import TestClient
 
 from tau2.data_model.simulation import SimulationRun, TerminationReason, TextRunConfig
 from tau2.run import get_tasks
+from tau2.runner import controller as controller_mod
 from tau2.runner import worker as worker_mod
 from tau2.runner.batch import prepare_batch
 from tau2.runner.controller import Controller, ControllerRun
 from tau2.runner.work import WorkUnit
 from tau2.runner.worker import ControllerClient, worker_loop
+from tau2.utils.errors import NonRetryableError
 
 
 def _make_config(**overrides) -> TextRunConfig:
@@ -85,6 +88,78 @@ def _client(ctrl: Controller) -> httpx.Client:
 def _load_sims(save_path) -> list[dict]:
     with open(save_path) as f:
         return json.load(f)["simulations"]
+
+
+def test_worker_reports_fatal_error_and_stops_all_further_leases(
+    controller, monkeypatch
+):
+    calls = []
+
+    def fail(body):
+        calls.append(body["unit"]["unit_id"])
+        raise NonRetryableError("incompatible server protocol")
+
+    monkeypatch.setattr(worker_mod, "execute_lease", fail)
+    with _client(controller) as http_client:
+        client = ControllerClient(client=http_client)
+        with pytest.raises(NonRetryableError, match="incompatible server protocol"):
+            worker_loop(client, worker_id="w1", slots=1, poll_interval=0.01)
+        assert client.lease("w2")["status"] == "failed"
+
+    assert len(calls) == 1
+    assert controller.fatal_error == "NonRetryableError: incompatible server protocol"
+    assert _load_sims(controller.save_path) == []
+
+
+def test_stale_worker_cannot_abort_controller(controller):
+    unit = controller.handle_lease("current")["unit"]
+    assert controller.handle_fail("stale", unit["unit_id"], "fatal", fatal=True) == {
+        "status": "stale"
+    }
+    assert controller.fatal_error is None
+
+
+def test_driver_surfaces_fatal_error_and_stops_workers(
+    controller, monkeypatch, tmp_path
+):
+    run = next(iter(controller.runs.values()))
+    monkeypatch.setattr(controller_mod.ControllerRun, "from_prep", lambda *args: run)
+    monkeypatch.setattr(
+        controller_mod, "Controller", lambda *args, **kwargs: controller
+    )
+    monkeypatch.setattr(controller_mod, "_free_port", lambda host: 1234)
+    server = SimpleNamespace(should_exit=False)
+    monkeypatch.setattr(controller_mod, "_start_server", lambda *args: server)
+
+    class Process:
+        stopped = False
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            self.stopped = True
+
+    process = Process()
+
+    def start_worker(*args):
+        unit = controller.handle_lease("w1")["unit"]
+        controller.handle_fail(
+            "w1", unit["unit_id"], "incompatible server protocol", fatal=True
+        )
+        return process
+
+    monkeypatch.setattr(controller_mod, "_spawn_worker", start_worker)
+    with pytest.raises(NonRetryableError, match="incompatible server protocol"):
+        controller_mod.drive_batches(
+            [SimpleNamespace(run_id=run.run_id)],
+            workers=1,
+            slots=1,
+            worker_log_dir=tmp_path,
+        )
+    assert process.stopped
+    assert server.should_exit
+    assert _load_sims(controller.save_path) == []
 
 
 class TestControllerHttpContract:

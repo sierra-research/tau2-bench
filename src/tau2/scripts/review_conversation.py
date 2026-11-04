@@ -46,7 +46,7 @@ from tau2.data_model.simulation import (
     SimulationRun,
     UserOnlyReview,
 )
-from tau2.data_model.tasks import Task
+from tau2.data_model.tasks import StructuredUserInstructions, Task
 from tau2.evaluator.auth_classifier import display_auth_classification
 from tau2.evaluator.review_llm_judge_user_only import UserOnlyReviewer
 from tau2.evaluator.reviewer import ReviewMode, review_simulation
@@ -184,6 +184,27 @@ def get_user_visible_trajectory_string(simulation: SimulationRun) -> str:
         return MarkdownDisplay.display_messages(messages)
 
 
+def _recorded_review_task(
+    simulation: SimulationRun, task: Task, results: Results
+) -> Task:
+    """Restore an elicitation caller's recorded instruction for post-hoc review.
+
+    Saved tasks omit per-call complications. Read the saved stimulus verbatim;
+    current catalogs, prompts, and domain registrations do not describe a past
+    call. Prompt-silent pronunciation stimuli remain provenance only.
+    """
+    stimulus = simulation.complication
+    if results.info.elicitation is None or stimulus is None or not stimulus.injected:
+        return task
+    prompted = task.model_copy(deep=True)
+    instructions = prompted.user_scenario.instructions
+    if isinstance(instructions, StructuredUserInstructions):
+        instructions.task_instructions += f"\n\n{stimulus.line}"
+    else:
+        prompted.user_scenario.instructions = f"{instructions}\n\n{stimulus.line}"
+    return prompted
+
+
 # =============================================================================
 # Full Review (Agent + User)
 # =============================================================================
@@ -204,11 +225,20 @@ def review_simulation_full(
     """
     if not results.info or not results.info.user_info:
         raise ValueError("results.info.user_info is required for review")
-    if not results.info.environment_info or not results.info.environment_info.policy:
-        raise ValueError("results.info.environment_info.policy is required for review")
 
-    user_info = results.info.user_info
-    policy = results.info.environment_info.policy
+    from tau2.multilingual.runtime import recorded_review_user_info
+
+    user_info = recorded_review_user_info(
+        results.info, task, context=simulation.language_context
+    )
+    policy = (
+        results.info.environment_info.policy if results.info.environment_info else None
+    )
+    if results.info.elicitation is not None and simulation.policy is not None:
+        policy = simulation.policy
+    if not policy:
+        raise ValueError("A recorded agent policy is required for full review")
+    task = _recorded_review_task(simulation, task, results)
     trajectory = get_full_trajectory_string(simulation)
 
     review, auth_classification = review_simulation(
@@ -433,7 +463,12 @@ def review_simulation_user(
     if not results.info or not results.info.user_info:
         raise ValueError("results.info.user_info is required for review")
 
-    user_info = results.info.user_info
+    from tau2.multilingual.runtime import recorded_review_user_info
+
+    user_info = recorded_review_user_info(
+        results.info, task, context=simulation.language_context
+    )
+    task = _recorded_review_task(simulation, task, results)
     trajectory = get_user_visible_trajectory_string(simulation)
 
     review, _ = review_simulation(

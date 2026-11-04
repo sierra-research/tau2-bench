@@ -1,0 +1,212 @@
+{
+  "$defs": {
+    "Pass3Cell": {
+      "additionalProperties": false,
+      "description": "Crossed Pass^3 over one language-domain cell.",
+      "properties": {
+        "language": {
+          "minLength": 1,
+          "title": "Language",
+          "type": "string"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "sources": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "SHA-256 of each condition's results.json, by label.",
+          "title": "Sources",
+          "type": "object"
+        },
+        "tasks": {
+          "items": {
+            "$ref": "#/$defs/Pass3Task"
+          },
+          "title": "Tasks",
+          "type": "array"
+        },
+        "scored_tasks": {
+          "description": "Tasks with a reward in every condition.",
+          "minimum": 0,
+          "title": "Scored Tasks",
+          "type": "integer"
+        },
+        "passed_all": {
+          "description": "Tasks passed in all three.",
+          "minimum": 0,
+          "title": "Passed All",
+          "type": "integer"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "passed_all / scored_tasks; null with no scored task.",
+          "title": "Score"
+        }
+      },
+      "required": [
+        "language",
+        "domain",
+        "sources",
+        "tasks",
+        "scored_tasks",
+        "passed_all",
+        "score"
+      ],
+      "title": "Pass3Cell",
+      "type": "object"
+    },
+    "Pass3Task": {
+      "additionalProperties": false,
+      "description": "One frame task's outcome in each condition, in R/C/S order.",
+      "properties": {
+        "canonical_task_id": {
+          "minLength": 1,
+          "title": "Canonical Task Id",
+          "type": "string"
+        },
+        "passes": {
+          "description": "Reward 1.0 per condition; null is an infrastructure error.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          ],
+          "title": "Passes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "canonical_task_id",
+        "passes"
+      ],
+      "title": "Pass3Task",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "benchmark-pass3.json in a voice-v2-entity leaderboard package: each task's outcome in the three crossed voice conditions and the Pass^3 score. Auto-generated from src/tau2/scripts/leaderboard/benchmark_pass3.py \u2014 do not edit by hand.",
+  "properties": {
+    "schema_version": {
+      "const": "benchmark-pass3-v1",
+      "default": "benchmark-pass3-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "benchmark_version": {
+      "title": "Benchmark Version",
+      "type": "string"
+    },
+    "frame_revision": {
+      "title": "Frame Revision",
+      "type": "string"
+    },
+    "pass3_version": {
+      "const": "voice-v2-rcs-v3",
+      "default": "voice-v2-rcs-v3",
+      "title": "Pass3 Version",
+      "type": "string"
+    },
+    "conditions": {
+      "default": [
+        "regular",
+        "channel_heavy",
+        "speech_heavy"
+      ],
+      "maxItems": 3,
+      "minItems": 3,
+      "prefixItems": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Conditions",
+      "type": "array"
+    },
+    "cells": {
+      "items": {
+        "$ref": "#/$defs/Pass3Cell"
+      },
+      "title": "Cells",
+      "type": "array"
+    },
+    "scored_tasks": {
+      "minimum": 0,
+      "title": "Scored Tasks",
+      "type": "integer"
+    },
+    "passed_all": {
+      "minimum": 0,
+      "title": "Passed All",
+      "type": "integer"
+    },
+    "score": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Equal-cell mean of cell scores; null unless all scored.",
+      "title": "Score"
+    }
+  },
+  "required": [
+    "benchmark_version",
+    "frame_revision",
+    "cells",
+    "scored_tasks",
+    "passed_all",
+    "score"
+  ],
+  "title": "Tau2-Bench 2.0 Package Crossed Pass^3",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

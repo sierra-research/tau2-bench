@@ -1,4 +1,4 @@
-from typing import Generic, Optional, Tuple, TypeVar
+from typing import Generic, Literal, Optional, Tuple, TypeVar
 
 from loguru import logger
 
@@ -14,6 +14,7 @@ from tau2.data_model.message import (
 )
 from tau2.data_model.persona import PersonaConfig
 from tau2.environment.tool import Tool
+from tau2.user.guidelines import finalize_system_prompt, simulation_guidelines
 from tau2.user.user_simulator_base import (
     OUT_OF_SCOPE,
     STOP,
@@ -23,66 +24,7 @@ from tau2.user.user_simulator_base import (
     ValidUserInputMessage,
     is_valid_user_history_message,
 )
-from tau2.utils import DATA_DIR
 from tau2.utils.llm_utils import generate
-
-GLOBAL_USER_SIM_GUIDELINES_DIR = DATA_DIR / "tau2" / "user_simulator"
-
-
-GLOBAL_USER_SIM_GUIDELINES_PATH = (
-    GLOBAL_USER_SIM_GUIDELINES_DIR / "simulation_guidelines.md"
-)
-
-GLOBAL_USER_SIM_GUIDELINES_PATH_TOOLS = (
-    GLOBAL_USER_SIM_GUIDELINES_DIR / "simulation_guidelines_tools.md"
-)
-
-GLOBAL_USER_SIM_GUIDELINES_PATH_VOICE = (
-    GLOBAL_USER_SIM_GUIDELINES_DIR / "simulation_guidelines_voice.md"
-)
-
-GLOBAL_USER_SIM_GUIDELINES_PATH_VOICE_TOOLS = (
-    GLOBAL_USER_SIM_GUIDELINES_DIR / "simulation_guidelines_voice_tools.md"
-)
-
-
-def get_global_user_sim_guidelines(use_tools: bool = False) -> str:
-    """
-    Get the global user simulator guidelines.
-
-    Args:
-        use_tools: Whether to use the tools guidelines.
-
-    Returns:
-        The global user simulator guidelines.
-    """
-    if use_tools:
-        with open(GLOBAL_USER_SIM_GUIDELINES_PATH_TOOLS, "r") as fp:
-            user_sim_guidelines = fp.read()
-    else:
-        with open(GLOBAL_USER_SIM_GUIDELINES_PATH, "r") as fp:
-            user_sim_guidelines = fp.read()
-    return user_sim_guidelines
-
-
-def get_global_user_sim_guidelines_voice(use_tools: bool = False) -> str:
-    """
-    Get the global user simulator guidelines for voice mode.
-
-    Args:
-        use_tools: Whether to use the tools guidelines.
-
-    Returns:
-        The global user simulator guidelines for voice mode.
-    """
-    if use_tools:
-        with open(GLOBAL_USER_SIM_GUIDELINES_PATH_VOICE_TOOLS, "r") as fp:
-            user_sim_guidelines = fp.read()
-    else:
-        with open(GLOBAL_USER_SIM_GUIDELINES_PATH_VOICE, "r") as fp:
-            user_sim_guidelines = fp.read()
-    return user_sim_guidelines
-
 
 SYSTEM_PROMPT = """
 {global_user_sim_guidelines_with_persona}
@@ -91,6 +33,26 @@ SYSTEM_PROMPT = """
 {instructions}
 </scenario>
 """.strip()
+
+
+def build_user_system_prompt(
+    instructions: Optional[str],
+    *,
+    persona_config: PersonaConfig,
+    mode: Literal["text", "voice"],
+    guidelines: str,
+) -> str:
+    """Assemble caller instructions identically for runtime and offline review."""
+    persona_guidelines = persona_config.to_guidelines_text(mode=mode) or ""
+    if persona_guidelines:
+        persona_guidelines = f"\n\n{persona_guidelines}\n"
+    prompt = SYSTEM_PROMPT.format(
+        global_user_sim_guidelines_with_persona=guidelines.replace(
+            "<PERSONA_GUIDELINES>", persona_guidelines
+        ),
+        instructions=instructions,
+    )
+    return finalize_system_prompt(persona_config, prompt)
 
 
 UserStateType = TypeVar("UserStateType", bound="UserState")
@@ -104,7 +66,7 @@ class UserSimulator(
     The runtime persona_config adds additional behavioral guidelines on top of the global
     and task-specific settings.
     Note: User behavior/persona is controlled in THREE places, and they need to be consistent / non-overlapping.
-    1. Global simulation guidelines (data/tau2/user_simulator/*.md) - Base behavior for all users
+    1. Shared simulation scaffolds (tau2.user.guidelines) rendered with the run's language pack persona
     2. Task-specific persona (UserScenario.persona field) - Baked into task JSON at creation time
     3. Runtime persona config (persona_config parameter) - Configurable at simulation time
     """
@@ -118,6 +80,7 @@ class UserSimulator(
         persona_config: Optional[
             PersonaConfig
         ] = None,  # TODO: Should this be pushed to the base class?
+        global_guidelines_override: Optional[str] = None,
     ):
         super().__init__(
             instructions=instructions,
@@ -126,40 +89,36 @@ class UserSimulator(
             llm_args=llm_args,
         )
         self.persona_config = persona_config or PersonaConfig()
+        self.global_guidelines_override = global_guidelines_override
+
+    @property
+    def simulation_mode(self) -> Literal["text", "voice"]:
+        """Communication mode shared by scaffold and persona rendering."""
+        return "text"
 
     @property
     def global_simulation_guidelines(self) -> str:
         """
         The simulation guidelines for the user simulator.
         """
-        use_tools = self.tools is not None
-        return get_global_user_sim_guidelines(use_tools=use_tools)
+        return simulation_guidelines(
+            self.persona_config,
+            mode=self.simulation_mode,
+            use_tools=self.tools is not None,
+            override=self.global_guidelines_override,
+        )
 
     @property
     def system_prompt(self) -> str:
-        """
-        The system prompt for the user simulator.
-        """
+        """The complete caller prompt, including persona and task instructions."""
         if self.instructions is None:
             logger.warning("No instructions provided for user simulator")
-
-        guidelines = self.global_simulation_guidelines
-
-        # Check if persona config adds any guidelines
-        persona_guidelines = self.persona_config.to_guidelines_text()
-        if persona_guidelines is None:
-            persona_guidelines = ""
-        if persona_guidelines:
-            persona_guidelines = f"\n\n{persona_guidelines}\n"
-        guidelines_with_persona = guidelines.replace(
-            "<PERSONA_GUIDELINES>", persona_guidelines
+        return build_user_system_prompt(
+            self.instructions,
+            persona_config=self.persona_config,
+            mode=self.simulation_mode,
+            guidelines=self.global_simulation_guidelines,
         )
-
-        system_prompt = SYSTEM_PROMPT.format(
-            global_user_sim_guidelines_with_persona=guidelines_with_persona,
-            instructions=self.instructions,
-        )
-        return system_prompt
 
     def get_init_state(
         self, message_history: Optional[list[Message]] = None

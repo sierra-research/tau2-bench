@@ -48,6 +48,7 @@ from tau2.data_model.usage import UsageRecord
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.adapter import DiscreteTimeAdapter
 from tau2.voice.audio_native.async_loop import BackgroundAsyncLoop
+from tau2.voice.audio_native.languages import xai_language_hint
 from tau2.voice.audio_native.tick_result import (
     TickResult,
     UtteranceTranscript,
@@ -100,6 +101,7 @@ class DiscreteTimeXAIAdapter(DiscreteTimeAdapter):
         reasoning_effort: Optional[str] = None,
         provider: Optional[XAIRealtimeProvider] = None,
         voice: str = DEFAULT_XAI_VOICE,
+        language: Optional[str] = None,
     ):
         """Initialize the discrete-time xAI adapter.
 
@@ -112,6 +114,7 @@ class DiscreteTimeXAIAdapter(DiscreteTimeAdapter):
                 ("high") applies.
             provider: Optional provider instance. Created lazily if not provided.
             voice: Voice to use (lowercase voice ID). Default: ara.
+            language: Resolved run language, mapped to the ASR language hint.
         """
         if reasoning_effort is not None and reasoning_effort not in ("high", "none"):
             raise ValueError(
@@ -126,6 +129,7 @@ class DiscreteTimeXAIAdapter(DiscreteTimeAdapter):
         self.model = model or DEFAULT_XAI_MODEL
         self.reasoning_effort = reasoning_effort
         self.voice = voice
+        self.language = language
 
         # Provider - created lazily if not provided
         self._provider = provider
@@ -145,6 +149,7 @@ class DiscreteTimeXAIAdapter(DiscreteTimeAdapter):
             self._provider = XAIRealtimeProvider(
                 model=self.model,
                 voice=self.voice,
+                language_hint=(xai_language_hint(self.language)),
                 audio_format=XAIAudioFormat.PCMU,  # G.711 μ-law
             )
         return self._provider

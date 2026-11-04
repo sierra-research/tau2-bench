@@ -1,6 +1,6 @@
 """Voice-enabled user simulator with synthesis capabilities."""
 
-from typing import Optional
+from typing import Literal, Optional
 
 from tau2.agent.base.voice import VoiceMixin, VoiceState
 from tau2.data_model.audio import PCM_SAMPLE_RATE
@@ -13,10 +13,7 @@ from tau2.data_model.persona import PersonaConfig
 from tau2.data_model.tasks import UserInstructions
 from tau2.data_model.voice import VoiceSettings
 from tau2.environment.tool import Tool
-from tau2.user.user_simulator import (
-    UserSimulator,
-    get_global_user_sim_guidelines_voice,
-)
+from tau2.user.user_simulator import UserSimulator
 from tau2.user.user_simulator_base import (
     UserState,
     ValidUserInputMessage,
@@ -68,12 +65,9 @@ class VoiceUserSimulator(
             raise ValueError("Voice synthesis must be enabled for user simulator")
 
     @property
-    def global_simulation_guidelines(self) -> str:
-        """
-        The voice-specific simulation guidelines for the user simulator.
-        """
-        use_tools = self.tools is not None
-        return get_global_user_sim_guidelines_voice(use_tools=use_tools)
+    def simulation_mode(self) -> Literal["text", "voice"]:
+        """Use voice guidance for both the scaffold and persona content."""
+        return "voice"
 
     def get_init_state(
         self, message_history: Optional[list[Message]] = None

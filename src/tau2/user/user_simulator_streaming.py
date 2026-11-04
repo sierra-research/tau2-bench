@@ -4,29 +4,35 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from contextvars import copy_context
 from copy import deepcopy
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from loguru import logger
 
 from tau2.agent.base.llm_config import LLMConfigMixin
 from tau2.agent.base.streaming import (
     AudioChunkingMixin,
-    LinearizationStrategy,
     ListenerReactionDecision,
     StreamingState,
     TurnTakingAction,
     basic_turn_taking_policy,
-    merge_homogeneous_chunks,
 )
 from tau2.agent.base.voice import VoiceMixin, VoiceState
-from tau2.config import VOICE_USER_SIMULATOR_DECISION_MODEL
+from tau2.backchannel import BackchannelSettings, default_backchannel_settings
+from tau2.config import (
+    VOICE_USER_SIMULATOR_DECISION_MODEL,
+    VOICE_USER_SIMULATOR_DECISION_MODEL_ARGS,
+)
 from tau2.data_model.audio import (
     PCM_SAMPLE_RATE,
     AudioData,
     AudioEncoding,
     audio_bytes_to_string,
 )
-from tau2.data_model.audio_effects import ChannelEffectsResult, EffectTimeline
+from tau2.data_model.audio_effects import (
+    ChannelEffectsResult,
+    EffectTimeline,
+    SpellOutDetection,
+)
 from tau2.data_model.message import (
     AssistantMessage,
     EnvironmentMessage,
@@ -36,9 +42,11 @@ from tau2.data_model.message import (
     UserMessage,
 )
 from tau2.data_model.persona import InterruptTendency, PersonaConfig
+from tau2.data_model.transcript import LinearizationStrategy
 from tau2.data_model.voice import VoiceSettings
 from tau2.environment.tool import Tool
-from tau2.user.user_simulator import SYSTEM_PROMPT, get_global_user_sim_guidelines_voice
+from tau2.user.guidelines import simulation_guidelines
+from tau2.user.user_simulator import build_user_system_prompt
 from tau2.user.user_simulator_base import (
     OUT_OF_SCOPE,
     STOP,
@@ -48,6 +56,7 @@ from tau2.user.user_simulator_base import (
     ValidUserInputMessage,
 )
 from tau2.utils.llm_utils import generate
+from tau2.utils.transcript.linearization import merge_homogeneous_chunks
 from tau2.utils.utils import get_now
 from tau2.voice.synthesis.audio_effects.effects import StreamingTelephonyConverter
 from tau2.voice.synthesis.audio_effects.processor import (
@@ -61,7 +70,6 @@ from tau2.voice.synthesis.audio_effects.speech_generator import (
 )
 from tau2.voice.utils.audio_tap import AudioTap
 from tau2.voice_config import (
-    BACKCHANNEL_PHRASES,
     resolve_background_noise_path,
     resolve_burst_noise_paths,
 )
@@ -90,124 +98,6 @@ Consider:
 Respond with ONLY "YES" if the user should interrupt now, or "NO" if they should keep listening.
 """
 # - Is the agent currently in the middle of a sentence which seems to be "filler" sentence with not much additional information?
-
-
-# Prompt for backchannel decision - CONTINUER version (separate from interruption).
-# Continuers are brief sounds ("uh-huh", "mm-hmm") that signal attention without responding to content.
-BACKCHANNEL_DECISION_PROMPT_CONTINUER = """You simulate a natural listener who occasionally says "uh-huh" or "mm-hmm" to show they're following along.
-
-<conversation_history>
-{conversation_history}
-</conversation_history>
-
-The agent is still speaking [CURRENTLY SPEAKING, INCOMPLETE]. Ignore the trailing incomplete word/phrase — focus only on the COMPLETE sentences delivered so far in the agent's current turn.
-
-Continuers ("uh-huh", "mm-hmm", "yeah") are brief sounds that mean "I'm listening, keep going." They:
-- Happen naturally during extended speech
-- Show engagement without interrupting
-- Are NOT responses to specific content — just signals of attention
-
-Say YES if:
-- The agent has completed at least 2 full, substantive sentences in their current turn
-  (Short phrases like "Thanks for your patience" or "Let me check on that" don't count as substantive)
-- The user hasn't spoken or backchanneled recently (check the last 3 exchanges for ANY user sound including "mm-hmm", "uh-huh", "okay")
-- It would feel natural to briefly signal "I'm still here"
-
-Say NO if:
-- The agent just started speaking (fewer than 2 substantive sentences)
-- The user spoke OR backchanneled within the last 2-3 exchanges
-- The agent's current turn contains or ends with a question
-- The agent is wrapping up or about to finish their thought
-
-Frequency guidance:
-- Continuers are occasional, not constant
-- Even when conditions seem right, real listeners only backchannel sometimes
-- Aim for roughly 1 continuer per 4-6 sentences of extended agent speech
-- When in doubt, say NO — silence is also natural
-- Too few continuers is better than too many
-
-Examples:
-
-AGENT: "Hi there! How can I hel [CURRENTLY SPEAKING, INCOMPLETE]"
-→ NO (just started)
-
-AGENT: "Thanks for your patience. [CURRENTLY SPEAKING, INCOMPLETE]"
-→ NO (only 1 short sentence, not substantive enough)
-
-AGENT: "Sure, I can help with that. First I'll need to verify your account. Could you provide your email or your name and zi [CURRENTLY SPEAKING, INCOMPLETE]"
-→ NO (agent is asking a question)
-
-AGENT: "No problem. We can use your name and zip code instead. Let me look that up for you. I'll check our system now and see if I can fin [CURRENTLY SPEAKING, INCOMPLETE]"
-→ YES (3 substantive sentences, agent explaining process)
-
-AGENT: "I found your order. It includes a keyboard, thermostat, and headphones. The order was delivered last Tuesday. Now for the exchange, we have a few opti [CURRENTLY SPEAKING, INCOMPLETE]"
-→ YES (extended explanation with specific details)
-
-[If user said "mm-hmm" 2 exchanges ago]
-AGENT: "...and those are the available options. Now I'll need your input on which [CURRENTLY SPEAKING, INCOMPLETE]"
-→ NO (user backchanneled recently, don't do it again so soon)
-
-Respond with ONLY "YES" or "NO".
-"""
-
-# Alias for backward compatibility (default is continuer version)
-BACKCHANNEL_DECISION_PROMPT = BACKCHANNEL_DECISION_PROMPT_CONTINUER
-
-# Alternative prompt focused on acknowledgments (responding to specific content)
-# Acknowledgments are content-driven responses ("ok", "got it") to specific information.
-# NOTE: THIS IS HERE FOR EXPERIMENTAL PURPOSES. ACKNOWLEDGEMENT WIHTOUT ACCESS TO THE FULL USER INSTRUCTIONS IS RISKY!
-BACKCHANNEL_DECISION_PROMPT_ACKNOWLEDGMENT = """You simulate a natural listener who briefly acknowledges when the speaker shares important information.
-
-<conversation_history>
-{conversation_history}
-</conversation_history>
-
-The agent is still speaking [CURRENTLY SPEAKING, INCOMPLETE]. Ignore the trailing incomplete word/phrase — focus only on the COMPLETE sentences delivered so far in the agent's current turn.
-
-Acknowledgments ("ok", "got it", "I see", "right") are brief responses that confirm you understood something specific. They:
-- React to meaningful information (confirmations, prices, instructions, findings)
-- Show you processed what was said
-- Are content-driven, not just signals of attention
-
-Say YES if the agent just completed a statement containing:
-- A confirmation ("I found your account", "The exchange has been processed")
-- A price or cost ("That will be $249", "The refund is $13.46")
-- Important information ("Your order includes...", "The status is delivered")
-- An instruction or next step ("You'll receive an email with...")
-AND the user hasn't acknowledged recently (last 2-3 exchanges)
-
-Say NO if:
-- The agent just started speaking (no complete meaningful statement yet)
-- The user recently spoke or acknowledged
-- The agent is asking a question
-- The agent is giving routine/filler speech (greetings, "let me check", transitions)
-
-Frequency guidance:
-- Acknowledgments should feel purposeful, not automatic
-- Only acknowledge genuinely important information
-- Aim for 1 acknowledgment per significant piece of information shared
-- When in doubt, say NO — not every statement needs acknowledgment
-- Too few acknowledgments is better than too many
-
-Examples:
-
-AGENT: "Hi there! How can I hel [CURRENTLY SPEAKING, INCOMPLETE]"
-→ NO (greeting, nothing to acknowledge)
-
-AGENT: "Let me look that up for you. I'll check our system now and see if I can fin [CURRENTLY SPEAKING, INCOMPLETE]"
-→ NO (routine transition, nothing substantive to acknowledge)
-
-AGENT: "I found your account. Your order number is W2378156. It includes a keyboard and thermosta [CURRENTLY SPEAKING, INCOMPLETE]"
-→ YES (agent confirmed finding account and shared order details — worth an "ok" or "got it")
-
-AGENT: "The exchange has been processed. The refund of $13.46 will go to your card ending in 2478. You'll receive an ema [CURRENTLY SPEAKING, INCOMPLETE]"
-→ YES (confirmation + price + next steps — natural moment for "ok" or "I see")
-
-AGENT: "Could you please spell your last name letter by lett [CURRENTLY SPEAKING, INCOMPLETE]"
-→ NO (agent is asking a question)
-
-Respond with ONLY "YES" or "NO".
-"""
 
 
 class UserStreamingState(UserState, StreamingState[ValidUserInputMessage, UserMessage]):
@@ -261,6 +151,8 @@ def user_interruption_policy(
 
     Args:
         state: The current streaming state
+        backchannel: The call's density level and continuers, rendered into
+            the shared decision template.
         integration_ticks: Number of consecutive silent ticks before an overlap region ends
             during linearization. Higher values are more tolerant of brief pauses. Default is 1.
 
@@ -296,6 +188,7 @@ def user_interruption_policy(
             model=VOICE_USER_SIMULATOR_DECISION_MODEL,
             messages=decision_messages,
             call_name="interruption_decision",
+            **VOICE_USER_SIMULATOR_DECISION_MODEL_ARGS,
         )
 
         decision_text = response.content.strip().upper()
@@ -317,6 +210,7 @@ def user_interruption_policy(
 
 def user_backchannel_policy(
     state: UserStreamingState,
+    backchannel: BackchannelSettings,
     integration_ticks: int = 1,
 ) -> ListenerReactionDecision:
     """
@@ -329,6 +223,8 @@ def user_backchannel_policy(
 
     Args:
         state: The current streaming state
+        backchannel: The call's density level and continuers, rendered into
+            the shared decision template.
         integration_ticks: Number of consecutive silent ticks before an overlap region ends
             during linearization. Higher values are more tolerant of brief pauses. Default is 1.
 
@@ -352,9 +248,7 @@ def user_backchannel_policy(
     logger.info(f"CHECKING BACKCHANNEL:\nSent to LLM:\n{formatted_history}\n\n\n")
 
     # Build the prompt for backchannel decision using template
-    decision_prompt = BACKCHANNEL_DECISION_PROMPT.format(
-        conversation_history=formatted_history
-    )
+    decision_prompt = backchannel.decision_prompt(formatted_history)
 
     # Create messages for LLM call
     decision_messages = [UserMessage(role="user", content=decision_prompt)]
@@ -364,6 +258,7 @@ def user_backchannel_policy(
             model=VOICE_USER_SIMULATOR_DECISION_MODEL,
             messages=decision_messages,
             call_name="backchannel_decision",
+            **VOICE_USER_SIMULATOR_DECISION_MODEL_ARGS,
         )
 
         decision_text = response.content.strip().upper()
@@ -449,6 +344,10 @@ class VoiceStreamingUserSimulator(
         persona_config: Optional[PersonaConfig] = None,
         audio_taps_dir: Optional["Path"] = None,
         realtime_generation: bool = False,
+        global_guidelines_override: Optional[str] = None,
+        role_reminder_override: Optional[str] = None,
+        spell_event_detector: Optional[Callable[[str], list[SpellOutDetection]]] = None,
+        backchannel: Optional[BackchannelSettings] = None,
     ):
         """
         Initialize the streaming user simulator.
@@ -477,6 +376,8 @@ class VoiceStreamingUserSimulator(
             tick_duration_seconds: Duration of each tick in seconds. Used for backchanneling Poisson calculations.
             voice_settings: Voice settings for the user.
             persona_config: Runtime persona configuration for user behavior (e.g., verbosity level, interrupt tendency)
+            backchannel: Density level and continuers of the call language; None
+                uses the canonical English pack's.
             audio_taps_dir: If set, record audio at each pipeline stage to WAV files in this directory.
         """
         # Initialize mixin and base class
@@ -489,6 +390,10 @@ class VoiceStreamingUserSimulator(
             voice_settings=voice_settings,
         )
         self.persona_config = persona_config or PersonaConfig()
+        self.backchannel = backchannel or default_backchannel_settings()
+        self.global_guidelines_override = global_guidelines_override
+        self.role_reminder_override = role_reminder_override
+        self.spell_event_detector = spell_event_detector
         self.integration_ticks = integration_ticks
         self.silence_annotation_threshold_ticks = silence_annotation_threshold_ticks
         self.tick_duration_seconds = tick_duration_seconds
@@ -634,32 +539,24 @@ class VoiceStreamingUserSimulator(
     @property
     def global_simulation_guidelines(self) -> str:
         """The voice-specific simulation guidelines for the user simulator."""
-        use_tools = self.tools is not None
-        return get_global_user_sim_guidelines_voice(use_tools=use_tools)
+        return simulation_guidelines(
+            self.persona_config,
+            mode="voice",
+            use_tools=self.tools is not None,
+            override=self.global_guidelines_override,
+        )
 
     @property
     def system_prompt(self) -> str:
-        """The system prompt for the user simulator."""
+        """The complete caller prompt, including persona and task instructions."""
         if self.instructions is None:
             logger.warning("No instructions provided for user simulator")
-
-        guidelines = self.global_simulation_guidelines
-
-        # Check if persona config adds any guidelines
-        persona_guidelines = self.persona_config.to_guidelines_text()
-        if persona_guidelines is None:
-            persona_guidelines = ""
-        if persona_guidelines:
-            persona_guidelines = f"\n\n{persona_guidelines}\n"
-        guidelines_with_persona = guidelines.replace(
-            "<PERSONA_GUIDELINES>", persona_guidelines
+        return build_user_system_prompt(
+            self.instructions,
+            persona_config=self.persona_config,
+            mode="voice",
+            guidelines=self.global_simulation_guidelines,
         )
-
-        system_prompt = SYSTEM_PROMPT.format(
-            global_user_sim_guidelines_with_persona=guidelines_with_persona,
-            instructions=self.instructions,
-        )
-        return system_prompt
 
     @classmethod
     def is_stop(cls, message: UserMessage) -> bool:
@@ -745,6 +642,7 @@ class VoiceStreamingUserSimulator(
             create_streaming_audio_generators(
                 synthesis_config=synthesis_config,
                 persona_name=speech_env.persona_name,
+                voice_id=speech_env.voice_id,
                 sample_rate=PCM_SAMPLE_RATE,
                 background_noise_file=background_noise_file,
             )
@@ -893,7 +791,9 @@ class VoiceStreamingUserSimulator(
             def should_backchannel_callback(
                 s: UserStreamingState,
             ) -> ListenerReactionDecision:
-                return user_backchannel_policy(s, integration_ticks=integration_ticks)
+                return user_backchannel_policy(
+                    s, self.backchannel, integration_ticks=integration_ticks
+                )
 
         action, info = basic_turn_taking_policy(
             state,
@@ -1400,7 +1300,8 @@ class VoiceStreamingUserSimulator(
         # Add a role identity reminder as a system message to help the LLM stay in character
         role_reminder = SystemMessage(
             role="system",
-            content="REMINDER: You are the CUSTOMER calling for help. Respond as the customer would - with questions, requests, or information about your issue. Do NOT respond as the customer service agent.",
+            content=self.role_reminder_override
+            or "REMINDER: You are the CUSTOMER calling for help. Respond as the customer would - with questions, requests, or information about your issue. Do NOT respond as the customer service agent.",
         )
         messages = messages + [role_reminder]
 
@@ -1454,6 +1355,17 @@ class VoiceStreamingUserSimulator(
 
         if not user_message.has_text_content():
             return user_message, state
+
+        if self.spell_event_detector is not None:
+            now_ms = int(state.elapsed_samples * 1000 / PCM_SAMPLE_RATE)
+            for detection in self.spell_event_detector(user_message.content):
+                event = self._effect_timeline.open_event(
+                    "spell_out",
+                    start_ms=now_ms,
+                    participant="user",
+                    params=detection.model_dump(),
+                )
+                event.end_ms = now_ms
 
         # Synthesize voice (without background noise - added per chunk) with timing
         effects_turn_idx = state.user_utterance_count
@@ -1546,7 +1458,7 @@ class VoiceStreamingUserSimulator(
         effects_turn_idx = state.user_utterance_count
 
         # Randomly select a backchannel phrase
-        content = state.backchannel_rng.choice(BACKCHANNEL_PHRASES)
+        content = state.backchannel_rng.choice(self.backchannel.phrases)
 
         user_message = UserMessage(
             role="user",

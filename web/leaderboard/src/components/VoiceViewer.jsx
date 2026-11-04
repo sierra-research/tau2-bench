@@ -3,21 +3,15 @@ import { buildSimData } from '../utils/voiceDataTransform'
 import { renderVoiceViewer } from '../utils/voiceViewerRenderer'
 import './VoiceViewer.css'
 
-const SUBMISSIONS_BASE = import.meta.env.VITE_SUBMISSIONS_BASE_URL
-  || `${import.meta.env.BASE_URL}submissions`
-
-const NO_CACHE = { cache: 'no-cache' }
-
 /**
  * Voice trajectory viewer component.
  *
- * Loads a full simulation JSON from the submissions directory,
+ * Loads a full simulation JSON from a trajectory cell (`cellUrl`),
  * transforms it into viewer data, and renders the overview view
  * (speech activity timeline + conversation table) with audio playback.
  */
 const VoiceViewer = ({
-  submissionDir,
-  trajectoryDir,
+  cellUrl,
   simulationId,
   taskId,
   voiceConfig,
@@ -31,7 +25,7 @@ const VoiceViewer = ({
   const [audioUrl, setAudioUrl] = useState(null)
 
   useEffect(() => {
-    if (!submissionDir || !trajectoryDir || !simulationId) return
+    if (!cellUrl || !simulationId) return
 
     let cancelled = false
     const loadSim = async () => {
@@ -39,8 +33,7 @@ const VoiceViewer = ({
         setLoading(true)
         setError(null)
 
-        const url = `${SUBMISSIONS_BASE}/${submissionDir}/trajectories/${trajectoryDir}/simulations/${simulationId}.json`
-        const res = await fetch(url, NO_CACHE)
+        const res = await fetch(`${cellUrl}/simulations/${simulationId}.json`)
         if (!res.ok) {
           throw new Error(
             res.status === 404
@@ -63,7 +56,7 @@ const VoiceViewer = ({
         setSimData(data)
 
         // Construct the audio URL — the stereo mix lives alongside simulation data
-        const audioSrc = `${SUBMISSIONS_BASE}/${submissionDir}/trajectories/${trajectoryDir}/artifacts/task_${taskId}/sim_${simulationId}/audio/both.wav`
+        const audioSrc = `${cellUrl}/artifacts/task_${taskId}/sim_${simulationId}/audio/both.wav`
         setAudioUrl(audioSrc)
       } catch (err) {
         if (!cancelled) setError(err.message)
@@ -74,7 +67,7 @@ const VoiceViewer = ({
 
     loadSim()
     return () => { cancelled = true }
-  }, [submissionDir, trajectoryDir, simulationId, taskId, voiceConfig, taskInfo])
+  }, [cellUrl, simulationId, taskId, voiceConfig, taskInfo])
 
   useEffect(() => {
     if (!simData || !containerRef.current) return

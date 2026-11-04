@@ -11,12 +11,14 @@ export const SITE_ORIGIN = 'https://taubench.com'
 // leaderboard: coding harnesses building customer-service agents. Linked from
 // the nav's Leaderboards menu and the announcement banner.
 export const HYPER_TAU_URL = 'https://sierra-research.github.io/hyper-tau-bench/'
+// The announcement banner opens the voice leaderboard on its Intake (τ-Entity) tab.
+export const TAU_ENTITY_PATH = '/leaderboard?benchmark=voice&domain=intake'
 
 // Entries of the nav's Leaderboards menu, in display order. In-site entries
 // carry an app path; the external entry carries an absolute href.
 export const LEADERBOARD_MENU = [
   { key: 'knowledge', label: 'τ³-Banking', note: 'Text · knowledge retrieval', path: '/leaderboard?benchmark=knowledge' },
-  { key: 'voice', label: 'τ³-Voice', note: 'Real-time voice', path: '/leaderboard?benchmark=voice' },
+  { key: 'voice', label: 'τ³-Voice', note: 'Real-time voice', path: '/leaderboard?benchmark=voice', badge: 'New' },
   { key: 'core', label: 'τ²-bench', note: 'Text · retail, airline, telecom', path: '/leaderboard?benchmark=core' },
   { key: 'hyper', label: 'τ^τ-bench', note: 'Agent-building agents', href: HYPER_TAU_URL, badge: 'New' },
 ]
@@ -29,6 +31,7 @@ export const ROUTES = {
   '/progress': 'leaderboard',
   '/trajectory-visualizer': 'trajectory-visualizer',
   '/blog': 'blog',
+  '/community': 'community',
 }
 
 // Canonical path for each view (used for navigation and canonical/og:url).
@@ -37,6 +40,7 @@ export const VIEW_PATHS = {
   leaderboard: '/leaderboard',
   'trajectory-visualizer': '/trajectory-visualizer',
   blog: '/blog',
+  community: '/community',
 }
 
 const SITE_TITLE = 'τ-bench — Benchmarking AI Agents on Real-World Tasks'
@@ -61,6 +65,11 @@ export const PAGE_META = {
   blog: {
     title: 'Blog — τ-bench',
     description: 'Research updates and release notes from the τ-bench team.',
+  },
+  community: {
+    title: 'Community Spotlight — τ-bench',
+    description:
+      'Community spotlights on projects that build on τ-bench across new domains and agent evaluation settings.',
   },
 }
 

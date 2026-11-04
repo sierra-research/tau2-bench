@@ -1,16 +1,12 @@
 import json
 
-from tau2.agent.base.streaming import (
-    LinearizationStrategy,
-    ParticipantTick,
-    linearize_ticks,
-)
 from tau2.config import DEFAULT_LLM_NL_ASSERTIONS, DEFAULT_LLM_NL_ASSERTIONS_ARGS
 from tau2.data_model.message import Message, SystemMessage, Tick, UserMessage
 from tau2.data_model.simulation import NLAssertionCheck, RewardInfo
 from tau2.data_model.tasks import RewardType, Task
 from tau2.evaluator.evaluator_base import EvaluatorBase
 from tau2.utils.llm_utils import generate
+from tau2.utils.transcript.views import speech_messages
 
 
 class NLAssertionsEvaluator(EvaluatorBase[Message]):
@@ -143,50 +139,8 @@ class FullDuplexNLAssertionsEvaluator(EvaluatorBase[Tick]):
 
     @classmethod
     def ticks_to_message_history(cls, ticks: list[Tick]) -> list[Message]:
-        """
-        Convert a list of Ticks to a linearized message history suitable for NL evaluation.
-
-        This converts orchestrator Ticks to ParticipantTicks (from the agent's perspective),
-        then uses containment-aware linearization to create a sequential message list.
-        Only speech content is included (tool calls are ignored for NL evaluation).
-
-        Args:
-            ticks: List of Tick objects from full-duplex simulation.
-
-        Returns:
-            List of Messages linearized using containment-aware strategy.
-        """
-        # Convert orchestrator Ticks to ParticipantTicks from agent's perspective
-        # self_chunk = agent_chunk, other_chunk = user_chunk
-        # We only care about speech content, not tool calls
-        participant_ticks: list[ParticipantTick] = []
-
-        for tick in ticks:
-            # Only include chunks that have content (not tool calls)
-            agent_chunk = tick.agent_chunk
-            user_chunk = tick.user_chunk
-
-            # Skip tool call messages - we only want speech content
-            if agent_chunk is not None and agent_chunk.is_tool_call():
-                agent_chunk = None
-            if user_chunk is not None and user_chunk.is_tool_call():
-                user_chunk = None
-
-            participant_tick = ParticipantTick(
-                tick_id=tick.tick_id,
-                timestamp=tick.timestamp,
-                self_chunk=agent_chunk,
-                other_chunk=user_chunk,
-            )
-            participant_ticks.append(participant_tick)
-
-        # Linearize using containment-aware strategy
-        messages = linearize_ticks(
-            participant_ticks,
-            strategy=LinearizationStrategy.CONTAINMENT_AWARE,
-        )
-
-        return messages
+        """Use the shared speech_messages transcript view."""
+        return speech_messages(ticks)
 
     @classmethod
     def calculate_reward(

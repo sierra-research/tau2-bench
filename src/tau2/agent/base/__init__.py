@@ -25,18 +25,6 @@ from tau2.agent.base.streaming import (
     StreamingMixin,
     StreamingState,
     basic_turn_taking_policy,
-    merge_homogeneous_chunks,
-)
-
-# Streaming utilities for audio script gold processing
-from tau2.agent.base.streaming_utils import (
-    extract_active_chunk_ids,
-    extract_all_chunk_ids,
-    extract_chunks_with_text,
-    extract_gold_text,
-    extract_message_uuid,
-    format_transcript_comparison,
-    merge_audio_script_gold,
 )
 
 # =============================================================================
@@ -79,15 +67,6 @@ __all__ = [
     "AudioChunkingMixin",
     "BasicActionType",
     "basic_turn_taking_policy",
-    "merge_homogeneous_chunks",
-    # Streaming utilities
-    "extract_message_uuid",
-    "extract_active_chunk_ids",
-    "extract_all_chunk_ids",
-    "merge_audio_script_gold",
-    "extract_gold_text",
-    "extract_chunks_with_text",
-    "format_transcript_comparison",
     # Deprecated aliases (kept for backward compatibility)
     "BaseConversationParticipant",
     "BaseStreamingParticipant",

@@ -2,6 +2,58 @@
 
 Welcome to the τ-bench release notes! Here you'll find user-friendly summaries of what's new, what's changed, and what you need to know for each release.
 
+## Version 2.0.0 - Multilingual and Voice 🌐
+
+**Release Date**: October 19, 2026
+
+### ⚠️ Scores are not comparable with 1.x
+
+Communication checks, NL-assertion judging, tool-argument lookups and the English
+prompts all changed. Re-run rather than compare 1.x results with 2.0 numbers. For
+scores comparable with the 1.x leaderboard, use the `v1.0.1` tag. The CHANGELOG's
+"Upgrading from 1.x" section lists every difference.
+
+### 🌟 Highlights
+
+- **τ-i18n: six languages.** `--language` selects a language pack (`en`, `es`, `pt`,
+  `hi`, `zh`, `ko`) with a localized database, tasks and caller personas for airline,
+  retail and telecom, in text and voice. Every run resolves a pack; English is the
+  default.
+- **Released benchmarks.** Frozen, pinned manifests replace ad-hoc task selection:
+
+  | Benchmark | Command | Calls |
+  |---|---|---|
+  | `voice-v2` | `tau2 run --audio-native` | 900 |
+  | `text-v1` | `tau2 run --benchmark text` | 900 |
+  | `voice-v2-banking` | `tau2 run --audio-native --benchmark banking` | 582 |
+  | `voice-v2-entity` | `tau2 run --audio-native --benchmark entity` | 1,200 |
+  | `voice-v1` | `tau2 run --audio-native --benchmark voice-v1` | English voice frame |
+
+- **τ-Entity (`intake` domain).** Outbound calls that test exact entity capture: 200
+  tasks, agent-directed in voice, with a scaffolded ablation that also runs in text.
+- **`tau2 judges`.** A post-hoc judge suite for saved runs. It is diagnostic only and
+  never part of the reward.
+- **`tau2 factory`.** The language-authoring pipeline used to build every pack, for
+  contributors adding a language.
+- **2.0 submission packages.** `tau2 submit prepare` writes a judged package for the
+  2.0 leaderboard. 1.x submissions are still accepted.
+
+### 🔧 Notable default changes
+
+- Benchmark user simulator: `openai/gpt-5.5` at `reasoning_effort: low` (was `gpt-4.1`).
+- Communication checks are LLM-judged; the NL-assertion judge is
+  `gpt-5.4-mini-2026-03-17`.
+- Default live models: `gpt-live-1`, `gemini-3.8-live-extended-thinking`,
+  `grok-voice-think-fast-2.0`, `qwen3.5-omni-plus-realtime`.
+- Voice runs default to 2400 s per call and OpenAI voice `marin`.
+
+### 📚 Docs
+
+`docs/running-the-benchmark.md`, `docs/leaderboard-submission.md`, `docs/glossary.md`
+and `docs/cli-reference.md`. The full list of changes is in `CHANGELOG.md`.
+
+---
+
 ## Version 1.0.1 - Banking Grading Fixes ⚖️
 
 **Release Date**: July 2026

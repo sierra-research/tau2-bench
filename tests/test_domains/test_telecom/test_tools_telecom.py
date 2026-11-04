@@ -191,3 +191,39 @@ class TestTelecomTools(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_spoken_phone_formats_and_ambiguous_matches():
+    import pytest
+
+    db = TelecomDB.load(TELECOM_DB_PATH)
+    tools = TelecomTools(db)
+    assert tools.get_customer_by_phone("(555) 123 2002").customer_id == "C1001"
+    assert tools.get_customer_by_phone("5551232001").customer_id == "C1001"
+    assert tools._get_line_by_phone("555 123 2001").phone_number == "555-123-2001"
+    with pytest.raises(ValueError):
+        tools.get_customer_by_phone("---")
+    with pytest.raises(ValueError):
+        tools.get_customer_by_phone("5559999999")
+    other = db.customers[0].model_copy(deep=True)
+    other.customer_id = "collision"
+    other.phone_number = "5551232002"
+    db.customers.append(other)
+    with pytest.raises(ValueError, match="ambiguous"):
+        tools.get_customer_by_phone("5551232002")
+
+
+def test_spoken_name_keeps_exact_birth_date():
+    db = TelecomDB.load(TELECOM_DB_PATH)
+    tools = TelecomTools(db)
+    customer = tools.get_customer_by_phone("5551232002")
+    customer.full_name = "Álvaro Fernández"
+    assert tools.get_customer_by_name("alvaro fernandez", customer.date_of_birth) == [
+        customer
+    ]
+    assert tools.get_customer_by_name("alvaro fernandez", "1900-01-01") == []
+
+
+def test_identity_lookup_remains_an_exposed_tool():
+    tools = TelecomTools(TelecomDB.load(TELECOM_DB_PATH))
+    assert "get_customer_by_id" in tools.get_tools()

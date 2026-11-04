@@ -1,0 +1,101 @@
+name: Tests
+
+# Key-free test suite: lint plus every tier that runs without provider API keys.
+# Tests that call live models (and the gym extras) stay local.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system audio libraries
+        run: sudo apt-get update && sudo apt-get install -y portaudio19-dev ffmpeg
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --extra dev --extra live --extra knowledge
+
+      - name: Lint
+        run: uv run ruff check . && uv run ruff format --check src tests
+
+      - name: Core and multilingual tests
+        run: >
+          uv run pytest -q -n 8 -m "not slow"
+          tests/test_multilingual tests/test_benchmark tests/test_judges
+          tests/test_task_subsets tests/test_evaluator tests/test_utils
+          tests/test_runner tests/test_core_without_voice_extras.py
+          tests/test_domains --ignore=tests/test_domains/test_banking_knowledge
+
+      - name: Voice tests (offline)
+        run: uv run pytest -q -n 8 tests/test_voice -m "not full_duplex_integration"
+
+  slow-pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select slow multilingual tests
+        id: select
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "run_slow=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "origin/$BASE_REF...HEAD" -- \
+            .github/workflows/tests.yml pyproject.toml uv.lock \
+            src/tau2/multilingual src/tau2/data_model src/tau2/environment \
+            src/tau2/domains data/tau2/multilingual data/tau2/task_subsets \
+            data/tau2/domains tests/test_multilingual; then
+            echo "run_slow=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_slow=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install system audio libraries
+        if: steps.select.outputs.run_slow == 'true'
+        run: sudo apt-get update && sudo apt-get install -y portaudio19-dev ffmpeg
+
+      - name: Setup uv
+        if: steps.select.outputs.run_slow == 'true'
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        if: steps.select.outputs.run_slow == 'true'
+        run: uv sync --extra dev --extra live
+
+      - name: Slow multilingual tests
+        if: steps.select.outputs.run_slow == 'true'
+        run: uv run pytest -q -n 8 --dist=worksteal -m slow tests/test_multilingual

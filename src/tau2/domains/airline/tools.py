@@ -24,9 +24,27 @@ from tau2.domains.airline.data_model import (
     ReservationFlight,
     User,
 )
+from tau2.domains.airline.region import AirlineRegionalSettings
+from tau2.environment.regional import describe_regional_tool
+from tau2.environment.tool import Tool
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.utils.text_match import fold_for_match
 
 # TODO: Add an abstract base class for the tools
+
+
+def _resolve_key_folded(mapping: dict, key: str) -> Optional[str]:
+    """Resolve exact keys first, then a unique accent/case-insensitive match."""
+    if key in mapping:
+        return key
+    stripped = key.strip()
+    if stripped in mapping:
+        return stripped
+    folded = fold_for_match(stripped)
+    matches = [
+        candidate for candidate in mapping if fold_for_match(candidate) == folded
+    ]
+    return matches[0] if len(matches) == 1 else None
 
 
 class AirlineTools(ToolKitBase):  # Tools
@@ -34,26 +52,63 @@ class AirlineTools(ToolKitBase):  # Tools
 
     db: FlightDB
 
-    def __init__(self, db: FlightDB) -> None:
+    def __init__(
+        self, db: FlightDB, regional_settings: AirlineRegionalSettings | None = None
+    ) -> None:
         super().__init__(db)
+        self.regional_settings = (
+            AirlineRegionalSettings.model_validate(regional_settings).model_copy(
+                deep=True
+            )
+            if regional_settings is not None
+            else None
+        )
+        if self.regional_settings is not None:
+            airports = {airport.iata for airport in self.regional_settings.airports}
+            routes = {
+                code
+                for flight in db.flights.values()
+                for code in (flight.origin, flight.destination)
+            }
+            if not routes <= airports:
+                raise ValueError(
+                    "Regional airport catalog does not cover the database flight graph"
+                )
+
+    def get_tools(self, include: Optional[list[str]] = None) -> dict[str, Tool]:
+        """Expose the selected catalog and local units without changing canonical tools."""
+        tools = super().get_tools(include)
+        if self.regional_settings is not None:
+            for tool in tools.values():
+                describe_regional_tool(tool, self.regional_settings)
+                for name in ("origin", "destination"):
+                    if name in tool.params.model_fields:
+                        tool.params.model_fields[
+                            name
+                        ].description = f"The {name} airport's three-letter IATA code from list_all_airports."
+                tool.params.model_rebuild(force=True)
+        return tools
 
     def _get_user(self, user_id: str) -> User:
-        """Get user from database."""
-        if user_id not in self.db.users:
+        """Get user from database (case- and diacritic-insensitive)."""
+        key = _resolve_key_folded(self.db.users, user_id)
+        if key is None:
             raise ValueError(f"User {user_id} not found")
-        return self.db.users[user_id]
+        return self.db.users[key]
 
     def _get_reservation(self, reservation_id: str) -> Reservation:
-        """Get reservation from database."""
-        if reservation_id not in self.db.reservations:
+        """Get reservation from database (case- and diacritic-insensitive)."""
+        key = _resolve_key_folded(self.db.reservations, reservation_id)
+        if key is None:
             raise ValueError(f"Reservation {reservation_id} not found")
-        return self.db.reservations[reservation_id]
+        return self.db.reservations[key]
 
     def _get_flight(self, flight_number: str) -> Flight:
-        """Get flight from database."""
-        if flight_number not in self.db.flights:
+        """Get flight from database (case- and diacritic-insensitive)."""
+        key = _resolve_key_folded(self.db.flights, flight_number)
+        if key is None:
             raise ValueError(f"Flight {flight_number} not found")
-        return self.db.flights[flight_number]
+        return self.db.flights[key]
 
     def _get_flight_instance(self, flight_number: str, date: str) -> FlightDateStatus:
         """Get flight instance from database."""
@@ -99,7 +154,17 @@ class AirlineTools(ToolKitBase):  # Tools
 
     def _get_datetime(self) -> str:
         """Get the current datetime."""
+        if self.regional_settings is not None:
+            return self.regional_settings.current_datetime.isoformat(timespec="seconds")
         return "2024-05-15T15:00:00"
+
+    def _fee(self, canonical_amount: int) -> float | int:
+        """Scale only fixed tool fees; prices in the database are already regional."""
+        return (
+            self.regional_settings.scale_fee(canonical_amount)
+            if self.regional_settings is not None
+            else canonical_amount
+        )
 
     def _search_direct_flight(
         self,
@@ -223,6 +288,7 @@ class AirlineTools(ToolKitBase):  # Tools
                 Payment(**payment_method) for payment_method in payment_methods
             ]
         user = self._get_user(user_id)
+        user_id = user.user_id
         reservation_id = self._get_new_reservation_id()
 
         reservation = Reservation(
@@ -246,8 +312,8 @@ class AirlineTools(ToolKitBase):  # Tools
         all_flights_date_data: list[FlightDateStatusAvailable] = []
 
         for flight_info in flights:
-            flight_number = flight_info.flight_number
-            flight = self._get_flight(flight_number)
+            flight = self._get_flight(flight_info.flight_number)
+            flight_number = flight.flight_number
             flight_date_data = self._get_flight_instance(
                 flight_number=flight_number, date=flight_info.date
             )
@@ -276,10 +342,10 @@ class AirlineTools(ToolKitBase):  # Tools
 
         # Add insurance fee
         if insurance == "yes":
-            total_price += 30 * len(passengers)
+            total_price += self._fee(30) * len(passengers)
 
         # Add baggage fee
-        total_price += 50 * nonfree_baggages
+        total_price += self._fee(50) * nonfree_baggages
 
         for payment_method in payment_methods:
             payment_id = payment_method.payment_id
@@ -406,6 +472,11 @@ class AirlineTools(ToolKitBase):  # Tools
         Returns:
             A dictionary mapping IATA codes to AirportInfo objects.
         """
+        if self.regional_settings is not None:
+            return [
+                airport.model_copy(deep=True)
+                for airport in self.regional_settings.airports
+            ]
         return [
             AirportCode(iata="SFO", city="San Francisco"),
             AirportCode(iata="JFK", city="New York"),
@@ -575,7 +646,9 @@ class AirlineTools(ToolKitBase):  # Tools
         user = self._get_user(reservation.user_id)
 
         # Calculate price
-        total_price = 50 * max(0, nonfree_baggages - reservation.nonfree_baggages)
+        total_price = self._fee(50) * max(
+            0, nonfree_baggages - reservation.nonfree_baggages
+        )
 
         # Create payment
         payment = self._payment_for_update(user, payment_id, total_price)
@@ -625,12 +698,14 @@ class AirlineTools(ToolKitBase):  # Tools
         total_price = 0
         reservation_flights = []
         for flight_info in flights:
+            flight = self._get_flight(flight_info.flight_number)
+            flight_number = flight.flight_number
             # if existing flight, keep it
             matching_reservation_flight = next(
                 (
                     reservation_flight
                     for reservation_flight in reservation.flights
-                    if reservation_flight.flight_number == flight_info.flight_number
+                    if reservation_flight.flight_number == flight_number
                     and reservation_flight.date == flight_info.date
                     and cabin == reservation.cabin
                 ),
@@ -643,27 +718,22 @@ class AirlineTools(ToolKitBase):  # Tools
                 reservation_flights.append(matching_reservation_flight)
                 continue
 
-            # If new flight:
-            flight = self._get_flight(flight_info.flight_number)
-            # Check flight availability
             flight_date_data = self._get_flight_instance(
-                flight_number=flight_info.flight_number,
+                flight_number=flight_number,
                 date=flight_info.date,
             )
             if not isinstance(flight_date_data, FlightDateStatusAvailable):
                 raise ValueError(
-                    f"Flight {flight_info.flight_number} not available on date {flight_info.date}"
+                    f"Flight {flight_number} not available on date {flight_info.date}"
                 )
 
             # Check seat availability
             if flight_date_data.available_seats[cabin] < len(reservation.passengers):
-                raise ValueError(
-                    f"Not enough seats on flight {flight_info.flight_number}"
-                )
+                raise ValueError(f"Not enough seats on flight {flight_number}")
 
             # Calculate price and add to reservation
             reservation_flight = ReservationFlight(
-                flight_number=flight_info.flight_number,
+                flight_number=flight_number,
                 date=flight_info.date,
                 price=flight_date_data.prices[cabin],
                 origin=flight.origin,

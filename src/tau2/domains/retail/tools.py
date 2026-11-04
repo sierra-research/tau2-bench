@@ -15,7 +15,10 @@ from tau2.domains.retail.data_model import (
     Variant,
 )
 from tau2.domains.retail.utils import RETAIL_DB_PATH
+from tau2.environment.regional import DomainRegionalSettings, describe_regional_tool
+from tau2.environment.tool import Tool
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.utils.text_match import fold_for_match
 
 
 class RetailTools(ToolKitBase):  # Tools
@@ -23,8 +26,37 @@ class RetailTools(ToolKitBase):  # Tools
 
     db: RetailDB
 
-    def __init__(self, db: RetailDB) -> None:
+    def __init__(
+        self, db: RetailDB, regional_settings: DomainRegionalSettings | None = None
+    ) -> None:
         super().__init__(db)
+        self.regional_settings = (
+            DomainRegionalSettings.model_validate(regional_settings).model_copy(
+                deep=True
+            )
+            if regional_settings is not None
+            else None
+        )
+
+    def get_tools(self, include: list[str] | None = None) -> dict[str, Tool]:
+        """Describe addresses in the selected database's conventions."""
+        tools = super().get_tools(include)
+        if self.regional_settings is not None:
+            descriptions = {
+                "address1": "The first line of the address in the loaded database's script.",
+                "address2": "The second address line, or an empty string when absent.",
+                "city": "The city in the loaded database's script.",
+                "state": "The state or province in the loaded database's conventions.",
+                "country": "The country value in the loaded database's conventions.",
+                "zip": "The postal code in the loaded database's format.",
+            }
+            for tool in tools.values():
+                describe_regional_tool(tool, self.regional_settings)
+                for name, description in descriptions.items():
+                    if name in tool.params.model_fields:
+                        tool.params.model_fields[name].description = description
+                tool.params.model_rebuild(force=True)
+        return tools
 
     def _get_order(self, order_id: str) -> Order:
         """Get the order from the database.
@@ -302,13 +334,20 @@ class RetailTools(ToolKitBase):  # Tools
         Raises:
             ValueError: If the user is not found.
         """
+        wanted_first = fold_for_match(first_name)
+        wanted_last = fold_for_match(last_name)
+        matches = []
         for user_id, user in self.db.users.items():
             if (
-                user.name.first_name.lower() == first_name.lower()
-                and user.name.last_name.lower() == last_name.lower()
+                fold_for_match(user.name.first_name) == wanted_first
+                and fold_for_match(user.name.last_name) == wanted_last
                 and user.address.zip == zip
             ):
-                return user_id
+                matches.append(user_id)
+        if len(matches) == 1:
+            return matches[0]
+        if matches:
+            raise ValueError("User lookup is ambiguous")
         raise ValueError("User not found")
 
     @is_tool(ToolType.READ)
@@ -324,9 +363,15 @@ class RetailTools(ToolKitBase):  # Tools
         Raises:
             ValueError: If the user is not found.
         """
+        wanted = fold_for_match(email)
+        matches = []
         for user_id, user in self.db.users.items():
-            if user.email.lower() == email.lower():
-                return user_id
+            if fold_for_match(user.email) == wanted:
+                matches.append(user_id)
+        if len(matches) == 1:
+            return matches[0]
+        if matches:
+            raise ValueError("User lookup is ambiguous")
         raise ValueError("User not found")
 
     @is_tool(ToolType.READ)

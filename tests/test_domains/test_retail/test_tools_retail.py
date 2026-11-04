@@ -478,3 +478,34 @@ def test_transfer_to_human_agents(
 ):
     response = environment.get_response(transfer_to_human_agents_call)
     assert response.content == "Transfer successful"
+
+
+@pytest.mark.parametrize("last_name", ["Sanchez", "Sánchez", " SÁNCHEZ "])
+def test_spoken_identity_keeps_exact_zip(retail_db, last_name):
+    from tau2.domains.retail.tools import RetailTools
+
+    retail_db.users["sara_doe_496"].name.last_name = "Sánchez"
+    tools = RetailTools(retail_db)
+    assert tools.find_user_id_by_name_zip("Sara", last_name, "94105") == "sara_doe_496"
+    with pytest.raises(ValueError):
+        tools.find_user_id_by_name_zip("Sara", last_name, "00000")
+
+
+def test_folded_identity_collision_is_not_first_match(retail_db):
+    from tau2.domains.retail.tools import RetailTools
+
+    user = retail_db.users["sara_doe_496"]
+    user.name.last_name = "Sánchez"
+    user.email = "sára@example.com"
+    other = user.model_copy(deep=True)
+    other.user_id = "other"
+    other.name.last_name = "Sanchez"
+    other.email = "sara@example.com"
+    retail_db.users[other.user_id] = other
+    tools = RetailTools(retail_db)
+    with pytest.raises(ValueError, match="ambiguous"):
+        tools.find_user_id_by_name_zip("Sara", "Sanchez", "94105")
+    with pytest.raises(ValueError, match="ambiguous"):
+        tools.find_user_id_by_email("SARA@example.com")
+    del retail_db.users["other"]
+    assert tools.find_user_id_by_email(" SARA@example.com ") == user.user_id

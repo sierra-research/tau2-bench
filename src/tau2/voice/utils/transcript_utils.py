@@ -3,6 +3,8 @@
 import math
 from typing import Optional
 
+from tau2.utils.transcript.segments import contiguous_ranges
+
 
 def get_proportional_text(
     transcript: str,
@@ -100,35 +102,23 @@ def _group_ticks_into_segments(ticks: list) -> list[list[tuple]]:
 
     Returns list of segments, where each segment is a list of (tick, start_ms, end_ms).
     """
-    segments: list[list[tuple]] = []
-    current_segment: list[tuple] = []
-    prev_tick_idx = -2
-
-    for i, tick in enumerate(ticks):
-        if not (tick.user_chunk and tick.user_chunk.content):
-            if current_segment:
-                segments.append(current_segment)
-                current_segment = []
-            prev_tick_idx = -2
-            continue
-
-        if i != prev_tick_idx + 1 and current_segment:
-            segments.append(current_segment)
-            current_segment = []
-
-        raw_data = (
-            getattr(tick.agent_chunk, "raw_data", None) if tick.agent_chunk else None
-        )
-        if raw_data:
-            tick_start = raw_data.get("cumulative_user_audio_at_tick_start_ms", 0)
-            tick_duration = raw_data.get("audio_sent_duration_ms", 0)
-            current_segment.append((tick, tick_start, tick_start + tick_duration))
-
-        prev_tick_idx = i
-
-    if current_segment:
-        segments.append(current_segment)
-
+    segments = []
+    for span in contiguous_ranges(
+        bool(t.user_chunk and t.user_chunk.content) for t in ticks
+    ):
+        segment = []
+        for tick in ticks[span.start : span.end]:
+            raw_data = (
+                getattr(tick.agent_chunk, "raw_data", None)
+                if tick.agent_chunk
+                else None
+            )
+            if raw_data:
+                start_ms = raw_data.get("cumulative_user_audio_at_tick_start_ms", 0)
+                duration_ms = raw_data.get("audio_sent_duration_ms", 0)
+                segment.append((tick, start_ms, start_ms + duration_ms))
+        if segment:
+            segments.append(segment)
     return segments
 
 

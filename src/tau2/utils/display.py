@@ -27,11 +27,14 @@ from tau2.data_model.simulation import (
     VoiceRunConfig,
 )
 from tau2.data_model.tasks import Action, Task
+from tau2.data_model.transcript import DisplayTick
 from tau2.metrics.agent_metrics import AgentMetrics, is_successful
+from tau2.utils.transcript.display import display_tick_ranges
 
 if TYPE_CHECKING:
-    from tau2.agent.base.streaming import ParticipantTick, StreamingState
+    from tau2.agent.base.streaming import StreamingState
     from tau2.data_model.simulation import Info
+    from tau2.data_model.transcript import ParticipantTick
 
 
 @dataclass
@@ -157,155 +160,6 @@ class ConsoleDisplay:
             Escaped text safe for Rich Console display
         """
         return escape(text)
-
-    @staticmethod
-    def _get_grouping_pattern(info: dict) -> str | None:
-        """Get grouping pattern for tick consolidation based on turn-taking action.
-
-        Normalizes turn actions into broader categories so related actions
-        (like 'generate_message' and 'keep_talking') are grouped together.
-
-        When there is no agent turn action (e.g., audio-native providers that
-        don't emit turn-taking metadata), agent content presence is factored
-        into the pattern so that gaps in agent speech break groups.
-
-        Args:
-            info: Dictionary with tick info including agent/user turn actions and content
-
-        Returns:
-            Pattern string for grouping, or None for empty ticks that can join any group
-        """
-
-        def normalize_action(action: str) -> str:
-            action_name = action.split(":")[0].strip().lower()
-            if action_name in ("generate_message", "keep_talking"):
-                return "active_speech"
-            return action_name
-
-        has_agent = bool(info.get("agent_content"))
-
-        # Check agent turn action first
-        if info.get("agent_turn_action"):
-            return normalize_action(info["agent_turn_action"])
-
-        # Check user turn action (may have the decision when agent action is empty)
-        if info.get("user_turn_action"):
-            base = normalize_action(info["user_turn_action"])
-            # Distinguish agent-speaking vs agent-silent so that pauses in
-            # agent speech (e.g., barge-in recovery) create separate rows.
-            if has_agent:
-                return f"{base}+agent"
-            return base
-
-        # No turn action - check content
-        has_user = bool(info.get("user_content"))
-        if not has_agent and not has_user:
-            return None  # Empty tick - can join any group
-
-        # Has content but no turn action - group by whether anyone is speaking
-        return "active_speech"
-
-    # Max ticks of agent silence that are absorbed into the current group
-    # rather than breaking it.  At 200ms/tick this means gaps <= 200ms are
-    # treated as continuous speech.
-    AGENT_CONTENT_GAP_TOLERANCE = 1
-
-    @classmethod
-    def _group_ticks_by_pattern(
-        cls,
-        ticks: list,
-        extract_tick_info,
-        has_tool_activity,
-    ) -> list[tuple[int, int, list[dict]]]:
-        """Group consecutive ticks with gap-tolerant pattern matching.
-
-        Empty ticks (None pattern) don't break groups - only different non-empty patterns do.
-        Tool activity always breaks a group.
-
-        Short gaps in agent content (up to ``AGENT_CONTENT_GAP_TOLERANCE`` ticks)
-        are absorbed rather than splitting a group.  This avoids breaking a
-        single agent utterance into multiple rows because of a brief silence.
-
-        Args:
-            ticks: List of Tick objects
-            extract_tick_info: Function to extract info dict from a tick
-            has_tool_activity: Function to check if tick info has tool activity
-
-        Returns:
-            List of (start_tick_id, end_tick_id, list of tick infos) tuples
-        """
-        get_pattern = cls._get_grouping_pattern
-        groups: list[tuple[int, int, list[dict]]] = []
-
-        i = 0
-        while i < len(ticks):
-            tick = ticks[i]
-            info = extract_tick_info(tick)
-            start_tick = tick.tick_id
-            group_infos = [info]
-
-            # If this tick has tool activity, it's its own group
-            if has_tool_activity(info):
-                groups.append((start_tick, start_tick, group_infos))
-                i += 1
-                continue
-
-            # Try to extend the group with gap-tolerant pattern matching
-            last_content_pattern = get_pattern(
-                info
-            )  # May be None if first tick is empty
-            j = i + 1
-            while j < len(ticks):
-                next_tick = ticks[j]
-                next_info = extract_tick_info(next_tick)
-
-                # Stop if tool activity
-                if has_tool_activity(next_info):
-                    break
-
-                next_pattern = get_pattern(next_info)
-
-                # Empty ticks (None) can always join the group
-                if next_pattern is None:
-                    group_infos.append(next_info)
-                    j += 1
-                    continue
-
-                # If we haven't seen content yet, adopt this pattern
-                if last_content_pattern is None:
-                    last_content_pattern = next_pattern
-                    group_infos.append(next_info)
-                    j += 1
-                    continue
-
-                # Same pattern - continue grouping
-                if next_pattern == last_content_pattern:
-                    group_infos.append(next_info)
-                    j += 1
-                    continue
-
-                # Short gap in agent content: if agent was speaking and
-                # content just dropped for ≤ AGENT_CONTENT_GAP_TOLERANCE
-                # ticks, peek ahead and absorb the gap.
-                if (
-                    last_content_pattern.endswith("+agent")
-                    and next_pattern == last_content_pattern.removesuffix("+agent")
-                    and j + 1 < len(ticks)
-                    and get_pattern(extract_tick_info(ticks[j + 1]))
-                    == last_content_pattern
-                ):
-                    group_infos.append(next_info)
-                    j += 1
-                    continue
-
-                # Different non-empty pattern — break the group
-                break
-
-            end_tick = ticks[j - 1].tick_id
-            groups.append((start_tick, end_tick, group_infos))
-            i = j
-
-        return groups
 
     @classmethod
     def display_run_config(cls, config: RunConfig):
@@ -2041,9 +1895,23 @@ class ConsoleDisplay:
             )
 
         # Group ticks using shared helper
-        groups = cls._group_ticks_by_pattern(
-            ticks, extract_tick_info, has_tool_activity
+        infos = [extract_tick_info(tick) for tick in ticks]
+        ranges = display_tick_ranges(
+            [
+                DisplayTick(
+                    agent_content=info["agent_content"],
+                    user_content=info["user_content"],
+                    agent_turn_action=info["agent_turn_action"],
+                    user_turn_action=info["user_turn_action"],
+                    has_tool_activity=has_tool_activity(info),
+                )
+                for info in infos
+            ]
         )
+        groups = [
+            (ticks[r.start].tick_id, ticks[r.end - 1].tick_id, infos[r.start : r.end])
+            for r in ranges
+        ]
 
         # Helper to consolidate turn-taking actions with count
         def consolidate_actions(actions: list[str]) -> str:
@@ -2830,9 +2698,23 @@ class MarkdownDisplay:
             )
 
         # Group ticks using shared helper from ConsoleDisplay
-        groups = ConsoleDisplay._group_ticks_by_pattern(
-            ticks, extract_tick_info, has_tool_activity
+        infos = [extract_tick_info(tick) for tick in ticks]
+        ranges = display_tick_ranges(
+            [
+                DisplayTick(
+                    agent_content=info["agent_content"],
+                    user_content=info["user_content"],
+                    agent_turn_action=info["agent_turn_action"],
+                    user_turn_action=info["user_turn_action"],
+                    has_tool_activity=has_tool_activity(info),
+                )
+                for info in infos
+            ]
         )
+        groups = [
+            (ticks[r.start].tick_id, ticks[r.end - 1].tick_id, infos[r.start : r.end])
+            for r in ranges
+        ]
 
         show_effects = (
             effect_timeline is not None

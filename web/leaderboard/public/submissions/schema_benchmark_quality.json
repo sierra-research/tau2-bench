@@ -1,0 +1,345 @@
+{
+  "$defs": {
+    "CallQuality": {
+      "additionalProperties": false,
+      "description": "Both verdicts for one scored call, with the inputs that decide them.",
+      "properties": {
+        "simulation_id": {
+          "description": "Saved simulation identifier.",
+          "title": "Simulation Id",
+          "type": "string"
+        },
+        "interaction": {
+          "description": "Call-level Interaction outcome.",
+          "enum": [
+            "pass",
+            "fail",
+            "unscored",
+            "excluded"
+          ],
+          "title": "Interaction",
+          "type": "string"
+        },
+        "flags": {
+          "$ref": "#/$defs/InteractionFlags"
+        },
+        "experience": {
+          "description": "Call-level Experience (Generation quality) outcome.",
+          "enum": [
+            "pass",
+            "fail",
+            "unscored"
+          ],
+          "title": "Experience",
+          "type": "string"
+        },
+        "experience_utterances": {
+          "description": "Eligible agent utterances (naturalness units).",
+          "minimum": 0,
+          "title": "Experience Utterances",
+          "type": "integer"
+        },
+        "experience_issues": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Utterances either judge flagged; null when the paired judgments are incomplete.",
+          "title": "Experience Issues"
+        }
+      },
+      "required": [
+        "simulation_id",
+        "interaction",
+        "flags",
+        "experience",
+        "experience_utterances",
+        "experience_issues"
+      ],
+      "title": "CallQuality",
+      "type": "object"
+    },
+    "CellQuality": {
+      "additionalProperties": false,
+      "description": "Both measures for one language/domain cell, summed from its calls.",
+      "properties": {
+        "language": {
+          "description": "Language identifier.",
+          "title": "Language",
+          "type": "string"
+        },
+        "domain": {
+          "description": "Domain identifier.",
+          "title": "Domain",
+          "type": "string"
+        },
+        "interaction": {
+          "$ref": "#/$defs/OutcomeCounts"
+        },
+        "experience": {
+          "$ref": "#/$defs/OutcomeCounts"
+        },
+        "interaction_components": {
+          "$ref": "#/$defs/InteractionComponents"
+        },
+        "calls": {
+          "description": "Every scored call, by simulation ID.",
+          "items": {
+            "$ref": "#/$defs/CallQuality"
+          },
+          "title": "Calls",
+          "type": "array"
+        }
+      },
+      "required": [
+        "language",
+        "domain",
+        "interaction",
+        "experience",
+        "interaction_components",
+        "calls"
+      ],
+      "title": "CellQuality",
+      "type": "object"
+    },
+    "ComponentCoverage": {
+      "additionalProperties": false,
+      "description": "One Interaction component over a cell's scored calls.",
+      "properties": {
+        "flagged": {
+          "description": "Calls with the flag set.",
+          "minimum": 0,
+          "title": "Flagged",
+          "type": "integer"
+        },
+        "known": {
+          "description": "Calls where the flag is known.",
+          "minimum": 0,
+          "title": "Known",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "flagged",
+        "known"
+      ],
+      "title": "ComponentCoverage",
+      "type": "object"
+    },
+    "InteractionComponents": {
+      "additionalProperties": false,
+      "properties": {
+        "nonresponse": {
+          "$ref": "#/$defs/ComponentCoverage"
+        },
+        "interruption": {
+          "$ref": "#/$defs/ComponentCoverage"
+        },
+        "selectivity": {
+          "$ref": "#/$defs/ComponentCoverage"
+        },
+        "monologue": {
+          "$ref": "#/$defs/ComponentCoverage"
+        },
+        "tool_misuse": {
+          "$ref": "#/$defs/ComponentCoverage"
+        }
+      },
+      "required": [
+        "nonresponse",
+        "interruption",
+        "selectivity",
+        "monologue",
+        "tool_misuse"
+      ],
+      "title": "InteractionComponents",
+      "type": "object"
+    },
+    "InteractionFlags": {
+      "additionalProperties": false,
+      "description": "The five component flags; null when the call cannot decide one.",
+      "properties": {
+        "nonresponse": {
+          "anyOf": [
+            {
+              "enum": [
+                0,
+                1
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Missed, late or unyielded turn.",
+          "title": "Nonresponse"
+        },
+        "interruption": {
+          "anyOf": [
+            {
+              "enum": [
+                0,
+                1
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "More than 3 agent onsets.",
+          "title": "Interruption"
+        },
+        "selectivity": {
+          "anyOf": [
+            {
+              "enum": [
+                0,
+                1
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "More than 3 selectivity errors.",
+          "title": "Selectivity"
+        },
+        "monologue": {
+          "anyOf": [
+            {
+              "enum": [
+                0,
+                1
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Agent floor hold over 45 s.",
+          "title": "Monologue"
+        },
+        "tool_misuse": {
+          "anyOf": [
+            {
+              "enum": [
+                0,
+                1
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Saved tool_use judge verdict.",
+          "title": "Tool Misuse"
+        }
+      },
+      "required": [
+        "nonresponse",
+        "interruption",
+        "selectivity",
+        "monologue",
+        "tool_misuse"
+      ],
+      "title": "InteractionFlags",
+      "type": "object"
+    },
+    "OutcomeCounts": {
+      "additionalProperties": false,
+      "description": "Calls per outcome; rates use passed / (passed + failed).",
+      "properties": {
+        "passed": {
+          "description": "Calls that passed.",
+          "minimum": 0,
+          "title": "Passed",
+          "type": "integer"
+        },
+        "failed": {
+          "description": "Calls that failed.",
+          "minimum": 0,
+          "title": "Failed",
+          "type": "integer"
+        },
+        "unscored": {
+          "description": "Calls whose inputs cannot decide the outcome.",
+          "minimum": 0,
+          "title": "Unscored",
+          "type": "integer"
+        },
+        "excluded": {
+          "default": 0,
+          "description": "Calls excluded by a documented rule; none in v1.",
+          "minimum": 0,
+          "title": "Excluded",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "passed",
+        "failed",
+        "unscored"
+      ],
+      "title": "OutcomeCounts",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "benchmark-quality.json in a voice-v2 leaderboard package: call-level Interaction and Experience (Generation quality). Auto-generated from src/tau2/scripts/leaderboard/benchmark_quality.py \u2014 do not edit by hand.",
+  "properties": {
+    "schema_version": {
+      "const": "benchmark-quality-v1",
+      "default": "benchmark-quality-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "benchmark_version": {
+      "description": "Released benchmark.",
+      "title": "Benchmark Version",
+      "type": "string"
+    },
+    "frame_revision": {
+      "description": "Frozen frame revision.",
+      "title": "Frame Revision",
+      "type": "string"
+    },
+    "interaction_version": {
+      "const": "voice-v2-interaction-call-v1",
+      "default": "voice-v2-interaction-call-v1",
+      "title": "Interaction Version",
+      "type": "string"
+    },
+    "experience_version": {
+      "const": "voice-v2-experience-call-v2",
+      "default": "voice-v2-experience-call-v2",
+      "title": "Experience Version",
+      "type": "string"
+    },
+    "cells": {
+      "description": "One entry per frame cell, frame order.",
+      "items": {
+        "$ref": "#/$defs/CellQuality"
+      },
+      "title": "Cells",
+      "type": "array"
+    }
+  },
+  "required": [
+    "benchmark_version",
+    "frame_revision",
+    "cells"
+  ],
+  "title": "Tau2-Bench 2.0 Package Call Quality",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

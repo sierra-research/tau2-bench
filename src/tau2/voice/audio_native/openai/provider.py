@@ -122,6 +122,8 @@ class OpenAIRealtimeProvider:
         api_key: Optional[str] = None,
         model: Optional[str] = None,
         reasoning_effort: Optional[str] = None,
+        voice: Optional[str] = None,
+        transcription_language: Optional[str] = None,
     ):
         """Initialize the OpenAI Realtime provider.
 
@@ -135,6 +137,8 @@ class OpenAIRealtimeProvider:
         Raises:
             ValueError: If no API key is provided or found in environment.
         """
+        self.voice = voice or DEFAULT_OPENAI_VOICE
+        self.transcription_language = transcription_language or "en"
         self.model = model or self.DEFAULT_MODEL
         if self.model.startswith(PINE_MODEL_PREFIX):
             self.base_url = os.environ.get(PINE_REALTIME_BASE_URL_ENV)
@@ -352,7 +356,7 @@ class OpenAIRealtimeProvider:
                     "format": audio_fmt,
                     "transcription": {
                         "model": DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
-                        "language": "en",
+                        "language": self.transcription_language,
                     },
                     "noise_reduction": {"type": DEFAULT_OPENAI_NOISE_REDUCTION},
                     "turn_detection": self._build_turn_detection_config(vad_config),
@@ -362,7 +366,7 @@ class OpenAIRealtimeProvider:
         if modality == "audio":
             session.setdefault("audio", {})["output"] = {
                 "format": audio_fmt,
-                "voice": DEFAULT_OPENAI_VOICE,
+                "voice": self.voice,
             }
 
         await self.ws.send(json.dumps({"type": "session.update", "session": session}))

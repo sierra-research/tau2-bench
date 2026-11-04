@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SEATauBench: Multilingual Agent Evaluation | τ-bench</title>
+    <meta
+      name="description"
+      content="How well do agents work beyond English? Explore SEATauBench, a multilingual extension of τ²-bench, with results across five target languages and three service domains."
+    />
+    <link
+      rel="canonical"
+      href="https://taubench.com/community/seataubench.html"
+    />
+    <meta name="theme-color" content="#065f46" />
+    <meta property="og:type" content="article" />
+    <meta
+      property="og:title"
+      content="SEATauBench — Agent evaluation beyond English"
+    />
+    <meta
+      property="og:description"
+      content="Five target languages. Three service domains. Four localization settings. Explore the published results."
+    />
+    <meta
+      property="og:image"
+      content="https://taubench.com/community/assets/seataubench/overview.jpg"
+    />
+    <meta
+      property="og:url"
+      content="https://taubench.com/community/seataubench.html"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="citation_title"
+      content="SEATauBench: Progressively Adapting Tool-Agent-User Evaluation Into Low-Resource Southeast Asian Languages"
+    />
+    <meta name="citation_publication_date" content="2026/09/05" />
+    <meta
+      name="citation_pdf_url"
+      content="https://arxiv.org/pdf/2606.28715v2"
+    />
+    <meta name="citation_author" content="My Chiffon Nguyen">
+  <meta name="citation_author" content="Aulia Adila">
+  <meta name="citation_author" content="Saksorn Ruangtanusak">
+  <meta name="citation_author" content="Kittiphat Leesombatwathana">
+  <meta name="citation_author" content="Vissuta Gunawan Lim">
+  <meta name="citation_author" content="Patomporn Payoungkhamdee">
+  <meta name="citation_author" content="Samuel Cahyawijaya">
+    <link rel="stylesheet" href="assets/seataubench/page.css" />
+    <noscript
+      ><style>
+        @media (max-width: 768px) {
+          .navbar {
+            position: static;
+          }
+          .hero {
+            padding-top: 32px;
+          }
+          .mobile-menu-toggle {
+            display: none;
+          }
+          .nav-container {
+            flex-wrap: wrap;
+          }
+          .nav-links {
+            display: flex;
+            position: static;
+            width: 100%;
+            padding: 12px 0 0;
+            border: 0;
+          }
+        }
+      </style></noscript
+    >
+    <script type="module" src="assets/seataubench/page.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#leaderboard">Skip to leaderboard</a>
+    <nav class="navbar" aria-label="Main navigation">
+      <div class="nav-container">
+        <div class="nav-logo">
+          <a class="logo-main" href="/"
+            ><span class="tau-symbol">τ</span>-bench</a
+          ><a class="logo-attribution" href="https://sierra.ai/"
+            ><img
+              class="sierra-logo"
+              src="/sierra_logo.jpeg"
+              alt="Sierra"
+              width="12"
+              height="12"
+            /><span>from Sierra</span></a
+          >
+        </div>
+        <button
+          class="mobile-menu-toggle"
+          type="button"
+          aria-label="Toggle navigation"
+          aria-controls="site-nav"
+          aria-expanded="false"
+        >
+          <span aria-hidden="true"></span><span aria-hidden="true"></span
+          ><span aria-hidden="true"></span>
+        </button>
+        <div id="site-nav" class="nav-links">
+          <a href="/#home">Overview</a><a href="/#leaderboard">Leaderboard</a
+          ><a href="/#trajectory-visualizer">Visualizer</a
+          ><a href="/#blog">Blog</a
+          ><a href="/community" class="active" aria-current="location"
+            >Community</a
+          ><a
+            href="https://github.com/sierra-research/tau2-bench"
+            target="_blank"
+            rel="noopener noreferrer"
+            >GitHub <span aria-hidden="true">↗</span></a
+          >
+        </div>
+      </div>
+    </nav>
+    <main>
+      <header class="reading hero">
+        <a class="badge" href="/community">Community Spotlight</a>
+        <h1>
+          SEATauBench: Progressively Adapting Tool-Agent-User Evaluation Into
+          Low-Resource Southeast Asian Languages
+        </h1>
+        <p class="publication-meta">October 2026 · Findings of EMNLP 2026</p>
+        <div class="author-line">
+          <div class="facepile" aria-label="Paper authors"><a href="/authors/my-chiffon-nguyen.html" title="My Chiffon Nguyen — SEACrowd"><img src="/community/assets/seataubench/my-chiffon-nguyen.jpg" width="54" height="54" alt="My Chiffon Nguyen" loading="lazy"></a><a href="/authors/aulia-adila.html" title="Aulia Adila — SEACrowd; AI Singapore, Nanyang Technological University"><img src="/community/assets/seataubench/aulia-adila.jpg" width="54" height="54" alt="Aulia Adila" loading="lazy"></a><a href="/authors/saksorn-ruangtanusak.html" title="Saksorn Ruangtanusak — SEACrowd; SCB DataX, SCBX Group"><img src="/authors/saksorn-ruangtanusak.jpg" width="54" height="54" alt="Saksorn Ruangtanusak" loading="lazy"></a><a href="/authors/kittiphat-leesombatwathana.html" title="Kittiphat Leesombatwathana — SEACrowd; Chulalongkorn University; VISTEC"><img src="/community/assets/seataubench/kittiphat-leesombatwathana.jpg" width="54" height="54" alt="Kittiphat Leesombatwathana" loading="lazy"></a><a href="/authors/vissuta-gunawan-lim.html" title="Vissuta Gunawan Lim — SEACrowd; University of Indonesia"><img src="/community/assets/seataubench/vissuta-gunawan-lim.jpg" width="54" height="54" alt="Vissuta Gunawan Lim" loading="lazy"></a><a href="/authors/patomporn-payoungkhamdee.html" title="Patomporn Payoungkhamdee — SEACrowd; VISTEC"><img src="/community/assets/seataubench/patomporn-payoungkhamdee.jpg" width="54" height="54" alt="Patomporn Payoungkhamdee" loading="lazy"></a><a href="/authors/samuel-cahyawijaya.html" title="Samuel Cahyawijaya — SEACrowd; Cohere"><img src="/community/assets/seataubench/samuel-cahyawijaya.jpg" width="54" height="54" alt="Samuel Cahyawijaya" loading="lazy"></a></div>
+          <div>
+            <div class="author-names"><a href="/authors/my-chiffon-nguyen.html">My Chiffon Nguyen<sup>†</sup></a>, <a href="/authors/aulia-adila.html">Aulia Adila<sup>†</sup></a>, <a href="/authors/saksorn-ruangtanusak.html">Saksorn Ruangtanusak<sup>†</sup></a>, <a href="/authors/kittiphat-leesombatwathana.html">Kittiphat Leesombatwathana<sup>†</sup></a>, <a href="/authors/vissuta-gunawan-lim.html">Vissuta Gunawan Lim<sup>†</sup></a>, <a href="/authors/patomporn-payoungkhamdee.html">Patomporn Payoungkhamdee</a> &amp; <a href="/authors/samuel-cahyawijaya.html">Samuel Cahyawijaya</a></div>
+            <p class="author-affiliations">SEACrowd · AI Singapore · SCB DataX, SCBX Group · Chulalongkorn University · VISTEC · University of Indonesia · Cohere</p>
+            <p class="equal-note">
+              † The first five authors contributed equally.
+            </p>
+          </div>
+        </div>
+      </header>
+      <section class="reading introduction" aria-label="Introduction">
+        <div class="summary" role="note" aria-label="TL;DR">
+          <div class="eyebrow">TL;DR</div>
+          <p>
+            <strong>SEATauBench</strong> adapts τ²-bench to Thai, Vietnamese,
+            Indonesian, Mandarin Chinese, and Filipino across Airline, Retail,
+            and Telecom. Four settings separate dialogue, tool understanding,
+            and domain reasoning while keeping the underlying tasks and scoring
+            aligned.
+          </p>
+        </div>
+        <p>
+          Multilingual language models can hold a conversation, but can they
+          complete a customer-service task when the tools, policies, and data
+          also change language? Agent capabilities in Southeast Asian languages
+          remain poorly understood, and English-only evaluation gives an
+          incomplete picture.
+        </p>
+      </section>
+      <div class="reading">
+        <section
+          id="evaluation"
+          class="content-section"
+          aria-labelledby="evaluation-title"
+        >
+          <h2 id="evaluation-title">Three ideas SeaTauBench brings together</h2>
+          <ol class="ideas-list">
+            <li>
+              <strong>Aligned tasks across languages.</strong> Evaluate the same
+              customer-service tasks in Vietnamese, Thai, Indonesian, Mandarin
+              Chinese, and Filipino, with English as the reference.
+            </li>
+            <li>
+              <strong>Separate the language surfaces.</strong> Change dialogue,
+              tool specifications, or the full domain context to examine where
+              performance changes.
+            </li>
+            <li>
+              <strong>Measure success and consistency.</strong> Report task
+              success alongside performance across repeated trials, so a single
+              successful run does not tell the whole story.
+            </li>
+          </ol>
+          <p class="visual-intro settings-intro">
+            <strong>Four settings isolate different language surfaces.</strong>
+            S1 is the English reference; S2 localizes dialogue, S3 tool schemas,
+            and S4 the full environment. Each row is a separate condition.
+          </p>
+          <div
+            class="table-scroll"
+            role="region"
+            aria-label="Localization settings"
+            tabindex="0"
+          >
+            <table class="scenario-table">
+              <caption>
+                Which surfaces are localized in each setting?
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Setting</th>
+                  <th scope="col">Dialogue</th>
+                  <th scope="col">Tool schemas</th>
+                  <th scope="col">DB &amp; policy</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">
+                    S1 · English<small>The reference environment</small>
+                  </th>
+                  <td>English</td>
+                  <td>English</td>
+                  <td>English</td>
+                </tr>
+                <tr>
+                  <th scope="row">
+                    S2 · Interaction<small>Change the conversation</small>
+                  </th>
+                  <td class="l2">L2</td>
+                  <td>English</td>
+                  <td>English</td>
+                </tr>
+                <tr>
+                  <th scope="row">
+                    S3 · Tools<small>Change the tool interface</small>
+                  </th>
+                  <td>English</td>
+                  <td class="l2">L2</td>
+                  <td>English</td>
+                </tr>
+                <tr>
+                  <th scope="row">
+                    S4 · Full domain<small>Change the full environment</small>
+                  </th>
+                  <td class="l2">L2</td>
+                  <td class="l2">L2</td>
+                  <td class="l2">L2</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="research-note settings-note">
+            L2 is Vietnamese, Thai, Indonesian, Mandarin Chinese, or Filipino.
+            S3 keeps dialogue in English.
+          </p>
+          <p class="visual-intro">
+            <strong>The same customer request can expose different language
+            demands.</strong> The example below follows a retail hat exchange
+            through an English environment and a fully localized Thai
+            environment. Compare the conversation
+            and tool responses to see which surfaces change; the accompanying
+            scores summarize benchmark conditions, rather than the outcome of
+            this single illustrated exchange.
+          </p>
+          <figure class="figure html-diagram" id="figure-1" aria-labelledby="figure-1-caption">
+ <div class="diagram-heading"><span class="diagram-kicker">LOCALIZATION IN PRACTICE</span><p>One task. Two language environments.</p></div>
+ <div class="scenario-grid"><article class="scenario-card" aria-labelledby="figure1-S1">
+ <header><span class="diagram-kicker">S1</span><h3 id="figure1-S1">English benchmark settings</h3></header>
+ <div class="scenario-instruction"><svg class="diagram-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="16" height="14" rx="4"/><path d="M12 2v4M8 12h.01M16 12h.01M9 16h6"/></svg><div><span class="diagram-label">Agent instruction <span class="diagram-badge">EN</span></span><p>You are a helpful agent...</p></div></div>
+ <div class="scenario-request"><svg class="diagram-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/></svg><div><span class="diagram-label">Customer request</span><p>I want to change the color of my ordered hat</p></div></div>
+ <dl class="scenario-details"><div class="scenario-row"><dt><svg class="diagram-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6 4 4M3 21l9-9M14 3a6 6 0 0 0-3 8l2 2a6 6 0 0 0 8-3l-5 1-3-3z"/></svg>Tools<span class="diagram-badge">EN</span></dt><dd><code>get_order_details[SC250526]</code><code class="tool-description" lang="en">"""Get the status and details of an order...</code></dd></div><div class="scenario-row"><dt><svg class="diagram-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg>Database<span class="diagram-badge">EN</span></dt><dd><code><span class="database-line">{'order_id': 'SC250526', 'item': 'hat',</span><span class="database-line">'price': 25, 'color': 'red', ...}</span></code></dd></div><div class="scenario-row"><dt><svg class="diagram-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11a9 9 0 0 1-9 9H3l2-5a9 9 0 1 1 16-4z"/></svg>Response<span class="diagram-badge">EN</span></dt><dd>Available replacement options that do NOT increase the price ...</dd></div></dl>
+ <dl class="scenario-metrics" aria-label="Benchmark condition scores"><div><dt>pass@1</dt><dd>0.66</dd></div><div><dt>pass^1</dt><dd>0.41</dd></div><div><dt><i>ρ</i><sup>3</sup></dt><dd>0.63</dd></div></dl>
+ </article><article class="scenario-card" aria-labelledby="figure1-S4">
+ <header><span class="diagram-kicker">S4</span><h3 id="figure1-S4">SEA-localized environment</h3></header>
+ <div class="scenario-instruction"><svg class="diagram-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="16" height="14" rx="4"/><path d="M12 2v4M8 12h.01M16 12h.01M9 16h6"/></svg><div><span class="diagram-label">Agent instruction <span class="diagram-badge is-localized">L2</span></span><p><span lang="th">คุณเป็นเจ้าหน้าที่ที่ให้ความช่วยเหลือ...</span></p></div></div>
+ <div class="scenario-request"><svg class="diagram-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/></svg><div><span class="diagram-label">Customer request</span><p><span lang="th">ฉันต้องการเปลี่ยนสีของหมวกที่สั่งซื้อไป</span></p></div></div>
+ <dl class="scenario-details"><div class="scenario-row"><dt><svg class="diagram-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6 4 4M3 21l9-9M14 3a6 6 0 0 0-3 8l2 2a6 6 0 0 0 8-3l-5 1-3-3z"/></svg>Tools<span class="diagram-badge is-localized">L2</span></dt><dd><code>get_order_details[SC250526]</code><code class="tool-description" lang="th">"""ตรวจสอบสถานะและรายละเอียดคำสั่งซื้อ...</code></dd></div><div class="scenario-row"><dt><svg class="diagram-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg>Database<span class="diagram-badge is-localized">L2</span></dt><dd><code lang="th"><span class="database-line">{'order_id': 'SC250526', 'item': 'หมวก',</span><span class="database-line">'price': 25, 'color': 'สีแดง', ...}</span></code></dd></div><div class="scenario-row"><dt><svg class="diagram-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11a9 9 0 0 1-9 9H3l2-5a9 9 0 1 1 16-4z"/></svg>Response<span class="diagram-badge is-localized">L2</span></dt><dd><span lang="th">มีตัวเลือกอะไหล่ทดแทนที่ไม่ทำให้ราคาสูงขึ้น...</span></dd></div></dl>
+ <dl class="scenario-metrics" aria-label="Benchmark condition scores"><div><dt>pass@1</dt><dd>0.33</dd></div><div><dt>pass^1</dt><dd>0.12</dd></div><div><dt><i>ρ</i><sup>3</sup></dt><dd>0.38</dd></div></dl>
+ </article></div>
+ <figcaption id="figure-1-caption">Figure 1. The same task, seen through different language environments. Illustrative task dialogue from the paper; accompanying scores summarize benchmark conditions, rather than the outcome of this single illustrated exchange. <a href="assets/seataubench/overview.jpg" target="_blank" rel="noopener noreferrer">Original paper figure ↗</a></figcaption>
+ </figure>
+        </section>
+        <section
+          id="methodology"
+          class="content-section"
+          aria-labelledby="methodology-title"
+        >
+          <h2 id="methodology-title">How we create SeaTauBench</h2>
+          <p>
+            The adaptation pipeline separates what the agent sees from what the
+            benchmark executes. Offline translation adapts the language while
+            preserving identifiers and executable structure; runtime mappings
+            connect localized tool arguments and responses to canonical values.
+            Automated checks and native-speaker review then assess preservation
+            and translation quality, with approved corrections recorded in a
+            separate reviewed release.
+          </p>
+          <div class="method-steps">
+            <article>
+              <span class="step-num">01 / TRANSLATE</span>
+              <h3>Protect what must stay exact</h3>
+              <p>
+                A glossary guides offline translation. Identifiers, executable
+                tokens, and structure are preserved across task descriptions,
+                policies, schemas, and databases.
+              </p>
+            </article>
+            <article>
+              <span class="step-num">02 / EXECUTE</span>
+              <h3>Keep actions aligned</h3>
+              <p>
+                Runtime mappings normalize localized tool arguments for
+                execution and localize returned content. Scoring compares
+                canonical outcomes.
+              </p>
+            </article>
+            <article>
+              <span class="step-num">03 / AUDIT</span>
+              <h3>Review language and behavior</h3>
+              <p>
+                Automated preservation checks and native-speaker review assess
+                translation quality. Approved corrections are recorded in a
+                separate reviewed release.
+              </p>
+            </article>
+          </div>
+          <p class="visual-intro">
+            <strong>Localization must preserve the task the agent is asked to
+            complete.</strong>
+          </p>
+        </section>
+      </div>
+      <section
+        id="results"
+        class="results-section"
+        aria-labelledby="results-title"
+      >
+        <div class="reading">
+          <h2 id="results-title">Results</h2>
+          <h3 id="localization-results-title">
+            Task success falls as the environment is localized
+          </h3>
+          <p class="visual-intro">
+            <strong>Changing the conversation language alone preserves much of
+            the English performance, while full localization exposes a larger
+            task-success gap.</strong> The five panels below compare Thai,
+            Vietnamese, Indonesian, Chinese, and Filipino across S1 (English
+            baseline), S2 (L2 interaction), S3 (L2 tools), and S4 (L2 domain).
+            Blue circles show mean task success (pass@1), and red squares show
+            repeated-run robustness (ρ³); the connected series summarize each
+            setting, while the individual points show model averages.
+          </p>
+          <figure class="figure" id="localization-results">
+            <a
+              href="assets/seataubench/localization-results.png"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open localization results figure at full size"
+              ><img
+                src="assets/seataubench/localization-results.png"
+                width="1818"
+                height="994"
+                loading="lazy"
+                alt="Five panels for Thai, Vietnamese, Indonesian, Chinese, and Filipino compare blue pass@1 scores and red robustness scores across English baseline, localized interaction, localized tools, and fully localized domain settings. Task success drops most in the fully localized setting."
+            /></a>
+            <figcaption>
+              Figure 3. Task success (pass@1) and repeated-run robustness (ρ³)
+              across localization settings and languages, from the paper.
+              <a href="assets/seataubench/localization-results.png"
+                >View full size ↗</a
+              >
+            </figcaption>
+          </figure>
+          <p class="visual-intro">
+            <strong>Task success and robustness reveal different aspects of
+            multilingual performance.</strong> In the plot below, the radar
+            charts compare pass@1 and ρ³ across English and the five target
+            languages, while the domain panels compare English and non-English
+            means for Airline, Retail, and Telecom. pass@1 measures mean task
+            success; ρ³ relates success across three trials to pass@1, so higher
+            robustness does not by itself mean that more tasks are solved.
+            The gaps vary by model, language, and domain, showing why English
+            results alone give an incomplete picture.
+          </p>
+          <figure class="figure">
+            <a
+              href="assets/seataubench/model-results.png"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open model comparison figure at full size"
+              ><img
+                src="assets/seataubench/model-results.png"
+                width="1796"
+                height="554"
+                loading="lazy"
+                alt="Paper Figure 4 compares model task success and robustness across six languages and three service domains."
+            /></a>
+            <figcaption>
+              Figure 4. The paper’s model and domain comparisons. Explore the
+              appendix values in the leaderboard below.
+            </figcaption>
+          </figure>
+        </div>
+        <div
+          id="leaderboard"
+          class="leaderboard-section"
+          aria-labelledby="leaderboard-title"
+        >
+          <div class="section-heading">
+            <div>
+              <h3 id="leaderboard-title">Leaderboard</h3>
+            </div>
+            <p class="snapshot-label">
+              <span>Paper v2 snapshot</span><span>05 September 2026</span>
+            </p>
+          </div>
+          <p class="visual-intro">
+            <strong>Explore success and consistency under the same evaluation
+            conditions.</strong> The leaderboard starts with S4, the fully
+            localized setting, across all five target languages and three
+            domains; use the filters to compare other selections. Each score is
+            an equal-weight average of the selected language × domain cells:
+            pass@1 measures mean task success, while pass² and pass³ measure
+            success in all two or three trials, respectively. ρ³ is pass³
+            divided by pass@1 within each published cell and then averaged
+            separately, so ranking by consistency can produce a different
+            leader from ranking by success.
+          </p>
+          <aside class="robustness-formula" aria-labelledby="robustness-formula-title">
+            <div>
+              <h4 id="robustness-formula-title">Robustness across repeated trials</h4>
+              <p><i>q</i> is the number of trials. Robustness compares success in all <i>q</i> trials with mean single-trial success; this benchmark reports ρ³ (<i>q</i> = 3).</p>
+            </div>
+            <math xmlns="http://www.w3.org/1998/Math/MathML" display="block" aria-label="rho to the power q equals pass to the power q divided by pass at one">
+              <semantics>
+                <mrow>
+                  <msup><mi>ρ</mi><mi>q</mi></msup>
+                  <mo>=</mo>
+                  <mfrac>
+                    <msup><mtext>pass</mtext><mi>q</mi></msup>
+                    <mrow><mtext>pass</mtext><mo lspace="0" rspace="0">@</mo><mn>1</mn></mrow>
+                  </mfrac>
+                </mrow>
+                <annotation encoding="application/x-tex">\rho^{q} = \frac{\mathrm{pass}^{q}}{\mathrm{pass}@1}</annotation>
+              </semantics>
+            </math>
+          </aside>
+          <div class="board">
+            <div class="board-top">
+              <div>
+                <h3 id="selection-summary">
+                  Fully localized · 5 target languages · 3 domains
+                </h3>
+                <p>
+                  <span class="live-dot" aria-hidden="true"></span>Published
+                  results · no live submissions
+                </p>
+              </div>
+              <a class="button small" href="#evaluation"
+                >How it works <span aria-hidden="true">↓</span></a
+              >
+            </div>
+            <form
+              id="leaderboard-controls"
+              class="controls"
+              hidden
+              aria-label="Filter leaderboard"
+            >
+              <div class="select-grid">
+                <label class="control-label"
+                  >Localization setting<select
+                    aria-label="Localization setting"
+                    name="setting"
+                  >
+                    <option value="s4">S4 · Full domain</option>
+                    <option value="s2">S2 · Interaction</option>
+                    <option value="s3">S3 · Tools</option>
+                    <option value="s1">S1 · English</option>
+                  </select></label
+                >
+                <label class="control-label"
+                  >Language<select
+                    aria-label="Language"
+                    name="language"
+                    aria-describedby="language-help"
+                  >
+                    <option value="all">All languages</option>
+                    <option value="vi">Vietnamese</option>
+                    <option value="th">Thai</option>
+                    <option value="id">Indonesian</option>
+                    <option value="zh">Chinese</option>
+                    <option value="tl">Filipino</option>
+                  </select></label
+                >
+                <label class="control-label"
+                  >Task domain<select aria-label="Task domain" name="domain">
+                    <option value="all">All domains</option>
+                    <option value="airline">Airline</option>
+                    <option value="retail">Retail</option>
+                    <option value="telecom">Telecom</option>
+                  </select></label
+                >
+                <label class="control-label"
+                  >Rank by<select aria-label="Rank by" name="metric">
+                    <option value="pass1">pass@1</option>
+                    <option value="pass2">pass²</option>
+                    <option value="pass3">pass³</option>
+                    <option value="rho3">ρ³</option>
+                  </select></label
+                >
+              </div>
+              <div class="model-controls">
+                <fieldset class="models">
+                  <legend>Models</legend>
+                  <label
+                    ><input
+                      type="checkbox"
+                      name="model"
+                      value="gpt-5-mini"
+                      checked
+                    />GPT-5-mini</label
+                  ><label
+                    ><input
+                      type="checkbox"
+                      name="model"
+                      value="qwen3-235b"
+                      checked
+                    />Qwen3-235B</label
+                  ><label
+                    ><input
+                      type="checkbox"
+                      name="model"
+                      value="kimi-k2.5"
+                      checked
+                    />Kimi-K2.5</label
+                  >
+                </fieldset>
+                <button id="reset-filters" type="button" class="button small">
+                  Reset
+                </button>
+              </div>
+              <p id="language-help" class="control-help">
+                Language of the localized surface; S3 dialogue remains English.
+              </p>
+            </form>
+            <noscript
+              ><p class="noscript-note">
+                Showing S4 across all five target languages and three domains.
+                Enable JavaScript to filter results; the published breakdown
+                remains available below.
+              </p></noscript
+            >
+            <p class="mobile-table-hint">
+              Swipe the table to compare all four metrics →
+            </p>
+            <div
+              class="table-scroll"
+              tabindex="0"
+              role="region"
+              aria-label="Model ranking, scroll horizontally on small screens"
+            >
+              <table id="ranking-table">
+                <caption>
+                  SEATauBench model ranking, macro-averaged over the selected
+                  published results
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Rank</th>
+                    <th scope="col">Model</th>
+                    <th scope="col" data-metric="pass1" class="selected-metric">
+                      pass@1
+                    </th>
+                    <th scope="col" data-metric="pass2">pass²</th>
+                    <th scope="col" data-metric="pass3">pass³</th>
+                    <th scope="col" data-metric="rho3">ρ³</th>
+                  </tr>
+                </thead>
+                <tbody id="ranking-body">
+                  <tr data-model="kimi-k2.5"><td class="rank">01</td><th scope="row"><span class="model-name"><i class="model-dot kimi-k2.5" aria-hidden="true"></i>Kimi-K2.5</span><span class="model-detail">15 published results</span></th><td class="score selected-metric" style="--score:60.940000000000005%">60.9%</td><td class="score " >46.6%</td><td class="score " >37.7%</td><td class="score " >59.6%</td></tr><tr data-model="gpt-5-mini"><td class="rank">02</td><th scope="row"><span class="model-name"><i class="model-dot gpt-5-mini" aria-hidden="true"></i>GPT-5-mini</span><span class="model-detail">15 published results</span></th><td class="score selected-metric" style="--score:56.90666666666667%">56.9%</td><td class="score " >43.3%</td><td class="score " >36.3%</td><td class="score " >62.3%</td></tr><tr data-model="qwen3-235b"><td class="rank">03</td><th scope="row"><span class="model-name"><i class="model-dot qwen3-235b" aria-hidden="true"></i>Qwen3-235B</span><span class="model-detail">15 published results</span></th><td class="score selected-metric" style="--score:35.93333333333334%">35.9%</td><td class="score " >27.7%</td><td class="score " >23.8%</td><td class="score " >62.9%</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="board-bottom">
+              <div>
+                <p>
+                  <strong>Equal-weight macro-average</strong> over selected
+                  language × domain cells.
+                </p>
+                <p id="result-status" role="status" aria-live="polite">
+                  3 models · 45 published results · ranked by pass@1
+                </p>
+              </div>
+              <button
+                class="button small"
+                id="download-csv"
+                type="button"
+                hidden
+              >
+                Export CSV <span aria-hidden="true">↓</span>
+              </button>
+            </div>
+          </div>
+          <p id="s3-note" class="note-warning" hidden>
+            Table 19 reports all three models for S3. The paper’s main-text
+            aggregate discussion describes two. This leaderboard uses the
+            explicit appendix values.
+          </p>
+          <p class="metric-summary">
+            <strong>pass@1</strong> mean task success ·
+            <strong>pass² / pass³</strong> success across repeated trials ·
+            <strong>ρ³</strong> consistency relative to pass@1.
+          </p>
+
+          <details class="disclosure">
+            <summary>
+              Inspect the published results
+              <span>(<span id="detail-count">45</span> selected rows)</span>
+            </summary>
+            <p>
+              <strong>Look beneath the averages to see where performance
+              differs.</strong> Each row below reports one model, language, and
+              domain under the selected localization setting, with its published
+              success and consistency scores. These rows follow the leaderboard
+              filters, and the source links identify the paper table behind
+              each result.
+            </p>
+            <div
+              class="table-scroll"
+              role="region"
+              aria-label="Detailed published results"
+              tabindex="0"
+            >
+              <table class="detail-table">
+                <caption>
+                  Published result cells for the selected filters
+                </caption>
+                <thead><tr><th scope="col">Model</th><th scope="col">Language</th><th scope="col">Domain</th><th scope="col">pass@1</th><th scope="col">pass²</th><th scope="col">pass³</th><th scope="col">ρ³</th><th scope="col">Source</th></tr></thead>
+                <tbody id="detail-body">
+                  <tr><th scope="row">GPT-5-mini</th><td>Vietnamese</td><td>Airline</td><td class="score">54.0%</td><td class="score">40.0%</td><td class="score">32.0%</td><td class="score">59.3%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Thai</td><td>Airline</td><td class="score">59.3%</td><td class="score">45.3%</td><td class="score">36.0%</td><td class="score">60.7%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Indonesian</td><td>Airline</td><td class="score">60.0%</td><td class="score">54.0%</td><td class="score">50.0%</td><td class="score">83.3%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Mandarin Chinese</td><td>Airline</td><td class="score">60.7%</td><td class="score">49.3%</td><td class="score">44.0%</td><td class="score">72.5%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Filipino</td><td>Airline</td><td class="score">56.0%</td><td class="score">43.3%</td><td class="score">38.0%</td><td class="score">67.9%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Vietnamese</td><td>Airline</td><td class="score">48.7%</td><td class="score">46.0%</td><td class="score">44.0%</td><td class="score">90.3%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Thai</td><td>Airline</td><td class="score">46.0%</td><td class="score">41.3%</td><td class="score">38.0%</td><td class="score">82.6%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Indonesian</td><td>Airline</td><td class="score">48.0%</td><td class="score">44.0%</td><td class="score">42.0%</td><td class="score">87.5%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mandarin Chinese</td><td>Airline</td><td class="score">50.0%</td><td class="score">47.3%</td><td class="score">46.0%</td><td class="score">92.0%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Filipino</td><td>Airline</td><td class="score">47.3%</td><td class="score">42.0%</td><td class="score">40.0%</td><td class="score">84.6%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Vietnamese</td><td>Airline</td><td class="score">56.0%</td><td class="score">42.7%</td><td class="score">34.0%</td><td class="score">60.7%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Thai</td><td>Airline</td><td class="score">54.7%</td><td class="score">38.7%</td><td class="score">30.0%</td><td class="score">54.8%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Indonesian</td><td>Airline</td><td class="score">60.0%</td><td class="score">48.7%</td><td class="score">42.0%</td><td class="score">70.0%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Mandarin Chinese</td><td>Airline</td><td class="score">66.0%</td><td class="score">50.7%</td><td class="score">44.0%</td><td class="score">66.7%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Filipino</td><td>Airline</td><td class="score">60.0%</td><td class="score">48.7%</td><td class="score">40.0%</td><td class="score">66.7%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Vietnamese</td><td>Retail</td><td class="score">58.5%</td><td class="score">42.7%</td><td class="score">33.3%</td><td class="score">56.9%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Thai</td><td>Retail</td><td class="score">32.5%</td><td class="score">17.5%</td><td class="score">12.3%</td><td class="score">37.8%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Indonesian</td><td>Retail</td><td class="score">54.1%</td><td class="score">39.2%</td><td class="score">32.5%</td><td class="score">60.1%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Mandarin Chinese</td><td>Retail</td><td class="score">59.6%</td><td class="score">45.0%</td><td class="score">36.8%</td><td class="score">61.7%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Filipino</td><td>Retail</td><td class="score">48.8%</td><td class="score">33.3%</td><td class="score">26.3%</td><td class="score">53.9%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Vietnamese</td><td>Retail</td><td class="score">28.9%</td><td class="score">20.5%</td><td class="score">14.9%</td><td class="score">51.6%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Thai</td><td>Retail</td><td class="score">17.8%</td><td class="score">14.3%</td><td class="score">13.2%</td><td class="score">74.2%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Indonesian</td><td>Retail</td><td class="score">24.3%</td><td class="score">17.0%</td><td class="score">14.0%</td><td class="score">57.6%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mandarin Chinese</td><td>Retail</td><td class="score">26.6%</td><td class="score">18.1%</td><td class="score">14.9%</td><td class="score">56.0%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Filipino</td><td>Retail</td><td class="score">26.0%</td><td class="score">18.7%</td><td class="score">15.8%</td><td class="score">60.8%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Vietnamese</td><td>Retail</td><td class="score">56.7%</td><td class="score">39.2%</td><td class="score">26.8%</td><td class="score">47.3%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Thai</td><td>Retail</td><td class="score">32.7%</td><td class="score">19.0%</td><td class="score">11.4%</td><td class="score">34.9%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Indonesian</td><td>Retail</td><td class="score">43.3%</td><td class="score">28.7%</td><td class="score">20.2%</td><td class="score">46.7%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Mandarin Chinese</td><td>Retail</td><td class="score">60.7%</td><td class="score">45.0%</td><td class="score">36.6%</td><td class="score">60.3%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Filipino</td><td>Retail</td><td class="score">44.4%</td><td class="score">29.2%</td><td class="score">21.9%</td><td class="score">49.3%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Vietnamese</td><td>Telecom</td><td class="score">56.4%</td><td class="score">42.7%</td><td class="score">36.0%</td><td class="score">63.8%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Thai</td><td>Telecom</td><td class="score">59.9%</td><td class="score">44.7%</td><td class="score">36.0%</td><td class="score">60.1%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Indonesian</td><td>Telecom</td><td class="score">49.7%</td><td class="score">32.5%</td><td class="score">24.6%</td><td class="score">49.5%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Mandarin Chinese</td><td>Telecom</td><td class="score">76.0%</td><td class="score">65.2%</td><td class="score">58.8%</td><td class="score">77.4%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Filipino</td><td>Telecom</td><td class="score">68.1%</td><td class="score">54.7%</td><td class="score">47.4%</td><td class="score">69.6%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Vietnamese</td><td>Telecom</td><td class="score">38.3%</td><td class="score">21.3%</td><td class="score">14.9%</td><td class="score">38.9%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Thai</td><td>Telecom</td><td class="score">28.4%</td><td class="score">14.3%</td><td class="score">7.9%</td><td class="score">27.8%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Indonesian</td><td>Telecom</td><td class="score">42.7%</td><td class="score">29.5%</td><td class="score">21.1%</td><td class="score">49.4%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mandarin Chinese</td><td>Telecom</td><td class="score">33.0%</td><td class="score">20.5%</td><td class="score">14.9%</td><td class="score">45.2%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Filipino</td><td>Telecom</td><td class="score">33.0%</td><td class="score">20.5%</td><td class="score">14.9%</td><td class="score">45.2%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Vietnamese</td><td>Telecom</td><td class="score">69.9%</td><td class="score">52.9%</td><td class="score">40.4%</td><td class="score">57.8%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Thai</td><td>Telecom</td><td class="score">69.3%</td><td class="score">52.3%</td><td class="score">43.0%</td><td class="score">62.0%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Indonesian</td><td>Telecom</td><td class="score">79.8%</td><td class="score">68.1%</td><td class="score">58.8%</td><td class="score">73.7%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Mandarin Chinese</td><td>Telecom</td><td class="score">86.3%</td><td class="score">76.3%</td><td class="score">68.4%</td><td class="score">79.3%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr><tr><th scope="row">Kimi-K2.5</th><td>Filipino</td><td>Telecom</td><td class="score">74.3%</td><td class="score">58.2%</td><td class="score">47.4%</td><td class="score">63.8%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 21</a></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+          <details class="disclosure">
+            <summary>
+              Mixed-language tools <span>· a separate S3 experiment</span>
+            </summary>
+            <p>
+              Table 20 evaluates GPT-5-mini and Qwen3-235B with mixed-language
+              tool specifications. Mix-2 uses English + Thai; Mix-3 adds
+              Vietnamese; Mix-4 adds Indonesian; Mix-5 adds Chinese. These 24
+              results are separate from the main leaderboard and do not respond
+              to its filters. Compare mixtures within the same model and domain
+              to see how success and consistency vary as the tool interface
+              includes more languages; the mixture labels describe tool
+              specifications, rather than the conversation language.
+            </p>
+            <div
+              class="table-scroll"
+              role="region"
+              aria-label="Mixed-language tool results"
+              tabindex="0"
+            >
+              <table class="detail-table">
+                <caption>
+                  All 24 published mixed-language results from Table 20
+                </caption>
+                <thead><tr><th scope="col">Model</th><th scope="col">Mixture</th><th scope="col">Domain</th><th scope="col">pass@1</th><th scope="col">pass²</th><th scope="col">pass³</th><th scope="col">ρ³</th><th scope="col">Source</th></tr></thead>
+                <tbody>
+                  <tr><th scope="row">GPT-5-mini</th><td>Mix-2</td><td>Airline</td><td class="score">68.0%</td><td class="score">56.0%</td><td class="score">48.0%</td><td class="score">70.6%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Mix-3</td><td>Airline</td><td class="score">66.0%</td><td class="score">56.0%</td><td class="score">48.0%</td><td class="score">72.7%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Mix-4</td><td>Airline</td><td class="score">64.0%</td><td class="score">52.0%</td><td class="score">48.0%</td><td class="score">75.0%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Mix-5</td><td>Airline</td><td class="score">64.0%</td><td class="score">51.3%</td><td class="score">44.0%</td><td class="score">68.8%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mix-2</td><td>Airline</td><td class="score">44.0%</td><td class="score">28.0%</td><td class="score">20.0%</td><td class="score">45.5%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mix-3</td><td>Airline</td><td class="score">41.3%</td><td class="score">26.7%</td><td class="score">20.0%</td><td class="score">48.4%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mix-4</td><td>Airline</td><td class="score">41.3%</td><td class="score">28.7%</td><td class="score">24.0%</td><td class="score">58.1%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mix-5</td><td>Airline</td><td class="score">41.3%</td><td class="score">26.7%</td><td class="score">22.0%</td><td class="score">53.3%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Mix-2</td><td>Retail</td><td class="score">66.7%</td><td class="score">54.1%</td><td class="score">46.5%</td><td class="score">69.7%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Mix-3</td><td>Retail</td><td class="score">66.7%</td><td class="score">53.8%</td><td class="score">45.6%</td><td class="score">68.4%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Mix-4</td><td>Retail</td><td class="score">65.2%</td><td class="score">48.5%</td><td class="score">38.6%</td><td class="score">59.2%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Mix-5</td><td>Retail</td><td class="score">69.6%</td><td class="score">54.7%</td><td class="score">44.7%</td><td class="score">64.2%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mix-2</td><td>Retail</td><td class="score">59.6%</td><td class="score">45.6%</td><td class="score">38.6%</td><td class="score">64.8%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mix-3</td><td>Retail</td><td class="score">53.5%</td><td class="score">39.8%</td><td class="score">32.5%</td><td class="score">60.7%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mix-4</td><td>Retail</td><td class="score">58.5%</td><td class="score">44.7%</td><td class="score">37.7%</td><td class="score">64.4%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mix-5</td><td>Retail</td><td class="score">57.0%</td><td class="score">40.1%</td><td class="score">29.8%</td><td class="score">52.3%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Mix-2</td><td>Telecom</td><td class="score">66.4%</td><td class="score">54.1%</td><td class="score">48.2%</td><td class="score">72.6%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Mix-3</td><td>Telecom</td><td class="score">69.6%</td><td class="score">55.8%</td><td class="score">49.1%</td><td class="score">70.5%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Mix-4</td><td>Telecom</td><td class="score">67.0%</td><td class="score">55.0%</td><td class="score">49.1%</td><td class="score">73.3%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">GPT-5-mini</th><td>Mix-5</td><td>Telecom</td><td class="score">65.2%</td><td class="score">52.0%</td><td class="score">46.5%</td><td class="score">71.3%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mix-2</td><td>Telecom</td><td class="score">29.8%</td><td class="score">15.5%</td><td class="score">8.8%</td><td class="score">29.5%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mix-3</td><td>Telecom</td><td class="score">39.2%</td><td class="score">21.3%</td><td class="score">14.0%</td><td class="score">35.7%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mix-4</td><td>Telecom</td><td class="score">36.5%</td><td class="score">18.1%</td><td class="score">10.5%</td><td class="score">28.8%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr><tr><th scope="row">Qwen3-235B</th><td>Mix-5</td><td>Telecom</td><td class="score">34.2%</td><td class="score">18.1%</td><td class="score">11.4%</td><td class="score">33.3%</td><td><a href="https://arxiv.org/pdf/2606.28715v2#page=24" target="_blank" rel="noopener noreferrer">Table 20</a></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+          <details class="disclosure">
+            <summary>Metrics, source, and methodology notes</summary>
+            <div class="metrics-note">
+              <p>
+                <strong>Success across repeated trials</strong>pass@1 is mean
+                task success. pass² and pass³ measure success across two and
+                three trials, respectively; they are not success on any one
+                attempt.
+              </p>
+              <p>
+                <strong>Consistency is a different question</strong>ρ³ = pass³ /
+                pass@1 for each published cell. We average reported ρ³ values
+                separately. High robustness can coexist with low overall task
+                success.
+              </p>
+            </div>
+            <p class="source-note">
+              Source:
+              <a
+                href="https://arxiv.org/pdf/2606.28715v2#page=23"
+                target="_blank"
+                rel="noopener noreferrer"
+                >paper v2, Tables 17–19 and 21</a
+              >. Equal weight per language/domain cell, not per individual task.
+              Values retain the paper’s precision; ties at the displayed
+              precision share a rank. Qwen3-235B denotes
+              Qwen3-235B-A22B-Instruct-2507.
+            </p>
+            <p>
+              Scores describe the frozen experiment snapshot, not the later
+              reviewed translation release. S3’s appendix lists three models
+              although the main-text aggregate comparison describes two.
+              Rankings here are computed from the appendix cells and may differ
+              from rounded narrative summaries. The benchmark uses 50 Airline
+              tasks and 114 tasks each in Retail and Telecom, with three trials
+              per task. The user simulator is Qwen3-235B-A22B-Instruct;
+              natural-language assertions use GPT-4.1.
+              <a href="assets/seataubench/results.json"
+                >Download the complete source dataset</a
+              >.
+            </p>
+          </details>
+        </div>
+      </section>
+      <div class="reading">
+        <section id="explore" class="closing" aria-labelledby="explore-title">
+          <div class="closing-brand">
+            <img
+              class="project-wordmark"
+              src="assets/seataubench/logo.png"
+              width="396"
+              height="77"
+              alt="SEATauBench"
+              loading="lazy"
+            />
+            <img
+              class="mascot"
+              src="assets/seataubench/sitaw.png"
+              width="64"
+              height="64"
+              alt="Sitaw, the SEATauBench string-bean mascot"
+              loading="lazy"
+            />
+          </div>
+          <h2 id="explore-title">Explore SeaTauBench</h2>
+          <p>
+            Pronounced “si-tau-bench,” like <em>sitaw</em>, the Filipino word
+            for string beans.
+          </p>
+          <div class="resources">
+            <a
+              class="button primary"
+              href="https://arxiv.org/abs/2606.28715v2"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Paper</a
+            >
+            <a
+              class="button"
+              href="https://github.com/SEACrowd/SEATauBench"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Code &amp; Data <span aria-hidden="true">↗</span></a
+            >
+            <a class="button" href="#leaderboard">Current Results</a>
+            <a
+              class="button"
+              href="https://seataubench.seacrowd.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              >seataubench.seacrowd.org <span aria-hidden="true">↗</span></a
+            >
+          </div>
+        </section>
+      </div>
+    </main>
+    <footer class="simple-footer">
+      <p>
+        A community spotlight on <a href="/community">τ-bench</a>. For site
+        questions, contact
+        <a href="mailto:research@sierra.ai">research@sierra.ai</a>.
+      </p>
+    </footer>
+  </body>
+</html>

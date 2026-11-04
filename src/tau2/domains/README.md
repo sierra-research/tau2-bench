@@ -67,6 +67,15 @@ pytest tests/test_domains/test_<domain_name>
 | `retail` | Order management, returns, and product inquiries |
 | `telecom` | Telecom account management and troubleshooting |
 | `banking_knowledge` | Knowledge-retrieval-based banking customer service with configurable RAG pipelines |
+| `intake` | Outbound elicitation with an agent-directed default and a scaffolded strategy ablation |
+
+The `intake` domain and task set use `src/tau2/domains/intake/`,
+`data/tau2/domains/intake/`, and `tests/test_domains/test_intake/`. Agent-directed
+voice elicitation is the default. Select `--elicitation-strategy scaffolded` for
+the scaffolded ablation, which also supports text. Both strategies use the same
+frozen task collection with strategy-specific policies and tool schemas.
+See the [elicitation guide](../../../docs/elicitation.md) and
+`tau2 intake-tasks --help` for usage and reproduction.
 
 ### `banking_knowledge` Domain
 
@@ -89,4 +98,3 @@ from tau2.domains.your_domain.environment import get_tasks_split as your_domain_
 registry.register_domain(your_domain_get_environment, "your_domain_name")
 registry.register_tasks(your_domain_get_tasks, "your_domain_name", get_task_splits=your_domain_get_tasks_split)
 ```
-

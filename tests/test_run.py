@@ -79,6 +79,7 @@ def test_get_tasks():
     assert tasks[0].id == "create_task_1"
 
 
+@pytest.mark.live_api
 def test_simplified_run(domain_name: str):
     """Test that we can run a task with the mock domain"""
 
@@ -113,6 +114,7 @@ def test_simplified_run(domain_name: str):
     assert simulation is not None
 
 
+@pytest.mark.live_api
 def test_run_tasks_base(domain_name: str, base_task: Task):
     """Test running a task with the mock domain"""
     results = run_tasks(
@@ -136,6 +138,7 @@ def test_run_tasks_base(domain_name: str, base_task: Task):
     assert simulation.reward_info.reward is not None
 
 
+@pytest.mark.live_api
 def test_run_task_base(domain_name: str, base_task: Task):
     """Test running a task with the mock domain"""
     simulation = run_task(
@@ -157,6 +160,7 @@ def test_run_task_base(domain_name: str, base_task: Task):
     assert simulation.reward_info.reward is not None
 
 
+@pytest.mark.live_api
 def test_run_tasks_message_history(domain_name: str, task_with_message_history: Task):
     """Test running a task with message history"""
     print(task_with_message_history.model_dump_json(indent=2))
@@ -173,6 +177,7 @@ def test_run_tasks_message_history(domain_name: str, task_with_message_history: 
     assert simulation is not None
 
 
+@pytest.mark.live_api
 def test_run_tasks_initialization_data(
     domain_name: str, task_with_initialization_data: Task
 ):
@@ -190,6 +195,7 @@ def test_run_tasks_initialization_data(
     assert simulation is not None
 
 
+@pytest.mark.live_api
 def test_run_tasks_initialization_actions(
     domain_name: str, task_with_initialization_actions: Task
 ):
@@ -207,6 +213,7 @@ def test_run_tasks_initialization_actions(
     assert simulation is not None
 
 
+@pytest.mark.live_api
 def test_run_tasks_env_assertions(domain_name: str, task_with_env_assertions: Task):
     """Test running a task with env assertions"""
     simulation = run_task(
@@ -254,6 +261,7 @@ def test_run_tasks_env_assertions(domain_name: str, task_with_env_assertions: Ta
     assert simulation.reward_info.env_assertions[1].met is False
 
 
+@pytest.mark.live_api
 def test_run_tasks_history_and_env_assertions(
     domain_name: str, task_with_history_and_env_assertions: Task
 ):
@@ -271,6 +279,7 @@ def test_run_tasks_history_and_env_assertions(
     assert simulation is not None
 
 
+@pytest.mark.live_api
 def test_run_tasks_nl_assertions(domain_name: str):
     """Test running a task with the mock domain"""
     task = get_tasks(domain_name, task_ids=["create_task_1_nl_eval"])[0]
@@ -319,6 +328,7 @@ def test_run_tasks_nl_assertions(domain_name: str):
 @pytest.mark.xfail(
     reason="Test depends on LLM quality - gpt-3.5-turbo may not consistently recognize impossible tasks"
 )
+@pytest.mark.live_api
 def test_run_tasks_action_checks(domain_name: str, task_with_action_checks: Task):
     """Test running a task with action checks"""
     simulation = run_task(
@@ -338,6 +348,7 @@ def test_run_tasks_action_checks(domain_name: str, task_with_action_checks: Task
     assert simulation.reward_info.reward_breakdown[RewardType.ACTION] == 1.0
 
 
+@pytest.mark.live_api
 def test_run_domain(run_config: RunConfig):
     """Test running a domain with the mock domain
     Requires environment manager to be running
@@ -346,6 +357,7 @@ def test_run_domain(run_config: RunConfig):
     assert simulation_results is not None
 
 
+@pytest.mark.live_api
 def test_run_gt_agent(domain_name: str, base_task: Task):
     """Test running gt agent"""
     simulation_results = run_tasks(
@@ -361,6 +373,7 @@ def test_run_gt_agent(domain_name: str, base_task: Task):
     assert simulation_results is not None
 
 
+@pytest.mark.live_api
 def test_run_solo_agent(domain_name: str, base_task: Task):
     """Test running solo agent"""
     simulation_results = run_tasks(

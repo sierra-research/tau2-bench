@@ -3,6 +3,7 @@ round-trip compatibility, streaming APIs, and checkpoint operations."""
 
 import json
 import multiprocessing
+from pathlib import Path
 
 import pytest
 
@@ -74,6 +75,48 @@ def sample_results():
 
 
 # ---- Format detection ----
+
+
+@pytest.mark.parametrize("format", ["json", "dir"])
+@pytest.mark.parametrize(
+    "provider,preset", [("openai", None), ("livekit", "openai-thinking")]
+)
+def test_load_voice_results_serialized_by_main(tmp_path, format, provider, preset):
+    payload = json.loads(
+        (Path(__file__).parent / "fixtures/main_voice_results.json").read_text()
+    )
+    payload["info"]["audio_native_config"].update(
+        provider=provider, cascaded_config_name=preset
+    )
+    path = tmp_path / "results.json"
+    path.write_text(json.dumps(payload))
+    if format == "dir":
+        (tmp_path / SIMULATIONS_DIR).mkdir()
+
+    for load in (Results.load, Results.load_metadata):
+        results = load(path)
+        audio = results.info.audio_native_config
+        assert audio.provider == provider
+        assert audio.cascaded_config is None
+        if preset is None:
+            assert audio.cascaded_request is None
+        else:
+            assert audio.cascaded_request.preset == preset
+        assert results.info.domain_tools_version is None
+        assert results.info.voice_instruction_prompt_version is None
+        assert "cascaded_config_name" not in audio.model_dump()
+        assert Results.model_validate_json(results.model_dump_json()) == results
+
+
+def test_legacy_audio_migration_does_not_ignore_unknown_fields(tmp_path):
+    payload = json.loads(
+        (Path(__file__).parent / "fixtures/main_voice_results.json").read_text()
+    )
+    payload["info"]["audio_native_config"]["unknown_setting"] = True
+    path = tmp_path / "results.json"
+    path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match="unknown_setting"):
+        Results.load(path)
 
 
 class TestFormatDetection:

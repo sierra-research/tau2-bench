@@ -17,7 +17,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 from loguru import logger
 
-logger.disable("tau2")
+
+@pytest.fixture(autouse=True, scope="module")
+def _quiet_tau2_logs():
+    """Silence tau2 logs for this module only; a module-level disable leaks."""
+    logger.disable("tau2")
+    yield
+    logger.enable("tau2")
+
 
 requires_openai = pytest.mark.skipif(
     not os.environ.get("OPENAI_API_KEY"),
@@ -34,6 +41,10 @@ requires_sandbox_runtime = pytest.mark.skipif(
 requires_all_tools_deps = pytest.mark.skipif(
     not os.environ.get("OPENAI_API_KEY") or shutil.which("srt") is None,
     reason="alltools requires OPENAI_API_KEY and sandbox-runtime (srt)",
+)
+requires_all_tools_qwen_deps = pytest.mark.skipif(
+    not os.environ.get("OPENROUTER_API_KEY") or shutil.which("srt") is None,
+    reason="alltools-qwen requires OPENROUTER_API_KEY and sandbox-runtime (srt)",
 )
 DOCUMENTS: List[Dict[str, Any]] = [
     {
@@ -128,6 +139,11 @@ _ALL_VARIANTS = [
         {"KB_search_bm25", "KB_search_dense", "shell"},
         "all_tools",
     ),
+    (
+        "alltools-qwen",
+        {"KB_search_bm25", "KB_search_dense", "shell"},
+        "all_tools_qwen",
+    ),
 ]
 
 
@@ -140,6 +156,8 @@ def _api_mark(gate):
         return requires_sandbox_runtime
     if gate == "all_tools":
         return requires_all_tools_deps
+    if gate == "all_tools_qwen":
+        return requires_all_tools_qwen_deps
     return pytest.mark.skipif(False, reason="")
 
 

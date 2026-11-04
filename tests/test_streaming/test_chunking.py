@@ -809,7 +809,7 @@ class TestAudioScriptGoldChunking:
         assert len(set(script_golds)) == len(chunks)
 
         # But all should have the same UUID
-        from tau2.agent.base.streaming_utils import extract_message_uuid
+        from tau2.utils.transcript.audio_text import extract_message_uuid
 
         uuids = [extract_message_uuid(sg) for sg in script_golds]
         assert len(set(uuids)) == 1
@@ -818,7 +818,7 @@ class TestAudioScriptGoldChunking:
         self, audio_chunker, audio_message
     ):
         """Test that each chunk's audio_script_gold has correct 'active' attribute."""
-        from tau2.agent.base.streaming_utils import extract_active_chunk_ids
+        from tau2.utils.transcript.audio_text import extract_active_chunk_ids
 
         chunks = audio_chunker._create_chunk_messages(audio_message)
 
@@ -847,7 +847,7 @@ class TestAudioScriptGoldMerging:
 
     def test_merge_single_message_all_chunks_received(self):
         """Test merging when all chunks of a single message are received."""
-        from tau2.agent.base.streaming_utils import merge_audio_script_gold
+        from tau2.utils.transcript.audio_text import merge_audio_script_gold
 
         # Simulate all chunks received (all have <chunk> tags)
         script_gold = '<message uuid="abc-123"><chunk id=0>Hello </chunk><chunk id=1>world</chunk></message>'
@@ -859,7 +859,7 @@ class TestAudioScriptGoldMerging:
 
     def test_merge_single_message_partial_chunks_received(self):
         """Test merging when only some chunks were received."""
-        from tau2.agent.base.streaming_utils import merge_audio_script_gold
+        from tau2.utils.transcript.audio_text import merge_audio_script_gold
 
         # Only chunk 0 was received (has tag), chunk 1 not received (plain text)
         script_gold = (
@@ -875,7 +875,7 @@ class TestAudioScriptGoldMerging:
 
     def test_merge_combines_received_chunks_from_multiple_inputs(self):
         """Test that merging unions received chunks from multiple inputs."""
-        from tau2.agent.base.streaming_utils import merge_audio_script_gold
+        from tau2.utils.transcript.audio_text import merge_audio_script_gold
 
         # Each chunk has full template with 'active' attribute (as produced by chunking)
         chunk0 = '<message uuid="abc-123" active="0"><chunk id=0>Hello </chunk><chunk id=1>world </chunk><chunk id=2>!</chunk></message>'
@@ -891,7 +891,7 @@ class TestAudioScriptGoldMerging:
 
     def test_merge_multiple_messages(self):
         """Test merging chunks from multiple different messages."""
-        from tau2.agent.base.streaming_utils import merge_audio_script_gold
+        from tau2.utils.transcript.audio_text import merge_audio_script_gold
 
         msg1 = '<message uuid="uuid-1"><chunk id=0>Hello</chunk></message>'
         msg2 = '<message uuid="uuid-2"><chunk id=0>World</chunk></message>'
@@ -906,7 +906,7 @@ class TestAudioScriptGoldMerging:
 
     def test_merge_preserves_message_order(self):
         """Test that merging preserves the order messages were first seen."""
-        from tau2.agent.base.streaming_utils import merge_audio_script_gold
+        from tau2.utils.transcript.audio_text import merge_audio_script_gold
 
         msg1 = '<message uuid="first"><chunk id=0>A</chunk></message>'
         msg2 = '<message uuid="second"><chunk id=0>B</chunk></message>'
@@ -920,7 +920,7 @@ class TestAudioScriptGoldMerging:
 
     def test_merge_handles_none_values(self):
         """Test that merge handles None values in input list."""
-        from tau2.agent.base.streaming_utils import merge_audio_script_gold
+        from tau2.utils.transcript.audio_text import merge_audio_script_gold
 
         msg = '<message uuid="abc"><chunk id=0>Hello</chunk></message>'
 
@@ -930,14 +930,14 @@ class TestAudioScriptGoldMerging:
 
     def test_merge_returns_none_for_empty_input(self):
         """Test that merge returns None for empty or all-None input."""
-        from tau2.agent.base.streaming_utils import merge_audio_script_gold
+        from tau2.utils.transcript.audio_text import merge_audio_script_gold
 
         assert merge_audio_script_gold([]) is None
         assert merge_audio_script_gold([None, None]) is None
 
     def test_merge_handles_already_merged_results(self):
         """Test that merging already-merged results works correctly."""
-        from tau2.agent.base.streaming_utils import (
+        from tau2.utils.transcript.audio_text import (
             extract_active_chunk_ids,
             merge_audio_script_gold,
         )
@@ -969,7 +969,7 @@ class TestExtractMessageUuid:
 
     def test_extract_uuid_from_valid_format(self):
         """Test extracting UUID from valid audio_script_gold format."""
-        from tau2.agent.base.streaming_utils import extract_message_uuid
+        from tau2.utils.transcript.audio_text import extract_message_uuid
 
         script_gold = '<message uuid="abc-123-def"><chunk id=0>Hello</chunk></message>'
         result = extract_message_uuid(script_gold)
@@ -977,20 +977,20 @@ class TestExtractMessageUuid:
 
     def test_extract_uuid_returns_none_for_invalid_format(self):
         """Test that invalid format returns None."""
-        from tau2.agent.base.streaming_utils import extract_message_uuid
+        from tau2.utils.transcript.audio_text import extract_message_uuid
 
         assert extract_message_uuid("plain text") is None
         assert extract_message_uuid("<message>no uuid</message>") is None
 
     def test_extract_uuid_returns_none_for_none_input(self):
         """Test that None input returns None."""
-        from tau2.agent.base.streaming_utils import extract_message_uuid
+        from tau2.utils.transcript.audio_text import extract_message_uuid
 
         assert extract_message_uuid(None) is None
 
     def test_extract_uuid_returns_none_for_empty_string(self):
         """Test that empty string returns None."""
-        from tau2.agent.base.streaming_utils import extract_message_uuid
+        from tau2.utils.transcript.audio_text import extract_message_uuid
 
         assert extract_message_uuid("") is None
 
@@ -1000,7 +1000,7 @@ class TestExtractActiveChunkIds:
 
     def test_extract_single_active_id(self):
         """Test extracting a single active chunk ID."""
-        from tau2.agent.base.streaming_utils import extract_active_chunk_ids
+        from tau2.utils.transcript.audio_text import extract_active_chunk_ids
 
         script = '<message uuid="x" active="0"><chunk id=0>A</chunk><chunk id=1>B</chunk></message>'
         result = extract_active_chunk_ids(script)
@@ -1008,7 +1008,7 @@ class TestExtractActiveChunkIds:
 
     def test_extract_multiple_active_ids(self):
         """Test extracting multiple active chunk IDs (merged result)."""
-        from tau2.agent.base.streaming_utils import extract_active_chunk_ids
+        from tau2.utils.transcript.audio_text import extract_active_chunk_ids
 
         script = '<message uuid="x" active="0,2,5"><chunk id=0>A</chunk><chunk id=1>B</chunk></message>'
         result = extract_active_chunk_ids(script)
@@ -1016,7 +1016,7 @@ class TestExtractActiveChunkIds:
 
     def test_extract_no_active_attribute(self):
         """Test extracting when no active attribute present."""
-        from tau2.agent.base.streaming_utils import extract_active_chunk_ids
+        from tau2.utils.transcript.audio_text import extract_active_chunk_ids
 
         script = '<message uuid="x"><chunk id=0>A</chunk></message>'
         result = extract_active_chunk_ids(script)
@@ -1094,7 +1094,7 @@ class TestAudioChunkingAndMergingIntegration:
 
     def test_partial_chunks_merge_shows_missing(self, audio_chunker):
         """Test that merging partial chunks shows which ones are missing via active attr."""
-        from tau2.agent.base.streaming_utils import extract_active_chunk_ids
+        from tau2.utils.transcript.audio_text import extract_active_chunk_ids
 
         sample_rate = 16000
         num_samples = 150  # 3 chunks
@@ -1132,7 +1132,7 @@ class TestAudioChunkingAndMergingIntegration:
         assert "<chunk id=2>" in merged.audio_script_gold
 
         # Missing chunks can be identified by comparing all vs active chunk IDs
-        from tau2.agent.base.streaming_utils import extract_all_chunk_ids
+        from tau2.utils.transcript.audio_text import extract_all_chunk_ids
 
         missing = extract_all_chunk_ids(
             merged.audio_script_gold

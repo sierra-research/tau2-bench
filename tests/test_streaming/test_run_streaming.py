@@ -23,12 +23,8 @@ from tau2.config import (
     DEFAULT_LLM_ARGS_USER,
     DEFAULT_LLM_USER,
 )
-from tau2.data_model.simulation import (
-    AudioNativeConfig,
-    RunConfig,
-    TextRunConfig,
-    VoiceRunConfig,
-)
+from tau2.data_model.run_config import AudioNativeConfig
+from tau2.data_model.simulation import RunConfig, TextRunConfig, VoiceRunConfig
 from tau2.data_model.tasks import EnvAssertion, Task, make_task
 from tau2.run import (
     EvaluationType,
