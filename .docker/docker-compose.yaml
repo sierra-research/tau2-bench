@@ -1,0 +1,28 @@
+services:
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    networks:
+      - tau
+    ports:
+      - 11434:11434
+    stdin_open: true
+    tty: true
+
+  tau-bench:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tau-bench
+    container_name: tau-bench
+    networks:
+      - tau
+    # ports:
+      # - 8004:8004
+    stdin_open: true
+    tty: true
+
+networks:
+  tau:
+    driver: bridge
