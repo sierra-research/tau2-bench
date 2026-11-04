@@ -4,7 +4,14 @@ import pytest
 from loguru import logger
 
 from tau2.data_model.message import ToolCall, ToolMessage
-from tau2.domains.airline.data_model import FlightDB, FlightInfo, Passenger, Payment
+from tau2.domains.airline.data_model import (
+    Certificate,
+    FlightDB,
+    FlightInfo,
+    GiftCard,
+    Passenger,
+    Payment,
+)
 from tau2.domains.airline.environment import get_environment
 from tau2.environment.environment import Environment
 
@@ -169,6 +176,90 @@ def test_book_reservation(environment: Environment, reservation_call: ToolCall):
     reservation_call.arguments["payment_methods"][0].amount = 121
     response = environment.get_response(reservation_call)
     assert response.error
+
+
+@pytest.mark.parametrize("method_type", [GiftCard, Certificate])
+@pytest.mark.parametrize("as_dict", [False, True])
+def test_booking_checks_combined_payment_balance(
+    environment: Environment, reservation_call: ToolCall, method_type, as_dict
+):
+    payment_id = f"{method_type.__name__.lower()}_test"
+    source = "gift_card" if method_type is GiftCard else "certificate"
+    db = environment.tools.db
+    db.users["mia_li_3668"].payment_methods[payment_id] = method_type(
+        source=source, id=payment_id, amount=100
+    )
+    payments = [Payment(payment_id=payment_id, amount=61) for _ in range(2)]
+    reservation_call.arguments["payment_methods"] = (
+        [payment.model_dump() for payment in payments] if as_dict else payments
+    )
+    before = db.model_dump()
+
+    response = environment.get_response(reservation_call)
+
+    assert response.error
+    assert f"Not enough balance in payment method {payment_id}" in response.content
+    assert db.model_dump() == before
+
+
+@pytest.mark.parametrize("method_type", [GiftCard, Certificate])
+@pytest.mark.parametrize("as_dict", [False, True])
+def test_booking_settles_repeated_payment_method_once(
+    environment: Environment, reservation_call: ToolCall, method_type, as_dict
+):
+    payment_id = f"{method_type.__name__.lower()}_test"
+    source = "gift_card" if method_type is GiftCard else "certificate"
+    db = environment.tools.db
+    user = db.users["mia_li_3668"]
+    user.payment_methods[payment_id] = method_type(
+        source=source, id=payment_id, amount=150
+    )
+    payments = [Payment(payment_id=payment_id, amount=61) for _ in range(2)]
+    reservation_call.arguments["payment_methods"] = (
+        [payment.model_dump() for payment in payments] if as_dict else payments
+    )
+    seats_before = db.flights["HAT001"].dates["2024-05-16"].available_seats["economy"]
+
+    response = environment.get_response(reservation_call)
+
+    assert not response.error, response.content
+    reservation = db.reservations["HATHAT"]
+    assert reservation.payment_history == payments
+    assert user.reservations[-1] == reservation.reservation_id
+    assert (
+        db.flights["HAT001"].dates["2024-05-16"].available_seats["economy"]
+        == seats_before - 1
+    )
+    if method_type is GiftCard:
+        assert user.payment_methods[payment_id].amount == 28
+    else:
+        assert payment_id not in user.payment_methods
+
+
+def test_booking_settles_interleaved_payment_methods(
+    environment: Environment, reservation_call: ToolCall
+):
+    db = environment.tools.db
+    user = db.users["mia_li_3668"]
+    user.payment_methods["gift_card_test"] = GiftCard(
+        source="gift_card", id="gift_card_test", amount=100
+    )
+    payments = [
+        Payment(payment_id="gift_card_test", amount=20),
+        Payment(payment_id="certificate_4856383", amount=30),
+        Payment(payment_id="gift_card_test", amount=20),
+        Payment(payment_id="certificate_4856383", amount=30),
+        Payment(payment_id="credit_card_4421486", amount=22),
+    ]
+    reservation_call.arguments["payment_methods"] = payments
+
+    response = environment.get_response(reservation_call)
+
+    assert not response.error, response.content
+    assert user.payment_methods["gift_card_test"].amount == 60
+    assert "certificate_4856383" not in user.payment_methods
+    assert "credit_card_4421486" in user.payment_methods
+    assert db.reservations["HATHAT"].payment_history == payments
 
 
 @pytest.fixture

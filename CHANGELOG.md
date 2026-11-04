@@ -88,6 +88,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   excluded. `VerdictFingerprint` gains `input_error_units`, so voice-v2
   packages prepared before this change must be re-prepared.
 
+### Fixed
+- Airline bookings validate and settle the combined charge for each payment
+  method, so repeated gift-card entries cannot overdraw its balance and repeated
+  certificate entries do not consume the certificate before failing.
+  Regenerated airline runtime pins advance the text/voice frame revision to
+  `regional-release-data-v17` and the voice-v1 frame to `english-base-v2`.
+
 ## [2.0.0] - 2026-10-19
 
 > **⚠️ Scoring change — scores are not comparable with 1.x.** Communication checks,

@@ -413,7 +413,7 @@ tau2 benchmarks pin text --revision regional-release-data-v17
 `pin` is idempotent. A changed pin means results saved under the old revision no
 longer validate, so `pin` refuses to write changed pins without a new
 `--revision`. The current revision of `text.json` and `voice.json` is
-`regional-release-data-v16`; `voice-v1.json` is `english-base-v1`.
+`regional-release-data-v17`; `voice-v1.json` is `english-base-v2`.
 
 ## Python callers
 

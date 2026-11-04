@@ -347,9 +347,15 @@ class AirlineTools(ToolKitBase):  # Tools
         # Add baggage fee
         total_price += self._fee(50) * nonfree_baggages
 
+        # Validate the full charge to each method before deducting any payment.
+        payment_totals: dict[str, int] = {}
         for payment_method in payment_methods:
             payment_id = payment_method.payment_id
-            amount = payment_method.amount
+            payment_totals[payment_id] = (
+                payment_totals.get(payment_id, 0) + payment_method.amount
+            )
+
+        for payment_id, amount in payment_totals.items():
             if payment_id not in user.payment_methods:
                 raise ValueError(f"Payment method {payment_id} not found")
 
@@ -367,9 +373,7 @@ class AirlineTools(ToolKitBase):  # Tools
             )
 
         # if checks pass, deduct payment
-        for payment_method in payment_methods:
-            payment_id = payment_method.payment_id
-            amount = payment_method.amount
+        for payment_id, amount in payment_totals.items():
             user_payment_method = user.payment_methods[payment_id]
             if user_payment_method.source == "gift_card":
                 user_payment_method.amount -= amount
