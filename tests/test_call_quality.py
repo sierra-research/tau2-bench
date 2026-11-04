@@ -414,6 +414,17 @@ def test_measurements_come_from_the_tick_timeline():
     assert held.max_agent_floor_hold_seconds == pytest.approx(29 * 0.2)
 
 
+def test_exactly_three_second_reply_is_not_late():
+    """A 15-tick (3.0 s) gap is not over the threshold despite float tick times."""
+    flags = call_quality.interaction_flags
+    on_time = measure_interaction(_timeline([(0, 1)], [(17, 21)], 30))
+    assert on_time.response_latency_mean > call_quality.RESPONSE_LATENCY_SECONDS
+    assert flags(on_time, None)["nonresponse"] == 0
+    late = measure_interaction(_timeline([(0, 1)], [(18, 22)], 30))
+    assert late.response_latency_mean == pytest.approx(3.2)
+    assert flags(late, None)["nonresponse"] == 1
+
+
 def test_scored_call_and_cell_totals():
     sim = _timeline([(0, 30)], [(5, 8), (12, 14), (18, 20), (24, 26)], 60)
     verdicts = _live(False, False) | {"tool_use": _tool_use(violation=True)}
