@@ -94,6 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   certificate entries do not consume the certificate before failing.
   Regenerated airline runtime pins advance the text/voice frame revision to
   `regional-release-data-v17` and the voice-v1 frame to `english-base-v2`.
+  Localized source-evidence links and English prompt-record digests are refreshed
+  without changing runtime datasets, policies or prompt wording.
 
 ## [2.0.0] - 2026-10-19
 
