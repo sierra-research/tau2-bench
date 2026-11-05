@@ -4,6 +4,24 @@ import { AUTHORS } from './blogData.js'
 // concise, factual summary and point to a first-party project page.
 export const COMMUNITY_EXTENSIONS = [
   {
+    slug: 'tau-authority',
+    title: 'tau-Authority',
+    category: 'Research',
+    date: 'October 2026',
+    description: 'Checks each change an agent tries to make against what the customer in the conversation can authorize, before it runs.',
+    href: 'community/tau-authority.html',
+    githubUrl: 'https://github.com/delegusai/tau-authority',
+    paperUrl: 'https://doi.org/10.5281/zenodo.23423057',
+    leaderboardUrl: 'community/tau-authority.html#leaderboard',
+    authors: ['inam-haq'].map(slug => ({
+      slug,
+      name: AUTHORS[slug].name,
+      affiliation: AUTHORS[slug].paperAffiliation ?? AUTHORS[slug].role,
+      profileUrl: `authors/${slug}.html`,
+      photo: AUTHORS[slug].photo.slice(1),
+    })),
+  },
+  {
     slug: 'seataubench',
     title: 'SEATauBench',
     category: 'Research',
