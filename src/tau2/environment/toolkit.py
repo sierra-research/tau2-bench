@@ -139,7 +139,7 @@ class ToolKitBase(metaclass=ToolKitType):
         """Use a tool."""
         if tool_name not in self.tools:
             raise ValueError(f"Tool '{tool_name}' not found.")
-        return self.tools[tool_name](**kwargs)
+        return as_tool(self.tools[tool_name])(**kwargs)
 
     def get_tools(self, include: Optional[list[str]] = None) -> Dict[str, Tool]:
         """Get the non-discoverable tools available in the ToolKit.
