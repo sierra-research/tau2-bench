@@ -98,3 +98,41 @@ from tau2.domains.your_domain.environment import get_tasks_split as your_domain_
 registry.register_domain(your_domain_get_environment, "your_domain_name")
 registry.register_tasks(your_domain_get_tasks, "your_domain_name", get_task_splits=your_domain_get_tasks_split)
 ```
+
+## Domains in another package
+
+A package outside this repo can register its domains, agents and users without
+editing `registry.py`, through the `tau2.plugins` entry point group. Each entry
+point names a function that takes the registry:
+
+```toml
+# your package's pyproject.toml
+[project.entry-points."tau2.plugins"]
+your_domain = "your_package.plugin:register"
+```
+
+```python
+from tau2.registry import DomainOptions
+
+def register(registry):
+    registry.register_domain(
+        get_environment,
+        "your_domain",
+        DomainOptions(env_kwargs=lambda task: {"task": task}),
+    )
+    registry.register_tasks(get_tasks, "your_domain", get_task_splits=get_tasks_split)
+```
+
+`DomainOptions` covers domains that need more than the default wiring:
+
+- `build_orchestrator`: used by the batch runner in place of
+  `tau2.runner.build.build_orchestrator` (same signature), for domains that
+  build their own environment or user simulator.
+- `env_kwargs`: `(task) -> kwargs`, extra environment kwargs used when
+  evaluating a run and when re-evaluating a saved one.
+- `evaluation_env_kwargs`: `(simulation) -> kwargs`, extra environment kwargs
+  when re-evaluating a saved run.
+
+Environments can also override `get_evaluation_info()` (diagnostics saved with
+the reward) and `get_run_record()` (merged into the simulation's `info`), and
+tool results can carry `raw_data` that is saved but never sent to a model.

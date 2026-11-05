@@ -115,6 +115,11 @@ def run_simulation(
 
     # Run the orchestrator
     simulation = orchestrator.run()
+    # Domains that build their world from files outside the task record what
+    # this run was built from.
+    get_run_record = getattr(orchestrator.environment, "get_run_record", None)
+    if get_run_record is not None and (record := get_run_record()):
+        simulation.info = {**(simulation.info or {}), **record}
     if call_context is not None:
         from tau2.voice.voice_gender import VOICE_GENDER_CATALOG_REVISION
 

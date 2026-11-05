@@ -2,7 +2,13 @@ import json
 from copy import deepcopy
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from tau2.data_model.audio import (
     AudioFormat,
@@ -564,6 +570,11 @@ class ToolMessage(BaseModel):
         description="The requestor of the tool call.",
     )
     error: bool = Field(description="Whether the tool call failed.", default=False)
+    raw_data: Optional[dict] = Field(
+        default=None,
+        description="Domain data recorded with the result (e.g. a nested session "
+        "for replay). Never sent to a model.",
+    )
     execution_status: Literal["executed", "rejected"] = Field(
         default="executed",
         description="Whether the environment executed the call, or the orchestrator "
@@ -575,6 +586,14 @@ class ToolMessage(BaseModel):
     timestamp: Optional[str] = Field(
         description="The timestamp of the message.", default_factory=get_now
     )
+
+    @model_serializer(mode="wrap")
+    def _omit_unset_raw_data(self, handler):
+        """Results without raw_data serialize exactly as before the field existed."""
+        data = handler(self)
+        if isinstance(data, dict) and data.get("raw_data") is None:
+            data.pop("raw_data", None)
+        return data
 
     @model_validator(mode="after")
     def validate_rejection(self) -> "ToolMessage":

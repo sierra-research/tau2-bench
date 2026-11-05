@@ -426,8 +426,10 @@ def run_single_task(
                 / "taps"
             )
 
-        # Layer 2: Build the orchestrator
-        orchestrator = build_orchestrator(
+        # Layer 2: Build the orchestrator (a domain may supply its own builder)
+        domain_options = registry.get_domain_options(config.domain)
+        build = domain_options.build_orchestrator or build_orchestrator
+        orchestrator = build(
             config,
             task,
             seed=seed,
@@ -441,9 +443,10 @@ def run_single_task(
 
         # Layer 1: Run the simulation
         call_language = orchestrator.call_context.language
-        env_kwargs = (
-            _build_env_kwargs(config, task, language_context=call_language) or None
-        )
+        env_kwargs = _build_env_kwargs(config, task, language_context=call_language)
+        if domain_options.env_kwargs is not None:
+            env_kwargs = {**env_kwargs, **domain_options.env_kwargs(task)}
+        env_kwargs = env_kwargs or None
         simulation = run_simulation(
             orchestrator,
             evaluation_type=evaluation_type,

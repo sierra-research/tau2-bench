@@ -185,6 +185,13 @@ def _build_eval_env_kwargs(
         from tau2.runner.build import _derive_read_log_allowlist
 
         env_kwargs["read_log_allowlist"] = _derive_read_log_allowlist(task)
+    from tau2.registry import registry
+
+    options = registry.get_domain_options(domain)
+    if options.env_kwargs is not None:
+        env_kwargs.update(options.env_kwargs(task))
+    if options.evaluation_env_kwargs is not None:
+        env_kwargs.update(options.evaluation_env_kwargs(simulation))
     return env_kwargs or None
 
 

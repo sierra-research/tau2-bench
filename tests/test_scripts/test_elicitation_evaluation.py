@@ -150,3 +150,20 @@ def test_banking_preserves_read_log_allowlist():
     assert _build_eval_env_kwargs(
         results, results.tasks[0], results.simulations[0]
     ) == {"read_log_allowlist": {"account_transactions"}}
+
+
+def test_domain_options_supply_task_and_evaluation_kwargs(monkeypatch):
+    from tau2.registry import DomainOptions, registry
+
+    results = _recorded_results(ElicitationStrategy.SCAFFOLDED, "text", False)
+    results.info.environment_info.domain_name = "plugin_domain"
+    results.info.elicitation = None
+    options = DomainOptions(
+        env_kwargs=lambda task: {"task": task},
+        evaluation_env_kwargs=lambda simulation: {"run_id": simulation.id},
+    )
+    monkeypatch.setitem(registry._domain_options, "plugin_domain", options)
+
+    assert _build_eval_env_kwargs(
+        results, results.tasks[0], results.simulations[0]
+    ) == {"task": results.tasks[0], "run_id": results.simulations[0].id}

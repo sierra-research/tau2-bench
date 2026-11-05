@@ -281,6 +281,20 @@ class Environment:
             return None
         return self.tools.get_db_hash()
 
+    def get_evaluation_info(self) -> Optional[dict]:
+        """Domain diagnostics computed while grading, saved with the reward.
+
+        Called on the predicted environment after its env assertions run.
+        """
+        return None
+
+    def get_run_record(self) -> Optional[dict]:
+        """What this run was built from, merged into the simulation's info.
+
+        For domains that build their world from files outside the task.
+        """
+        return None
+
     def get_user_db_hash(self) -> Optional[str]:
         """
         Get a hash of the user database

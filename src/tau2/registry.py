@@ -1,4 +1,6 @@
-from typing import Callable, Dict, Optional
+from dataclasses import dataclass
+from importlib.metadata import entry_points
+from typing import Any, Callable, Dict, Optional
 
 from loguru import logger
 from pydantic import BaseModel
@@ -63,6 +65,29 @@ from tau2.environment.environment import Environment
 from tau2.user.user_simulator import DummyUser, UserSimulator
 from tau2.user.user_simulator_base import FullDuplexUser, HalfDuplexUser
 
+#: Entry-point group for packages that register their own domains, agents and
+#: users. Each entry point names a callable that takes the registry.
+PLUGIN_ENTRY_POINT_GROUP = "tau2.plugins"
+
+
+@dataclass(frozen=True)
+class DomainOptions:
+    """Optional per-domain behavior, for domains that need more than a task.
+
+    Attributes:
+        build_orchestrator: Used by the batch runner in place of
+            ``tau2.runner.build.build_orchestrator`` (same signature), for
+            domains that build their own environment or user simulator.
+        env_kwargs: ``(task) -> kwargs``, extra environment kwargs for a task,
+            used when evaluating a run and when re-evaluating a saved one.
+        evaluation_env_kwargs: ``(simulation) -> kwargs``, extra environment
+            kwargs when re-evaluating a saved run (e.g. cached judge verdicts).
+    """
+
+    build_orchestrator: Optional[Callable[..., Any]] = None
+    env_kwargs: Optional[Callable[[Task], dict]] = None
+    evaluation_env_kwargs: Optional[Callable[[Any], dict]] = None
+
 
 class RegistryInfo(BaseModel):
     """Options for the registry"""
@@ -84,6 +109,7 @@ class Registry:
         ] = {}  # Optional task filters per agent
         self._agent_metadata: Dict[str, dict] = {}  # Optional metadata per agent
         self._domains: Dict[str, Callable[[], Environment]] = {}
+        self._domain_options: Dict[str, DomainOptions] = {}
         self._tasks: Dict[str, Callable[[Optional[str]], list[Task]]] = {}
         self._task_splits: Dict[str, Callable[[], dict[str, list[str]]]] = {}
 
@@ -184,12 +210,15 @@ class Registry:
         self,
         get_environment: Callable[[], Environment],
         name: str,
+        options: Optional[DomainOptions] = None,
     ):
-        """Register a new Domain implementation"""
+        """Register a new Domain implementation, with optional DomainOptions."""
         try:
             if name in self._domains:
                 raise ValueError(f"Domain {name} already registered")
             self._domains[name] = get_environment
+            if options is not None:
+                self._domain_options[name] = options
         except Exception as e:
             logger.error(f"Error registering domain {name}: {str(e)}")
             raise
@@ -227,6 +256,10 @@ class Registry:
         if name not in self._domains:
             raise KeyError(f"Domain {name} not found in registry")
         return self._domains[name]
+
+    def get_domain_options(self, name: str) -> DomainOptions:
+        """A domain's DomainOptions (the defaults if it registered none)."""
+        return self._domain_options.get(name, DomainOptions())
 
     def get_tasks_loader(self, name: str) -> Callable[[Optional[str]], list[Task]]:
         """Get a registered Task Set by name.
@@ -362,3 +395,15 @@ try:
 
 except Exception as e:
     logger.error(f"Error initializing registry: {str(e)}")
+
+
+def load_plugins(target: Registry) -> None:
+    """Let installed packages register with ``target`` (``tau2.plugins``)."""
+    for entry_point in entry_points(group=PLUGIN_ENTRY_POINT_GROUP):
+        try:
+            entry_point.load()(target)
+        except Exception as e:
+            logger.error(f"Error loading tau2 plugin {entry_point.name}: {e}")
+
+
+load_plugins(registry)
