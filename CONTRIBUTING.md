@@ -124,6 +124,12 @@ uv sync --all-extras           # everything
 
 This requires [uv](https://docs.astral.sh/uv/getting-started/installation/). The Python version (3.12) is pinned via `.python-version` — uv will download it automatically if needed.
 
+Published benchmark pins include raw file digests. The repository's `.gitattributes`
+keeps text files at LF even when Git's `core.autocrlf` is enabled. If an existing
+working tree still contains CRLF files, use a fresh clone or worktree before
+validating released benchmarks; adding attributes does not necessarily rewrite
+files that are already checked out.
+
 ### 2. Development Dependencies
 The project uses several tools for code quality (included in the `dev` extra):
 - **uv**: Package and project management
