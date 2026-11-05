@@ -14,6 +14,7 @@ from tau2.domains.banking_knowledge.db_query import (
 )
 from tau2.domains.banking_knowledge.utils import (
     _deterministic_id,
+    canonicalize_time_verified,
     generate_account_flag_id,
     generate_agent_discoverable_tool_id,
     generate_application_id,
@@ -30,6 +31,7 @@ from tau2.domains.banking_knowledge.utils import (
     generate_user_discoverable_tool_id,
     generate_verification_id,
     get_now,
+    get_now_str,
     get_today_str,
 )
 from tau2.environment.toolkit import (
@@ -390,7 +392,7 @@ class KnowledgeTools(ToolKitBase):
         Returns:
             The current time in the format "YYYY-MM-DD HH:MM:SS TZ"
         """
-        return "The current time is 2025-11-14 03:40:00 EST."
+        return f"The current time is {get_now_str()}."
 
     @is_tool(ToolType.READ)
     def get_user_information_by_id(self, user_id: str) -> str:
@@ -503,6 +505,14 @@ class KnowledgeTools(ToolKitBase):
             date_of_birth: The verified user's date of birth (MM/DD/YYYY format)
             time_verified: The timestamp of the verification (e.g., "2025-11-14 03:40:00 EST")
         """
+        # Agents copy the timestamp from get_current_time in varying formats.
+        # Store the canonical form so equivalent timestamps produce the same DB
+        # record (and DB hash); non-matching timestamps are stored unchanged.
+        # The response still echoes the caller's string, so recorded tool
+        # outputs from earlier runs replay identically under strict replay.
+        requested_time = time_verified
+        time_verified = canonicalize_time_verified(time_verified)
+
         # Generate a deterministic ID for this verification record
         record_id = generate_verification_id(user_id, time_verified)
 
@@ -526,7 +536,7 @@ class KnowledgeTools(ToolKitBase):
         return (
             f"Verification logged successfully.\n"
             f"  - User: {name} (ID: {user_id})\n"
-            f"  - Verified at: {time_verified}"
+            f"  - Verified at: {requested_time}"
         )
 
     @is_tool(ToolType.GENERIC, mutates_state=True)
