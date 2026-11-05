@@ -82,3 +82,41 @@ def test_tool_message_raw_data_is_omitted_when_unset():
     rich = ToolMessage(id="1", role="tool", content="ok", raw_data={"a": 1})
     assert rich.model_dump()["raw_data"] == {"a": 1}
     assert ToolMessage.model_validate(rich.model_dump()).raw_data == {"a": 1}
+
+
+def test_environment_and_agent_run_records_are_saved(monkeypatch):
+    from tau2.data_model.simulation import (
+        RewardInfo,
+        SimulationRun,
+        TerminationReason,
+    )
+
+    running = sys.modules["tau2.runner.simulation"]
+    monkeypatch.setattr(
+        running, "evaluate_simulation", lambda **kwargs: RewardInfo(reward=1)
+    )
+    task = get_tasks()[0]
+    orchestrator = SimpleNamespace(
+        task=task,
+        call_context=None,
+        environment=SimpleNamespace(
+            get_domain_name=lambda: "mock",
+            get_policy=lambda: "policy",
+            get_run_record=lambda: {"world": "w1"},
+        ),
+        agent=SimpleNamespace(get_run_record=lambda: {"harness": {"name": "cli"}}),
+        run=lambda: SimulationRun(
+            id="fixture",
+            task_id=task.id,
+            start_time="2026-01-01T00:00:00",
+            end_time="2026-01-01T00:01:00",
+            duration=60,
+            termination_reason=TerminationReason.USER_STOP,
+            messages=[],
+        ),
+    )
+
+    simulation = running.run_simulation(orchestrator)
+
+    assert simulation.info["world"] == "w1"
+    assert simulation.info["harness"] == {"name": "cli"}

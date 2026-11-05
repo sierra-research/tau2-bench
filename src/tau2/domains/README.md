@@ -134,5 +134,6 @@ def register(registry):
   when re-evaluating a saved run.
 
 Environments can also override `get_evaluation_info()` (diagnostics saved with
-the reward) and `get_run_record()` (merged into the simulation's `info`), and
+the reward) and `get_run_record()` (merged into the simulation's `info`; agents
+may define `get_run_record()` too), and
 tool results can carry `raw_data` that is saved but never sent to a model.
