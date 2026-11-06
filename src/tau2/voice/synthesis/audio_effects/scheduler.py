@@ -32,9 +32,12 @@ class ScheduledEffect(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    effect_type: Literal["burst_noise_file", "out_of_turn_speech", "frame_drop"] = (
-        Field(description="Type of audio effect")
-    )
+    effect_type: Literal[
+        "burst_noise_file",
+        "background_speech_file",
+        "out_of_turn_speech",
+        "frame_drop",
+    ] = Field(description="Type of audio effect")
     timestamp_ms: int = Field(description="Timestamp when effect was triggered (ms)")
     duration_ms: int = Field(description="Expected duration of effect (ms)")
     timing: EffectTiming = Field(
@@ -44,6 +47,10 @@ class ScheduledEffect(BaseModel):
     burst_noise_file: Optional[Path] = Field(
         default=None,
         description="Path to burst noise audio file",
+    )
+    background_speech_file: Optional[Path] = Field(
+        default=None,
+        description="Path to background speech audio file",
     )
     out_of_turn_speech: Optional[UserSpeechInsert] = Field(
         default=None,
@@ -99,6 +106,7 @@ class EffectScheduler:
         frame_drop_rate: Optional[float] = None,
         frame_drop_burst_duration_ms: Optional[float] = None,
         burst_noise_files: Optional[list[Path]] = None,
+        background_speech_files: Optional[list[Path]] = None,
     ):
         """Initialize the effect scheduler."""
         # Store configurations
@@ -109,17 +117,25 @@ class EffectScheduler:
         self.burst_noise_files = (
             burst_noise_files if burst_noise_files is not None else BURST_NOISE_FILES
         )
+        self.background_speech_files: list[Path] = (
+            list(background_speech_files) if background_speech_files is not None else []
+        )
 
         # Initialize random number generators (separate streams for reproducibility)
         self._trigger_rng = random.Random(seed)
         self._burst_selection_rng = random.Random(seed + 1)
         self._speech_selection_rng = random.Random(seed + 2)
         self._frame_drop_rng = random.Random(seed + 3)
+        self._background_speech_trigger_rng = random.Random(seed + 4)
+        self._background_speech_selection_rng = random.Random(seed + 5)
 
         # Configure Poisson rates for burst noise and speech inserts
         self.burst_rate = self._resolve_rate(
             burst_noise_events_per_minute,
             source_config.burst_noise_events_per_minute,
+        )
+        self.background_speech_rate = (
+            source_config.background_speech_events_per_minute / 60.0
         )
         self.speech_insert_rate = self._resolve_rate(
             speech_insert_events_per_minute,
@@ -196,6 +212,7 @@ class EffectScheduler:
         is_silence: bool,
         current_time_ms: int,
         has_active_burst: bool = False,
+        has_active_background_speech: bool = False,
     ) -> list[ScheduledEffect]:
         """Check if any effects should be triggered for this audio chunk."""
         effects: list[ScheduledEffect] = []
@@ -207,6 +224,13 @@ class EffectScheduler:
         )
         if burst_effect:
             effects.append(burst_effect)
+
+        # Check for independent background speech (cross-turn, Poisson, own RNG)
+        bg_speech_effect = self._check_background_speech(
+            chunk_duration_sec, current_time_ms, has_active_background_speech
+        )
+        if bg_speech_effect:
+            effects.append(bg_speech_effect)
 
         # Check for out-of-turn speech (silence-only, Poisson)
         speech_effect = self._check_out_of_turn_speech(
@@ -252,6 +276,38 @@ class EffectScheduler:
                 duration_ms=500,  # Typical burst duration
                 timing="cross_turn",
                 burst_noise_file=burst_file,
+            )
+
+        return None
+
+    def _check_background_speech(
+        self,
+        chunk_duration_sec: float,
+        current_time_ms: int,
+        has_active_background_speech: bool,
+    ) -> Optional[ScheduledEffect]:
+        """Check for background speech trigger (Poisson, cross-turn, independent stream)."""
+        if not self.source_config.enable_background_speech:
+            return None
+        if self.background_speech_rate <= 0 or not self.background_speech_files:
+            return None
+        if has_active_background_speech:
+            return None
+
+        if poisson_should_trigger(
+            self.background_speech_rate,
+            chunk_duration_sec,
+            self._background_speech_trigger_rng,
+        ):
+            bg_file = self._background_speech_selection_rng.choice(
+                self.background_speech_files
+            )
+            return ScheduledEffect(
+                effect_type="background_speech_file",
+                timestamp_ms=current_time_ms,
+                duration_ms=500,
+                timing="cross_turn",
+                background_speech_file=bg_file,
             )
 
         return None

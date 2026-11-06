@@ -129,6 +129,7 @@ class StreamingChunkResult:
     burst_noise_file: Optional[str]
     pending_effect_completed: bool
     pending_effect_discarded: bool
+    background_speech_file: Optional[str] = None
 
     def to_mixed_audio_data(self) -> AudioData:
         """Sum all tracks (including out-of-turn speech) into one AudioData."""
@@ -136,6 +137,7 @@ class StreamingChunkResult:
             self.tracks.speech
             + self.tracks.background_noise
             + self.tracks.burst_noise
+            + self.tracks.background_speech
             + self.out_of_turn_speech
         )
         mixed = np.clip(mixed, -32768, 32767).astype(np.int16)
@@ -179,14 +181,29 @@ class StreamingAudioEffectsMixin:
             pending_effect = None
             pending_effect_discarded = True
 
+        # Activate background_speech before mix_audio_to_tracks so the clip plays on
+        # this chunk and tracks.metadata records snr_db/scale for EffectTimeline.
+        background_speech_file = None
+        if scheduled_effects:
+            for effect in scheduled_effects:
+                if (
+                    effect.effect_type == "background_speech_file"
+                    and effect.background_speech_file
+                ):
+                    background_speech_file = str(effect.background_speech_file)
+                    noise_generator.add_background_speech(effect.background_speech_file)
+                    logger.debug(f"Added background speech: {background_speech_file}")
+
         noise_data, snr_envelope = noise_generator.get_next_chunk(num_samples)
         burst_info = noise_generator.get_burst_chunk(num_samples)
+        bg_speech_info = noise_generator.get_background_speech_chunk(num_samples)
 
         tracks = mix_audio_to_tracks(
             speech=speech_audio,
             noise=noise_data,
             snr_envelope_db=snr_envelope,
             burst_info=burst_info,
+            background_speech_info=bg_speech_info,
         )
 
         burst_noise_file = None
@@ -253,6 +270,7 @@ class StreamingAudioEffectsMixin:
             burst_noise_file=burst_noise_file,
             pending_effect_completed=pending_effect_completed,
             pending_effect_discarded=pending_effect_discarded,
+            background_speech_file=background_speech_file,
         )
 
     def _get_pending_effect_track(
