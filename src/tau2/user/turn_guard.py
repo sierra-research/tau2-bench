@@ -14,6 +14,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Literal, Optional
 
+from tau2.data_model.message import Message, UserMessage
 from tau2.user.user_simulator_base import OUT_OF_SCOPE, STOP, TRANSFER
 
 TurnGuardMode = Literal["off", "detect", "truncate"]
@@ -21,9 +22,34 @@ TurnGuardMode = Literal["off", "detect", "truncate"]
 CONTROL_TOKENS = (STOP, TRANSFER, OUT_OF_SCOPE)
 
 # Sentence end immediately followed by the start of a new sentence, e.g.
-# "handy.Okay" or "2023.Can". Requires a lowercase letter or digit before the
-# punctuation so abbreviations like "U.S.A" and decimals like "4.1" don't fire.
-_GLUED_SENTENCE = re.compile(r"(?<=[a-z0-9\)\"'])[.?!](?=[A-Z])")
+# "handy.Okay", "2023.Can" or "exchange?Actually". The stop must come after two
+# lowercase letters or digits and before a capitalised word or "I", so
+# abbreviations ("e.g.The", "Dr.Lee", "Ph.D"), version strings ("2.0.Beta"),
+# file names ("photo.JPG") and decimals ("4.1") don't match.
+_GLUED_SENTENCE = re.compile(r"(?<=[a-z0-9][a-z0-9\)\"'])[.?!](?=[A-Z][a-z]|I\b)")
+
+# A stop after an English, Spanish or Portuguese title or "vs" ("Mrs.Davis",
+# "mr.Jones", "Sra.Ruiz", "vs.Apple") or after a dotted number ("3.12.Final",
+# "10.0.19045.Update") is not a sentence end.
+_NOT_A_SENTENCE_END = re.compile(
+    r"(?:\b(?:mrs?|ms|dra?|profa?|sra?|srta|vs)|\d\.\d+)$", re.IGNORECASE
+)
+
+# Emails, links and domains ("Mei.Davis@example.com", "Amazon.Com") are
+# skipped: a stop before a capital there is not a sentence end.
+_LINK_OR_EMAIL = re.compile(
+    r"@|/|www\.|\.(?:com|net|org|io|ai|co|uk|us)\b", re.IGNORECASE
+)
+
+# Chinese, Japanese and Thai don't put a space after a full stop, so glued
+# sentences are normal there. Messages containing these scripts are not
+# checked for glue.
+_UNSPACED_SCRIPT = re.compile(
+    "[\u0e00-\u0e7f"  # Thai
+    "\u3000-\u30ff"  # CJK punctuation, Hiragana, Katakana
+    "\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff"  # CJK ideographs
+    "\uff00-\uffef]"  # Fullwidth and halfwidth forms
+)
 
 # A line or inline span where the simulator speaks as the other party.
 _ROLE_PREFIX = re.compile(
@@ -48,6 +74,20 @@ def _first_control_token(text: str) -> Optional[tuple[int, str]]:
     return min(hits) if hits else None
 
 
+def _glued_sentence_end(text: str) -> Optional[int]:
+    """Index just after the first sentence end glued to the next sentence."""
+    if _UNSPACED_SCRIPT.search(text):
+        return None
+    for token in re.finditer(r"\S+", text):
+        word = token.group()
+        if _LINK_OR_EMAIL.search(word):
+            continue
+        for glue in _GLUED_SENTENCE.finditer(word):
+            if not _NOT_A_SENTENCE_END.search(word[: glue.start()]):
+                return token.start() + glue.end()
+    return None
+
+
 def detect_multi_turn(text: Optional[str]) -> list[str]:
     """Return a list of issue labels found in a user-simulator message."""
     if not text:
@@ -56,11 +96,15 @@ def detect_multi_turn(text: Optional[str]) -> list[str]:
     hit = _first_control_token(text)
     if hit is not None:
         idx, token = hit
-        if text[idx + len(token) :].strip():
+        tail = text[idx + len(token) :]
+        for t in CONTROL_TOKENS:
+            tail = tail.replace(t, " ")
+        # A letter or digit must follow, so "###STOP###." is still one turn.
+        if any(ch.isalnum() for ch in tail):
             issues.append("text_after_control_token")
     if _ROLE_PREFIX.search(text):
         issues.append("agent_impersonation")
-    if _GLUED_SENTENCE.search(text):
+    if _glued_sentence_end(text) is not None:
         issues.append("glued_sentences")
     return issues
 
@@ -70,16 +114,16 @@ def truncate_to_first_turn(text: str) -> str:
 
     Cuts at the earliest of: an agent/assistant role prefix, or a glued sentence
     boundary. A control token that only appears after the cut is dropped, so a
-    leaked ``###STOP###`` no longer ends the call. If the message starts with
-    a control token after the cut point it is kept as-is.
+    leaked ``###STOP###`` no longer ends the call. A control token before the
+    cut is kept, and anything after it is dropped.
     """
     cut = len(text)
     m = _ROLE_PREFIX.search(text)
     if m and m.start() > 0:
         cut = min(cut, m.start())
-    g = _GLUED_SENTENCE.search(text)
-    if g:
-        cut = min(cut, g.end())
+    glue = _glued_sentence_end(text)
+    if glue is not None:
+        cut = min(cut, glue)
     hit = _first_control_token(text)
     if hit is not None:
         idx, token = hit
@@ -97,3 +141,15 @@ def check_user_message(text: Optional[str], mode: TurnGuardMode) -> TurnGuardRes
     if result.is_multi_turn and mode == "truncate":
         result.repaired = truncate_to_first_turn(text)
     return result
+
+
+def merge_counts(messages: list[Message], mode: TurnGuardMode) -> dict:
+    """Count the user replies the guard flagged in one simulation.
+
+    Truncated runs are not comparable with default runs, so the orchestrator
+    stores this in ``SimulationRun.info["turn_guard"]`` when truncating, and
+    the metrics report the merge rate next to the reward.
+    """
+    replies = [m for m in messages if isinstance(m, UserMessage) and m.content]
+    merged = sum(1 for m in replies if "turn_guard" in (m.raw_data or {}))
+    return {"mode": mode, "user_messages": len(replies), "merged_messages": merged}

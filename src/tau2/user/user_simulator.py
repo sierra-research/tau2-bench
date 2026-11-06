@@ -212,13 +212,12 @@ class UserSimulator(
                 f"User simulator reply looks like multiple turns {guard.issues}"
                 + (" - truncating to first turn" if guard.repaired else "")
             )
-            raw = assistant_message.raw_data
-            if isinstance(raw, dict):
-                raw = {
-                    **raw,
-                    "turn_guard": {"issues": guard.issues, "original": user_response},
-                }
-            assistant_message.raw_data = raw
+            # Only content goes back to the LLM (flip_roles), so the cut text
+            # stays out of the simulator's history; keep it here for review.
+            assistant_message.raw_data = {
+                **(assistant_message.raw_data or {}),
+                "turn_guard": {"issues": guard.issues, "original": user_response},
+            }
             if guard.repaired is not None:
                 user_response = guard.repaired
 
