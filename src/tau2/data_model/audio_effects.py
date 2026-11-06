@@ -6,9 +6,12 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, computed_field
 
 from tau2.voice_config import (
+    BACKGROUND_SPEECH_EVENTS_PER_MINUTE,
+    BACKGROUND_SPEECH_SNR_RANGE_DB,
     BURST_NOISE_EVENTS_PER_MINUTE,
     BURST_SNR_RANGE_DB,
     ENABLE_BACKGROUND_NOISE,
+    ENABLE_BACKGROUND_SPEECH,
     ENABLE_BURST_NOISE,
     ENABLE_DYNAMIC_MUFFLING,
     ENABLE_FRAME_DROPS,
@@ -84,7 +87,7 @@ class ChannelEffectsResult(BaseModel):
 
 
 class SourceEffectsConfig(BaseModel):
-    """Source/acoustic environment effects (background noise, burst noise)."""
+    """Source/acoustic environment effects (background noise, burst noise, background speech)."""
 
     # Background noise SNR settings
     enable_background_noise: bool = Field(default=ENABLE_BACKGROUND_NOISE)
@@ -98,6 +101,15 @@ class SourceEffectsConfig(BaseModel):
         default=BURST_NOISE_EVENTS_PER_MINUTE, ge=0.0
     )
     burst_snr_range_db: tuple[float, float] = Field(default=BURST_SNR_RANGE_DB)
+
+    # Secondary-speaker background speech settings (disabled by default)
+    enable_background_speech: bool = Field(default=ENABLE_BACKGROUND_SPEECH)
+    background_speech_events_per_minute: float = Field(
+        default=BACKGROUND_SPEECH_EVENTS_PER_MINUTE, ge=0.0
+    )
+    background_speech_snr_range_db: tuple[float, float] = Field(
+        default=BACKGROUND_SPEECH_SNR_RANGE_DB
+    )
 
 
 class SourceEffectsResult(BaseModel):
@@ -161,6 +173,7 @@ class SpeechEffectsResult(BaseModel):
 EffectType = Literal[
     "background_noise",
     "burst_noise",
+    "background_speech",
     "out_of_turn_speech",
     "telephony",
     "frame_drop",
@@ -201,6 +214,7 @@ class EffectEvent(BaseModel):
 
     Params dict holds effect-specific metadata, e.g.:
       burst_noise:        {"file": "car_horn.wav", "snr_db": 5.0}
+      background_speech:  {"file": "bystander_speech.wav", "snr_db": 8.5}
       out_of_turn_speech: {"type": "vocal_tic", "text": "[cough]"}
       frame_drop:         {"duration_ms": 60}
       background_noise:   {"noise_file": "busy_street.wav", "avg_snr_db": 15.0}

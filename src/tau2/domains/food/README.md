@@ -45,9 +45,9 @@ Corner Cafe and City Pizza take reservations (`Store.reservation_policy`): parti
 | `policy.md` | Agent policy rendered with **Current Store** and concise **Menu Data** |
 | `tasks.json` | 62 tasks (cafe 20, pizza 20, burger 22) |
 | `split_tasks.json` | `base` (62), `cafe` (20), `pizza` (20), `burger` (22), `small` (6) |
-| `tasks_voice.json` | Pre-sampled voice personas per task and speech complexity |
+| `tasks_voice.json` | Store- and channel-matched voice presets (`food_{store}_{channel}`) per task and speech complexity (audio catalog in [`VOICE_ASSETS.md`](VOICE_ASSETS.md)) |
 
-The JSON files are the source of truth; no generator script is part of the repo. `tau2 check-data` does not inspect them; `tests/test_domains/test_food/` checks id formats, references, reachability, that every item can be added at every size, fictional phone numbers, and that every task's gold actions replay. When task ids change, regenerate `tasks_voice.json` with `python -m tau2.user_simulation_voice_presets food` (default `--seed 42`). Per-task seeds use Python's `hash()`, so set `PYTHONHASHSEED=0` for a reproducible file.
+The JSON files are the source of truth; no generator script is part of the repo. `tau2 check-data` does not inspect them; `tests/test_domains/test_food/` checks id formats, references, reachability, that every item can be added at every size, fictional phone numbers, and that every task's gold actions replay. When task ids or voice presets change, regenerate `tasks_voice.json` with `python -m tau2.user_simulation_voice_presets food` (default `--seed 42`). Per-task seeds use Python's `hash()`, so set `PYTHONHASHSEED=0` for a reproducible file. See [`VOICE_ASSETS.md`](VOICE_ASSETS.md) for the verified food-domain ambient beds, environmental bursts, and secondary-speaker distractor clips.
 
 ## Grading
 
@@ -76,3 +76,4 @@ Re-grade saved runs with `tau2 evaluate-trajs`.
 - `test_food_environment.py`: registration, environment construction, and the agent prompt (Current Store and Menu Data).
 - `test_food_menus.py`: menu data integrity (id formats, references, reachability, unique names, every item orderable at every size).
 - `test_food_tasks.py`: task data (splits, grading design, user script conventions, fictional contact details).
+- `test_food_voice.py`: store/channel voice presets, cross-lane order disjointness, and upstream voice pipeline integration.
