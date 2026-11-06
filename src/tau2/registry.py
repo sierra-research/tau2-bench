@@ -36,6 +36,9 @@ from tau2.domains.food.environment import (
 from tau2.domains.food.environment import (
     get_tasks_split as food_domain_get_tasks_split,
 )
+from tau2.domains.food.voice_presets import (
+    apply_food_voice_preset as food_domain_apply_voice_preset,
+)
 from tau2.domains.intake.environment import (
     get_environment as intake_get_environment,
 )
@@ -95,6 +98,7 @@ class Registry:
         self._domains: Dict[str, Callable[[], Environment]] = {}
         self._tasks: Dict[str, Callable[[Optional[str]], list[Task]]] = {}
         self._task_splits: Dict[str, Callable[[], dict[str, list[str]]]] = {}
+        self._domain_voice_presets: Dict[str, Callable] = {}
 
     def register_user(
         self,
@@ -257,6 +261,20 @@ class Registry:
             return None
         return self._task_splits[name]
 
+    def register_domain_voice_preset(
+        self,
+        preset_fn: Callable,
+        name: str,
+    ):
+        """Register a domain-specific voice preset hook."""
+        if name in self._domain_voice_presets:
+            raise ValueError(f"Domain voice preset {name} already registered")
+        self._domain_voice_presets[name] = preset_fn
+
+    def get_domain_voice_preset(self, name: str) -> Optional[Callable]:
+        """Get a registered domain voice preset hook, or None if not registered."""
+        return self._domain_voice_presets.get(name)
+
     def get_users(self) -> list[str]:
         """Get all registered Users"""
         return list(self._users.keys())
@@ -373,6 +391,7 @@ try:
         "food",
         get_task_splits=food_domain_get_tasks_split,
     )
+    registry.register_domain_voice_preset(food_domain_apply_voice_preset, "food")
 
 
 except Exception as e:

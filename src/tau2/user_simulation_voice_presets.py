@@ -721,6 +721,27 @@ def get_task_voice_configs_path(domain: str) -> Path:
     return DATA_DIR / "tau2" / "domains" / domain / "tasks_voice.json"
 
 
+def _apply_domain_voice_preset(
+    domain: str,
+    task_id: str,
+    sampled: SampledVoiceConfig,
+    *,
+    seed: int,
+    channel_effects_mode: EffectsMode = DEFAULT_CHANNEL_EFFECTS_MODE,
+) -> SampledVoiceConfig:
+    from tau2.registry import registry
+
+    preset_fn = registry.get_domain_voice_preset(domain)
+    if preset_fn is None:
+        return sampled
+    return preset_fn(
+        task_id,
+        sampled,
+        seed=seed,
+        channel_effects_mode=channel_effects_mode,
+    )
+
+
 def get_or_load_task_voice_config(
     domain: str,
     task_id: str,
@@ -752,13 +773,20 @@ def get_or_load_task_voice_config(
         or channel_effects_mode != "regular"
         or speech_effects_mode != "regular"
     ):
-        return sample_voice_config(
+        sampled = sample_voice_config(
             seed=task_seed,
             synthesis_config=synthesis_config,
             complexity=complexity,
             selection=selection,
             channel_effects_mode=channel_effects_mode,
             speech_effects_mode=speech_effects_mode,
+        )
+        return _apply_domain_voice_preset(
+            domain,
+            task_id,
+            sampled,
+            seed=task_seed,
+            channel_effects_mode=channel_effects_mode,
         )
 
     config_path = get_task_voice_configs_path(domain)
@@ -808,12 +836,13 @@ def get_or_load_task_voice_config(
         f"Sampling on the fly (seed={task_seed}, complexity={complexity}). "
         f"Run `python -m tau2.user_simulation_voice_presets {domain}` to generate."
     )
-    return sample_voice_config(
+    sampled = sample_voice_config(
         seed=task_seed,
         synthesis_config=synthesis_config,
         complexity=complexity,
         selection=selection,
     )
+    return _apply_domain_voice_preset(domain, task_id, sampled, seed=task_seed)
 
 
 # ============================================================================
@@ -857,6 +886,9 @@ def generate_task_voice_configs_for_levels(
                 seed=task_seed,
                 synthesis_config=synthesis_config,
                 complexity=complexity,
+            )
+            sampled = _apply_domain_voice_preset(
+                task_set_name, task.id, sampled, seed=task_seed
             )
             task_configs[complexity] = sampled
             logger.debug(

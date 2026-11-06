@@ -47,7 +47,7 @@ Canonical format constants are in `tau2.data_model.audio` (`TELEPHONY_AUDIO_FORM
 | Tier | Config Class | Effects | When Applied |
 |------|-------------|---------|-------------|
 | **Speech** | `SpeechEffectsConfig` | Dynamic muffling, vocal tics | During active speech |
-| **Source** | `SourceEffectsConfig` | Background noise, burst noise, out-of-turn speech | Any time (cross-turn or out-of-turn) |
+| **Source** | `SourceEffectsConfig` | Background noise, burst noise, background speech (streaming), out-of-turn speech | Any time (cross-turn or out-of-turn) |
 | **Channel** | `ChannelEffectsConfig` | Telephony conversion, frame drops | Post-mixing |
 
 ### Batch Pipeline Order (Fixed)
@@ -101,7 +101,8 @@ Why 16kHz? Upsampling from lower rates degrades quality. Pre-convert to avoid ru
 | Type | Directory | Duration | Description |
 |------|-----------|----------|-------------|
 | **Continuous** | `continuous/` | At least 30s | Looping ambient (busy street, TV, people talking) |
-| **Burst** | `bursts/` | Max 5s | Short sounds (car horn, dog bark, siren) |
+| **Burst** | `bursts/` | Max 5s | Short environmental sounds (car horn, dog bark, siren) |
+| **Background speech** | `bursts/<domain>/` | Max 10s | Domain secondary-speaker utterances (cross-talk, bystander speech) |
 
 ### Conversion Tool
 

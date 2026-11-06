@@ -9,7 +9,7 @@ This module provides a comprehensive suite of audio effects that simulate real-w
 | Layer | Description | Examples |
 |-------|-------------|----------|
 | **Speech Effects** | Applied to the speaker's voice | Dynamic muffling, vocal tics |
-| **Source Effects** | Acoustic environment simulation | Background noise, burst noise |
+| **Source Effects** | Acoustic environment simulation | Background noise, burst noise, background speech |
 | **Channel Effects** | Transmission/network artifacts | Frame drops, telephony conversion |
 
 ## Architecture
@@ -27,8 +27,9 @@ This module provides a comprehensive suite of audio effects that simulate real-w
 │        ▼                   ▼                     ▼              │
 │  • Dynamic muffling  • Background noise   • Telephony (μ-law)  │
 │  • Vocal tics        • Burst noise        • Frame drops        │
-│  • Non-directed      • Out-of-turn                             │
-│    phrases             speech                                   │
+│  • Non-directed      • Background speech                       │
+│    phrases           • Out-of-turn                             │
+│                        speech                                   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -51,7 +52,7 @@ Core audio effect functions:
 Background noise generation with natural volume variations:
 
 - **`BackgroundNoiseGenerator`** - Loops background noise with dynamic volume envelope using multi-frequency sinusoidal modulation
-  - Supports one-shot burst sounds mixed into the stream
+  - Supports one-shot burst sounds and independent background speech clips mixed into the stream
   - Poisson-based automatic burst triggering
 - **`create_background_noise_generator(config, sample_rate, ...)`** - Factory function
 - **`apply_background_noise(audio, noise_generator)`** - Mix noise into audio
@@ -71,13 +72,14 @@ Effect scheduling using Poisson processes and Gilbert-Elliott model:
 
 - **`EffectScheduler`** - Hybrid effect triggering
   - `burst_rate` - Burst noise events per second (Poisson)
+  - `background_speech_rate` - Independent background speech events per second (Poisson)
   - `speech_insert_rate` - Out-of-turn speech events per second (Poisson)
   - Frame drops use Gilbert-Elliott model for bursty packet loss
 - **`ScheduledEffect`** - Scheduled effect event with timing and parameters
 - **`generate_turn_effects(seed, turn_idx, ...)`** - Generate per-turn effects for batch mode
 
 Effect timings:
-- `cross_turn` - Can occur anytime (burst noise, frame drops)
+- `cross_turn` - Can occur anytime (burst noise, background speech, frame drops)
 - `out_of_turn` - Only during silence (out-of-turn speech)
 - `in_turn` - During active speech (vocal tics)
 
@@ -99,7 +101,7 @@ Effect configuration is defined in `tau2.data_model.voice`:
 ```python
 from tau2.data_model.voice import (
     SpeechEffectsConfig,   # Muffling, vocal tics, non-directed phrases
-    SourceEffectsConfig,   # Background noise, burst noise
+    SourceEffectsConfig,   # Background noise, burst noise, background speech
     ChannelEffectsConfig,  # Frame drops, telephony
     SynthesisConfig,       # Combined configuration
 )

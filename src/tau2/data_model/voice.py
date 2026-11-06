@@ -308,6 +308,10 @@ class SpeechEnvironment(BaseModel):
         default_factory=list,
         description="List of burst noise files for this task's environment",
     )
+    background_speech_files: list[str] = Field(
+        default_factory=list,
+        description="List of background speech audio files for this task's environment",
+    )
     environment: Optional[str] = Field(
         default=None,
         description="Environment preset (indoor/outdoor), or None if control",
@@ -335,7 +339,7 @@ class SpeechEnvironment(BaseModel):
 
     source_effects_config: Optional[SourceEffectsConfig] = Field(
         default=None,
-        description="Sampled source/acoustic effects config (noise, bursts) with complexity overrides applied.",
+        description="Sampled source/acoustic effects config (noise, bursts, background speech) with complexity overrides applied.",
     )
     speech_effects_config: Optional[SpeechEffectsConfig] = Field(
         default=None,
@@ -362,6 +366,10 @@ class SampledVoiceConfig(BaseModel):
     burst_noise_files: list[str] = Field(
         default_factory=list,
         description="List of burst noise files for this task's environment",
+    )
+    background_speech_files: list[str] = Field(
+        default_factory=list,
+        description="List of background speech audio files for this task's environment",
     )
     environment: Optional[str] = Field(
         default=None,
@@ -416,6 +424,7 @@ class SampledVoiceConfig(BaseModel):
             voice_id=get_elevenlabs_voice_id(self.persona_name),
             background_noise_file=self.background_noise_file,
             burst_noise_files=self.burst_noise_files,
+            background_speech_files=self.background_speech_files,
             environment=self.environment,
             backchannel_min_threshold=self.backchannel_min_threshold,
             use_llm_backchannel=self.use_llm_backchannel,
