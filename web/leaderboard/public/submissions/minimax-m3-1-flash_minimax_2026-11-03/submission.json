@@ -2,7 +2,7 @@
   "model_name": "MiniMax-M3.1-Flash",
   "model_organization": "MiniMax",
   "submitting_organization": "MiniMax",
-  "submission_date": "2026-11-03",
+  "submission_date": "2026-11-06",
   "submission_type": "custom",
   "modality": "text",
   "contact_info": {
@@ -11,27 +11,44 @@
   },
   "results": {
     "banking_knowledge": {
-      "pass_1": 38.91752577319588,
-      "pass_2": 28.006872852233677,
-      "pass_3": 22.422680412371136,
-      "pass_4": 18.556701030927837,
+      "pass_1": 40.20618556701031,
+      "pass_2": 30.927835051546392,
+      "pass_3": 24.742268041237114,
+      "pass_4": 19.587628865979383,
       "retrieval_config": "alltools"
     }
   },
   "is_new": true,
   "trajectories_available": true,
   "trajectory_files": {
-    "banking_knowledge": "m31flash_medium_alltools_banking_knowledge_gpt-5.6-luna_4trials.json"
+    "banking_knowledge": "m31flash_medium_alltools_banking_knowledge_4trials.json"
   },
   "methodology": {
-    "evaluation_date": "2026-11-03",
+    "evaluation_date": "2026-11-06",
     "tau2_bench_version": "1.0.1",
-    "user_simulator": "gpt-5.6-luna",
-    "notes": "Custom Vela run; AllTools; 4 trials; GPT-5.6 Luna replacement for retired GPT-5.4 Mini user simulator and judge.",
+    "user_simulator": "gpt-5.6-sol",
+    "notes": "Genuine AllTools rerun replacing earlier mislabeled bm25_grep results. Custom Vela orchestrator using upstream v1.0.1 environment and reward evaluators. Full 97 tasks x 4 platform epochs (388 final simulations). Candidate official MiniMax API, reasoning_effort=medium, temperature=1, max_tokens=128000. User simulator and NL judge gpt-5.6-sol; reasoning inherited from registry defaults, not Sierra reference GPT-5.2 low. Process logged trial=0 and requested seed=626729 throughout; exported trial reconstructed from platform epoch 0..3. Responses transport dropped seed for both models, so fixed seeds were not effective. AllTools BM25/dense/shell availability verified per record; text-embedding-3-large dense retrieval. Infrastructure failures retried; final trajectories include all model successes and failures. Scores reproduced with upstream compute_metrics. See linked archive and implementation for review.",
     "verification": {
-      "modified_prompts": false,
-      "omitted_questions": false
+      "omitted_questions": false,
+      "details": "Custom prompt assembly/orchestration is included in process.py; no claim of configuration-identical reference execution. Trial/seed limitations disclosed above."
     }
   },
-  "reasoning_effort": "medium"
+  "reasoning_effort": "medium",
+  "references": [
+    {
+      "title": "Fixed upstream source",
+      "url": "https://github.com/sierra-research/tau2-bench/tree/fc0055dc4e0a316c3f83133267fbd6faaa770992",
+      "type": "github"
+    },
+    {
+      "title": "Sanitized trajectories and audit package",
+      "url": "https://github.com/zhenyujia23-crypto/tau2-bench/releases/tag/minimax-m31flash-banking-alltools-20261106",
+      "type": "other"
+    },
+    {
+      "title": "Executed custom Vela Process",
+      "url": "https://github.com/zhenyujia23-crypto/tau2-bench/blob/minimax-m31flash-banking-custom-20261103/web/leaderboard/public/submissions/minimax-m3-1-flash_minimax_2026-11-03/process.py",
+      "type": "github"
+    }
+  ]
 }
