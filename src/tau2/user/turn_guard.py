@@ -109,17 +109,10 @@ def detect_multi_turn(text: Optional[str]) -> list[str]:
     return issues
 
 
-def truncate_to_first_turn(text: str) -> str:
-    """Keep only the first user turn.
-
-    Cuts at the earliest of: an agent/assistant role prefix, or a glued sentence
-    boundary. A control token that only appears after the cut is dropped, so a
-    leaked ``###STOP###`` no longer ends the call. A control token before the
-    cut is kept, and anything after it is dropped.
-    """
+def _text_before_cut(text: str) -> str:
     cut = len(text)
     m = _ROLE_PREFIX.search(text)
-    if m and m.start() > 0:
+    if m:
         cut = min(cut, m.start())
     glue = _glued_sentence_end(text)
     if glue is not None:
@@ -130,8 +123,39 @@ def truncate_to_first_turn(text: str) -> str:
         # Control token inside the first turn: keep through the token.
         if idx < cut:
             cut = min(cut, idx + len(token))
-    head = text[:cut].strip()
-    return head or text.strip()
+    return text[:cut].strip()
+
+
+def _drop_control_tokens(text: str) -> str:
+    for t in CONTROL_TOKENS:
+        text = text.replace(t, " ")
+    return text.strip()
+
+
+def truncate_to_first_turn(text: str) -> str:
+    """Keep only the first user turn.
+
+    Cuts at the earliest of: an agent/assistant role prefix, or a glued sentence
+    boundary. A control token that only appears after the cut is dropped, so a
+    leaked ``###STOP###`` no longer ends the call. A control token before the
+    cut is kept, and anything after it is dropped.
+
+    A reply that opens with an agent turn is cut at the very start, so all of
+    its control tokens are dropped. The agent's lines are skipped and the next
+    user turn is kept. If no user turn follows, the reply is kept without its
+    control tokens. The role prefix stays, so the message is never empty.
+    """
+    head = _text_before_cut(text)
+    if head:
+        return head
+    reply = _drop_control_tokens(text)
+    rest = reply
+    while "\n" in rest:
+        rest = rest.split("\n", 1)[1].strip()
+        head = _text_before_cut(rest)
+        if head:
+            return head
+    return reply
 
 
 def check_user_message(text: Optional[str], mode: TurnGuardMode) -> TurnGuardResult:

@@ -151,6 +151,95 @@ def test_agent_impersonation():
     assert truncate_to_first_turn(text) == "I want to return my order."
 
 
+@pytest.mark.parametrize(
+    "text, first_turn",
+    [
+        ("I want a refund. Agent: Sure. ###STOP###", "I want a refund."),
+        ("I need help.\n**Assistant:** Of course!", "I need help."),
+        # A control token inside the user's turn is kept, as before.
+        (
+            "That's all, thanks. ###STOP###\nAgent: Goodbye!",
+            "That's all, thanks. ###STOP###",
+        ),
+    ],
+)
+def test_user_turn_before_agent_turn_still_cut(text, first_turn):
+    assert "agent_impersonation" in detect_multi_turn(text)
+    assert truncate_to_first_turn(text) == first_turn
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Agent: Sure, what's the order id?\nIt's #W2378156.",
+        "assistant: Sure, what's the order id?\nIt's #W2378156.",
+        "**Agent:** Sure, what's the order id?\nIt's #W2378156.",
+        "**Assistant**: Sure, what's the order id?\nIt's #W2378156.",
+        "  \n Agent: Sure, what's the order id?\n\nIt's #W2378156.",
+        "Agent: Hello!\nAGENT: What's the order id?\nIt's #W2378156.",
+        "Agent: What's the order id?\nIt's #W2378156.\nAgent: Thanks, one moment.",
+        "Agent: What's the order id?\nIt's #W2378156.Can you hurry?",
+    ],
+)
+def test_leading_agent_turn_cut(text):
+    # Nothing of the agent's lines is kept. The user's next turn is cut as usual.
+    assert "agent_impersonation" in detect_multi_turn(text)
+    assert truncate_to_first_turn(text) == "It's #W2378156."
+
+
+def test_stop_after_leading_agent_turn_dropped():
+    # The cut is at the very start, so the STOP comes after it: the user is
+    # answering an agent line that the simulator wrote itself.
+    out = truncate_to_first_turn("Agent: Anything else?\nNo, that's all. ###STOP###")
+    assert out == "No, that's all."
+    assert not UserSimulator.is_stop(_um(out))
+
+
+@pytest.mark.parametrize(
+    "text, kept",
+    [
+        (
+            "Agent: Thanks for calling, goodbye! ###STOP###",
+            "Agent: Thanks for calling, goodbye!",
+        ),
+        (
+            "**Assistant:** Your refund is done.\n\n###STOP###",
+            "**Assistant:** Your refund is done.",
+        ),
+        (
+            " agent: I'll transfer you now. ###TRANSFER###",
+            "agent: I'll transfer you now.",
+        ),
+        ("Agent: ###OUT-OF-SCOPE###", "Agent:"),
+        ("Agent: Is there anything else?", "Agent: Is there anything else?"),
+    ],
+)
+def test_reply_with_only_an_agent_turn_does_not_end_call(text, kept):
+    # There is no user turn to keep. The reply stays without its control
+    # tokens, so the call goes on and the message is not empty, which
+    # UserMessage.validate() would reject.
+    assert "agent_impersonation" in detect_multi_turn(text)
+    out = truncate_to_first_turn(text)
+    assert out == kept
+    assert not UserSimulator.is_stop(_um(out))
+    _um(out).validate()
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Agent Smith said my refund was approved.",
+        "The support agent said: wait two days.",
+        "Can I talk to a representative, please?",
+        "That's all, thank you. ###STOP###",
+    ],
+)
+def test_legit_messages_unchanged(text):
+    assert detect_multi_turn(text) == []
+    assert check_user_message(text, "truncate").repaired is None
+    assert truncate_to_first_turn(text) == text
+
+
 def test_clean_messages_not_flagged():
     for text in [
         "Hi, I'd like to cancel order #W2378156. Thanks!",
@@ -184,10 +273,10 @@ def _am(text):
     return AssistantMessage(role="assistant", content=text)
 
 
-def _run(mode):
+def _run(mode, reply=ISSUE_710):
     user = UserSimulator(llm="mock", instructions="x", turn_guard=mode)
     state = user.get_init_state()
-    fake = AssistantMessage(role="assistant", content=ISSUE_710, raw_data={})
+    fake = AssistantMessage(role="assistant", content=reply, raw_data={})
     with patch("tau2.user.user_simulator.generate", return_value=fake):
         msg, _ = user.generate_next_message(
             AssistantMessage(role="assistant", content="Hi, how can I help?"), state
@@ -206,6 +295,24 @@ def test_truncate_mode_keeps_call_alive():
     msg = _run("truncate")
     assert not UserSimulator.is_stop(msg)
     assert msg.raw_data["turn_guard"]["original"] == ISSUE_710
+
+
+# The simulator speaks only for the agent, then ends the call.
+AGENT_ONLY = "Agent: Your exchange is done. Anything else?\n\n###STOP###"
+
+
+def test_truncate_agent_only_reply_keeps_call_alive():
+    msg = _run("truncate", AGENT_ONLY)
+    msg.validate()
+    assert not UserSimulator.is_stop(msg)
+    assert msg.raw_data["turn_guard"]["original"] == AGENT_ONLY
+
+
+def test_detect_agent_only_reply_unchanged():
+    msg = _run("detect", AGENT_ONLY)
+    assert msg.content == AGENT_ONLY
+    assert UserSimulator.is_stop(msg)
+    assert msg.raw_data["turn_guard"]["issues"] == ["agent_impersonation"]
 
 
 def test_truncate_rewrites_simulator_history():
@@ -232,11 +339,11 @@ def test_truncate_rewrites_simulator_history():
         assert not any(STOP in c for c in history)
 
 
-def _orchestrated_run(mode, get_environment, base_task):
+def _orchestrated_run(mode, get_environment, base_task, first_reply=ISSUE_710):
     env = get_environment()
     agent = LLMAgent(tools=env.get_tools(), domain_policy=env.get_policy(), llm="mock")
     user = UserSimulator(llm="mock", instructions="x", turn_guard=mode)
-    user_replies = iter([ISSUE_710, "That's all, thanks. ###STOP###"])
+    user_replies = iter([first_reply, "That's all, thanks. ###STOP###"])
     with (
         patch(
             "tau2.user.user_simulator.generate",
@@ -274,6 +381,16 @@ def test_detect_leaves_simulation_info_unset(get_environment, base_task):
     assert sim.info is None
     # #710: the leaked STOP ends the call on the first user message.
     assert [m.content for m in sim.messages if m.role == "user"] == [ISSUE_710]
+
+
+def test_truncate_agent_only_reply_lets_agent_answer(get_environment, base_task):
+    sim = _orchestrated_run("truncate", get_environment, base_task, AGENT_ONLY)
+    # The first reply no longer ends the call, and the orchestrator accepts it.
+    user_turns = [m.content for m in sim.messages if m.role == "user"]
+    assert len(user_turns) == 2
+    assert STOP not in user_turns[0]
+    assert sim.termination_reason == TerminationReason.USER_STOP
+    assert sim.info["turn_guard"]["merged_messages"] == 1
 
 
 def _results(*sim_infos):
