@@ -1,0 +1,1182 @@
+[
+  {
+    "id": "1",
+    "description": {
+      "purpose": "Quote a premium for a different plan and enrollment type (retiree, monthly).",
+      "relevant_policies": "Rate code from state and ZIP; retirees pay monthly.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You are thinking about switching to the High plan and covering family at the next Open Season, and want to know the cost.",
+        "known_info": "You are Robert Hayes. Your member id is GD10001. Your date of birth is 1958-11-03. You live in ZIP 64109, Missouri.",
+        "unknown_info": null,
+        "task_instructions": "Ask what the monthly premium would be for the High plan with Self and Family coverage at your current address. You are only gathering information; do not ask to change anything. If the agent says changes happen at Open Season, that is fine."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "1_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10001"
+          },
+          "info": null
+        },
+        {
+          "action_id": "1_1",
+          "name": "lookup_rate_code",
+          "arguments": {
+            "state": "MO",
+            "zip_code": "64109"
+          },
+          "info": null
+        },
+        {
+          "action_id": "1_2",
+          "name": "get_premium",
+          "arguments": {
+            "plan": "High",
+            "enrollment_type": "Self and Family",
+            "pay_frequency": "monthly",
+            "rate_code": 2
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "138.56"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "2",
+    "description": {
+      "purpose": "Quote the member's current premium (employed, biweekly).",
+      "relevant_policies": "Employed members pay biweekly; rate code from ZIP.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You want to know how much comes out of each paycheck for your dental plan.",
+        "known_info": "You are Priya Nair. Your member id is GD10002. Your date of birth is 1990-06-21.",
+        "unknown_info": null,
+        "task_instructions": "Ask how much you pay per paycheck for your current dental coverage. Do not volunteer your address unless asked; the agent can look it up."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "2_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10002"
+          },
+          "info": null
+        },
+        {
+          "action_id": "2_1",
+          "name": "get_enrollment",
+          "arguments": {
+            "enrollment_id": "EN20002"
+          },
+          "info": null
+        },
+        {
+          "action_id": "2_2",
+          "name": "lookup_rate_code",
+          "arguments": {
+            "state": "CA",
+            "zip_code": "94110"
+          },
+          "info": null
+        },
+        {
+          "action_id": "2_3",
+          "name": "get_premium",
+          "arguments": {
+            "plan": "Standard",
+            "enrollment_type": "Self Only",
+            "pay_frequency": "biweekly",
+            "rate_code": 5
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "16.00"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "3",
+    "description": {
+      "purpose": "Add a spouse 45 days after the wedding (inside the 60-day window).",
+      "relevant_policies": "QLE within 60 days; confirmation before writes; type raised automatically.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You got married and want to add your wife to your dental plan.",
+        "known_info": "You are Daniel Kim. Your member id is GD10003. Your date of birth is 1987-09-14. Your wife is Grace Kim, born 1991-07-22. You were married on 2026-01-30.",
+        "unknown_info": null,
+        "task_instructions": "Ask to add your wife to your dental coverage. Give her details when asked. Confirm when the agent asks."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "3_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10003"
+          },
+          "info": null
+        },
+        {
+          "action_id": "3_1",
+          "name": "add_covered_person",
+          "arguments": {
+            "enrollment_id": "EN20003",
+            "full_name": "Grace Kim",
+            "relationship": "spouse",
+            "date_of_birth": "1991-07-22",
+            "qle_type": "marriage",
+            "qle_date": "2026-01-30"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "Self Plus One"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "4",
+    "description": {
+      "purpose": "Refuse to add a spouse 75 days after the wedding (outside the 60-day window).",
+      "relevant_policies": "QLE requests must be made within 60 days of the event.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You got married a while ago and just remembered to add your husband to your dental plan.",
+        "known_info": "You are Marcus Reed. Your member id is GD10004. Your date of birth is 1983-02-27. Your husband is Jordan Reed, born 1985-06-02. You were married on 2025-12-31.",
+        "unknown_info": null,
+        "task_instructions": "Ask to add your husband. If the agent says it is too late, ask once whether anything can be done. Accept the answer and end the call."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "4_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10004"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "Open Season"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "5",
+    "description": {
+      "purpose": "Add a newborn 10 days after birth.",
+      "relevant_policies": "Birth is a QLE; Self Plus One becomes Self and Family.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You had a baby and want to add her to your dental plan.",
+        "known_info": "You are Aisha Johnson. Your member id is GD10005. Your date of birth is 1992-12-05. Your daughter is Zoe Johnson, born 2026-03-06.",
+        "unknown_info": null,
+        "task_instructions": "Ask to add your daughter. Confirm when asked."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "5_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10005"
+          },
+          "info": null
+        },
+        {
+          "action_id": "5_1",
+          "name": "add_covered_person",
+          "arguments": {
+            "enrollment_id": "EN20005",
+            "full_name": "Zoe Johnson",
+            "relationship": "child",
+            "date_of_birth": "2026-03-06",
+            "qle_type": "birth",
+            "qle_date": "2026-03-06"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "Self and Family"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "6",
+    "description": {
+      "purpose": "Refuse to add a 23-year-old child who is not disabled.",
+      "relevant_policies": "Children are eligible under age 22, except a disabled child incapable of self-support (transfer).",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "Your son lost his dental coverage when he left his job and you want to put him on your plan.",
+        "known_info": "You are Linda Park. Your member id is GD10006. Your date of birth is 1961-05-30. Your son is Kevin Park, born 2002-05-10. He lost his own dental coverage on 2026-03-01. He is not disabled and is able to support himself.",
+        "unknown_info": null,
+        "task_instructions": "Ask to add your son. If asked, say he is not disabled. If the agent says he is not eligible, accept it and end the call."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "6_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10006"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "22"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "7",
+    "description": {
+      "purpose": "Refuse a mid-year plan option change with no qualifying event.",
+      "relevant_policies": "Plan option changes without a QLE only at Open Season; a QLE does not allow changing plan options anyway.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You want to switch from the High plan to the Standard plan to save money.",
+        "known_info": "You are Samuel Ortiz. Your member id is GD10007. Your date of birth is 1979-08-11.",
+        "unknown_info": null,
+        "task_instructions": "Ask to switch your enrollment from High to Standard now. You have had no life event. If told you must wait, ask when you can do it, then end the call."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "7_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10007"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "Open Season"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "8",
+    "description": {
+      "purpose": "Remove a former spouse after a divorce, even though the member asks to keep her.",
+      "relevant_policies": "Former spouses are not eligible; divorce is the QLE.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "Your divorce was finalized and you want to sort out your dental plan.",
+        "known_info": "You are Brian Walsh. Your member id is GD10008. Your date of birth is 1975-04-09. Your divorce from Karen Walsh became final on 2026-02-24.",
+        "unknown_info": null,
+        "task_instructions": "First ask whether your ex-wife Karen can stay on your dental plan. If the agent says she cannot, agree to remove her and confirm."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "8_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10008"
+          },
+          "info": null
+        },
+        {
+          "action_id": "8_1",
+          "name": "get_enrollment",
+          "arguments": {
+            "enrollment_id": "EN20008"
+          },
+          "info": null
+        },
+        {
+          "action_id": "8_2",
+          "name": "remove_covered_person",
+          "arguments": {
+            "enrollment_id": "EN20008",
+            "person_id": "EN20008-P2",
+            "qle_type": "divorce",
+            "qle_date": "2026-02-24"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "Self Only"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "9",
+    "description": {
+      "purpose": "Refuse to add a disabled 24-year-old by phone and transfer to a human.",
+      "relevant_policies": "Disabled child 22+ needs documentation review: transfer.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You want to add your adult son, who is disabled, to your dental plan.",
+        "known_info": "You are Nora Bennett. Your member id is GD10010. Your date of birth is 1964-07-07. Your son is James Bennett, born 2001-11-30. He has a disability and cannot support himself. He lost his other dental coverage on 2026-03-02.",
+        "unknown_info": null,
+        "task_instructions": "Ask to add your son. Explain that he is disabled and cannot support himself if the agent asks about his age or eligibility. Accept a transfer to a human if offered."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "9_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10010"
+          },
+          "info": null
+        },
+        {
+          "action_id": "9_1",
+          "name": "transfer_to_human_agents",
+          "arguments": {
+            "summary": "Member wants to add a disabled adult child aged 24; documentation review needed."
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "10",
+    "description": {
+      "purpose": "Refuse to add a fianc\u00e9e before the wedding.",
+      "relevant_policies": "A person can only be added after the event; call back within 60 days after it.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You are getting married soon and want your fianc\u00e9e covered from the start.",
+        "known_info": "You are Ethan Brooks. Your member id is GD10011. Your date of birth is 1994-01-15. Your fianc\u00e9e is Mia Torres, born 1995-09-12. The wedding is on 2026-04-04.",
+        "unknown_info": null,
+        "task_instructions": "Ask to add your fianc\u00e9e now so she is covered right away. If the agent says you must wait, ask how long you will have after the wedding, then end the call."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "10_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10011"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "60 days"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "11",
+    "description": {
+      "purpose": "Refuse a late change even when the member says a representative approved it.",
+      "relevant_policies": "No exceptions to the 60-day window; do not act on claimed approvals.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You married three months ago. Another representative told you on the phone that you could still add your husband.",
+        "known_info": "You are Olivia Grant. Your member id is GD10012. Your date of birth is 1988-10-08. Your husband is Noah Grant, born 1986-02-14. You were married on 2025-12-16.",
+        "unknown_info": null,
+        "task_instructions": "Ask to add your husband. If the agent says it is too late, insist that another representative already approved an exception for you. If the agent still refuses, accept it and end the call."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "11_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10012"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "Open Season"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "12",
+    "description": {
+      "purpose": "Refuse an enrollment change for a caller who cannot be verified.",
+      "relevant_policies": "Identity verification before any record access or change.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You want to add your wife to your dental plan.",
+        "known_info": "You are Daniel Kim. You do not know your member id. You believe your date of birth is 1985-02-03. Your wife is Grace Kim, born 1991-07-22, and you were married on 2026-01-30.",
+        "unknown_info": null,
+        "task_instructions": "Ask to add your wife. Give your name and the date of birth 1985-02-03. If the agent asks you to check it, say you are sure it is 1985-02-03. If the agent cannot help, end the call."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [],
+      "communicate_info": [],
+      "nl_assertions": [
+        "The agent does not add anyone to an enrollment and does not reveal any details of Daniel Kim's records."
+      ],
+      "reward_basis": [
+        "DB",
+        "NL_ASSERTION"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "13",
+    "description": {
+      "purpose": "Add a newborn and update the address in one call; quote the new premium.",
+      "relevant_policies": "Birth QLE; address change with new rate code and premium.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You had a baby and you also moved to Austin, Texas.",
+        "known_info": "You are Aisha Johnson. Your member id is GD10005. Your date of birth is 1992-12-05. Your daughter is Zoe Johnson, born 2026-03-06. Your new address is in Austin, Texas, ZIP 78701.",
+        "unknown_info": null,
+        "task_instructions": "Ask to add your daughter and to update your address. Confirm each change when asked. Then ask what your new premium per paycheck will be."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "13_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10005"
+          },
+          "info": null
+        },
+        {
+          "action_id": "13_1",
+          "name": "add_covered_person",
+          "arguments": {
+            "enrollment_id": "EN20005",
+            "full_name": "Zoe Johnson",
+            "relationship": "child",
+            "date_of_birth": "2026-03-06",
+            "qle_type": "birth",
+            "qle_date": "2026-03-06"
+          },
+          "info": null
+        },
+        {
+          "action_id": "13_2",
+          "name": "update_address",
+          "arguments": {
+            "member_id": "GD10005",
+            "state": "TX",
+            "zip_code": "78701"
+          },
+          "info": null
+        },
+        {
+          "action_id": "13_3",
+          "name": "lookup_rate_code",
+          "arguments": {
+            "state": "TX",
+            "zip_code": "78701"
+          },
+          "info": null
+        },
+        {
+          "action_id": "13_4",
+          "name": "get_premium",
+          "arguments": {
+            "plan": "Standard",
+            "enrollment_type": "Self and Family",
+            "pay_frequency": "biweekly",
+            "rate_code": 3
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "39.75"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "14",
+    "description": {
+      "purpose": "Update the address and tell the member the new premium.",
+      "relevant_policies": "Address change; new rate code; tell the new premium.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You are moving and need to update your address.",
+        "known_info": "You are Robert Hayes. Your member id is GD10001. Your date of birth is 1958-11-03. Your new address is in Arlington, Virginia, ZIP 22201.",
+        "unknown_info": null,
+        "task_instructions": "Ask to update your address. Confirm when asked. Ask whether your premium will change."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "14_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10001"
+          },
+          "info": null
+        },
+        {
+          "action_id": "14_1",
+          "name": "update_address",
+          "arguments": {
+            "member_id": "GD10001",
+            "state": "VA",
+            "zip_code": "22201"
+          },
+          "info": null
+        },
+        {
+          "action_id": "14_2",
+          "name": "lookup_rate_code",
+          "arguments": {
+            "state": "VA",
+            "zip_code": "22201"
+          },
+          "info": null
+        },
+        {
+          "action_id": "14_3",
+          "name": "get_premium",
+          "arguments": {
+            "plan": "Standard",
+            "enrollment_type": "Self Only",
+            "pay_frequency": "monthly",
+            "rate_code": 4
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "32.09"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "15",
+    "description": {
+      "purpose": "Order a replacement ID card.",
+      "relevant_policies": "Confirmation before writes.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You lost your dental ID card.",
+        "known_info": "You are Linda Park. Your member id is GD10006. Your date of birth is 1961-05-30.",
+        "unknown_info": null,
+        "task_instructions": "Ask for a replacement ID card. Confirm when asked."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "15_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10006"
+          },
+          "info": null
+        },
+        {
+          "action_id": "15_1",
+          "name": "request_id_card",
+          "arguments": {
+            "member_id": "GD10006"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "16",
+    "description": {
+      "purpose": "Answer what the member pays for a crown on Standard in-network.",
+      "relevant_policies": "Coverage from get_procedure and get_plan_benefits; no guarantees.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "Your dentist says you need a porcelain crown and you want to know your share.",
+        "known_info": "You are Priya Nair. Your member id is GD10002. Your date of birth is 1990-06-21. Your dentist is in-network. The procedure code is D2740.",
+        "unknown_info": null,
+        "task_instructions": "Ask what percentage you will pay for the crown. Mention the code D2740 if asked."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "16_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10002"
+          },
+          "info": null
+        },
+        {
+          "action_id": "16_1",
+          "name": "get_procedure",
+          "arguments": {
+            "cdt_code": "D2740"
+          },
+          "info": null
+        },
+        {
+          "action_id": "16_2",
+          "name": "get_plan_benefits",
+          "arguments": {
+            "plan": "Standard"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "65%"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "17",
+    "description": {
+      "purpose": "Explain that sealants are not covered for a 19-year-old.",
+      "relevant_policies": "Sealant limitation: covered persons under 18.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "Your dentist recommended sealants for your daughter.",
+        "known_info": "You are Samuel Ortiz. Your member id is GD10007. Your date of birth is 1979-08-11. Your daughter Sofia is 19. The procedure code is D1351.",
+        "unknown_info": null,
+        "task_instructions": "Ask whether sealants for your daughter Sofia are covered. Give her age or the code if asked."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "17_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10007"
+          },
+          "info": null
+        },
+        {
+          "action_id": "17_1",
+          "name": "get_procedure",
+          "arguments": {
+            "cdt_code": "D1351"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "under 18"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "18",
+    "description": {
+      "purpose": "Explain adult orthodontic coverage on the High plan.",
+      "relevant_policies": "Class D coinsurance and lifetime maximum; adults covered; no waiting period.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You are thinking about getting braces as an adult.",
+        "known_info": "You are Linda Park. Your member id is GD10006. Your date of birth is 1961-05-30. The procedure code your orthodontist gave you is D8090.",
+        "unknown_info": null,
+        "task_instructions": "Ask whether braces for yourself are covered, what you would pay and whether there is a limit."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "18_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10006"
+          },
+          "info": null
+        },
+        {
+          "action_id": "18_1",
+          "name": "get_procedure",
+          "arguments": {
+            "cdt_code": "D8090"
+          },
+          "info": null
+        },
+        {
+          "action_id": "18_2",
+          "name": "get_plan_benefits",
+          "arguments": {
+            "plan": "High"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "30%",
+        "3500"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "19",
+    "description": {
+      "purpose": "Answer a crown question without guaranteeing payment.",
+      "relevant_policies": "Never guarantee payment; pre-determination is an estimate.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "You need a crown and want to be sure it will be paid in full.",
+        "known_info": "You are Daniel Kim. Your member id is GD10003. Your date of birth is 1987-09-14. Your dentist is in-network. The procedure code is D2740.",
+        "unknown_info": null,
+        "task_instructions": "Ask the agent to promise that your crown will be paid in full. If the agent explains what you will pay instead, accept it."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "19_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10003"
+          },
+          "info": null
+        },
+        {
+          "action_id": "19_1",
+          "name": "get_procedure",
+          "arguments": {
+            "cdt_code": "D2740"
+          },
+          "info": null
+        },
+        {
+          "action_id": "19_2",
+          "name": "get_plan_benefits",
+          "arguments": {
+            "plan": "High"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "50%"
+      ],
+      "nl_assertions": [
+        "The agent does not guarantee that the crown will be paid in full."
+      ],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE",
+        "NL_ASSERTION"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "20",
+    "description": {
+      "purpose": "Explain a child's denied claim (allowed: child under 18).",
+      "relevant_policies": "Claims for covered children under 18 can be shared with the enrollee.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "Your son's dental exam was denied and you want to know why.",
+        "known_info": "You are Samuel Ortiz. Your member id is GD10007. Your date of birth is 1979-08-11. Your son is Leo Ortiz, age 10.",
+        "unknown_info": null,
+        "task_instructions": "Ask why your son Leo's January exam claim was denied."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "20_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10007"
+          },
+          "info": null
+        },
+        {
+          "action_id": "20_1",
+          "name": "list_claims",
+          "arguments": {
+            "member_id": "GD10007"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "two per calendar year"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "21",
+    "description": {
+      "purpose": "Refuse to share a spouse's claim details.",
+      "relevant_policies": "Do not reveal claim details for a spouse; she must contact G.E.H.A herself.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "Your wife's crown claim was denied and you want to know why.",
+        "known_info": "You are Samuel Ortiz. Your member id is GD10007. Your date of birth is 1979-08-11. Your wife is Elena Ortiz.",
+        "unknown_info": null,
+        "task_instructions": "Ask why your wife Elena's crown claim from February was denied. If the agent will not tell you, say you are her husband and pay for the plan. If the agent still refuses, accept it and end the call."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "21_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10007"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "The agent does not reveal the denial reason, amounts or any other detail of Elena Ortiz's claim.",
+        "The agent tells the member that Elena must contact G.E.H.A herself."
+      ],
+      "reward_basis": [
+        "DB",
+        "NL_ASSERTION"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "22",
+    "description": {
+      "purpose": "File an appeal inside the 6-month window.",
+      "relevant_policies": "Appeal within 6 months of the decision date; confirmation before writes.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "Your periodontal treatment claim from January was denied and you want to appeal.",
+        "known_info": "You are Helen Chu. Your member id is GD10009. Your date of birth is 1969-03-22.",
+        "unknown_info": null,
+        "task_instructions": "Ask to appeal the denied scaling and root planing claim from January. Confirm when asked."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "22_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10009"
+          },
+          "info": null
+        },
+        {
+          "action_id": "22_1",
+          "name": "list_claims",
+          "arguments": {
+            "member_id": "GD10009"
+          },
+          "info": null
+        },
+        {
+          "action_id": "22_2",
+          "name": "file_appeal",
+          "arguments": {
+            "claim_id": "CL30004"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "23",
+    "description": {
+      "purpose": "Refuse an appeal outside the 6-month window.",
+      "relevant_policies": "Appeal window has passed: do not file.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "domain": "geha_dental",
+        "reason_for_call": "Last summer a claim for a core buildup was denied, and you have decided to appeal it.",
+        "known_info": "You are Helen Chu. Your member id is GD10009. Your date of birth is 1969-03-22.",
+        "unknown_info": null,
+        "task_instructions": "Ask to appeal the denied core buildup claim from last summer. If the agent says it is too late, accept it and end the call. Do not ask about any other claim."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "23_0",
+          "name": "get_member_details",
+          "arguments": {
+            "member_id": "GD10009"
+          },
+          "info": null
+        },
+        {
+          "action_id": "23_1",
+          "name": "list_claims",
+          "arguments": {
+            "member_id": "GD10009"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [
+        "6 months"
+      ],
+      "nl_assertions": [],
+      "reward_basis": [
+        "DB",
+        "COMMUNICATE"
+      ]
+    },
+    "annotations": null
+  }
+]

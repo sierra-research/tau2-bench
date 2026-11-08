@@ -15,6 +15,13 @@ from tau2.agent.llm_agent import (
     create_llm_solo_agent,
 )
 from tau2.data_model.tasks import Task
+from tau2.domains.geha_dental.environment import (
+    get_environment as geha_dental_domain_get_environment,
+)
+from tau2.domains.geha_dental.environment import get_tasks as geha_dental_domain_get_tasks
+from tau2.domains.geha_dental.environment import (
+    get_tasks_split as geha_dental_domain_get_tasks_split,
+)
 from tau2.domains.airline.environment import (
     get_environment as airline_domain_get_environment,
 )
@@ -312,6 +319,13 @@ try:
     )
     registry.register_domain(mock_domain_get_environment, "mock")
     registry.register_tasks(mock_domain_get_tasks, "mock")
+
+    registry.register_domain(geha_dental_domain_get_environment, "geha_dental")
+    registry.register_tasks(
+        geha_dental_domain_get_tasks,
+        "geha_dental",
+        get_task_splits=geha_dental_domain_get_tasks_split,
+    )
 
     registry.register_domain(airline_domain_get_environment, "airline")
     registry.register_tasks(
