@@ -22,13 +22,15 @@ from tau2.utils.transcript.live import live_metadata, live_utterance_groups
 from tau2.utils.transcript.live_audio import recover_live_audio
 from tau2.utils.transcript.views import (
     agent_messages,
+    agent_reference_amendments,
+    agent_spoken_reference,
     agent_utterance_tick_spans,
     barged_in_tick_spans,
     tick_span_barged_in,
     utterance_interrupted,
 )
 
-SAVED_INPUT_VERSION = "ordinary-results-v4-live-tick-padding"
+SAVED_INPUT_VERSION = "ordinary-results-v5-spoken-reference-amendments"
 _HISTORICAL_CONTEXT = {"historical_judge_read": True}
 
 
@@ -131,6 +133,7 @@ def load_audio_clips(path: Path, simulation: SimulationRun) -> list[AudioClip]:
         raise ValueError("Reference/audio utterance alignment differs")
     barged = barged_in_tick_spans(simulation)
     terminal_tick = terminal_speech_tick(simulation)
+    amendments = agent_reference_amendments(simulation.ticks)
     result = []
     for index, ((start, end), message) in enumerate(zip(spans, messages, strict=True)):
         if is_live and message.contains_speech is False:
@@ -141,9 +144,10 @@ def load_audio_clips(path: Path, simulation: SimulationRun) -> list[AudioClip]:
         )
         if segment and segment.get("audio_alignment_error"):
             continue
-        ref, interrupted = extract_delivered_text(
+        interrupted = extract_delivered_text(
             message.audio_script_gold or message.content or ""
-        )
+        )[1]
+        ref = agent_spoken_reference(message, amendments)
         control_marker = has_control_marker(ref)
         ref = ref.replace("###STOP###", "").strip()
         if not ref:

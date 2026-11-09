@@ -450,3 +450,36 @@ def test_valid_json_at_output_limit_is_not_a_clean_verdict(tmp_path, monkeypatch
         "speech_fidelity",
     )
     assert not result.units and len(result.unit_errors) == 1
+
+
+def test_fidelity_reference_includes_amended_spoken_text(tmp_path):
+    from tau2.judges.run_evidence import load_audio_clips
+
+    sim, path = audio_fixture(tmp_path)
+    # Reported after the cut: the latest amendment for the utterance wins.
+    sim.ticks[2].agent_chunk.raw_data = {
+        "spoken_reference_amendments": [{"utterance_id": "u", "text": " th"}]
+    }
+    sim.ticks[3].agent_chunk.raw_data = {
+        "spoken_reference_amendments": [
+            {"utterance_id": "u", "text": " there"},
+            {"utterance_id": "elsewhere", "text": " unrelated"},
+        ]
+    }
+
+    assert [clip.reference for clip in load_audio_clips(path, sim)] == ["hello there"]
+
+
+def test_an_utterance_cut_before_any_text_was_shown_gets_its_amended_reference(
+    tmp_path,
+):
+    from tau2.judges.run_evidence import load_audio_clips
+
+    sim, path = audio_fixture(tmp_path)
+    sim.ticks[0].agent_chunk.content = ""
+    assert load_audio_clips(path, sim) == []
+    sim.ticks[1].agent_chunk.raw_data = {
+        "spoken_reference_amendments": [{"utterance_id": "u", "text": "Hello"}]
+    }
+
+    assert [clip.reference for clip in load_audio_clips(path, sim)] == ["Hello"]

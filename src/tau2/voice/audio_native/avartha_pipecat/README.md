@@ -66,6 +66,19 @@ end-of-utterance playback caption show that the words aired. A word the
 alignment splits in two ("T-shir" + "t") counts once both pieces have aired.
 On barge-in, text the caller has not heard is discarded.
 
+A word-timing event (`bot-tts-text`) may also say where its word ends in the
+agent's output audio: `pcm_stream_offset` sample frames from the first sample
+of the connection's audio, at `pcm_sample_rate_hz`, with `pcm_boundary:
+"word_end"`. Where the carrier delivers all of that audio in order and the
+adapter counts it, the word is shown when the audio that ends it plays,
+however early or late its event arrives; and a word that ended before a
+barge-in's played cutoff, even if reported after it, is recorded as a spoken
+reference amendment for the cut utterance (`spoken_reference_amendments` on
+the tick). The caller never sees an amendment; the speech-fidelity judge adds
+it to the utterance's reference text, since the utterance's audio spoke it.
+WebRTC cannot place audio this way (its RTP timeline inserts silence of its
+own), so over this WebRTC carrier placed words keep the behavior above.
+
 ## Protocol compatibility
 
 The agent's `tools_registered` or `tools_registration_error` reply must carry

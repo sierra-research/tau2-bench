@@ -17,6 +17,7 @@ from loguru import logger
 
 from tau2.utils.errors import NonRetryableError
 from tau2.voice.audio_native.avartha_pipecat.config import AvarthaPipecatConfig
+from tau2.voice.audio_native.spoken_progress import placed_word_end
 
 # Wire identifier of the tool-exchange protocol the agent must acknowledge.
 HARNESS_TOOLS_PROTOCOL = "avartha-harness-tools/1"
@@ -34,6 +35,10 @@ class AgentAudioEvent:
 
     audio: bytes
     sample_rate: int
+    # Where this audio sits in the agent's output-audio stream, in sample frames
+    # at ``sample_rate``. Only a carrier that delivers all of that stream in
+    # order can say; WebRTC cannot (its RTP timeline inserts its own silence).
+    source_span: Optional[tuple[int, int]] = None
 
 
 @dataclass
@@ -81,6 +86,10 @@ class AgentWordEvent:
     type: ClassVar[str] = "agent_word"
 
     text: str
+    # The word's end in the output-audio stream and that stream's sample rate,
+    # when the agent placed it (see spoken_progress.placed_word_end).
+    source_offset: Optional[int] = None
+    source_rate: Optional[int] = None
 
 
 @dataclass
@@ -437,7 +446,14 @@ class AvarthaPipecatProvider:
         elif message_type == "bot-llm-text" and isinstance(data, dict):
             self._queue.put_nowait(AgentLLMTextEvent(str(data.get("text", ""))))
         elif message_type == "bot-tts-text" and isinstance(data, dict):
-            self._queue.put_nowait(AgentWordEvent(str(data.get("text", ""))))
+            word_end = placed_word_end(data)
+            self._queue.put_nowait(
+                AgentWordEvent(
+                    str(data.get("text", "")),
+                    source_offset=word_end[0] if word_end else None,
+                    source_rate=word_end[1] if word_end else None,
+                )
+            )
         elif message_type == "bot-llm-started":
             self._queue.put_nowait(AgentLLMStartedEvent())
         elif message_type == "bot-started-speaking":

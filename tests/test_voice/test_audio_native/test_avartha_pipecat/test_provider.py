@@ -352,3 +352,27 @@ def test_reliable_outputs_are_acknowledged_and_routed_once():
     assert acked == [("output_ack", {"event_id": "playback-final:u3"})] * 3
     # A new session has not delivered anything yet.
     assert again == first
+
+
+def test_a_placed_word_end_is_kept_on_the_word():
+    provider = make_provider()
+    provider._route_message(
+        {
+            "label": "rtvi-ai",
+            "type": "bot-tts-text",
+            "data": {
+                "text": "It",
+                "pcm_stream_offset": 300,
+                "pcm_sample_rate_hz": 24000,
+                "pcm_boundary": "word_end",
+            },
+        }
+    )
+    provider._route_message(
+        {"label": "rtvi-ai", "type": "bot-tts-text", "data": {"text": "shipped."}}
+    )
+
+    assert [provider._queue.get_nowait() for _ in range(2)] == [
+        AgentWordEvent("It", source_offset=300, source_rate=24000),
+        AgentWordEvent("shipped."),
+    ]

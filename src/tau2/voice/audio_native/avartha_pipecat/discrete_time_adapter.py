@@ -40,6 +40,7 @@ from tau2.voice.audio_native.avartha_pipecat.provider import (
     ToolCallEvent,
     TranscriptEvent,
 )
+from tau2.voice.audio_native.spoken_progress import SpokenProgress
 from tau2.voice.audio_native.tick_result import TickResult
 
 # Key of the call's one _SpokenTranscript. Audio carries it while a tick's text
@@ -116,7 +117,7 @@ def _unescape(text: str) -> str:
     return text
 
 
-class _SpokenTranscript:
+class _SpokenTranscript(SpokenProgress):
     """Reveal the agent's sentence text only as far as it has been aired.
 
     Avartha sends each sentence (``TranscriptEvent``) as soon as the LLM
@@ -141,24 +142,14 @@ class _SpokenTranscript:
     """
 
     def __init__(self, due_slack_bytes: int = 0) -> None:
-        # Audio the adapter may be holding back at an utterance's end; a mark
-        # this close to playback counts as played (see _hold_utterance_end).
-        self._due_slack = due_slack_bytes
+        super().__init__(due_slack_bytes)
         self.item_id = _ITEM_ID
-        self.text = ""
         self._sentence_ends: list[int] = []
-        self._audio_received = 0
-        self._audio_played = 0
-        self._match_cursor = 0
         # A word that matched nothing yet: possibly the first piece of a word
-        # the alignment split ("T-shir" + "t", "a" + "t"). See add_word.
+        # the alignment split ("T-shir" + "t", "a" + "t"). See _match_word.
         self._pending_piece = ""
         # Where the utterance now playing starts in ``text``.
         self._utterance_start = 0
-        self._spoken_chars = 0
-        self._shown_chars = 0
-        # (audio position, text length aired once playback reaches it)
-        self._marks: deque[tuple[int, int]] = deque()
 
     def add_text(self, text: str) -> None:
         """Append one bot-transcription sentence, keeping its own spacing.
@@ -177,10 +168,7 @@ class _SpokenTranscript:
         self.text += text
         self._sentence_ends.append(len(self.text))
 
-    def add_audio(self, num_bytes: int) -> None:
-        self._audio_received += num_bytes
-
-    def add_word(self, word: str) -> None:
+    def _match_word(self, word: str) -> None:
         """Advance past a spoken word, joining it to a split word's first piece.
 
         TTS alignment splits words into pieces ("T-shir" + "t", "a" + "t",
@@ -317,32 +305,15 @@ class _SpokenTranscript:
             self._advance(at + len(missing.rstrip()))
         self._utterance_start = self._match_cursor
 
-    def _advance(self, cursor: int) -> None:
-        if cursor <= self._match_cursor:
-            return
-        self._match_cursor = cursor
-        self._marks.append((self._audio_received, cursor))
+    def _truncate(self, length: int) -> None:
+        super()._truncate(length)
+        self._sentence_ends = [e for e in self._sentence_ends if e < length]
+        self._sentence_ends.append(length)
 
-    def interrupt(self) -> None:
-        """Forget everything the caller has not heard yet."""
-
-        self.text = self.text[: self._shown_chars]
-        self._sentence_ends = [e for e in self._sentence_ends if e < len(self.text)]
-        self._sentence_ends.append(len(self.text))
-        self._audio_received = self._audio_played
-        self._match_cursor = self._spoken_chars = self._shown_chars
-        self._utterance_start = self._match_cursor
+    def _restart_matching(self, cursor: int) -> None:
+        super()._restart_matching(cursor)
+        self._utterance_start = cursor
         self._pending_piece = ""
-        self._marks.clear()
-
-    def get_transcript_for_audio(self, audio_bytes_to_play: int) -> str:
-        self._audio_played += audio_bytes_to_play
-        while self._marks and self._marks[0][0] <= self._audio_played + self._due_slack:
-            self._spoken_chars = max(self._spoken_chars, self._marks.popleft()[1])
-        end = min(self._spoken_chars, len(self.text))
-        text = self.text[self._shown_chars : end]
-        self._shown_chars = max(self._shown_chars, end)
-        return text
 
 
 def _mcp_tool_schema(tool: Tool) -> dict[str, Any]:
@@ -448,6 +419,12 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         # has queued, in arrival order. See _label_utterances.
         self._utterance_id: Optional[str] = None
         self._utterance_audio: deque[list] = deque()
+        # The label of the latest tick that played audio: a cut amends the
+        # spoken reference of that clip's utterance (SpokenProgress.interrupt).
+        self._played_utterance: Optional[str] = None
+        # Sample rate of the agent's audio stream once its audio carries
+        # source spans; placed words in another rate cannot be placed.
+        self._source_rate: Optional[int] = None
         # The utterance whose audio a cut in this tick discarded. The cut tick
         # plays none of it, but it carries the truncation, so it keeps that ID.
         self._cut_utterance_id: Optional[str] = None
@@ -684,6 +661,8 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
             if shares
             else self._utterance_id or _ITEM_ID
         )
+        # The cut's audio is in this tick's clip, so its amendment goes there.
+        self._played_utterance = label
         result.agent_audio_chunks = [
             (chunk, label) for chunk, _ in result.agent_audio_chunks
         ]
@@ -781,6 +760,9 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         events.extend(self.provider.drain_pending_events())
         for event in events:
             self._process_event(result, event)
+        result.spoken_reference_amendments.extend(
+            self._transcript().take_reference_amendments()
+        )
         self._hold_utterance_end(result)
 
     def _hold_utterance_end(self, result: TickResult) -> None:
@@ -846,7 +828,9 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                     self._audio_after_cut.append(chunk)
                 else:
                     result.agent_audio_chunks.append(chunk)
-                self._transcript().add_audio(len(telephony_audio))
+                if event.source_span is not None:
+                    self._source_rate = event.sample_rate
+                self._transcript().add_audio(len(telephony_audio), event.source_span)
         elif isinstance(event, ToolCallEvent):
             result.tool_calls.append(
                 ToolCall(
@@ -874,7 +858,10 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 self._transcript().add_text(text)
                 logger.debug(f"Avartha transcript: {text!r}")
         elif isinstance(event, AgentWordEvent):
-            if not self._stale_audio:
+            if event.source_rate is not None and event.source_rate == self._source_rate:
+                # A placed word is routed by where it ended, even after a cut.
+                self._transcript().add_word(event.text, event.source_offset)
+            elif not self._stale_audio:
                 self._transcript().add_word(event.text)
         elif isinstance(event, AgentPlaybackEvent):
             if not self._stale_audio:
@@ -909,7 +896,7 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                     self._open_at_cut = self._open_at_cut or self._streaming_utterance()
                 self._utterance_id = None
                 self._utterance_audio.clear()
-                self._transcript().interrupt()
+                self._transcript().interrupt(self._played_utterance)
                 self._stale_text = self._stale_audio = True
                 for converter in self._output_converters.values():
                     converter.reset()

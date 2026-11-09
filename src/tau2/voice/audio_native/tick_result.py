@@ -8,7 +8,7 @@ These classes are provider-agnostic and used by DiscreteTimeAudioNativeAgent
 regardless of the underlying provider (OpenAI, Gemini, etc.).
 """
 
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -161,6 +161,15 @@ class TickResult(BaseModel):
         default=None,
         exclude=True,
         description="Item ID to skip audio from after truncation",
+    )
+    spoken_reference_amendments: List[Dict[str, str]] = Field(
+        default_factory=list,
+        description=(
+            "Text a cut utterance's audio spoke beyond what the caller was shown, "
+            "proven by provider-placed word ends: {'utterance_id', 'text'}, each "
+            "superseding that utterance's earlier amendment. Never shown to the "
+            "caller; see tau2.utils.transcript.views.agent_reference_amendments."
+        ),
     )
 
     # --- Tick-based interruption info (for accurate timing) ---

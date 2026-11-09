@@ -1296,3 +1296,233 @@ def test_cancelled_tick_drains_tasks_without_consuming_pending_events():
         assert not provider.events_drained
 
     asyncio.run(check())
+
+
+# --- Provider-placed word ends ------------------------------------------------
+# One 20 ms tick is 480 samples of 24 kHz agent audio and 160 telephony bytes.
+
+
+def _placed_audio(chunk):
+    """The ``chunk``-th 20 ms of agent audio, placed in the agent's stream."""
+    return AgentAudioEvent(
+        b"\x00\x00" * 480, 24000, source_span=(480 * chunk, 480 * (chunk + 1))
+    )
+
+
+def _placed(word, offset):
+    return AgentWordEvent(word, source_offset=offset, source_rate=24000)
+
+
+def _placed_run(events_by_tick):
+    ticks = _ticks(events_by_tick)
+    return (
+        [tick.proportional_transcript for tick in ticks],
+        [tick.spoken_reference_amendments for tick in ticks],
+    )
+
+
+def test_a_placed_word_reported_after_the_cut_amends_the_spoken_reference():
+    """A word that played before a barge-in, though its event came after it.
+
+    The caller saw only "Hello"; the audio it heard also spoke " there.", so the
+    cut utterance's reference gains it. "How" ended in audio the cut discarded.
+    """
+    shown, amendments = _placed_run(
+        [
+            [
+                TranscriptEvent("Hello there. How are you?"),
+                *(_placed_audio(chunk) for chunk in range(3)),
+                _placed("Hello", 300),
+            ],
+            [],
+            [SpeechEvent("speech_started")],
+            [_placed("there.", 900), _placed("How", 1200)],
+        ]
+    )
+
+    assert shown == ["Hello", "", "", ""]
+    assert amendments == [
+        [],
+        [],
+        [],
+        [{"utterance_id": "avartha-1", "text": " there."}],
+    ]
+
+
+def test_a_placed_word_queued_before_the_cut_still_reaches_the_reference():
+    """The word ended in played audio, but the cut came before the next tick showed it."""
+    shown, amendments = _placed_run(
+        [
+            [
+                TranscriptEvent("Hello there. How are you?"),
+                *(_placed_audio(chunk) for chunk in range(3)),
+                _placed("Hello", 300),
+            ],
+            [],
+            [_placed("there.", 900), SpeechEvent("speech_started")],
+        ]
+    )
+
+    assert shown == ["Hello", "", ""]
+    assert amendments[2] == [{"utterance_id": "avartha-1", "text": " there."}]
+
+
+def test_a_placed_word_waits_for_the_audio_that_ends_it():
+    """Reported before its audio arrived, " there." shows once that audio plays."""
+    shown, _ = _placed_run(
+        [
+            [
+                TranscriptEvent("Hello there."),
+                _placed_audio(0),
+                _placed("Hello", 300),
+                _placed("there.", 900),
+            ],
+            [_placed_audio(1)],
+        ]
+    )
+
+    assert shown == ["Hello", " there."]
+
+
+def test_a_late_placed_word_shows_with_the_audio_that_spoke_it():
+    """Unplaced, a late word would wait for all audio received before its event."""
+    events = [
+        [
+            TranscriptEvent("Hello there."),
+            *(_placed_audio(chunk) for chunk in range(5)),
+        ],
+        [_placed("Hello", 300)],
+        [_placed("there.", 900)],
+        [],
+        [],
+    ]
+    placed, _ = _placed_run(events)
+    unplaced = _transcripts(
+        [
+            [
+                AgentWordEvent(event.text)
+                if isinstance(event, AgentWordEvent)
+                else AgentAudioEvent(event.audio, event.sample_rate)
+                if isinstance(event, AgentAudioEvent)
+                else event
+                for event in tick
+            ]
+            for tick in events
+        ]
+    )
+
+    assert placed == ["", "Hello", " there.", "", ""]
+    assert unplaced == ["", "", "", "", "Hello there."]
+
+
+def test_a_new_reply_after_a_cut_is_placed_by_its_own_audio():
+    shown, amendments = _placed_run(
+        [
+            [
+                TranscriptEvent("Hello there."),
+                *(_placed_audio(chunk) for chunk in range(2)),
+                _placed("Hello", 300),
+            ],
+            [SpeechEvent("speech_started")],
+            [
+                AgentLLMStartedEvent(),
+                TranscriptEvent("Go ahead."),
+                AgentStartedSpeakingEvent(),
+                _placed_audio(4),
+                _placed("Go", 2100),
+                _placed("ahead.", 2400),
+            ],
+        ]
+    )
+
+    assert shown == ["Hello", "", " Go ahead."]
+    assert amendments == [[], [], []]
+
+
+def test_words_without_placed_audio_keep_the_unplaced_behavior():
+    """A placed word on a transport that cannot place its audio (WebRTC)."""
+    shown, amendments = _placed_run(
+        [
+            [
+                TranscriptEvent("Hello there."),
+                _audio_ticks(2),
+                _placed("Hello", 300),
+            ],
+            [SpeechEvent("speech_started")],
+            [_placed("there.", 900)],
+        ]
+    )
+
+    # As before placement existed: "Hello" waits for all audio received with
+    # its event, so the cut drops it, and nothing amends the reference.
+    assert shown == ["", "", ""]
+    assert amendments == [[], [], []]
+
+
+def test_a_cut_amends_the_utterance_whose_clip_holds_the_cut_audio():
+    """A tick mostly of one reply, ending in the next, is that first reply's clip."""
+    shown, amendments = _placed_run(
+        [
+            [
+                TranscriptEvent("Hi."),
+                AgentAudioEvent(b"\x00\x00" * 336, 24000, source_span=(0, 336)),
+                _placed("Hi.", 300),
+                _played("Hi."),
+                TranscriptEvent("Go on."),
+                AgentAudioEvent(b"\x00\x00" * 480, 24000, source_span=(336, 816)),
+            ],
+            [SpeechEvent("speech_started"), _placed("Go", 436)],
+        ]
+    )
+
+    assert shown == ["Hi.", ""]
+    assert amendments == [[], [{"utterance_id": "avartha-1", "text": " Go"}]]
+
+
+def test_placed_words_of_a_new_reply_may_arrive_before_its_audio():
+    shown, _ = _placed_run(
+        [
+            [
+                TranscriptEvent("Hello there."),
+                *(_placed_audio(chunk) for chunk in range(2)),
+                _placed("Hello", 300),
+            ],
+            [SpeechEvent("speech_started"), _placed("there.", 900)],
+            [
+                AgentLLMStartedEvent(),
+                TranscriptEvent("Go ahead."),
+                _placed("Go", 2100),
+                _placed("ahead.", 2400),
+                AgentStartedSpeakingEvent(),
+                _placed_audio(4),
+            ],
+        ]
+    )
+
+    # " there." ended in audio the cut discarded (cutoff 480): never shown.
+    assert shown == ["Hello", "", " Go ahead."]
+
+
+def test_a_late_word_from_an_earlier_cut_reply_never_amends_a_later_one():
+    shown, amendments = _placed_run(
+        [
+            [
+                TranscriptEvent("One two three."),
+                *(_placed_audio(chunk) for chunk in range(2)),
+                _placed("One", 300),
+            ],
+            [SpeechEvent("speech_started")],
+            [
+                AgentLLMStartedEvent(),
+                TranscriptEvent("Four five six."),
+                AgentStartedSpeakingEvent(),
+                *(_placed_audio(chunk) for chunk in (4, 5)),
+                _placed("Four", 2100),
+            ],
+            [SpeechEvent("speech_started")],
+            [_placed("two", 700)],
+        ]
+    )
+
+    assert shown == ["One", "", " Four", "", ""]
+    assert amendments == [[], [], [], [], []]

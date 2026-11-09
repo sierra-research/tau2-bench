@@ -102,6 +102,35 @@ def agent_messages(ticks: list[Tick]) -> list[AssistantMessage]:
     ]
 
 
+def agent_reference_amendments(ticks: list[Tick]) -> dict[str, str]:
+    """Spoken text each cut utterance's audio carried beyond its delivered text.
+
+    A tick's agent chunk may record ``spoken_reference_amendments`` (see
+    ``SpokenProgress``): text the provider proved played before a cut, often
+    reported only after the cut, so it never reached the caller. The latest
+    amendment for an utterance supersedes earlier ones. Only references that
+    describe an utterance's audio use them; caller-facing transcripts never do.
+    """
+
+    amendments: dict[str, str] = {}
+    for tick in ticks:
+        raw = tick.agent_chunk.raw_data if tick.agent_chunk else None
+        for amendment in (raw or {}).get("spoken_reference_amendments") or ():
+            amendments[amendment["utterance_id"]] = amendment["text"]
+    return amendments
+
+
+def agent_spoken_reference(
+    message: AssistantMessage, amendments: dict[str, str]
+) -> str:
+    """One agent utterance's spoken text: its delivered text plus any amendment."""
+
+    text = extract_delivered_text(message.audio_script_gold or message.content or "")[0]
+    return text + "".join(
+        amendments.get(utterance_id, "") for utterance_id in message.utterance_ids or ()
+    )
+
+
 def agent_utterance_tick_spans(sim: SimulationRun) -> list[tuple[int, int]]:
     """Original tick-ID spans aligned one-for-one with ``agent_messages``."""
     return [
