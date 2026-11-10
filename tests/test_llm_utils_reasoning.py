@@ -74,6 +74,55 @@ def test_recognized_effort_levels_become_output_config(
     assert capture_completion.get("thinking") == {"type": "adaptive"}
 
 
+@pytest.mark.parametrize("model", ["claude-opus-4-8", "anthropic/claude-fable-5-2"])
+@pytest.mark.parametrize("effort", ["xhigh", "max"])
+def test_top_effort_levels_become_output_config(
+    capture_completion, messages, model, effort
+):
+    llm_utils.generate(model, messages, reasoning_effort=effort)
+    assert capture_completion.get("thinking") == {"type": "adaptive"}
+    assert capture_completion.get("output_config") == {"effort": effort}
+    assert "reasoning_effort" not in capture_completion
+
+
+def _build_anthropic_request(optional_params: dict) -> dict:
+    from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+
+    return AnthropicConfig().transform_request(
+        model="claude-fable-5-2",
+        messages=[{"role": "user", "content": "hi"}],
+        optional_params=optional_params,
+        litellm_params={},
+        headers={},
+    )
+
+
+@pytest.mark.parametrize("effort", ["xhigh", "max"])
+def test_litellm_request_keeps_top_effort(effort):
+    data = _build_anthropic_request(
+        {"thinking": {"type": "adaptive"}, "output_config": {"effort": effort}}
+    )
+    assert data["output_config"] == {"effort": effort}
+    assert data["thinking"] == {"type": "adaptive"}
+
+
+def test_litellm_request_keeps_high_effort():
+    data = _build_anthropic_request(
+        {"thinking": {"type": "adaptive"}, "output_config": {"effort": "high"}}
+    )
+    assert data["output_config"] == {"effort": "high"}
+
+
+def test_explicit_output_config_wins(capture_completion, messages):
+    llm_utils.generate(
+        "claude-fable-5-2",
+        messages,
+        reasoning_effort="max",
+        output_config={"effort": "low"},
+    )
+    assert capture_completion.get("output_config") == {"effort": "low"}
+
+
 @pytest.mark.parametrize("effort", ["minimal", "none", "weird"])
 def test_unrecognized_effort_sends_bare_adaptive(capture_completion, messages, effort):
     llm_utils.generate("claude-opus-4-8", messages, reasoning_effort=effort)
