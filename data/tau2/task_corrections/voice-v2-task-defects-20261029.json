@@ -1,0 +1,533 @@
+{
+  "name": "voice-v2-task-defects-20261029",
+  "description": "Opt-in grading corrections for airline/retail task defects in the released voice-v2 tasks. Grading-only: user instructions and data are unchanged, so saved trajectories can be re-graded. Not leaderboard-comparable.",
+  "corrections": [
+    {
+      "id": "T1",
+      "domain": "retail",
+      "canonical_task_id": "105",
+      "summary": "The gold exchange costs more than the only gift card holds, so the gold action raises and the gold DB is the unchanged DB while the NL assertion demands both exchanges. Corrected expectation: no exchange, and the agent explains the shortfall.",
+      "gold_edits": [
+        {
+          "match": {
+            "name": "exchange_delivered_order_items",
+            "arguments": {
+              "order_id": "#W4316152"
+            }
+          },
+          "op": "drop"
+        }
+      ],
+      "nl_assertions": {
+        "*": [
+          "Agent should not exchange the tea kettles, and should explain that the gift card balance does not cover the price difference of the requested exchange."
+        ]
+      },
+      "task_digests": {
+        "en": [
+          "4a2590918b8cf688df7de411f74d830490352d49ed6ac3bae6edd9404ebde264",
+          "83637bdab04e7d8b58afce06d6dbeee4fcacd38dbe20297c51137e936b9a4966"
+        ],
+        "es": [
+          "726bf24f07067e716ad67a500800b381847b3684d3f97478e3e7b44d8d8b0339"
+        ],
+        "hi": [
+          "ee890ac7baddedafdd6ea33a5d8cd42feec4aaac84b7f5cf84af0ba22d4673d3"
+        ],
+        "ko": [
+          "8a7c09b5b2fc8ee17325021cd0659128c6592e2f4d68e99ac9e8b2ecc8d21c87"
+        ],
+        "pt": [
+          "89753515b87472771313a152ab5149ed91edbac8056d22586bbadc8f67f8e28c"
+        ],
+        "zh": [
+          "8e260ee707d91e6a2f964e27b0fcbdb96e7d6ba9a39d38552b8252dd78b0293b"
+        ]
+      }
+    },
+    {
+      "id": "T2",
+      "domain": "airline",
+      "canonical_task_id": "39",
+      "summary": "MSJ4OA (economy, insured, booked >24h ago, change-of-plans reason) is not cancellable under policy, yet the gold cancels it. Corrected gold keeps MSJ4OA.",
+      "gold_edits": [
+        {
+          "match": {
+            "name": "cancel_reservation",
+            "arguments": {
+              "reservation_id": "MSJ4OA"
+            }
+          },
+          "op": "drop"
+        }
+      ],
+      "task_digests": {
+        "en": [
+          "001e8abb10a9cf88c94f8f3190d3908b4c4b4abe896accc644816737e8f5f0f4"
+        ],
+        "es": [
+          "c9c084e3c100f1c44c245c2fff43700882f0fc0de382a1b2d845ef223355a316"
+        ],
+        "hi": [
+          "e50b39e9badbe92338f3909d074505c4db8916961325f35f167bf831e0c8f109"
+        ],
+        "ko": [
+          "e57f732d88cbce24f9fd0de1e6f033c5401b717ac421a25c478fc66644bcd6d8"
+        ],
+        "pt": [
+          "c86a1140335998b001d4c824b8822eba84797ce77cd69c9e68e22f998f2efd97"
+        ],
+        "zh": [
+          "c69298c2140a00c9cd11ba6479f5e571b11b5afd9f54bc855760ef1da5b95a44"
+        ]
+      }
+    },
+    {
+      "id": "T3",
+      "domain": "retail",
+      "canonical_task_id": "66",
+      "summary": "Cancel reason is the user's choice and the scenario states none; accept either policy reason.",
+      "alternatives": [
+        {
+          "description": "user chose 'ordered by mistake'",
+          "edits": [
+            {
+              "match": {
+                "name": "cancel_pending_order",
+                "arguments": {
+                  "order_id": "#W3361211"
+                }
+              },
+              "op": "set_arguments",
+              "arguments": {
+                "reason": "ordered by mistake"
+              }
+            }
+          ]
+        }
+      ],
+      "task_digests": {
+        "en": [
+          "41e529552bf277263f3b2b04f0b87cc98f2bbb0f6c726468267e45d0df099bca",
+          "e4437a4ea273e8edbe18b98d75dc2353b1e59d2c6881f228eeb9c787edd7c486"
+        ],
+        "es": [
+          "e333fd40e4a18bb9ef30b908fe186f166c14c8b788c422b6c5558b507da7cd30"
+        ],
+        "hi": [
+          "da40364ecd508d01e08415a47f3c99b6925a6b6b549471e583486e880e510c16"
+        ],
+        "ko": [
+          "cec341d2d6df80ed1166723b3f8cbfec9de2c362bc1326d18a8464a2ec01306f"
+        ],
+        "pt": [
+          "a1677b8bbfed9852c4e0b13dab485e30d3279afb78364d1de81fd946eaf77660"
+        ],
+        "zh": [
+          "e3d8bcf0180f28dd48433c1ef1ec765fc2c52a0ab61f22fdc303c356563a95ed"
+        ]
+      }
+    },
+    {
+      "id": "T3+T9",
+      "domain": "retail",
+      "canonical_task_id": "38",
+      "summary": "T3: unstated cancel reason, accept either policy reason. T9: localized NL assertions name the catalogue product where the English source says 'the camera'.",
+      "alternatives": [
+        {
+          "description": "user chose 'ordered by mistake'",
+          "edits": [
+            {
+              "match": {
+                "name": "cancel_pending_order",
+                "arguments": {
+                  "order_id": "#W9348897"
+                }
+              },
+              "op": "set_arguments",
+              "arguments": {
+                "reason": "ordered by mistake"
+              }
+            }
+          ]
+        }
+      ],
+      "nl_assertions": {
+        "en": [
+          "Agent should tell the user the most expensive item in the order is the camera.",
+          "Agent should tell the user the camera costs $481.50."
+        ],
+        "es": [
+          "Agent should tell the user the most expensive item in the order is the cámara.",
+          "Agent should tell the user the cámara costs €481.50."
+        ],
+        "pt": [
+          "Agent should tell the user the most expensive item in the order is the câmera.",
+          "Agent should tell the user the câmera costs R$2,407.50."
+        ],
+        "zh": [
+          "Agent should tell the user the most expensive item in the order is the 相机.",
+          "Agent should tell the user the 相机 costs ¥3370.50."
+        ],
+        "ko": [
+          "Agent should tell the user the most expensive item in the order is the 카메라.",
+          "Agent should tell the user the 카메라 costs ₩481,500."
+        ],
+        "hi": [
+          "Agent should tell the user the most expensive item in the order is the कैमरा.",
+          "Agent should tell the user the कैमरा costs ₹38,520.00."
+        ]
+      },
+      "task_digests": {
+        "en": [
+          "73fe511ff8cb4b88af625c08e726c2a450da977bfee13f6d50a7d7880e64ea7c",
+          "de19c05b24c800e9f1622715a8a66937a51628a66d0e2a2f39aeeab5f78d440d"
+        ],
+        "es": [
+          "c32c192dd298a6e99b8374aeb222023fd1e5f1a17a1793610215e466cecc58bd"
+        ],
+        "hi": [
+          "55428dbe81bcb2b7617f74a29646905e485b1ab90d87bfee72d3df48a591ce20"
+        ],
+        "ko": [
+          "68790a158c71f329b300b288e836c04cfae26f0f7eb0ca593e7f039fd3319114"
+        ],
+        "pt": [
+          "0122658cb4b2bdc9bba82dc2c49d20d5b08bd1ecd2d51313560f3a57db11cd39"
+        ],
+        "zh": [
+          "07cecced6d2b953c0f01e7f66da6face78b75b27fd7eff191d853e7ed1358d24"
+        ]
+      }
+    },
+    {
+      "id": "T9",
+      "domain": "retail",
+      "canonical_task_id": "36",
+      "summary": "Localized NL assertions name the catalogue product ('액션 카메라', 'Cámara de acción', ...) where the English source assertion says 'the camera'. Corrected: the localized generic noun.",
+      "nl_assertions": {
+        "en": [
+          "Agent should tell the user the most expensive item in the order is the camera.",
+          "Agent should tell the user the camera costs $481.50."
+        ],
+        "es": [
+          "Agent should tell the user the most expensive item in the order is the cámara.",
+          "Agent should tell the user the cámara costs €481.50."
+        ],
+        "pt": [
+          "Agent should tell the user the most expensive item in the order is the câmera.",
+          "Agent should tell the user the câmera costs R$2,407.50."
+        ],
+        "zh": [
+          "Agent should tell the user the most expensive item in the order is the 相机.",
+          "Agent should tell the user the 相机 costs ¥3370.50."
+        ],
+        "ko": [
+          "Agent should tell the user the most expensive item in the order is the 카메라.",
+          "Agent should tell the user the 카메라 costs ₩481,500."
+        ],
+        "hi": [
+          "Agent should tell the user the most expensive item in the order is the कैमरा.",
+          "Agent should tell the user the कैमरा costs ₹38,520.00."
+        ]
+      },
+      "task_digests": {
+        "en": [
+          "1e1d47572804040b9d39feedb886156bf3c8ac48a9923ced28f8a261c805b0c2",
+          "4f7f078d4fb1c4ae293e76518592502361c61fcc82cb59efa564246f259b830b"
+        ],
+        "es": [
+          "a4ad81be87dc829b4eda5c4838b96f65debf6f349acd8919db7db2cd262e3d89"
+        ],
+        "hi": [
+          "e99bad669b54b27fa91990cccc5eb777aac075abf33cd8c928df6199f8178f7b"
+        ],
+        "ko": [
+          "bacecfc809ee757655caf1d6ed8856de231b368f902640290d15465b1a3a1ecf"
+        ],
+        "pt": [
+          "91d4cddb3b462e145fb6813879e2cbd77959aa25ea6f1606932b98eadff95d8c"
+        ],
+        "zh": [
+          "93812075bde460164191f6cdc5732f57aa9d32fd1f5413817629b3f10836e1f5"
+        ]
+      }
+    },
+    {
+      "id": "T4",
+      "domain": "airline",
+      "canonical_task_id": "44",
+      "summary": "KC18K6 takes 7 h including its layover, over the user's '<= 3 hours (including layovers)' upgrade limit; accept the literal reading (no KC18K6 upgrade) as well as the official per-leg reading.",
+      "alternatives": [
+        {
+          "description": "literal reading: KC18K6 not upgraded",
+          "edits": [
+            {
+              "match": {
+                "name": "update_reservation_flights",
+                "arguments": {
+                  "reservation_id": "KC18K6"
+                }
+              },
+              "op": "drop"
+            }
+          ]
+        }
+      ],
+      "task_digests": {
+        "en": [
+          "4a05b544a49f547de9cd6ca2e8f86a130def62c5bcbabadca628b80ddcabc861"
+        ],
+        "es": [
+          "ab28de534ffc8edff131e10a571dae2ee7b4d46a2bbe22472c9540cdb59f3dea"
+        ],
+        "hi": [
+          "eb81cd670f5ce24f9959224e68a54d3b6bef564c594b987270cad8227430023a"
+        ],
+        "ko": [
+          "37104eb6d6eaa71a9f9db677c2be125f8ae3c2adc5fcc0fb03645349cc365a8b"
+        ],
+        "pt": [
+          "e38e7711127f78ea54375d5d1cd97f828aa546a5190d03a2fa312200f38436b2"
+        ],
+        "zh": [
+          "301b2bc6dcbdf2c7bd2588e52cdf1874074797e461a9de1747ff01715d2d87f0"
+        ]
+      }
+    },
+    {
+      "id": "T5",
+      "domain": "airline",
+      "canonical_task_id": "7",
+      "summary": "The user asks for the total of their *other* upcoming flights; the gold total 1628 includes the two being cancelled (708 without them). Accept either total.",
+      "communicate_info_any_of": {
+        "en": [
+          [
+            "1628"
+          ],
+          [
+            "708"
+          ]
+        ],
+        "es": [
+          [
+            "1628"
+          ],
+          [
+            "708"
+          ]
+        ],
+        "pt": [
+          [
+            "8140"
+          ],
+          [
+            "3540"
+          ]
+        ],
+        "zh": [
+          [
+            "11396"
+          ],
+          [
+            "4956"
+          ]
+        ],
+        "ko": [
+          [
+            "1628000"
+          ],
+          [
+            "708000"
+          ]
+        ],
+        "hi": [
+          [
+            "130240"
+          ],
+          [
+            "56640"
+          ]
+        ]
+      },
+      "task_digests": {
+        "en": [
+          "c9c9f140b03a233aaf9f6e4450b62822c0e5965f95fbc86e82190d26ac5c256d"
+        ],
+        "es": [
+          "2811dee3549e7dd8f9f1bc99606aeeaf17fcd05222cdf9d998bfec3ebc41e953"
+        ],
+        "hi": [
+          "f8969a3cf7724c25f560cf99ba548c53b79970e0e97f3b6b7e9a9283561cf372"
+        ],
+        "ko": [
+          "1143c03b96807212dc07187c752148e6b0765d80831832018d4204d48ed6a7ff"
+        ],
+        "pt": [
+          "a35367cecf0d46e9c403051af354e4df49f3fdeeec75f054a1914c66679ad588"
+        ],
+        "zh": [
+          "2e9eda4e262ba95827535165fc843d5b4f2768dbc9f6b369d57f75e9db8f9c9c"
+        ]
+      }
+    },
+    {
+      "id": "T6",
+      "domain": "retail",
+      "canonical_task_id": "64",
+      "summary": "Two available 4K waterproof variants fit the instruction equally (black 6700049080, silver 6117189161) and the scenario states no tiebreak; accept either.",
+      "alternatives": [
+        {
+          "description": "user chose the silver 4K waterproof variant",
+          "edits": [
+            {
+              "match": {
+                "name": "exchange_delivered_order_items",
+                "arguments": {
+                  "order_id": "#W7464385"
+                }
+              },
+              "op": "set_arguments",
+              "arguments": {
+                "new_item_ids": [
+                  "6117189161"
+                ]
+              }
+            },
+            {
+              "match": {
+                "name": "modify_pending_order_items",
+                "arguments": {
+                  "order_id": "#W7464385"
+                }
+              },
+              "op": "set_arguments",
+              "arguments": {
+                "new_item_ids": [
+                  "6117189161"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "task_digests": {
+        "en": [
+          "33dfcf5df1ef009440a678eadbe2a9b383d5cd689a8f0349b37648da3c3d0059",
+          "8374e7dcab4f7a6e0baa1d9e9da93e5efc87c007d386370c8111cfcfe66e2b51"
+        ],
+        "es": [
+          "b19092bd18510b6f55912bc6175d209da859925ce4251920a32bfc8e12fa8ebd"
+        ],
+        "hi": [
+          "b8c68028f204b6ef4d6ad3f207fc215beed43903a8f30652dec2149735636041"
+        ],
+        "ko": [
+          "f356f7947f21a5c67f7f3ce6eb606af62eb55ec228e71addf2c07ecd1c69a931"
+        ],
+        "pt": [
+          "c14174ff25993441c760d77b2948732278655fd7d812afa669c1da649281f2c4"
+        ],
+        "zh": [
+          "1b347c94fd7d4211046d374437388eb0b43b9605c599b3a5a19ec9a0f8463ea8"
+        ]
+      }
+    },
+    {
+      "id": "T8",
+      "domain": "airline",
+      "canonical_task_id": "29",
+      "summary": "The gold booking has insurance 'no' but the scenario never states the user's answer to the insurance question that policy requires the agent to ask; accept either answer (same card, total including the per-passenger insurance fee in the pack's currency scale).",
+      "alternatives": [
+        {
+          "description": "user accepted travel insurance when asked",
+          "edits": [
+            {
+              "match": {
+                "name": "book_reservation",
+                "arguments": {
+                  "flight_type": "round_trip",
+                  "cabin": "economy"
+                }
+              },
+              "op": "set_arguments",
+              "arguments": {
+                "insurance": "yes"
+              },
+              "arguments_by_language": {
+                "en": {
+                  "payment_methods": [
+                    {
+                      "payment_id": "credit_card_8003957",
+                      "amount": 312
+                    }
+                  ]
+                },
+                "es": {
+                  "payment_methods": [
+                    {
+                      "payment_id": "credit_card_8003957",
+                      "amount": 312
+                    }
+                  ]
+                },
+                "pt": {
+                  "payment_methods": [
+                    {
+                      "payment_id": "credit_card_8003957",
+                      "amount": 1560
+                    }
+                  ]
+                },
+                "zh": {
+                  "payment_methods": [
+                    {
+                      "payment_id": "credit_card_8003957",
+                      "amount": 2184
+                    }
+                  ]
+                },
+                "ko": {
+                  "payment_methods": [
+                    {
+                      "payment_id": "credit_card_8003957",
+                      "amount": 312000
+                    }
+                  ]
+                },
+                "hi": {
+                  "payment_methods": [
+                    {
+                      "payment_id": "credit_card_8003957",
+                      "amount": 24960
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "task_digests": {
+        "en": [
+          "78e349d58a814910158915621d0a49d78585bfc9e94c714804c3115180b50ad1"
+        ],
+        "es": [
+          "f6b74d395509b03238be14447062451a7a33033785ceb16343a39dae600921a6"
+        ],
+        "hi": [
+          "2a3d0578d78b19927047784a284c27d5a690227189ca879ce6d7fdde6ce54a8e"
+        ],
+        "ko": [
+          "641c9ad8542974adfd9711e8e4972743c74eb9c0d9e45fcd991c37342e5b72b6"
+        ],
+        "pt": [
+          "45f92337ac8dc989468cffbf341230a1bb02758451b753abf78b344eef3126d6"
+        ],
+        "zh": [
+          "f2088fdd6a36f0bd220f1492b044c361c428d7c93789d5dfd30b0a94ac4a7cf6"
+        ]
+      }
+    }
+  ]
+}

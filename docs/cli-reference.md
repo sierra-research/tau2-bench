@@ -1490,7 +1490,9 @@ options:
 ## `tau2 evaluate-trajs`
 
 ```text
-usage: tau2 evaluate-trajs [-h] [-o OUTPUT_DIR] [--fresh-tasks] paths [paths ...]
+usage: tau2 evaluate-trajs [-h] [-o OUTPUT_DIR] [--fresh-tasks]
+                           [--task-corrections TASK_CORRECTIONS]
+                           paths [paths ...]
 
 positional arguments:
   paths                 Paths to trajectory files, directories, or glob patterns
@@ -1502,6 +1504,10 @@ options:
                         rewards. If not provided, only displays metrics.
   --fresh-tasks         Re-grade against the current task definitions from the data
                         directory instead of the ones embedded in each results file.
+  --task-corrections TASK_CORRECTIONS
+                        Opt-in grading correction set from data/tau2/task_corrections
+                        (e.g. voice-v2-task-defects-20261029). Corrected rewards are
+                        not leaderboard-comparable.
 ```
 
 ## `tau2 review`
