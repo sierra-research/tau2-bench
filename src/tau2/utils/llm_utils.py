@@ -436,7 +436,45 @@ ANTHROPIC_ADAPTIVE_THINKING_MODEL_PREFIXES = (
     "claude-opus-4-8",
     "claude-fable-5",
 )
-_ANTHROPIC_OUTPUT_CONFIG_EFFORTS = frozenset({"low", "medium", "high"})
+_ANTHROPIC_OUTPUT_CONFIG_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
+# Efforts the API accepts but LiteLLM's Anthropic request transform rejects
+# (it allows only low/medium/high, plus max on Opus 4.6).
+_LITELLM_REJECTED_EFFORTS = frozenset({"xhigh", "max"})
+
+
+def _allow_top_anthropic_efforts() -> None:
+    """Let xhigh and max effort through LiteLLM's Anthropic request check.
+
+    The effort is held back while LiteLLM builds the request and put back on
+    the built request, so everything else LiteLLM does is unchanged.
+    """
+    from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+
+    original = AnthropicConfig.transform_request
+    if getattr(original, "_tau2_top_efforts", False):
+        return
+
+    def transform_request(self, model, messages, optional_params, *args, **kwargs):
+        output_config = optional_params.get("output_config")
+        held = None
+        if (
+            isinstance(output_config, dict)
+            and output_config.get("effort") in _LITELLM_REJECTED_EFFORTS
+        ):
+            held = output_config
+            optional_params = {
+                k: v for k, v in optional_params.items() if k != "output_config"
+            }
+        data = original(self, model, messages, optional_params, *args, **kwargs)
+        if held is not None:
+            data["output_config"] = held
+        return data
+
+    transform_request._tau2_top_efforts = True
+    AnthropicConfig.transform_request = transform_request
+
+
+_allow_top_anthropic_efforts()
 
 
 def _openai_responses_bridge_model(model: str) -> str:
