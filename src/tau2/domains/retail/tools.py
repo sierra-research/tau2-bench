@@ -284,6 +284,10 @@ class RetailTools(ToolKitBase):  # Tools
 
         diff_price = 0
         for item_id, new_item_id in zip(item_ids, new_item_ids):
+            if item_id == new_item_id:
+                raise ValueError(
+                    "The new item id should be different from the old item id"
+                )
             item = next((item for item in order.items if item.item_id == item_id), None)
             if item is None:
                 raise ValueError(f"Item {item_id} not found")
