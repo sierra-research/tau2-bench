@@ -1,0 +1,45 @@
+{
+  "model_name": "Ampup Memory System (Qwen 3.8 Max)",
+  "model_organization": "Ampup",
+  "submitting_organization": "Ampup",
+  "submission_date": "2026-10-09",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "name": "Ampup",
+    "github": "RahulBalakavi"
+  },
+  "results": {
+    "banking_knowledge": {
+      "pass_1": 56.95876288659794,
+      "pass_2": 45.704467353951884,
+      "pass_3": 39.69072164948454,
+      "pass_4": 36.08247422680412,
+      "cost": 0.4605617422680412,
+      "retrieval_config": "ampup_skill_scoped_bm25_grep"
+    }
+  },
+  "is_new": false,
+  "trajectories_available": false,
+  "trajectory_files": {
+    "banking_knowledge": "ampup_memory_qwen38max_banking_knowledge_gpt52_4trials.json"
+  },
+  "references": [
+    {
+      "title": "Ampup implementation, frozen procedural library, methodology and full trajectories",
+      "url": "https://github.com/RahulBalakavi/tau2-bench/releases/tag/ampup-memory-2026-10-09",
+      "type": "github"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-10-09",
+    "tau2_bench_version": "5bfa7e37b36656b37dc6d022156be6563c1007f3 + disclosed custom scaffold",
+    "user_simulator": "openrouter/openai/gpt-5.2",
+    "notes": "Ampup Memory System with OpenRouter qwen/qwen3.8-max-0902, reasoning_effort=high; native create_llm_agent with a document-derived procedural library, workflow navigation, and scope-restricted BM25/grep top-10 search. Scope begins empty; a returned nonempty SKILL.md selects a workflow and source links on subsequently returned REFERENCES.md pages enter scope. Union across opened pages/workflows; BM25 statistics are recomputed over scope. No global-search fallback. Direct source reads remain unrestricted. Additional read_knowledge_file tool and appended system-policy instructions make this a custom submission. The frozen library was tuned using development-task analysis and pooled golden-document labels from the evaluated task set. This is development-set evidence, not a held-out or document-only learning result. No per-task gold labels are exposed to the agent at runtime. All 97 base banking tasks have four scored conversations, seeds 626729/373753/361454/1567. Public native inputs match Sierra commit 5bfa7e37b36656b37dc6d022156be6563c1007f3. GPT-5.2 user simulator uses low reasoning via OpenRouter. Native deterministic scoring and the native NL rubric were retained, but the NL judge used the OpenRouter GPT-4.1 alias rather than a dated pinned snapshot. A known task_102 rubric/conversation age discrepancy is retained. The submitted metrics use native saved rewards; relaxed replay results are not submitted scores. Recognized unscored operational failures were retried up to five attempts; no scored case was retried. Nine task/trial pairs had prior failed attempts. Counting those first attempts as failures gives pass1=55.927835%, pass2=44.158076%, pass3=37.371134%, pass4=32.989691%. Primary results use the completed scored attempts under this disclosed custom retry protocol. Two ENOSPC failures lacked error.json; their errors were reconstructed separately from preserved logs, not inserted into original attempts. Concurrency changed from 3 to 5 to 6 across runs. Cost is mean saved agent inference cost only, as computed by the official submission helper: $0.460561742. The analysis including simulator and judge is $0.485038660 per scored conversation; including recorded failed-attempt overhead is at least $0.490250859. Memory construction, local compute and maintenance are excluded; incomplete interrupted logs make retry-inclusive cost a lower bound. Export combines preserved individual simulations into one Results file without changing messages, tool calls/results, rewards, costs or seeds. Aggregate Info is reconstructed from saved configs: task-specific request/session attribution headers are omitted there; original model responses remain in each simulation. Custom environment domain name is mapped to banking_knowledge solely for leaderboard indexing; exact custom policy and tool definitions are retained. Please review development-data exposure and retry/judge conventions before accepting this on the Custom track.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "97 base tasks x 4 trials. Current public format/task/trial validation and official metric recomputation passed locally. Custom policy, file-reader tool, development-label tuning, judge alias and retry convention are disclosed. Original scored simulations are unchanged."
+    }
+  }
+}
