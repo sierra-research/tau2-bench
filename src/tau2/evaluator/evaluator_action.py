@@ -13,13 +13,51 @@ from tau2.environment.toolkit import ToolType
 from tau2.evaluator.evaluator_base import EvaluatorBase
 
 
+def _match_actions(
+    predicted_tool_calls: list[ToolCall],
+    golden_actions: list[Action],
+) -> set[int]:
+    """Indices of gold actions matched one-to-one to distinct predicted calls.
+
+    A predicted call can satisfy at most one gold action, so a gold action
+    listed N times requires N matching calls. Uses maximum bipartite matching
+    so a call that matches several gold actions is assigned where it is needed.
+    """
+    candidates = [
+        [
+            j
+            for j, call in enumerate(predicted_tool_calls)
+            if gold.compare_with_tool_call(call)
+        ]
+        for gold in golden_actions
+    ]
+    owner: dict[int, int] = {}  # predicted call index -> gold action index
+
+    def assign(gold_idx: int, seen: set[int]) -> bool:
+        for call_idx in candidates[gold_idx]:
+            if call_idx in seen:
+                continue
+            seen.add(call_idx)
+            if call_idx not in owner or assign(owner[call_idx], seen):
+                owner[call_idx] = gold_idx
+                return True
+        return False
+
+    for gold_idx in range(len(golden_actions)):
+        assign(gold_idx, set())
+    return set(owner.values())
+
+
 def _check_actions(
     predicted_tool_calls: list[ToolCall],
     golden_actions: list[Action],
     tool_types: Optional[dict[str, ToolType]] = None,
 ) -> list[ActionCheck]:
     """
-    Check if all the gold actions are in the predicted tool calls.
+    Check that every gold action is matched by its own predicted tool call.
+
+    Each predicted call satisfies at most one gold action, so repeated gold
+    actions require as many matching calls.
 
     Args:
         predicted_tool_calls: List of tool calls made during the simulation.
@@ -29,13 +67,10 @@ def _check_actions(
     Returns:
         List of ActionCheck results for each golden action.
     """
+    matched = _match_actions(predicted_tool_calls, golden_actions)
     action_checks = []
-    for gold_action in golden_actions:
-        found = False
-        for pred_tool_call in predicted_tool_calls:
-            if gold_action.compare_with_tool_call(pred_tool_call):
-                found = True
-                break
+    for gold_idx, gold_action in enumerate(golden_actions):
+        found = gold_idx in matched
         if found:
             gold_action_reward = 1.0
             gold_action_match = True
