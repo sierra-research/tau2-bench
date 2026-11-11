@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 from datetime import date, datetime
 from typing import Any, Dict, Optional
 
@@ -33,6 +34,51 @@ def get_now() -> datetime:
     Returns 2025-11-14 03:40:00 EST - the locked time for all knowledge domain scenarios.
     """
     return datetime(2025, 11, 14, 3, 40, 0)
+
+
+# Timezone label for the fixed 'now'. The domain clock is naive and EST-only.
+KNOWLEDGE_TIMEZONE = "EST"
+
+# Matches "YYYY-MM-DD HH:MM[:SS]" (space or "T" separator) plus an optional
+# timezone (abbreviation, "Z", or UTC offset), anywhere in the string.
+_TIMESTAMP_PATTERN = re.compile(
+    r"(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(?::(\d{2}))?"
+    r"\s*(Z|[+-]\d{2}:?\d{2}|[A-Za-z]{2,5})?"
+)
+_EQUIVALENT_TIMEZONES = {None, "EST", "ET", "-05:00", "-0500"}
+
+
+def get_now_str() -> str:
+    """Get the fixed 'now' as the canonical string returned by get_current_time.
+
+    Returns '2025-11-14 03:40:00 EST'.
+    """
+    return f"{get_now().strftime('%Y-%m-%d %H:%M:%S')} {KNOWLEDGE_TIMEZONE}"
+
+
+def canonicalize_time_verified(time_verified: str) -> str:
+    """Normalize an agent-supplied verification timestamp.
+
+    If the string denotes the domain's fixed 'now' (in any common format, e.g.
+    '2025-11-14T03:40:00', '2025-11-14 03:40 EST', or the full sentence returned
+    by get_current_time), return the canonical form from get_now_str(). Any other
+    value is returned unchanged (stripped), so a fabricated or wrong timestamp is
+    still recorded as-is and still fails DB evaluation.
+    """
+    match = _TIMESTAMP_PATTERN.search(time_verified)
+    if match is None:
+        return time_verified.strip()
+    day, hour_minute, seconds, timezone = match.groups()
+    timezone = timezone.upper() if timezone else None
+    try:
+        parsed = datetime.strptime(
+            f"{day} {hour_minute}:{seconds or '00'}", "%Y-%m-%d %H:%M:%S"
+        )
+    except ValueError:
+        return time_verified.strip()
+    if parsed == get_now() and timezone in _EQUIVALENT_TIMEZONES:
+        return get_now_str()
+    return time_verified.strip()
 
 
 KNOWLEDGE_DATA_DIR = DATA_DIR / "tau2" / "domains" / "banking_knowledge"
