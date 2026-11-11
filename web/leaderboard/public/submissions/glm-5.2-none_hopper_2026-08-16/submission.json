@@ -1,0 +1,51 @@
+{
+  "model_name": "GLM-5.2",
+  "model_organization": "Z.ai",
+  "submitting_organization": "Hopper",
+  "submission_date": "2026-08-16",
+  "submission_type": "standard",
+  "modality": "text",
+  "reasoning_effort": "none",
+  "contact_info": {
+    "email": "pavan@withhopper.com",
+    "name": "Pavan Katta",
+    "github": "pavanyellow"
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "telecom": "glm-5.2_none_telecom_gpt-5.2_4trials.json"
+  },
+  "references": [
+    {
+      "title": "Hopper — fast inference for voice agents",
+      "url": "https://withhopper.com",
+      "type": "other"
+    }
+  ],
+  "results": {
+    "telecom": {
+      "pass_1": 96.49122807017544,
+      "pass_2": 93.12865497076024,
+      "pass_3": 89.91228070175438,
+      "pass_4": 86.84210526315789,
+      "cost": null
+    }
+  },
+  "model_release": {
+    "release_date": "2026-06-16",
+    "announcement_url": "https://z.ai/blog/glm-5.2",
+    "announcement_title": "GLM-5.2: Built for Long-Horizon Tasks"
+  },
+  "methodology": {
+    "evaluation_date": "2026-08-16",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "gpt-5.2",
+    "notes": "Non-thinking condition: agent reasoning DISABLED (reasoning: {enabled: false}) and verified per-request (no reasoning content, zero reasoning tokens). Agent: z-ai/glm-5.2 served via OpenRouter pinned to fp8 providers (StreamLake, Baidu, Novita, GMICloud) with allow_fallbacks: false and require_parameters: true; temperature 0. User simulator: gpt-5.2 with reasoning_effort: low. 4 trials, seed 300, max-steps 200, max-errors 10 (defaults). All 456 simulations completed with zero infrastructure errors. We evaluate the non-thinking condition because our focus is voice agents, where reasoning latency is not viable in production.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "Standard tau2-bench scaffold, default prompts, all tasks on the base split. One infrastructure-only local change: raised the hardcoded httpx connection-pool limit in llm_utils.py to support high --max-concurrency (no effect on prompts, tasks, or scoring)."
+    }
+  }
+}
