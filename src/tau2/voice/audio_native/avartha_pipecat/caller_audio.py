@@ -1,11 +1,13 @@
 """Caller audio for Avartha: 8 kHz telephony mu-law to the server's PCM16 rate.
 
-The shared ``StreamingTelephonyConverter`` upsamples with ``audioop.ratecv``,
-which is linear interpolation. At 2x it leaves a mirror image of the 0-4 kHz
-voice at 4-8 kHz only 5-13 dB below it, which a phone call never carries.
-This converter uses the windowed-sinc filter of ``scipy.signal.resample_poly``,
-streamed with its filter state so consecutive ticks join without clicks, and
-returns exactly ``factor`` samples per input sample.
+Linear interpolation (``audioop.ratecv``) at 2x leaves a mirror image of the
+0-4 kHz voice at 4-8 kHz only 5-13 dB below it, which a phone call never
+carries. This converter uses the windowed-sinc filter of
+``scipy.signal.resample_poly``, streamed with its filter state so consecutive
+ticks join without clicks, and returns exactly ``factor`` samples per input
+sample. The shared ``StreamingTelephonyConverter`` is now band-limited too,
+with a longer filter (3.6 ms delay against 1.25 ms here); Avartha keeps this
+one so its caller audio does not change.
 """
 
 from __future__ import annotations

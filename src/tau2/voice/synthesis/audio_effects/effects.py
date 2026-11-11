@@ -1,7 +1,6 @@
 # Copyright Sierra
 """Audio effect functions (burst noise, frame drops, muffling, telephony conversion)."""
 
-import audioop
 from pathlib import Path
 from typing import Optional
 
@@ -26,6 +25,7 @@ from tau2.voice.utils.audio_preprocessing import (
     overlay_audio_samples,
     resample_audio,
 )
+from tau2.voice.utils.streaming_resampler import StreamingResampler
 from tau2.voice_config import (
     BURST_SNR_RANGE_DB,
     CONSTANT_MUFFLE_CUTOFF_FREQ,
@@ -50,7 +50,9 @@ class StreamingTelephonyConverter:
 
     def __init__(self, input_sample_rate: int = DEFAULT_PCM_SAMPLE_RATE):
         self.input_sample_rate = input_sample_rate
-        self.resample_state = None
+        # Band-limited: the 300-3400 Hz band-pass below runs after the rate
+        # change, so it cannot remove energy that resampling aliased into band.
+        self.resampler = StreamingResampler(input_sample_rate, TELEPHONY_SAMPLE_RATE)
 
         # Design bandpass filter (300-3400Hz) for 8kHz output
         nyquist = TELEPHONY_SAMPLE_RATE / 2
@@ -69,15 +71,13 @@ class StreamingTelephonyConverter:
         if not audio.format.is_pcm16:
             raise ValueError(f"Expected PCM_S16LE input, got {audio.format.encoding}")
 
+        if audio.format.channels != 1:
+            raise ValueError(
+                f"Expected mono input, got {audio.format.channels} channels"
+            )
+
         # Resample to 8kHz with state preservation
-        resampled_bytes, self.resample_state = audioop.ratecv(
-            audio.data,
-            audio.format.sample_width,
-            audio.format.channels,
-            self.input_sample_rate,
-            TELEPHONY_SAMPLE_RATE,
-            self.resample_state,
-        )
+        resampled_bytes = self.resampler.process(audio.data)
 
         samples = np.frombuffer(resampled_bytes, dtype=np.int16).astype(np.float64)
 
