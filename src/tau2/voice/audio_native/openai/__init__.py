@@ -2,9 +2,8 @@
 OpenAI Realtime API implementation for audio native adapters.
 """
 
-from tau2.voice.audio_native.openai.discrete_time_adapter import (
-    DiscreteTimeOpenAIAdapter,
-)
+from typing import TYPE_CHECKING
+
 from tau2.voice.audio_native.openai.events import (
     AudioDeltaEvent,
     AudioDoneEvent,
@@ -25,12 +24,33 @@ from tau2.voice.audio_native.openai.events import (
     UnknownEvent,
     parse_realtime_event,
 )
-from tau2.voice.audio_native.openai.provider import (
-    OpenAIRealtimeProvider,
-    OpenAIVADConfig,
-    OpenAIVADMode,
-)
 from tau2.voice.audio_native.tick_result import TickResult, UtteranceTranscript
+
+if TYPE_CHECKING:
+    from tau2.voice.audio_native.openai.discrete_time_adapter import (
+        DiscreteTimeOpenAIAdapter,
+    )
+    from tau2.voice.audio_native.openai.provider import (
+        OpenAIRealtimeProvider,
+        OpenAIVADConfig,
+        OpenAIVADMode,
+    )
+
+
+def __getattr__(name: str):
+    """Load voice implementations only when requested, keeping config imports light."""
+    if name == "DiscreteTimeOpenAIAdapter":
+        from tau2.voice.audio_native.openai.discrete_time_adapter import (
+            DiscreteTimeOpenAIAdapter,
+        )
+
+        return DiscreteTimeOpenAIAdapter
+    if name in {"OpenAIRealtimeProvider", "OpenAIVADConfig", "OpenAIVADMode"}:
+        from tau2.voice.audio_native.openai import provider
+
+        return getattr(provider, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     # Adapters
