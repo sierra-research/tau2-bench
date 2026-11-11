@@ -1,0 +1,850 @@
+[
+  {
+    "id": "retail_complex_001",
+    "description": {
+      "purpose": "Exchange two delivered items where both of the user's first-choice variants are unavailable, forcing the agent to apply the user's stated fallback rules (any color thermostat; cheapest leather chair).",
+      "relevant_policies": "Exchange delivered order; one exchange call per order; same product type only.",
+      "notes": "Thermostat Google-Assistant stainless/white are unavailable -> only available Google Assistant variant is black 7747408585. Red leather chair 3609437808 is unavailable -> cheapest available leather is blue 4168944673 ($471.82)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "You are detail-oriented and decisive. You'll only confirm once the agent has resolved both items together. Make sure both the thermostat and the chair are handled in a single exchange.",
+        "domain": "retail",
+        "reason_for_call": "You received order #W3113816 and want to exchange the smart thermostat for one that works with Google Assistant instead of Amazon Alexa, and exchange the mesh office chair for a leather one. For the thermostat you prefer to keep the stainless steel color, but if that is not available in Google Assistant you'll take any color. For the chair you'd like red, but if red leather isn't available just give you the cheapest available leather chair. Pay or refund any difference to your credit card.",
+        "known_info": "You are Emma Santos and your order id is #W3113816. Your zip code is 78228.",
+        "unknown_info": "You do not remember your email address."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "001_0",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Emma",
+            "last_name": "Santos",
+            "zip": "78228"
+          },
+          "info": null
+        },
+        {
+          "action_id": "001_1",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W3113816"
+          },
+          "info": null
+        },
+        {
+          "action_id": "001_2",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": {
+            "product_id": "4896585277"
+          },
+          "info": null
+        },
+        {
+          "action_id": "001_3",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": {
+            "product_id": "4794339885"
+          },
+          "info": null
+        },
+        {
+          "action_id": "001_4",
+          "requestor": "assistant",
+          "name": "exchange_delivered_order_items",
+          "arguments": {
+            "order_id": "#W3113816",
+            "item_ids": [
+              "6243148452",
+              "4274709903"
+            ],
+            "new_item_ids": [
+              "7747408585",
+              "4168944673"
+            ],
+            "payment_method_id": "credit_card_5869505"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    },
+    "ticket": null
+  },
+  {
+    "id": "retail_complex_002",
+    "description": {
+      "purpose": "Authenticate by name+zip, locate the correct delivered order among two, and return two items identified only by product name, refunding to a gift card.",
+      "relevant_policies": "Authenticate before acting; return delivered order; refund to original method or a gift card.",
+      "notes": "Action camera 7523669277 and perfume 5421902839 are both in delivered order #W2286012 (not in the other delivered order #W4794911). Gift card refund is allowed."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "You are a little disorganized and rely on the agent to find your order. You are sure about the two items but not which order they were in.",
+        "domain": "retail",
+        "reason_for_call": "You want to return the action camera and the men's perfume you received. You'd like the refund on your gift card.",
+        "known_info": "You are Yusuf Garcia in zip code 20080.",
+        "unknown_info": "You do not remember your email, your order ids, or your gift card number. You bought the action camera and perfume in the same order."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "002_0",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Yusuf",
+            "last_name": "Garcia",
+            "zip": "20080"
+          },
+          "info": null
+        },
+        {
+          "action_id": "002_1",
+          "requestor": "assistant",
+          "name": "get_user_details",
+          "arguments": {
+            "user_id": "yusuf_garcia_3055"
+          },
+          "info": null
+        },
+        {
+          "action_id": "002_2",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W2286012"
+          },
+          "info": null
+        },
+        {
+          "action_id": "002_3",
+          "requestor": "assistant",
+          "name": "return_delivered_order_items",
+          "arguments": {
+            "order_id": "#W2286012",
+            "item_ids": [
+              "7523669277",
+              "5421902839"
+            ],
+            "payment_method_id": "gift_card_7588375"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    },
+    "ticket": null
+  },
+  {
+    "id": "retail_complex_003",
+    "description": {
+      "purpose": "Disambiguate a duplicated item (same jigsaw puzzle item id) that appears in two delivered orders, returning only the one from the order containing the bicycle.",
+      "relevant_policies": "Return delivered order; refund to original method or a gift card.",
+      "notes": "Jigsaw puzzle item 4068787148 is in both #W3916020 (with the bicycle) and #W5416052. Only #W3916020 should be returned. User has no gift card, so refund goes to the original credit_card_8105988."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "You are careful and will correct the agent if it tries to return both puzzles. Only the one bought with the bicycle should be returned.",
+        "domain": "retail",
+        "reason_for_call": "You want to return the jigsaw puzzle you bought together with your bicycle. Refund it to whatever card you paid with.",
+        "known_info": "You are Sofia Li in zip code 78260.",
+        "unknown_info": "You do not remember your order ids. You know you bought the same jigsaw puzzle twice but only want to return the one that came with the bicycle."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "003_0",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Sofia",
+            "last_name": "Li",
+            "zip": "78260"
+          },
+          "info": null
+        },
+        {
+          "action_id": "003_1",
+          "requestor": "assistant",
+          "name": "get_user_details",
+          "arguments": {
+            "user_id": "sofia_li_9219"
+          },
+          "info": null
+        },
+        {
+          "action_id": "003_2",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W3916020"
+          },
+          "info": null
+        },
+        {
+          "action_id": "003_3",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W5416052"
+          },
+          "info": null
+        },
+        {
+          "action_id": "003_4",
+          "requestor": "assistant",
+          "name": "return_delivered_order_items",
+          "arguments": {
+            "order_id": "#W3916020",
+            "item_ids": [
+              "4068787148"
+            ],
+            "payment_method_id": "credit_card_8105988"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    },
+    "ticket": null
+  },
+  {
+    "id": "retail_complex_004",
+    "description": {
+      "purpose": "On one pending order: swap the e-reader for the cheapest 32GB variant and change the shipping address to a new address the user provides.",
+      "relevant_policies": "Modify pending order items (once) and address; same product type only.",
+      "notes": "E-reader 32GB variants available: 4273929280 ($244.95) and 7609274509 ($243.40); cheapest is 7609274509. Address change does not alter pending status."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "You want both the e-reader upgrade and the address change done on the same order. You are price-conscious and specifically want the cheapest 32GB option.",
+        "domain": "retail",
+        "reason_for_call": "On your pending order #W1654931 you want to upgrade the e-reader to one with more storage. You'd like the cheapest e-reader that has 32GB of storage. Also, please ship that order to your new work address: 401 Commerce Street, Suite 100, Phoenix, AZ, 85003. Use your credit card for any price difference.",
+        "known_info": "You are Liam Thomas in zip code 85049, order id #W1654931.",
+        "unknown_info": "You do not remember the exact e-reader models; you just want the cheapest 32GB one."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "004_0",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Liam",
+            "last_name": "Thomas",
+            "zip": "85049"
+          },
+          "info": null
+        },
+        {
+          "action_id": "004_1",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W1654931"
+          },
+          "info": null
+        },
+        {
+          "action_id": "004_2",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": {
+            "product_id": "3801771308"
+          },
+          "info": null
+        },
+        {
+          "action_id": "004_3",
+          "requestor": "assistant",
+          "name": "modify_pending_order_address",
+          "arguments": {
+            "order_id": "#W1654931",
+            "address1": "401 Commerce Street",
+            "address2": "Suite 100",
+            "city": "Phoenix",
+            "state": "AZ",
+            "country": "USA",
+            "zip": "85003"
+          },
+          "info": null
+        },
+        {
+          "action_id": "004_4",
+          "requestor": "assistant",
+          "name": "modify_pending_order_items",
+          "arguments": {
+            "order_id": "#W1654931",
+            "item_ids": [
+              "6268080249"
+            ],
+            "new_item_ids": [
+              "7609274509"
+            ],
+            "payment_method_id": "credit_card_3261838"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    },
+    "ticket": null
+  },
+  {
+    "id": "retail_complex_005",
+    "description": {
+      "purpose": "Handle two requests for the same user: cancel a pending gift-card order (reason ordered by mistake) and return one item from a separate delivered order.",
+      "relevant_policies": "Cancel pending order with valid reason; return delivered order; gift-card refund.",
+      "notes": "Pending order #W3130288 paid by gift card -> immediate gift-card refund on cancel. Toothbrush 1583904702 is in delivered #W5544629 (paid by PayPal); user wants the refund on the gift card, which is allowed."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "You have two separate requests. Make sure the agent handles the cancellation first, then the toothbrush return. Confirm both.",
+        "domain": "retail",
+        "reason_for_call": "Please cancel your pending order #W3130288 \u2014 you ordered it by mistake. Also, from your delivered bookshelf order you want to return the electric toothbrush, with the refund going to your gift card.",
+        "known_info": "You are Mia Moore in zip code 94180. The pending order is #W3130288.",
+        "unknown_info": "You do not remember the delivered order id that contains the toothbrush."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "005_0",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Mia",
+            "last_name": "Moore",
+            "zip": "94180"
+          },
+          "info": null
+        },
+        {
+          "action_id": "005_1",
+          "requestor": "assistant",
+          "name": "get_user_details",
+          "arguments": {
+            "user_id": "mia_moore_8366"
+          },
+          "info": null
+        },
+        {
+          "action_id": "005_2",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W3130288"
+          },
+          "info": null
+        },
+        {
+          "action_id": "005_3",
+          "requestor": "assistant",
+          "name": "cancel_pending_order",
+          "arguments": {
+            "order_id": "#W3130288",
+            "reason": "ordered by mistake"
+          },
+          "info": null
+        },
+        {
+          "action_id": "005_4",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W5544629"
+          },
+          "info": null
+        },
+        {
+          "action_id": "005_5",
+          "requestor": "assistant",
+          "name": "return_delivered_order_items",
+          "arguments": {
+            "order_id": "#W5544629",
+            "item_ids": [
+              "1583904702"
+            ],
+            "payment_method_id": "gift_card_7471275"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    },
+    "ticket": null
+  },
+  {
+    "id": "retail_complex_006",
+    "description": {
+      "purpose": "Modify a pending digital camera to a higher-zoom variant; the user first offers the gift card, but its balance ($50) cannot cover the ~$54 difference, so the agent must use the credit card instead.",
+      "relevant_policies": "Modify pending order items; gift card must cover the price difference.",
+      "notes": "Camera 1804581713 (30MP/3x/SD). User wants 5x zoom keeping 30MP. The only available 30MP 5x variant is 6384525445 (CF, $2929.62); SD 5x (7195021808) is unavailable. Diff = +$54.01 > gift card balance $50, so pay by credit_card_4466831."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "You'd like to use your gift card but are fine using the credit card if the gift card balance is too low to cover the difference.",
+        "domain": "retail",
+        "reason_for_call": "On your pending order #W3414433 you want to upgrade the digital camera to one with 5x zoom, keeping the 30MP resolution. You'd prefer to pay any difference with your gift card if it can cover it, otherwise use your credit card.",
+        "known_info": "You are Lei Li in zip code 85033, order id #W3414433.",
+        "unknown_info": "You are not sure exactly how much is on your gift card."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "006_0",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Lei",
+            "last_name": "Li",
+            "zip": "85033"
+          },
+          "info": null
+        },
+        {
+          "action_id": "006_1",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W3414433"
+          },
+          "info": null
+        },
+        {
+          "action_id": "006_2",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": {
+            "product_id": "8940227892"
+          },
+          "info": null
+        },
+        {
+          "action_id": "006_3",
+          "requestor": "assistant",
+          "name": "get_user_details",
+          "arguments": {
+            "user_id": "lei_li_6575"
+          },
+          "info": null
+        },
+        {
+          "action_id": "006_4",
+          "requestor": "assistant",
+          "name": "modify_pending_order_items",
+          "arguments": {
+            "order_id": "#W3414433",
+            "item_ids": [
+              "1804581713"
+            ],
+            "new_item_ids": [
+              "6384525445"
+            ],
+            "payment_method_id": "credit_card_4466831"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    },
+    "ticket": null
+  },
+  {
+    "id": "retail_complex_007",
+    "description": {
+      "purpose": "Disambiguate which of two delivered mechanical keyboards to exchange (the one in the order containing the dumbbell set), and apply a backlight fallback when the preferred RGB full-size clicky variant is unavailable.",
+      "relevant_policies": "Exchange delivered order; same product type only; gift card must cover difference.",
+      "notes": "Keyboards: 6439196450 (60%) in #W1579621 and 1340995114 (full size) in #W2260828. User means the one in #W2260828 (the order with the dumbbell set/bookshelf). Clicky/RGB/full (9025753381) is unavailable; fallback clicky/no-backlight/full is 7706410293 ($269.16). Diff $34.03 > gift card $16, so pay by credit_card_9698900."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Be clear that only the keyboard from the dumbbell-set order should be exchanged, not the other one. Accept the no-backlight option if RGB is unavailable.",
+        "domain": "retail",
+        "reason_for_call": "You want to exchange the mechanical keyboard from the order that also had your dumbbell set and bookshelf. You'd like a full-size clicky keyboard with RGB backlight, but if RGB isn't available a no-backlight one is fine. Pay any difference with your credit card.",
+        "known_info": "You are Olivia Ahmed in zip code 94152.",
+        "unknown_info": "You do not remember your order ids. You have two orders with keyboards but only want to exchange the one that came with the dumbbell set and bookshelf."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "007_0",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Olivia",
+            "last_name": "Ahmed",
+            "zip": "94152"
+          },
+          "info": null
+        },
+        {
+          "action_id": "007_1",
+          "requestor": "assistant",
+          "name": "get_user_details",
+          "arguments": {
+            "user_id": "olivia_ahmed_6778"
+          },
+          "info": null
+        },
+        {
+          "action_id": "007_2",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W2260828"
+          },
+          "info": null
+        },
+        {
+          "action_id": "007_3",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": {
+            "product_id": "1656367028"
+          },
+          "info": null
+        },
+        {
+          "action_id": "007_4",
+          "requestor": "assistant",
+          "name": "exchange_delivered_order_items",
+          "arguments": {
+            "order_id": "#W2260828",
+            "item_ids": [
+              "1340995114"
+            ],
+            "new_item_ids": [
+              "7706410293"
+            ],
+            "payment_method_id": "credit_card_9698900"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    },
+    "ticket": null
+  },
+  {
+    "id": "retail_complex_008",
+    "description": {
+      "purpose": "On one pending order, change the payment method to PayPal and modify the hiking boots to a different variant. Payment-method change requires a single payment in history, so it must be done before modifying items.",
+      "relevant_policies": "Modify pending order payment (single payment only) and items (once each).",
+      "notes": "Order #W2273069 paid once by credit_card_3240550. Switch to paypal_2306935 first (payment history must have exactly one payment), then modify boots 2185126308 (size 10, leather, not waterproof) to 6159919747 (size 11, leather, waterproof)."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "You want both the payment-method switch and the boot change on the same order. Confirm each step as the agent explains it.",
+        "domain": "retail",
+        "reason_for_call": "On your pending order #W2273069, please switch the payment method to your PayPal. Also change the hiking boots to size 11, leather, and waterproof. Use the PayPal for any price difference on the boots.",
+        "known_info": "You are Harper Brown in zip code 76112, order id #W2273069.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "008_0",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Harper",
+            "last_name": "Brown",
+            "zip": "76112"
+          },
+          "info": null
+        },
+        {
+          "action_id": "008_1",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W2273069"
+          },
+          "info": null
+        },
+        {
+          "action_id": "008_2",
+          "requestor": "assistant",
+          "name": "modify_pending_order_payment",
+          "arguments": {
+            "order_id": "#W2273069",
+            "payment_method_id": "paypal_2306935"
+          },
+          "info": null
+        },
+        {
+          "action_id": "008_3",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": {
+            "product_id": "7363354090"
+          },
+          "info": null
+        },
+        {
+          "action_id": "008_4",
+          "requestor": "assistant",
+          "name": "modify_pending_order_items",
+          "arguments": {
+            "order_id": "#W2273069",
+            "item_ids": [
+              "2185126308"
+            ],
+            "new_item_ids": [
+              "6159919747"
+            ],
+            "payment_method_id": "paypal_2306935"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    },
+    "ticket": null
+  },
+  {
+    "id": "retail_complex_009",
+    "description": {
+      "purpose": "Modify two items on one pending order in a single call: swap the electric kettle for a glass white ~1.5L variant and the hiking boots from size 8 to size 9, settling the net difference on the gift card.",
+      "relevant_policies": "Modify pending order items once; collect all items into one call; same product type.",
+      "notes": "Kettle 9624127908 (1.5L/plastic/silver, $158.9) -> 9472539378 (1.5L/glass/white, $143.72). Boots 2648909398 (size 8/leather/waterproof, $240.87) -> 8106223139 (size 9/leather/waterproof, $249.12). Net diff = -$6.93 (refund) to gift card."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Make sure both the kettle and the boots are changed in one go. Remind the agent you want both done together before confirming.",
+        "domain": "retail",
+        "reason_for_call": "On your pending order, please change the electric kettle to a glass white one \u2014 keep it around 1.5 liters \u2014 and change the hiking boots from size 8 to size 9, keeping them leather and waterproof. Settle any difference on your gift card.",
+        "known_info": "You are Anya Patel in zip code 77256.",
+        "unknown_info": "You do not remember the order id; it's your pending order. You don't know the exact item numbers, just the kettle and the boots."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "009_0",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Anya",
+            "last_name": "Patel",
+            "zip": "77256"
+          },
+          "info": null
+        },
+        {
+          "action_id": "009_1",
+          "requestor": "assistant",
+          "name": "get_user_details",
+          "arguments": {
+            "user_id": "anya_patel_3710"
+          },
+          "info": null
+        },
+        {
+          "action_id": "009_2",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W4604258"
+          },
+          "info": null
+        },
+        {
+          "action_id": "009_3",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": {
+            "product_id": "1075968781"
+          },
+          "info": null
+        },
+        {
+          "action_id": "009_4",
+          "requestor": "assistant",
+          "name": "get_product_details",
+          "arguments": {
+            "product_id": "7363354090"
+          },
+          "info": null
+        },
+        {
+          "action_id": "009_5",
+          "requestor": "assistant",
+          "name": "modify_pending_order_items",
+          "arguments": {
+            "order_id": "#W4604258",
+            "item_ids": [
+              "9624127908",
+              "2648909398"
+            ],
+            "new_item_ids": [
+              "9472539378",
+              "8106223139"
+            ],
+            "payment_method_id": "gift_card_6566420"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    },
+    "ticket": null
+  },
+  {
+    "id": "retail_complex_010",
+    "description": {
+      "purpose": "Update the user's default address and also update the shipping address of their only pending order to the same new address; delivered orders cannot be changed.",
+      "relevant_policies": "Modify user default address; modify pending order address (pending only).",
+      "notes": "User is moving. Update profile address and pending order #W4566809. The two delivered orders (#W7736708, #W1067251) cannot have their address changed."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "You want your new address applied to your profile and to any order that can still be changed. You expect the agent to tell you which orders qualify.",
+        "domain": "retail",
+        "reason_for_call": "You're moving and want to update your address to 872 Marina Boulevard, Suite 12, San Diego, CA, 92106. Please update it on your profile and on any order that hasn't shipped yet.",
+        "known_info": "You are Raj Sanchez in zip code 92147.",
+        "unknown_info": "You do not remember which of your orders are still pending versus already delivered."
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "010_0",
+          "requestor": "assistant",
+          "name": "find_user_id_by_name_zip",
+          "arguments": {
+            "first_name": "Raj",
+            "last_name": "Sanchez",
+            "zip": "92147"
+          },
+          "info": null
+        },
+        {
+          "action_id": "010_1",
+          "requestor": "assistant",
+          "name": "get_user_details",
+          "arguments": {
+            "user_id": "raj_sanchez_2970"
+          },
+          "info": null
+        },
+        {
+          "action_id": "010_2",
+          "requestor": "assistant",
+          "name": "modify_user_address",
+          "arguments": {
+            "user_id": "raj_sanchez_2970",
+            "address1": "872 Marina Boulevard",
+            "address2": "Suite 12",
+            "city": "San Diego",
+            "state": "CA",
+            "country": "USA",
+            "zip": "92106"
+          },
+          "info": null
+        },
+        {
+          "action_id": "010_3",
+          "requestor": "assistant",
+          "name": "get_order_details",
+          "arguments": {
+            "order_id": "#W4566809"
+          },
+          "info": null
+        },
+        {
+          "action_id": "010_4",
+          "requestor": "assistant",
+          "name": "modify_pending_order_address",
+          "arguments": {
+            "order_id": "#W4566809",
+            "address1": "872 Marina Boulevard",
+            "address2": "Suite 12",
+            "city": "San Diego",
+            "state": "CA",
+            "country": "USA",
+            "zip": "92106"
+          },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": null,
+      "reward_basis": [
+        "DB"
+      ]
+    },
+    "ticket": null
+  }
+]
