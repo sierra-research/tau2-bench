@@ -1,0 +1,46 @@
+{
+  "model_name": "Qwen3-4B-Banking-Smoke",
+  "model_organization": "aliyun pai",
+  "submitting_organization": "aliyun pai",
+  "submission_date": "2026-10-26",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "name": "李鹏",
+    "email": "jerry.lp@alibaba-inc.com",
+    "github": "jerryli1981"
+  },
+  "is_new": true,
+  "trajectories_available": false,
+  "trajectory_files": {
+    "banking_knowledge": "qwen3-4b-banking-smoke_banking-knowledge_bm25_local-27b_4trials.json"
+  },
+  "references": [
+    {
+      "title": "Unmodified native LLMAgent implementation used for evaluation",
+      "url": "https://github.com/sierra-research/tau2-bench/blob/fc0055dc4e0a316c3f83133267fbd6faaa770992/src/tau2/agent/llm_agent.py",
+      "type": "github"
+    }
+  ],
+  "results": {
+    "banking_knowledge": {
+      "pass_1": 2.5773195876288657,
+      "pass_2": 1.0309278350515463,
+      "pass_3": 0.5154639175257731,
+      "pass_4": 0.0,
+      "cost": null,
+      "retrieval_config": "bm25"
+    }
+  },
+  "methodology": {
+    "evaluation_date": "2026-10-26",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "openai/banking-local-user-teacher",
+    "notes": "End-to-end infrastructure smoke experiment, not a competitive training run. Qwen/Qwen3-4B BF16; LoRA rank 8/alpha 16 on all seven linear projection types. Five SFT optimizer steps (5 decisions/step; 60 independent scripted synthetic decisions generated, 25 consumed), followed by two effective on-policy GRPO optimizer steps, group size 4, token-mean per episode, clip epsilon 0.2, KL coefficient 0; see implementation and training events for sampling/curriculum. Synthetic customers use a separate database and example.test contacts, never the 97 evaluation tasks or their gold answers. Training curriculum is verification/email-change tool use with a corrected target email, starting after an initial lookup; reward is exact DB success (1), or partial credit (.25 correct verification + .5 correct user state), minus .01 per redundant tool call capped at .05. All reward shaping is training-only. All 97 official v1.0.1 banking_knowledge tasks, four trials each, seed 300; native llm_agent, unmodified policy, tools and reward criteria; BM25 retrieval. One evaluation error-handling hook catches explicit provider context exhaustion (ContextWindowExceededError, or SGLang BadRequestError only when its message explicitly states requested token count exceeds maximum context length), retains the actual partial messages and terminates with the existing native context_window_exceeded reason. The unmodified native evaluator assigns reward 0; no prompt truncation or invented reply. This hook was added for native auto-resume after provider context exhaustion had been misclassified as infrastructure; all already-scored trials were retained and this hook is inert for them. Other exceptions still propagate. Local SGLang 0.5.10.post1 endpoints with identical-checkpoint serving replicas (three agent, four user replicas; no model routing). Agent/user temperature 0, max_tokens 1024, thinking disabled; max_steps 200; concurrency 32. Custom protocol: domain fine-tuning and a local 27B user simulator from the host checkpoint named Qwen3.6-27B (qwen3_5 architecture), also used for native NL assertions. No NL assertion or task was removed. Training source and checkpoints are retained in a private organization repository/storage; they are not publicly released. The evaluated agent is the unmodified public native LLMAgent implementation linked in references; the terminal context-error hook and training implementation are private. Infrastructure faults were retried with native auto-resume; ordinary model failures were retained. Local model token costs are unknown; cost is null. Saved merged checkpoint reloaded for evaluation. Only the Banking domain is submitted. Results are not directly comparable to Standard/gpt-5.2/alltools rows.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "All 97 Banking tasks x 4 trials. Local 27B simulator and NL judge; explicit context exhaustion uses native context_window_exceeded termination with reward 0, actual partial messages retained. Uploaded external trajectories await maintainer review and S3 upload."
+    }
+  }
+}
