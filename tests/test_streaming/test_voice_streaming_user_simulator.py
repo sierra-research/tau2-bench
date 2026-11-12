@@ -587,5 +587,116 @@ def test_voice_streaming_user_integration_ticks(user_instructions, voice_setting
     assert user.integration_ticks == 3
 
 
+def test_apply_chunk_effects_records_background_speech_timeline(
+    user_instructions, tmp_path
+):
+    """Test streaming background_speech wiring and timeline events."""
+    import wave
+
+    import numpy as np
+
+    from tau2.data_model.audio_effects import (
+        ChannelEffectsConfig,
+        SourceEffectsConfig,
+        SpeechEffectsConfig,
+    )
+    from tau2.data_model.voice import (
+        SpeechEnvironment,
+        SynthesisConfig,
+        VoiceSettings,
+    )
+    from tau2.voice.synthesis.audio_effects.scheduler import EffectScheduler
+
+    def _write_wav(path, samples, sample_rate: int = 16000):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with wave.open(str(path), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sample_rate)
+            wf.writeframes(np.asarray(samples, dtype=np.int16).tobytes())
+        return path
+
+    clips_dir = tmp_path / "clips"
+    taps_dir = tmp_path / "taps"
+    bg_path = _write_wav(
+        clips_dir / "bystander_clip.wav", np.full(8000, 4000, dtype=np.int16)
+    )
+    burst_path = _write_wav(
+        clips_dir / "horn_clip.wav", np.full(8000, 5000, dtype=np.int16)
+    )
+
+    user = VoiceStreamingUserSimulator(
+        tools=[],
+        instructions=user_instructions,
+        llm="gpt-4o-mini",
+        chunk_size=3200,
+        audio_taps_dir=taps_dir,
+        voice_settings=VoiceSettings(
+            transcription_config=None,
+            synthesis_config=SynthesisConfig(
+                source_effects_config=SourceEffectsConfig(
+                    enable_background_noise=False,
+                    enable_burst_noise=True,
+                    burst_noise_events_per_minute=6000.0,
+                    enable_background_speech=True,
+                    background_speech_events_per_minute=6000.0,
+                    background_speech_snr_range_db=(6.0, 12.0),
+                ),
+                speech_effects_config=SpeechEffectsConfig(
+                    enable_vocal_tics=False,
+                    enable_non_directed_phrases=False,
+                ),
+                channel_effects_config=ChannelEffectsConfig(enable_frame_drops=False),
+            ),
+            speech_environment=SpeechEnvironment(
+                telephony_enabled=False,
+                voice_seed=7,
+            ),
+        ),
+    )
+
+    state = user.get_init_state()
+    assert state.effect_scheduler is not None
+    state.effect_scheduler = EffectScheduler(
+        seed=7,
+        source_config=user.voice_settings.synthesis_config.source_effects_config,
+        speech_config=user.voice_settings.synthesis_config.speech_effects_config,
+        channel_config=user.voice_settings.synthesis_config.channel_effects_config,
+        sample_rate=16000,
+        burst_noise_files=[burst_path],
+        background_speech_files=[bg_path],
+    )
+    user._apply_chunk_effects(None, state, is_speech=False)
+    assert state.noise_generator.has_active_burst() is True
+    assert state.noise_generator.has_active_background_speech() is True
+
+    state.effect_scheduler = None
+    for _ in range(4):
+        user._apply_chunk_effects(None, state, is_speech=False)
+    user.stop(state=state)
+
+    timeline = user.get_effect_timeline()
+    bg_events = [e for e in timeline.events if e.effect_type == "background_speech"]
+    burst_events = [e for e in timeline.events if e.effect_type == "burst_noise"]
+    assert len(bg_events) == 1
+    assert len(burst_events) == 1
+
+    assert bg_events[0].params["file"] == "bystander_clip.wav"
+    assert 6.0 <= bg_events[0].params["snr_db"] <= 12.0
+    assert bg_events[0].params["scale"] > 0.0
+    assert bg_events[0].start_ms == 0
+    assert bg_events[0].end_ms == 400
+
+    with wave.open(str(taps_dir / "user_post-noise.wav"), "rb") as wf:
+        assert wf.getframerate() == 16000
+        assert wf.getnframes() == 5 * 3200
+        post_noise = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16)
+    with wave.open(str(taps_dir / "user_burst-noise-only.wav"), "rb") as wf:
+        burst_only = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16)
+    bg_mixed_diff = post_noise.astype(np.int32) - burst_only.astype(np.int32)
+    assert np.any(bg_mixed_diff[:8000] != 0)
+    assert np.all(bg_mixed_diff[8000:] == 0)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])

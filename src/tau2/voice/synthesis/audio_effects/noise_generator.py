@@ -21,6 +21,7 @@ from tau2.voice.utils.audio_preprocessing import (
 from tau2.voice.utils.probability import poisson_should_trigger
 from tau2.voice.utils.utils import BURST_NOISE_FILES
 from tau2.voice_config import (
+    BACKGROUND_SPEECH_SNR_RANGE_DB,
     BURST_SNR_RANGE_DB,
     NOISE_SNR_DB,
     NOISE_SNR_DRIFT_DB,
@@ -54,6 +55,9 @@ class BackgroundNoiseGenerator:
         burst_rate: float = 0.0,
         burst_noise_files: Optional[list[Path]] = None,
         burst_snr_range_db: tuple[float, float] = BURST_SNR_RANGE_DB,
+        background_speech_snr_range_db: tuple[
+            float, float
+        ] = BACKGROUND_SPEECH_SNR_RANGE_DB,
     ):
         self.audio = audio
         self.audio_file_path = audio_file_path
@@ -77,11 +81,19 @@ class BackgroundNoiseGenerator:
         self.burst_rms: Optional[float] = None  # RMS computed over entire burst
         self.burst_snr_range_db = burst_snr_range_db
 
+        # Independent background speech state (one-shot, plays through then clears)
+        self.background_speech_audio: Optional[bytes] = None
+        self.background_speech_offset: int = 0
+        self.background_speech_snr_db: Optional[float] = None
+        self.background_speech_rms: Optional[float] = None
+        self.background_speech_snr_range_db = background_speech_snr_range_db
+
         # Scheduling state
         self.burst_rate = burst_rate
         self.trigger_rng = random.Random(seed)
         self.selection_rng = random.Random(seed + 1)
         self.burst_snr_rng = random.Random(seed + 2)
+        self.background_speech_snr_rng = random.Random(seed + 3)
 
         self.burst_noise_files = (
             burst_noise_files if burst_noise_files is not None else BURST_NOISE_FILES
@@ -155,6 +167,14 @@ class BackgroundNoiseGenerator:
         all_samples = np.frombuffer(audio.data, dtype=np.int16).astype(np.float64)
         self.burst_rms = float(np.sqrt(np.mean(all_samples**2)))
 
+    def _load_background_speech_from_wav(self, file_path: Path) -> None:
+        """Load a background speech clip from a WAV file and pre-compute its RMS."""
+        audio = self._prepare_audio(file_path, normalize_ratio=NORMALIZE_RATIO)
+        self.background_speech_audio = audio.data
+        self.background_speech_offset = 0
+        all_samples = np.frombuffer(audio.data, dtype=np.int16).astype(np.float64)
+        self.background_speech_rms = float(np.sqrt(np.mean(all_samples**2)))
+
     def generate_snr_envelope(
         self,
         start_time_seconds: float,
@@ -215,6 +235,18 @@ class BackgroundNoiseGenerator:
         ):
             return self.selection_rng.choice(self.burst_noise_files)
         return None
+
+    def add_background_speech(self, speech_file: Path) -> None:
+        """Add a one-shot background speech clip to be mixed into chunks."""
+        self._load_background_speech_from_wav(speech_file)
+        min_snr, max_snr = self.background_speech_snr_range_db
+        self.background_speech_snr_db = self.background_speech_snr_rng.uniform(
+            min_snr, max_snr
+        )
+
+    def has_active_background_speech(self) -> bool:
+        """Check if a background speech clip is currently playing."""
+        return self.background_speech_audio is not None
 
     def get_next_chunk(self, num_samples: int) -> tuple[AudioData, np.ndarray]:
         """Get next chunk of background noise and SNR envelope."""
@@ -322,6 +354,52 @@ class BackgroundNoiseGenerator:
         self.burst_snr_db = None
         self.burst_rms = None
 
+    def get_background_speech_chunk(
+        self, num_samples: int
+    ) -> Optional[tuple[np.ndarray, float, float]]:
+        """Get the next chunk of background speech audio if active, or None."""
+        if (
+            self.background_speech_audio is None
+            or self.background_speech_snr_db is None
+        ):
+            return None
+
+        bytes_per_sample = 2
+        chunk_bytes = num_samples * bytes_per_sample
+        remaining = len(self.background_speech_audio) - self.background_speech_offset
+        if remaining <= 0:
+            self._clear_background_speech()
+            return None
+
+        portion_length = min(chunk_bytes, remaining)
+        portion = self.background_speech_audio[
+            self.background_speech_offset : self.background_speech_offset
+            + portion_length
+        ]
+        samples_np = np.frombuffer(portion, dtype=np.int16).copy()
+
+        if len(samples_np) < num_samples:
+            samples_np = apply_fade_out(samples_np)
+            padded = np.zeros(num_samples, dtype=np.int16)
+            padded[: len(samples_np)] = samples_np
+            samples_np = padded
+
+        self.background_speech_offset += portion_length
+        snr = self.background_speech_snr_db
+        rms = self.background_speech_rms
+
+        if self.background_speech_offset >= len(self.background_speech_audio):
+            self._clear_background_speech()
+
+        return samples_np, snr, rms
+
+    def _clear_background_speech(self) -> None:
+        """Reset all background speech state."""
+        self.background_speech_audio = None
+        self.background_speech_offset = 0
+        self.background_speech_snr_db = None
+        self.background_speech_rms = None
+
 
 def create_background_noise_generator(
     config: SourceEffectsConfig,
@@ -336,6 +414,7 @@ def create_background_noise_generator(
             silent_mode=True,
             burst_noise_files=burst_noise_files,
             burst_snr_range_db=config.burst_snr_range_db,
+            background_speech_snr_range_db=config.background_speech_snr_range_db,
         )
 
     return BackgroundNoiseGenerator(
@@ -346,6 +425,7 @@ def create_background_noise_generator(
         variation_speed=config.noise_variation_speed,
         burst_noise_files=burst_noise_files,
         burst_snr_range_db=config.burst_snr_range_db,
+        background_speech_snr_range_db=config.background_speech_snr_range_db,
     )
 
 

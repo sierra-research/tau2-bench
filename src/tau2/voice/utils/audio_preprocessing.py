@@ -457,13 +457,19 @@ class AudioTracks:
     speech: np.ndarray
     background_noise: np.ndarray
     burst_noise: np.ndarray
+    background_speech: np.ndarray
     sample_rate: int
     num_samples: int
     metadata: dict
 
     def sum(self) -> np.ndarray:
         """Sum all tracks and clip to int16 range."""
-        mixed = self.speech + self.background_noise + self.burst_noise
+        mixed = (
+            self.speech
+            + self.background_noise
+            + self.burst_noise
+            + self.background_speech
+        )
         return np.clip(mixed, -32768, 32767).astype(np.int16)
 
     def to_audio_data(self) -> AudioData:
@@ -488,6 +494,7 @@ def mix_audio_to_tracks(
     snr_envelope_db: Optional[np.ndarray],
     allow_resample_snr: bool = True,
     burst_info: Optional[tuple[np.ndarray, float, float]] = None,
+    background_speech_info: Optional[tuple[np.ndarray, float, float]] = None,
 ) -> AudioTracks:
     """Compute individually scaled audio tracks without mixing them.
 
@@ -501,6 +508,7 @@ def mix_audio_to_tracks(
         snr_envelope_db: SNR envelope in dB for noise mixing
         allow_resample_snr: Whether to allow resampling the SNR envelope
         burst_info: Tuple of (samples, snr_db, whole_burst_rms) for burst mixing
+        background_speech_info: Tuple of (samples, snr_db, whole_clip_rms) for background speech mixing
     """
     if speech is None and noise is None:
         raise ValueError("Either speech or noise must be provided")
@@ -580,10 +588,29 @@ def mix_audio_to_tracks(
             metadata["burst_snr_db"] = burst_snr_db
             metadata["burst_scale"] = burst_scale
 
+    scaled_bg_speech = np.zeros(num_samples, dtype=np.float64)
+    if background_speech_info is not None:
+        bg_samples, bg_snr_db, whole_bg_rms = background_speech_info
+        bg_f64 = bg_samples.astype(np.float64)
+
+        if whole_bg_rms >= MIN_BURST_RMS:
+            bg_scale = _snr_to_scale(bg_snr_db, whole_bg_rms)
+            if len(bg_f64) < num_samples:
+                padded = np.zeros(num_samples, dtype=np.float64)
+                padded[: len(bg_f64)] = bg_f64
+                bg_f64 = padded
+            elif len(bg_f64) > num_samples:
+                bg_f64 = bg_f64[:num_samples]
+
+            scaled_bg_speech = bg_f64 * bg_scale
+            metadata["background_speech_snr_db"] = bg_snr_db
+            metadata["background_speech_scale"] = bg_scale
+
     return AudioTracks(
         speech=speech_f64,
         background_noise=scaled_noise,
         burst_noise=scaled_burst,
+        background_speech=scaled_bg_speech,
         sample_rate=sample_rate,
         num_samples=num_samples,
         metadata=metadata,
