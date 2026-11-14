@@ -16,6 +16,12 @@ from typing import Any, ClassVar, Optional
 from loguru import logger
 
 from tau2.utils.errors import NonRetryableError
+from tau2.voice.audio_native.avartha_pipecat.audio_timing import (
+    AudioClockBinding,
+    WordEndTime,
+    parse_audio_timeline,
+    parse_word_end,
+)
 from tau2.voice.audio_native.avartha_pipecat.config import AvarthaPipecatConfig
 
 # Wire identifier of the tool-exchange protocol the agent must acknowledge.
@@ -34,6 +40,13 @@ class AgentAudioEvent:
 
     audio: bytes
     sample_rate: int
+    # Where this audio sits on the RTP clock (48 kHz, unwrapped), when the
+    # carrier keeps its decoded frames' timestamps (``audio_timing.py``):
+    # its first sample, and the earliest position from which media was decoded
+    # without a gap up to it. Between the previous audio and this one, that
+    # media was silence the receiver dropped; before it, media was lost.
+    rtp_start: Optional[int] = None
+    rtp_decoded_from: Optional[int] = None
 
 
 @dataclass
@@ -81,6 +94,17 @@ class AgentWordEvent:
     type: ClassVar[str] = "agent_word"
 
     text: str
+    # Where the word's sound ends, when Avartha times it (``audio_time``).
+    end: Optional[WordEndTime] = None
+
+
+@dataclass
+class AgentAudioTimelineEvent:
+    """Avartha ``audio_timeline``: binds word-end times to the audio's RTP clock."""
+
+    type: ClassVar[str] = "agent_audio_timeline"
+
+    binding: AudioClockBinding
 
 
 @dataclass
@@ -151,6 +175,11 @@ class AvarthaPipecatProvider:
     Subclasses carry the call: ``connect``, ``send_audio``, ``disconnect`` and
     ``_send_message``.
     """
+
+    # Silence the receiver decoded and dropped right after the last audio it
+    # sent, as RTP positions (that audio's end, the silence's end); None
+    # when unknown. A carrier that keeps RTP positions maintains it.
+    rtp_silence: Optional[tuple[int, int]] = None
 
     def __init__(self, config: AvarthaPipecatConfig):
         self.config = config
@@ -416,6 +445,12 @@ class AvarthaPipecatProvider:
                     f"Avartha rejected register_tools: {detail}"
                 )
                 self._registered.set()
+            elif inner_type == "audio_timeline":
+                binding = parse_audio_timeline(data)
+                if binding is None:
+                    logger.warning("Avartha sent an unusable audio_timeline: {}", data)
+                else:
+                    self._queue.put_nowait(AgentAudioTimelineEvent(binding))
             elif inner_type == "assistant_playback":
                 self._queue.put_nowait(
                     AgentPlaybackEvent(
@@ -437,7 +472,9 @@ class AvarthaPipecatProvider:
         elif message_type == "bot-llm-text" and isinstance(data, dict):
             self._queue.put_nowait(AgentLLMTextEvent(str(data.get("text", ""))))
         elif message_type == "bot-tts-text" and isinstance(data, dict):
-            self._queue.put_nowait(AgentWordEvent(str(data.get("text", ""))))
+            self._queue.put_nowait(
+                AgentWordEvent(str(data.get("text", "")), parse_word_end(data))
+            )
         elif message_type == "bot-llm-started":
             self._queue.put_nowait(AgentLLMStartedEvent())
         elif message_type == "bot-started-speaking":

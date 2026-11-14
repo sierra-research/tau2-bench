@@ -66,6 +66,23 @@ end-of-utterance playback caption show that the words aired. A word the
 alignment splits in two ("T-shir" + "t") counts once both pieces have aired.
 On barge-in, text the caller has not heard is discarded.
 
+When the agent times its words on the audio clock
+(`avartha-audio-timing/1`: an `audio_timeline` server-message binding its
+media clock to the track's RTP clock, and `audio_time` word ends on
+`bot-tts-text`), each word airs once playback passes the end of its sound. A
+word that ends in the silence the receiver drops airs with the audio before
+that silence. A barge-in keeps the timed words whose sound ended in audio
+already played, even if their word event arrives in the barge-in tick.
+"Played" includes the utterance's last millisecond, which the adapter holds
+back for its caption, as it does for every word. As upstream, a cut tick that
+discarded no audio is not labelled with the reply. The receiver keeps each
+decoded frame's RTP timestamp for this; aiortc exposes its RTP origin only
+privately. Without that origin, a binding, or a word's `audio_time`, the word
+is placed on arrival as before. A word reported after the barge-in is
+ignored, timed or not. If the received audio clock rewinds, timing is disabled
+for the rest of that call and words fall back to arrival placement; reconnecting
+starts a new clock.
+
 ## Protocol compatibility
 
 The agent's `tools_registered` or `tools_registration_error` reply must carry
@@ -78,6 +95,11 @@ simulation retries instead of recording the mismatch as a benchmark score.
 
 The call's session ID is saved as `provider_session_id` on `SimulationRun`.
 The hosted agent reports no cost.
+
+The audio-clock receiver does not change the saved-input version, judge
+fingerprint computation, or the saved simulation schema. Existing saved judge verdicts retain
+their validity; newly recorded calls can have different delivered transcript
+text because words are placed by the audio played.
 
 ## Live provider suite
 
