@@ -242,17 +242,19 @@ def test_the_origin_is_read_from_the_tracks_own_receiver():
 @pytest.mark.parametrize(
     "world_ends_in_tick, expected",
     [
-        # T171 A: "world." ended in tick 2's audio, which played; its word
+        # A: "world." ended in tick 2's audio, which played; its word
         # event arrived late, in the cut tick.
         (2, "Hello world."),
-        # T171 B: "world." ended in the cut tick's audio, which the cut
+        # B: "world." ended in the cut tick's audio, which the cut
         # discarded; the same word event, on time.
         (3, "Hello"),
     ],
 )
-def test_t171_schedules_get_the_text_whose_sound_played(world_ends_in_tick, expected):
+def test_late_and_on_time_word_schedules_get_the_text_whose_sound_played(
+    world_ends_in_tick, expected
+):
     """Untimed, both schedules reach the adapter as the same events and get
-    the same answer, right only in B (T171). Timed on the RTP clock, each word
+    the same answer, right only in B. Timed on the RTP clock, each word
     is placed where its sound ends."""
 
     world_end = FIRST_RTP + (world_ends_in_tick - 1) * TICK_RTP + 500
@@ -276,7 +278,7 @@ def test_t171_schedules_get_the_text_whose_sound_played(world_ends_in_tick, expe
 @pytest.mark.parametrize(
     "missing", ["binding", "receiver timestamps", "word time", "epoch"]
 )
-def test_without_timing_the_t171_schedules_keep_todays_answer(missing):
+def test_without_timing_the_late_and_on_time_schedules_keep_todays_answer(missing):
     """No binding, a receiver that keeps no timestamps, an untimed word or a
     word on another clock epoch: the word is placed at its arrival, as before."""
 
@@ -463,7 +465,7 @@ def test_the_held_last_millisecond_counts_as_played_for_timed_words_too():
     """The adapter holds an utterance's last millisecond until its caption,
     and every mark counts it as played. A timed word ending in it is no
     different, or a reply's last word would be lost to a barge-in that keeps
-    it when untimed (architect review r4)."""
+    it when untimed."""
 
     shown = _transcripts(
         [
@@ -552,7 +554,7 @@ def _ticks(events_by_tick, rtp_silence=None):
 def test_two_cut_events_in_one_tick_keep_the_heard_words():
     """Avartha can send both user-started-speaking and bot-interrupted in one
     tick. The second cut used to cut back to the text shown so far, losing the
-    words the first had kept (pr-review r4)."""
+    words the first had kept."""
 
     shown = _transcripts(
         [
@@ -573,7 +575,7 @@ def test_two_cut_events_in_one_tick_keep_the_heard_words():
 
 def test_an_untimed_replacement_word_waits_for_its_audio_after_a_cut():
     """Untimed calls are unchanged: the replacement reply's word arriving in
-    the cut tick is not shown on that silent tick (pr-review r4)."""
+    the cut tick is not shown on that silent tick."""
 
     shown = _transcripts(
         [
@@ -599,7 +601,7 @@ def test_an_untimed_replacement_word_waits_for_its_audio_after_a_cut():
 def test_a_word_ending_in_trailing_silence_is_kept_at_a_cut():
     """The reply's last word ends in the digital silence after its audio,
     which the receiver drops. Untimed it is kept; timed, it waited for audio
-    that never came, and the cut dropped it (pr-review and architect r4). The
+    that never came, and the cut dropped it. The
     receiver reports the silence it decoded after the last audio."""
 
     last_end = FIRST_RTP + 2 * TICK_RTP
@@ -631,7 +633,7 @@ def test_a_word_ending_in_trailing_silence_is_kept_at_a_cut():
 def test_a_cut_that_discards_no_audio_keeps_heard_words_but_cuts_no_reply():
     """The reply had played all its audio and waited for its caption, so the
     cut discarded nothing. Its heard last word is kept, and, as upstream, the
-    cut tick is not labelled with the reply: it was not cut off (pr-review r4)."""
+    cut tick is not labelled with the reply: it was not cut off."""
 
     ticks = _ticks(
         [
@@ -658,7 +660,7 @@ def test_a_cut_that_discards_no_audio_keeps_heard_words_but_cuts_no_reply():
 def test_a_last_word_in_trailing_silence_airs_without_waiting_for_a_cut():
     """The receiver's silence is applied every tick, so a fully played reply's
     last word airs as it would untimed, not on a later cut tick that then
-    marks the reply interrupted (pr-review r4, A)."""
+    marks the reply interrupted."""
 
     last_end = FIRST_RTP + 2 * TICK_RTP
     ticks = _ticks(
@@ -686,7 +688,7 @@ def test_a_last_word_in_trailing_silence_airs_without_waiting_for_a_cut():
 def test_the_lead_bound_counts_the_silence_the_receiver_decoded():
     """After a long silence a reply's first word can be reported before its
     audio. The receiver has decoded that silence, so the word is still on the
-    clock and waits for its audio (protocol review r4, N1)."""
+    clock and waits for its audio."""
 
     last_end = FIRST_RTP + TICK_RTP
     gap = 90 * 48000  # 90 s of silence
@@ -790,7 +792,7 @@ def test_aiortc_keeps_the_rtp_origin_where_the_receiver_reads_it():
 def test_the_real_opus_chain_puts_source_samples_where_the_binding_says(
     origin, skipped
 ):
-    """aiortc's Opus encoder (the sender, bound as svara binds it), its RTP
+    """aiortc's Opus encoder (the sender, bound as the agent binds it), its RTP
     timestamp mapper and decoder (the receiver), then this receiver's RTP
     position through the 24 kHz resampler: a noise burst at source sample s
     decodes at RTP binding.rtp_timestamp_of(s), within a 24 kHz sample.
