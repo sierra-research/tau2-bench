@@ -842,11 +842,6 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         self._connected = False
         self._tick_count = 0
         self._cumulative_user_audio_ms = 0
-        self.clear_buffers()
-        self._input_converter.reset()
-        for converter in self._output_converters.values():
-            converter.reset()
-        self._output_converters.clear()
         transcript = self._utterance_transcripts.get(_ITEM_ID)
         if isinstance(transcript, _HeardTranscript) and transcript.timed_words:
             logger.info(
@@ -854,6 +849,11 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 transcript.timed_words,
                 transcript.untimed_words,
             )
+        self.clear_buffers()
+        self._input_converter.reset()
+        for converter in self._output_converters.values():
+            converter.reset()
+        self._output_converters.clear()
         self._reset_interruption_state()
         logger.info("DiscreteTimeAvarthaPipecatAdapter disconnected")
 

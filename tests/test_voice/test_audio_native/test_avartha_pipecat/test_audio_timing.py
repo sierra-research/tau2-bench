@@ -1029,3 +1029,34 @@ def test_a_last_word_reported_in_the_cut_tick_is_kept(end, silence):
 
     shown = [t.proportional_transcript for t in ticks]
     assert shown == ["Hello", "", " world.", ""]
+
+
+def test_disconnect_reports_timing_before_clearing_call_state():
+    from loguru import logger
+
+    messages = []
+    sink = logger.add(lambda message: messages.append(str(message)))
+    provider = FakeProvider(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+                AgentWordEvent("world."),
+            ]
+        ]
+    )
+    adapter = DiscreteTimeAvarthaPipecatAdapter(tick_duration_ms=20, provider=provider)
+    try:
+        adapter.connect("policy", [])
+        adapter.run_tick(b"\xff" * 160, tick_number=1)
+        adapter.disconnect()
+        assert not adapter._utterance_transcripts
+        adapter.disconnect()
+        summaries = [m for m in messages if "Avartha word timing:" in m]
+        assert len(summaries) == 1
+        assert "1 words placed by their sound, 0 on arrival" in summaries[0]
+    finally:
+        adapter.disconnect()
+        logger.remove(sink)
