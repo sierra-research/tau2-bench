@@ -21,6 +21,7 @@ from tau2.voice.audio_native.avartha_pipecat.audio_timing import (  # noqa: E402
 )
 from tau2.voice.audio_native.avartha_pipecat.discrete_time_adapter import (  # noqa: E402
     DiscreteTimeAvarthaPipecatAdapter,
+    _HeardTranscript,
 )
 from tau2.voice.audio_native.avartha_pipecat.provider import (  # noqa: E402
     AgentAudioEvent,
@@ -947,7 +948,50 @@ def test_audio_rewinding_the_rtp_clock_stops_timing_from_it():
         ]
     )
 
-    assert shown == ["Hello", "", "", " world.", ""]
+    # Arrival fallback releases the word with the rewound audio; it must not
+    # wait for another frame to rediscover that the RTP clock is unusable.
+    assert shown == ["Hello", "", " world.", "", ""]
+
+
+def test_rewound_audio_releases_word_without_more_audio_or_caption():
+    transcript = _HeardTranscript()
+    transcript.add_text("Hello world.")
+    transcript.add_audio(1600, 10000, 9600)
+    transcript.add_word("Hello", 10400)
+    assert transcript.get_transcript_for_audio(1600) == "Hello"
+    transcript.add_audio(1600, 10000, 9600)
+    transcript.add_word("world.", 10900)
+    assert transcript.get_transcript_for_audio(1600) == " world."
+    transcript.interrupt()
+    assert transcript.take_kept() == ""
+    assert transcript.get_transcript_for_audio(0) == ""
+
+
+def test_rewind_releases_waiting_words_and_keeps_later_audio_untimed():
+    transcript = _HeardTranscript()
+    transcript.add_text("Hello world. Again.")
+    transcript.add_audio(1600, 10000, 9600)
+    transcript.add_word("Hello", 20000)  # Waiting for future audio before rewind.
+    transcript.add_audio(1600, 10000, 9600)
+    assert transcript.get_transcript_for_audio(1600) == "Hello"
+    transcript.add_word("world.", 20000)
+    assert transcript.get_transcript_for_audio(1600) == " world."
+    transcript.add_audio(1600, 30000, 9600)
+    transcript.add_word("Again.", 50000)
+    assert transcript.get_transcript_for_audio(1600) == " Again."
+
+
+def test_cut_discards_rewound_waiting_word_without_resurrection():
+    transcript = _HeardTranscript()
+    transcript.add_text("Hello world.")
+    transcript.add_audio(1600, 10000, 9600)
+    transcript.add_word("Hello", 10400)
+    assert transcript.get_transcript_for_audio(1600) == "Hello"
+    transcript.add_audio(1600, 10000, 9600)
+    transcript.add_word("world.", 10900)
+    transcript.interrupt()
+    assert transcript.take_kept() == ""
+    assert transcript.get_transcript_for_audio(1600) == ""
 
 
 @pytest.mark.parametrize(

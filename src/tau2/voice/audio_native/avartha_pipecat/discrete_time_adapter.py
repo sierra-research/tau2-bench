@@ -414,6 +414,8 @@ class _HeardTranscript(_SpokenTranscript):
         # Whether the receiver has placed any of this call's audio on the RTP
         # clock; until it does, timed words cannot be placed.
         self._clocked = False
+        # A rewind invalidates this call's timing epoch; do not reuse it.
+        self._clock_invalid = False
         # RTP timestamp of the end of the word being matched (add_word).
         self._word_end: Optional[int] = None
         # Text lengths whose mark is timed, and timed marks whose audio has
@@ -439,13 +441,17 @@ class _HeardTranscript(_SpokenTranscript):
         rtp_samples: int = 0,
         decoded_from: Optional[int] = None,
     ) -> None:
-        if rtp_start is not None and rtp_samples > 0:
+        if not self._clock_invalid and rtp_start is not None and rtp_samples > 0:
             self._clocked = True
             if self._spans and rtp_start < self._spans[-1].rtp_end:
                 # Not after the audio before it: the clock is not one we can
                 # follow, so stop timing from it.
                 self._spans.clear()
                 self._span_starts.clear()
+                self._clocked = False
+                self._clock_invalid = True
+                self._silent_through = None
+                self.untime_waiting()
             else:
                 self._spans.append(
                     _AudioSpan(
