@@ -69,13 +69,15 @@ On barge-in, text the caller has not heard is discarded.
 When the agent times its words on the audio clock
 (`avartha-audio-timing/1`: an `audio_timeline` server-message binding its
 media clock to the track's RTP clock, and `audio_time` word ends on
-`bot-tts-text`), each word airs once playback passes the end of its sound,
-and a barge-in keeps exactly the words whose sound ended in audio already
-played, even if their word event arrives in the barge-in tick. The receiver
-keeps each decoded frame's RTP timestamp for this (aiortc exposes its RTP
-origin only privately; without it, or without a binding, words are placed
-on arrival as before). Words reported after the barge-in are ignored, timed
-or not.
+`bot-tts-text`), each word airs once playback passes the end of its sound.
+A barge-in keeps the timed words whose sound ended in audio already played
+(counting the utterance's held last millisecond, as every word does), even if
+their word event arrives in the barge-in tick, and words that ended in the
+trailing silence the receiver drops. The receiver keeps each decoded frame's
+RTP timestamp for this; aiortc exposes its RTP origin only privately.
+Without that origin, a binding, or a word's `audio_time`, the word is placed
+on arrival as before. A word reported after the barge-in is ignored, timed or
+not.
 
 ## Protocol compatibility
 

@@ -364,7 +364,7 @@ def _mcp_tool_schema(tool: Tool) -> dict[str, Any]:
     }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class _AudioSpan:
     """Received audio on the RTP clock: ``rtp_samples`` ticks from ``rtp_start``
     became ``byte_count`` telephony bytes from ``byte_start``."""
@@ -381,6 +381,13 @@ class _AudioSpan:
         return self.rtp_start + self.rtp_samples
 
 
+# A word end this far past the audio received is not on this clock (a wrong
+# binding, or a bridge that rewrote timestamps): place the word as untimed.
+_MAX_RTP_LEAD = 60 * RTP_CLOCK_HZ
+# Mark position of a timed word whose audio has not arrived: beyond any playback.
+_UNPLACED = 1 << 62
+
+
 class _HeardTranscript(_SpokenTranscript):
     """``_SpokenTranscript`` with each timed word placed where its sound ends.
 
@@ -390,8 +397,9 @@ class _HeardTranscript(_SpokenTranscript):
     audio the cut discarded. Avartha now times words on the audio's RTP clock
     (``audio_timing.py``) and the receiver keeps each audio event's RTP
     position, so a timed word airs once playback has passed the end of its
-    sound, and a cut keeps exactly the words whose sound ended in the audio
-    played.
+    sound, and a cut keeps the words whose sound ended in the audio played.
+    "Played" counts the utterance's held last millisecond, as for every mark
+    (``_hold_utterance_end``).
 
     A word whose end is unknown (no binding, another clock epoch, media lost
     or the receiver keeps no timestamps) is placed as ``_SpokenTranscript``
@@ -409,9 +417,17 @@ class _HeardTranscript(_SpokenTranscript):
         # RTP timestamp of the end of the word being matched (add_word).
         self._word_end: Optional[int] = None
         # Text lengths whose mark is timed, and timed marks whose audio has
-        # not arrived yet: length -> (RTP timestamp, arrival position).
+        # not arrived yet, in text order: length -> (RTP timestamp, arrival).
         self._timed: set[int] = set()
         self._waiting: dict[int, tuple[int, int]] = {}
+        # Heard text a cut kept that no tick has shown yet (see interrupt).
+        self._kept = ""
+        self.timed_words = 0
+        self.untimed_words = 0
+
+    @property
+    def clocked(self) -> bool:
+        return self._clocked
 
     def add_audio(
         self,
@@ -456,22 +472,24 @@ class _HeardTranscript(_SpokenTranscript):
         self._match_cursor = cursor
         position = self._position(self._word_end)
         if position is None:
+            self.untimed_words += 1
             self._marks.append((self._audio_received, cursor))
             return
+        self.timed_words += 1
         self._timed.add(cursor)
         if position is _NOT_YET_RECEIVED:
             # Its sound has not arrived yet: nothing after it airs before it.
             self._waiting[cursor] = (self._word_end, self._audio_received)
-            self._marks.append((math.inf, cursor))
+            self._marks.append((_UNPLACED, cursor))
         else:
-            # Exact: the end-of-utterance slack is for untimed marks only.
-            self._marks.append((position + self._due_slack, cursor))
+            self._marks.append((position, cursor))
 
     def _position(self, rtp_timestamp: int) -> Any:
         """Received-byte position where the sound at ``rtp_timestamp`` has played.
 
         ``_NOT_YET_RECEIVED`` if that audio has not arrived yet, None if it is
-        unknown (no timed audio, lost media or before the first audio).
+        unknown (no timed audio, lost media, before the first audio or too
+        far ahead to be on this clock).
         """
 
         if not self._spans:
@@ -479,6 +497,8 @@ class _HeardTranscript(_SpokenTranscript):
             return _NOT_YET_RECEIVED if self._clocked else None
         last = self._spans[-1]
         end = unwrap_rtp(rtp_timestamp, last.rtp_end)
+        if end > last.rtp_end + _MAX_RTP_LEAD:
+            return None
         if end > last.rtp_end:
             return _NOT_YET_RECEIVED
         index = bisect_right(self._span_starts, end) - 1
@@ -496,64 +516,88 @@ class _HeardTranscript(_SpokenTranscript):
         return None  # in media that was lost
 
     def _place_waiting(self) -> None:
-        placed: dict[int, float] = {}
+        placed: dict[int, int] = {}
         for cursor, (rtp_timestamp, arrival) in list(self._waiting.items()):
             position = self._position(rtp_timestamp)
             if position is _NOT_YET_RECEIVED:
-                continue
+                break  # later words wait behind it anyway (marks air in order)
             del self._waiting[cursor]
             if position is None:
                 self._timed.discard(cursor)
                 placed[cursor] = arrival
             else:
-                placed[cursor] = position + self._due_slack
+                placed[cursor] = position
+        self._replace_marks(placed)
+
+    def _replace_marks(self, placed: dict[int, int]) -> None:
         if placed:
             self._marks = deque(
                 (placed.get(cursor, position), cursor)
                 for position, cursor in self._marks
             )
 
+    def untime_waiting(self) -> None:
+        """Place the words still waiting for their audio as untimed: at their arrival."""
+
+        placed = {cursor: arrival for cursor, (_, arrival) in self._waiting.items()}
+        for cursor in placed:
+            self._timed.discard(cursor)
+        self._waiting.clear()
+        self._replace_marks(placed)
+
+    def ended_in_silence(self, after: int, through: int) -> None:
+        """The receiver decoded silence from RTP ``after``, the end of the audio
+        received, through ``through``: words that ended in it have played once
+        the audio received has."""
+
+        if not self._spans or self._spans[-1].rtp_end != after:
+            return  # audio the adapter has not received yet came first
+        end_of_audio = self._audio_received
+        placed: dict[int, int] = {}
+        for cursor, (rtp_timestamp, _) in list(self._waiting.items()):
+            if unwrap_rtp(rtp_timestamp, after) > through:
+                break
+            del self._waiting[cursor]
+            placed[cursor] = end_of_audio
+        self._replace_marks(placed)
+
     def add_playback(self, caption: str) -> None:
-        # The utterance has ended; a timed word whose audio never arrived is
-        # placed as it would be untimed.
-        if self._waiting:
-            for cursor in self._waiting:
-                self._timed.discard(cursor)
-            arrivals = {
-                cursor: arrival for cursor, (_, arrival) in self._waiting.items()
-            }
-            self._waiting.clear()
-            self._marks = deque(
-                (arrivals.get(cursor, position), cursor)
-                for position, cursor in self._marks
-            )
+        # The utterance has ended: a timed word whose audio never arrived is
+        # placed as it would be untimed, and later words need none of its spans.
+        self.untime_waiting()
+        del self._spans[:-1], self._span_starts[:-1]
         super().add_playback(caption)
 
     def interrupt(self) -> None:
-        """Keep the timed words whose sound ended in the audio played."""
+        """Keep the timed words whose sound ended in the audio played.
+
+        The kept text is held for the cut tick (``take_kept``); it counts as
+        shown, so a second cut in the same tick keeps it too.
+        """
 
         heard = max(
             (
                 cursor
                 for position, cursor in self._marks
                 if cursor in self._timed
-                and position - self._due_slack <= self._audio_played
+                and position <= self._audio_played + self._due_slack
             ),
             default=0,
         )
-        shown = self._shown_chars
-        if heard > shown:
-            # interrupt() keeps the text shown; keep the heard text too, and
-            # let the next get_transcript_for_audio show it.
+        if heard > self._shown_chars:
+            self._kept += self.text[self._shown_chars : heard]
             self._shown_chars = heard
-            super().interrupt()
-            self._shown_chars = shown
-        else:
-            super().interrupt()
+        super().interrupt()
         self._spans.clear()
         self._span_starts.clear()
         self._timed.clear()
         self._waiting.clear()
+
+    def take_kept(self) -> str:
+        """Heard text the last cut kept, once."""
+
+        kept, self._kept = self._kept, ""
+        return kept
 
 
 # _HeardTranscript._position: the audio carrying the word's end has not arrived.
@@ -645,6 +689,11 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         # different one makes word times unusable for the rest of the call.
         self._audio_clock: Optional[AudioClockBinding] = None
         self._audio_clock_conflict = False
+        self._warned_unclocked = False
+        # Whether the receiver has sent audio it could not place on the clock.
+        self._unclocked_audio = False
+        # The utterance whose heard words a cut kept, for the cut tick's label.
+        self._kept_utterance_id: Optional[str] = None
         # Pipecat's RTVI observer builds bot-transcription from bot-llm-text
         # and only empties its buffer when it sends a sentence, so a reply's
         # unsent tail (cut off, or unpunctuated) opens the next reply's first
@@ -787,6 +836,13 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         for converter in self._output_converters.values():
             converter.reset()
         self._output_converters.clear()
+        transcript = self._utterance_transcripts.get(_ITEM_ID)
+        if isinstance(transcript, _HeardTranscript) and transcript.timed_words:
+            logger.info(
+                "Avartha word timing: {} words placed by their sound, {} on arrival",
+                transcript.timed_words,
+                transcript.untimed_words,
+            )
         self._reset_interruption_state()
         logger.info("DiscreteTimeAvarthaPipecatAdapter disconnected")
 
@@ -841,14 +897,14 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         """Retain post-interruption audio and utterance tails after tick buffering."""
 
         result = await super()._async_run_tick(user_audio, tick_number)
-        if result.was_truncated:
-            # Timed words whose sound played before the cut (see
+        kept = self._transcript().take_kept()
+        if kept:
+            # Timed words whose sound played before this tick's cut (see
             # _HeardTranscript.interrupt). The cut tick plays no audio, so the
-            # base class asked for no text; the label below joins it to the
-            # utterance the cut ended.
-            heard = self._transcript().get_transcript_for_audio(0)
-            if heard:
-                result.proportional_transcript += heard
+            # base class took no text; label it with the utterance they ended.
+            result.proportional_transcript += kept
+            if self._cut_utterance_id is None:
+                self._cut_utterance_id = self._kept_utterance_id
         if self._audio_after_cut:
             self._buffered_agent_audio[:0] = self._audio_after_cut
             self._audio_after_cut = []
@@ -1043,6 +1099,16 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
             or event.end.stream_id != clock.stream_id
         ):
             return None
+        if (
+            self._unclocked_audio
+            and not self._transcript().clocked
+            and not self._warned_unclocked
+        ):
+            self._warned_unclocked = True
+            logger.warning(
+                "Avartha times its words but this receiver keeps no RTP "
+                "timestamps (unsupported aiortc?); words are placed on arrival"
+            )
         return clock.rtp_timestamp_of(event.end.sample_offset)
 
     def _process_event(self, result: TickResult, event: Any) -> None:
@@ -1076,6 +1142,8 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                     self._audio_after_cut.append(chunk)
                 else:
                     result.agent_audio_chunks.append(chunk)
+                if event.rtp_start is None:
+                    self._unclocked_audio = True
                 rtp_ticks = len(event.audio) // 2 * RTP_CLOCK_HZ
                 self._transcript().add_audio(
                     len(telephony_audio),
@@ -1096,6 +1164,7 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                     "times are ignored from now on"
                 )
                 self._audio_clock_conflict = True
+                self._transcript().untime_waiting()
         elif isinstance(event, ToolCallEvent):
             result.tool_calls.append(
                 ToolCall(
@@ -1156,9 +1225,17 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 if self._cut_utterance_id is None:
                     self._cut_utterance_id = self._discarded_utterance()
                     self._open_at_cut = self._open_at_cut or self._streaming_utterance()
+                # The utterance playing, or the last one if it has ended.
+                self._kept_utterance_id = (
+                    self._utterance_id or f"{_ITEM_ID}-{self._utterance_count}"
+                )
                 self._utterance_id = None
                 self._utterance_audio.clear()
-                self._transcript().interrupt()
+                transcript = self._transcript()
+                silence = getattr(self.provider, "rtp_silence", None)
+                if silence is not None:
+                    transcript.ended_in_silence(*silence)
+                transcript.interrupt()
                 self._stale_text = self._stale_audio = True
                 for converter in self._output_converters.values():
                     converter.reset()

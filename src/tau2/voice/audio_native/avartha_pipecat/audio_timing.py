@@ -83,7 +83,7 @@ def parse_audio_timeline(data: dict[str, Any]) -> Optional[AudioClockBinding]:
     media_sample_offset = _json_integer(data.get("media_sample_offset"))
     if (
         data.get("protocol") != AUDIO_TIMING_PROTOCOL
-        or data.get("sample_rate_hz") != RTP_CLOCK_HZ
+        or _json_integer(data.get("sample_rate_hz")) != RTP_CLOCK_HZ
         or not _is_stream_id(data.get("stream_id"))
         or rtp_timestamp is None
         or not 0 <= rtp_timestamp < _RTP_MODULUS
@@ -102,7 +102,7 @@ def parse_word_end(data: dict[str, Any]) -> Optional[WordEndTime]:
     sample_offset = _json_integer(audio_time.get("sample_offset"))
     if (
         audio_time.get("boundary") != "word_end"
-        or audio_time.get("sample_rate_hz") != RTP_CLOCK_HZ
+        or _json_integer(audio_time.get("sample_rate_hz")) != RTP_CLOCK_HZ
         or not _is_stream_id(audio_time.get("stream_id"))
         or sample_offset is None
     ):

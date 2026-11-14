@@ -176,6 +176,11 @@ class AvarthaPipecatProvider:
     ``_send_message``.
     """
 
+    # Silence the receiver decoded and dropped right after the last audio it
+    # sent, as RTP positions (that audio's end, the silence's end); None
+    # when unknown. A carrier that keeps RTP positions maintains it.
+    rtp_silence: Optional[tuple[int, int]] = None
+
     def __init__(self, config: AvarthaPipecatConfig):
         self.config = config
 

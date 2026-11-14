@@ -185,8 +185,14 @@ class _RtpPosition:
         if self.origin is None:
             return
         start = self._rtp(frame)
-        if start is None or frame.sample_rate != RTP_CLOCK_HZ:
-            self.origin = None  # not on the RTP clock: no timing for this track
+        if (
+            start is None
+            or frame.sample_rate != RTP_CLOCK_HZ
+            or (self._next_pts is None and start != self.origin)
+        ):
+            # Not on the RTP clock, or the first frame is not at the origin
+            # aiortc mapped: no timing for this track.
+            self.origin = None
             return
         if start != self._next_pts:
             self.decoded_from = start
@@ -196,12 +202,13 @@ class _RtpPosition:
         return None if self.origin is None else self._rtp(frame)
 
     def _rtp(self, frame: AudioFrame) -> Optional[int]:
-        if frame.pts is None or frame.time_base is None or self.origin is None:
+        time_base = frame.time_base
+        if frame.pts is None or time_base is None or self.origin is None:
             return None
-        ticks = frame.pts * frame.time_base * RTP_CLOCK_HZ
-        if ticks.denominator != 1:
-            return None
-        return self.origin + int(ticks)
+        ticks, rest = divmod(
+            frame.pts * time_base.numerator * RTP_CLOCK_HZ, time_base.denominator
+        )
+        return None if rest else self.origin + ticks
 
 
 class AvarthaWebRTCProvider(AvarthaPipecatProvider):
@@ -355,15 +362,30 @@ class AvarthaWebRTCProvider(AvarthaPipecatProvider):
                 position.decoded(frame)
                 for converted in resampler.resample(frame):
                     pcm = converted.to_ndarray().reshape(-1).astype(np.int16).tobytes()
-                    if not is_digital_silence(pcm):
-                        await self._queue.put(
-                            AgentAudioEvent(
-                                audio=pcm,
-                                sample_rate=DEFAULT_AVARTHA_OUTPUT_SAMPLE_RATE,
-                                rtp_start=position.start_of(converted),
-                                rtp_decoded_from=position.decoded_from,
-                            )
+                    start = position.start_of(converted)
+                    end = (
+                        None
+                        if start is None
+                        else start
+                        + converted.samples
+                        * RTP_CLOCK_HZ
+                        // DEFAULT_AVARTHA_OUTPUT_SAMPLE_RATE
+                    )
+                    if is_digital_silence(pcm):
+                        if end is not None and self.rtp_silence is not None:
+                            after, through = self.rtp_silence
+                            if start == through:
+                                self.rtp_silence = (after, end)
+                        continue
+                    self.rtp_silence = None if end is None else (end, end)
+                    await self._queue.put(
+                        AgentAudioEvent(
+                            audio=pcm,
+                            sample_rate=DEFAULT_AVARTHA_OUTPUT_SAMPLE_RATE,
+                            rtp_start=start,
+                            rtp_decoded_from=position.decoded_from,
                         )
+                    )
         except asyncio.CancelledError:
             raise
         except Exception as exc:
