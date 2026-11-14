@@ -96,7 +96,7 @@ simulation retries instead of recording the mismatch as a benchmark score.
 The call's session ID is saved as `provider_session_id` on `SimulationRun`.
 The hosted agent reports no cost.
 
-The audio-clock receiver does not change `SAVED_INPUT_VERSION`, judge
+The audio-clock receiver does not change the saved-input version, judge
 fingerprint computation, or the saved simulation schema. Existing saved judge verdicts retain
 their validity; newly recorded calls can have different delivered transcript
 text because words are placed by the audio played.
