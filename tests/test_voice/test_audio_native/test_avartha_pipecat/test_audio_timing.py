@@ -628,10 +628,10 @@ def test_a_word_ending_in_trailing_silence_is_kept_at_a_cut():
     assert shown(None) == "Hello"
 
 
-def test_heard_words_on_a_cut_that_discards_no_audio_join_their_utterance():
+def test_a_cut_that_discards_no_audio_keeps_heard_words_but_cuts_no_reply():
     """The reply had played all its audio and waited for its caption, so the
-    cut discarded nothing; the kept word's tick still carries the reply's
-    utterance (architect review r4)."""
+    cut discarded nothing. Its heard last word is kept, and, as upstream, the
+    cut tick is not labelled with the reply: it was not cut off (pr-review r4)."""
 
     ticks = _ticks(
         [
@@ -651,7 +651,79 @@ def test_heard_words_on_a_cut_that_discards_no_audio_join_their_utterance():
     )
 
     assert ticks[3].proportional_transcript == " world."
-    assert ticks[3].agent_audio_chunks == [(b"", ticks[0].agent_audio_chunks[0][1])]
+    assert ticks[3].was_truncated
+    assert ticks[3].agent_audio_chunks == []
+
+
+def test_a_last_word_in_trailing_silence_airs_without_waiting_for_a_cut():
+    """The receiver's silence is applied every tick, so a fully played reply's
+    last word airs as it would untimed, not on a later cut tick that then
+    marks the reply interrupted (pr-review r4, A)."""
+
+    last_end = FIRST_RTP + 2 * TICK_RTP
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), _word("world.", last_end + 300)],
+            [],
+            [],
+            [SpeechEvent("speech_started")],
+        ],
+        rtp_silence=(last_end, last_end + 960),
+    )
+
+    shown = [t.proportional_transcript for t in ticks]
+    assert shown[:2] == ["Hello", " world."]
+    assert ticks[4].proportional_transcript == ""
+    assert ticks[4].agent_audio_chunks == []
+
+
+def test_the_lead_bound_counts_the_silence_the_receiver_decoded():
+    """After a long silence a reply's first word can be reported before its
+    audio. The receiver has decoded that silence, so the word is still on the
+    clock and waits for its audio (protocol review r4, N1)."""
+
+    last_end = FIRST_RTP + TICK_RTP
+    gap = 90 * 48000  # 90 s of silence
+    reply = last_end + gap
+
+    def reply_audio(index):
+        start = reply + index * TICK_RTP
+        return AgentAudioEvent(
+            b"\x01\x00" * 480, 24000, rtp_start=start, rtp_decoded_from=start
+        )
+
+    events = [
+        [
+            AgentAudioTimelineEvent(BINDING),
+            TranscriptEvent("Hello."),
+            _audio(0),
+            _word("Hello.", FIRST_RTP + 400),
+            AgentPlaybackEvent("Hello.", cut=False),
+        ],
+        [
+            AgentLLMStartedEvent(),
+            AgentStartedSpeakingEvent(),
+            TranscriptEvent("Sure thing."),
+            _word("Sure", reply + TICK_RTP + 400),
+        ],
+        [reply_audio(0)],
+        [reply_audio(1)],
+        [],
+    ]
+    shown = lambda silence: [  # noqa: E731
+        t.proportional_transcript for t in _ticks(events, silence)
+    ]
+
+    # Untimed after 90 s without the silence: "Sure" airs on arrival, with
+    # the reply's first audio. With it, "Sure" waits for its own audio.
+    assert shown(None) == ["Hello.", "", " Sure", "", ""]
+    assert shown((last_end, reply - 960)) == ["Hello.", "", "", " Sure", ""]
 
 
 def test_a_word_end_far_beyond_the_audio_is_not_on_this_clock():
@@ -874,3 +946,40 @@ def test_audio_rewinding_the_rtp_clock_stops_timing_from_it():
     )
 
     assert shown == ["Hello", "", "", " world.", ""]
+
+
+@pytest.mark.parametrize(
+    "end, silence",
+    [
+        # In the reply's held last millisecond.
+        (FIRST_RTP + 2 * TICK_RTP - 5, None),
+        # In the silence after the reply, decoded before the cut.
+        (
+            FIRST_RTP + 2 * TICK_RTP + 300,
+            (FIRST_RTP + 2 * TICK_RTP, FIRST_RTP + 3 * TICK_RTP),
+        ),
+    ],
+)
+def test_a_last_word_reported_in_the_cut_tick_is_kept(end, silence):
+    """The reply's last word, reported in the barge-in tick, ended where
+    every mark counts as played: in the held last millisecond, or in the
+    silence the receiver decoded after the audio."""
+
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _audio(1),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [],
+            [_word("world.", end), SpeechEvent("speech_started")],
+            [],
+        ],
+        rtp_silence=silence,
+    )
+
+    shown = [t.proportional_transcript for t in ticks]
+    assert shown == ["Hello", "", " world.", ""]

@@ -453,6 +453,7 @@ class AvarthaWebRTCProvider(AvarthaPipecatProvider):
         self._inbox = asyncio.Queue()
         self._audio_tasks = set()
         self._closing = False
+        self.rtp_silence = None
 
     async def _send_message(self, message: dict[str, Any]) -> None:
         if self._session_error:
