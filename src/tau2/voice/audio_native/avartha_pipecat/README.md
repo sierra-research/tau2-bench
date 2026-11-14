@@ -79,7 +79,9 @@ discarded no audio is not labelled with the reply. The receiver keeps each
 decoded frame's RTP timestamp for this; aiortc exposes its RTP origin only
 privately. Without that origin, a binding, or a word's `audio_time`, the word
 is placed on arrival as before. A word reported after the barge-in is
-ignored, timed or not.
+ignored, timed or not. If the received audio clock rewinds, timing is disabled
+for the rest of that call and words fall back to arrival placement; reconnecting
+starts a new clock.
 
 ## Protocol compatibility
 
@@ -93,6 +95,11 @@ simulation retries instead of recording the mismatch as a benchmark score.
 
 The call's session ID is saved as `provider_session_id` on `SimulationRun`.
 The hosted agent reports no cost.
+
+The audio-clock receiver does not change `SAVED_INPUT_VERSION`, judge
+fingerprint computation, or the saved simulation schema. Existing saved judge verdicts retain
+their validity; newly recorded calls can have different delivered transcript
+text because words are placed by the audio played.
 
 ## Live provider suite
 
