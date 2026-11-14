@@ -843,11 +843,19 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         self._tick_count = 0
         self._cumulative_user_audio_ms = 0
         transcript = self._utterance_transcripts.get(_ITEM_ID)
-        if isinstance(transcript, _HeardTranscript) and transcript.timed_words:
+        # These counters classify timed marks initially, not their final placement.
+        timed = (
+            transcript.timed_words if isinstance(transcript, _HeardTranscript) else 0
+        )
+        untimed = (
+            transcript.untimed_words if isinstance(transcript, _HeardTranscript) else 0
+        )
+        if self._audio_clock is not None or timed or untimed:
             logger.info(
-                "Avartha word timing: {} words placed by their sound, {} on arrival",
-                transcript.timed_words,
-                transcript.untimed_words,
+                "Avartha word timing metadata: {} marks initially accepted for timing, "
+                "{} timed marks without a usable audio position",
+                timed,
+                untimed,
             )
         self.clear_buffers()
         self._input_converter.reset()

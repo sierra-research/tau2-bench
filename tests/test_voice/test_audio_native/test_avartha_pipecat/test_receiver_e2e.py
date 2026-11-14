@@ -131,7 +131,7 @@ class _OfflineReceiver(AvarthaWebRTCProvider):
         self._inbox = _DeliveryQueue()
         self.frames = _DeliveryQueue()
         self.mapper, self.decoder = TimestampMapper(), OpusDecoder()
-        track = SimpleNamespace(recv=self.frames.get)
+        track = SimpleNamespace(kind="audio", recv=self.frames.get)
         self.receiver = SimpleNamespace(
             track=track, _RTCRtpReceiver__timestamp_mapper=self.mapper
         )
@@ -148,9 +148,7 @@ class _OfflineReceiver(AvarthaWebRTCProvider):
         self._channel.readyState = "closed"
         self._wire_peer(peer, asyncio.Event())
         self._reader = asyncio.create_task(self._read_loop())
-        peer.handlers["track"](SimpleNamespace(kind="video"))
-        task = asyncio.create_task(self._receive_audio(track, peer))
-        self._audio_tasks.add(task)
+        peer.handlers["track"](track)
         await self._inbox.idle.wait()
         await self.frames.idle.wait()
 
@@ -196,9 +194,9 @@ def _run(schedule, tmp_path):
         provider="avartha_pipecat",
         tick_duration_ms=20,
     )
-    adapter.connect("policy", [])
     ticks = []
     try:
+        adapter.connect("policy", [])
         for index in range(len(schedule)):
             result = adapter.run_tick(b"\xff" * 160, tick_number=index + 1)
             chunk = agent._create_response(result, [])
@@ -238,8 +236,11 @@ def _run(schedule, tmp_path):
             clip.reference for clip in clips
         ]
     finally:
-        adapter._bg_loop.run_coroutine(provider.disconnect(), timeout=2)
-        adapter.disconnect()
+        try:
+            if adapter._bg_loop.is_running:
+                adapter._bg_loop.run_coroutine(provider.disconnect(), timeout=2)
+        finally:
+            adapter.disconnect()
         assert not provider._audio_tasks or all(t.done() for t in provider._audio_tasks)
 
 
@@ -319,5 +320,5 @@ def test_rtp_rewind_uses_arrival_for_the_rest_of_the_call(tmp_path):
         ],
         tmp_path,
     )
-    assert shown[:3] == ["One", "", " two"]
+    assert shown == ["One", "", " two", "", "", " three.", ""]
     assert references == ["One two three."]

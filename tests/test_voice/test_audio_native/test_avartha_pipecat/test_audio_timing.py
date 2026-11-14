@@ -1054,9 +1054,32 @@ def test_disconnect_reports_timing_before_clearing_call_state():
         adapter.disconnect()
         assert not adapter._utterance_transcripts
         adapter.disconnect()
-        summaries = [m for m in messages if "Avartha word timing:" in m]
+        summaries = [m for m in messages if "Avartha word timing metadata:" in m]
         assert len(summaries) == 1
-        assert "1 words placed by their sound, 0 on arrival" in summaries[0]
+        assert (
+            "1 marks initially accepted for timing, 0 timed marks without a usable audio position"
+            in summaries[0]
+        )
+    finally:
+        adapter.disconnect()
+        logger.remove(sink)
+
+
+def test_disconnect_reports_a_binding_even_without_timed_words():
+    from loguru import logger
+
+    messages = []
+    sink = logger.add(lambda message: messages.append(str(message)))
+    provider = FakeProvider([[AgentAudioTimelineEvent(BINDING)]])
+    adapter = DiscreteTimeAvarthaPipecatAdapter(tick_duration_ms=20, provider=provider)
+    try:
+        adapter.connect("policy", [])
+        adapter.run_tick(b"\xff" * 160, tick_number=1)
+        adapter.disconnect()
+        adapter.disconnect()
+        summaries = [m for m in messages if "Avartha word timing metadata:" in m]
+        assert len(summaries) == 1
+        assert "0 marks initially accepted for timing" in summaries[0]
     finally:
         adapter.disconnect()
         logger.remove(sink)
