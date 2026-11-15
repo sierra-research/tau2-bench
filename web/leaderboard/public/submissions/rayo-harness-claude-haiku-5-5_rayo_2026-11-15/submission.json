@@ -1,0 +1,44 @@
+{
+  "model_name": "Rayo Harness (Claude Haiku 5.5)",
+  "model_organization": "Rayo",
+  "submitting_organization": "Rayo",
+  "submission_date": "2026-11-15",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "sunil@rayo.com",
+    "github": "sunilmallya-rayo"
+  },
+  "results": {
+    "banking_knowledge": {
+      "pass_1": 80.41237113402062,
+      "pass_2": 73.19587628865979,
+      "pass_3": 67.0103092783505,
+      "pass_4": 61.855670103092784,
+      "cost": 0.0258,
+      "retrieval_config": "alltools"
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "banking_knowledge": "banking_knowledge_results.json"
+  },
+  "methodology": {
+    "evaluation_date": "2026-11-15",
+    "user_simulator": "gpt-5.2",
+    "notes": "Rayo Harness (Claude Haiku 5.5) runs Claude Haiku 5.5 inside Rayo's agent harness: learned operating procedures and helper tools loaded into the agent's context; the model weights are unchanged. Rayo built a twin of the banking environment, used existing trajectories to build and calibrate a verifier, and trained the harness on simulated data and Rayo's own agent runs in that twin, with the verifier scoring each iteration. Harness development used a subset of this benchmark's tasks and their grading, because banking_knowledge has no separate training split. 4 trials per task, alltools retrieval. Cost is the average agent spend per trajectory, excluding the user simulator.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "The agent's system prompt is extended with Rayo's harness, and the agent has helper tools for its own working notes and calculations in addition to the standard tau tools. The user simulator and its prompt are standard. Calls to these internal helper tools run inside the agent and are not part of the recorded trajectories; every customer-facing message and every environment tool call is recorded."
+    }
+  },
+  "references": [
+    {
+      "title": "Rayo",
+      "url": "https://www.rayo.com",
+      "type": "other"
+    }
+  ]
+}
