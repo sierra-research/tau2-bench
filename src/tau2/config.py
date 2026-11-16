@@ -259,6 +259,18 @@ DEFAULT_AVARTHA_TOOL_REGISTRATION_TIMEOUT_SECONDS = 20.0
 DEFAULT_AVARTHA_BOOT_ATTEMPTS = 3
 
 # =============================================================================
+# SMALLEST (Smallest AI Hydra speech-to-speech server; endpoint via SMALLEST_WS_URL)
+# =============================================================================
+DEFAULT_SMALLEST_MODEL = (
+    "hydra"  # recorded label only; pass the exact version with --audio-native-model
+)
+DEFAULT_SMALLEST_INPUT_SAMPLE_RATE = 16000  # fixed, server-defined (PCM16 mono)
+DEFAULT_SMALLEST_HANDSHAKE_TIMEOUT_SECONDS = 20.0  # wait for session.configured
+# Agent text shown to the user simulator: at most this many characters per
+# second of the agent's audio played (0 = proportional reveal only).
+DEFAULT_SMALLEST_TRANSCRIPT_REVEAL_CPS = 15.0  # overridable via env, see smallest/
+
+# =============================================================================
 # PROVIDER REGISTRY (derived from above)
 # =============================================================================
 DEFAULT_LAUNA_MODEL = "launa-v1"
@@ -274,6 +286,7 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
     "qwen": DEFAULT_QWEN_MODEL,
     "avartha_pipecat": DEFAULT_AVARTHA_MODEL,
     "phonic": DEFAULT_PHONIC_MODEL,
+    "smallest": DEFAULT_SMALLEST_MODEL,
     "livekit": "dummy",
 }
 
@@ -287,6 +300,7 @@ DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
     "qwen": None,
     "avartha_pipecat": None,
     "phonic": "high",  # intelligence level; low/medium/minimal map to standard
+    "smallest": None,  # not supported by this provider
     "livekit": None,
 }
 
@@ -300,6 +314,7 @@ AUDIO_NATIVE_PROVIDER_TYPES = {
     "qwen": "audio_native",
     "avartha_pipecat": "cascaded",
     "phonic": "audio_native",
+    "smallest": "audio_native",
     "livekit": "cascaded",
 }
 

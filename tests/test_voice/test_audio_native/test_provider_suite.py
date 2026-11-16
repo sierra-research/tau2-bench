@@ -154,6 +154,16 @@ PROVIDERS = [
         ),
     ),
     pytest.param(
+        "smallest",
+        marks=pytest.mark.skipif(
+            not (
+                os.environ.get("SMALLEST_TEST_ENABLED")
+                and os.environ.get("SMALLEST_WS_URL")
+            ),
+            reason="SMALLEST_TEST_ENABLED and SMALLEST_WS_URL (a Hydra server) are required",
+        ),
+    ),
+    pytest.param(
         "xai",
         marks=pytest.mark.skipif(
             not os.environ.get("XAI_API_KEY"),
