@@ -1,3 +1,5 @@
+import os
+
 # =============================================================================
 # SIMULATION DEFAULTS (overridable via CLI)
 # =============================================================================
@@ -259,6 +261,12 @@ DEFAULT_AVARTHA_TOOL_REGISTRATION_TIMEOUT_SECONDS = 20.0
 DEFAULT_AVARTHA_BOOT_ATTEMPTS = 3
 
 # =============================================================================
+# APRIEL PROVIDER
+# =============================================================================
+DEFAULT_APRIEL_MODEL = os.environ.get("APRIEL_MODEL_NAME", "Apriel-Voice-27B-Preview")
+DEFAULT_APRIEL_WEBSOCKET_MAX_SIZE_BYTES = 16 * 1024 * 1024
+
+# =============================================================================
 # PROVIDER REGISTRY (derived from above)
 # =============================================================================
 DEFAULT_LAUNA_MODEL = "launa-v1"
@@ -274,6 +282,7 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
     "qwen": DEFAULT_QWEN_MODEL,
     "avartha_pipecat": DEFAULT_AVARTHA_MODEL,
     "phonic": DEFAULT_PHONIC_MODEL,
+    "apriel": DEFAULT_APRIEL_MODEL,
     "livekit": "dummy",
 }
 
@@ -287,6 +296,7 @@ DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
     "qwen": None,
     "avartha_pipecat": None,
     "phonic": "high",  # intelligence level; low/medium/minimal map to standard
+    "apriel": None,
     "livekit": None,
 }
 
@@ -300,6 +310,7 @@ AUDIO_NATIVE_PROVIDER_TYPES = {
     "qwen": "audio_native",
     "avartha_pipecat": "cascaded",
     "phonic": "audio_native",
+    "apriel": "audio_native",
     "livekit": "cascaded",
 }
 
