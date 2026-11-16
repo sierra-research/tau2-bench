@@ -94,6 +94,7 @@ AudioNativeProvider = Literal[
     "qwen",
     "avartha_pipecat",
     "phonic",
+    "smallest",
     "livekit",
 ]
 
@@ -348,6 +349,9 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             self.vad_config = None
         elif provider == "phonic":
             # Phonic does its own turn detection.
+            self.vad_config = None
+        elif provider == "smallest":
+            # Hydra does its own turn detection.
             self.vad_config = None
         elif provider == "livekit":
             from tau2.voice.audio_native.livekit.discrete_time_adapter import (

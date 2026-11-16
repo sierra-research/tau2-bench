@@ -403,7 +403,7 @@ def create_adapter(
 
     Args:
         provider: Provider identifier (openai, gemini, xai, nova, qwen,
-            avartha_pipecat, phonic, livekit).
+            avartha_pipecat, phonic, smallest, livekit).
         tick_duration_ms: Duration of each tick in milliseconds.
         send_audio_instant: If True, send audio in one call per tick.
         model: Model identifier. If None, uses the provider's default.
@@ -563,6 +563,18 @@ def create_adapter(
             model=model,
             reasoning_effort=reasoning_effort,
             language=language,
+        )
+    elif provider == "smallest":
+        from tau2.voice.audio_native.smallest.discrete_time_adapter import (
+            DiscreteTimeSmallestAdapter,
+        )
+
+        adapter = DiscreteTimeSmallestAdapter(
+            tick_duration_ms=tick_duration_ms,
+            send_audio_instant=send_audio_instant,
+            model=model,
+            reasoning_effort=reasoning_effort,
+            audio_format=audio_format,
         )
     elif provider == "livekit":
         from tau2.data_model.cascaded import CascadedConfig
