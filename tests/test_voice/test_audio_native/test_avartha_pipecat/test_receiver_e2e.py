@@ -299,6 +299,24 @@ def test_barge_in_keeps_the_words_the_caller_heard(
     assert references == [kept]
 
 
+def test_a_kept_word_whose_end_had_not_arrived_joins_the_cut_reference(tmp_path):
+    """The reply streams at pace; the cut caught "two" mostly played before
+    the audio carrying its end arrived: the saved reference of the cut
+    utterance must include it."""
+
+    shown, references = _run(
+        [
+            _start() + [0, _word("One", 400), _word("two", 2200)],
+            [1],
+            [_message("user-started-speaking")],
+            [],
+        ],
+        tmp_path,
+    )
+    assert "".join(shown).strip() == "One two"
+    assert references == ["One two"]
+
+
 def test_without_timeline_retains_arrival_placement(tmp_path):
     shown, references = _run(
         [

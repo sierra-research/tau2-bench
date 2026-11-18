@@ -1328,3 +1328,295 @@ def test_without_a_binding_a_caption_opens_no_tail():
     )
 
     assert [i for t in ticks for i in t.item_ids][-1] == "avartha-2"
+
+
+# --- a line's first word is measured from its own audio ----------------------
+
+_GAP = 48000  # one second of silence the receiver dropped between two lines
+
+
+def _line_two_audio(index, start):
+    return AgentAudioEvent(
+        b"\x01\x00" * 480,
+        24000,
+        rtp_start=start + index * TICK_RTP,
+        rtp_decoded_from=FIRST_RTP,
+    )
+
+
+def _first_line(*, overtake):
+    """Line "Is that right?" (audio 0..3), its caption early or on time."""
+
+    last_end = FIRST_RTP + 3 * TICK_RTP + 500
+    words = [
+        AgentAudioTimelineEvent(BINDING),
+        TranscriptEvent("Is that right?"),
+        _audio(0),
+        _audio(1),
+        _word("Is", FIRST_RTP + 300),
+        _word("that", FIRST_RTP + TICK_RTP + 300),
+    ]
+    if overtake:
+        return [
+            [*words, _word("right?", last_end), _played_line()],
+            [_audio(2)],
+            [_audio(3)],
+        ]
+    return [
+        words,
+        [_audio(2)],
+        [_audio(3), _word("right?", last_end), _played_line()],
+    ]
+
+
+def _played_line():
+    return AgentPlaybackEvent("Is that right?", cut=False)
+
+
+@pytest.mark.parametrize("overtake", [False, True])
+@pytest.mark.parametrize(
+    "line_two_frames, sure_frames, kept",
+    [
+        # The cut came 20 ms into "Sure"'s 60 ms (its end received): dropped.
+        (4, 3, False),
+        # The cut came 20 ms into "Sure"'s 300 ms (its end not received yet):
+        # dropped, although the second of silence before it was "played".
+        (1, 15, False),
+        # 60 of its 80 ms played: kept.
+        (4, 4, True),
+    ],
+)
+def test_a_lines_first_word_is_measured_from_its_own_audio(
+    overtake, line_two_frames, sure_frames, kept
+):
+    """The half-played rule measured a line's first word from the previous
+    line's last mark, crediting it the previous line's tail and the silence
+    between the lines: a first word barely started was kept."""
+
+    start = FIRST_RTP + 4 * TICK_RTP + _GAP
+    played_ticks = 3 if kept else 1
+    events = [
+        *_first_line(overtake=overtake),
+        [],
+        [
+            TranscriptEvent(" Sure thing."),
+            *[_line_two_audio(i, start) for i in range(line_two_frames)],
+            _word("Sure", start + sure_frames * TICK_RTP),
+        ],
+        *[[] for _ in range(played_ticks - 1)],
+        [SpeechEvent("speech_started")],
+        [],
+    ]
+    ticks = _ticks(events)
+    shown = "".join(t.proportional_transcript for t in ticks)
+
+    assert ("Sure" in shown) is kept
+    if kept:
+        sure = [t for t in ticks if "Sure" in t.proportional_transcript]
+        assert [t.item_ids for t in sure] == [["avartha-2"]]
+
+
+@pytest.mark.parametrize(
+    "decoded_from, kept",
+    [
+        # Frame 2 was lost: " world." kept sounding through it, so ~32 of its
+        # ~66 ms (RTP clock; ~46 ms received) had played at the cut. Kept.
+        (FIRST_RTP + 3 * TICK_RTP, True),
+        # The same loss as the real receiver stamps it: decoded_from is taken
+        # before the resampler, rtp_start after it, so it is 32 ticks later.
+        (FIRST_RTP + 3 * TICK_RTP + 32, True),
+        # Frame 2 was silence the receiver dropped: " world." started after
+        # it, and none of its sound had played. Dropped.
+        (FIRST_RTP + 2 * TICK_RTP, False),
+    ],
+)
+def test_lost_media_inside_a_caught_word_is_not_a_sound_restart(decoded_from, kept):
+    """Any RTP gap counted as a sound restart, so a word with a packet lost
+    mid-sound was measured from after the loss and dropped although most of
+    its received sound had played."""
+
+    lost_or_silent = AgentAudioEvent(
+        b"\x01\x00" * 480,
+        24000,
+        rtp_start=FIRST_RTP + 3 * TICK_RTP,
+        rtp_decoded_from=decoded_from,
+    )
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1)],
+            [
+                lost_or_silent,
+                _word("world.", FIRST_RTP + 3 * TICK_RTP + 700),
+                SpeechEvent("speech_started"),
+            ],
+            [],
+        ]
+    )
+    shown = "".join(t.proportional_transcript for t in ticks)
+
+    assert ("world." in shown) is kept
+    if kept:
+        world = [t for t in ticks if "world." in t.proportional_transcript]
+        assert [t.item_ids for t in world] == [["avartha-1"]]
+
+
+@pytest.mark.parametrize("sure_frames, played_ticks", [(6, 1), (4, 2)])
+@pytest.mark.parametrize(
+    "gap", ["silence", "loss in the silence", "all lost", "all lost, resampled"]
+)
+def test_a_line_after_silence_restarts_its_sound_despite_packet_loss(
+    gap, sure_frames, played_ticks
+):
+    """Line 2 joins line 1's utterance (line 1's caption is late), so only the
+    RTP gap restarts its sound. A packet lost in the silence, or a gap of lost
+    media longer than a word's loss burst, must still restart it, or "Sure" is
+    credited line 1's tail and kept barely started."""
+
+    start = FIRST_RTP + 4 * TICK_RTP + _GAP
+    decoded_from = {
+        "silence": FIRST_RTP,
+        "loss in the silence": start - 10 * TICK_RTP,
+        "all lost": start,
+        # The real receiver stamps decoded_from 32 ticks (the resampler's
+        # delay) after rtp_start when everything before it was lost.
+        "all lost, resampled": start + 32,
+    }[gap]
+    line_one = [
+        [
+            AgentAudioTimelineEvent(BINDING),
+            TranscriptEvent("Is that right?"),
+            _audio(0),
+            _audio(1),
+            _word("Is", FIRST_RTP + 300),
+            _word("that", FIRST_RTP + TICK_RTP + 300),
+        ],
+        [_audio(2)],
+        [_audio(3), _word("right?", FIRST_RTP + 3 * TICK_RTP + 500)],
+    ]
+    line_two = [
+        TranscriptEvent(" Sure thing."),
+        *[
+            AgentAudioEvent(
+                b"\x01\x00" * 480,
+                24000,
+                rtp_start=start + i * TICK_RTP,
+                rtp_decoded_from=decoded_from,
+            )
+            for i in range(4)
+        ],
+        _word("Sure", start + sure_frames * TICK_RTP),
+    ]
+    ticks = _ticks(
+        [
+            *line_one,
+            [],
+            line_two,
+            *[[] for _ in range(played_ticks - 1)],
+            [SpeechEvent("speech_started")],
+            [_played_line()],
+            [],
+        ]
+    )
+
+    assert "Sure" not in "".join(t.proportional_transcript for t in ticks)
+
+
+# --- the word a cut keeps belongs to the utterance it cut -------------------
+
+
+def test_a_kept_word_whose_end_had_not_arrived_rides_the_cut_utterance():
+    """With the word's end not received, the cut discards no queued audio, so
+    the cut tick carried no utterance: " world." stood alone instead of
+    completing avartha-1's text."""
+
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), _word("world.", FIRST_RTP + 2 * TICK_RTP + 200)],
+            [SpeechEvent("speech_started")],
+            [],
+        ]
+    )
+
+    kept = [t for t in ticks if "world" in t.proportional_transcript]
+    assert len(kept) == 1
+    assert kept[0].item_ids == ["avartha-1"]
+    assert kept[0].was_truncated
+
+
+@pytest.mark.parametrize("extra", [300, 900])
+def test_a_reply_that_played_all_its_audio_is_not_marked_cut(extra):
+    """Its last word ends in trailing silence the receiver has not reported,
+    so the word's end never arrived; the cut came after all its audio played
+    and nothing arrived for two ticks. The reply was not cut off."""
+
+    last_end = FIRST_RTP + 2 * TICK_RTP
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), _word("world.", last_end + extra)],
+            [],
+            [],
+            [SpeechEvent("speech_started")],
+            [],
+        ]
+    )
+
+    assert ticks[4].was_truncated
+    assert ticks[4].item_ids == []
+
+
+@pytest.mark.parametrize("variant", ["pause", "next line"])
+def test_sound_restarting_after_the_caught_word_does_not_shorten_it(variant):
+    """Audio after a dropped silence arrived, unplayed, before the cut: a
+    later phrase's (or line's) start, after " world."'s end. " world." had
+    63% of its sound played and is kept."""
+
+    after_gap = FIRST_RTP + 3 * TICK_RTP + 9600  # 200 ms of dropped silence
+    third = [_audio(2)]
+    if variant == "next line":
+        third += [
+            AgentPlaybackEvent("Hello world.", cut=False),
+            TranscriptEvent(" Next."),
+        ]
+    third += [
+        AgentAudioEvent(
+            b"\x01\x00" * 480,
+            24000,
+            rtp_start=after_gap,
+            rtp_decoded_from=FIRST_RTP + 3 * TICK_RTP,
+        ),
+        SpeechEvent("speech_started"),
+    ]
+    text = "Hello world." + (" More." if variant == "pause" else "")
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent(text),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), _word("world.", FIRST_RTP + 2 * TICK_RTP + 900)],
+            third,
+            [],
+        ]
+    )
+
+    assert "".join(t.proportional_transcript for t in ticks).strip() == "Hello world."

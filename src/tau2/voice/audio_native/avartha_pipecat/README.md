@@ -73,8 +73,13 @@ media clock to the track's RTP clock, and `audio_time` word ends on
 word that ends in the silence the receiver drops airs with the audio before
 that silence. A barge-in keeps the timed words whose sound ended in audio
 already played, even if their word event arrives in the barge-in tick, and the
-word the cut caught if more than half of that word's sound (from the previous
-word's end) had played. The played caption can overtake a line's last audio;
+word the cut caught if more than half of that word's sound had played. A
+word's sound starts at the previous word's end, but never before its line's
+first audio or audio after silence the receiver dropped (a short gap of lost
+media, up to 200 ms, is not a restart, so a line after a pause that was lost
+completely, if no longer than that, is measured from the previous line's
+tail). A cut that keeps such a word cut off its line, so the cut tick carries
+that line's utterance. The played caption can overtake a line's last audio;
 when it does, audio that follows the line's without an RTP gap, within 250 ms
 of its last timed word's end, stays in that line's utterance instead of opening
 a new one.

@@ -400,6 +400,35 @@ _CAPTION_TAIL_RTP = RTP_CLOCK_HZ // 4
 # A caption overtakes its line's audio by the data channel's lead over the
 # media track; a last word end further ahead of the audio is not trusted.
 _CAPTION_MAX_LEAD_RTP = RTP_CLOCK_HZ
+# A gap of lost media no longer than this may fall inside a word (a burst of
+# lost packets); a longer one is taken as the silence between sounds.
+_MAX_LOST_IN_WORD_RTP = RTP_CLOCK_HZ // 5
+
+
+def _sound_restarts(
+    previous_end: int, rtp_start: int, decoded_from: Optional[int]
+) -> bool:
+    """Whether sound restarts at audio received after a gap in the RTP clock.
+
+    The receiver decodes from ``decoded_from`` without a break, dropping the
+    silence it decodes. Silence decoded just before this audio (``decoded_from
+    < rtp_start``), even after lost packets, means its sound starts here. A gap
+    that is all lost media (``decoded_from >= rtp_start``: equal, or the
+    resampler's delay later, as the receiver stamps ``rtp_start`` after
+    resampling) may have cut a word; a short one is taken as such, so the word
+    keeps the sound it had before the loss. With no ``decoded_from`` the gap
+    is unknown and taken as silence.
+    Known limit: a pause of at most that length between two lines whose
+    packets were all lost reads as such a burst, so the next line's first
+    word is credited the previous line's played tail. This assumes the sender
+    transmits silence as packets (no Opus DTX).
+    """
+
+    if rtp_start <= previous_end:
+        return False
+    if decoded_from is None or decoded_from < rtp_start:
+        return True
+    return rtp_start - previous_end > _MAX_LOST_IN_WORD_RTP
 
 
 class _HeardTranscript(_SpokenTranscript):
@@ -441,6 +470,13 @@ class _HeardTranscript(_SpokenTranscript):
         self._silent_through: Optional[int] = None
         # Heard text a cut kept that no tick has shown yet (see interrupt).
         self._kept = ""
+        # Whether the last cut kept the word it caught mid-sound: the cut
+        # stopped a word, so it cut off the line that word belongs to.
+        self.kept_caught_word = False
+        # Received-byte positions where sound began, in order: a line's first
+        # audio, or audio after silence the receiver dropped. A word's sound
+        # starts no earlier than the last of them before its end (interrupt).
+        self._sound_starts: list[int] = [0]
         self.timed_words = 0
         self.untimed_words = 0
 
@@ -467,6 +503,10 @@ class _HeardTranscript(_SpokenTranscript):
                 self._silent_through = None
                 self.untime_waiting()
             else:
+                if self._spans and _sound_restarts(
+                    self._spans[-1].rtp_end, rtp_start, decoded_from
+                ):
+                    self._add_sound_start()
                 self._spans.append(
                     _AudioSpan(
                         rtp_start,
@@ -594,11 +634,28 @@ class _HeardTranscript(_SpokenTranscript):
         del self._spans[:-1], self._span_starts[:-1]
         super().add_playback(caption)
 
-    def _rtp_at(self, position: int) -> Optional[int]:
-        """RTP timestamp of received-byte ``position``, if a span holds it."""
+    def begin_line(self) -> None:
+        """The audio received next starts a new line (utterance)."""
+
+        self._add_sound_start()
+
+    def _add_sound_start(self) -> None:
+        # A start at or before the last aired mark never bounds a word's sound
+        # (interrupt starts from that mark), so only later ones are kept.
+        self._sound_starts = [
+            at for at in self._sound_starts if at > self._aired_position
+        ]
+        self._sound_starts.append(self._audio_received)
+
+    def _rtp_at(self, position: int, *, end: bool = False) -> Optional[int]:
+        """RTP timestamp of received-byte ``position``, if a span holds it.
+
+        A position between two spans is the later span's start, or with
+        ``end`` the earlier span's end: the silence between them is neither.
+        """
 
         for span in reversed(self._spans):
-            if span.byte_start <= position:
+            if span.byte_start < position or (span.byte_start == position and not end):
                 if position > span.byte_start + span.byte_count:
                     return None  # past the audio received
                 return span.rtp_start + (
@@ -620,7 +677,8 @@ class _HeardTranscript(_SpokenTranscript):
             return played - start > (position - start) / 2
         # The audio carrying its end has not arrived: compare on the RTP clock.
         waiting = self._waiting.get(cursor)
-        start_rtp, played_rtp = self._rtp_at(start), self._rtp_at(played)
+        start_rtp = self._rtp_at(start)
+        played_rtp = self._rtp_at(played, end=True)
         if waiting is None or start_rtp is None or played_rtp is None:
             return False
         end_rtp = unwrap_rtp(waiting[0], played_rtp)
@@ -631,11 +689,13 @@ class _HeardTranscript(_SpokenTranscript):
         the audio played, and the word the cut caught if more than half of its
         sound had played.
 
-        A word's sound runs from the previous word's end to its own. Keeping
-        only words whose sound had ended dropped the one the cut caught
-        mid-sound, although its clip carries most of it, so a judge comparing
-        the clip with its text heard a word the text lacked. A word the cut
-        caught at its start is still dropped.
+        A word's sound runs from the previous word's end, or from where its
+        sound began (the last of ``_sound_starts`` before its end) if later,
+        to its own end; the previous line's tail and the silence between
+        lines are not its. Keeping only words whose sound had ended dropped
+        the one the cut caught mid-sound, although its clip carries most of
+        it, so a judge comparing the clip with its text heard a word the text
+        lacked. A word the cut caught at its start is still dropped.
 
         The kept text is held for the cut tick (``take_kept``); it counts as
         shown, so a second cut in the same tick keeps it too.
@@ -667,12 +727,21 @@ class _HeardTranscript(_SpokenTranscript):
             if position > played:
                 break
             start = max(start, position)
-        if caught is not None and self._mostly_played(start, *caught):
+        if caught is not None:
+            # Starts of sound received after the word's end are a later
+            # phrase's or line's; a word whose end has not arrived ends after
+            # every start received.
+            start = max([start] + [at for at in self._sound_starts if at < caught[0]])
+        self.kept_caught_word = caught is not None and self._mostly_played(
+            start, *caught
+        )
+        if caught is not None and self.kept_caught_word:
             heard = caught[1]
         if heard > self._shown_chars:
             self._kept += self.text[self._shown_chars : heard]
             self._shown_chars = heard
         super().interrupt()
+        self._sound_starts = [self._audio_played]
         self._spans.clear()
         self._span_starts.clear()
         self._timed.clear()
@@ -1066,6 +1135,11 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         more than the held 1 ms tail left is the one the caller cut. A reply
         that has played all its audio only waits for its caption: caller
         speech after it cuts nothing, and the reply is not marked cut off.
+        "Played all" is judged by audio arrival (see _streaming_utterance): a
+        reply whose last audio arrived this tick or the last still counts as
+        streaming, so a cut that keeps the word it caught (or meets the
+        reply's stale audio) marks it cut off, even if that word ended in
+        trailing silence the receiver had not yet reported.
         Audio of a reply streamed at playback pace can reach the adapter after
         the cut in the same tick; that stale audio names the reply instead
         (see _streaming_utterance). A cut in a TTS pause, with no audio
@@ -1104,6 +1178,7 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
             if self._utterance_id is None:
                 self._utterance_count += 1
                 self._utterance_id = f"{_ITEM_ID}-{self._utterance_count}"
+                self._transcript().begin_line()
             utterance_id = self._utterance_id
         if self._utterance_audio and self._utterance_audio[-1][0] == utterance_id:
             self._utterance_audio[-1][1] += num_bytes
@@ -1392,6 +1467,18 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         elif isinstance(event, SpeechEvent):
             result.vad_events.append(event.kind)
             if event.kind in {"speech_started", "interrupted"}:
+                # The line still streaming at the cut (audio this tick or the
+                # last, as _streaming_utterance): open, or captioned with its
+                # audio still arriving. A line that has played all its audio is
+                # not cut off.
+                speaking = (
+                    (
+                        self._utterance_id
+                        or (self._caption_tail[0] if self._caption_tail else None)
+                    )
+                    if self._audio_in_tick or self._audio_in_last_tick
+                    else None
+                )
                 self._caption_tail = None
                 self._last_word_end_rtp = None
                 result.was_truncated = True
@@ -1410,6 +1497,17 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 self._utterance_audio.clear()
                 self._apply_decoded_silence()
                 self._transcript().interrupt()
+                if (
+                    self._transcript().kept_caught_word
+                    and self._cut_utterance_id is None
+                ):
+                    # The cut stopped a streaming line mid-word, so it cut that
+                    # line off even with none of its audio queued; the cut
+                    # tick, which carries the kept word, belongs to it. Known
+                    # limit: this is the line streaming at the cut, not
+                    # necessarily the kept word's line, and with none
+                    # streaming the kept word's tick stays unlabelled.
+                    self._cut_utterance_id = speaking
                 self._stale_text = self._stale_audio = True
                 for converter in self._output_converters.values():
                     converter.reset()
