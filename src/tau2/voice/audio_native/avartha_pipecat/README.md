@@ -72,7 +72,12 @@ media clock to the track's RTP clock, and `audio_time` word ends on
 `bot-tts-text`), each word airs once playback passes the end of its sound. A
 word that ends in the silence the receiver drops airs with the audio before
 that silence. A barge-in keeps the timed words whose sound ended in audio
-already played, even if their word event arrives in the barge-in tick.
+already played, even if their word event arrives in the barge-in tick, and the
+word the cut caught if more than half of that word's sound (from the previous
+word's end) had played. The played caption can overtake a line's last audio;
+when it does, audio that follows the line's without an RTP gap, within 250 ms
+of its last timed word's end, stays in that line's utterance instead of opening
+a new one.
 "Played" includes the utterance's last millisecond, which the adapter holds
 back for its caption, as it does for every word. As upstream, a cut tick that
 discarded no audio is not labelled with the reply. The receiver keeps each

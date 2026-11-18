@@ -246,9 +246,10 @@ def test_the_origin_is_read_from_the_tracks_own_receiver():
         # A: "world." ended in tick 2's audio, which played; its word
         # event arrived late, in the cut tick.
         (2, "Hello world."),
-        # B: "world." ended in the cut tick's audio, which the cut
-        # discarded; the same word event, on time.
-        (3, "Hello"),
+        # B: "world." ended late in the cut tick's audio, which the cut
+        # discarded, so most of its sound never played; the same word
+        # event, on time.
+        (5, "Hello"),
     ],
 )
 def test_late_and_on_time_word_schedules_get_the_text_whose_sound_played(
@@ -268,7 +269,13 @@ def test_late_and_on_time_word_schedules_get_the_text_whose_sound_played(
                 _word("Hello", FIRST_RTP + 400),
             ],
             [_audio(1)],
-            [_audio(2), _word("world.", world_end), SpeechEvent("speech_started")],
+            [
+                _audio(2),
+                _audio(3),
+                _audio(4),
+                _word("world.", world_end),
+                SpeechEvent("speech_started"),
+            ],
             [],
         ]
     )
@@ -603,7 +610,9 @@ def test_a_word_ending_in_trailing_silence_is_kept_at_a_cut():
     """The reply's last word ends in the digital silence after its audio,
     which the receiver drops. Untimed it is kept; timed, it waited for audio
     that never came, and the cut dropped it. The
-    receiver reports the silence it decoded after the last audio."""
+    receiver reports the silence it decoded after the last audio. Its end is
+    placed far enough into the silence that the audio played is not most of
+    its span, so only the decoded silence can keep it."""
 
     last_end = FIRST_RTP + 2 * TICK_RTP
     events = [
@@ -613,7 +622,7 @@ def test_a_word_ending_in_trailing_silence_is_kept_at_a_cut():
             _audio(0),
             _word("Hello", FIRST_RTP + 400),
         ],
-        [_audio(1), _word("world.", last_end + 300)],
+        [_audio(1), _word("world.", last_end + 3000)],
         [],
         [SpeechEvent("speech_started")],
         [],
@@ -623,7 +632,7 @@ def test_a_word_ending_in_trailing_silence_is_kept_at_a_cut():
         text = [t.proportional_transcript for t in _ticks(events, rtp_silence)]
         return "".join(text).strip()
 
-    assert shown((last_end, last_end + 960)) == "Hello world."
+    assert shown((last_end, last_end + 3960)) == "Hello world."
     # Silence decoded only up to before the word's end, or after audio the
     # adapter has not received: unknown, so the cut drops the word.
     assert shown((last_end, last_end + 200)) == "Hello"
@@ -1083,3 +1092,239 @@ def test_disconnect_reports_a_binding_even_without_timed_words():
     finally:
         adapter.disconnect()
         logger.remove(sink)
+
+
+# --- a cut keeps the word it caught mostly played ----------------------------
+
+
+@pytest.mark.parametrize(
+    "world_end, expected",
+    [
+        # "world." had played 1520 of its 1720 RTP ticks (from "Hello"'s end)
+        # when the cut came: the caller heard it.
+        (FIRST_RTP + 2 * TICK_RTP + 200, "Hello world."),
+        # Only 1520 of 3440 had played: the cut caught it at its start.
+        (FIRST_RTP + 4 * TICK_RTP, "Hello"),
+    ],
+)
+def test_a_cut_keeps_a_word_it_caught_more_than_half_played(world_end, expected):
+    """Keeping only the words whose sound had ended dropped the word the cut
+    caught mid-sound: the judged clip said "...the only change is" while its
+    text ended "...the only change", and the judge scored "is" as an extra
+    word (2026-11-17 runs: a missing last word in 64% of cut replies, 37%
+    before)."""
+
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), _word("world.", world_end)],
+            [_audio(2), _audio(3), _audio(4), SpeechEvent("speech_started")],
+            [],
+        ]
+    )
+
+    assert "".join(shown).strip() == expected
+
+
+def test_a_cut_keeps_a_word_mostly_played_whose_end_has_not_arrived():
+    """The cut came before the audio carrying the word's end arrived; the
+    RTP clock still says most of its sound played."""
+
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), _word("world.", FIRST_RTP + 2 * TICK_RTP + 200)],
+            [SpeechEvent("speech_started")],
+            [],
+        ]
+    )
+
+    assert "".join(shown).strip() == "Hello world."
+
+
+# --- a reply's audio after its caption stays in its utterance ----------------
+
+
+def test_audio_after_the_caption_stays_in_the_utterance_with_its_last_word():
+    """Avartha's caption can arrive while the reply's last audio is still on
+    its way. That audio opened a new utterance, and the tick that played the
+    last word went to it, so "Is that right?" was judged as "Is that" against
+    audio saying "right", and " right?" stood alone as a reply of its own."""
+
+    last_end = FIRST_RTP + 3 * TICK_RTP + 500
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Is that right?"),
+                _audio(0),
+                _word("Is", FIRST_RTP + 300),
+            ],
+            [
+                _audio(1),
+                _word("that", FIRST_RTP + TICK_RTP + 300),
+                _word("right?", last_end),
+                AgentPlaybackEvent("Is that right?", cut=False),
+            ],
+            [_audio(2)],
+            [_audio(3)],
+            [_audio(4)],  # the line's quiet tail
+            [],
+        ]
+    )
+
+    labelled = [t.item_ids for t in ticks if t.item_ids]
+    assert labelled and all(ids == ["avartha-1"] for ids in labelled)
+    assert "".join(t.proportional_transcript for t in ticks) == "Is that right?"
+
+
+def test_the_next_line_after_a_caption_opens_its_own_utterance():
+    """Audio past the captioned line's tail is the next line's."""
+
+    gap = 48000  # one second of dropped silence
+    next_start = FIRST_RTP + 2 * TICK_RTP + gap
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Let me check."),
+                _audio(0),
+                _word("Let", FIRST_RTP + 300),
+            ],
+            [
+                _audio(1),
+                _word("check.", FIRST_RTP + TICK_RTP + 900),
+                AgentPlaybackEvent("Let me check.", cut=False),
+            ],
+            [],
+            [
+                TranscriptEvent("Found it."),
+                AgentAudioEvent(
+                    b"\x01\x00" * 480,
+                    24000,
+                    rtp_start=next_start,
+                    rtp_decoded_from=FIRST_RTP,
+                ),
+                _word("Found", next_start + 500),
+            ],
+            [],
+        ]
+    )
+
+    assert [t.item_ids for t in ticks if t.item_ids][-1] == ["avartha-2"]
+
+
+def _overtaken_line(last_end, audio_through=1):
+    """Line "Okay." whose caption arrives with audio 0..``audio_through``
+    received and its last word ending at ``last_end``."""
+
+    return [
+        AgentAudioTimelineEvent(BINDING),
+        TranscriptEvent("Okay."),
+        *[_audio(index) for index in range(audio_through + 1)],
+        _word("Okay.", last_end),
+        AgentPlaybackEvent("Okay.", cut=False),
+    ]
+
+
+def test_a_caption_that_overtook_nothing_lets_the_next_line_open_its_own():
+    """All of "Okay." had arrived when its caption came, so a next line that
+    follows without a gap is its own utterance, with its own text."""
+
+    ticks = _ticks(
+        [
+            _overtaken_line(FIRST_RTP + TICK_RTP + 300),
+            [TranscriptEvent(" Sure."), _audio(2), _audio(3)],
+            [],
+            [],
+            [],
+            [AgentPlaybackEvent("Sure.", cut=False)],
+            [],
+        ]
+    )
+
+    labels = [t.item_ids for t in ticks]
+    text = [t.proportional_transcript for t in ticks]
+    assert labels[0] == ["avartha-1"]
+    sure = [i for i, t in enumerate(text) if "Sure" in t]
+    assert sure and all(labels[i] == ["avartha-2"] for i in sure)
+    assert "avartha-2" in labels[2]
+
+
+def test_contiguous_audio_past_the_caption_tail_opens_the_next_utterance():
+    """After an overtaking caption, contiguous audio past the tail window
+    (250 ms after the line's last word end) is the next line's."""
+
+    last_end = FIRST_RTP + 2 * TICK_RTP + 500  # in audio 2, not yet received
+    window_end = last_end + 12000
+    first_next = (window_end - FIRST_RTP) // TICK_RTP + 1
+    frames = range(2, first_next + 3)
+    ticks = _ticks(
+        [
+            _overtaken_line(last_end),
+            [_audio(index) for index in frames],
+            # Ticks to play the queued audio, 20 ms each.
+            *[[] for _ in range(len(frames) + 4)],
+        ]
+    )
+
+    ids = [t.item_ids for t in ticks if t.item_ids]
+    first_two = next(i for i, x in enumerate(ids) if "avartha-2" in x)
+    # Each tick plays one 20 ms frame: frames 0..first_next-1 are the line's.
+    assert all(x == ["avartha-1"] for x in ids[: first_next - 1])
+    assert first_two in (first_next - 1, first_next)
+    assert all(x == ["avartha-2"] for x in ids[first_two + 1 :])
+
+
+def test_a_cut_closes_the_caption_tail():
+    """A cut after an overtaking caption: the next reply's audio, contiguous
+    or not, opens its own utterance."""
+
+    last_end = FIRST_RTP + 2 * TICK_RTP + 500
+    ticks = _ticks(
+        [
+            _overtaken_line(last_end),
+            [SpeechEvent("speech_started")],
+            [
+                AgentLLMStartedEvent(),
+                TranscriptEvent("New."),
+                AgentStartedSpeakingEvent(),
+                _audio(2),
+            ],
+            [],
+        ]
+    )
+
+    assert ticks[2].item_ids == ["avartha-2"]
+
+
+def test_without_a_binding_a_caption_opens_no_tail():
+    """RTP-placed audio but no audio_timeline: words are untimed, so the
+    audio after a caption opens a new utterance, as before timing."""
+
+    ticks = _ticks(
+        [
+            [
+                TranscriptEvent("Okay."),
+                _audio(0),
+                _audio(1),
+                _word("Okay.", FIRST_RTP + 2 * TICK_RTP + 500),
+                AgentPlaybackEvent("Okay.", cut=False),
+            ],
+            [_audio(2)],
+            [],
+            [],
+        ]
+    )
+
+    assert [i for t in ticks for i in t.item_ids][-1] == "avartha-2"

@@ -269,24 +269,34 @@ def test_early_and_late_words_follow_played_audio(tmp_path):
 
 
 @pytest.mark.parametrize("late_first_word", [False, True])
-def test_barge_in_keeps_only_words_ending_before_playback_cut(
-    tmp_path, late_first_word
+@pytest.mark.parametrize(
+    "two_end, three_end, kept",
+    [
+        # "two" was mostly played when the caller cut in: the caller heard it.
+        (2200, 3100, "One two"),
+        # "two" ends late in the audio the cut discarded: mostly unheard.
+        (3900, 4500, "One"),
+    ],
+)
+def test_barge_in_keeps_the_words_the_caller_heard(
+    tmp_path, late_first_word, two_end, three_end, kept
 ):
-    early = [] if late_first_word else [_word("One", 400), _word("two", 2200)]
-    late = [_word("One", 400), _word("two", 2200)] if late_first_word else []
+    words = [_word("One", 400), _word("two", two_end)]
+    early = [] if late_first_word else words
+    late = words if late_first_word else []
     shown, references = _run(
         [
             _start() + [0, *early, 1, 2, 3, 4],
             [],
-            [*late, _word("three.", 3100), _message("user-started-speaking")],
-            [_word("three.", 3100)],
+            [*late, _word("three.", three_end), _message("user-started-speaking")],
+            [_word("three.", three_end)],
             [],
         ],
         tmp_path,
     )
     assert shown[0] == ("" if late_first_word else "One")
-    assert "".join(shown).strip() == "One"
-    assert references == ["One"]
+    assert "".join(shown).strip() == kept
+    assert references == [kept]
 
 
 def test_without_timeline_retains_arrival_placement(tmp_path):

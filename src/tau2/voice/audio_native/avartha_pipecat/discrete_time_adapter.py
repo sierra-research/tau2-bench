@@ -167,6 +167,9 @@ class _SpokenTranscript:
         self._shown_chars = 0
         # (audio position, text length aired once playback reaches it)
         self._marks: deque[tuple[int, int]] = deque()
+        # Audio position of the last mark that aired: where the next word's
+        # sound can start at the earliest (see _HeardTranscript.interrupt).
+        self._aired_position = 0
 
     def add_text(self, text: str) -> None:
         """Append one bot-transcription sentence, keeping its own spacing.
@@ -342,11 +345,14 @@ class _SpokenTranscript:
         self._utterance_start = self._match_cursor
         self._pending_piece = ""
         self._marks.clear()
+        self._aired_position = self._audio_played
 
     def get_transcript_for_audio(self, audio_bytes_to_play: int) -> str:
         self._audio_played += audio_bytes_to_play
         while self._marks and self._marks[0][0] <= self._audio_played + self._due_slack:
-            self._spoken_chars = max(self._spoken_chars, self._marks.popleft()[1])
+            position, cursor = self._marks.popleft()
+            self._spoken_chars = max(self._spoken_chars, cursor)
+            self._aired_position = max(self._aired_position, position)
         end = min(self._spoken_chars, len(self.text))
         text = self.text[self._shown_chars : end]
         self._shown_chars = max(self._shown_chars, end)
@@ -386,6 +392,14 @@ class _AudioSpan:
 _MAX_RTP_LEAD = 60 * RTP_CLOCK_HZ
 # Mark position of a timed word whose audio has not arrived: beyond any playback.
 _UNPLACED = 1 << 62
+# How far past its last timed word's end a line's audio may still arrive after
+# a played caption that overtook it, and belong to it: the word's remaining
+# sound and the line's quiet tail (~130 ms measured on recorded calls). See
+# _continues_captioned_line.
+_CAPTION_TAIL_RTP = RTP_CLOCK_HZ // 4
+# A caption overtakes its line's audio by the data channel's lead over the
+# media track; a last word end further ahead of the audio is not trusted.
+_CAPTION_MAX_LEAD_RTP = RTP_CLOCK_HZ
 
 
 class _HeardTranscript(_SpokenTranscript):
@@ -580,22 +594,81 @@ class _HeardTranscript(_SpokenTranscript):
         del self._spans[:-1], self._span_starts[:-1]
         super().add_playback(caption)
 
+    def _rtp_at(self, position: int) -> Optional[int]:
+        """RTP timestamp of received-byte ``position``, if a span holds it."""
+
+        for span in reversed(self._spans):
+            if span.byte_start <= position:
+                if position > span.byte_start + span.byte_count:
+                    return None  # past the audio received
+                return span.rtp_start + (
+                    (position - span.byte_start) * span.rtp_samples // span.byte_count
+                )
+        return None
+
+    def _mostly_played(self, start: int, position: int, cursor: int) -> bool:
+        """Whether more than half of the word whose sound runs from ``start``
+        (received bytes) to its end mark (``position``, ``cursor``) played.
+
+        Measured against the audio actually played, without the held-tail
+        slack that decides whether a mark has aired."""
+
+        played = self._audio_played
+        if played <= start:
+            return False
+        if position != _UNPLACED:
+            return played - start > (position - start) / 2
+        # The audio carrying its end has not arrived: compare on the RTP clock.
+        waiting = self._waiting.get(cursor)
+        start_rtp, played_rtp = self._rtp_at(start), self._rtp_at(played)
+        if waiting is None or start_rtp is None or played_rtp is None:
+            return False
+        end_rtp = unwrap_rtp(waiting[0], played_rtp)
+        return played_rtp - start_rtp > (end_rtp - start_rtp) / 2
+
     def interrupt(self) -> None:
-        """Keep the timed words whose sound ended in the audio played.
+        """Keep the timed words the caller heard: those whose sound ended in
+        the audio played, and the word the cut caught if more than half of its
+        sound had played.
+
+        A word's sound runs from the previous word's end to its own. Keeping
+        only words whose sound had ended dropped the one the cut caught
+        mid-sound, although its clip carries most of it, so a judge comparing
+        the clip with its text heard a word the text lacked. A word the cut
+        caught at its start is still dropped.
 
         The kept text is held for the cut tick (``take_kept``); it counts as
         shown, so a second cut in the same tick keeps it too.
         """
 
+        played = self._audio_played + self._due_slack
         heard = max(
             (
                 cursor
                 for position, cursor in self._marks
-                if cursor in self._timed
-                and position <= self._audio_played + self._due_slack
+                if cursor in self._timed and position <= played
             ),
             default=0,
         )
+        # The word the cut caught: the first timed mark after ``heard``. Its
+        # sound starts where the last mark at or before it that played stands
+        # (an untimed mark stands at its arrival, an approximation). An
+        # unplayed untimed mark before it means the caller heard neither.
+        start = self._aired_position
+        caught: Optional[tuple[int, int]] = None
+        for position, cursor in self._marks:
+            if cursor <= heard:
+                if position <= played:
+                    start = max(start, position)
+                continue
+            if cursor in self._timed:
+                caught = (position, cursor)
+                break
+            if position > played:
+                break
+            start = max(start, position)
+        if caught is not None and self._mostly_played(start, *caught):
+            heard = caught[1]
         if heard > self._shown_chars:
             self._kept += self.text[self._shown_chars : heard]
             self._shown_chars = heard
@@ -726,6 +799,14 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         # _streaming_utterance.
         self._audio_in_tick = False
         self._audio_in_last_tick = False
+        # RTP position where the audio received so far ends, when the receiver
+        # placed it on the clock; and the end of the open utterance's last
+        # timed word. See _continues_captioned_line.
+        self._audio_rtp_end: Optional[int] = None
+        self._last_word_end_rtp: Optional[int] = None
+        # A captioned utterance whose audio may still be arriving: its ID and
+        # the RTP position before which contiguous audio is still its own.
+        self._caption_tail: Optional[tuple[str, int]] = None
 
     @property
     def provider(self) -> AvarthaPipecatProvider:
@@ -1013,16 +1094,47 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
             return self._utterance_id
         return None
 
-    def _queue_utterance_audio(self, num_bytes: int) -> None:
-        """Count arriving audio toward its utterance, opening one if none is."""
+    def _queue_utterance_audio(
+        self, num_bytes: int, utterance_id: Optional[str] = None
+    ) -> None:
+        """Count arriving audio toward its utterance: ``utterance_id``, else the
+        open one, opening one if none is."""
 
-        if self._utterance_id is None:
-            self._utterance_count += 1
-            self._utterance_id = f"{_ITEM_ID}-{self._utterance_count}"
-        if self._utterance_audio and self._utterance_audio[-1][0] == self._utterance_id:
+        if utterance_id is None:
+            if self._utterance_id is None:
+                self._utterance_count += 1
+                self._utterance_id = f"{_ITEM_ID}-{self._utterance_count}"
+            utterance_id = self._utterance_id
+        if self._utterance_audio and self._utterance_audio[-1][0] == utterance_id:
             self._utterance_audio[-1][1] += num_bytes
         else:
-            self._utterance_audio.append([self._utterance_id, num_bytes])
+            self._utterance_audio.append([utterance_id, num_bytes])
+
+    def _continues_captioned_line(self, event: AgentAudioEvent) -> bool:
+        """Whether ``event`` is the rest of the line whose caption came already.
+
+        Avartha's played caption travels on the data channel and can overtake
+        the line's last audio. That audio used to open a new utterance; the
+        tick playing the line's last word went to it, so the line was judged
+        against text missing that word and the word stood alone as a reply.
+        So when the caption came before the audio carrying the line's last
+        timed word end, audio that follows the line's without a gap on the RTP
+        clock and starts within ``_CAPTION_TAIL_RTP`` of that end is the
+        line's. A caption that overtook nothing opens no window: the next
+        line opens its own utterance even if it follows without a gap.
+        Without timing every new audio opens an utterance, as before. Known
+        limit: a next line that follows an overtaking caption without a gap and
+        starts within the window has its head counted to the captioned line.
+        """
+
+        tail = self._caption_tail
+        return (
+            tail is not None
+            and self._utterance_id is None
+            and event.rtp_start is not None
+            and event.rtp_start == self._audio_rtp_end
+            and event.rtp_start < tail[1]
+        )
 
     async def _execute_tick(
         self,
@@ -1167,9 +1279,16 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                         self._cut_utterance_id = self._open_at_cut
                     return
                 chunk = (telephony_audio, _ITEM_ID)
-                self._queue_utterance_audio(len(telephony_audio))
+                if self._continues_captioned_line(event):
+                    # Its caption came already: nothing to hold back for.
+                    self._queue_utterance_audio(
+                        len(telephony_audio), self._caption_tail[0]
+                    )
+                else:
+                    self._caption_tail = None
+                    self._queue_utterance_audio(len(telephony_audio))
+                    self._awaiting_playback = True
                 self._audio_in_tick = True
-                self._awaiting_playback = True
                 if result.was_truncated:
                     self._audio_after_cut.append(chunk)
                 else:
@@ -1177,6 +1296,12 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 if event.rtp_start is None:
                     self._unclocked_audio = True
                 rtp_ticks = len(event.audio) // 2 * RTP_CLOCK_HZ
+                self._audio_rtp_end = (
+                    event.rtp_start + rtp_ticks // event.sample_rate
+                    if event.rtp_start is not None
+                    and rtp_ticks % event.sample_rate == 0
+                    else None
+                )
                 self._transcript().add_audio(
                     len(telephony_audio),
                     rtp_start=(
@@ -1225,10 +1350,31 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 logger.debug(f"Avartha transcript: {text!r}")
         elif isinstance(event, AgentWordEvent):
             if not self._stale_audio:
-                self._transcript().add_word(event.text, self._word_end_rtp(event))
+                end_rtp = self._word_end_rtp(event)
+                transcript = self._transcript()
+                timed_before = transcript.timed_words
+                transcript.add_word(event.text, end_rtp)
+                if end_rtp is not None and transcript.timed_words > timed_before:
+                    # Only a word the transcript placed on the clock.
+                    self._last_word_end_rtp = end_rtp
         elif isinstance(event, AgentPlaybackEvent):
             if not self._stale_audio:
                 self._awaiting_playback = False
+                self._caption_tail = None
+                if (
+                    self._utterance_id is not None
+                    and self._last_word_end_rtp is not None
+                    and self._audio_rtp_end is not None
+                ):
+                    last_end = unwrap_rtp(self._last_word_end_rtp, self._audio_rtp_end)
+                    lead = last_end - self._audio_rtp_end
+                    if 0 < lead <= _CAPTION_MAX_LEAD_RTP:
+                        # The caption overtook the line's last audio.
+                        self._caption_tail = (
+                            self._utterance_id,
+                            last_end + _CAPTION_TAIL_RTP,
+                        )
+                self._last_word_end_rtp = None
                 self._utterance_id = None
                 self._transcript().add_playback(event.text)
         elif isinstance(event, AgentLLMStartedEvent):
@@ -1238,6 +1384,7 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
             # Subsequent stale audio belongs to this replacement, not to an
             # earlier reply that was merely waiting for its played caption.
             self._open_at_cut = None
+            self._caption_tail = None
             if self._stale_audio:
                 self._stale_audio = False
                 for converter in self._output_converters.values():
@@ -1245,6 +1392,8 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         elif isinstance(event, SpeechEvent):
             result.vad_events.append(event.kind)
             if event.kind in {"speech_started", "interrupted"}:
+                self._caption_tail = None
+                self._last_word_end_rtp = None
                 result.was_truncated = True
                 result.truncated_audio_bytes += sum(
                     len(audio) for audio, _item_id in result.agent_audio_chunks
