@@ -95,6 +95,7 @@ AudioNativeProvider = Literal[
     "avartha_pipecat",
     "phonic",
     "livekit",
+    "resia_fullplex",
 ]
 
 # VAD config union type (string annotations for lazy resolution)
@@ -348,6 +349,9 @@ class DiscreteTimeAudioNativeAgent(FullDuplexAgent[DiscreteTimeAgentState]):
             self.vad_config = None
         elif provider == "phonic":
             # Phonic does its own turn detection.
+            self.vad_config = None
+        elif provider == "resia_fullplex":
+            # Resia Fullplex does its own turn-taking.
             self.vad_config = None
         elif provider == "livekit":
             from tau2.voice.audio_native.livekit.discrete_time_adapter import (
