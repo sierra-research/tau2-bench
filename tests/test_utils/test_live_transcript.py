@@ -285,7 +285,7 @@ def test_fidelity_uses_exact_subtick_audio_bounds_and_shared_id(tmp_path):
         (20, 180)
     ]
     sim = simulation(ticks)
-    clip = load_audio_clips(audio_file(tmp_path), sim, provider=None)[0]
+    clip = load_audio_clips(audio_file(tmp_path), sim)[0]
     assert clip.segment_id == build_agent_turns(sim)[0].segment_id
     assert clip.duration_seconds == 1.66
     with wave.open(io.BytesIO(base64.b64decode(clip.wav_base64)), "rb") as wav:
@@ -297,9 +297,7 @@ def test_silent_harness_greeting_is_not_fidelity_opportunity(tmp_path):
     ticks[0].agent_chunk = AssistantMessage(
         role="assistant", content="Hello", contains_speech=False
     )
-    assert (
-        load_audio_clips(audio_file(tmp_path), simulation(ticks), provider=None) == []
-    )
+    assert load_audio_clips(audio_file(tmp_path), simulation(ticks)) == []
 
 
 @pytest.mark.parametrize("cut_tick", [9, 10])
@@ -355,7 +353,7 @@ def test_non_live_audio_and_missing_ids_do_not_enable_padding(
     ticks[5].agent_chunk = AssistantMessage(
         role="assistant", content="Other provider", contains_speech=contains_speech
     )
-    clip = load_audio_clips(audio_file(tmp_path), simulation(ticks), provider=None)[0]
+    clip = load_audio_clips(audio_file(tmp_path), simulation(ticks))[0]
     assert clip.duration_seconds == 0.2
     assert clip.segment_id is None
 
@@ -388,10 +386,7 @@ def test_legacy_live_recovery_uses_right_channel_and_preserves_source(tmp_path):
     assert metadata(messages[0])["speech_end_us"] == 400000
     assert metadata(messages[0])["fragments"][0]["start_ms"] is None
     require_live_alignment(recovered.ticks)
-    assert (
-        load_audio_clips(path, recovered, provider="openai_live")[0].duration_seconds
-        == 0.6
-    )
+    assert load_audio_clips(path, recovered)[0].duration_seconds == 0.6
 
 
 def test_legacy_recovery_requires_explicit_live_provider(tmp_path):

@@ -209,7 +209,7 @@ def test_audio_digest_exact_model_and_filter(tmp_path, monkeypatch):
         )
 
     monkeypatch.setattr("tau2.judges.fidelity.generate", generate)
-    evidence = inspect_audio(tmp_path, sim, provider=None)
+    evidence = inspect_audio(tmp_path, sim)
     assert evidence.sha256 and evidence.error is None
     c = next(
         c for c in load_catalog().contracts if c.contract_id == "speech-fidelity-v7"
@@ -245,15 +245,15 @@ def test_audio_digest_exact_model_and_filter(tmp_path, monkeypatch):
     assert "was_interrupted: false" in prompt
     before = evidence.sha256
     path.write_bytes(path.read_bytes() + b"changed")
-    assert inspect_audio(tmp_path, sim, provider=None).sha256 != before
+    assert inspect_audio(tmp_path, sim).sha256 != before
 
 
 def test_missing_and_malformed_audio_are_distinct(tmp_path):
     sim, path = audio_fixture(tmp_path)
     path.write_bytes(b"bad wav")
-    assert inspect_audio(tmp_path, sim, provider=None).error
+    assert inspect_audio(tmp_path, sim).error
     path.unlink()
-    evidence = inspect_audio(tmp_path, sim, provider=None)
+    evidence = inspect_audio(tmp_path, sim)
     assert evidence.path is None and evidence.error is None
 
 

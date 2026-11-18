@@ -8,7 +8,7 @@ also join adjacent unidentified chunks. Neither view rewrites stored ticks.
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Iterable, Literal, cast
+from typing import TYPE_CHECKING, Iterable, Literal
 
 from tau2.config import DEFAULT_TICK_DURATION_SECONDS
 from tau2.data_model.message import (
@@ -94,9 +94,10 @@ def utterance_groups(
 
 def agent_messages(ticks: list[Tick]) -> list[AssistantMessage]:
     """Agent speech messages indexed exactly like audio/delivery utterance spans."""
-    # Agent groups hold assistant chunks, so their merge is an AssistantMessage.
     return [
-        cast(AssistantMessage, group_message(group))
+        group.chunks[0]
+        if len(group.chunks) == 1
+        else AssistantMessage.merge_chunks(group.chunks)
         for group in utterance_groups(ticks, "agent")
     ]
 
@@ -107,54 +108,6 @@ def agent_utterance_tick_spans(sim: SimulationRun) -> list[tuple[int, int]]:
         (group.start_tick, group.end_tick)
         for group in utterance_groups(sim.ticks or [], "agent")
     ]
-
-
-def explicitly_truncated(messages: Iterable[ParticipantMessageBase]) -> bool:
-    """Whether any chunk records ``raw_data.was_truncated`` (an explicit cut)."""
-    for message in messages:
-        raw = getattr(message, "raw_data", None)
-        if isinstance(raw, dict) and raw.get("was_truncated"):
-            return True
-    return False
-
-
-def group_message(group: UtteranceGroup) -> ParticipantMessageBase:
-    """One message for a group: its only chunk, or its chunks merged.
-
-    Merging keeps text, audio, gold markup and utterance IDs but not each
-    chunk's ``raw_data``; read chunk-level evidence from ``group.chunks``.
-    """
-    if len(group.chunks) == 1:
-        return group.chunks[0]
-    return type(group.chunks[0]).merge_chunks(group.chunks)
-
-
-def text_covered_tick_span(ticks: list[Tick], group: UtteranceGroup) -> tuple[int, int]:
-    """Inclusive tick-ID span of a cut group's audio that its recorded text covers.
-
-    Valid only for recordings whose adapter shows each word on the tick whose
-    played audio carries the word's end. When the group's last cut (a chunk
-    recording ``was_truncated``) comes at or after its last text tick, the span
-    ends at that text tick: speech after it is the word the cut caught before
-    its end played, which the reference omits. Uncut groups, groups whose
-    reference comes from ``audio_script_gold`` markup, groups that spoke on
-    after a cut and cut groups without text keep their full span.
-    """
-    if any(chunk.audio_script_gold for chunk in group.chunks):
-        return group.start_tick, group.end_tick
-    members = {id(chunk) for chunk in group.chunks}
-    last_text = last_cut = None
-    for tick in ticks[group.start_index : group.end_index + 1]:
-        chunk = tick.agent_chunk if group.speaker == "agent" else tick.user_chunk
-        if chunk is None or id(chunk) not in members:
-            continue
-        if (chunk.content or "").strip():
-            last_text = tick.tick_id
-        if explicitly_truncated([chunk]):
-            last_cut = tick.tick_id
-    if last_text is None or last_cut is None or last_cut < last_text:
-        return group.start_tick, group.end_tick
-    return group.start_tick, last_text
 
 
 def utterance_interrupted(messages: Iterable[ParticipantMessageBase]) -> bool:
@@ -172,8 +125,10 @@ def utterance_interrupted(messages: Iterable[ParticipantMessageBase]) -> bool:
     cuts without observed overlap and runs without ticks.
     """
     messages = list(messages)
-    if explicitly_truncated(messages):
-        return True
+    for message in messages:
+        raw = getattr(message, "raw_data", None)
+        if isinstance(raw, dict) and raw.get("was_truncated"):
+            return True
     merged_gold = merge_audio_script_gold(
         [getattr(message, "audio_script_gold", None) for message in messages]
     )
@@ -321,10 +276,19 @@ def build_agent_turns(simulation: SimulationRun) -> list[AgentTurn]:
     barged = barged_in_tick_spans(simulation)
     user_events = []
     for group in utterance_groups(simulation.ticks, "caller"):
-        if text := delivered_text(group_message(group)):
+        merged = (
+            group.chunks[0]
+            if len(group.chunks) == 1
+            else UserMessage.merge_chunks(group.chunks)
+        )
+        if text := delivered_text(merged):
             user_events.append((group.start_tick, group.end_tick, text))
     for group in utterance_groups(simulation.ticks, "agent"):
-        merged = group_message(group)
+        merged = (
+            group.chunks[0]
+            if len(group.chunks) == 1
+            else AssistantMessage.merge_chunks(group.chunks)
+        )
         if not (text := delivered_text(merged)):
             continue
         prior = [text for _, end, text in user_events if end < group.start_tick]
