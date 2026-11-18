@@ -1,0 +1,160 @@
+{
+  "model_name": "Ava Zero",
+  "model_organization": "Avartha",
+  "submitting_organization": "Avartha",
+  "submission_date": "2026-11-18",
+  "submission_type": "custom",
+  "modality": "voice",
+  "contact_info": {
+    "email": "elton@avartha.ai",
+    "name": "Elton Pinto"
+  },
+  "results": {
+    "retail": {
+      "pass_1": 85.96491228070175
+    },
+    "airline": {
+      "pass_1": 86.0
+    },
+    "telecom": {
+      "pass_1": 92.10526315789474
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "en-airline",
+    "retail": "en-retail",
+    "telecom": "en-telecom"
+  },
+  "references": [
+    {
+      "title": "Avartha Pipecat provider integration",
+      "url": "https://github.com/sierra-research/tau2-bench/pull/631",
+      "type": "github"
+    },
+    {
+      "title": "avartha_pipecat timing fixes",
+      "url": "https://github.com/sierra-research/tau2-bench/pull/758",
+      "type": "github"
+    },
+    {
+      "title": "Avartha",
+      "url": "https://avartha.ai",
+      "type": "other"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-11-17",
+    "tau2_bench_version": "2.0.0",
+    "user_simulator": "gpt-5.5-2026-04-23 (xhigh)",
+    "notes": "Custom Ava Zero evaluation through the avartha_pipecat adapter against a hosted Ava Zero agent on the Avartha Platform over WebRTC. The agent uses GLM-5.3 as its frontend, DeepSeek-V4.1-Flash-1017 at max reasoning as its backend worker, and Qwen3-ASR-1.7B for speech recognition. Agent build 1138c346, whose English behaviour is identical to b680a988 in our standard v1.1 entry. The voice user simulator's customer LLM is gpt-5.5-2026-04-23 at xhigh reasoning effort; the other simulator components, benchmark prompts, policies, tools and evaluator are unchanged, and this non-default customer LLM makes the result a custom submission. Harness: tau2 2.0.0 (main at c06b07d) with an earlier revision of the #758 avartha_pipecat adapter: as at 6e563dd, without that commit's tolerance for a resampler-delayed lost-media stamp and without the quiet-tail fixes added after it. Regular speech complexity, seed 300, 0.2-second ticks, 2400-second call limit, the default hallucination reviewer, and no reward or agent-error reruns. One trial was scheduled for every base task (airline 50, retail 114, telecom 114), 30 calls at a time; calls that hit an infrastructure error were re-run from the start (4 in this run). The English caller personas used our own voices (TAU2_VOICE_ID_EN_*), not Sierra-managed voices.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false
+    }
+  },
+  "voice_config": {
+    "provider": "Avartha",
+    "model": "ava-zero",
+    "tick_duration_seconds": 0.2,
+    "max_steps_seconds": 2400.0,
+    "user_tts_provider": "elevenlabs/eleven_v3"
+  },
+  "interaction_metrics": {
+    "version": "1.0",
+    "config": {
+      "tick_duration_sec": 0.2,
+      "no_yield_window_sec": 2.0,
+      "backchannel_yield_window_sec": 1.0,
+      "vocal_tic_yield_window_sec": 1.0,
+      "non_directed_yield_window_sec": 1.0,
+      "vocal_tic_response_window_sec": 2.0,
+      "non_directed_response_window_sec": 2.0
+    },
+    "domains": {
+      "airline": {
+        "response_latency_mean": 2.101020408163265,
+        "yield_latency_mean": 1.246625766871166,
+        "response_rate": 0.9949238578680203,
+        "yield_rate": 0.8670212765957447,
+        "agent_interruption_rate": 0.10829103214890017,
+        "selectivity_backchannel": 0.8610038610038611,
+        "selectivity_vocal_tic": 0.5862068965517242,
+        "selectivity_non_directed": 0.7441860465116279,
+        "counts": {
+          "n_simulations": 50,
+          "response_total": 591,
+          "yield_total": 188,
+          "backchannel_total": 259,
+          "vocal_tic_total": 145,
+          "non_directed_total": 86,
+          "agent_interrupts_count": 64
+        }
+      },
+      "retail": {
+        "response_latency_mean": 2.080171184022824,
+        "yield_latency_mean": 1.250139275766017,
+        "response_rate": 1.0,
+        "yield_rate": 0.823394495412844,
+        "agent_interruption_rate": 0.10984308131241084,
+        "selectivity_backchannel": 0.8826446280991735,
+        "selectivity_vocal_tic": 0.5345268542199488,
+        "selectivity_non_directed": 0.7185929648241206,
+        "counts": {
+          "n_simulations": 114,
+          "response_total": 1402,
+          "yield_total": 436,
+          "backchannel_total": 605,
+          "vocal_tic_total": 391,
+          "non_directed_total": 199,
+          "agent_interrupts_count": 154
+        }
+      },
+      "telecom": {
+        "response_latency_mean": 2.0869927948426246,
+        "yield_latency_mean": 1.2037735849056606,
+        "response_rate": 0.9969754253308128,
+        "yield_rate": 0.9226305609284333,
+        "agent_interruption_rate": 0.07977315689981096,
+        "selectivity_backchannel": 0.8098360655737705,
+        "selectivity_vocal_tic": 0.5460636515912898,
+        "selectivity_non_directed": 0.7614942528735632,
+        "counts": {
+          "n_simulations": 114,
+          "response_total": 2645,
+          "yield_total": 517,
+          "backchannel_total": 610,
+          "vocal_tic_total": 597,
+          "non_directed_total": 348,
+          "agent_interrupts_count": 211
+        }
+      }
+    },
+    "overall": {
+      "response_latency_mean": 2.0893947956762378,
+      "yield_latency_mean": 1.2335128758476144,
+      "response_rate": 0.9972997610662778,
+      "yield_rate": 0.8710154443123407,
+      "agent_interruption_rate": 0.09930242345370732,
+      "selectivity_backchannel": 0.8511615182256017,
+      "selectivity_vocal_tic": 0.5555991341209876,
+      "selectivity_non_directed": 0.7414244214031038,
+      "counts": {
+        "n_simulations": 278,
+        "response_total": 4638,
+        "yield_total": 1141,
+        "backchannel_total": 1474,
+        "vocal_tic_total": 1133,
+        "non_directed_total": 633,
+        "agent_interrupts_count": 429
+      }
+    }
+  },
+  "model_release": {
+    "release_date": "2026-10-22",
+    "announcement_url": "https://avartha.ai/index/introducing-ava-zero",
+    "announcement_title": "Introducing Ava Zero"
+  },
+  "reasoning_effort": "Backend: DeepSeek-V4.1-Flash-1017 (max)"
+}
