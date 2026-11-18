@@ -12,6 +12,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
+from tau2.data_model.benchmark import conditions_mode
 from tau2.data_model.judges import ContractModel, JudgeInput, UnitError
 from tau2.data_model.simulation import Results, SimulationRun, TerminationReason
 from tau2.data_model.tasks import Task
@@ -21,10 +22,11 @@ from tau2.utils.transcript.audio_text import extract_delivered_text
 from tau2.utils.transcript.live import live_metadata, live_utterance_groups
 from tau2.utils.transcript.live_audio import recover_live_audio
 from tau2.utils.transcript.views import (
-    agent_messages,
-    agent_utterance_tick_spans,
     barged_in_tick_spans,
+    group_message,
+    text_covered_tick_span,
     tick_span_barged_in,
+    utterance_groups,
     utterance_interrupted,
 )
 
@@ -104,8 +106,29 @@ def live_input_errors(simulation: SimulationRun) -> list[UnitError]:
     return errors
 
 
-def load_audio_clips(path: Path, simulation: SimulationRun) -> list[AudioClip]:
-    """Extract unchanged tick-aligned agent-channel clips and delivered references."""
+# Providers whose recordings show each word on the tick whose played audio
+# carries the word's end, so a cut group's speech after its last text tick is a
+# word its reference lacks. avartha_pipecat does this for words it timed on the
+# RTP audio clock (avartha-audio-timing/1, tau2 3c30ec9 and later); a call whose
+# timing binding failed, or a recording from before that, places words on
+# arrival, which can run ahead of their sound, and is not distinguished in the
+# saved run. Proportional-transcript adapters can show text ahead of its audio
+# and are not listed. Adding a provider changes the speech-fidelity judge's
+# input for its saved runs, so it needs a new ImplementationFamily.FIDELITY value.
+PLAYED_WORD_END_TEXT_PROVIDERS = frozenset({"avartha_pipecat"})
+
+
+def load_audio_clips(
+    path: Path, simulation: SimulationRun, *, provider: str | None
+) -> list[AudioClip]:
+    """Extract unchanged agent-channel clips and delivered references.
+
+    Live segments use their recorded playback bounds; other groups use their
+    tick span. ``provider`` is the run's recorded audio-native provider: for
+    ``PLAYED_WORD_END_TEXT_PROVIDERS``, a group cut at or after its last text
+    tick ends there (``text_covered_tick_span``).
+    """
+    trim_cut_audio = provider in PLAYED_WORD_END_TEXT_PROVIDERS
     if not simulation.ticks:
         raise ValueError("Audio requires recorded full-duplex ticks")
     durations = {tick.tick_duration_seconds for tick in simulation.ticks}
@@ -125,14 +148,13 @@ def load_audio_clips(path: Path, simulation: SimulationRun) -> list[AudioClip]:
     if width not in (1, 2, 4) or len(raw) != frames * width * 2:
         raise ValueError("Malformed stereo PCM audio")
     is_live = any(live_metadata(tick) is not None for tick in simulation.ticks)
-    spans = agent_utterance_tick_spans(simulation)
-    messages = agent_messages(simulation.ticks)
-    if len(spans) != len(messages):
-        raise ValueError("Reference/audio utterance alignment differs")
     barged = barged_in_tick_spans(simulation)
     terminal_tick = terminal_speech_tick(simulation)
     result = []
-    for index, ((start, end), message) in enumerate(zip(spans, messages, strict=True)):
+    for index, group in enumerate(utterance_groups(simulation.ticks, "agent")):
+        message = group_message(group)
+        # Barge-in and terminal checks keep the full group span.
+        start, end = group.start_tick, group.end_tick
         if is_live and message.contains_speech is False:
             continue
         message_raw = message.raw_data
@@ -148,13 +170,19 @@ def load_audio_clips(path: Path, simulation: SimulationRun) -> list[AudioClip]:
         ref = ref.replace("###STOP###", "").strip()
         if not ref:
             continue
-        first = round(start * seconds * rate)
-        last = round((end + 1) * seconds * rate)
         if segment and "playback_start_us" in segment:
             first = round(segment["playback_start_us"] * rate / 1_000_000)
             last = round(segment["playback_end_us"] * rate / 1_000_000)
             if last > frames:
                 raise ValueError("Live speech extends beyond the recorded audio")
+        else:
+            first_tick, last_tick = (
+                text_covered_tick_span(simulation.ticks, group)
+                if trim_cut_audio
+                else (start, end)
+            )
+            first = round(first_tick * seconds * rate)
+            last = round((last_tick + 1) * seconds * rate)
         last = min(last, frames)
         if first >= frames or last <= first:
             raise ValueError("Utterance starts outside recorded audio timeline")
@@ -183,9 +211,11 @@ def load_audio_clips(path: Path, simulation: SimulationRun) -> list[AudioClip]:
                 terminal_cutoff=(
                     terminal_tick is not None and start <= terminal_tick <= end
                 ),
+                # The group's chunks, not the merged message: merging drops
+                # each chunk's raw_data, including an explicit cut.
                 interrupted=(
                     interrupted
-                    or utterance_interrupted([message])
+                    or utterance_interrupted(group.chunks)
                     or (not segment and tick_span_barged_in(start, end, barged))
                 ),
             )
@@ -193,14 +223,32 @@ def load_audio_clips(path: Path, simulation: SimulationRun) -> list[AudioClip]:
     return result
 
 
-def inspect_audio(results: Path, simulation: SimulationRun) -> AudioEvidence:
+def recorded_provider(metadata: Results) -> str | None:
+    """The run's recorded audio-native provider, if it ran one.
+
+    Benchmark runs also record it in their voice conditions; the two must agree.
+    """
+    config = metadata.info.audio_native_config
+    provider = config.provider if config is not None else None
+    benchmark = metadata.info.benchmark
+    if benchmark is not None and conditions_mode(benchmark.conditions) == "voice":
+        recorded = benchmark.conditions.audio_native_config.provider
+        if provider is not None and recorded != provider:
+            raise ValueError("Recorded audio-native provider conflicts with benchmark")
+        provider = recorded
+    return provider
+
+
+def inspect_audio(
+    results: Path, simulation: SimulationRun, *, provider: str | None
+) -> AudioEvidence:
     """Read-only verification; missing and corrupt artifacts remain distinguishable."""
     path = _find_audio(results, simulation)
     if path is None:
         return AudioEvidence(path=None, sha256=None, error=None)
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     try:
-        load_audio_clips(path, simulation)
+        load_audio_clips(path, simulation, provider=provider)
     except Exception as exc:
         return AudioEvidence(
             path=path, sha256=digest, error=f"{type(exc).__name__}: {exc}"
@@ -250,6 +298,13 @@ class RunEvidence(ContractModel):
         Path | None,
         Field(
             default=None, description="Saved run root used to locate audio artifacts."
+        ),
+    ]
+    audio_native_provider: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="Recorded audio-native provider; selects clip bounds.",
         ),
     ]
 
@@ -411,7 +466,8 @@ class SavedRun:
             raise ValueError("Saved simulation identity changed after planning")
         simulation = self._prepare_simulation(simulation)
         task = self.tasks[simulation.task_id]
-        audio = inspect_audio(self.results_path, simulation)
+        provider = recorded_provider(metadata)
+        audio = inspect_audio(self.results_path, simulation, provider=provider)
         current = _input_for_simulation(
             metadata,
             simulation,
@@ -433,6 +489,7 @@ class SavedRun:
             policy=metadata.info.environment_info.policy,
             opener=recorded_opener(metadata, simulation, task),
             results_path=self.results_path,
+            audio_native_provider=provider,
             audio=audio,
         )
 
@@ -506,7 +563,9 @@ def _input_for_simulation(
     context = _language_context(metadata, simulation, task)
     caller_gender = getattr(context, "caller_gender", None) or "unknown"
     if audio is None and results_path is not None:
-        audio = inspect_audio(results_path, simulation)
+        audio = inspect_audio(
+            results_path, simulation, provider=recorded_provider(metadata)
+        )
     return JudgeInput(
         domain=metadata.info.environment_info.domain_name,
         run_id=run_id,

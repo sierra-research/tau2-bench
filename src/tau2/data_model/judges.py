@@ -37,7 +37,11 @@ class ImplementationFamily(str, Enum):
     NATURALNESS = "naturalness-v17"
     HINDI_GENDER = "hi-gender-v16"
     TOOL_USE = "tool-use-v7"
-    FIDELITY = "speech-fidelity-v6"
+    # A cut clip from a played-word-end adapter ends at its last text tick.
+    FIDELITY = "speech-fidelity-v6-cut-clip-bounds"
+    # Retired: clips ran to the cut tick. Kept so published packages and stored
+    # verdicts that record it still load; it no longer creates a judge.
+    FIDELITY_V6 = "speech-fidelity-v6"
     AGENT_TEXT = "agent-text-v1"
 
 

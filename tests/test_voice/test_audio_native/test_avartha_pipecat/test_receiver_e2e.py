@@ -231,7 +231,7 @@ def _run(schedule, tmp_path):
             termination_reason=TerminationReason.MAX_STEPS,
         )
         # Exercise the exact saved-audio/reference extraction used by Generation.
-        clips = load_audio_clips(path, simulation)
+        clips = load_audio_clips(path, simulation, provider="avartha_pipecat")
         return [tick.agent_chunk.content or "" for tick in ticks], [
             clip.reference for clip in clips
         ]

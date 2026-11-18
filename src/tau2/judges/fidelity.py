@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 
 from tau2.data_model.judges import (
     DiagnosticId,
+    ImplementationFamily,
     InputExclusions,
     MeasureVerdict,
     UnitVerdict,
@@ -112,17 +113,18 @@ class FidelityJudge(BaseJudge):
         contract = self.contract
         simulation, language = evidence.simulation, evidence.language
         material = contract.speech_material
-        if contract.implementation != "speech-fidelity-v6" or material is None:
+        if contract.implementation != ImplementationFamily.FIDELITY or material is None:
             raise ValueError("Missing v6 speech material")
         if contract.input_exclusions != InputExclusions.OPENER_AND_CONTROL_TURNS:
             raise ValueError("Speech fidelity v6 requires the control-turn rule")
         audio = evidence.audio
+        provider = evidence.audio_native_provider
         if audio is None and evidence.results_path is not None:
-            audio = inspect_audio(evidence.results_path, simulation)
+            audio = inspect_audio(evidence.results_path, simulation, provider=provider)
         if audio is None or audio.path is None:
             raise ValueError("Missing aligned agent audio")
         errors = live_input_errors(simulation)
-        clips = load_audio_clips(audio.path, simulation)
+        clips = load_audio_clips(audio.path, simulation, provider=provider)
         # Control markers identify whole utterances excluded from both judges.
         clips = [
             clip
