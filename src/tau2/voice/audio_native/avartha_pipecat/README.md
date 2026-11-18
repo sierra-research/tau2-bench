@@ -79,10 +79,14 @@ first audio or audio after silence the receiver dropped (a short gap of lost
 media, up to 200 ms, is not a restart, so a line after a pause that was lost
 completely, if no longer than that, is measured from the previous line's
 tail). A cut that keeps such a word cut off its line, so the cut tick carries
-that line's utterance. The played caption can overtake a line's last audio;
-when it does, audio that follows the line's without an RTP gap, within 250 ms
-of its last timed word's end, stays in that line's utterance instead of opening
-a new one.
+that line's utterance. The played caption can overtake a line's last audio or
+come before its quiet tail; audio that follows the line's without an RTP gap,
+within 250 ms of its last timed word's end and before the next line's text,
+stays in that line's utterance instead of opening a new one (if the next line's
+text came first, only when the caption overtook the line's audio). A tick that
+shows only a captioned line's text is that line's, whatever audio it plays, so
+the line's last word stays in its utterance; a tick that also shows the next
+line's first word is still labelled by the audio it plays.
 "Played" includes the utterance's last millisecond, which the adapter holds
 back for its caption, as it does for every word. As upstream, a cut tick that
 discarded no audio is not labelled with the reply. The receiver keeps each

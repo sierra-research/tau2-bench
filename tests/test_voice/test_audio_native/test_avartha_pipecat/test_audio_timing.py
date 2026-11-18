@@ -1237,9 +1237,10 @@ def _overtaken_line(last_end, audio_through=1):
     ]
 
 
-def test_a_caption_that_overtook_nothing_lets_the_next_line_open_its_own():
-    """All of "Okay." had arrived when its caption came, so a next line that
-    follows without a gap is its own utterance, with its own text."""
+def test_the_next_lines_text_closes_the_caption_tail():
+    """All of "Okay." had arrived when its caption came; the next line's text
+    then arrives before its audio, so that line, though it follows without a
+    gap, is its own utterance, with its own text."""
 
     ticks = _ticks(
         [
@@ -1306,6 +1307,157 @@ def test_a_cut_closes_the_caption_tail():
     )
 
     assert ticks[2].item_ids == ["avartha-2"]
+
+
+def _frame(start_rtp, ms):
+    """``ms`` of agent audio starting at RTP ``start_rtp`` (48 RTP ticks/ms)."""
+
+    return AgentAudioEvent(
+        b"\x01\x00" * (24 * ms),
+        24000,
+        rtp_start=start_rtp,
+        rtp_decoded_from=FIRST_RTP,
+    )
+
+
+def test_tail_audio_after_a_late_caption_stays_in_the_line():
+    """From a recorded call's timeline: the caption came after all the audio
+    carrying the line's last word, and the line's quiet tail arrived
+    contiguously in the next tick. Only a caption that overtook the audio
+    opened the tail window, so the tail opened an utterance of its own; the
+    tick playing it showed " now." and that group stayed open: the line was
+    judged without its last word and "now." stood alone."""
+
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Desk lamp now."),
+                _audio(0),
+                _audio(1),
+                _audio(2),
+                _word("Desk", FIRST_RTP + 300),
+                _word("lamp", FIRST_RTP + TICK_RTP + 300),
+                _word("now.", FIRST_RTP + 2 * TICK_RTP + 800),
+                AgentPlaybackEvent("Desk lamp now.", cut=False),
+            ],
+            [_audio(3), _audio(4)],  # the line's quiet tail
+            *[[] for _ in range(5)],
+        ]
+    )
+
+    labelled = [t.item_ids for t in ticks if t.item_ids]
+    assert labelled and all(ids == ["avartha-1"] for ids in labelled)
+    assert "".join(t.proportional_transcript for t in ticks) == "Desk lamp now."
+
+
+def test_the_tick_showing_a_lines_last_word_is_the_lines():
+    """The tick that shows a captioned line's last word belongs to that line
+    even when most of its audio is the next line's: by audio alone " now."
+    went to the next line's group."""
+
+    a1 = FIRST_RTP + 5 * 48  # line 1: 5 ms, then 20 ms, then 20 ms
+    a2 = a1 + TICK_RTP
+    line_end = a2 + TICK_RTP
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Okay now."),
+                _frame(FIRST_RTP, 5),
+                _frame(a1, 20),
+                _frame(a2, 20),
+                _word("Okay", a1 + 300),
+                _word("now.", line_end - 100),
+                AgentPlaybackEvent("Okay now.", cut=False),
+            ],
+            [
+                # The next line, without a gap; ticks play 20 ms each, so the
+                # third plays line 1's last 5 ms and line 2's first 15 ms.
+                TranscriptEvent(" Sure."),
+                *[_frame(line_end + i * TICK_RTP, 20) for i in range(3)],
+                _word("Sure.", line_end + 2 * TICK_RTP + 500),
+            ],
+            *[[] for _ in range(4)],
+            [AgentPlaybackEvent("Sure.", cut=False)],
+            [],
+        ]
+    )
+
+    text = [t.proportional_transcript for t in ticks]
+    labels = [t.item_ids for t in ticks]
+    now = [i for i, t in enumerate(text) if "now." in t]
+    sure = [i for i, t in enumerate(text) if "Sure" in t]
+    assert now and all(labels[i] == ["avartha-1"] for i in now)
+    assert sure and all(labels[i] == ["avartha-2"] for i in sure)
+    assert "".join(text) == "Okay now. Sure."
+
+
+def test_next_text_before_a_late_caption_opens_no_caption_tail():
+    """The reply's next sentence was already received when the caption of
+    "Okay." came after all its audio: the next line, gapless and within the
+    tail window, is its own utterance."""
+
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Okay."),
+                TranscriptEvent(" Sure thing."),
+                _audio(0),
+                _audio(1),
+                _word("Okay.", FIRST_RTP + TICK_RTP + 300),
+                AgentPlaybackEvent("Okay.", cut=False),
+            ],
+            [_audio(2), _audio(3), _audio(4)],
+            [_word("Sure", FIRST_RTP + 3 * TICK_RTP + 200)],
+            [_audio(5), _audio(6), _word("thing.", FIRST_RTP + 6 * TICK_RTP + 500)],
+            *[[] for _ in range(3)],
+            [AgentPlaybackEvent("Sure thing.", cut=False)],
+            [],
+            [],
+        ]
+    )
+
+    text = [t.proportional_transcript for t in ticks]
+    labels = [t.item_ids for t in ticks]
+    sure = [i for i, t in enumerate(text) if "Sure" in t or "thing" in t]
+    assert sure and all(labels[i] == ["avartha-2"] for i in sure)
+    assert "avartha-2" in labels[2]
+
+
+def test_a_later_caption_does_not_take_an_earlier_lines_words():
+    """A short line captioned while the previous line's words still wait in
+    the playback backlog: those words stay with their own line."""
+
+    next_start = FIRST_RTP + 6 * TICK_RTP + 48000  # after a dropped second
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("One two three."),
+                *[_audio(i) for i in range(6)],
+                _word("One", FIRST_RTP + 300),
+                _word("two", FIRST_RTP + 2 * TICK_RTP + 300),
+                _word("three.", FIRST_RTP + 5 * TICK_RTP + 500),
+                AgentPlaybackEvent("One two three.", cut=False),
+            ],
+            [
+                TranscriptEvent(" Hi."),
+                _frame(next_start, 20),
+                _word("Hi.", next_start + 500),
+                AgentPlaybackEvent("Hi.", cut=False),
+            ],
+            *[[] for _ in range(7)],
+        ]
+    )
+
+    text = [t.proportional_transcript for t in ticks]
+    labels = [t.item_ids for t in ticks]
+    first = [i for i, t in enumerate(text) if t.strip() in {"One", "two", "three."}]
+    hi = [i for i, t in enumerate(text) if "Hi" in t]
+    assert len(first) == 3 and all(labels[i] == ["avartha-1"] for i in first)
+    assert hi and all(labels[i] == ["avartha-2"] for i in hi)
 
 
 def test_without_a_binding_a_caption_opens_no_tail():
