@@ -388,6 +388,19 @@ def _mcp_tool_schema(tool: Tool) -> dict[str, Any]:
     }
 
 
+@dataclass(frozen=True)
+class _CaptionTail:
+    """A captioned line whose audio may still arrive (see
+    _continues_captioned_line and _discarded_utterance)."""
+
+    line_id: str
+    # Contiguous audio starting before this RTP position is still the line's.
+    end_rtp: int
+    # Where the line's last word's sound ends, if its last timed word is the
+    # line's last word: audio from here on is the line's quiet tail.
+    quiet_from_rtp: Optional[int]
+
+
 @dataclass(frozen=True, slots=True)
 class _AudioSpan:
     """Received audio on the RTP clock: ``rtp_samples`` ticks from ``rtp_start``
@@ -618,6 +631,11 @@ class _HeardTranscript(_SpokenTranscript):
                 (placed.get(cursor, position), cursor)
                 for position, cursor in self._marks
             )
+
+    def is_timed(self, cursor: int) -> bool:
+        """Whether the word ending at text ``cursor`` is placed by its sound."""
+
+        return cursor in self._timed
 
     def untime_waiting(self) -> None:
         """Place the words still waiting for their audio as untimed: at their arrival."""
@@ -887,13 +905,12 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         self._audio_in_tick = False
         self._audio_in_last_tick = False
         # RTP position where the audio received so far ends, when the receiver
-        # placed it on the clock; and the end of the open utterance's last
-        # timed word. See _continues_captioned_line.
+        # placed it on the clock; and the open utterance's last timed word:
+        # its sound's end and its end in the transcript's text. See
+        # _continues_captioned_line.
         self._audio_rtp_end: Optional[int] = None
-        self._last_word_end_rtp: Optional[int] = None
-        # A captioned utterance whose audio may still be arriving: its ID and
-        # the RTP position before which contiguous audio is still its own.
-        self._caption_tail: Optional[tuple[str, int]] = None
+        self._last_timed_word: Optional[tuple[int, int]] = None
+        self._caption_tail: Optional[_CaptionTail] = None
         # Captioned utterances whose text has not all been shown, oldest
         # first: ID and where the text starts and ends; and how much text had
         # shown when the last tick was labelled. See _label_utterances.
@@ -1199,10 +1216,18 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         (see _streaming_utterance). A cut in a TTS pause, with no audio
         queued or arriving, is deliberately unmarked even though unspoken
         text is dropped: the caller cut no audio there.
+        Nor does a cut in a captioned line's quiet tail: audio queued to the
+        line after its caption that starts at or after the end of its last
+        word's sound (see _CaptionTail) carries none of its words. Known
+        limits: quiet audio that arrived before the caption still counts as
+        the line's (judged by arrival, as above); and after an overtaking
+        caption a gapless next line's head inside the tail window is counted
+        quiet to the captioned line (see _continues_captioned_line), so a cut
+        discarding only that head marks no line.
         """
 
-        for utterance_id, remaining in self._utterance_audio:
-            if remaining > self._end_hold_bytes:
+        for utterance_id, remaining, quiet in self._utterance_audio:
+            if remaining > self._end_hold_bytes and not quiet:
                 return utterance_id
         return None
 
@@ -1223,10 +1248,11 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         return None
 
     def _queue_utterance_audio(
-        self, num_bytes: int, utterance_id: Optional[str] = None
+        self, num_bytes: int, utterance_id: Optional[str] = None, quiet: bool = False
     ) -> None:
         """Count arriving audio toward its utterance: ``utterance_id``, else the
-        open one, opening one if none is."""
+        open one, opening one if none is. ``quiet`` audio is a captioned line's
+        tail past its last word (see _discarded_utterance)."""
 
         if utterance_id is None:
             if self._utterance_id is None:
@@ -1234,10 +1260,11 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 self._utterance_id = f"{_ITEM_ID}-{self._utterance_count}"
                 self._transcript().begin_line()
             utterance_id = self._utterance_id
-        if self._utterance_audio and self._utterance_audio[-1][0] == utterance_id:
-            self._utterance_audio[-1][1] += num_bytes
+        last = self._utterance_audio[-1] if self._utterance_audio else None
+        if last is not None and last[0] == utterance_id and last[2] == quiet:
+            last[1] += num_bytes
         else:
-            self._utterance_audio.append([utterance_id, num_bytes])
+            self._utterance_audio.append([utterance_id, num_bytes, quiet])
 
     def _continues_captioned_line(self, event: AgentAudioEvent) -> bool:
         """Whether ``event`` is the rest of the line whose caption came already.
@@ -1263,7 +1290,7 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
             and self._utterance_id is None
             and event.rtp_start is not None
             and event.rtp_start == self._audio_rtp_end
-            and event.rtp_start < tail[1]
+            and event.rtp_start < tail.end_rtp
         )
 
     async def _execute_tick(
@@ -1411,8 +1438,12 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 chunk = (telephony_audio, _ITEM_ID)
                 if self._continues_captioned_line(event):
                     # Its caption came already: nothing to hold back for.
+                    tail = self._caption_tail
                     self._queue_utterance_audio(
-                        len(telephony_audio), self._caption_tail[0]
+                        len(telephony_audio),
+                        tail.line_id,
+                        quiet=tail.quiet_from_rtp is not None
+                        and event.rtp_start >= tail.quiet_from_rtp,
                     )
                 else:
                     self._caption_tail = None
@@ -1489,29 +1520,40 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 transcript.add_word(event.text, end_rtp)
                 if end_rtp is not None and transcript.timed_words > timed_before:
                     # Only a word the transcript placed on the clock.
-                    self._last_word_end_rtp = end_rtp
+                    self._last_timed_word = (end_rtp, transcript.matched_chars)
         elif isinstance(event, AgentPlaybackEvent):
             if not self._stale_audio:
                 self._awaiting_playback = False
                 self._caption_tail = None
                 captioned, self._utterance_id = self._utterance_id, None
-                last_word_end, self._last_word_end_rtp = self._last_word_end_rtp, None
+                last_word, self._last_timed_word = self._last_timed_word, None
                 transcript = self._transcript()
                 start = transcript.utterance_start
+                # Still timed: the receiver may have lost its sound since.
+                last_timed = last_word is not None and transcript.is_timed(last_word[1])
                 transcript.add_playback(event.text)
                 if captioned is None:
                     return
                 end = transcript.matched_chars
                 self._captioned_lines.append((captioned, start, end))
-                if last_word_end is not None and self._audio_rtp_end is not None:
-                    last_end = unwrap_rtp(last_word_end, self._audio_rtp_end)
+                if last_word is not None and self._audio_rtp_end is not None:
+                    last_end = unwrap_rtp(last_word[0], self._audio_rtp_end)
                     lead = last_end - self._audio_rtp_end
                     # With the next line's text already here, its audio may
                     # follow without a gap: only audio the caption overtook
                     # is surely the line's.
                     next_text = transcript.text[end:].strip()
                     if lead <= _CAPTION_MAX_LEAD_RTP and (lead > 0 or not next_text):
-                        self._caption_tail = (captioned, last_end + _CAPTION_TAIL_RTP)
+                        # Past the last timed word is the quiet tail only if no
+                        # word of the line follows it (its mark may be dropped).
+                        ends_line = last_timed and not re.sub(
+                            r"[\W_]", "", transcript.text[last_word[1] : end]
+                        )
+                        self._caption_tail = _CaptionTail(
+                            captioned,
+                            last_end + _CAPTION_TAIL_RTP,
+                            last_end if ends_line else None,
+                        )
         elif isinstance(event, AgentLLMStartedEvent):
             self._stale_text = False
             self._llm_carryover = self._llm_unsent
@@ -1534,14 +1576,14 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 speaking = (
                     (
                         self._utterance_id
-                        or (self._caption_tail[0] if self._caption_tail else None)
+                        or (self._caption_tail.line_id if self._caption_tail else None)
                     )
                     if self._audio_in_tick or self._audio_in_last_tick
                     else None
                 )
                 self._caption_tail = None
                 self._captioned_lines.clear()
-                self._last_word_end_rtp = None
+                self._last_timed_word = None
                 result.was_truncated = True
                 result.truncated_audio_bytes += sum(
                     len(audio) for audio, _item_id in result.agent_audio_chunks

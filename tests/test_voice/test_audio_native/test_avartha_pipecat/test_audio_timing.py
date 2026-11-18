@@ -1460,6 +1460,202 @@ def test_a_later_caption_does_not_take_an_earlier_lines_words():
     assert hi and all(labels[i] == ["avartha-2"] for i in hi)
 
 
+def test_a_cut_in_a_captioned_lines_quiet_tail_does_not_cut_it_off():
+    """Every word of "Okay." aired and its caption said it was not cut; the
+    caller then speaks while its quiet tail is still queued. The cut tick
+    used to carry the line's ID as cut off."""
+
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Okay."),
+                _audio(0),
+                _audio(1),
+                _word("Okay.", FIRST_RTP + TICK_RTP + 300),
+                AgentPlaybackEvent("Okay.", cut=False),
+            ],
+            [_audio(2), _audio(3)],  # the line's quiet tail
+            [SpeechEvent("speech_started")],
+            [],
+        ]
+    )
+
+    assert "".join(t.proportional_transcript for t in ticks[:2]) == "Okay."
+    assert ticks[2].was_truncated
+    assert "avartha-1" not in ticks[2].item_ids
+
+
+_CAPTIONED_WITH_WORDS_QUEUED = {
+    # The caption overtook the line's queued audio; the cut discards words.
+    "timed": [
+        [
+            AgentAudioTimelineEvent(BINDING),
+            TranscriptEvent("Hello there world."),
+            *[_audio(i) for i in range(5)],
+            _word("Hello", FIRST_RTP + 500),
+            _word("there", FIRST_RTP + 2 * TICK_RTP + 500),
+            _word("world.", FIRST_RTP + 4 * TICK_RTP + 500),
+            AgentPlaybackEvent("Hello there world.", cut=False),
+        ],
+        [],
+        [SpeechEvent("speech_started")],
+        [],
+    ],
+    "untimed": [
+        [
+            TranscriptEvent("Hello there world."),
+            *[_audio(i, rtp=False) for i in range(5)],
+            AgentPlaybackEvent("Hello there world.", cut=False),
+        ],
+        [],
+        [SpeechEvent("speech_started")],
+        [],
+    ],
+    # The next line opened after the caption; the captioned line's audio is
+    # queued first, so it is the one the cut discards.
+    "next line open": [
+        [
+            TranscriptEvent("Alpha beta gamma."),
+            *[_audio(i, rtp=False) for i in range(4)],
+            AgentPlaybackEvent("Alpha beta gamma.", cut=False),
+            TranscriptEvent(" Delta."),
+            _audio(4, rtp=False),
+            _audio(5, rtp=False),
+        ],
+        [SpeechEvent("speech_started")],
+        [],
+    ],
+    # Caption and cut in one tick, caption first.
+    "caption then cut": [
+        [
+            TranscriptEvent("One two three four."),
+            *[_audio(i, rtp=False) for i in range(4)],
+        ],
+        [
+            AgentPlaybackEvent("One two three four.", cut=False),
+            SpeechEvent("speech_started"),
+        ],
+        [],
+    ],
+    # The last word's audio arrived in the tail window after an overtaking
+    # caption: it is the line's words, not its quiet tail.
+    "last word in tail window": [
+        [
+            AgentAudioTimelineEvent(BINDING),
+            TranscriptEvent("Hello world."),
+            _audio(0),
+            _audio(1),
+            _word("Hello", FIRST_RTP + 500),
+            _word("world.", FIRST_RTP + 3 * TICK_RTP + 500),
+            AgentPlaybackEvent("Hello world.", cut=False),
+        ],
+        [_audio(2), _audio(3), _audio(4)],
+        [SpeechEvent("speech_started")],
+        [],
+    ],
+    # The line's last word has no mark (alignment dropped it), so audio past
+    # the last timed word still carries a word.
+    "last word's mark dropped": [
+        [
+            AgentAudioTimelineEvent(BINDING),
+            TranscriptEvent("Hello world."),
+            _audio(0),
+            _audio(1),
+            _word("Hello", FIRST_RTP + 2 * TICK_RTP),
+            AgentPlaybackEvent("Hello world.", cut=False),
+        ],
+        [_audio(i) for i in range(2, 8)],
+        [SpeechEvent("speech_started")],
+        [],
+    ],
+    "last word untimed": [
+        [
+            AgentAudioTimelineEvent(BINDING),
+            TranscriptEvent("Hello world."),
+            _audio(0),
+            _audio(1),
+            _word("Hello", FIRST_RTP + 500),
+            AgentWordEvent("world.", None),
+            AgentPlaybackEvent("Hello world.", cut=False),
+        ],
+        [_audio(2), _audio(3), _audio(4)],
+        [SpeechEvent("speech_started")],
+        [],
+    ],
+}
+
+
+@pytest.mark.parametrize("case", sorted(_CAPTIONED_WITH_WORDS_QUEUED))
+def test_a_cut_discarding_a_captioned_lines_words_cuts_it_off(case):
+    """A captioned line whose words were still queued at the cut is cut off,
+    even though captioned lines have a quiet-tail exemption."""
+
+    ticks = _ticks(_CAPTIONED_WITH_WORDS_QUEUED[case])
+    cut = next(t for t in ticks if t.was_truncated)
+    assert cut.item_ids == ["avartha-1"]
+
+
+def test_a_cut_after_the_words_in_a_tail_burst_played_does_not_cut_the_line():
+    """The tail window brought the last word's sound and then quiet audio in
+    one burst; the caller speaks once the word has played, while only quiet
+    audio is queued."""
+
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _audio(1),
+                _word("Hello", FIRST_RTP + 500),
+                _word("world.", FIRST_RTP + 3 * TICK_RTP),
+                AgentPlaybackEvent("Hello world.", cut=False),
+            ],
+            [_audio(2), _audio(3), _audio(4), _audio(5)],
+            [],
+            [SpeechEvent("speech_started")],
+            [],
+        ]
+    )
+
+    assert "".join(t.proportional_transcript for t in ticks[:3]) == "Hello world."
+    assert ticks[3].was_truncated
+    assert "avartha-1" not in ticks[3].item_ids
+
+
+def test_without_timing_the_tick_showing_a_late_captioned_line_is_the_lines():
+    """No binding: the caption alone ends "Okay now."'s text. It came late,
+    after the next line's audio was queued, and the tick that showed the line
+    went to the next line's group."""
+
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Okay now."), _audio(0), _audio(1), _audio(2)],
+            [],
+            [],
+            [
+                AgentPlaybackEvent("Okay now.", cut=False),
+                TranscriptEvent(" Sure."),
+                _audio(3),
+                _audio(4),
+                _audio(5),
+            ],
+            [],
+            [],
+            [AgentPlaybackEvent("Sure.", cut=False)],
+            [],
+        ]
+    )
+
+    text = [t.proportional_transcript for t in ticks]
+    labels = [t.item_ids for t in ticks]
+    okay = [i for i, t in enumerate(text) if "Okay" in t]
+    sure = [i for i, t in enumerate(text) if "Sure" in t]
+    assert okay and all(labels[i] == ["avartha-1"] for i in okay)
+    assert sure and all(labels[i] == ["avartha-2"] for i in sure)
+
+
 def test_without_a_binding_a_caption_opens_no_tail():
     """RTP-placed audio but no audio_timeline: words are untimed, so the
     audio after a caption opens a new utterance, as before timing."""

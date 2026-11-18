@@ -86,7 +86,10 @@ stays in that line's utterance instead of opening a new one (if the next line's
 text came first, only when the caption overtook the line's audio). A tick that
 shows only a captioned line's text is that line's, whatever audio it plays, so
 the line's last word stays in its utterance; a tick that also shows the next
-line's first word is still labelled by the audio it plays.
+line's first word is still labelled by the audio it plays. This label also
+applies without timing (the caption alone ends a line's text); the tail window
+needs timed words. A cut in a captioned line's quiet tail (audio past its last
+timed word's end) does not mark that line cut off.
 "Played" includes the utterance's last millisecond, which the adapter holds
 back for its caption, as it does for every word. As upstream, a cut tick that
 discarded no audio is not labelled with the reply. The receiver keeps each
