@@ -113,6 +113,25 @@ def _word_edge(before: str, after: str) -> bool:
     )
 
 
+# A caption owed by a line a caller cut is recognised by the first characters
+# of the line's text (see _owed_caption). Captions come in playback order, so
+# only lines cut since the last caption owe one; a bound of a few keeps a run
+# of cuts with no caption between them from growing the list.
+_CAPTION_KEY_CHARS = 24
+_OWED_CAPTIONS_KEPT = 4
+
+
+def _same_opening(caption_key: str, line_key: str) -> bool:
+    length = min(len(caption_key), len(line_key), _CAPTION_KEY_CHARS)
+    return bool(length) and caption_key[:length] == line_key[:length]
+
+
+def _caption_key(text: str) -> str:
+    """``text`` compared as a caption: unescaped, single-spaced, lower case."""
+
+    return " ".join(_unescape(text).split()).lower()
+
+
 def _unescape(text: str) -> str:
     """Avartha HTML-escapes some text, sometimes twice ("I&amp;#x27;m")."""
 
@@ -170,6 +189,66 @@ class _SpokenTranscript:
         # Audio position of the last mark that aired: where the next word's
         # sound can start at the earliest (see _HeardTranscript.interrupt).
         self._aired_position = 0
+        # Spoken words that came before their sentence's text, in order, with
+        # their timing (see add_word).
+        self._early_words: list[tuple[str, Optional[int]]] = []
+        # Where each reply's text starts, and whether the next sentence starts
+        # a reply (see drop_unplayed_reply).
+        self._reply_starts: list[int] = []
+        self._reply_pending = False
+
+    def begin_reply(self) -> None:
+        """The next sentence starts a new reply (the LLM started one).
+
+        Words still waiting for text belonged to the reply before; they would
+        match the new reply's first words with the old words' timing. (An LLM
+        run after a tool call is a new reply too: its words come after it.)"""
+
+        self._reply_pending = True
+        self._early_words.clear()
+
+    def _splice(self, start: int, end: int, new: str) -> None:
+        """Replace ``text[start:end]`` with ``new``, keeping every position
+        into the text (sentence ends, reply starts) on the text it marks.
+
+        A sentence end at ``start`` stays before the edit; a reply start at
+        ``end`` stays at the start of its reply, after the edit. Positions
+        inside a removed range go: a removed sentence's end and a removed
+        reply's start mark nothing left."""
+
+        delta = len(new) - (end - start)
+        self.text = self.text[:start] + new + self.text[end:]
+        self._sentence_ends = sorted(
+            {
+                e if e <= start else e + delta
+                for e in self._sentence_ends
+                if not start < e <= end or start == end
+            }
+        )
+        self._reply_starts = [
+            at if at < start else at + delta
+            for at in self._reply_starts
+            if not start <= at < end
+        ]
+
+    def drop_unplayed_reply(self) -> None:
+        """The agent cut its own line (a caption with ``cut``, no caller
+        speech): the rest of its reply after the matched text will never play.
+
+        Left in place, it stood between the cursor and the next reply's text,
+        so every later word matched nothing in the cut sentence and the next
+        line showed nothing (seen live: 9 s of speech, no text). The next
+        reply's text, if it came already, stays.
+        """
+
+        start = self._match_cursor
+        # The caption matched some text, so a reply starting at the cursor or
+        # later is a newer one.
+        end = next((at for at in self._reply_starts if at >= start), len(self.text))
+        if end > start:
+            self._splice(start, end, "")
+        if start not in self._sentence_ends:
+            self._sentence_ends = sorted(self._sentence_ends + [start])
 
     def add_text(self, text: str) -> None:
         """Append one bot-transcription sentence, keeping its own spacing.
@@ -180,6 +259,9 @@ class _SpokenTranscript:
         """
 
         text = _unescape(text)
+        if self._reply_pending:
+            self._reply_pending = False
+            self._reply_starts.append(len(self.text))
         if not self.text.strip():
             text = text.lstrip()
         elif not self.text[-1].isspace() and not text[0].isspace():
@@ -187,6 +269,17 @@ class _SpokenTranscript:
                 text = " " + text
         self.text += text
         self._sentence_ends.append(len(self.text))
+        early, self._early_words = self._early_words, []
+        for word, timing in early:
+            self._add_timed_word(word, timing)
+
+    def _word_timing(self) -> Optional[int]:
+        """The timing of the word being added, kept if it must wait for its text."""
+
+        return None
+
+    def _add_timed_word(self, word: str, timing: Optional[int]) -> None:
+        self.add_word(word)
 
     def add_audio(self, num_bytes: int) -> None:
         self._audio_received += num_bytes
@@ -215,6 +308,17 @@ class _SpokenTranscript:
 
         needle = _unescape(word).strip().lower()
         if not needle:
+            return
+        if bisect_right(self._sentence_ends, self._match_cursor) == len(
+            self._sentence_ends
+        ):
+            # Its sentence has not arrived: the TTS can speak a sentence before
+            # Avartha sends its text (often in Chinese). Dropped, its words
+            # left the cursor behind, and the words after them, matched only a
+            # syllable or two ahead, never found their place: the line showed
+            # nothing until its caption, and nothing at all if cut first. It
+            # waits for the text (add_text), keeping its timing.
+            self._early_words.append((word, self._word_timing()))
             return
         piece, self._pending_piece = self._pending_piece, ""
         if piece and self._match(piece + needle):
@@ -295,17 +399,23 @@ class _SpokenTranscript:
         """
 
         self._pending_piece = ""
+        # Words of an ended utterance that never found text are not the next's.
+        self._early_words.clear()
         caption = " ".join(_unescape(caption).split())
         if not caption:
             return
         start = self._utterance_start
         while start < len(self.text) and self.text[start].isspace():
             start += 1
+        # The caption starts in its own reply, never in a later one whose text
+        # came already. It may run on into a later LLM run (a reply resumed
+        # after a tool call is spoken as one utterance).
+        stop = next((at for at in self._reply_starts if at > start), len(self.text))
         index = self.text.lower().find(caption.lower(), start)
-        if index >= 0:
+        if 0 <= index < stop:
             self._advance(index + len(caption))
         else:
-            aired = self.text[start:].lower()
+            aired = self.text[start:stop].lower()
             common = 0
             while (
                 common < len(caption)
@@ -314,16 +424,23 @@ class _SpokenTranscript:
             ):
                 common += 1
             at = start + common
+            if at < self._match_cursor:
+                # Parted behind the cursor (a character the caption spells
+                # differently): align the caption's rest with the text after it.
+                rest = caption[self._match_cursor - start :].lower()
+                if rest and self.text.lower().startswith(rest, self._match_cursor):
+                    self._advance(self._match_cursor + len(rest))
+                self._utterance_start = self._match_cursor
+                return
             missing = caption[common:]
             if at > 0 and not self.text[at - 1].isspace() and not missing[0].isspace():
                 missing = " " + missing if common == 0 else missing
             if self.text[at:].strip() and not missing[-1].isspace():
                 missing += " "
             logger.debug(f"Avartha playback adds unsent text: {missing!r}")
-            self.text = self.text[:at] + missing + self.text[at:]
+            self._splice(at, at, missing)
             self._sentence_ends = sorted(
-                [e if e <= at else e + len(missing) for e in self._sentence_ends]
-                + [at + len(missing.rstrip())]
+                set(self._sentence_ends) | {at + len(missing.rstrip())}
             )
             self._advance(at + len(missing.rstrip()))
         self._utterance_start = self._match_cursor
@@ -344,6 +461,8 @@ class _SpokenTranscript:
         self._match_cursor = self._spoken_chars = self._shown_chars
         self._utterance_start = self._match_cursor
         self._pending_piece = ""
+        self._early_words.clear()
+        self._reply_starts = [at for at in self._reply_starts if at < len(self.text)]
         self._marks.clear()
         self._aired_position = self._audio_played
 
@@ -510,6 +629,9 @@ class _HeardTranscript(_SpokenTranscript):
         self._sound_starts: list[int] = [0]
         self.timed_words = 0
         self.untimed_words = 0
+        # The last word placed on the clock: its sound's end (RTP) and its
+        # end in ``text``.
+        self.last_timed_word: Optional[tuple[int, int]] = None
 
     @property
     def clocked(self) -> bool:
@@ -560,6 +682,12 @@ class _HeardTranscript(_SpokenTranscript):
         finally:
             self._word_end = None
 
+    def _word_timing(self) -> Optional[int]:
+        return self._word_end
+
+    def _add_timed_word(self, word: str, timing: Optional[int]) -> None:
+        self.add_word(word, timing)
+
     def _advance(self, cursor: int) -> None:
         if self._word_end is None or cursor <= self._match_cursor:
             super()._advance(cursor)
@@ -571,6 +699,7 @@ class _HeardTranscript(_SpokenTranscript):
             self._marks.append((self._audio_received, cursor))
             return
         self.timed_words += 1
+        self.last_timed_word = (self._word_end, cursor)
         self._timed.add(cursor)
         if position is _NOT_YET_RECEIVED:
             # Its sound has not arrived yet: nothing after it airs before it.
@@ -874,6 +1003,9 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         self._audio_after_cut: list[tuple[bytes, Optional[str]]] = []
         # True from an utterance's first audio until its played caption.
         self._awaiting_playback = False
+        # Lines a caller cut while they still owed their caption, by the start
+        # of their text (see _owed_caption); the newest few.
+        self._owed_captions: deque[str] = deque(maxlen=_OWED_CAPTIONS_KEPT)
         # See _hold_utterance_end.
         self._held_end: list[tuple[bytes, Optional[str]]] = []
         # The call's audio clock binding (AgentAudioTimelineEvent); a second,
@@ -1408,6 +1540,43 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
             )
         return self._utterance_transcripts[_ITEM_ID]  # type: ignore[return-value]
 
+    def _owed_caption(self, caption: str) -> bool:
+        """Whether ``caption`` is owed by a line a caller cut; consumes it.
+        Checked for every caption, so the owed list follows playback order.
+
+        Avartha's captions name no utterance, so a cut line's caption is
+        known by its text: it starts as the line's text did. An agent cutting
+        its own line sends a cut caption no caller cut owes, with its own
+        text, so it is not mistaken for one, even if a cut line's caption
+        never came."""
+
+        key = _caption_key(caption)
+        for index, line in enumerate(self._owed_captions):
+            if _same_opening(key, line):
+                del self._owed_captions[index]
+                return True
+        if self._owed_captions:
+            transcript = self._transcript()
+            if not _same_opening(
+                key, _caption_key(transcript.text[transcript.utterance_start :])
+            ):
+                # Not the open line's either: a cut line's caption that starts
+                # otherwise than its text did (a code spelled out).
+                self._owed_captions.popleft()
+                return True
+        # Captions come in playback order: one no cut line owes means those
+        # still owed will not come (the cut line sent none), and a later line
+        # opening the same way must not be taken for one of them.
+        self._owed_captions.clear()
+        return False
+
+    def _note_timed_word(self, transcript: _HeardTranscript, timed_before: int) -> None:
+        """Track the open line's last timed word, if the transcript just
+        placed one on the clock (see _continues_captioned_line)."""
+
+        if transcript.timed_words > timed_before:
+            self._last_timed_word = transcript.last_timed_word
+
     def _word_end_rtp(self, event: AgentWordEvent) -> Optional[int]:
         """The RTP timestamp where ``event``'s word ends, if Avartha timed it
         on the call's audio clock."""
@@ -1531,7 +1700,11 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 # The next line's text: audio from here on is not the
                 # captioned line's tail.
                 self._caption_tail = None
-                self._transcript().add_text(text)
+                transcript = self._transcript()
+                timed_before = transcript.timed_words
+                # Places words spoken before this text came (add_word).
+                transcript.add_text(text)
+                self._note_timed_word(transcript, timed_before)
                 logger.debug(f"Avartha transcript: {text!r}")
         elif isinstance(event, AgentWordEvent):
             if not self._stale_audio:
@@ -1539,10 +1712,17 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 transcript = self._transcript()
                 timed_before = transcript.timed_words
                 transcript.add_word(event.text, end_rtp)
-                if end_rtp is not None and transcript.timed_words > timed_before:
-                    # Only a word the transcript placed on the clock.
-                    self._last_timed_word = (end_rtp, transcript.matched_chars)
+                self._note_timed_word(transcript, timed_before)
         elif isinstance(event, AgentPlaybackEvent):
+            owed = self._owed_caption(event.text)
+            if owed and event.cut:
+                # The caption of a line a caller cut. It usually comes in the
+                # cut tick, but can come after the next line started (after
+                # its AgentStartedSpeakingEvent cleared _stale_audio); read
+                # then, it put the cut line's text back into the next line's
+                # (seen live: a whole cut reply was shown again).
+                # interrupt() already kept what the caller heard.
+                return
             if not self._stale_audio:
                 self._awaiting_playback = False
                 self._caption_tail = None
@@ -1553,6 +1733,9 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 # Still timed: the receiver may have lost its sound since.
                 last_timed = last_word is not None and transcript.is_timed(last_word[1])
                 transcript.add_playback(event.text)
+                if event.cut and event.text.strip():
+                    # No caller cut owed this caption: the agent cut its own line.
+                    transcript.drop_unplayed_reply()
                 if captioned is None:
                     return
                 end = transcript.matched_chars
@@ -1576,6 +1759,7 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                             last_end if ends_line else None,
                         )
         elif isinstance(event, AgentLLMStartedEvent):
+            self._transcript().begin_reply()
             self._stale_text = False
             self._llm_carryover = self._llm_unsent
         elif isinstance(event, AgentStartedSpeakingEvent):
@@ -1613,6 +1797,11 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 self._buffered_agent_audio.clear()
                 self._audio_after_cut.clear()
                 self._held_end = []
+                if self._awaiting_playback or self._utterance_id is not None:
+                    transcript = self._transcript()
+                    line = _caption_key(transcript.text[transcript.utterance_start :])
+                    if line:
+                        self._owed_captions.append(line)
                 self._awaiting_playback = False
                 if self._cut_utterance_id is None:
                     self._cut_utterance_id = self._discarded_utterance()

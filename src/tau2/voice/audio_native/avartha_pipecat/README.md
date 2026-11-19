@@ -64,7 +64,17 @@ played. The agent sends each sentence of text before the audio that speaks it;
 the adapter holds the text back until the agent's word-timing events or its
 end-of-utterance playback caption show that the words aired. A word the
 alignment splits in two ("T-shir" + "t") counts once both pieces have aired.
-On barge-in, text the caller has not heard is discarded.
+A word spoken after all the text received so far (its sentence's text not
+yet sent, common in Chinese) waits for the next text of its reply, keeping its
+timing. On barge-in, text the caller has not heard is discarded, and the cut
+line's caption, which can arrive after the next line started, is ignored; it is
+recognised by its text (it starts as the cut line did), since captions name no
+utterance. A caption with `cut` that no barge-in owes is the agent cutting its
+own line: the rest of that reply's text is discarded too. Known limits: a cut
+line's late caption without `cut` is still read as the next line's; and when a
+cut line never sends its caption and the next caption is a self-cut opening
+the same way, it is taken for the owed one (the next reply then waits for its
+caption, as before).
 
 When the agent times its words on the audio clock
 (`avartha-audio-timing/1`: an `audio_timeline` server-message binding its
