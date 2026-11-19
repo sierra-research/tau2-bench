@@ -92,7 +92,12 @@ needs timed words. A cut in a captioned line's quiet tail (audio past its last
 timed word's end) does not mark that line cut off.
 "Played" includes the utterance's last millisecond, which the adapter holds
 back for its caption, as it does for every word. As upstream, a cut tick that
-discarded no audio is not labelled with the reply. The receiver keeps each
+discarded no audio is not labelled with the reply. A cut records
+`was_truncated` only when it stopped a line whose audio had played, or when its
+tick shows text the cut kept; caller speech while nothing plays, or a cut that
+discards a reply before any of it played, discards what it must (counted in
+`truncated_audio_bytes`) but records no truncation. Readers attribute a
+truncated tick to the agent speech before it. The receiver keeps each
 decoded frame's RTP timestamp for this; aiortc exposes its RTP origin only
 privately. Without that origin, a binding, or a word's `audio_time`, the word
 is placed on arrival as before. A word reported after the barge-in is

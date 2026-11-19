@@ -916,6 +916,9 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         # shown when the last tick was labelled. See _label_utterances.
         self._captioned_lines: deque[tuple[str, int, int]] = deque()
         self._shown_at_label = 0
+        # Utterances with played audio: a cut records a truncation only if it
+        # stopped one of them (see _async_run_tick).
+        self._played_lines: set[str] = set()
 
     @property
     def provider(self) -> AvarthaPipecatProvider:
@@ -1118,7 +1121,23 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
             self._audio_after_cut = []
         self._buffered_agent_audio.extend(self._held_end)
         self._held_end = []
+        cut_line = self._cut_utterance_id
         self._label_utterances(result)
+        if (
+            result.was_truncated
+            and cut_line not in self._played_lines
+            and not result.proportional_transcript.strip()
+        ):
+            # Caller speech stopped no line the caller had heard: nothing was
+            # playing, or the cut discarded a reply before any of its audio
+            # played (see _label_utterances). The tick still discarded what it
+            # had to, and counts it in truncated_audio_bytes, but records no
+            # truncation. Readers attribute a truncated tick to the agent speech
+            # before it (utils/transcript/live.py marks the latest speech span
+            # cut off), and these ticks follow every caller turn start. A tick
+            # that shows text the cut kept stays truncated: it is its own
+            # utterance on the tick path.
+            result.was_truncated = False
         self._audio_in_last_tick, self._audio_in_tick = self._audio_in_tick, False
         return result
 
@@ -1175,6 +1194,8 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         result.agent_audio_chunks = [
             (chunk, label) for chunk, _ in result.agent_audio_chunks
         ]
+        self._played_lines.update(shares)
+        self._played_lines.add(label)
 
     def _captioned_line_shown(self, result: TickResult) -> Optional[str]:
         """The captioned line whose text holds all the text this tick shows.

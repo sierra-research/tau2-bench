@@ -211,7 +211,9 @@ def test_user_speech_truncates_same_tick_audio():
     adapter.connect("policy", [])
     try:
         tick = adapter.run_tick(b"\xff" * 160)
-        assert tick.was_truncated is True
+        # The cut discards the reply before any of it played: the caller heard
+        # no line stop, so no truncation is recorded; the bytes are counted.
+        assert tick.was_truncated is False
         assert tick.agent_audio_bytes == 0
         assert tick.truncated_audio_bytes == 160
     finally:
@@ -947,7 +949,7 @@ def test_caller_speech_after_a_fully_played_reply_does_not_mark_it_cut():
         ]
     )
 
-    assert ticks[-1].was_truncated
+    assert not ticks[-1].was_truncated  # it cut no line
     assert ticks[-1].item_ids == []
 
 
@@ -1028,7 +1030,7 @@ def test_stale_audio_after_cutting_a_finished_reply_does_not_mark_it_cut():
         ]
     )
 
-    assert ticks[-1].was_truncated
+    assert not ticks[-1].was_truncated  # it cut no line
     assert ticks[-1].item_ids == []
 
 
@@ -1042,7 +1044,7 @@ def test_stale_audio_after_a_cut_in_a_tts_pause_does_not_mark_the_reply():
         ]
     )
 
-    assert ticks[-1].was_truncated
+    assert not ticks[-1].was_truncated  # it cut no line
     assert ticks[-1].item_ids == []
 
 
@@ -1076,7 +1078,7 @@ def test_a_replacement_cut_does_not_mark_a_completed_previous_reply():
         ]
     )
 
-    assert ticks[-1].was_truncated
+    assert not ticks[-1].was_truncated  # it cut no line
     assert ticks[-1].item_ids == []
 
 
@@ -1186,6 +1188,8 @@ def test_failed_audio_send_drains_receive_task_before_loop_stops():
 
 
 @pytest.mark.parametrize("deadline_lag", [0.0, 1.0])
+# ``cut``: caller speech discards the reply's first audio before it plays (so
+# no truncation is recorded, only discarded bytes).
 @pytest.mark.parametrize("cut", [False, True])
 def test_tick_includes_events_queued_while_sender_finishes(deadline_lag, cut):
     """A closed receive window must not hide events queued before send completion."""
@@ -1233,7 +1237,9 @@ def test_tick_includes_events_queued_while_sender_finishes(deadline_lag, cut):
         second = await adapter._async_run_tick(b"\xff" * 160, 1)
         assert first.events == provider.before + provider.after
         assert len(first.agent_audio_data) == (0 if cut else 160)
-        assert first.was_truncated is cut
+        # A cut discarding the reply before it played records no truncation.
+        assert first.was_truncated is False
+        assert first.truncated_audio_bytes == (160 if cut else 0)
         assert first.tool_calls[0].id == "call-window"
         assert provider._queue.empty()
         assert len(second.agent_audio_data) == (160 if cut else 0)
@@ -1298,3 +1304,42 @@ def test_cancelled_tick_drains_tasks_without_consuming_pending_events():
         assert not provider.events_drained
 
     asyncio.run(check())
+
+
+def test_a_cut_stopping_a_playing_line_records_the_truncation_on_it():
+    ticks = _ticks(
+        [
+            [
+                TranscriptEvent("Hello there, friend."),
+                _audio_ticks(3),
+                AgentWordEvent("Hello"),
+            ],
+            [SpeechEvent("speech_started")],
+        ]
+    )
+
+    assert ticks[1].was_truncated
+    assert ticks[1].item_ids == ["avartha-1"]
+
+
+def test_a_cut_discarding_a_reply_before_it_played_records_no_truncation():
+    """Readers pin a truncated tick on the agent speech before it, so a cut of a
+    reply nobody heard yet marked the finished reply before it cut off."""
+
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Done."), _audio_ticks(1), AgentWordEvent("Done.")],
+            [_played("Done.")],
+            [],
+            [
+                AgentLLMStartedEvent(),
+                TranscriptEvent("Next question?"),
+                AgentStartedSpeakingEvent(),
+                _audio_ticks(2),
+                SpeechEvent("speech_started"),
+            ],
+        ]
+    )
+
+    assert not ticks[3].was_truncated
+    assert ticks[3].truncated_audio_bytes > 0
