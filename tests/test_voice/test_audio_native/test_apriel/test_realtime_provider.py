@@ -104,8 +104,8 @@ class AprielProviderTestCase(unittest.IsolatedAsyncioTestCase):
                     await ws.send(json.dumps({"type": "session.updated"}))
 
         self.server = await websockets.serve(handler, "127.0.0.1", 0)
-        self.url = "ws://127.0.0.1:%s/v1/realtime" % (
-            self.server.sockets[0].getsockname()[1]
+        self.url = (
+            "ws://127.0.0.1:%s/v1/realtime" % (self.server.sockets[0].getsockname()[1])
         )
         self.env = patch.dict(
             os.environ,

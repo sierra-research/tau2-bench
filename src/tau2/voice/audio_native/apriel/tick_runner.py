@@ -206,7 +206,9 @@ class TickRunner:
 
         return result
 
-    async def _process_event(self, result: TickResult, event: BaseRealtimeEvent) -> None:
+    async def _process_event(
+        self, result: TickResult, event: BaseRealtimeEvent
+    ) -> None:
         result.events.append(event)
 
         if isinstance(event, SpeechStartedEvent):
@@ -231,7 +233,9 @@ class TickRunner:
                         result.truncated_audio_bytes += pending.total_audio_bytes
                     self.pending_utterances.clear()
 
-                audio_start_ms = event.audio_start_ms if event.audio_start_ms is not None else 0
+                audio_start_ms = (
+                    event.audio_start_ms if event.audio_start_ms is not None else 0
+                )
                 result.truncate_agent_audio(
                     item_id=last_item_id,
                     audio_start_ms=audio_start_ms,
@@ -281,19 +285,25 @@ class TickRunner:
 
             if item_id:
                 if item_id not in self.utterance_transcripts:
-                    self.utterance_transcripts[item_id] = UtteranceTranscript(item_id=item_id)
+                    self.utterance_transcripts[item_id] = UtteranceTranscript(
+                        item_id=item_id
+                    )
                 self.utterance_transcripts[item_id].add_audio(len(decoded))
 
         elif isinstance(event, AudioTranscriptDeltaEvent):
             item_id = getattr(event, "item_id", None)
             if item_id:
                 if item_id not in self.utterance_transcripts:
-                    self.utterance_transcripts[item_id] = UtteranceTranscript(item_id=item_id)
+                    self.utterance_transcripts[item_id] = UtteranceTranscript(
+                        item_id=item_id
+                    )
                 self.utterance_transcripts[item_id].add_transcript(event.delta)
 
                 if self.buffer_until_complete:
                     if item_id not in self.pending_utterances:
-                        self.pending_utterances[item_id] = PendingUtterance(item_id=item_id)
+                        self.pending_utterances[item_id] = PendingUtterance(
+                            item_id=item_id
+                        )
                     self.pending_utterances[item_id].transcript += event.delta
 
         elif isinstance(event, AudioDoneEvent):
@@ -305,7 +315,9 @@ class TickRunner:
                     self._check_and_release_utterance(item_id, result)
 
         elif isinstance(event, AudioTranscriptDoneEvent):
-            logger.debug(f"Audio transcript done event detected for item {event.item_id}")
+            logger.debug(
+                f"Audio transcript done event detected for item {event.item_id}"
+            )
             item_id = getattr(event, "item_id", None)
             if self.buffer_until_complete and item_id:
                 if item_id in self.pending_utterances:
@@ -409,7 +421,9 @@ class TickRunner:
     ) -> int:
         previous_ticks_bytes = 0
         if item_id in self.utterance_transcripts:
-            previous_ticks_bytes = self.utterance_transcripts[item_id].audio_bytes_played
+            previous_ticks_bytes = self.utterance_transcripts[
+                item_id
+            ].audio_bytes_played
 
         position_within_tick_ms = (
             audio_start_ms - result.cumulative_user_audio_at_tick_start_ms
@@ -449,7 +463,9 @@ class TickRunner:
                 position_within_tick_ms = max(
                     0, min(position_within_tick_ms, tick_duration_ms)
                 )
-                max_bytes = int(position_within_tick_ms * result.bytes_per_second / 1000)
+                max_bytes = int(
+                    position_within_tick_ms * result.bytes_per_second / 1000
+                )
             else:
                 max_bytes = result.bytes_per_tick
 

@@ -24,18 +24,23 @@ from tau2.config import (
 )
 from tau2.data_model.audio import TELEPHONY_AUDIO_FORMAT, AudioFormat
 from tau2.environment.tool import Tool
-from tau2.voice.audio_native.openai.events import BaseRealtimeEvent, TimeoutEvent, UnknownEvent, parse_realtime_event
+from tau2.voice.audio_native.openai.events import (
+    BaseRealtimeEvent,
+    TimeoutEvent,
+    UnknownEvent,
+    parse_realtime_event,
+)
 
 
 def _audio_format_to_gateway(audio_format: AudioFormat) -> str:
     enc = str(audio_format.encoding).lower()
-    if enc.endswith('ulaw'):
-        return 'g711_ulaw'
-    if enc.endswith('alaw'):
-        return 'g711_alaw'
-    if 'pcm' in enc:
-        return 'pcm16'
-    raise ValueError(f'Unsupported audio encoding: {audio_format.encoding}')
+    if enc.endswith("ulaw"):
+        return "g711_ulaw"
+    if enc.endswith("alaw"):
+        return "g711_alaw"
+    if "pcm" in enc:
+        return "pcm16"
+    raise ValueError(f"Unsupported audio encoding: {audio_format.encoding}")
 
 
 class AprielRealtimeProvider:
@@ -56,13 +61,19 @@ class AprielRealtimeProvider:
     ):
         self.model = model or DEFAULT_APRIEL_MODEL
         if not self.model:
-            raise ValueError("Apriel model not provided. Set APRIEL_MODEL_NAME in .env.")
+            raise ValueError(
+                "Apriel model not provided. Set APRIEL_MODEL_NAME in .env."
+            )
 
         resolved_url = base_url or os.environ.get("APRIEL_REALTIME_BASE_URL")
         if not resolved_url:
-            raise ValueError("Apriel realtime URL not provided. Set APRIEL_REALTIME_BASE_URL.")
+            raise ValueError(
+                "Apriel realtime URL not provided. Set APRIEL_REALTIME_BASE_URL."
+            )
         if not resolved_url.startswith(("ws://", "wss://")):
-            raise ValueError("APRIEL_REALTIME_BASE_URL must start with ws:// or wss://.")
+            raise ValueError(
+                "APRIEL_REALTIME_BASE_URL must start with ws:// or wss://."
+            )
         self.base_url = resolved_url
 
         resolved_key = api_key or os.environ.get("APRIEL_API_KEY")
@@ -217,9 +228,13 @@ class AprielRealtimeProvider:
         if not self.is_connected:
             raise RuntimeError("Not connected to API")
         audio_b64 = base64.b64encode(audio_data).decode("utf-8")
-        await self.ws.send(json.dumps({"type": "input_audio_buffer.append", "audio": audio_b64}))
+        await self.ws.send(
+            json.dumps({"type": "input_audio_buffer.append", "audio": audio_b64})
+        )
 
-    async def send_tool_result(self, call_id: str, result: str, request_response: bool = True) -> None:
+    async def send_tool_result(
+        self, call_id: str, result: str, request_response: bool = True
+    ) -> None:
         if not self.is_connected:
             raise RuntimeError("Not connected to API")
 
@@ -235,7 +250,9 @@ class AprielRealtimeProvider:
         if request_response:
             await self.ws.send(json.dumps({"type": "response.create"}))
 
-    async def truncate_item(self, item_id: str, content_index: int, audio_end_ms: int) -> None:
+    async def truncate_item(
+        self, item_id: str, content_index: int, audio_end_ms: int
+    ) -> None:
         if not self.is_connected:
             raise RuntimeError("Not connected to API")
         truncate_event = {
