@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import audioop
 import html
 import math
 import re
+import statistics
 from bisect import bisect_right
 from collections import deque
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
 from loguru import logger
+from pydantic import Field, model_serializer
 
 from tau2.config import (
     DEFAULT_AUDIO_NATIVE_DISCONNECT_TIMEOUT,
@@ -27,11 +30,19 @@ from tau2.voice.audio_native.async_loop import BackgroundAsyncLoop
 from tau2.voice.audio_native.audio_converter import StreamingTelephonyConverter
 from tau2.voice.audio_native.avartha_pipecat.audio_timing import (
     RTP_CLOCK_HZ,
+    SPEECH_FRAME_MS,
     AudioClockBinding,
+    speech_spans,
     unwrap_rtp,
 )
 from tau2.voice.audio_native.avartha_pipecat.caller_audio import CallerAudioUpsampler
 from tau2.voice.audio_native.avartha_pipecat.config import AvarthaPipecatConfig
+from tau2.voice.audio_native.avartha_pipecat.cut_token import (
+    DEFAULT_UNIT_MS,
+    UNIT_MS_FLOOR,
+    split_token,
+    units_heard,
+)
 from tau2.voice.audio_native.avartha_pipecat.provider import (
     AgentAudioEvent,
     AgentAudioTimelineEvent,
@@ -130,6 +141,116 @@ def _caption_key(text: str) -> str:
     """``text`` compared as a caption: unescaped, single-spaced, lower case."""
 
     return " ".join(_unescape(text).split()).lower()
+
+
+# Ideographs and kana: scripts written without spaces, where the TTS times
+# each character as a word.
+_UNSPACED_CHARS = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
+
+
+def _next_word(text: str, start: int) -> str:
+    """The word after ``start`` in ``text``, with any space before it.
+
+    A word runs to the next space or script change; in a script written
+    without spaces it is one character, with any punctuation attached
+    ("好！"), as the TTS times it. Punctuation before it comes with it
+    (", 6941833."); punctuation alone is no word.
+    """
+
+    first = start
+    while first < len(text) and not text[first].isalnum():
+        first += 1
+    if first == len(text):
+        return ""
+    end = first + 1
+    if _UNSPACED_CHARS.match(text[first]):
+        while end < len(text) and _CJK_PUNCTUATION.match(text[end]):
+            end += 1
+    else:
+        while (
+            end < len(text)
+            and not text[end].isspace()
+            and not _script_change(text[end - 1], text[end])
+            and not _UNSPACED_CHARS.match(text[end])
+            and not _CJK_PUNCTUATION.match(text[end])
+        ):
+            end += 1
+        while end < len(text) and _CJK_PUNCTUATION.match(text[end]):
+            end += 1
+    return text[start:end]
+
+
+# Agent speech played since the last shown word that shows a cut caught the
+# next word's sound: two speech frames, more than a click.
+_STARTED_WORD_MIN_MS = 2 * SPEECH_FRAME_MS
+
+
+@dataclass(frozen=True)
+class _StartedWord:
+    """What a cut showed of the word it caught after its sound started.
+
+    ``text`` is shown; for a token read unit by unit (cut_token.py) it holds
+    the ``units_heard`` of its ``units`` whose sound played, else both are
+    None (an ordinary word, shown whole)."""
+
+    text: str
+    units_heard: Optional[int] = None
+    units: Optional[int] = None
+
+
+class AvarthaTickResult(TickResult):
+    """A cut tick that shows a word the cut caught after its sound started.
+
+    ``started_word`` is the text shown of it, part of
+    ``proportional_transcript`` (see _HeardTranscript.interrupt): text the
+    adapter inferred from the played audio rather than from a reported word
+    end. For a code, identifier or digit string read unit by unit it is the
+    units heard, ``started_word_units_heard`` of ``started_word_units``.
+    Serialized only when set, so every other tick records what it did before.
+    The agent records ticks with ``model_dump(serialize_as_any=True)``, which
+    keeps these fields; a dump through a ``TickResult``-typed field drops them.
+    """
+
+    started_word: Optional[str] = Field(
+        default=None,
+        description="The text shown of the one word a cut caught mid-sound, inferred (no end reported)",
+    )
+    started_word_units_heard: Optional[int] = Field(
+        default=None,
+        description="Units of a token read unit by unit whose sound played: those shown",
+    )
+    started_word_units: Optional[int] = Field(
+        default=None,
+        description="Units of the started token read unit by unit",
+    )
+
+    @classmethod
+    def with_started_word(
+        cls, result: TickResult, started: _StartedWord
+    ) -> AvarthaTickResult:
+        """``result``, a TickResult the base adapter built, with ``started`` recorded.
+
+        A field-for-field copy (no re-validation of its audio and events)."""
+
+        fields = {
+            "started_word": started.text,
+            "started_word_units_heard": started.units_heard,
+            "started_word_units": started.units,
+        }
+        return cls.model_construct(
+            _fields_set=result.model_fields_set
+            | {name for name, value in fields.items() if value is not None},
+            **dict(result),
+            **fields,
+        )
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: Any) -> dict:
+        data = handler(self)
+        for name in ("started_word", "started_word_units_heard", "started_word_units"):
+            if getattr(self, name) is None:
+                data.pop(name, None)
+        return data
 
 
 def _unescape(text: str) -> str:
@@ -484,12 +605,16 @@ class _SpokenTranscript:
 
         return self._match_cursor
 
+    def _air(self, position: int, cursor: int) -> None:
+        """The mark at audio ``position``, text length ``cursor``, has aired."""
+
+        self._spoken_chars = max(self._spoken_chars, cursor)
+        self._aired_position = max(self._aired_position, position)
+
     def get_transcript_for_audio(self, audio_bytes_to_play: int) -> str:
         self._audio_played += audio_bytes_to_play
         while self._marks and self._marks[0][0] <= self._audio_played + self._due_slack:
-            position, cursor = self._marks.popleft()
-            self._spoken_chars = max(self._spoken_chars, cursor)
-            self._aired_position = max(self._aired_position, position)
+            self._air(*self._marks.popleft())
         end = min(self._spoken_chars, len(self.text))
         text = self.text[self._shown_chars : end]
         self._shown_chars = max(self._shown_chars, end)
@@ -600,8 +725,15 @@ class _HeardTranscript(_SpokenTranscript):
     timed words the two classes behave identically.
     """
 
-    def __init__(self, due_slack_bytes: int = 0) -> None:
+    def __init__(
+        self,
+        due_slack_bytes: int = 0,
+        *,
+        sample_rate: int = TELEPHONY_AUDIO_FORMAT.sample_rate,
+    ) -> None:
         super().__init__(due_slack_bytes)
+        # Audio positions count bytes of played u-law: one per sample.
+        self._sample_rate = sample_rate
         self._spans: list[_AudioSpan] = []
         self._span_starts: list[int] = []
         # Whether the receiver has placed any of this call's audio on the RTP
@@ -623,6 +755,19 @@ class _HeardTranscript(_SpokenTranscript):
         # Whether the last cut kept the word it caught mid-sound: the cut
         # stopped a word, so it cut off the line that word belongs to.
         self.kept_caught_word = False
+        # The word a cut showed after its sound started (see interrupt), until
+        # the cut tick records it.
+        self._started: Optional[_StartedWord] = None
+        # The last aired mark, (position, text length), if it was timed: the
+        # start of the next timed word's sound (see _air).
+        self._last_timed_aired: Optional[tuple[int, int]] = None
+        # Completed codes' sound per unit, in audio bytes (see _air).
+        self._unit_bytes: list[float] = []
+        # Speech in the audio played after the last aired mark: spans of
+        # 20 ms speech frames, in audio positions (note_played).
+        self._speech: deque[tuple[int, int]] = deque()
+        # Audio position through which played audio has been noted.
+        self._noted_through = 0
         # Received-byte positions where sound began, in order: a line's first
         # audio, or audio after silence the receiver dropped. A word's sound
         # starts no earlier than the last of them before its end (interrupt).
@@ -849,7 +994,7 @@ class _HeardTranscript(_SpokenTranscript):
         end_rtp = unwrap_rtp(waiting[0], played_rtp)
         return played_rtp - start_rtp > (end_rtp - start_rtp) / 2
 
-    def interrupt(self) -> None:
+    def interrupt(self, *, speech_before_cut: bool = False) -> None:
         """Keep the timed words the caller heard: those whose sound ended in
         the audio played, and the word the cut caught if more than half of its
         sound had played.
@@ -864,6 +1009,22 @@ class _HeardTranscript(_SpokenTranscript):
 
         The kept text is held for the cut tick (``take_kept``); it counts as
         shown, so a second cut in the same tick keeps it too.
+
+        ``speech_before_cut``: the line still streams at the cut and the tick
+        before it played speech. If at least 40 ms of speech played after the
+        last shown word (``note_played``), the cut keeps no word, no later
+        word's end was reported, and the shown text stops inside a sentence,
+        that speech is the sentence's next word, caught mid-sound before its
+        end was reported (a code read digit by digit is one word of several
+        seconds). That one inferred word is kept too, and recorded as the started word
+        (``take_started``): the cut tick's clip carries its sound, and without
+        its text a judge comparing the clip with the line heard words the text
+        lacked. A short ordinary word is kept whole: the caller may have heard
+        only its start. Of a code read unit by unit only the units whose sound
+        surely played are kept, and of a long word or a number read as number
+        words nothing (``_spoken_part``), so the caller is not shown digits it
+        never heard. A second cut in the same tick infers no word: nothing has
+        played after the kept text.
         """
 
         played = self._audio_played + self._due_slack
@@ -905,7 +1066,26 @@ class _HeardTranscript(_SpokenTranscript):
         if heard > self._shown_chars:
             self._kept += self.text[self._shown_chars : heard]
             self._shown_chars = heard
+        elif (
+            speech_before_cut
+            and self._speech_after_shown_ms() >= _STARTED_WORD_MIN_MS
+            # Its end was never reported: a word whose end mark came keeps the
+            # rule above (dropped unless mostly played).
+            # (_marks holds every reported end, placed or still waiting.)
+            and not any(cursor > self._shown_chars for _, cursor in self._marks)
+            and len(self.text[: self._shown_chars].rstrip()) not in self._sentence_ends
+        ):
+            word = _next_word(self.text, self._shown_chars)
+            started = self._spoken_part(word) if word else None
+            if started is not None and started.text:
+                self._kept += started.text
+                self._shown_chars += len(started.text)
+                self._started = started
         super().interrupt()
+        # Nothing played after the kept text yet: a second cut in this tick
+        # infers no word.
+        self._speech.clear()
+        self._last_timed_aired = None
         self._sound_starts = [self._audio_played]
         self._spans.clear()
         self._span_starts.clear()
@@ -918,6 +1098,127 @@ class _HeardTranscript(_SpokenTranscript):
 
         kept, self._kept = self._kept, ""
         return kept
+
+    @property
+    def caught_started_word(self) -> bool:
+        """Whether the kept text holds a word caught after its sound started."""
+
+        return self._started is not None
+
+    def take_started(self) -> Optional[_StartedWord]:
+        """What the kept text shows of the word caught after its sound
+        started, once (see interrupt)."""
+
+        started, self._started = self._started, None
+        return started
+
+    def _air(self, position: int, cursor: int) -> None:
+        """Also measures a unit of a completed code (see the base method; any
+        other place that airs a mark must call it too)."""
+        # A timed word right after a timed word, in the same stretch of sound,
+        # whose sound runs from the earlier's end to its own: a token that
+        # SplitToken.measures_unit accepts measures a unit's duration for the
+        # rate (_units_heard).
+        timed = cursor in self._timed
+        before = self._last_timed_aired
+        if (
+            timed
+            and before is not None
+            and position > before[0]
+            and cursor > before[1]
+            and not any(before[0] < at < position for at in self._sound_starts)
+        ):
+            token = split_token(self.text[before[1] : cursor])
+            if token.measures_unit:
+                self._unit_bytes.append((position - before[0]) / len(token.units))
+        self._last_timed_aired = (position, cursor) if timed else None
+        super()._air(position, cursor)
+
+    def _unit_ms(self) -> float:
+        """A unit's duration: the median on this call's completed codes, but
+        no less than cut_token.UNIT_MS_FLOOR; else cut_token.DEFAULT_UNIT_MS."""
+
+        if self._unit_bytes:
+            median = statistics.median(self._unit_bytes) * 1000 / self._sample_rate
+            return max(median, UNIT_MS_FLOOR)
+        return DEFAULT_UNIT_MS
+
+    def note_played(self, audio: bytes) -> bool:
+        """``audio``, the u-law bytes ``get_transcript_for_audio`` has just
+        counted as played, in order: notes its speech frames (20 ms, PCM16 peak
+        over 32; audio_timing.speech_spans) after the last shown word. Returns
+        whether any of it is speech.
+
+        This is the one clock of agent speech after the last shown word: the
+        gate for a started word and a started code's sound (interrupt). Frames
+        are counted from the shown word's end, so a frame never carries the
+        end of the shown word's sound. (Marks air before this is called, so
+        the start is known for all of ``audio``.)"""
+
+        start = self._audio_played - len(audio)
+        if start != self._noted_through:
+            # Internal invariant: every played byte is noted once, in order.
+            raise RuntimeError(
+                f"Avartha played audio noted out of order: {len(audio)} bytes "
+                f"ending at {self._audio_played}, noted through {self._noted_through}"
+            )
+        self._noted_through = self._audio_played
+        pcm = audioop.ulaw2lin(audio, 2)
+        since = self._token_start()
+        while self._speech and self._speech[0][1] <= since:
+            self._speech.popleft()
+        skip = min(len(audio), max(0, since - start))
+        after = speech_spans(pcm[2 * skip :], self._sample_rate)
+        for first, last in after:
+            first, last = start + skip + first, start + skip + last
+            if self._speech and self._speech[-1][1] == first:
+                self._speech[-1] = (self._speech[-1][0], last)
+            else:
+                self._speech.append((first, last))
+        return bool(after) or bool(
+            skip and speech_spans(pcm[: 2 * skip], self._sample_rate)
+        )
+
+    def _token_start(self) -> int:
+        """Where the sound of the word after the shown text starts: the last
+        aired mark (the last shown word's end), or where sound began after it."""
+
+        played = self._audio_played
+        return max(
+            [self._aired_position] + [at for at in self._sound_starts if at <= played]
+        )
+
+    def _speech_after(self, start: int) -> list[tuple[int, int]]:
+        return [(max(a, start), b) for a, b in self._speech if b > start]
+
+    def _speech_after_shown_ms(self) -> float:
+        """Speech played after the last shown word, in ms."""
+
+        spans = self._speech_after(self._token_start())
+        return sum(b - a for a, b in spans) * 1000 / self._sample_rate
+
+    def _units_heard(self) -> int:
+        """Units of a started code whose sound surely played up to the cut
+        (cut_token.units_heard).
+
+        Its sound runs from the first speech frame after the last shown word
+        to the end of the last speech frame before the cut: quiet before it
+        is no code sound, quiet inside it is."""
+
+        spans = self._speech_after(self._token_start())
+        sound = spans[-1][1] - spans[0][0] if spans else 0
+        return units_heard(sound * 1000 / self._sample_rate, self._unit_ms())
+
+    def _spoken_part(self, word: str) -> _StartedWord:
+        """What to show of ``word``, caught after its sound started: a short
+        ordinary word whole; of a code read unit by unit the units surely heard,
+        possibly none; of anything else nothing (cut_token.py)."""
+
+        token = split_token(word)
+        if not token.read_by_units:
+            return _StartedWord(token.shown(0))
+        heard = min(self._units_heard(), len(token.units))
+        return _StartedWord(token.shown(heard), heard, len(token.units))
 
 
 # _HeardTranscript._position: the audio carrying the word's end has not arrived.
@@ -1051,6 +1352,9 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         # Utterances with played audio: a cut records a truncation only if it
         # stopped one of them (see _async_run_tick).
         self._played_lines: set[str] = set()
+        # Whether the last tick played speech: whether a cut can have caught
+        # a word mid-sound (_HeardTranscript.interrupt).
+        self._speech_in_last_tick = False
 
     @property
     def provider(self) -> AvarthaPipecatProvider:
@@ -1241,6 +1545,15 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         """Retain post-interruption audio and utterance tails after tick buffering."""
 
         result = await super()._async_run_tick(user_audio, tick_number)
+        # The audio the base class has just counted as played (its text
+        # taken); it still carries the transcript's ID (see _label_utterances).
+        played = b"".join(
+            data for data, item_id in result.agent_audio_chunks if item_id == _ITEM_ID
+        )
+        self._speech_in_last_tick = self._transcript().note_played(played)
+        started = self._transcript().take_started()
+        if started is not None:
+            result = AvarthaTickResult.with_started_word(result, started)
         kept = self._transcript().take_kept()
         if kept:
             # Timed words whose sound played before this tick's cut (see
@@ -1536,7 +1849,8 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
         if _ITEM_ID not in self._utterance_transcripts:
             # Duck-typed: the base class only calls get_transcript_for_audio.
             self._utterance_transcripts[_ITEM_ID] = _HeardTranscript(  # type: ignore[assignment]
-                due_slack_bytes=self._end_hold_bytes
+                due_slack_bytes=self._end_hold_bytes,
+                sample_rate=self.audio_format.sample_rate,
             )
         return self._utterance_transcripts[_ITEM_ID]  # type: ignore[return-value]
 
@@ -1809,17 +2123,22 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 self._utterance_id = None
                 self._utterance_audio.clear()
                 self._apply_decoded_silence()
-                self._transcript().interrupt()
+                # Only a line still streaming, with speech up to the cut, can
+                # have a word caught mid-sound.
+                self._transcript().interrupt(
+                    speech_before_cut=speaking is not None and self._speech_in_last_tick
+                )
                 if (
                     self._transcript().kept_caught_word
-                    and self._cut_utterance_id is None
-                ):
+                    or self._transcript().caught_started_word
+                ) and self._cut_utterance_id is None:
                     # The cut stopped a streaming line mid-word, so it cut that
                     # line off even with none of its audio queued; the cut
                     # tick, which carries the kept word, belongs to it. Known
                     # limit: this is the line streaming at the cut, not
                     # necessarily the kept word's line, and with none
-                    # streaming the kept word's tick stays unlabelled.
+                    # streaming the kept word's tick stays unlabelled. A
+                    # started word is only caught on the line streaming.
                     self._cut_utterance_id = speaking
                 self._stale_text = self._stale_audio = True
                 for converter in self._output_converters.values():

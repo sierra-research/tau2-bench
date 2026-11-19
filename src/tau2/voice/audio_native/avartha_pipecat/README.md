@@ -88,32 +88,76 @@ word's sound starts at the previous word's end, but never before its line's
 first audio or audio after silence the receiver dropped (a short gap of lost
 media, up to 200 ms, is not a restart, so a line after a pause that was lost
 completely, if no longer than that, is measured from the previous line's
-tail). A cut that keeps such a word cut off its line, so the cut tick carries
-that line's utterance. The played caption can overtake a line's last audio or
-come before its quiet tail; audio that follows the line's without an RTP gap,
-within 250 ms of its last timed word's end and before the next line's text,
-stays in that line's utterance instead of opening a new one (if the next line's
-text came first, only when the caption overtook the line's audio). A tick that
-shows only a captioned line's text is that line's, whatever audio it plays, so
-the line's last word stays in its utterance; a tick that also shows the next
-line's first word is still labelled by the audio it plays. This label also
-applies without timing (the caption alone ends a line's text); the tail window
-needs timed words. A cut in a captioned line's quiet tail (audio past its last
-timed word's end) does not mark that line cut off.
-"Played" includes the utterance's last millisecond, which the adapter holds
-back for its caption, as it does for every word. As upstream, a cut tick that
-discarded no audio is not labelled with the reply. A cut records
-`was_truncated` only when it stopped a line whose audio had played, or when its
-tick shows text the cut kept; caller speech while nothing plays, or a cut that
-discards a reply before any of it played, discards what it must (counted in
-`truncated_audio_bytes`) but records no truncation. Readers attribute a
-truncated tick to the agent speech before it. The receiver keeps each
-decoded frame's RTP timestamp for this; aiortc exposes its RTP origin only
+tail). When a cut keeps no word, no word end after the shown text was
+reported, agent speech played after the last shown word's end (at least 40 ms
+of 20 ms frames whose PCM16 peak exceeds 32, counted from that end, with speech
+in the tick before the cut), and the shown text stops inside a sentence, the
+cut caught the sentence's next word mid-sound (a code read digit by digit is
+one long word). The cut tick shows that started word, or the part of it the
+caller surely heard, so the line's clip has text for the audio it carries, and
+records the text shown in the tick's `started_word` field (`cut_token.py`):
+
+- A short ordinary word (at most 10 letters and digits) is shown whole; the
+  caller may have heard only its start. A longer word shows nothing.
+- A token the TTS reads unit by unit is never shown whole: one with `_` or
+  `@`, a dot between letters or digits (except a dotted abbreviation of two
+  runs of at most 2 letters closed by a dot, `p.m.`, `e.g.`, `U.S.`, which is
+  a word), a digit among at least 5 letters and digits, or at least 5
+  capitals (ASCII or full-width) (`ivan_rossi_8555`, `hao.h18836`, `HAT110`,
+  `6941833`, `IFOYYZ`). It shows its first k units (each digit, each
+  capital, each separator, each other letter run), with k = floor(sound /
+  (unit x 2.3)). Its sound runs from the first speech frame after the shown
+  word's end to the end of the last one before the cut, so a pause before it
+  is not counted. The unit is the median over the call's completed codes (from
+  the previous word's end to the code's end, over its units), at least 150 ms,
+  else 400 ms. With k = 0, or a token the unit model cannot parse
+  (`HAT138's`), nothing is shown. The tick records `started_word_units_heard`
+  of `started_word_units`.
+- An amount or a number read as number words (a currency sign or a digit
+  grouping, `R$137,30`, `1,387`, `2.420`, or 3-4 digits, `1177`) shows nothing.
+- Only some completed tokens measure the call's unit (`measures_unit`, at
+  least 5 units): ASCII capitals and digits with a digit like `6941833` or
+  `HAT110`, but not a round number (`10000`) or a number and a short unit
+  (`128GB`); an identifier with `_` or `@`; or a lower-case name and at least
+  4 digits like `garcia5901`. Words shown by units for safety but read as
+  words (`24-hour`, `750ml`, `NEVER`) do not.
+
+Limits: quiet inside a started code counts as code sound, so a long
+near-silent stall in the middle of a code (say 3 s, with no word end
+reported) can show units that did not play. The 40 ms of speech count from the
+last shown word's mark, not from the tick after the one that showed it: an
+untimed word's mark stands where the audio received stood at its arrival, so
+speech played before that does not count (with 20 ms ticks and the 1 ms held
+tail, two ticks of speech after it make 39 ms, three are needed). With no
+word events at all, a cut far into a line infers only the line's first word,
+showing less than was heard.
+
+A cut that keeps a word caught mid-sound, timed or started, cuts off its line,
+so the cut tick carries that line's utterance. The played caption can overtake
+a line's last audio or come before its quiet tail; audio that follows the
+line's without an RTP gap, within 250 ms of its last timed word's end and
+before the next line's text, stays in that line's utterance instead of opening
+a new one (if the next line's text came first, only when the caption overtook
+the line's audio). A tick that shows only a captioned line's text is that
+line's, whatever audio it plays, so the line's last word stays in its
+utterance; a tick that also shows the next line's first word is still labelled
+by the audio it plays. This label also applies without timing (the caption
+alone ends a line's text); the tail window needs timed words. A cut in a
+captioned line's quiet tail (audio past its last timed word's end) does not
+mark that line cut off. "Played" includes the utterance's last millisecond,
+which the adapter holds back for its caption, as it does for every word. As
+upstream, a cut tick that discarded no audio is not labelled with the reply. A
+cut records `was_truncated` only when it stopped a line whose audio had played,
+or when its tick shows text the cut kept; caller speech while nothing plays, or
+a cut that discards a reply before any of it played, discards what it must
+(counted in `truncated_audio_bytes`) but records no truncation. Readers
+attribute a truncated tick to the agent speech before it. The receiver keeps
+each decoded frame's RTP timestamp for this; aiortc exposes its RTP origin only
 privately. Without that origin, a binding, or a word's `audio_time`, the word
-is placed on arrival as before. A word reported after the barge-in is
-ignored, timed or not. If the received audio clock rewinds, timing is disabled
-for the rest of that call and words fall back to arrival placement; reconnecting
-starts a new clock.
+is placed on arrival as before. A word reported after the barge-in is ignored,
+timed or not. If the received audio clock rewinds, timing is disabled for the
+rest of that call and words fall back to arrival placement; reconnecting starts
+a new clock.
 
 ## Protocol compatibility
 
