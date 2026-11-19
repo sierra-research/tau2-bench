@@ -48,10 +48,11 @@
     "evaluation_date": "2026-11-17",
     "tau2_bench_version": "2.0.0",
     "user_simulator": "gpt-5.5-2026-04-23 (xhigh)",
-    "notes": "Custom Ava Zero evaluation through the avartha_pipecat adapter against a hosted Ava Zero agent on the Avartha Platform over WebRTC. The agent uses GLM-5.3 as its frontend, DeepSeek-V4.1-Flash-1017 at max reasoning as its backend worker, and Qwen3-ASR-1.7B for speech recognition. Agent build 1138c346, whose English behaviour is identical to b680a988 in our standard v1.1 entry. The voice user simulator's customer LLM is gpt-5.5-2026-04-23 at xhigh reasoning effort; the other simulator components, benchmark prompts, policies, tools and evaluator are unchanged, and this non-default customer LLM makes the result a custom submission. Harness: tau2 2.0.0 (main at c06b07d) with an earlier revision of the #758 avartha_pipecat adapter: as at 6e563dd, without that commit's tolerance for a resampler-delayed lost-media stamp and without the quiet-tail fixes added after it. Regular speech complexity, seed 300, 0.2-second ticks, 2400-second call limit, the default hallucination reviewer, and no reward or agent-error reruns. One trial was scheduled for every base task (airline 50, retail 114, telecom 114), 30 calls at a time; calls that hit an infrastructure error were re-run from the start (4 in this run). The English caller personas used our own voices (TAU2_VOICE_ID_EN_*), not Sierra-managed voices.",
+    "notes": "Custom Ava Zero evaluation through the avartha_pipecat adapter against a hosted Ava Zero agent on the Avartha Platform over WebRTC. We use GLM 5.3 as the anchor and DeepSeek v4.1 Flash 1017 as the backend worker at Max reasoning. The voice user simulator uses gpt-5.5-2026-04-23 at xhigh reasoning as its customer LLM; the rest of the simulator is the standard v1.1 setup. Regular speech complexity, seed 300, and the default Opus 4.5 hallucination reviewer. One trial was scheduled for every task: airline 50, retail 114, and telecom 114.",
     "verification": {
       "modified_prompts": false,
-      "omitted_questions": false
+      "omitted_questions": false,
+      "details": "All 278 base tasks (airline 50, retail 114, telecom 114) have one scored trajectory. The submitted scores were computed from the saved trajectories with tau2 submit prepare and checked with tau2 submit validate."
     }
   },
   "voice_config": {
