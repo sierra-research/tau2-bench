@@ -70,7 +70,25 @@ timing. On barge-in, text the caller has not heard is discarded, and the cut
 line's caption, which can arrive after the next line started, is ignored; it is
 recognised by its text (it starts as the cut line did), since captions name no
 utterance. A caption with `cut` that no barge-in owes is the agent cutting its
-own line: the rest of that reply's text is discarded too. Known limits: a cut
+own line: the rest of that caption's reply is discarded too. Captions come one
+per line, in playback order, so a caption is placed in the oldest uncaptioned
+line, or (a line can send no caption) at a later reply whose text has come, if
+it opens there (the rules: `_SpokenTranscript._place_caption`). Only the
+caption's own reply is cut, so an earlier line's caption that comes late
+leaves the reply now speaking alone, and a caption placed nowhere cuts
+nothing. Known limits: a barge-in owes a caption
+only for the oldest uncaptioned line, so with two uncaptioned lines the newer
+one's late caption is placed nowhere (and its unsent text is not shown); a
+caption spelling the first word of a reply resumed after a tool call otherwise
+(a code, an apostrophe) is not taken over that run, so a self-cut cuts nothing
+of it and the next reply waits for its caption (as on #758, unlike the
+cursor-based drop this replaced); an earlier line's late caption whose tail
+ends at a word's end in the reply now speaking ("Done. The reply") reads as
+that reply resumed, and its self-cut cuts it; a cut caption covering only the
+first run of a reply resumed after a tool call, whose next run's words were
+already heard, cuts nothing of that run, nor does one ending inside a word of
+that run ("Let me check. Your fli"): it cannot be told from an earlier line's
+late caption (the next reply waits for its caption, as on #758); a cut
 line's late caption without `cut` is still read as the next line's; and when a
 cut line never sends its caption and the next caption is a self-cut opening
 the same way, it is taken for the owed one (the next reply then waits for its

@@ -301,7 +301,9 @@ class _SpokenTranscript:
         # A word that matched nothing yet: possibly the first piece of a word
         # the alignment split ("T-shir" + "t", "a" + "t"). See add_word.
         self._pending_piece = ""
-        # Where the utterance now playing starts in ``text``.
+        # Where the oldest line without its caption starts in ``text``: the
+        # cursor, or (after a caption that came late) a reply start between
+        # the last caption's end and the cursor. Always <= _match_cursor.
         self._utterance_start = 0
         self._spoken_chars = 0
         self._shown_chars = 0
@@ -335,7 +337,11 @@ class _SpokenTranscript:
         A sentence end at ``start`` stays before the edit; a reply start at
         ``end`` stays at the start of its reply, after the edit. Positions
         inside a removed range go: a removed sentence's end and a removed
-        reply's start mark nothing left."""
+        reply's start mark nothing left.
+
+        ``_utterance_start`` needs no shift: every edit starts at or after it
+        (captions insert at or after it, drops start at or after the cursor).
+        """
 
         delta = len(new) - (end - start)
         self.text = self.text[:start] + new + self.text[end:]
@@ -352,22 +358,31 @@ class _SpokenTranscript:
             if not start <= at < end
         ]
 
-    def drop_unplayed_reply(self) -> None:
+    def drop_unplayed_reply(self, caption_end: Optional[int]) -> None:
         """The agent cut its own line (a caption with ``cut``, no caller
-        speech): the rest of its reply after the matched text will never play.
+        speech): the rest of the caption's reply after the text it covers
+        will never play.
 
         Left in place, it stood between the cursor and the next reply's text,
         so every later word matched nothing in the cut sentence and the next
-        line showed nothing (seen live: 9 s of speech, no text). The next
-        reply's text, if it came already, stays.
+        line showed nothing (seen live: 9 s of speech, no
+        text). Only the caption's own reply is cut: a later reply, whose
+        text may have come already or be speaking (an earlier line's caption
+        can come late), stays. A caption whose text was not found
+        (``caption_end`` None) drops nothing.
         """
 
-        start = self._match_cursor
-        # The caption matched some text, so a reply starting at the cursor or
-        # later is a newer one.
-        end = next((at for at in self._reply_starts if at >= start), len(self.text))
-        if end > start:
-            self._splice(start, end, "")
+        if caption_end is None:
+            return
+        start = max(caption_end, self._match_cursor)
+        # The caption's reply ends where the next one starts; a reply starting
+        # at the caption's end or later is a newer one.
+        end = next(
+            (at for at in self._reply_starts if at >= caption_end), len(self.text)
+        )
+        if end <= start:
+            return
+        self._splice(start, end, "")
         if start not in self._sentence_ends:
             self._sentence_ends = sorted(self._sentence_ends + [start])
 
@@ -512,11 +527,18 @@ class _SpokenTranscript:
             )
         return starts and (end == len(text) or _word_edge(text[end - 1], text[end]))
 
-    def add_playback(self, caption: str) -> None:
+    def add_playback(self, caption: str) -> Optional[int]:
         """Avartha's caption of what this utterance actually played.
 
         Text in the caption that the sentences lack (speech no LLM sentence
         produced, or a reply's unpunctuated tail) is inserted where it aired.
+
+        Returns where the caption's text ends in ``text``, never past the end
+        of the line it was placed in, or None if it was placed nowhere (see
+        _place_caption for how a caption finds its line). A caption that
+        comes late, after a later reply has started speaking, moves the line
+        start only to the next reply, so the next late caption still finds
+        its line; so does a caption placed nowhere.
         """
 
         self._pending_piece = ""
@@ -524,47 +546,191 @@ class _SpokenTranscript:
         self._early_words.clear()
         caption = " ".join(_unescape(caption).split())
         if not caption:
-            return
-        start = self._utterance_start
-        while start < len(self.text) and self.text[start].isspace():
-            start += 1
+            return None
+        caption_end = self._place_caption(caption)
+        if caption_end is None:
+            # Placed nowhere, it is still the oldest line's caption: the next
+            # caption is due at the next reply, if one has started.
+            newer = next(
+                (
+                    at
+                    for at in self._reply_starts
+                    if self._utterance_start < at <= self._match_cursor
+                ),
+                None,
+            )
+        else:
+            newer = next(
+                (
+                    at
+                    for at in self._reply_starts
+                    if caption_end <= at < self._match_cursor
+                ),
+                None,
+            )
+        self._utterance_start = self._match_cursor if newer is None else newer
+        return caption_end
+
+    def _line_starts(self) -> list[int]:
+        """Where the caption now due can start, oldest first: the oldest
+        uncaptioned line, then each later reply whose text has come, up to the
+        cursor (its line's predecessor may have sent no caption)."""
+
+        return [self._utterance_start] + [
+            at
+            for at in self._reply_starts
+            if self._utterance_start < at <= self._match_cursor
+        ]
+
+    def _reply_stop(self, start: int) -> int:
         # The caption starts in its own reply, never in a later one whose text
         # came already. It may run on into a later LLM run (a reply resumed
         # after a tool call is spoken as one utterance).
-        stop = next((at for at in self._reply_starts if at > start), len(self.text))
+        return next((at for at in self._reply_starts if at > start), len(self.text))
+
+    def _place_caption(self, caption: str) -> Optional[int]:
+        """Place ``caption`` in the line it reports; return its end.
+
+        The one statement of the rules (the README refers here):
+
+        - Captions come one per line, in playback order, and name no
+          utterance, so a caption is the oldest uncaptioned line's, starting
+          at ``utterance_start``. A line can send no caption, so each later
+          reply whose text has come, up to the cursor, is tried after it.
+        - Every start is tried whole first, oldest first, then aligned,
+          oldest first: a short shared opening is weaker evidence than a
+          later reply holding the caption whole.
+        - The oldest line takes the caption whole anywhere in its reply, or
+          aligned sharing any opening; a later reply, or the oldest once the
+          cursor is in a later reply, only whole at its start or sharing at
+          least the caption's first word.
+        - A caption runs on into the next LLM run (one line over a reply
+          resumed after a tool call) only ending where a word of that run
+          ends; aligned, only into a run already heard that shares its first
+          word.
+        - In unspaced scripts a "word" is the whole caption, so captions
+          there are placed at a later reply, or run on, only whole.
+        """
+
+        starts = self._line_starts()
+        for index, start in enumerate(starts):
+            end = self._place_whole(caption, start, later=index > 0)
+            if end is not None:
+                return end
+        for index, start in enumerate(starts):
+            end = self._align_caption(caption, start, later=index > 0)
+            if end is not None:
+                return end
+        return None
+
+    def _shared_opening(self, caption: str, start: int, stop: int) -> int:
+        """How many characters ``caption`` shares with ``text[start:stop]``."""
+
+        aired = self.text[start:stop].lower()
+        common = 0
+        while (
+            common < len(caption)
+            and common < len(aired)
+            and aired[common] == caption[common].lower()
+        ):
+            common += 1
+        return common
+
+    @staticmethod
+    def _skip_space(text: str, start: int) -> int:
+        while start < len(text) and text[start].isspace():
+            start += 1
+        return start
+
+    def _place_whole(self, caption: str, start: int, *, later: bool) -> Optional[int]:
+        """The end of ``caption`` found whole in the line starting at
+        ``start``: anywhere in the oldest line's reply, at a ``later``
+        reply's start only."""
+
+        start = self._skip_space(self.text, start)
+        stop = self._reply_stop(start)
         index = self.text.lower().find(caption.lower(), start)
-        if 0 <= index < stop:
-            self._advance(index + len(caption))
-        else:
-            aired = self.text[start:stop].lower()
-            common = 0
-            while (
-                common < len(caption)
-                and common < len(aired)
-                and aired[common] == caption[common].lower()
+        end = index + len(caption)
+        if not 0 <= index < stop or (later and index != start):
+            return None
+        if end > stop and end < len(self.text) and self.text[end].isalnum():
+            # Run on into the next LLM run (one line over a reply resumed
+            # after a tool call) only ending where a word of it ends: "The"
+            # inside "There" is an earlier line's caption, not this run's.
+            return None
+        self._advance(end)
+        return end
+
+    def _align_caption(self, caption: str, start: int, *, later: bool) -> Optional[int]:
+        """Align ``caption`` with the text of the line starting at ``start``,
+        inserting the text it adds; return its end, bounded by that line's
+        reply, or None if it does not belong there.
+
+        The oldest line takes a caption sharing any opening with its text, or
+        (with no text past the cursor to share) as text it adds. A ``later``
+        reply, or the oldest once the cursor is in a later reply, must share
+        at least the caption's first word. (In unspaced scripts that is the whole
+        caption, so such captions are placed there only whole.)"""
+
+        start = self._skip_space(self.text, start)
+        stop = self._reply_stop(start)
+        common = self._shared_opening(caption, start, stop)
+        while common == stop - start < len(caption) and stop < self._match_cursor:
+            # The caption runs on past this LLM run into the next, already
+            # heard: one line over a reply resumed after a tool call, if it
+            # shares at least that run's first word, ending where a caption
+            # word ends too (not only a leading space, a letter, or "The" of
+            # "There"). A run starting with a word the caption spells
+            # otherwise is taken for a new line: the caption may be an
+            # earlier line's, and its reply is not cut.
+            further = self._reply_stop(stop)
+            shared = self._shared_opening(caption, start, further)
+            words = self.text[stop:further].split()
+            if not words:
+                break
+            first_end = self._skip_space(self.text, stop) + len(words[0])
+            word_ends = first_end - start
+            if start + shared < first_end or (
+                word_ends < len(caption) and caption[word_ends].isalnum()
             ):
-                common += 1
-            at = start + common
-            if at < self._match_cursor:
-                # Parted behind the cursor (a character the caption spells
-                # differently): align the caption's rest with the text after it.
-                rest = caption[self._match_cursor - start :].lower()
-                if rest and self.text.lower().startswith(rest, self._match_cursor):
-                    self._advance(self._match_cursor + len(rest))
-                self._utterance_start = self._match_cursor
-                return
-            missing = caption[common:]
-            if at > 0 and not self.text[at - 1].isspace() and not missing[0].isspace():
-                missing = " " + missing if common == 0 else missing
-            if self.text[at:].strip() and not missing[-1].isspace():
-                missing += " "
-            logger.debug(f"Avartha playback adds unsent text: {missing!r}")
-            self._splice(at, at, missing)
-            self._sentence_ends = sorted(
-                set(self._sentence_ends) | {at + len(missing.rstrip())}
-            )
-            self._advance(at + len(missing.rstrip()))
-        self._utterance_start = self._match_cursor
+                break
+            stop, common = further, shared
+        if common == len(caption):
+            # Shared whole: the whole-caption pass declined it (it ends inside
+            # a word of the next run), so it is not this line's either.
+            return None
+        # The cursor in a later reply: this line's caption may have come late,
+        # or not at all and the caption is a later line's.
+        left = stop < len(self.text) and self._match_cursor >= stop
+        if (later or left) and common < len(caption.split()[0]):
+            return None
+        at = start + common
+        if at < self._match_cursor:
+            # Parted behind the cursor (a character the caption spells
+            # differently). With no opening shared, it may be an earlier
+            # line's. If the cursor is still in this reply, the caption's rest
+            # is aligned with the text after it; past it, the caption ends
+            # with its reply.
+            if not common:
+                return None
+            if self._match_cursor >= stop:
+                return stop
+            rest = caption[self._match_cursor - start :].lower()
+            if rest and self.text.lower().startswith(rest, self._match_cursor):
+                self._advance(self._match_cursor + len(rest))
+            return min(self._match_cursor, stop)
+        missing = caption[common:]
+        if at > 0 and not self.text[at - 1].isspace() and not missing[0].isspace():
+            missing = " " + missing if common == 0 else missing
+        if self.text[at:].strip() and not missing[-1].isspace():
+            missing += " "
+        logger.debug(f"Avartha playback adds unsent text: {missing!r}")
+        self._splice(at, at, missing)
+        self._sentence_ends = sorted(
+            set(self._sentence_ends) | {at + len(missing.rstrip())}
+        )
+        self._advance(at + len(missing.rstrip()))
+        return at + len(missing.rstrip())
 
     def _advance(self, cursor: int) -> None:
         if cursor <= self._match_cursor:
@@ -595,7 +761,8 @@ class _SpokenTranscript:
 
     @property
     def utterance_start(self) -> int:
-        """Where the text of the utterance now playing starts in ``text``."""
+        """Where the oldest line still owing its caption starts in ``text``:
+        the line now playing, unless a caption came late (see add_playback)."""
 
         return self._utterance_start
 
@@ -937,12 +1104,12 @@ class _HeardTranscript(_SpokenTranscript):
             placed[cursor] = end_of_audio
         self._replace_marks(placed)
 
-    def add_playback(self, caption: str) -> None:
+    def add_playback(self, caption: str) -> Optional[int]:
         # The utterance has ended: a timed word whose audio never arrived is
         # placed as it would be untimed, and later words need none of its spans.
         self.untime_waiting()
         del self._spans[:-1], self._span_starts[:-1]
-        super().add_playback(caption)
+        return super().add_playback(caption)
 
     def begin_line(self) -> None:
         """The audio received next starts a new line (utterance)."""
@@ -2046,12 +2213,15 @@ class DiscreteTimeAvarthaPipecatAdapter(DiscreteTimeAdapter):
                 start = transcript.utterance_start
                 # Still timed: the receiver may have lost its sound since.
                 last_timed = last_word is not None and transcript.is_timed(last_word[1])
-                transcript.add_playback(event.text)
+                caption_end = transcript.add_playback(event.text)
                 if event.cut and event.text.strip():
                     # No caller cut owed this caption: the agent cut its own line.
-                    transcript.drop_unplayed_reply()
+                    transcript.drop_unplayed_reply(caption_end)
                 if captioned is None:
                     return
+                # The utterance's audio ran up to this caption, so the cursor
+                # (not caption_end, which a late caption keeps behind it) ends
+                # the text it labels.
                 end = transcript.matched_chars
                 self._captioned_lines.append((captioned, start, end))
                 if last_word is not None and self._audio_rtp_end is not None:
