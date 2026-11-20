@@ -18,10 +18,10 @@ import websockets
 from tau2.config import TELEPHONY_ULAW_SILENCE
 from tau2.environment.tool import Tool
 from tau2.voice.audio_native.apriel import AprielRealtimeProvider
+from tau2.voice.audio_native.apriel.events import parse_realtime_event
 from tau2.voice.audio_native.apriel.tick_runner import TickRunner
 from tau2.voice.audio_native.openai.events import (
     AudioDeltaEvent,
-    FunctionCallArgumentsDoneEvent,
     ResponseCreatedEvent,
     ResponseDoneEvent,
     SpeechStartedEvent,
@@ -44,13 +44,13 @@ class TestProviderEnvironment(unittest.TestCase):
             provider = AprielRealtimeProvider(
                 api_key="constructor-key",
                 model="Apriel-Voice-Test",
-                base_url="wss://constructor.example/realtime",
+                base_url="wss://constructor.example/v1/realtime",
                 websocket_max_size=12345,
             )
 
         self.assertEqual(provider.api_key, "constructor-key")
         self.assertEqual(provider.model, "Apriel-Voice-Test")
-        self.assertEqual(provider.base_url, "wss://constructor.example/realtime")
+        self.assertEqual(provider.base_url, "wss://constructor.example/v1/realtime")
         self.assertEqual(provider._websocket_max_size, 12345)
 
     def test_provider_requires_base_url(self):
@@ -58,25 +58,25 @@ class TestProviderEnvironment(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "APRIEL_REALTIME_BASE_URL"):
                 AprielRealtimeProvider()
 
-    def test_provider_requires_websocket_base_url(self):
+    def test_provider_accepts_https_origin(self):
         with patch.dict(
             os.environ,
             {
-                "APRIEL_REALTIME_BASE_URL": "https://apriel.example/realtime",
+                "APRIEL_REALTIME_BASE_URL": "https://apriel.example",
                 "APRIEL_API_KEY": "test-key",
             },
             clear=True,
         ):
-            with self.assertRaisesRegex(ValueError, "must start with ws:// or wss://"):
-                AprielRealtimeProvider()
+            provider = AprielRealtimeProvider()
+            self.assertEqual(provider.base_url, "wss://apriel.example/v1/realtime")
 
     def test_provider_requires_api_key(self):
         with patch.dict(
             os.environ,
-            {"APRIEL_REALTIME_BASE_URL": "wss://apriel.example/realtime"},
+            {"APRIEL_REALTIME_BASE_URL": "wss://apriel.example/v1/realtime"},
             clear=True,
         ):
-            with self.assertRaisesRegex(ValueError, "APRIEL_API_KEY"):
+            with self.assertRaisesRegex(ValueError, "APRIEL_REALTIME_API_KEY"):
                 AprielRealtimeProvider()
 
 
@@ -101,7 +101,11 @@ class AprielProviderTestCase(unittest.IsolatedAsyncioTestCase):
                 message = json.loads(raw)
                 self.received.append(message)
                 if message["type"] == "session.update":
-                    await ws.send(json.dumps({"type": "session.updated"}))
+                    await ws.send(
+                        json.dumps(
+                            {"type": "session.updated", "session": message["session"]}
+                        )
+                    )
 
         self.server = await websockets.serve(handler, "127.0.0.1", 0)
         self.url = (
@@ -152,6 +156,8 @@ class TestProviderConfiguration(AprielProviderTestCase):
                     "temperature": 1.0,
                     "max_output_tokens": 8192,
                     "apriel": {
+                        "playback_clock": "media",
+                        "turn_clock": "media",
                         "extensions": True,
                         "vad_level": True,
                         "trace_vllm_payloads": True,
@@ -169,15 +175,16 @@ class TestProviderConfiguration(AprielProviderTestCase):
         self.assertEqual(self.provider.session_id, "session-local")
 
     async def test_constructor_overrides_session_settings(self):
-        provider = AprielRealtimeProvider(
-            model="Apriel-Voice-Test",
-            enable_thinking=False,
-            pre_tool_speech=False,
-            temperature=0.7,
-            max_tokens=1234,
-            reasoning_effort="high",
-            trace_enabled=False,
-        )
+        with patch.dict(os.environ, {"APRIEL_TRACE": "false"}, clear=False):
+            provider = AprielRealtimeProvider(
+                model="Apriel-Voice-Test",
+                enable_thinking=False,
+                pre_tool_speech=False,
+                temperature=0.7,
+                max_tokens=1234,
+                reasoning_effort="high",
+                trace_enabled=False,
+            )
 
         self.assertEqual(provider.reasoning_effort, "high")
         self.assertEqual(
@@ -238,28 +245,40 @@ class TestTickRunnerContract(unittest.IsolatedAsyncioTestCase):
     async def test_tool_calls_are_gated_until_response_done(self):
         runner = self.make_runner()
         result = self.tick_result()
-        event = FunctionCallArgumentsDoneEvent(
-            type="response.function_call_arguments.done",
-            call_id="call-1",
-            name="lookup",
-            arguments='{"ids": ["A"]}',
+        event = parse_realtime_event(
+            {
+                "type": "response.function_call_arguments.done",
+                "response_id": "response-1",
+                "call_id": "call-1",
+                "name": "lookup",
+                "arguments": '{"ids": ["A"]}',
+            }
         )
 
         await runner._process_event(result, event)
         self.assertEqual(result.tool_calls, [])
 
-        await runner._process_event(result, ResponseDoneEvent(type="response.done"))
+        await runner._process_event(
+            result,
+            parse_realtime_event(
+                {
+                    "type": "response.done",
+                    "response": {"id": "response-1", "status": "completed"},
+                }
+            ),
+        )
         self.assertEqual(len(result.tool_calls), 1)
         self.assertEqual(result.tool_calls[0].name, "lookup")
         self.assertEqual(result.tool_calls[0].arguments, {"ids": ["A"]})
 
-    async def test_speech_started_truncates_buffered_audio(self):
+    async def test_speech_started_truncates_audio_playing_in_tick(self):
         runner = self.make_runner()
-        runner.buffered_agent_audio = [(b"\x10" * 400, "item-1")]
         result = self.tick_result(
             bytes_per_second=8000,
             cumulative_user_audio_at_tick_start_ms=0,
         )
+        # The shared tick template moves queued audio into this tick before events.
+        result.agent_audio_chunks = [(b"\x10" * 400, "item-1")]
 
         await runner._process_event(
             result,
@@ -272,16 +291,33 @@ class TestTickRunnerContract(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(runner.buffered_agent_audio, [])
         self.assertTrue(result.was_truncated)
-        runner.provider.truncate_item.assert_awaited_once()
+        runner.provider.truncate_item.assert_awaited_once_with(
+            item_id="item-1", content_index=0, audio_end_ms=25
+        )
 
-    async def test_late_audio_for_skipped_item_is_silenced(self):
+    async def test_late_audio_for_cleared_response_is_silenced(self):
         runner = self.make_runner()
         result = self.tick_result(
             bytes_per_second=8000,
-            skip_item_id="old-item",
         )
 
-        await runner._process_event(result, self.audio("old-item"))
+        await runner._process_event(
+            result,
+            parse_realtime_event(
+                {"type": "output_audio_buffer.cleared", "response_id": "old-response"}
+            ),
+        )
+        await runner._process_event(
+            result,
+            parse_realtime_event(
+                {
+                    "type": "response.output_audio.delta",
+                    "response_id": "old-response",
+                    "item_id": "old-item",
+                    "delta": base64.b64encode(b"\x10\x20" * 600).decode(),
+                }
+            ),
+        )
 
         self.assertEqual(result.agent_audio_bytes, 0)
         self.assertEqual(result.truncated_audio_bytes, 1200)

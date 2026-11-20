@@ -105,13 +105,18 @@ class DiscreteTimeAprielAdapter(DiscreteTimeAdapter):
 
     async def _async_connect(self, system_prompt, tools, vad_config, modality) -> None:
         await self.provider.connect()
-        await self.provider.configure_session(
-            system_prompt=system_prompt,
-            tools=tools,
-            vad_config=vad_config,
-            modality=modality,
-            audio_format=self.audio_format,
-        )
+        try:
+            await self.provider.configure_session(
+                system_prompt=system_prompt,
+                tools=tools,
+                vad_config=vad_config,
+                modality=modality,
+                audio_format=self.audio_format,
+            )
+        except BaseException:
+            await self.provider.disconnect()
+            self.clear_buffers()
+            raise
 
     def disconnect(self) -> None:
         if not self._connected:
@@ -159,15 +164,22 @@ class DiscreteTimeAprielAdapter(DiscreteTimeAdapter):
             logger.error(f"Error in run_tick (tick={tick_number}): {exc}")
             raise
 
-    async def _async_run_tick(self, user_audio: bytes, tick_number: int) -> TickResult:
-        await self._flush_pending_tool_results()
-        result = await self._tick_runner.run_tick(
-            user_audio=user_audio, tick_number=tick_number
-        )
-        if self._tick_usage_buffer:
-            result.usage_records.extend(self._tick_usage_buffer)
-            self._tick_usage_buffer.clear()
-        return result
+    def send_tool_result(
+        self,
+        call_id: str,
+        result: str,
+        request_response: bool = True,
+        is_error: bool = False,
+    ) -> None:
+        if len(result) > self._tick_runner.max_text_chars:
+            raise RuntimeError("Apriel tool result size limit exceeded")
+        if len(self._pending_tool_results) >= self._tick_runner.max_state_entries:
+            raise RuntimeError("Apriel pending tool result limit exceeded")
+        super().send_tool_result(call_id, result, request_response, is_error)
+
+    def clear_buffers(self) -> None:
+        super().clear_buffers()
+        self._tick_runner.reset()
 
     async def _execute_tick(
         self,
@@ -176,17 +188,11 @@ class DiscreteTimeAprielAdapter(DiscreteTimeAdapter):
         result: TickResult,
         tick_start: float,
     ) -> None:
-        raise RuntimeError(
-            "DiscreteTimeAprielAdapter uses tau2.voice.audio_native.apriel.tick_runner.TickRunner; "
-            "_execute_tick is not used."
-        )
+        # The base template owns FIFO carryover, transcript advancement, timing,
+        # and usage. Apriel only supplies event processing and interruption cuts.
+        self._tick_runner.buffered_agent_audio = self._buffered_agent_audio
+        self._tick_runner.utterance_transcripts = self._utterance_transcripts
+        await self._tick_runner.execute_tick(user_audio, result, tick_start)
 
     async def _flush_pending_tool_results(self) -> None:
-        for (
-            call_id,
-            result_str,
-            request_response,
-            _is_error,
-        ) in self._pending_tool_results:
-            await self.provider.send_tool_result(call_id, result_str, request_response)
-        self._pending_tool_results.clear()
+        await self._tick_runner.flush_tool_results(self._pending_tool_results)

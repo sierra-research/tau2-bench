@@ -20,7 +20,7 @@ from tau2.voice.audio_native.adapter import create_adapter
 from tau2.voice.audio_native.apriel import DiscreteTimeAprielAdapter
 
 APRIEL_ENV = {
-    "APRIEL_REALTIME_BASE_URL": "wss://apriel.example/realtime",
+    "APRIEL_REALTIME_BASE_URL": "wss://apriel.example/v1/realtime",
     "APRIEL_API_KEY": "test-key",
     "APRIEL_MODEL_NAME": "Apriel-Voice-27B-Preview",
 }
