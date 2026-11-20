@@ -88,6 +88,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   excluded. `VerdictFingerprint` gains `input_error_units`, so voice-v2
   packages prepared before this change must be re-prepared.
 
+### Fixed
+- `airline` task 21: the user instruction asked the agent to pay with "your
+  gift card with the smallest balance", but that card ($6) cannot cover the
+  $59 flight change and policy allows only one gift card or credit card per
+  change. The simulated user had to invent a fallback, and only one (the $113
+  card) matches the gold. The instruction now reads "the gift card with the
+  smallest balance that can cover the full amount". Gold actions are
+  unchanged. Task 21 is in `airline_50`, so the `en`/`airline` binding
+  revisions change and the released manifests need a repin (#664).
+
 ## [2.0.0] - 2026-10-19
 
 > **⚠️ Scoring change — scores are not comparable with 1.x.** Communication checks,
