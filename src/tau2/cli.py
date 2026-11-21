@@ -279,6 +279,7 @@ def add_run_args(parser):
             "qwen",
             "avartha_pipecat",
             "phonic",
+            "apriel",
             "livekit",
             "launa",
         ],
