@@ -422,6 +422,12 @@ class TestTelecomUserTools:
             "Your messaging app cannot send MMS messages."
             in telecom_tools.can_send_mms()
         )
+        # check_apn_settings() reports "" as "Not Set"; MMS must agree
+        telecom_tools.device.active_apn_settings.mmsc_url = ""
+        assert (
+            "Your messaging app cannot send MMS messages."
+            in telecom_tools.can_send_mms()
+        )
         telecom_tools.device.active_apn_settings.mmsc_url = (
             "http://mms.example.com"  # Reset
         )
