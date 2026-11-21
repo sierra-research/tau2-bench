@@ -447,11 +447,13 @@ class ResiaFullplexProvider(OpenAILiveProvider):
                 isinstance(error, ErrorEvent)
                 and error.code == _ErrorCode.INPUT_AUDIO_RATE_LIMIT_EXCEEDED
             ):
-                # The server dropped one append and goes on; the call goes on too.
                 self.rate_limit_errors += 1
                 self._record("received", event)
                 logger.warning(
                     "Resia Fullplex dropped caller audio: {}", self.session_id
+                )
+                self._connection_lost(
+                    "input_audio_rate_limit_exceeded: the server dropped caller audio"
                 )
                 return
         if kind == "session.output_audio.delta":

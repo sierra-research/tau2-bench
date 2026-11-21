@@ -161,9 +161,14 @@ class AudioNativeConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_live_config(self):
-        if (self.provider == "openai_live") != (self.live_config is not None):
+        if self.provider == "openai_live" and self.live_config is None:
+            raise ValueError("live_config is required for openai_live")
+        if self.live_config is not None and self.provider not in (
+            "openai_live",
+            "resia_fullplex",
+        ):
             raise ValueError(
-                "live_config is required for openai_live and only valid for that provider"
+                "live_config is only valid for openai_live and resia_fullplex"
             )
         return self
 

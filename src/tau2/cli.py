@@ -53,6 +53,17 @@ def get_all_retrieval_config_names():
     return get_all_variant_names()
 
 
+def _effective_live_config(args):
+    if args.live_config is None and args.audio_native_provider == "resia_fullplex":
+        from tau2.data_model.live_config import LiveConfig
+        from tau2.voice.audio_native.resia_fullplex.provider import (
+            resolve_backend_model,
+        )
+
+        return LiveConfig(backend_model=resolve_backend_model())
+    return args.live_config
+
+
 def add_run_args(parser):
     """Add run arguments to a parser."""
     from tau2.multilingual.cli import add_language_run_args
@@ -774,7 +785,7 @@ def main():
                 ),
                 reasoning_effort=args.reasoning_effort,
                 **({"voice": args.voice} if args.voice is not None else {}),
-                live_config=args.live_config,
+                live_config=_effective_live_config(args),
                 realtime_generation=args.realtime_generation,
                 # Timing
                 tick_duration_seconds=args.tick_duration,
