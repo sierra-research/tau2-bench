@@ -42,6 +42,7 @@ from tau2.config import (
     DEFAULT_AVARTHA_INPUT_SAMPLE_RATE,
     DEFAULT_AVARTHA_OUTPUT_SAMPLE_RATE,
 )
+from tau2.voice.audio_native.avartha_pipecat.audio_timing import RTP_CLOCK_HZ
 from tau2.voice.audio_native.avartha_pipecat.config import AvarthaPipecatConfig
 from tau2.voice.audio_native.avartha_pipecat.provider import (
     RTVI_MESSAGE_LABEL,
@@ -145,6 +146,69 @@ def is_digital_silence(pcm: bytes) -> bool:
     return samples.size == 0 or int(np.abs(samples.astype(np.int32)).max()) <= (
         _SILENCE_PEAK
     )
+
+
+def _rtp_origin(peer: RTCPeerConnection, track: Any) -> Optional[int]:
+    """The first RTP timestamp ``track``'s receiver mapped, modulo 2**32.
+
+    aiortc 1.15 stamps each decoded frame with its RTP timestamp minus the
+    first one received (``RTCRtpReceiver``'s private ``TimestampMapper``, which
+    also unwraps) and exposes that origin nowhere else. Read it after the first
+    frame; a receiver without it gives no timing, and words fall back to their
+    arrival.
+    """
+
+    for receiver in peer.getReceivers():
+        if receiver.track is track:
+            mapper = getattr(receiver, "_RTCRtpReceiver__timestamp_mapper", None)
+            origin = getattr(mapper, "_origin", None)
+            if isinstance(origin, int) and not isinstance(origin, bool):
+                return origin
+    return None
+
+
+class _RtpPosition:
+    """Where decoded and resampled audio sits on the sender's RTP clock.
+
+    A decoded frame's ``pts`` counts 48 kHz RTP ticks from the receiver's
+    origin (``_rtp_origin``), and PyAV's resampler carries that through to its
+    output's ``pts``, codec and resampler delay included. Media is continuous
+    while each frame starts where the last ended; a jump means lost packets.
+    """
+
+    def __init__(self, origin: Optional[int]) -> None:
+        self.origin = origin
+        self._next_pts: Optional[int] = None
+        self.decoded_from: Optional[int] = None
+
+    def decoded(self, frame: AudioFrame) -> None:
+        if self.origin is None:
+            return
+        start = self._rtp(frame)
+        if (
+            start is None
+            or frame.sample_rate != RTP_CLOCK_HZ
+            or (self._next_pts is None and start != self.origin)
+        ):
+            # Not on the RTP clock, or the first frame is not at the origin
+            # aiortc mapped: no timing for this track.
+            self.origin = None
+            return
+        if start != self._next_pts:
+            self.decoded_from = start
+        self._next_pts = start + frame.samples
+
+    def start_of(self, frame: AudioFrame) -> Optional[int]:
+        return None if self.origin is None else self._rtp(frame)
+
+    def _rtp(self, frame: AudioFrame) -> Optional[int]:
+        time_base = frame.time_base
+        if frame.pts is None or time_base is None or self.origin is None:
+            return None
+        ticks, rest = divmod(
+            frame.pts * time_base.numerator * RTP_CLOCK_HZ, time_base.denominator
+        )
+        return None if rest else self.origin + ticks
 
 
 class AvarthaWebRTCProvider(AvarthaPipecatProvider):
@@ -270,15 +334,18 @@ class AvarthaWebRTCProvider(AvarthaPipecatProvider):
         def on_track(track: Any) -> None:
             if track.kind != "audio":
                 return
-            task = asyncio.create_task(self._receive_audio(track))
+            task = asyncio.create_task(self._receive_audio(track, peer))
             self._audio_tasks.add(task)
             task.add_done_callback(self._audio_tasks.discard)
 
-    async def _receive_audio(self, track: Any) -> None:
+    async def _receive_audio(
+        self, track: Any, peer: Optional[RTCPeerConnection] = None
+    ) -> None:
         try:
             resampler = AudioResampler(
                 format="s16", layout="mono", rate=DEFAULT_AVARTHA_OUTPUT_SAMPLE_RATE
             )
+            position: Optional[_RtpPosition] = None
             while not self._closing:
                 try:
                     frame = await track.recv()
@@ -288,15 +355,37 @@ class AvarthaWebRTCProvider(AvarthaPipecatProvider):
                             "Avartha audio track ended before disconnect"
                         )
                     return
+                if position is None:
+                    position = _RtpPosition(
+                        None if peer is None else _rtp_origin(peer, track)
+                    )
+                position.decoded(frame)
                 for converted in resampler.resample(frame):
                     pcm = converted.to_ndarray().reshape(-1).astype(np.int16).tobytes()
-                    if not is_digital_silence(pcm):
-                        await self._queue.put(
-                            AgentAudioEvent(
-                                audio=pcm,
-                                sample_rate=DEFAULT_AVARTHA_OUTPUT_SAMPLE_RATE,
-                            )
+                    start = position.start_of(converted)
+                    end = (
+                        None
+                        if start is None
+                        else start
+                        + converted.samples
+                        * RTP_CLOCK_HZ
+                        // DEFAULT_AVARTHA_OUTPUT_SAMPLE_RATE
+                    )
+                    if is_digital_silence(pcm):
+                        if end is not None and self.rtp_silence is not None:
+                            after, through = self.rtp_silence
+                            if start == through:
+                                self.rtp_silence = (after, end)
+                        continue
+                    self.rtp_silence = None if end is None else (end, end)
+                    await self._queue.put(
+                        AgentAudioEvent(
+                            audio=pcm,
+                            sample_rate=DEFAULT_AVARTHA_OUTPUT_SAMPLE_RATE,
+                            rtp_start=start,
+                            rtp_decoded_from=position.decoded_from,
                         )
+                    )
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -364,6 +453,7 @@ class AvarthaWebRTCProvider(AvarthaPipecatProvider):
         self._inbox = asyncio.Queue()
         self._audio_tasks = set()
         self._closing = False
+        self.rtp_silence = None
 
     async def _send_message(self, message: dict[str, Any]) -> None:
         if self._session_error:
