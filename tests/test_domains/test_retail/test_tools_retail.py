@@ -189,6 +189,26 @@ def test_exchange_delivered_order_items(
     assert order.exchange_payment_method_id == "credit_card_0000000"
 
 
+def test_exchange_delivered_order_items_rejects_same_item(
+    environment: Environment, exchange_delivered_order_items_call: ToolCall
+):
+    order_id = exchange_delivered_order_items_call.arguments["order_id"]
+    order = environment.tools.get_order_details(order_id)
+    order.status = "delivered"
+    item_ids = exchange_delivered_order_items_call.arguments["item_ids"]
+    exchange_delivered_order_items_call.arguments["new_item_ids"] = list(item_ids)
+
+    response = environment.get_response(exchange_delivered_order_items_call)
+
+    assert (
+        response.content
+        == "Error: The new item id should be different from the old item id"
+    )
+    order = environment.tools.get_order_details(order_id)
+    assert order.status == "delivered"
+    assert order.exchange_new_items is None
+
+
 @pytest.fixture
 def find_user_id_by_name_zip_call() -> ToolCall:
     return ToolCall(
