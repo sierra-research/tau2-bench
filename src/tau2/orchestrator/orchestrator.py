@@ -35,7 +35,7 @@ from tau2.user.user_simulator_base import (
     UserError,
     is_valid_user_history_message,
 )
-from tau2.utils.llm_utils import get_cost
+from tau2.utils.llm_utils import ToolCallArgumentsError, get_cost
 from tau2.utils.utils import format_time, get_now
 
 
@@ -659,9 +659,23 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
                 self.to_role = Role.USER
             else:
                 self.agent_state = self.agent.get_init_state()
-                first_message, self.agent_state = self.agent.generate_next_message(
-                    None, self.agent_state
-                )
+                try:
+                    first_message, self.agent_state = self.agent.generate_next_message(
+                        None, self.agent_state
+                    )
+                except ToolCallArgumentsError as e:
+                    # The agent model's own malformed tool call, as in `step`: score it
+                    # as AGENT_ERROR rather than let it become an infrastructure error.
+                    # Nothing parseable was sent, so nothing is recorded.
+                    logger.warning(f"Agent sent a malformed tool call: {e}")
+                    self.trajectory = []
+                    self.message = AssistantMessage(role="assistant", content=None)
+                    self.from_role = Role.AGENT
+                    self.to_role = Role.USER
+                    self.done = True
+                    self.termination_reason = TerminationReason.AGENT_ERROR
+                    self.environment.sync_tools()
+                    return
                 self.trajectory = [first_message]
                 self.message = first_message
                 # In solo mode, there is no user, so if the message is not a tool call, then we end and report an agent error
@@ -876,10 +890,26 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
         elif (
             self.from_role == Role.USER or self.from_role == Role.ENV
         ) and self.to_role == Role.AGENT:
-            agent_msg, self.agent_state = self.agent.generate_next_message(
-                self.message, self.agent_state
-            )
-            agent_msg.validate()
+            # A malformed tool call or an empty reply is the agent model's own
+            # failure. Score it as AGENT_ERROR, like the communication check does,
+            # instead of letting it escape as an infrastructure error, which
+            # would drop the task from the score's denominator.
+            try:
+                agent_msg, self.agent_state = self.agent.generate_next_message(
+                    self.message, self.agent_state
+                )
+            except ToolCallArgumentsError as e:
+                logger.warning(f"Agent sent a malformed tool call: {e}")
+                self.done = True
+                self.termination_reason = TerminationReason.AGENT_ERROR
+                self.step_count += 1
+                return
+            try:
+                agent_msg.validate()
+            except ValueError as e:
+                logger.warning(f"Agent sent an empty message: {e}")
+                self.done = True
+                self.termination_reason = TerminationReason.AGENT_ERROR
             configured_stop = self._is_configured_stop_tool_call(agent_msg)
             if self.agent.is_stop(agent_msg) and not configured_stop:
                 self.done = True
