@@ -13,6 +13,13 @@ from tau2.environment.environment import Environment
 from tau2.evaluator.evaluator_base import EvaluatorBase
 from tau2.utils.transcript.views import tool_messages
 
+REPLAY_MISMATCHES = "replay_mismatches"
+"""RewardInfo.info key: replayed tool calls whose output differed from the record.
+
+Present only when non-zero. A score carrying this was computed against an
+environment state the recorded trajectory did not produce.
+"""
+
 
 class EnvironmentEvaluator(EvaluatorBase[Message]):
     """
@@ -86,7 +93,7 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
             solo_mode=solo_mode, **deepcopy(env_kwargs)
         )
 
-        predicted_environment.set_state(
+        replay_mismatches = predicted_environment.set_state(
             initialization_data=initialization_data,
             initialization_actions=initialization_actions,
             message_history=list(full_trajectory),
@@ -95,7 +102,7 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
 
         # Setting up gold environment
         gold_environment = environment_constructor(**deepcopy(env_kwargs))
-        gold_environment.set_state(
+        replay_mismatches += gold_environment.set_state(
             initialization_data=initialization_data,
             initialization_actions=initialization_actions,
             message_history=message_history,
@@ -162,6 +169,9 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
             env_assertions=env_assertion_checks,
             reward_basis=task.evaluation_criteria.reward_basis,
             reward_breakdown=reward_breakdown,
+            info=(
+                {REPLAY_MISMATCHES: replay_mismatches} if replay_mismatches else None
+            ),
         )
 
 
@@ -243,7 +253,7 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
         predicted_environment = environment_constructor(
             solo_mode=solo_mode, **deepcopy(env_kwargs)
         )
-        predicted_environment.set_state(
+        replay_mismatches = predicted_environment.set_state(
             initialization_data=initialization_data,
             initialization_actions=initialization_actions,
             message_history=predicted_message_history,
@@ -252,7 +262,7 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
 
         # Setting up gold environment
         gold_environment = environment_constructor(**deepcopy(env_kwargs))
-        gold_environment.set_state(
+        replay_mismatches += gold_environment.set_state(
             initialization_data=initialization_data,
             initialization_actions=initialization_actions,
             message_history=message_history,
@@ -319,4 +329,7 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
             env_assertions=env_assertion_checks,
             reward_basis=task.evaluation_criteria.reward_basis,
             reward_breakdown=reward_breakdown,
+            info=(
+                {REPLAY_MISMATCHES: replay_mismatches} if replay_mismatches else None
+            ),
         )
