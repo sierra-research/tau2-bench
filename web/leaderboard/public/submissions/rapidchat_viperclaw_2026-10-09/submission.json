@@ -1,0 +1,49 @@
+{
+  "model_name": "rapidchat",
+  "model_organization": "Viperclaw",
+  "submitting_organization": "Viperclaw",
+  "submission_date": "2026-10-09",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "arslan@tryrapidscreen.com",
+    "name": "Arslan Badr"
+  },
+  "results": {
+    "airline": {
+      "pass_1": 86.5,
+      "pass_2": 81.33333333333333,
+      "pass_3": 78.0,
+      "pass_4": 76.0,
+      "cost": 0.0
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "airline_results.json"
+  },
+  "references": [
+    {
+      "title": "rapidchat (model)",
+      "url": "https://huggingface.co/badr7/rapidchat",
+      "type": "huggingface"
+    },
+    {
+      "title": "rapidchat-data (training and practice data)",
+      "url": "https://huggingface.co/datasets/badr7/rapidchat-data",
+      "type": "huggingface"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-10-09",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "gpt-6.1-sol",
+    "notes": "rapidchat is Qwen/Qwen3.5-9B (thinking mode on) fine-tuned by Viperclaw with LoRA (rank 32), in three rounds. Training data: the model's own conversations that scored reward 1.0, on (a) synthetic airline scenarios generated over a re-skinned copy of the tau2-bench airline database (renamed users, reservations and flights; users referenced by any official task excluded) and (b) the 30 official airline train-split tasks. No official test-split task, and no conversation on one, was used as training data. The round-3 scenario families and the working notes were designed after reviewing failure modes on official tasks, including test-split tasks; the scenarios are new look-alike cases, not copies of test tasks. 30 of the 50 airline tasks (the train split) were seen in training. The full training and practice data is published as rapidchat-data. This run uses the standard agent system prompt. Serving: vLLM, bf16, temperature 0.6, top_p 0.95, top_k 20, max 6000 new tokens per turn. Harness changes: the model's reasoning is kept in context within a chain of tool calls, and one retry is made when the model returns an empty reply. tau2 tools, policy and user simulator prompt unchanged. User simulator: gpt-6.1-sol (low reasoning effort) through an OpenAI-compatible relay.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false
+    }
+  },
+  "reasoning_effort": "enabled"
+}
