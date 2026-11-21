@@ -37,6 +37,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   collide. voice-v2 and text-v1 names are unchanged.
 
 ### Changed
+- The text user-simulator scaffolds carry the voice scaffolds' completion
+  rules: agreeing to an action is not the same as the action being completed,
+  so the simulated user waits for the agent to confirm it is done, and checks
+  every scenario item before ending the conversation. Benchmark bindings now
+  take the text scaffolds' revision from `TEXT_GUIDELINE_TEMPLATE_VERSION`
+  (`language-guidelines-text-v5`), so text bindings change and the `text`
+  manifest needs re-pinning. `GUIDELINE_TEMPLATE_VERSION` stays
+  `language-guidelines-v4`, so voice-v2, banking and entity bindings are
+  unchanged.
 - Generation quality (Experience) is `voice-v2-experience-call-v2`. Live
   speech recorded without a transcript is a recording gap, as in the judge
   diagnostics: those utterances are left out and the rest of the call is

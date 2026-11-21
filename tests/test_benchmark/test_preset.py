@@ -72,7 +72,7 @@ def test_shipped_frame_matches_current_runtime_and_packs():
 @pytest.mark.parametrize(
     ("module", "name", "mode"),
     [
-        ("tau2.user.guidelines", "GUIDELINE_TEMPLATE_VERSION", "text"),
+        ("tau2.user.guidelines", "TEXT_GUIDELINE_TEMPLATE_VERSION", "text"),
         ("tau2.user.guidelines", "GUIDELINE_TEMPLATE_VERSION", "voice"),
         ("tau2.backchannel", "BACKCHANNEL_PROMPT_VERSION", "voice"),
     ],
@@ -92,6 +92,22 @@ def test_text_binding_ignores_voice_only_versions(monkeypatch):
     loaded = load_language("en", "airline", mode="text")
     before = binding_revision(loaded)
     monkeypatch.setattr(tau2.backchannel, "BACKCHANNEL_PROMPT_VERSION", "changed")
+    assert binding_revision(loaded) == before
+
+
+@pytest.mark.parametrize(
+    ("name", "mode"),
+    [
+        ("GUIDELINE_TEMPLATE_VERSION", "text"),
+        ("TEXT_GUIDELINE_TEMPLATE_VERSION", "voice"),
+    ],
+)
+def test_binding_ignores_the_other_modes_scaffold_version(monkeypatch, name, mode):
+    import tau2.user.guidelines
+
+    loaded = load_language("en", "airline", mode=mode)
+    before = binding_revision(loaded)
+    monkeypatch.setattr(tau2.user.guidelines, name, "changed")
     assert binding_revision(loaded) == before
 
 
