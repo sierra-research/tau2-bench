@@ -66,6 +66,40 @@ end-of-utterance playback caption show that the words aired. A word the
 alignment splits in two ("T-shir" + "t") counts once both pieces have aired.
 On barge-in, text the caller has not heard is discarded.
 
+When the agent times its words on the audio clock
+(`avartha-audio-timing/1`: an `audio_timeline` server-message binding its
+media clock to the track's RTP clock, and `audio_time` word ends on
+`bot-tts-text`), each word airs once playback passes the end of its sound. A
+word that ends in the silence the receiver drops airs with the audio before
+that silence. A barge-in keeps the timed words whose sound ended in audio
+already played, even if their word event arrives in the barge-in tick, and the
+word the cut caught if more than half of that word's sound had played. A
+word's sound starts at the previous word's end, but never before its line's
+first audio or audio after silence the receiver dropped (a short gap of lost
+media, up to 200 ms, is not a restart, so a line after a pause that was lost
+completely, if no longer than that, is measured from the previous line's
+tail). A cut that keeps such a word cut off its line, so the cut tick carries
+that line's utterance. The played caption can overtake a line's last audio or
+come before its quiet tail; audio that follows the line's without an RTP gap,
+within 250 ms of its last timed word's end and before the next line's text,
+stays in that line's utterance instead of opening a new one (if the next line's
+text came first, only when the caption overtook the line's audio). A tick that
+shows only a captioned line's text is that line's, whatever audio it plays, so
+the line's last word stays in its utterance; a tick that also shows the next
+line's first word is still labelled by the audio it plays. This label also
+applies without timing (the caption alone ends a line's text); the tail window
+needs timed words. A cut in a captioned line's quiet tail (audio past its last
+timed word's end) does not mark that line cut off.
+"Played" includes the utterance's last millisecond, which the adapter holds
+back for its caption, as it does for every word. As upstream, a cut tick that
+discarded no audio is not labelled with the reply. The receiver keeps each
+decoded frame's RTP timestamp for this; aiortc exposes its RTP origin only
+privately. Without that origin, a binding, or a word's `audio_time`, the word
+is placed on arrival as before. A word reported after the barge-in is
+ignored, timed or not. If the received audio clock rewinds, timing is disabled
+for the rest of that call and words fall back to arrival placement; reconnecting
+starts a new clock.
+
 ## Protocol compatibility
 
 The agent's `tools_registered` or `tools_registration_error` reply must carry
@@ -78,6 +112,11 @@ simulation retries instead of recording the mismatch as a benchmark score.
 
 The call's session ID is saved as `provider_session_id` on `SimulationRun`.
 The hosted agent reports no cost.
+
+The audio-clock receiver does not change the saved-input version, judge
+fingerprint computation, or the saved simulation schema. Existing saved judge verdicts retain
+their validity; newly recorded calls can have different delivered transcript
+text because words are placed by the audio played.
 
 ## Live provider suite
 

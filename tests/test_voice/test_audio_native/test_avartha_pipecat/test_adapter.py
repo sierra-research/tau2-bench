@@ -40,6 +40,8 @@ class FakeProvider:
         self.session_id = "session-test"
         self.is_connected = False
         self.reset_count = 0
+        # No RTP positions (see AvarthaPipecatProvider.rtp_silence).
+        self.rtp_silence = None
 
     async def connect(self, system_prompt=""):
         self.connect_attempts += 1

@@ -1,0 +1,1970 @@
+"""Avartha word-end timing over WebRTC (``avartha-audio-timing/1``)."""
+
+import asyncio
+from fractions import Fraction
+from types import SimpleNamespace
+
+import numpy as np
+import pytest
+
+pytest.importorskip("aiortc")
+
+from av import AudioFrame  # noqa: E402
+from av.audio.resampler import AudioResampler  # noqa: E402
+
+from tau2.voice.audio_native.avartha_pipecat.audio_timing import (  # noqa: E402
+    AudioClockBinding,
+    WordEndTime,
+    parse_audio_timeline,
+    parse_word_end,
+    unwrap_rtp,
+)
+from tau2.voice.audio_native.avartha_pipecat.discrete_time_adapter import (  # noqa: E402
+    DiscreteTimeAvarthaPipecatAdapter,
+    _HeardTranscript,
+)
+from tau2.voice.audio_native.avartha_pipecat.provider import (  # noqa: E402
+    AgentAudioEvent,
+    AgentAudioTimelineEvent,
+    AgentLLMStartedEvent,
+    AgentPlaybackEvent,
+    AgentStartedSpeakingEvent,
+    AgentWordEvent,
+    AvarthaPipecatProvider,
+    SpeechEvent,
+    TranscriptEvent,
+)
+from tau2.voice.audio_native.avartha_pipecat.webrtc import (  # noqa: E402
+    _rtp_origin,
+    _RtpPosition,
+)
+
+from .test_adapter import FakeProvider, _transcripts  # noqa: E402
+
+STREAM = "73dfe9ec-e3b4-4d42-8f74-1076e94be983"
+TIMELINE = {
+    "type": "audio_timeline",
+    "protocol": "avartha-audio-timing/1",
+    "stream_id": STREAM,
+    "sample_rate_hz": 48000,
+    "rtp_timestamp": 1000,
+    "media_sample_offset": -312,
+}
+BINDING = AudioClockBinding(STREAM, 1000, -312)
+# The first audio event starts at RTP 1000; each is 20 ms, 960 RTP ticks.
+FIRST_RTP = 1000
+TICK_RTP = 960
+
+
+def _audio(index, *, rtp=True, decoded_from=None):
+    """The ``index``-th 20 ms of agent audio (index 0 starts at FIRST_RTP)."""
+
+    start = FIRST_RTP + index * TICK_RTP
+    return AgentAudioEvent(
+        b"\x01\x00" * 480,
+        24000,
+        rtp_start=start if rtp else None,
+        rtp_decoded_from=(start if decoded_from is None else decoded_from)
+        if rtp
+        else None,
+    )
+
+
+def _word(text, end_rtp, stream=STREAM):
+    """A word whose sound ends at RTP ``end_rtp``, timed on BINDING's clock."""
+
+    offset = end_rtp - BINDING.rtp_timestamp + BINDING.media_sample_offset
+    return AgentWordEvent(text, WordEndTime(stream, offset))
+
+
+# --- wire parsing -----------------------------------------------------------
+
+
+def test_an_audio_timeline_binding_is_parsed_and_validated():
+    assert parse_audio_timeline(TIMELINE) == BINDING
+    for field, bad in [
+        ("protocol", "avartha-audio-timing/2"),
+        ("stream_id", "not-a-uuid"),
+        ("sample_rate_hz", 24000),
+        ("rtp_timestamp", -1),
+        ("rtp_timestamp", 1 << 32),
+        ("rtp_timestamp", True),
+        ("rtp_timestamp", 1.5),
+        ("sample_rate_hz", 48000.0),
+        ("media_sample_offset", 1 << 53),
+        ("media_sample_offset", None),
+    ]:
+        assert parse_audio_timeline({**TIMELINE, field: bad}) is None, field
+
+
+def test_a_word_end_is_parsed_and_validated():
+    audio_time = {
+        "stream_id": STREAM,
+        "sample_offset": 38400,
+        "sample_rate_hz": 48000,
+        "boundary": "word_end",
+    }
+    assert parse_word_end({"text": "arrive", "audio_time": audio_time}) == (
+        WordEndTime(STREAM, 38400)
+    )
+    assert parse_word_end({"text": "arrive"}) is None
+    for field, bad in [
+        ("boundary", "word_start"),
+        ("sample_rate_hz", 24000),
+        ("stream_id", 7),
+        ("sample_offset", "38400"),
+        ("sample_offset", False),
+        ("sample_rate_hz", 48000.0),
+    ]:
+        data = {"text": "arrive", "audio_time": {**audio_time, field: bad}}
+        assert parse_word_end(data) is None, field
+
+
+def test_word_ends_map_to_rtp_timestamps_across_the_wrap():
+    binding = AudioClockBinding(STREAM, (1 << 32) - 100, -312)
+    # Source sample -312 is the binding's packet; 412 samples later wraps.
+    assert binding.rtp_timestamp_of(-312) == (1 << 32) - 100
+    assert binding.rtp_timestamp_of(100) == 312
+    near = (1 << 32) - 50
+    assert unwrap_rtp(312, near) == (1 << 32) + 312
+    assert unwrap_rtp((1 << 32) - 60, near) == (1 << 32) - 60
+    assert unwrap_rtp(5, 10 + (3 << 32)) == 5 + (3 << 32)
+
+
+def test_the_provider_routes_timelines_and_timed_words():
+    provider = AvarthaPipecatProvider.__new__(AvarthaPipecatProvider)
+    events = []
+    provider._queue = SimpleNamespace(put_nowait=events.append)
+    provider._route_message(
+        {"label": "rtvi-ai", "type": "server-message", "data": TIMELINE}
+    )
+    provider._route_message(
+        {
+            "label": "rtvi-ai",
+            "type": "server-message",
+            "data": {**TIMELINE, "sample_rate_hz": 24000},
+        }
+    )
+    provider._route_message(
+        {
+            "label": "rtvi-ai",
+            "type": "bot-tts-text",
+            "data": {
+                "text": "arrive",
+                "audio_time": {
+                    "stream_id": STREAM,
+                    "sample_offset": 38400,
+                    "sample_rate_hz": 48000,
+                    "boundary": "word_end",
+                },
+            },
+        }
+    )
+    provider._route_message(
+        {"label": "rtvi-ai", "type": "bot-tts-text", "data": {"text": "now"}}
+    )
+
+    assert events == [
+        AgentAudioTimelineEvent(BINDING),
+        AgentWordEvent("arrive", WordEndTime(STREAM, 38400)),
+        AgentWordEvent("now"),
+    ]
+
+
+# --- receiver: decoded frames keep their RTP position -----------------------
+
+
+def _decoded(pts, value=1000):
+    """A decoded 20 ms Opus frame as aiortc delivers it (48 kHz stereo)."""
+
+    frame = AudioFrame.from_ndarray(
+        np.full((1, 960 * 2), value, dtype=np.int16), format="s16", layout="stereo"
+    )
+    frame.sample_rate = 48000
+    frame.pts = pts
+    frame.time_base = Fraction(1, 48000)
+    return frame
+
+
+def test_resampled_audio_keeps_its_rtp_position_and_loss_restarts_decoding():
+    origin = (1 << 32) - 1500  # wraps within the call
+    position = _RtpPosition(origin)
+    resampler = AudioResampler(format="s16", layout="mono", rate=24000)
+    spans = []
+    for pts in [0, 960, 1920, 4800]:  # 2880..4800 lost
+        frame = _decoded(pts)
+        position.decoded(frame)
+        for converted in resampler.resample(frame):
+            spans.append(
+                (position.start_of(converted), converted.samples, position.decoded_from)
+            )
+
+    # PyAV's resampler carries pts through its delay: output sample k of a
+    # frame at pts p is input pts 2 * (p + k).
+    assert spans[0] == (origin, 464, origin)
+    assert spans[1] == (origin + 928, 480, origin)
+    assert spans[3][0] == origin + 4800 - 32
+    assert spans[3][2] == origin + 4800  # decoding restarted after the loss
+
+
+def test_a_receiver_without_an_origin_gives_no_rtp_position():
+    position = _RtpPosition(None)
+    frame = _decoded(0)
+    position.decoded(frame)
+    assert position.start_of(frame) is None
+    assert position.decoded_from is None
+
+    other_rate = _decoded(0)
+    other_rate.sample_rate = 16000
+    position = _RtpPosition(5)
+    position.decoded(other_rate)
+    assert position.start_of(other_rate) is None
+
+
+def test_the_origin_is_read_from_the_tracks_own_receiver():
+    track = object()
+    mapper = SimpleNamespace(_origin=123456)
+    receivers = [
+        SimpleNamespace(track=object(), _RTCRtpReceiver__timestamp_mapper=mapper),
+        SimpleNamespace(
+            track=track,
+            _RTCRtpReceiver__timestamp_mapper=SimpleNamespace(_origin=777),
+        ),
+    ]
+    peer = SimpleNamespace(getReceivers=lambda: receivers)
+    assert _rtp_origin(peer, track) == 777
+    receivers[1] = SimpleNamespace(track=track)
+    assert _rtp_origin(peer, track) is None
+
+
+# --- adapter: a cut keeps exactly the words whose sound played --------------
+
+
+@pytest.mark.parametrize(
+    "world_ends_in_tick, expected",
+    [
+        # A: "world." ended in tick 2's audio, which played; its word
+        # event arrived late, in the cut tick.
+        (2, "Hello world."),
+        # B: "world." ended late in the cut tick's audio, which the cut
+        # discarded, so most of its sound never played; the same word
+        # event, on time.
+        (5, "Hello"),
+    ],
+)
+def test_late_and_on_time_word_schedules_get_the_text_whose_sound_played(
+    world_ends_in_tick, expected
+):
+    """Untimed, both schedules reach the adapter as the same events and get
+    the same answer, right only in B. Timed on the RTP clock, each word
+    is placed where its sound ends."""
+
+    world_end = FIRST_RTP + (world_ends_in_tick - 1) * TICK_RTP + 500
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1)],
+            [
+                _audio(2),
+                _audio(3),
+                _audio(4),
+                _word("world.", world_end),
+                SpeechEvent("speech_started"),
+            ],
+            [],
+        ]
+    )
+
+    assert "".join(shown).strip() == expected
+
+
+@pytest.mark.parametrize(
+    "missing", ["binding", "receiver timestamps", "word time", "epoch"]
+)
+def test_without_timing_the_late_and_on_time_schedules_keep_todays_answer(missing):
+    """No binding, a receiver that keeps no timestamps, an untimed word or a
+    word on another clock epoch: the word is placed at its arrival, as before."""
+
+    timed = missing != "receiver timestamps"
+    stream = "00000000-0000-4000-8000-000000000000" if missing == "epoch" else STREAM
+
+    def word(text, end):
+        if missing == "word time":
+            return AgentWordEvent(text)
+        return _word(text, end, stream)
+
+    first = [TranscriptEvent("Hello world."), _audio(0, rtp=timed)]
+    if missing != "binding":
+        first.insert(0, AgentAudioTimelineEvent(BINDING))
+    shown = _transcripts(
+        [
+            [*first, word("Hello", FIRST_RTP + 400)],
+            [_audio(1, rtp=timed)],
+            [
+                _audio(2, rtp=timed),
+                word("world.", FIRST_RTP + TICK_RTP + 500),
+                SpeechEvent("speech_started"),
+            ],
+            [],
+        ]
+    )
+
+    assert shown == ["Hello", "", "", ""]
+
+
+def test_a_word_reported_before_its_audio_airs_with_that_audio():
+    """Untimed, a word shows as soon as the audio received when it arrives
+    has played: here on the first tick, 20 ms before its sound."""
+
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+                _word("world.", FIRST_RTP + TICK_RTP + 500),
+            ],
+            [_audio(1)],
+            [SpeechEvent("speech_started")],
+        ]
+    )
+
+    assert shown == ["Hello", " world.", ""]
+
+
+def test_a_cut_drops_a_word_whose_audio_never_arrived():
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+                _word("world.", FIRST_RTP + 5 * TICK_RTP),
+            ],
+            [_audio(1)],
+            [SpeechEvent("speech_started")],
+            [],
+        ]
+    )
+
+    assert "".join(shown) == "Hello"
+
+
+def test_a_caption_places_a_word_whose_audio_never_arrived_at_its_arrival():
+    """The utterance ended without the word's audio (lost at its end): the
+    played caption is the evidence, as untimed."""
+
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+                _word("world.", FIRST_RTP + 5 * TICK_RTP),
+            ],
+            [AgentPlaybackEvent("Hello world.", cut=False)],
+            [],
+        ]
+    )
+
+    assert "".join(shown) == "Hello world."
+
+
+@pytest.mark.parametrize(
+    "decoded_from, expected",
+    [
+        # 20 ms of digital silence the receiver dropped between the two
+        # chunks: "world." ended in it, before the second chunk played.
+        (FIRST_RTP + TICK_RTP, "Hello world."),
+        # Those 20 ms were lost: where "world." ended is unknown, so it is
+        # placed at its arrival, as untimed, and the cut drops it.
+        (FIRST_RTP + 2 * TICK_RTP, "Hello"),
+    ],
+)
+def test_a_word_ending_in_dropped_silence_or_lost_media(decoded_from, expected):
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(2, decoded_from=decoded_from)],
+            [
+                _word("world.", FIRST_RTP + TICK_RTP + 500),
+                _audio(3),
+                SpeechEvent("speech_started"),
+            ],
+            [],
+        ]
+    )
+
+    assert "".join(shown).strip() == expected
+
+
+def test_a_second_clock_binding_stops_word_timing():
+    other = AudioClockBinding("00000000-0000-4000-8000-000000000000", 9, 0)
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), AgentAudioTimelineEvent(other)],
+            [
+                _audio(2),
+                _word("world.", FIRST_RTP + TICK_RTP + 500),
+                SpeechEvent("speech_started"),
+            ],
+            [],
+        ]
+    )
+
+    assert "".join(shown) == "Hello"
+
+
+def test_word_times_follow_the_rtp_clock_across_its_wrap():
+    first = (1 << 32) - 1500
+    binding = AudioClockBinding(STREAM, first, 0)
+
+    def audio(index):
+        start = first + index * TICK_RTP
+        return AgentAudioEvent(
+            b"\x01\x00" * 480, 24000, rtp_start=start, rtp_decoded_from=first
+        )
+
+    def word(text, end):
+        return AgentWordEvent(text, WordEndTime(STREAM, end - first))
+
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(binding),
+                TranscriptEvent("Hello world."),
+                audio(0),
+                word("Hello", first + 400),
+            ],
+            [audio(1)],
+            # world. ends at RTP 2**32 + 260, which is 260 on the wire.
+            [
+                audio(2),
+                word("world.", first + TICK_RTP + 800),
+                SpeechEvent("speech_started"),
+            ],
+            [],
+        ]
+    )
+
+    assert "".join(shown).strip() == "Hello world."
+
+
+def test_the_held_last_millisecond_counts_as_played_for_timed_words_too():
+    """The adapter holds an utterance's last millisecond until its caption,
+    and every mark counts it as played. A timed word ending in it is no
+    different, or a reply's last word would be lost to a barge-in that keeps
+    it when untimed."""
+
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), _word("world.", FIRST_RTP + TICK_RTP + 955)],
+            [SpeechEvent("speech_started")],
+            [],
+        ]
+    )
+
+    assert "".join(shown).strip() == "Hello world."
+
+
+def test_a_word_reported_after_the_cut_is_dropped():
+    """Avartha can report a word after the barge-in that cut it. The adapter
+    ignores the cut reply's late events, timed or not, so such a word is
+    lost even if it played (a conservative miss, never an extra word)."""
+
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1)],
+            [
+                SpeechEvent("speech_started"),
+                _word("world.", FIRST_RTP + TICK_RTP + 500),
+            ],
+            [],
+        ]
+    )
+
+    assert "".join(shown).strip() == "Hello"
+
+
+def test_heard_text_kept_at_a_cut_precedes_the_next_reply():
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1)],
+            [
+                _word("world.", FIRST_RTP + TICK_RTP + 500),
+                SpeechEvent("speech_started"),
+            ],
+            [
+                AgentStartedSpeakingEvent(),
+                AgentLLMStartedEvent(),
+                TranscriptEvent("Sure."),
+            ],
+            [_audio(10), _word("Sure.", FIRST_RTP + 10 * TICK_RTP + 400)],
+        ]
+    )
+
+    assert shown == ["Hello", "", " world.", "", " Sure."]
+
+
+def _ticks(events_by_tick, rtp_silence=None):
+    """The adapter's TickResults; ``rtp_silence`` as the receiver reports it."""
+
+    provider = FakeProvider(events_by_tick)
+    provider.rtp_silence = rtp_silence
+    adapter = DiscreteTimeAvarthaPipecatAdapter(tick_duration_ms=20, provider=provider)
+    adapter.connect("policy", [])
+    try:
+        return [
+            adapter.run_tick(b"\xff" * 160, tick_number=tick)
+            for tick in range(1, len(events_by_tick) + 1)
+        ]
+    finally:
+        adapter.disconnect()
+
+
+def test_two_cut_events_in_one_tick_keep_the_heard_words():
+    """Avartha can send both user-started-speaking and bot-interrupted in one
+    tick. The second cut used to cut back to the text shown so far, losing the
+    words the first had kept."""
+
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), _audio(2), _word("world.", FIRST_RTP + TICK_RTP + 500)],
+            [SpeechEvent("speech_started"), SpeechEvent("interrupted")],
+            [],
+        ]
+    )
+
+    assert "".join(shown).strip() == "Hello world."
+
+
+def test_an_untimed_replacement_word_waits_for_its_audio_after_a_cut():
+    """Untimed calls are unchanged: the replacement reply's word arriving in
+    the cut tick is not shown on that silent tick."""
+
+    shown = _transcripts(
+        [
+            [
+                TranscriptEvent("Hello world."),
+                _audio(0, rtp=False),
+                AgentWordEvent("Hello"),
+            ],
+            [
+                SpeechEvent("speech_started"),
+                AgentLLMStartedEvent(),
+                AgentStartedSpeakingEvent(),
+                TranscriptEvent("Sorry."),
+                AgentWordEvent("Sorry."),
+            ],
+            [_audio(5, rtp=False)],
+        ]
+    )
+
+    assert shown == ["Hello", "", " Sorry."]
+
+
+def test_a_word_ending_in_trailing_silence_is_kept_at_a_cut():
+    """The reply's last word ends in the digital silence after its audio,
+    which the receiver drops. Untimed it is kept; timed, it waited for audio
+    that never came, and the cut dropped it. The
+    receiver reports the silence it decoded after the last audio. Its end is
+    placed far enough into the silence that the audio played is not most of
+    its span, so only the decoded silence can keep it."""
+
+    last_end = FIRST_RTP + 2 * TICK_RTP
+    events = [
+        [
+            AgentAudioTimelineEvent(BINDING),
+            TranscriptEvent("Hello world."),
+            _audio(0),
+            _word("Hello", FIRST_RTP + 400),
+        ],
+        [_audio(1), _word("world.", last_end + 3000)],
+        [],
+        [SpeechEvent("speech_started")],
+        [],
+    ]
+
+    def shown(rtp_silence):
+        text = [t.proportional_transcript for t in _ticks(events, rtp_silence)]
+        return "".join(text).strip()
+
+    assert shown((last_end, last_end + 3960)) == "Hello world."
+    # Silence decoded only up to before the word's end, or after audio the
+    # adapter has not received: unknown, so the cut drops the word.
+    assert shown((last_end, last_end + 200)) == "Hello"
+    assert shown((last_end + 960, last_end + 1920)) == "Hello"
+    assert shown(None) == "Hello"
+
+
+def test_a_cut_that_discards_no_audio_keeps_heard_words_but_cuts_no_reply():
+    """The reply had played all its audio and waited for its caption, so the
+    cut discarded nothing. Its heard last word is kept, and, as upstream, the
+    cut tick is not labelled with the reply: it was not cut off."""
+
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1)],
+            [],
+            [
+                _word("world.", FIRST_RTP + TICK_RTP + 500),
+                SpeechEvent("speech_started"),
+            ],
+        ]
+    )
+
+    assert ticks[3].proportional_transcript == " world."
+    assert ticks[3].was_truncated
+    assert ticks[3].agent_audio_chunks == []
+
+
+def test_a_last_word_in_trailing_silence_airs_without_waiting_for_a_cut():
+    """The receiver's silence is applied every tick, so a fully played reply's
+    last word airs as it would untimed, not on a later cut tick that then
+    marks the reply interrupted."""
+
+    last_end = FIRST_RTP + 2 * TICK_RTP
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), _word("world.", last_end + 300)],
+            [],
+            [],
+            [SpeechEvent("speech_started")],
+        ],
+        rtp_silence=(last_end, last_end + 960),
+    )
+
+    shown = [t.proportional_transcript for t in ticks]
+    assert shown[:2] == ["Hello", " world."]
+    assert ticks[4].proportional_transcript == ""
+    assert ticks[4].agent_audio_chunks == []
+
+
+def test_the_lead_bound_counts_the_silence_the_receiver_decoded():
+    """After a long silence a reply's first word can be reported before its
+    audio. The receiver has decoded that silence, so the word is still on the
+    clock and waits for its audio."""
+
+    last_end = FIRST_RTP + TICK_RTP
+    gap = 90 * 48000  # 90 s of silence
+    reply = last_end + gap
+
+    def reply_audio(index):
+        start = reply + index * TICK_RTP
+        return AgentAudioEvent(
+            b"\x01\x00" * 480, 24000, rtp_start=start, rtp_decoded_from=start
+        )
+
+    events = [
+        [
+            AgentAudioTimelineEvent(BINDING),
+            TranscriptEvent("Hello."),
+            _audio(0),
+            _word("Hello.", FIRST_RTP + 400),
+            AgentPlaybackEvent("Hello.", cut=False),
+        ],
+        [
+            AgentLLMStartedEvent(),
+            AgentStartedSpeakingEvent(),
+            TranscriptEvent("Sure thing."),
+            _word("Sure", reply + TICK_RTP + 400),
+        ],
+        [reply_audio(0)],
+        [reply_audio(1)],
+        [],
+    ]
+    shown = lambda silence: [  # noqa: E731
+        t.proportional_transcript for t in _ticks(events, silence)
+    ]
+
+    # Untimed after 90 s without the silence: "Sure" airs on arrival, with
+    # the reply's first audio. With it, "Sure" waits for its own audio.
+    assert shown(None) == ["Hello.", "", " Sure", "", ""]
+    assert shown((last_end, reply - 960)) == ["Hello.", "", "", " Sure", ""]
+
+
+def test_a_word_end_far_beyond_the_audio_is_not_on_this_clock():
+    """A minute past the audio received: a wrong binding or rewritten
+    timestamps, so the word is placed at its arrival, with tick 1's audio."""
+
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+                _word("world.", FIRST_RTP + 61 * 48000),
+            ],
+            [_audio(1)],
+            [],
+        ]
+    )
+
+    assert shown == ["Hello world.", "", ""]
+
+
+def test_a_second_binding_places_waiting_words_at_their_arrival():
+    other = AudioClockBinding("00000000-0000-4000-8000-000000000000", 9, 0)
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+                _word("world.", FIRST_RTP + 5 * TICK_RTP),
+            ],
+            [_audio(1), AgentAudioTimelineEvent(other)],
+            [],
+        ]
+    )
+
+    assert shown == ["Hello", " world.", ""]
+
+
+# --- receiver canaries against the real aiortc -------------------------------
+
+
+def test_aiortc_keeps_the_rtp_origin_where_the_receiver_reads_it():
+    """The timed path rests on aiortc's private TimestampMapper; if an upgrade
+    moves it, this fails instead of timing silently switching off."""
+
+    from aiortc.rtcrtpreceiver import RTCRtpReceiver
+
+    transport = SimpleNamespace(state="new", _register_rtp_receiver=lambda *a: None)
+    receiver = RTCRtpReceiver("audio", transport)
+    mapper = receiver._RTCRtpReceiver__timestamp_mapper
+    assert mapper.map((1 << 32) - 10) == 0
+    assert mapper.map(950) == 960  # across the wrap
+    track = object()
+    receiver._track = track
+    peer = SimpleNamespace(getReceivers=lambda: [receiver])
+    assert _rtp_origin(peer, track) % (1 << 32) == (1 << 32) - 10
+
+
+@pytest.mark.parametrize("origin, skipped", [(12345, 0), ((1 << 32) - 96, 0), (777, 7)])
+def test_the_real_opus_chain_puts_source_samples_where_the_binding_says(
+    origin, skipped
+):
+    """aiortc's Opus encoder (the sender, bound as the agent binds it), its RTP
+    timestamp mapper and decoder (the receiver), then this receiver's RTP
+    position through the 24 kHz resampler: a noise burst at source sample s
+    decodes at RTP binding.rtp_timestamp_of(s), within a 24 kHz sample.
+    Packets the receiver never got (``skipped``) move its origin, not the
+    result."""
+
+    from aiortc.codecs.opus import OpusDecoder, OpusEncoder
+    from aiortc.jitterbuffer import JitterFrame
+    from aiortc.rtcrtpreceiver import TimestampMapper
+
+    rate = 48000
+    rng = np.random.default_rng(1)
+    source = np.zeros(rate * 2, dtype=np.int16)
+    burst = int(rate * 0.7)
+    source[burst : burst + rate // 5] = (rng.standard_normal(rate // 5) * 6000).astype(
+        np.int16
+    )
+    encoder = OpusEncoder()
+    packets = []
+    step = rate // 50
+    for start in range(0, len(source), step):
+        frame = AudioFrame.from_ndarray(
+            source[start : start + step].reshape(1, -1), format="s16", layout="mono"
+        )
+        frame.sample_rate, frame.pts = rate, start
+        frame.time_base = Fraction(1, rate)
+        payloads, timestamp = encoder.encode(frame)
+        packets += [((origin + timestamp) % (1 << 32), p) for p in payloads]
+    binding = AudioClockBinding(STREAM, packets[0][0], encoder.first_packet_pts)
+
+    mapper, decoder = TimestampMapper(), OpusDecoder()
+    resampler = AudioResampler(format="s16", layout="mono", rate=24000)
+    position = None
+    samples = {}
+    for timestamp, payload in packets[skipped:]:
+        encoded = JitterFrame(data=payload, timestamp=mapper.map(timestamp))
+        for frame in decoder.decode(encoded):
+            if position is None:
+                position = _RtpPosition(mapper._origin)
+            position.decoded(frame)
+            for converted in resampler.resample(frame):
+                start = position.start_of(converted)
+                for k, value in enumerate(converted.to_ndarray().reshape(-1)):
+                    samples[start + 2 * k] = value
+
+    keys = sorted(samples)
+    decoded = np.array([samples[k] for k in keys], dtype=float)
+    template = source[burst : burst + 4800 : 2].astype(float)
+    measured = keys[int(np.argmax(np.correlate(decoded, template, mode="valid")))]
+    expected = unwrap_rtp(binding.rtp_timestamp_of(burst), keys[0])
+    assert abs(measured - expected) <= 2  # one 24 kHz sample
+
+
+def test_the_receiver_reports_silence_it_drops_after_its_audio():
+    from tau2.voice.audio_native.avartha_pipecat import webrtc
+
+    frames = [
+        _decoded(0),
+        _decoded(960),
+        _decoded(1920, value=0),
+        _decoded(2880, value=0),
+        _decoded(3840, value=0),
+    ]
+    provider = webrtc.AvarthaWebRTCProvider.__new__(webrtc.AvarthaWebRTCProvider)
+    provider._closing = False
+    provider._queue = asyncio.Queue()
+
+    class Track:
+        async def recv(self):
+            if frames:
+                return frames.pop(0)
+            provider._closing = True
+            raise webrtc.MediaStreamError
+
+    track = Track()
+    receiver = SimpleNamespace(
+        track=track, _RTCRtpReceiver__timestamp_mapper=SimpleNamespace(_origin=5000)
+    )
+    peer = SimpleNamespace(getReceivers=lambda: [receiver])
+    asyncio.run(provider._receive_audio(track, peer))
+
+    events = []
+    while not provider._queue.empty():
+        events.append(provider._queue.get_nowait())
+    starts = [e.rtp_start for e in events]
+    assert starts == [
+        5000 + sum(len(x.audio) for x in events[:i]) for i in range(len(events))
+    ]
+    audio_end = starts[-1] + len(events[-1].audio)
+    # The silence after the audio runs, contiguous, to the last frame decoded.
+    assert provider.rtp_silence[0] == audio_end
+    assert provider.rtp_silence[1] > audio_end + 960
+
+
+def test_a_first_frame_off_the_mapped_origin_gives_no_timing():
+    position = _RtpPosition(1000)
+    frame = _decoded(960)
+    position.decoded(frame)
+    assert position.start_of(frame) is None
+
+
+def test_text_a_cut_keeps_stays_in_the_transcript_text():
+    """Kept words are part of what aired: the next reply's first sentence
+    still joins them with a space."""
+
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _audio(1),
+            ],
+            [],
+            [
+                _word("Hello", FIRST_RTP + 400),
+                _word("world.", FIRST_RTP + 900),
+                SpeechEvent("speech_started"),
+            ],
+            [
+                AgentLLMStartedEvent(),
+                AgentStartedSpeakingEvent(),
+                TranscriptEvent("Sure."),
+                _audio(5),
+                _word("Sure.", FIRST_RTP + 5 * TICK_RTP + 400),
+            ],
+            [],
+        ]
+    )
+
+    assert shown[2] == "Hello world."  # kept at the cut
+    assert "".join(shown) == "Hello world. Sure."
+
+
+def test_audio_rewinding_the_rtp_clock_stops_timing_from_it():
+    """Audio that starts before the audio already received is not on a clock
+    the adapter can follow: a word timed into it is placed at its arrival, not
+    in the earlier audio with the same timestamps."""
+
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1)],
+            [_audio(0), _word("world.", FIRST_RTP + 900)],
+            [_audio(3)],
+            [],
+        ]
+    )
+
+    # Arrival fallback releases the word with the rewound audio; it must not
+    # wait for another frame to rediscover that the RTP clock is unusable.
+    assert shown == ["Hello", "", " world.", "", ""]
+
+
+def test_rewound_audio_releases_word_without_more_audio_or_caption():
+    transcript = _HeardTranscript()
+    transcript.add_text("Hello world.")
+    transcript.add_audio(1600, 10000, 9600)
+    transcript.add_word("Hello", 10400)
+    assert transcript.get_transcript_for_audio(1600) == "Hello"
+    transcript.add_audio(1600, 10000, 9600)
+    transcript.add_word("world.", 10900)
+    assert transcript.get_transcript_for_audio(1600) == " world."
+    transcript.interrupt()
+    assert transcript.take_kept() == ""
+    assert transcript.get_transcript_for_audio(0) == ""
+
+
+def test_rewind_releases_waiting_words_and_keeps_later_audio_untimed():
+    transcript = _HeardTranscript()
+    transcript.add_text("Hello world. Again.")
+    transcript.add_audio(1600, 10000, 9600)
+    transcript.add_word("Hello", 20000)  # Waiting for future audio before rewind.
+    transcript.add_audio(1600, 10000, 9600)
+    assert transcript.get_transcript_for_audio(1600) == "Hello"
+    transcript.add_word("world.", 20000)
+    assert transcript.get_transcript_for_audio(1600) == " world."
+    transcript.add_audio(1600, 30000, 9600)
+    transcript.add_word("Again.", 50000)
+    assert transcript.get_transcript_for_audio(1600) == " Again."
+
+
+def test_cut_discards_rewound_waiting_word_without_resurrection():
+    transcript = _HeardTranscript()
+    transcript.add_text("Hello world.")
+    transcript.add_audio(1600, 10000, 9600)
+    transcript.add_word("Hello", 10400)
+    assert transcript.get_transcript_for_audio(1600) == "Hello"
+    transcript.add_audio(1600, 10000, 9600)
+    transcript.add_word("world.", 10900)
+    transcript.interrupt()
+    assert transcript.take_kept() == ""
+    assert transcript.get_transcript_for_audio(1600) == ""
+
+
+@pytest.mark.parametrize(
+    "end, silence",
+    [
+        # In the reply's held last millisecond.
+        (FIRST_RTP + 2 * TICK_RTP - 5, None),
+        # In the silence after the reply, decoded before the cut.
+        (
+            FIRST_RTP + 2 * TICK_RTP + 300,
+            (FIRST_RTP + 2 * TICK_RTP, FIRST_RTP + 3 * TICK_RTP),
+        ),
+    ],
+)
+def test_a_last_word_reported_in_the_cut_tick_is_kept(end, silence):
+    """The reply's last word, reported in the barge-in tick, ended where
+    every mark counts as played: in the held last millisecond, or in the
+    silence the receiver decoded after the audio."""
+
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _audio(1),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [],
+            [_word("world.", end), SpeechEvent("speech_started")],
+            [],
+        ],
+        rtp_silence=silence,
+    )
+
+    shown = [t.proportional_transcript for t in ticks]
+    assert shown == ["Hello", "", " world.", ""]
+
+
+def test_disconnect_reports_timing_before_clearing_call_state():
+    from loguru import logger
+
+    messages = []
+    sink = logger.add(lambda message: messages.append(str(message)))
+    provider = FakeProvider(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+                AgentWordEvent("world."),
+            ]
+        ]
+    )
+    adapter = DiscreteTimeAvarthaPipecatAdapter(tick_duration_ms=20, provider=provider)
+    try:
+        adapter.connect("policy", [])
+        adapter.run_tick(b"\xff" * 160, tick_number=1)
+        adapter.disconnect()
+        assert not adapter._utterance_transcripts
+        adapter.disconnect()
+        summaries = [m for m in messages if "Avartha word timing metadata:" in m]
+        assert len(summaries) == 1
+        assert (
+            "1 marks initially accepted for timing, 0 timed marks without a usable audio position"
+            in summaries[0]
+        )
+    finally:
+        adapter.disconnect()
+        logger.remove(sink)
+
+
+def test_disconnect_reports_a_binding_even_without_timed_words():
+    from loguru import logger
+
+    messages = []
+    sink = logger.add(lambda message: messages.append(str(message)))
+    provider = FakeProvider([[AgentAudioTimelineEvent(BINDING)]])
+    adapter = DiscreteTimeAvarthaPipecatAdapter(tick_duration_ms=20, provider=provider)
+    try:
+        adapter.connect("policy", [])
+        adapter.run_tick(b"\xff" * 160, tick_number=1)
+        adapter.disconnect()
+        adapter.disconnect()
+        summaries = [m for m in messages if "Avartha word timing metadata:" in m]
+        assert len(summaries) == 1
+        assert "0 marks initially accepted for timing" in summaries[0]
+    finally:
+        adapter.disconnect()
+        logger.remove(sink)
+
+
+# --- a cut keeps the word it caught mostly played ----------------------------
+
+
+@pytest.mark.parametrize(
+    "world_end, expected",
+    [
+        # "world." had played 1520 of its 1720 RTP ticks (from "Hello"'s end)
+        # when the cut came: the caller heard it.
+        (FIRST_RTP + 2 * TICK_RTP + 200, "Hello world."),
+        # Only 1520 of 3440 had played: the cut caught it at its start.
+        (FIRST_RTP + 4 * TICK_RTP, "Hello"),
+    ],
+)
+def test_a_cut_keeps_a_word_it_caught_more_than_half_played(world_end, expected):
+    """Keeping only the words whose sound had ended dropped the word the cut
+    caught mid-sound: the judged clip said "...the only change is" while its
+    text ended "...the only change", and the judge scored "is" as an extra
+    word (2026-11-17 runs: a missing last word in 64% of cut replies, 37%
+    before)."""
+
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), _word("world.", world_end)],
+            [_audio(2), _audio(3), _audio(4), SpeechEvent("speech_started")],
+            [],
+        ]
+    )
+
+    assert "".join(shown).strip() == expected
+
+
+def test_a_cut_keeps_a_word_mostly_played_whose_end_has_not_arrived():
+    """The cut came before the audio carrying the word's end arrived; the
+    RTP clock still says most of its sound played."""
+
+    shown = _transcripts(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), _word("world.", FIRST_RTP + 2 * TICK_RTP + 200)],
+            [SpeechEvent("speech_started")],
+            [],
+        ]
+    )
+
+    assert "".join(shown).strip() == "Hello world."
+
+
+# --- a reply's audio after its caption stays in its utterance ----------------
+
+
+def test_audio_after_the_caption_stays_in_the_utterance_with_its_last_word():
+    """Avartha's caption can arrive while the reply's last audio is still on
+    its way. That audio opened a new utterance, and the tick that played the
+    last word went to it, so "Is that right?" was judged as "Is that" against
+    audio saying "right", and " right?" stood alone as a reply of its own."""
+
+    last_end = FIRST_RTP + 3 * TICK_RTP + 500
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Is that right?"),
+                _audio(0),
+                _word("Is", FIRST_RTP + 300),
+            ],
+            [
+                _audio(1),
+                _word("that", FIRST_RTP + TICK_RTP + 300),
+                _word("right?", last_end),
+                AgentPlaybackEvent("Is that right?", cut=False),
+            ],
+            [_audio(2)],
+            [_audio(3)],
+            [_audio(4)],  # the line's quiet tail
+            [],
+        ]
+    )
+
+    labelled = [t.item_ids for t in ticks if t.item_ids]
+    assert labelled and all(ids == ["avartha-1"] for ids in labelled)
+    assert "".join(t.proportional_transcript for t in ticks) == "Is that right?"
+
+
+def test_the_next_line_after_a_caption_opens_its_own_utterance():
+    """Audio past the captioned line's tail is the next line's."""
+
+    gap = 48000  # one second of dropped silence
+    next_start = FIRST_RTP + 2 * TICK_RTP + gap
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Let me check."),
+                _audio(0),
+                _word("Let", FIRST_RTP + 300),
+            ],
+            [
+                _audio(1),
+                _word("check.", FIRST_RTP + TICK_RTP + 900),
+                AgentPlaybackEvent("Let me check.", cut=False),
+            ],
+            [],
+            [
+                TranscriptEvent("Found it."),
+                AgentAudioEvent(
+                    b"\x01\x00" * 480,
+                    24000,
+                    rtp_start=next_start,
+                    rtp_decoded_from=FIRST_RTP,
+                ),
+                _word("Found", next_start + 500),
+            ],
+            [],
+        ]
+    )
+
+    assert [t.item_ids for t in ticks if t.item_ids][-1] == ["avartha-2"]
+
+
+def _overtaken_line(last_end, audio_through=1):
+    """Line "Okay." whose caption arrives with audio 0..``audio_through``
+    received and its last word ending at ``last_end``."""
+
+    return [
+        AgentAudioTimelineEvent(BINDING),
+        TranscriptEvent("Okay."),
+        *[_audio(index) for index in range(audio_through + 1)],
+        _word("Okay.", last_end),
+        AgentPlaybackEvent("Okay.", cut=False),
+    ]
+
+
+def test_the_next_lines_text_closes_the_caption_tail():
+    """All of "Okay." had arrived when its caption came; the next line's text
+    then arrives before its audio, so that line, though it follows without a
+    gap, is its own utterance, with its own text."""
+
+    ticks = _ticks(
+        [
+            _overtaken_line(FIRST_RTP + TICK_RTP + 300),
+            [TranscriptEvent(" Sure."), _audio(2), _audio(3)],
+            [],
+            [],
+            [],
+            [AgentPlaybackEvent("Sure.", cut=False)],
+            [],
+        ]
+    )
+
+    labels = [t.item_ids for t in ticks]
+    text = [t.proportional_transcript for t in ticks]
+    assert labels[0] == ["avartha-1"]
+    sure = [i for i, t in enumerate(text) if "Sure" in t]
+    assert sure and all(labels[i] == ["avartha-2"] for i in sure)
+    assert "avartha-2" in labels[2]
+
+
+def test_contiguous_audio_past_the_caption_tail_opens_the_next_utterance():
+    """After an overtaking caption, contiguous audio past the tail window
+    (250 ms after the line's last word end) is the next line's."""
+
+    last_end = FIRST_RTP + 2 * TICK_RTP + 500  # in audio 2, not yet received
+    window_end = last_end + 12000
+    first_next = (window_end - FIRST_RTP) // TICK_RTP + 1
+    frames = range(2, first_next + 3)
+    ticks = _ticks(
+        [
+            _overtaken_line(last_end),
+            [_audio(index) for index in frames],
+            # Ticks to play the queued audio, 20 ms each.
+            *[[] for _ in range(len(frames) + 4)],
+        ]
+    )
+
+    ids = [t.item_ids for t in ticks if t.item_ids]
+    first_two = next(i for i, x in enumerate(ids) if "avartha-2" in x)
+    # Each tick plays one 20 ms frame: frames 0..first_next-1 are the line's.
+    assert all(x == ["avartha-1"] for x in ids[: first_next - 1])
+    assert first_two in (first_next - 1, first_next)
+    assert all(x == ["avartha-2"] for x in ids[first_two + 1 :])
+
+
+def test_a_cut_closes_the_caption_tail():
+    """A cut after an overtaking caption: the next reply's audio, contiguous
+    or not, opens its own utterance."""
+
+    last_end = FIRST_RTP + 2 * TICK_RTP + 500
+    ticks = _ticks(
+        [
+            _overtaken_line(last_end),
+            [SpeechEvent("speech_started")],
+            [
+                AgentLLMStartedEvent(),
+                TranscriptEvent("New."),
+                AgentStartedSpeakingEvent(),
+                _audio(2),
+            ],
+            [],
+        ]
+    )
+
+    assert ticks[2].item_ids == ["avartha-2"]
+
+
+def _frame(start_rtp, ms):
+    """``ms`` of agent audio starting at RTP ``start_rtp`` (48 RTP ticks/ms)."""
+
+    return AgentAudioEvent(
+        b"\x01\x00" * (24 * ms),
+        24000,
+        rtp_start=start_rtp,
+        rtp_decoded_from=FIRST_RTP,
+    )
+
+
+def test_tail_audio_after_a_late_caption_stays_in_the_line():
+    """From a recorded call's timeline: the caption came after all the audio
+    carrying the line's last word, and the line's quiet tail arrived
+    contiguously in the next tick. Only a caption that overtook the audio
+    opened the tail window, so the tail opened an utterance of its own; the
+    tick playing it showed " now." and that group stayed open: the line was
+    judged without its last word and "now." stood alone."""
+
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Desk lamp now."),
+                _audio(0),
+                _audio(1),
+                _audio(2),
+                _word("Desk", FIRST_RTP + 300),
+                _word("lamp", FIRST_RTP + TICK_RTP + 300),
+                _word("now.", FIRST_RTP + 2 * TICK_RTP + 800),
+                AgentPlaybackEvent("Desk lamp now.", cut=False),
+            ],
+            [_audio(3), _audio(4)],  # the line's quiet tail
+            *[[] for _ in range(5)],
+        ]
+    )
+
+    labelled = [t.item_ids for t in ticks if t.item_ids]
+    assert labelled and all(ids == ["avartha-1"] for ids in labelled)
+    assert "".join(t.proportional_transcript for t in ticks) == "Desk lamp now."
+
+
+def test_the_tick_showing_a_lines_last_word_is_the_lines():
+    """The tick that shows a captioned line's last word belongs to that line
+    even when most of its audio is the next line's: by audio alone " now."
+    went to the next line's group."""
+
+    a1 = FIRST_RTP + 5 * 48  # line 1: 5 ms, then 20 ms, then 20 ms
+    a2 = a1 + TICK_RTP
+    line_end = a2 + TICK_RTP
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Okay now."),
+                _frame(FIRST_RTP, 5),
+                _frame(a1, 20),
+                _frame(a2, 20),
+                _word("Okay", a1 + 300),
+                _word("now.", line_end - 100),
+                AgentPlaybackEvent("Okay now.", cut=False),
+            ],
+            [
+                # The next line, without a gap; ticks play 20 ms each, so the
+                # third plays line 1's last 5 ms and line 2's first 15 ms.
+                TranscriptEvent(" Sure."),
+                *[_frame(line_end + i * TICK_RTP, 20) for i in range(3)],
+                _word("Sure.", line_end + 2 * TICK_RTP + 500),
+            ],
+            *[[] for _ in range(4)],
+            [AgentPlaybackEvent("Sure.", cut=False)],
+            [],
+        ]
+    )
+
+    text = [t.proportional_transcript for t in ticks]
+    labels = [t.item_ids for t in ticks]
+    now = [i for i, t in enumerate(text) if "now." in t]
+    sure = [i for i, t in enumerate(text) if "Sure" in t]
+    assert now and all(labels[i] == ["avartha-1"] for i in now)
+    assert sure and all(labels[i] == ["avartha-2"] for i in sure)
+    assert "".join(text) == "Okay now. Sure."
+
+
+def test_next_text_before_a_late_caption_opens_no_caption_tail():
+    """The reply's next sentence was already received when the caption of
+    "Okay." came after all its audio: the next line, gapless and within the
+    tail window, is its own utterance."""
+
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Okay."),
+                TranscriptEvent(" Sure thing."),
+                _audio(0),
+                _audio(1),
+                _word("Okay.", FIRST_RTP + TICK_RTP + 300),
+                AgentPlaybackEvent("Okay.", cut=False),
+            ],
+            [_audio(2), _audio(3), _audio(4)],
+            [_word("Sure", FIRST_RTP + 3 * TICK_RTP + 200)],
+            [_audio(5), _audio(6), _word("thing.", FIRST_RTP + 6 * TICK_RTP + 500)],
+            *[[] for _ in range(3)],
+            [AgentPlaybackEvent("Sure thing.", cut=False)],
+            [],
+            [],
+        ]
+    )
+
+    text = [t.proportional_transcript for t in ticks]
+    labels = [t.item_ids for t in ticks]
+    sure = [i for i, t in enumerate(text) if "Sure" in t or "thing" in t]
+    assert sure and all(labels[i] == ["avartha-2"] for i in sure)
+    assert "avartha-2" in labels[2]
+
+
+def test_a_later_caption_does_not_take_an_earlier_lines_words():
+    """A short line captioned while the previous line's words still wait in
+    the playback backlog: those words stay with their own line."""
+
+    next_start = FIRST_RTP + 6 * TICK_RTP + 48000  # after a dropped second
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("One two three."),
+                *[_audio(i) for i in range(6)],
+                _word("One", FIRST_RTP + 300),
+                _word("two", FIRST_RTP + 2 * TICK_RTP + 300),
+                _word("three.", FIRST_RTP + 5 * TICK_RTP + 500),
+                AgentPlaybackEvent("One two three.", cut=False),
+            ],
+            [
+                TranscriptEvent(" Hi."),
+                _frame(next_start, 20),
+                _word("Hi.", next_start + 500),
+                AgentPlaybackEvent("Hi.", cut=False),
+            ],
+            *[[] for _ in range(7)],
+        ]
+    )
+
+    text = [t.proportional_transcript for t in ticks]
+    labels = [t.item_ids for t in ticks]
+    first = [i for i, t in enumerate(text) if t.strip() in {"One", "two", "three."}]
+    hi = [i for i, t in enumerate(text) if "Hi" in t]
+    assert len(first) == 3 and all(labels[i] == ["avartha-1"] for i in first)
+    assert hi and all(labels[i] == ["avartha-2"] for i in hi)
+
+
+def test_a_cut_in_a_captioned_lines_quiet_tail_does_not_cut_it_off():
+    """Every word of "Okay." aired and its caption said it was not cut; the
+    caller then speaks while its quiet tail is still queued. The cut tick
+    used to carry the line's ID as cut off."""
+
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Okay."),
+                _audio(0),
+                _audio(1),
+                _word("Okay.", FIRST_RTP + TICK_RTP + 300),
+                AgentPlaybackEvent("Okay.", cut=False),
+            ],
+            [_audio(2), _audio(3)],  # the line's quiet tail
+            [SpeechEvent("speech_started")],
+            [],
+        ]
+    )
+
+    assert "".join(t.proportional_transcript for t in ticks[:2]) == "Okay."
+    assert ticks[2].was_truncated
+    assert "avartha-1" not in ticks[2].item_ids
+
+
+_CAPTIONED_WITH_WORDS_QUEUED = {
+    # The caption overtook the line's queued audio; the cut discards words.
+    "timed": [
+        [
+            AgentAudioTimelineEvent(BINDING),
+            TranscriptEvent("Hello there world."),
+            *[_audio(i) for i in range(5)],
+            _word("Hello", FIRST_RTP + 500),
+            _word("there", FIRST_RTP + 2 * TICK_RTP + 500),
+            _word("world.", FIRST_RTP + 4 * TICK_RTP + 500),
+            AgentPlaybackEvent("Hello there world.", cut=False),
+        ],
+        [],
+        [SpeechEvent("speech_started")],
+        [],
+    ],
+    "untimed": [
+        [
+            TranscriptEvent("Hello there world."),
+            *[_audio(i, rtp=False) for i in range(5)],
+            AgentPlaybackEvent("Hello there world.", cut=False),
+        ],
+        [],
+        [SpeechEvent("speech_started")],
+        [],
+    ],
+    # The next line opened after the caption; the captioned line's audio is
+    # queued first, so it is the one the cut discards.
+    "next line open": [
+        [
+            TranscriptEvent("Alpha beta gamma."),
+            *[_audio(i, rtp=False) for i in range(4)],
+            AgentPlaybackEvent("Alpha beta gamma.", cut=False),
+            TranscriptEvent(" Delta."),
+            _audio(4, rtp=False),
+            _audio(5, rtp=False),
+        ],
+        [SpeechEvent("speech_started")],
+        [],
+    ],
+    # Caption and cut in one tick, caption first.
+    "caption then cut": [
+        [
+            TranscriptEvent("One two three four."),
+            *[_audio(i, rtp=False) for i in range(4)],
+        ],
+        [
+            AgentPlaybackEvent("One two three four.", cut=False),
+            SpeechEvent("speech_started"),
+        ],
+        [],
+    ],
+    # The last word's audio arrived in the tail window after an overtaking
+    # caption: it is the line's words, not its quiet tail.
+    "last word in tail window": [
+        [
+            AgentAudioTimelineEvent(BINDING),
+            TranscriptEvent("Hello world."),
+            _audio(0),
+            _audio(1),
+            _word("Hello", FIRST_RTP + 500),
+            _word("world.", FIRST_RTP + 3 * TICK_RTP + 500),
+            AgentPlaybackEvent("Hello world.", cut=False),
+        ],
+        [_audio(2), _audio(3), _audio(4)],
+        [SpeechEvent("speech_started")],
+        [],
+    ],
+    # The line's last word has no mark (alignment dropped it), so audio past
+    # the last timed word still carries a word.
+    "last word's mark dropped": [
+        [
+            AgentAudioTimelineEvent(BINDING),
+            TranscriptEvent("Hello world."),
+            _audio(0),
+            _audio(1),
+            _word("Hello", FIRST_RTP + 2 * TICK_RTP),
+            AgentPlaybackEvent("Hello world.", cut=False),
+        ],
+        [_audio(i) for i in range(2, 8)],
+        [SpeechEvent("speech_started")],
+        [],
+    ],
+    "last word untimed": [
+        [
+            AgentAudioTimelineEvent(BINDING),
+            TranscriptEvent("Hello world."),
+            _audio(0),
+            _audio(1),
+            _word("Hello", FIRST_RTP + 500),
+            AgentWordEvent("world.", None),
+            AgentPlaybackEvent("Hello world.", cut=False),
+        ],
+        [_audio(2), _audio(3), _audio(4)],
+        [SpeechEvent("speech_started")],
+        [],
+    ],
+}
+
+
+@pytest.mark.parametrize("case", sorted(_CAPTIONED_WITH_WORDS_QUEUED))
+def test_a_cut_discarding_a_captioned_lines_words_cuts_it_off(case):
+    """A captioned line whose words were still queued at the cut is cut off,
+    even though captioned lines have a quiet-tail exemption."""
+
+    ticks = _ticks(_CAPTIONED_WITH_WORDS_QUEUED[case])
+    cut = next(t for t in ticks if t.was_truncated)
+    assert cut.item_ids == ["avartha-1"]
+
+
+def test_a_cut_after_the_words_in_a_tail_burst_played_does_not_cut_the_line():
+    """The tail window brought the last word's sound and then quiet audio in
+    one burst; the caller speaks once the word has played, while only quiet
+    audio is queued."""
+
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _audio(1),
+                _word("Hello", FIRST_RTP + 500),
+                _word("world.", FIRST_RTP + 3 * TICK_RTP),
+                AgentPlaybackEvent("Hello world.", cut=False),
+            ],
+            [_audio(2), _audio(3), _audio(4), _audio(5)],
+            [],
+            [SpeechEvent("speech_started")],
+            [],
+        ]
+    )
+
+    assert "".join(t.proportional_transcript for t in ticks[:3]) == "Hello world."
+    assert ticks[3].was_truncated
+    assert "avartha-1" not in ticks[3].item_ids
+
+
+def test_without_timing_the_tick_showing_a_late_captioned_line_is_the_lines():
+    """No binding: the caption alone ends "Okay now."'s text. It came late,
+    after the next line's audio was queued, and the tick that showed the line
+    went to the next line's group."""
+
+    ticks = _ticks(
+        [
+            [TranscriptEvent("Okay now."), _audio(0), _audio(1), _audio(2)],
+            [],
+            [],
+            [
+                AgentPlaybackEvent("Okay now.", cut=False),
+                TranscriptEvent(" Sure."),
+                _audio(3),
+                _audio(4),
+                _audio(5),
+            ],
+            [],
+            [],
+            [AgentPlaybackEvent("Sure.", cut=False)],
+            [],
+        ]
+    )
+
+    text = [t.proportional_transcript for t in ticks]
+    labels = [t.item_ids for t in ticks]
+    okay = [i for i, t in enumerate(text) if "Okay" in t]
+    sure = [i for i, t in enumerate(text) if "Sure" in t]
+    assert okay and all(labels[i] == ["avartha-1"] for i in okay)
+    assert sure and all(labels[i] == ["avartha-2"] for i in sure)
+
+
+def test_without_a_binding_a_caption_opens_no_tail():
+    """RTP-placed audio but no audio_timeline: words are untimed, so the
+    audio after a caption opens a new utterance, as before timing."""
+
+    ticks = _ticks(
+        [
+            [
+                TranscriptEvent("Okay."),
+                _audio(0),
+                _audio(1),
+                _word("Okay.", FIRST_RTP + 2 * TICK_RTP + 500),
+                AgentPlaybackEvent("Okay.", cut=False),
+            ],
+            [_audio(2)],
+            [],
+            [],
+        ]
+    )
+
+    assert [i for t in ticks for i in t.item_ids][-1] == "avartha-2"
+
+
+# --- a line's first word is measured from its own audio ----------------------
+
+_GAP = 48000  # one second of silence the receiver dropped between two lines
+
+
+def _line_two_audio(index, start):
+    return AgentAudioEvent(
+        b"\x01\x00" * 480,
+        24000,
+        rtp_start=start + index * TICK_RTP,
+        rtp_decoded_from=FIRST_RTP,
+    )
+
+
+def _first_line(*, overtake):
+    """Line "Is that right?" (audio 0..3), its caption early or on time."""
+
+    last_end = FIRST_RTP + 3 * TICK_RTP + 500
+    words = [
+        AgentAudioTimelineEvent(BINDING),
+        TranscriptEvent("Is that right?"),
+        _audio(0),
+        _audio(1),
+        _word("Is", FIRST_RTP + 300),
+        _word("that", FIRST_RTP + TICK_RTP + 300),
+    ]
+    if overtake:
+        return [
+            [*words, _word("right?", last_end), _played_line()],
+            [_audio(2)],
+            [_audio(3)],
+        ]
+    return [
+        words,
+        [_audio(2)],
+        [_audio(3), _word("right?", last_end), _played_line()],
+    ]
+
+
+def _played_line():
+    return AgentPlaybackEvent("Is that right?", cut=False)
+
+
+@pytest.mark.parametrize("overtake", [False, True])
+@pytest.mark.parametrize(
+    "line_two_frames, sure_frames, kept",
+    [
+        # The cut came 20 ms into "Sure"'s 60 ms (its end received): dropped.
+        (4, 3, False),
+        # The cut came 20 ms into "Sure"'s 300 ms (its end not received yet):
+        # dropped, although the second of silence before it was "played".
+        (1, 15, False),
+        # 60 of its 80 ms played: kept.
+        (4, 4, True),
+    ],
+)
+def test_a_lines_first_word_is_measured_from_its_own_audio(
+    overtake, line_two_frames, sure_frames, kept
+):
+    """The half-played rule measured a line's first word from the previous
+    line's last mark, crediting it the previous line's tail and the silence
+    between the lines: a first word barely started was kept."""
+
+    start = FIRST_RTP + 4 * TICK_RTP + _GAP
+    played_ticks = 3 if kept else 1
+    events = [
+        *_first_line(overtake=overtake),
+        [],
+        [
+            TranscriptEvent(" Sure thing."),
+            *[_line_two_audio(i, start) for i in range(line_two_frames)],
+            _word("Sure", start + sure_frames * TICK_RTP),
+        ],
+        *[[] for _ in range(played_ticks - 1)],
+        [SpeechEvent("speech_started")],
+        [],
+    ]
+    ticks = _ticks(events)
+    shown = "".join(t.proportional_transcript for t in ticks)
+
+    assert ("Sure" in shown) is kept
+    if kept:
+        sure = [t for t in ticks if "Sure" in t.proportional_transcript]
+        assert [t.item_ids for t in sure] == [["avartha-2"]]
+
+
+@pytest.mark.parametrize(
+    "decoded_from, kept",
+    [
+        # Frame 2 was lost: " world." kept sounding through it, so ~32 of its
+        # ~66 ms (RTP clock; ~46 ms received) had played at the cut. Kept.
+        (FIRST_RTP + 3 * TICK_RTP, True),
+        # The same loss as the real receiver stamps it: decoded_from is taken
+        # before the resampler, rtp_start after it, so it is 32 ticks later.
+        (FIRST_RTP + 3 * TICK_RTP + 32, True),
+        # Frame 2 was silence the receiver dropped: " world." started after
+        # it, and none of its sound had played. Dropped.
+        (FIRST_RTP + 2 * TICK_RTP, False),
+    ],
+)
+def test_lost_media_inside_a_caught_word_is_not_a_sound_restart(decoded_from, kept):
+    """Any RTP gap counted as a sound restart, so a word with a packet lost
+    mid-sound was measured from after the loss and dropped although most of
+    its received sound had played."""
+
+    lost_or_silent = AgentAudioEvent(
+        b"\x01\x00" * 480,
+        24000,
+        rtp_start=FIRST_RTP + 3 * TICK_RTP,
+        rtp_decoded_from=decoded_from,
+    )
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1)],
+            [
+                lost_or_silent,
+                _word("world.", FIRST_RTP + 3 * TICK_RTP + 700),
+                SpeechEvent("speech_started"),
+            ],
+            [],
+        ]
+    )
+    shown = "".join(t.proportional_transcript for t in ticks)
+
+    assert ("world." in shown) is kept
+    if kept:
+        world = [t for t in ticks if "world." in t.proportional_transcript]
+        assert [t.item_ids for t in world] == [["avartha-1"]]
+
+
+@pytest.mark.parametrize("sure_frames, played_ticks", [(6, 1), (4, 2)])
+@pytest.mark.parametrize(
+    "gap", ["silence", "loss in the silence", "all lost", "all lost, resampled"]
+)
+def test_a_line_after_silence_restarts_its_sound_despite_packet_loss(
+    gap, sure_frames, played_ticks
+):
+    """Line 2 joins line 1's utterance (line 1's caption is late), so only the
+    RTP gap restarts its sound. A packet lost in the silence, or a gap of lost
+    media longer than a word's loss burst, must still restart it, or "Sure" is
+    credited line 1's tail and kept barely started."""
+
+    start = FIRST_RTP + 4 * TICK_RTP + _GAP
+    decoded_from = {
+        "silence": FIRST_RTP,
+        "loss in the silence": start - 10 * TICK_RTP,
+        "all lost": start,
+        # The real receiver stamps decoded_from 32 ticks (the resampler's
+        # delay) after rtp_start when everything before it was lost.
+        "all lost, resampled": start + 32,
+    }[gap]
+    line_one = [
+        [
+            AgentAudioTimelineEvent(BINDING),
+            TranscriptEvent("Is that right?"),
+            _audio(0),
+            _audio(1),
+            _word("Is", FIRST_RTP + 300),
+            _word("that", FIRST_RTP + TICK_RTP + 300),
+        ],
+        [_audio(2)],
+        [_audio(3), _word("right?", FIRST_RTP + 3 * TICK_RTP + 500)],
+    ]
+    line_two = [
+        TranscriptEvent(" Sure thing."),
+        *[
+            AgentAudioEvent(
+                b"\x01\x00" * 480,
+                24000,
+                rtp_start=start + i * TICK_RTP,
+                rtp_decoded_from=decoded_from,
+            )
+            for i in range(4)
+        ],
+        _word("Sure", start + sure_frames * TICK_RTP),
+    ]
+    ticks = _ticks(
+        [
+            *line_one,
+            [],
+            line_two,
+            *[[] for _ in range(played_ticks - 1)],
+            [SpeechEvent("speech_started")],
+            [_played_line()],
+            [],
+        ]
+    )
+
+    assert "Sure" not in "".join(t.proportional_transcript for t in ticks)
+
+
+# --- the word a cut keeps belongs to the utterance it cut -------------------
+
+
+def test_a_kept_word_whose_end_had_not_arrived_rides_the_cut_utterance():
+    """With the word's end not received, the cut discards no queued audio, so
+    the cut tick carried no utterance: " world." stood alone instead of
+    completing avartha-1's text."""
+
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), _word("world.", FIRST_RTP + 2 * TICK_RTP + 200)],
+            [SpeechEvent("speech_started")],
+            [],
+        ]
+    )
+
+    kept = [t for t in ticks if "world" in t.proportional_transcript]
+    assert len(kept) == 1
+    assert kept[0].item_ids == ["avartha-1"]
+    assert kept[0].was_truncated
+
+
+@pytest.mark.parametrize("extra", [300, 900])
+def test_a_reply_that_played_all_its_audio_is_not_marked_cut(extra):
+    """Its last word ends in trailing silence the receiver has not reported,
+    so the word's end never arrived; the cut came after all its audio played
+    and nothing arrived for two ticks. The reply was not cut off."""
+
+    last_end = FIRST_RTP + 2 * TICK_RTP
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent("Hello world."),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), _word("world.", last_end + extra)],
+            [],
+            [],
+            [SpeechEvent("speech_started")],
+            [],
+        ]
+    )
+
+    assert ticks[4].was_truncated
+    assert ticks[4].item_ids == []
+
+
+@pytest.mark.parametrize("variant", ["pause", "next line"])
+def test_sound_restarting_after_the_caught_word_does_not_shorten_it(variant):
+    """Audio after a dropped silence arrived, unplayed, before the cut: a
+    later phrase's (or line's) start, after " world."'s end. " world." had
+    63% of its sound played and is kept."""
+
+    after_gap = FIRST_RTP + 3 * TICK_RTP + 9600  # 200 ms of dropped silence
+    third = [_audio(2)]
+    if variant == "next line":
+        third += [
+            AgentPlaybackEvent("Hello world.", cut=False),
+            TranscriptEvent(" Next."),
+        ]
+    third += [
+        AgentAudioEvent(
+            b"\x01\x00" * 480,
+            24000,
+            rtp_start=after_gap,
+            rtp_decoded_from=FIRST_RTP + 3 * TICK_RTP,
+        ),
+        SpeechEvent("speech_started"),
+    ]
+    text = "Hello world." + (" More." if variant == "pause" else "")
+    ticks = _ticks(
+        [
+            [
+                AgentAudioTimelineEvent(BINDING),
+                TranscriptEvent(text),
+                _audio(0),
+                _word("Hello", FIRST_RTP + 400),
+            ],
+            [_audio(1), _word("world.", FIRST_RTP + 2 * TICK_RTP + 900)],
+            third,
+            [],
+        ]
+    )
+
+    assert "".join(t.proportional_transcript for t in ticks).strip() == "Hello world."
