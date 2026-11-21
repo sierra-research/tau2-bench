@@ -29,6 +29,7 @@ from tau2.data_model.simulation import SimulationRun, TerminationReason
 from tau2.data_model.tasks import EnvFunctionCall, InitializationData, Task
 from tau2.environment.environment import Environment, EnvironmentInfo
 from tau2.orchestrator.modes import CommunicationMode
+from tau2.user.turn_guard import merge_counts
 from tau2.user.user_simulator import DummyUser, UserSimulator, UserState
 from tau2.user.user_simulator_base import (
     HalfDuplexUser,
@@ -820,6 +821,12 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
         ):
             speech_environment = self.user.voice_settings.speech_environment
 
+        # Truncation edits user replies, so keep the merge counts with the
+        # result (see tau2.user.turn_guard). Default runs are unchanged.
+        info = None
+        if getattr(self.user, "turn_guard", None) == "truncate":
+            info = {"turn_guard": merge_counts(messages, "truncate")}
+
         simulation_run = SimulationRun(
             id=self.simulation_id,
             task_id=self.task.id,
@@ -834,6 +841,7 @@ class Orchestrator(BaseOrchestrator[AgentT, UserT, Message]):
             seed=self.seed,
             mode=self.mode.value,
             speech_environment=speech_environment,
+            info=info,
         )
         return simulation_run
 

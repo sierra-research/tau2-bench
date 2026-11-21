@@ -55,6 +55,10 @@ class AgentMetrics(BaseModel):
     sims_with_unresponsive_period: int = 0
     sims_with_responsiveness_info: int = 0
 
+    # User-simulator turn guard (only recorded when it truncates replies)
+    sims_with_merged_user_turns: int = 0
+    sims_with_turn_guard_info: int = 0
+
     # Review error metrics (from LLM judge)
     agent_errors_by_severity: dict[str, int] = {}  # severity -> count
     user_errors_by_severity: dict[str, int] = {}  # severity -> count
@@ -275,6 +279,10 @@ def compute_metrics(results: Results) -> AgentMetrics:
     sims_with_unresponsive_period = 0
     sims_with_responsiveness_info = 0
 
+    # Turn guard (user simulator in truncate mode)
+    sims_with_merged_user_turns = 0
+    sims_with_turn_guard_info = 0
+
     # Review errors
     agent_errors_by_severity: dict[str, int] = defaultdict(int)
     user_errors_by_severity: dict[str, int] = defaultdict(int)
@@ -339,6 +347,12 @@ def compute_metrics(results: Results) -> AgentMetrics:
             sims_with_responsiveness_info += 1
             if sim.info["had_unresponsive_period"]:
                 sims_with_unresponsive_period += 1
+
+        # Turn guard info (from user simulator truncate mode)
+        if sim.info and "turn_guard" in sim.info:
+            sims_with_turn_guard_info += 1
+            if sim.info["turn_guard"]["merged_messages"]:
+                sims_with_merged_user_turns += 1
 
         # Review errors
         if sim.review is not None:
@@ -468,6 +482,8 @@ def compute_metrics(results: Results) -> AgentMetrics:
         termination_infrastructure_error=infra_error_count,
         sims_with_unresponsive_period=sims_with_unresponsive_period,
         sims_with_responsiveness_info=sims_with_responsiveness_info,
+        sims_with_merged_user_turns=sims_with_merged_user_turns,
+        sims_with_turn_guard_info=sims_with_turn_guard_info,
         agent_errors_by_severity=dict(agent_errors_by_severity),
         user_errors_by_severity=dict(user_errors_by_severity),
         sims_by_max_agent_severity=dict(sims_by_max_agent_severity),
@@ -487,6 +503,11 @@ def display_metrics(metrics: AgentMetrics) -> None:
     print("📈 Pass^k")
     for k, pass_hat_k in metrics.pass_hat_ks.items():
         print(f"  k={k}: {pass_hat_k}")
+    if metrics.sims_with_turn_guard_info > 0:
+        print(
+            f"✂️ Merged user turns (truncated): {metrics.sims_with_merged_user_turns}"
+            f"/{metrics.sims_with_turn_guard_info} simulations"
+        )
     print(f"💰 Average agent cost: {metrics.avg_agent_cost}")
 
 

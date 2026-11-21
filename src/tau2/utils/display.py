@@ -963,6 +963,18 @@ class ConsoleDisplay:
                 "green" if pass_k > 0.8 else ("yellow" if pass_k > 0.5 else "red")
             )
             table.add_row(f"   Pass^{k}", f"[{pk_color}]{pass_k:.3f}[/]")
+        # Truncated runs aren't comparable with default runs: show the merge
+        # rate next to the reward.
+        if metrics.sims_with_turn_guard_info > 0:
+            merged_pct = (
+                metrics.sims_with_merged_user_turns
+                / metrics.sims_with_turn_guard_info
+                * 100
+            )
+            table.add_row(
+                "✂️  Merged User Turns",
+                f"{metrics.sims_with_merged_user_turns}/{metrics.sims_with_turn_guard_info} sims truncated ({merged_pct:.1f}%)",
+            )
         avg_cost = metrics.avg_agent_cost
         cost_str = (
             f"${avg_cost:.4f}"

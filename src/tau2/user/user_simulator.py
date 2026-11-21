@@ -15,6 +15,7 @@ from tau2.data_model.message import (
 from tau2.data_model.persona import PersonaConfig
 from tau2.environment.tool import Tool
 from tau2.user.guidelines import finalize_system_prompt, simulation_guidelines
+from tau2.user.turn_guard import TurnGuardMode, check_user_message
 from tau2.user.user_simulator_base import (
     OUT_OF_SCOPE,
     STOP,
@@ -81,6 +82,7 @@ class UserSimulator(
             PersonaConfig
         ] = None,  # TODO: Should this be pushed to the base class?
         global_guidelines_override: Optional[str] = None,
+        turn_guard: TurnGuardMode = "detect",
     ):
         super().__init__(
             instructions=instructions,
@@ -90,6 +92,9 @@ class UserSimulator(
         )
         self.persona_config = persona_config or PersonaConfig()
         self.global_guidelines_override = global_guidelines_override
+        # "detect": log + record multi-turn replies (no behavior change).
+        # "truncate": keep only the first user turn. "off": disabled.
+        self.turn_guard = turn_guard
 
     @property
     def simulation_mode(self) -> Literal["text", "voice"]:
@@ -201,6 +206,20 @@ class UserSimulator(
 
         user_response = assistant_message.content
         logger.debug(f"Response: {user_response}")
+        guard = check_user_message(user_response, self.turn_guard)
+        if guard.is_multi_turn:
+            logger.warning(
+                f"User simulator reply looks like multiple turns {guard.issues}"
+                + (" - truncating to first turn" if guard.repaired else "")
+            )
+            # Only content goes back to the LLM (flip_roles), so the cut text
+            # stays out of the simulator's history; keep it here for review.
+            assistant_message.raw_data = {
+                **(assistant_message.raw_data or {}),
+                "turn_guard": {"issues": guard.issues, "original": user_response},
+            }
+            if guard.repaired is not None:
+                user_response = guard.repaired
 
         user_message = UserMessage(
             role="user",
