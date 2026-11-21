@@ -134,7 +134,9 @@ class AgentPlaybackEvent:
     """What one agent utterance actually played, reported when it ends.
 
     Avartha ``assistant_playback`` server-message; ``cut`` when the
-    caller barged in and ``text`` holds only the played part.
+    utterance was stopped (usually a caller barge-in, sometimes the agent
+    restarting its reply) and ``text`` holds only the played part. It names
+    no utterance and can arrive after the next utterance started.
     """
 
     type: ClassVar[str] = "agent_playback"

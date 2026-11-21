@@ -1482,7 +1482,7 @@ def test_a_cut_in_a_captioned_lines_quiet_tail_does_not_cut_it_off():
     )
 
     assert "".join(t.proportional_transcript for t in ticks[:2]) == "Okay."
-    assert ticks[2].was_truncated
+    assert not ticks[2].was_truncated  # it cut no line
     assert "avartha-1" not in ticks[2].item_ids
 
 
@@ -1620,7 +1620,7 @@ def test_a_cut_after_the_words_in_a_tail_burst_played_does_not_cut_the_line():
     )
 
     assert "".join(t.proportional_transcript for t in ticks[:3]) == "Hello world."
-    assert ticks[3].was_truncated
+    assert not ticks[3].was_truncated  # it cut no line
     assert "avartha-1" not in ticks[3].item_ids
 
 

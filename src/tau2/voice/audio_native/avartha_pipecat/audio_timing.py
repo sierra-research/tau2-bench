@@ -21,6 +21,7 @@ timestamps (``webrtc.py``) and the adapter compares them with what it played.
 
 from __future__ import annotations
 
+import audioop
 import uuid
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -115,3 +116,28 @@ def unwrap_rtp(timestamp: int, near: int) -> int:
 
     delta = (timestamp - near + _HALF_RTP_MODULUS) % _RTP_MODULUS - _HALF_RTP_MODULUS
     return near + delta
+
+
+# Speech in played agent audio: a 20 ms frame whose PCM16 peak exceeds 32. This
+# is the rule tau2 applies to agent audio for Live evidence; it is written out
+# again in utils/transcript/live_audio.py and openai/live_adapter.py, and a
+# helper shared by all three would be a change outside this adapter.
+SPEECH_FRAME_MS = 20
+SPEECH_PEAK = 32
+
+
+def speech_spans(pcm: bytes, sample_rate: int) -> list[tuple[int, int]]:
+    """Sample spans of ``pcm`` (PCM16) in 20 ms frames holding speech; a span
+    runs over consecutive speech frames."""
+
+    frame = sample_rate * SPEECH_FRAME_MS // 1000
+    samples = len(pcm) // 2
+    spans: list[tuple[int, int]] = []
+    for start in range(0, samples, frame):
+        end = min(start + frame, samples)
+        if audioop.max(pcm[2 * start : 2 * end], 2) > SPEECH_PEAK:
+            if spans and spans[-1][1] == start:
+                spans[-1] = (spans[-1][0], end)
+            else:
+                spans.append((start, end))
+    return spans
