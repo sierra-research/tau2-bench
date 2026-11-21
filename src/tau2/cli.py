@@ -281,6 +281,7 @@ def add_run_args(parser):
             "phonic",
             "livekit",
             "launa",
+            "resia_fullplex",
         ],
         default=DEFAULT_AUDIO_NATIVE_PROVIDER,
         help=f"Audio native API provider. Default is '{DEFAULT_AUDIO_NATIVE_PROVIDER}'.",

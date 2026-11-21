@@ -14,6 +14,7 @@ Full-duplex voice evaluation via provider-specific realtime APIs. Each provider 
 | **qwen** | Native audio | Alibaba Qwen Omni | qwen3-omni-flash-realtime |
 | **avartha_pipecat** | Hosted voice agent | Avartha over Pipecat SmallWebRTC | Agent URL (`--avartha-base-url`) |
 | **phonic** | Native audio | Phonic speech-to-speech | phonic-1 |
+| **resia_fullplex** | Native audio | Resia Fullplex Live API (GPT-Live protocol, WebSocket) | resia-fullplex-1 |
 | **livekit** | Cascaded (STT→LLM→TTS) | LiveKit + Deepgram + OpenAI | Configurable |
 
 ## Architecture

@@ -403,7 +403,7 @@ def create_adapter(
 
     Args:
         provider: Provider identifier (openai, gemini, xai, nova, qwen,
-            avartha_pipecat, phonic, livekit).
+            avartha_pipecat, phonic, resia_fullplex, livekit).
         tick_duration_ms: Duration of each tick in milliseconds.
         send_audio_instant: If True, send audio in one call per tick.
         model: Model identifier. If None, uses the provider's default.
@@ -563,6 +563,19 @@ def create_adapter(
             model=model,
             reasoning_effort=reasoning_effort,
             language=language,
+        )
+    elif provider == "resia_fullplex":
+        from tau2.voice.audio_native.resia_fullplex.discrete_time_adapter import (
+            DiscreteTimeResiaFullplexAdapter,
+        )
+
+        adapter = DiscreteTimeResiaFullplexAdapter(
+            tick_duration_ms=tick_duration_ms,
+            model=model,
+            reasoning_effort=reasoning_effort,
+            send_audio_instant=send_audio_instant,
+            audio_format=audio_format,
+            trace_path=trace_path,
         )
     elif provider == "livekit":
         from tau2.data_model.cascaded import CascadedConfig

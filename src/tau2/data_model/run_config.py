@@ -93,9 +93,10 @@ class AudioNativeConfig(BaseModel):
         "phonic",
         "livekit",
         "launa",
+        "resia_fullplex",
     ] = Field(
         default=DEFAULT_AUDIO_NATIVE_PROVIDER,
-        description="Audio native API provider: 'openai' (OpenAI Realtime), 'openai_live' (OpenAI Live), 'gemini' (Gemini Live), 'xai' (xAI Grok Voice Agent), 'nova' (Amazon Nova Sonic), 'qwen' (Alibaba Qwen Omni), 'avartha_pipecat' (hosted Avartha agent over Pipecat SmallWebRTC), 'phonic' (Phonic 1), 'launa' (Salesforce Launa), or 'livekit' (LiveKit cascaded STT→LLM→TTS)",
+        description="Audio native API provider: 'openai' (OpenAI Realtime), 'openai_live' (OpenAI Live), 'gemini' (Gemini Live), 'xai' (xAI Grok Voice Agent), 'nova' (Amazon Nova Sonic), 'qwen' (Alibaba Qwen Omni), 'avartha_pipecat' (hosted Avartha agent over Pipecat SmallWebRTC), 'phonic' (Phonic 1), 'launa' (Salesforce Launa), 'resia_fullplex' (Resia Fullplex 1), or 'livekit' (LiveKit cascaded STT→LLM→TTS)",
     )
 
     transcription_language: Optional[str] = Field(
@@ -147,8 +148,8 @@ class AudioNativeConfig(BaseModel):
     realtime_generation: Optional[bool] = Field(
         default=None,
         description="Whether user LLM and TTS generation run without blocking audio ticks. "
-        "Defaults to enabled for openai_live and avartha_pipecat and disabled for "
-        "other providers.",
+        "Defaults to enabled for openai_live, avartha_pipecat, and resia_fullplex "
+        "and disabled for other providers.",
     )
 
     @property
@@ -156,7 +157,7 @@ class AudioNativeConfig(BaseModel):
         """Resolve the provider-aware default for real-time user generation."""
         if self.realtime_generation is not None:
             return self.realtime_generation
-        return self.provider in ("openai_live", "avartha_pipecat")
+        return self.provider in ("openai_live", "avartha_pipecat", "resia_fullplex")
 
     @model_validator(mode="after")
     def validate_live_config(self):

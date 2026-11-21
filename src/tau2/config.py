@@ -233,6 +233,16 @@ DEFAULT_QWEN_INPUT_SAMPLE_RATE = 16000  # fixed, API-defined
 DEFAULT_QWEN_OUTPUT_SAMPLE_RATE = 24000  # fixed, API-defined
 
 # =============================================================================
+# RESIA FULLPLEX PROVIDER (GPT-Live protocol over a WebSocket)
+# =============================================================================
+DEFAULT_RESIA_FULLPLEX_MODEL = "resia-fullplex-1"
+DEFAULT_RESIA_FULLPLEX_URL = "wss://api.resia.ai/v1/live/sessions"
+RESIA_FULLPLEX_URL_ENV = "RESIA_FULLPLEX_URL"  # overrides the endpoint
+RESIA_FULLPLEX_API_KEY_ENV = "RESIA_API_KEY"
+RESIA_FULLPLEX_BACKEND_MODEL_ENV = "RESIA_FULLPLEX_BACKEND_MODEL"  # required
+RESIA_FULLPLEX_SAMPLE_RATE = 8000  # session audio: G.711 mu-law, both directions
+
+# =============================================================================
 # PHONIC PROVIDER (overridable model; project via env var)
 # =============================================================================
 DEFAULT_PHONIC_API_BASE = "https://api.phonic.co/v1"
@@ -274,6 +284,7 @@ DEFAULT_AUDIO_NATIVE_MODELS = {
     "qwen": DEFAULT_QWEN_MODEL,
     "avartha_pipecat": DEFAULT_AVARTHA_MODEL,
     "phonic": DEFAULT_PHONIC_MODEL,
+    "resia_fullplex": DEFAULT_RESIA_FULLPLEX_MODEL,
     "livekit": "dummy",
 }
 
@@ -287,6 +298,7 @@ DEFAULT_AUDIO_NATIVE_REASONING_EFFORT: dict[str, str | None] = {
     "qwen": None,
     "avartha_pipecat": None,
     "phonic": "high",  # intelligence level; low/medium/minimal map to standard
+    "resia_fullplex": None,  # backend reasoning effort; not sent when None
     "livekit": None,
 }
 
@@ -300,6 +312,7 @@ AUDIO_NATIVE_PROVIDER_TYPES = {
     "qwen": "audio_native",
     "avartha_pipecat": "cascaded",
     "phonic": "audio_native",
+    "resia_fullplex": "audio_native",
     "livekit": "cascaded",
 }
 
