@@ -194,11 +194,26 @@ def _customer_language(results: Results, task_id: str) -> Optional[str]:
     return context.provider_language if isinstance(context, LanguageTaskInfo) else None
 
 
+def _canonical_task(results: Results, task_id: str) -> tuple[str, str]:
+    """Canonical task id and call language of a (possibly localized) task."""
+    context = results.info.language_tasks.get(task_id)
+    if isinstance(context, LanguageTaskInfo):
+        return context.canonical_task_id, context.language
+    return task_id, results.info.language or "en"
+
+
+def _scenario_mode(results: Results, task_id: str) -> Optional[str]:
+    """Recorded scenario mode of a task's call, or None when none was recorded."""
+    context = results.info.language_tasks.get(task_id)
+    return context.scenario_mode if isinstance(context, LanguageTaskInfo) else None
+
+
 def compute_simulation_rewards(
     results: Results,
     evaluation_type: EvaluationType = EvaluationType.ALL,
     console: Optional[Console] = None,
     fresh_tasks: bool = False,
+    task_corrections: Optional[str] = None,
 ) -> Results:
     """
     Compute and update rewards for all simulations in the results.
@@ -209,8 +224,22 @@ def compute_simulation_rewards(
         console: Optional Rich console for output
         fresh_tasks: Re-grade against the current task definitions from the
             data directory instead of the ones embedded in the results file.
+        task_corrections: Name of an opt-in grading correction set under
+            ``data/tau2/task_corrections``. Off by default; corrected rewards
+            are not leaderboard-comparable.
     """
+    if fresh_tasks and task_corrections is not None:
+        raise ValueError(
+            "--fresh-tasks cannot be combined with --task-corrections: "
+            "corrections must validate the task embedded in the saved trajectory"
+        )
     results = deepcopy(results)
+    correction_set = None
+    if task_corrections is not None:
+        from tau2.evaluator.task_corrections import load_correction_set
+
+        correction_set = load_correction_set(task_corrections)
+        correction_digest = correction_set.content_digest()
     if fresh_tasks:
         results = _load_fresh_tasks(results, console=console)
     domain = results.info.environment_info.domain_name
@@ -232,11 +261,9 @@ def compute_simulation_rewards(
 
         for simulation in results.simulations:
             task = tasks[simulation.task_id]
-            computed_reward_info = evaluate_simulation(
+            evaluate_kwargs = dict(
                 domain=domain,
-                task=task,
                 simulation=simulation,
-                evaluation_type=evaluation_type,
                 solo_mode=solo_mode,
                 mode=get_communication_mode(results, simulation),
                 env_kwargs=_build_eval_env_kwargs(
@@ -246,6 +273,35 @@ def compute_simulation_rewards(
                 communicate_scoring=scoring,
                 customer_language=_customer_language(results, task.id),
             )
+            correction = None
+            if correction_set is not None:
+                canonical_id, language = _canonical_task(results, task.id)
+                correction = correction_set.for_task(
+                    domain,
+                    task,
+                    canonical_task_id=canonical_id,
+                    language=language,
+                    scenario_mode=_scenario_mode(results, task.id),
+                )
+            if correction is None:
+                computed_reward_info = evaluate_simulation(
+                    task=task, evaluation_type=evaluation_type, **evaluate_kwargs
+                )
+            else:
+                from tau2.evaluator.task_corrections import (
+                    evaluate_simulation_with_correction,
+                )
+
+                computed_reward_info = evaluate_simulation_with_correction(
+                    task=task,
+                    correction=correction,
+                    language=language,
+                    evaluation_type=evaluation_type,
+                    **evaluate_kwargs,
+                )
+                computed_reward_info.info["task_correction"].update(
+                    set_name=correction_set.name, set_digest=correction_digest
+                )
 
             # Update the simulation with new reward info
             simulation.reward_info = computed_reward_info
@@ -264,6 +320,7 @@ def evaluate_trajectories(
     output_dir: str | None = None,
     evaluation_type: EvaluationType = EvaluationType.ALL,
     fresh_tasks: bool = False,
+    task_corrections: Optional[str] = None,
 ) -> None:
     """
     Evaluate trajectories and optionally save updated results with recomputed rewards.
@@ -274,6 +331,8 @@ def evaluate_trajectories(
         evaluation_type: Type of evaluation to perform
         fresh_tasks: Re-grade against the current task definitions from the data
             directory instead of the ones embedded in each results file.
+        task_corrections: Opt-in grading correction set name (see
+            ``compute_simulation_rewards``). Off by default.
     """
     files = expand_paths(input_paths, extension=".json")
     console = ConsoleDisplay.console
@@ -315,6 +374,7 @@ def evaluate_trajectories(
                 evaluation_type=evaluation_type,
                 console=console,
                 fresh_tasks=fresh_tasks,
+                task_corrections=task_corrections,
             )
             console.print(
                 f"  ✅ Computed rewards for {len(updated_results.simulations)} simulation(s)",
@@ -379,6 +439,11 @@ def make_parser():
         action="store_true",
         help="Re-grade against the current task definitions from the data directory instead of the ones embedded in each results file.",
     )
+    parser.add_argument(
+        "--task-corrections",
+        default=None,
+        help="Opt-in grading correction set from data/tau2/task_corrections (e.g. voice-v2-task-defects-20261029). Corrected rewards are not leaderboard-comparable.",
+    )
     return parser
 
 
@@ -387,7 +452,12 @@ def main():
     logger.configure(handlers=[{"sink": sys.stderr, "level": "ERROR"}])
     parser = make_parser()
     args = parser.parse_args()
-    evaluate_trajectories(args.paths, args.output_dir, fresh_tasks=args.fresh_tasks)
+    evaluate_trajectories(
+        args.paths,
+        args.output_dir,
+        fresh_tasks=args.fresh_tasks,
+        task_corrections=args.task_corrections,
+    )
 
 
 if __name__ == "__main__":

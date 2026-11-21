@@ -1042,6 +1042,11 @@ def main():
         action="store_true",
         help="Re-grade against the current task definitions from the data directory instead of the ones embedded in each results file.",
     )
+    evaluate_parser.add_argument(
+        "--task-corrections",
+        default=None,
+        help="Opt-in grading correction set from data/tau2/task_corrections (e.g. voice-v2-task-defects-20261029). Corrected rewards are not leaderboard-comparable.",
+    )
     evaluate_parser.set_defaults(func=lambda args: run_evaluate_trajectories(args))
 
     # Review command - LLM-based conversation review
@@ -1221,7 +1226,10 @@ def run_evaluate_trajectories(args):
     logger.configure(handlers=[{"sink": sys.stderr, "level": "ERROR"}])
 
     evaluate_trajectories(
-        args.paths, args.output_dir, fresh_tasks=getattr(args, "fresh_tasks", False)
+        args.paths,
+        args.output_dir,
+        fresh_tasks=getattr(args, "fresh_tasks", False),
+        task_corrections=getattr(args, "task_corrections", None),
     )
 
 

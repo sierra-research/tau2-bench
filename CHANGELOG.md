@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `tau2 evaluate-trajs --task-corrections voice-v2-task-defects-20261029`
+  re-grades saved trajectories against explicit airline/retail corrections,
+  guarding task content and regional scenario mode. Official grading and frozen
+  benchmark pins are unchanged; corrected results are diagnostic and must be
+  reported separately. See `data/tau2/task_corrections/README.md`.
 - voice-v2 packages carry `benchmark-quality.json` (schema
   `schema_benchmark_quality.json`): call-level Interaction
   (`voice-v2-interaction-call-v1`) and Experience, shown as Generation quality
