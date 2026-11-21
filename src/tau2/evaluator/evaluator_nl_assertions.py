@@ -1,4 +1,6 @@
 import json
+import re
+from typing import Any, Optional
 
 from tau2.config import DEFAULT_LLM_NL_ASSERTIONS, DEFAULT_LLM_NL_ASSERTIONS_ARGS
 from tau2.data_model.message import Message, SystemMessage, Tick, UserMessage
@@ -7,6 +9,41 @@ from tau2.data_model.tasks import RewardType, Task
 from tau2.evaluator.evaluator_base import EvaluatorBase
 from tau2.utils.llm_utils import generate
 from tau2.utils.transcript.views import speech_messages
+
+# A reply that is one fenced block: ```json ... ``` or ``` ... ```.
+_OUTER_FENCE = re.compile(
+    r"\A\s*```(?:json)?[ \t]*\r?\n(.*)\r?\n\s*```\s*\Z", re.S | re.I
+)
+
+
+def parse_judge_results(content: Optional[str]) -> list[dict[str, Any]]:
+    """Parse an NL-assertion judge reply into its list of per-assertion results.
+
+    Accepts the object the prompt asks for (``{"results": [...]}``) and a bare
+    top-level array of result objects. Either may be wrapped in one outer
+    Markdown code fence. The raw reply is decoded first, so backticks inside a
+    ``reasoning`` string are left alone.
+
+    Raises:
+        ValueError: If the reply holds no list of result objects.
+    """
+    if content is None:
+        raise ValueError("NL-assertion judge reply is empty")
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError:
+        match = _OUTER_FENCE.match(content)
+        if match is None:
+            raise
+        data = json.loads(match.group(1))
+    if isinstance(data, dict):
+        data = data.get("results")
+    if not isinstance(data, list) or not all(isinstance(r, dict) for r in data):
+        raise ValueError(
+            "NL-assertion judge reply has no list of results: "
+            f"got {type(data).__name__}"
+        )
+    return data
 
 
 class NLAssertionsEvaluator(EvaluatorBase[Message]):
@@ -120,14 +157,14 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             call_name="nl_assertions_eval",
             **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
         )
-        result_data = json.loads(assistant_message.content)
+        results = parse_judge_results(assistant_message.content)
         return [
             NLAssertionCheck(
                 nl_assertion=result["expectedOutcome"],
                 met=result["metExpectation"],
                 justification=result["reasoning"],
             )
-            for result in result_data.get("results", [])
+            for result in results
         ]
 
 
