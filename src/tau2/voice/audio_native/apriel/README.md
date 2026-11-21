@@ -29,8 +29,8 @@ sent as the Authorization bearer; the realtime key is sent in the
 uses cloud Authorization plus `X-Apriel-Authorization: Bearer <realtime-key>`.
 The transport helper `connection.resolve_model` performs verified HTTPS discovery.
 Without the cloud token, direct realtime bearer authentication is retained.
-`APRIEL_API_KEY` and its file form remain legacy fallbacks. The optional
-`APRIEL_REALTIME_TLS_SERVER_NAME` controls verified TLS SNI for endpoint aliases.
+The optional `APRIEL_REALTIME_TLS_SERVER_NAME` controls verified TLS SNI for
+endpoint aliases.
 
 Each session requests and verifies `apriel.playback_clock="media"` and
 `apriel.turn_clock="media"` before sending audio. The backend must support these

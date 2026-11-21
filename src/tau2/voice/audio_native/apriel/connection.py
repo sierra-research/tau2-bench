@@ -6,7 +6,6 @@ import os
 import re
 import ssl
 import urllib.request
-from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 FORBIDDEN_QUERY_KEYS = {
@@ -54,25 +53,8 @@ def normalize_realtime_url(value):
     return urlunsplit((scheme, parts.netloc, path, parts.query, ""))
 
 
-def _secret_file(name):
-    filename = os.environ.get(name)
-    if not filename:
-        return None
-    try:
-        value = Path(filename).read_text().splitlines()[0].strip()
-    except (OSError, IndexError):
-        raise ValueError("Cannot read " + name) from None
-    return value or None
-
-
 def resolve_credentials(api_key=None, cloud_auth_token=None):
-    key = (
-        api_key
-        or os.environ.get("APRIEL_REALTIME_API_KEY")
-        or _secret_file("APRIEL_REALTIME_API_KEY_FILE")
-        or _secret_file("APRIEL_API_KEY_FILE")
-        or os.environ.get("APRIEL_API_KEY")
-    )
+    key = api_key or os.environ.get("APRIEL_REALTIME_API_KEY")
     cloud = (
         os.environ.get("APRIEL_CLOUD_AUTH_TOKEN", "")
         if cloud_auth_token is None

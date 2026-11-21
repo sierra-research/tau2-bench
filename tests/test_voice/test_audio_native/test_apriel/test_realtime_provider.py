@@ -54,7 +54,9 @@ class TestProviderEnvironment(unittest.TestCase):
         self.assertEqual(provider._websocket_max_size, 12345)
 
     def test_provider_requires_base_url(self):
-        with patch.dict(os.environ, {"APRIEL_API_KEY": "test-key"}, clear=True):
+        with patch.dict(
+            os.environ, {"APRIEL_REALTIME_API_KEY": "test-key"}, clear=True
+        ):
             with self.assertRaisesRegex(ValueError, "APRIEL_REALTIME_BASE_URL"):
                 AprielRealtimeProvider()
 
@@ -63,7 +65,7 @@ class TestProviderEnvironment(unittest.TestCase):
             os.environ,
             {
                 "APRIEL_REALTIME_BASE_URL": "https://apriel.example",
-                "APRIEL_API_KEY": "test-key",
+                "APRIEL_REALTIME_API_KEY": "test-key",
             },
             clear=True,
         ):
@@ -115,7 +117,7 @@ class AprielProviderTestCase(unittest.IsolatedAsyncioTestCase):
             os.environ,
             {
                 "APRIEL_REALTIME_BASE_URL": self.url,
-                "APRIEL_API_KEY": "test-token",
+                "APRIEL_REALTIME_API_KEY": "test-token",
             },
             clear=False,
         )

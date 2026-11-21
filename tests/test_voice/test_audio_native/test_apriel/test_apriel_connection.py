@@ -24,9 +24,6 @@ def clean_environment(monkeypatch):
     for name in (
         "APRIEL_REALTIME_API_KEY",
         "APRIEL_CLOUD_AUTH_TOKEN",
-        "APRIEL_REALTIME_API_KEY_FILE",
-        "APRIEL_API_KEY",
-        "APRIEL_API_KEY_FILE",
         "APRIEL_REALTIME_TLS_SERVER_NAME",
     ):
         monkeypatch.delenv(name, raising=False)
@@ -87,13 +84,9 @@ def test_proxy_auth_is_split_and_not_in_url():
     assert req.get_header("X-apriel-authorization") == "Bearer aur_sk_app"
 
 
-def test_canonical_env_and_legacy_fallback(monkeypatch, tmp_path):
-    monkeypatch.setenv("APRIEL_API_KEY", "legacy")
-    assert resolve_credentials() == ("legacy", "")
-    secret = tmp_path / "key"
-    secret.write_text("legacy-file\n")
-    monkeypatch.setenv("APRIEL_API_KEY_FILE", str(secret))
-    assert resolve_credentials()[0] == "legacy-file"
+def test_realtime_env_and_explicit_override(monkeypatch):
+    monkeypatch.setenv("APRIEL_REALTIME_API_KEY", "env-key")
+    assert resolve_credentials() == ("env-key", "")
     monkeypatch.setenv("APRIEL_REALTIME_API_KEY", "canonical")
     monkeypatch.setenv("APRIEL_CLOUD_AUTH_TOKEN", "cloud")
     assert resolve_credentials() == ("canonical", "cloud")
