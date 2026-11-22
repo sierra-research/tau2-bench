@@ -22,7 +22,7 @@ export SMALLEST_WS_URL=wss://<host>/v1/hydra   # required
 | `SMALLEST_WS_URL` | Hydra's WebSocket URL (required). `ws://` is fine for a local server; credentials need `wss://` unless the host is local |
 | `SMALLEST_API_KEY` | Sent as `Authorization: Bearer <key>` (optional; no credential is sent without it) |
 | `SMALLEST_VOICE` | Voice for the session (optional; Hydra's configured default otherwise) |
-| `SMALLEST_TRANSCRIPT_REVEAL_CPS` | Transcript reveal cap in characters per second of agent audio played, default `15`; `0` turns the cap off (see below) |
+| `SMALLEST_TRANSCRIPT_REVEAL_CPS` | Transcript reveal cap in characters per second of agent audio played, default `15`; `0` turns the cap off (see below). The effective value is recorded in every saved run's `info.agent_info.llm_args` |
 
 `--audio-native-model` is a label recorded with the results
 (`hydra` by default). `--reasoning-effort` and `--voice` are not supported

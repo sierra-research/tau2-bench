@@ -74,6 +74,13 @@ def resolve_reveal_cps(
     return parsed
 
 
+def run_settings() -> dict:
+    """The adapter settings a saved run must record (its ``agent_info.llm_args``):
+    the effective reveal cap, which changes what the caller sees but is set by an
+    environment variable, so two runs would otherwise save identical configs."""
+    return {"transcript_reveal_cps": resolve_reveal_cps()}
+
+
 def log_reveal_mode(cps: float) -> None:
     """Log the reveal mode once per process and rate; non-default warns."""
     if cps in _logged_rates:

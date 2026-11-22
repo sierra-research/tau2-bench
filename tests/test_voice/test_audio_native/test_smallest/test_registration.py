@@ -17,8 +17,13 @@ from tau2.config import (
     DEFAULT_SMALLEST_MODEL,
 )
 from tau2.data_model.audio import AudioEncoding, AudioFormat
-from tau2.data_model.simulation import AudioNativeConfig
-from tau2.voice.audio_native.adapter import create_adapter
+from tau2.data_model.simulation import AudioNativeConfig, VoiceRunConfig
+from tau2.runner.batch import get_run_info
+from tau2.voice.audio_native.adapter import (
+    create_adapter,
+    provider_run_settings,
+    recorded_run_settings,
+)
 from tau2.voice.audio_native.smallest import (
     DiscreteTimeSmallestAdapter,
     SmallestProvider,
@@ -79,3 +84,43 @@ def test_agent_uses_server_turn_taking_and_the_audio_native_prompt():
     assert "Transcribed Speech" not in agent.system_prompt
     assert CASCADED_MODEL_INSTRUCTION not in agent.system_prompt  # pre-2.0 wording
     assert agent.system_prompt.endswith("POLICY")
+
+
+def test_the_effective_reveal_cap_is_recorded_in_the_saved_run_info(monkeypatch):
+    # The cap comes from the environment, not the run config, and changes what the
+    # caller sees, so a saved run must say which value produced it (maintainer
+    # review of the leaderboard submission, 2026-11-21).
+    monkeypatch.delenv("SMALLEST_TRANSCRIPT_REVEAL_CPS", raising=False)
+    config = VoiceRunConfig(
+        domain="retail",
+        audio_native_config=AudioNativeConfig(
+            provider="smallest", model=DEFAULT_SMALLEST_MODEL
+        ),
+    )
+    assert get_run_info(config, tasks=[]).agent_info.llm_args == {
+        "transcript_reveal_cps": 15.0
+    }
+    monkeypatch.setenv("SMALLEST_TRANSCRIPT_REVEAL_CPS", "0")
+    assert get_run_info(config, tasks=[]).agent_info.llm_args == {
+        "transcript_reveal_cps": 0.0
+    }
+    assert provider_run_settings("openai") is None  # providers without such settings
+
+
+def test_the_contract_check_accepts_a_complete_record_or_none():
+    # The saved record is the truth (the run's environment is gone), so the
+    # benchmark contract checks its shape: every declared key, each a number.
+    record = {"transcript_reveal_cps": 15.0}
+    assert recorded_run_settings("smallest", record) == record
+    assert recorded_run_settings("smallest", None) is None  # runs before recording
+    for bad in (
+        {},
+        {"reveal": 15.0},
+        {"transcript_reveal_cps": "15"},
+        {"transcript_reveal_cps": True},
+    ):
+        assert recorded_run_settings("smallest", bad) != bad
+    assert recorded_run_settings("openai", None) is None
+    assert (
+        recorded_run_settings("openai", {"x": 1}) is None
+    )  # differs: no settings declared
