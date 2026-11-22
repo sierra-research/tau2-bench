@@ -299,9 +299,18 @@ class DiscreteTimeOpenAIAdapter(DiscreteTimeAdapter):
 
                 # OpenAI-specific: tell server to truncate and cancel
                 if last_item_id is not None:
-                    played = result.get_played_agent_audio()
+                    # audio_end_ms is measured from the start of the item, so
+                    # add what earlier ticks played to what played this tick.
+                    transcript = self._utterance_transcripts.get(last_item_id)
+                    played_in_earlier_ticks = (
+                        transcript.audio_bytes_played if transcript else 0
+                    )
+                    played_bytes = (
+                        played_in_earlier_ticks
+                        + result.get_played_item_audio_bytes(last_item_id)
+                    )
                     audio_end_ms = int(
-                        len(played) / self.audio_format.bytes_per_second * 1000
+                        played_bytes / self.audio_format.bytes_per_second * 1000
                     )
                     await self.provider.truncate_item(
                         item_id=last_item_id,
