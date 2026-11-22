@@ -572,6 +572,7 @@ def create_adapter(
         adapter = DiscreteTimeResiaFullplexAdapter(
             tick_duration_ms=tick_duration_ms,
             model=model,
+            backend_model=live_config.backend_model if live_config else None,
             reasoning_effort=reasoning_effort,
             send_audio_instant=send_audio_instant,
             audio_format=audio_format,

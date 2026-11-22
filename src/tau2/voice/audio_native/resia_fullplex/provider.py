@@ -380,6 +380,8 @@ class ResiaFullplexProvider(OpenAILiveProvider):
                 events.append(event)
             if self._now() >= end and self.sent_bytes >= self._fed_bytes:
                 break
+        if self.rate_limit_errors:
+            raise ConnectionError(f"Resia Fullplex dropped caller audio: {self.lost}")
         return events
 
     def _spend_budget(self, seconds: float) -> float:

@@ -23,13 +23,17 @@ class DiscreteTimeResiaFullplexAdapter(DiscreteTimeOpenAILiveAdapter):
         *,
         tick_duration_ms: int,
         model: str,
+        backend_model: str | None = None,
         reasoning_effort: str | None = None,
         send_audio_instant: bool = False,
         audio_format: AudioFormat | None = None,
         trace_path: Path | None = None,
     ) -> None:
         provider = ResiaFullplexProvider(
-            model=model, reasoning_effort=reasoning_effort, trace_path=trace_path
+            model=model,
+            backend_model=backend_model,
+            reasoning_effort=reasoning_effort,
+            trace_path=trace_path,
         )
         # The Live adapter also builds an OpenAI Live (WebRTC) provider, which
         # reads OPENAI_API_KEY and is never connected; it is replaced here.
