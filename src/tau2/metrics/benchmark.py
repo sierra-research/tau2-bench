@@ -240,7 +240,13 @@ def read_task_trials(path: Path, frame: BenchmarkFrame) -> list[TaskTrial]:
         agent_model = (
             f"{config.audio_native_config.provider}:{config.audio_native_config.model}"
         )
-        agent_args = None
+        from tau2.voice.audio_native.adapter import recorded_run_settings
+
+        # Adapter settings set outside the run config (e.g. the smallest transcript
+        # reveal cap) are recorded, not contracted: the check is for a complete record.
+        agent_args = recorded_run_settings(
+            config.audio_native_config.provider, info.agent_info.llm_args
+        )
     else:
         if info.audio_native_config is not None:
             raise ValueError(

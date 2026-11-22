@@ -47,8 +47,11 @@ def add_pass3_args(
 
     def run_pass3(args: argparse.Namespace) -> object:
         from tau2.data_model.simulation import Results, VoiceRunConfig
-        from tau2.runner.batch import _load_run_tasks, make_voice_run_settings
-        from tau2.runner.helpers import get_info
+        from tau2.runner.batch import (
+            _load_run_tasks,
+            get_run_info,
+            make_voice_run_settings,
+        )
         from tau2.runner.pass3 import (
             CROSSED_CONDITIONS,
             summarize_crossed_pass3,
@@ -101,7 +104,7 @@ def add_pass3_args(
                 raise ValueError("Crossed Pass^3 regular preflight needs a voice run")
             tasks = _load_run_tasks(config)
             voice_settings, persona_config = make_voice_run_settings(config)
-            expected_info = get_info(
+            expected_info = get_run_info(
                 config,
                 tasks=tasks,
                 user_voice_settings=voice_settings,

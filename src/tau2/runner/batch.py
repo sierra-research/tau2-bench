@@ -566,6 +566,24 @@ def make_voice_run_settings(
     return user_voice_settings, user_persona_config
 
 
+def get_run_info(config: RunConfig, *, tasks, **overrides) -> Info:
+    """``get_info`` plus the voice agent's recorded adapter settings.
+
+    Settings that reach an adapter outside the run config (environment variables,
+    e.g. the smallest transcript reveal cap) change the simulation, so the saved
+    run records them in ``agent_info.llm_args``; see ``RUN_SETTINGS`` in
+    ``tau2.voice.audio_native.adapter``. Derived from the environment alone, so a
+    worker process records the same values as the controller.
+    """
+    info = get_info(config, tasks=tasks, **overrides)
+    audio = getattr(config, "audio_native_config", None)
+    if audio is not None:
+        from tau2.voice.audio_native.adapter import provider_run_settings
+
+        info.agent_info.llm_args = provider_run_settings(audio.provider)
+    return info
+
+
 def unit_provider(config: RunConfig) -> Optional[str]:
     """The resource a unit consumes, for per-provider lease caps.
 
@@ -918,7 +936,7 @@ def prepare_batch(
         )
 
     # Build Info and initial Results
-    info = get_info(
+    info = get_run_info(
         config,
         tasks=tasks,
         user_persona_config=user_persona_config,

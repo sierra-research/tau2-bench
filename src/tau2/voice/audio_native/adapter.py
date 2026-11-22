@@ -380,6 +380,40 @@ class DiscreteTimeAdapter(ABC):
 _PROVIDERS_WITH_ENDPOINT_DETERMINED_MODEL: tuple[str, ...] = ()
 
 
+# Provider settings that reach the adapter outside the run config (environment
+# variables) and change the simulation. A run records them in
+# ``agent_info.llm_args``; the saved record is checked for this shape.
+RUN_SETTINGS: dict[str, tuple[str, ...]] = {"smallest": ("transcript_reveal_cps",)}
+
+
+def provider_run_settings(provider: str) -> Optional[dict]:
+    """The provider's effective settings when a run starts (see ``RUN_SETTINGS``)."""
+    if provider == "smallest":
+        from tau2.voice.audio_native.smallest.pacing import run_settings
+
+        return run_settings()
+    return None
+
+
+def recorded_run_settings(provider: str, saved: Optional[dict]) -> Optional[dict]:
+    """What a saved run's ``agent_info.llm_args`` must equal for ``provider``.
+
+    The saved record itself when it is complete (every key of ``RUN_SETTINGS``,
+    each a number), or None, as runs made before the settings were recorded
+    saved; otherwise the keys it should have carried, so a comparison with the
+    saved value fails.
+    """
+    keys = RUN_SETTINGS.get(provider)
+    if keys is None or saved is None:
+        return None
+    if set(saved) == set(keys) and all(
+        isinstance(saved[key], (int, float)) and not isinstance(saved[key], bool)
+        for key in keys
+    ):
+        return saved
+    return dict.fromkeys(keys)
+
+
 def create_adapter(
     provider: str,
     tick_duration_ms: int,
@@ -403,7 +437,7 @@ def create_adapter(
 
     Args:
         provider: Provider identifier (openai, gemini, xai, nova, qwen,
-            avartha_pipecat, phonic, livekit).
+            avartha_pipecat, phonic, smallest, livekit).
         tick_duration_ms: Duration of each tick in milliseconds.
         send_audio_instant: If True, send audio in one call per tick.
         model: Model identifier. If None, uses the provider's default.
@@ -563,6 +597,18 @@ def create_adapter(
             model=model,
             reasoning_effort=reasoning_effort,
             language=language,
+        )
+    elif provider == "smallest":
+        from tau2.voice.audio_native.smallest.discrete_time_adapter import (
+            DiscreteTimeSmallestAdapter,
+        )
+
+        adapter = DiscreteTimeSmallestAdapter(
+            tick_duration_ms=tick_duration_ms,
+            send_audio_instant=send_audio_instant,
+            model=model,
+            reasoning_effort=reasoning_effort,
+            audio_format=audio_format,
         )
     elif provider == "livekit":
         from tau2.data_model.cascaded import CascadedConfig

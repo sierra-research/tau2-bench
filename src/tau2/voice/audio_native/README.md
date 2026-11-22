@@ -14,6 +14,7 @@ Full-duplex voice evaluation via provider-specific realtime APIs. Each provider 
 | **qwen** | Native audio | Alibaba Qwen Omni | qwen3-omni-flash-realtime |
 | **avartha_pipecat** | Hosted voice agent | Avartha over Pipecat SmallWebRTC | Agent URL (`--avartha-base-url`) |
 | **phonic** | Native audio | Phonic speech-to-speech | phonic-1 |
+| **smallest** | Hosted voice agent | Smallest AI Hydra over WebSocket | Label (`--audio-native-model`, default `hydra`) |
 | **livekit** | Cascaded (STT→LLM→TTS) | LiveKit + Deepgram + OpenAI | Configurable |
 
 ## Architecture
@@ -31,6 +32,7 @@ DiscreteTimeAdapter (adapter.py)          ← shared base class
 ├── nova/discrete_time_adapter.py
 ├── avartha_pipecat/discrete_time_adapter.py
 ├── phonic/discrete_time_adapter.py       ← realtime audio pump (see phonic/README.md)
+├── smallest/discrete_time_adapter.py     ← Hydra over WebSocket, server-side turn-taking (see smallest/README.md)
 └── livekit/discrete_time_adapter.py      ← own run_tick (cascaded pipeline, different interaction model)
 ```
 
@@ -58,6 +60,24 @@ The adapter installs the domain policy as the call's prompt, registers the
 domain tools, and records the call's session ID on each simulation. See the
 [Avartha provider guide](avartha_pipecat/README.md) for the protocol,
 options, and live test setup.
+
+## Smallest
+
+Call a Smallest AI Hydra speech-to-speech server over its `/v1/hydra`
+WebSocket (requires the `voice` extra and `SMALLEST_WS_URL`):
+
+```bash
+export SMALLEST_WS_URL=wss://<host>/v1/hydra
+tau2 run --audio-native --benchmark none --domain retail \
+  --audio-native-provider smallest --audio-native-model <hydra-version> \
+  --num-tasks 1
+```
+
+Hydra runs the conversation, including turn-taking, server-side; the adapter
+sends the domain policy and tool schemas when the call starts, executes no
+tools itself, and records Hydra's session ID on each simulation. See the
+[Smallest provider guide](smallest/README.md) for the protocol, transcript
+pacing, and live test setup.
 
 ## Adding a New Provider
 

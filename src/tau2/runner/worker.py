@@ -168,8 +168,12 @@ def execute_lease(payload: dict) -> SimulationRun:
     """Execute one leased unit: rebuild the run context from the payload and
     run the same code the local loop runs. No checkpoint fns, no monitor —
     the result goes back to the controller."""
-    from tau2.runner.batch import _BatchContext, make_voice_run_settings, run_unit
-    from tau2.runner.helpers import get_info
+    from tau2.runner.batch import (
+        _BatchContext,
+        get_run_info,
+        make_voice_run_settings,
+        run_unit,
+    )
 
     unit = WorkUnit.model_validate(payload["unit"])
     run = payload["run"]
@@ -179,7 +183,7 @@ def execute_lease(payload: dict) -> SimulationRun:
     save_dir = Path(run["save_dir"]) if run.get("save_dir") else None
 
     user_voice_settings, user_persona_config = make_voice_run_settings(config)
-    info = get_info(
+    info = get_run_info(
         config,
         tasks=[task],
         user_persona_config=user_persona_config,
