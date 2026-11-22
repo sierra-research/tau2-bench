@@ -273,28 +273,9 @@ class TickResult(BaseModel):
 
         if self.was_truncated and self.interruption_audio_start_ms is not None:
             # Interruption case: return audio up to interruption point, pad at END
-            tick_start_ms = self.cumulative_user_audio_at_tick_start_ms
-            position_within_tick_ms = self.interruption_audio_start_ms - tick_start_ms
-
-            # Clamp to valid range [0, tick_duration_ms]
-            tick_duration_ms = (self.bytes_per_tick / self.bytes_per_second) * 1000
-            position_within_tick_ms = max(
-                0, min(position_within_tick_ms, tick_duration_ms)
+            played_audio = b"".join(
+                data for data, _ in self._chunks_played_before_interruption()
             )
-
-            # Calculate bytes played before interruption
-            max_bytes = int(position_within_tick_ms * self.bytes_per_second / 1000)
-
-            # Get audio up to interruption
-            result = []
-            current_total = 0
-            for data, item_id in self.agent_audio_chunks:
-                if current_total >= max_bytes:
-                    break
-                remaining = max_bytes - current_total
-                result.append(data[:remaining])
-                current_total += len(data[:remaining])
-            played_audio = b"".join(result)
 
             # Pad with silence at END (agent was speaking, then stopped)
             if len(played_audio) < self.bytes_per_tick:
@@ -317,6 +298,48 @@ class TickResult(BaseModel):
         # we could pad at beginning. For now, assume agent started at tick start.
         padding = self.silence_byte * (self.bytes_per_tick - len(raw_audio))
         return raw_audio + padding
+
+    def _chunks_played_before_interruption(self) -> List[Tuple[bytes, Optional[str]]]:
+        """Agent audio chunks that played before the user cut in, in order.
+
+        The last chunk is cut at the interruption point. Only valid once
+        ``truncate_agent_audio`` has set the interruption position.
+        """
+        if self.interruption_audio_start_ms is None:
+            raise ValueError("No interruption recorded on this tick.")
+
+        position_within_tick_ms = (
+            self.interruption_audio_start_ms
+            - self.cumulative_user_audio_at_tick_start_ms
+        )
+
+        # Clamp to valid range [0, tick_duration_ms]
+        tick_duration_ms = (self.bytes_per_tick / self.bytes_per_second) * 1000
+        position_within_tick_ms = max(0, min(position_within_tick_ms, tick_duration_ms))
+
+        max_bytes = int(position_within_tick_ms * self.bytes_per_second / 1000)
+
+        played: List[Tuple[bytes, Optional[str]]] = []
+        current_total = 0
+        for data, item_id in self.agent_audio_chunks:
+            if current_total >= max_bytes:
+                break
+            kept = data[: max_bytes - current_total]
+            played.append((kept, item_id))
+            current_total += len(kept)
+        return played
+
+    def get_played_item_audio_bytes(self, item_id: Optional[str]) -> int:
+        """Bytes of one item's audio that played this tick before the interruption.
+
+        Unlike ``get_played_agent_audio`` this is not padded, and it counts only
+        the given item. Call it after ``truncate_agent_audio``.
+        """
+        return sum(
+            len(data)
+            for data, chunk_item_id in self._chunks_played_before_interruption()
+            if chunk_item_id == item_id
+        )
 
     def truncate_agent_audio(
         self,
