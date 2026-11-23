@@ -637,6 +637,11 @@ class VoiceStreamingUserSimulator(
             if speech_env.burst_noise_files
             else None
         )
+        background_speech_files = (
+            resolve_burst_noise_paths(speech_env.background_speech_files)
+            if speech_env.background_speech_files
+            else None
+        )
 
         noise_generator, out_of_turn_speech_generator = (
             create_streaming_audio_generators(
@@ -656,6 +661,7 @@ class VoiceStreamingUserSimulator(
             channel_config=synthesis_config.channel_effects_config,
             sample_rate=PCM_SAMPLE_RATE,
             burst_noise_files=burst_noise_files,
+            background_speech_files=background_speech_files,
             # No override params needed - configs already have complexity values merged
         )
 
@@ -887,6 +893,9 @@ class VoiceStreamingUserSimulator(
                 is_silence=not is_speech,
                 current_time_ms=current_time_ms,
                 has_active_burst=state.noise_generator.has_active_burst(),
+                has_active_background_speech=(
+                    state.noise_generator.has_active_background_speech()
+                ),
             )
 
         if self._audio_taps:
@@ -926,6 +935,19 @@ class VoiceStreamingUserSimulator(
                 participant="user",
                 params=burst_params,
             )
+        if result.background_speech_file:
+            bg_file_name = Path(result.background_speech_file).name
+            bg_params: dict = {"file": bg_file_name}
+            if "background_speech_snr_db" in result.tracks.metadata:
+                bg_params["snr_db"] = result.tracks.metadata["background_speech_snr_db"]
+            if "background_speech_scale" in result.tracks.metadata:
+                bg_params["scale"] = result.tracks.metadata["background_speech_scale"]
+            self._effect_timeline.open_event(
+                effect_type="background_speech",
+                start_ms=current_time_ms,
+                participant="user",
+                params=bg_params,
+            )
         if result.triggered_speech_insert:
             self._effect_timeline.open_event(
                 effect_type="out_of_turn_speech",
@@ -956,6 +978,15 @@ class VoiceStreamingUserSimulator(
         ):
             self._effect_timeline.close_event(
                 effect_type="burst_noise",
+                end_ms=current_time_ms,
+                participant="user",
+            )
+        if (
+            not state.noise_generator.has_active_background_speech()
+            and self._effect_timeline.has_open_event("background_speech", "user")
+        ):
+            self._effect_timeline.close_event(
+                effect_type="background_speech",
                 end_ms=current_time_ms,
                 participant="user",
             )

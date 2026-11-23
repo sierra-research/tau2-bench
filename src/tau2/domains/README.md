@@ -68,6 +68,7 @@ pytest tests/test_domains/test_<domain_name>
 | `telecom` | Telecom account management and troubleshooting |
 | `banking_knowledge` | Knowledge-retrieval-based banking customer service with configurable RAG pipelines |
 | `intake` | Outbound elicitation with an agent-directed default and a scaffolded strategy ablation |
+| `food` | Restaurant ordering (drive-thru and order-ahead) and table reservations across three stores; see `food/README.md` |
 
 The `intake` domain and task set use `src/tau2/domains/intake/`,
 `data/tau2/domains/intake/`, and `tests/test_domains/test_intake/`. Agent-directed

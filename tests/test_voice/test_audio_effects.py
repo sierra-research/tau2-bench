@@ -1338,3 +1338,213 @@ class TestEffectTimeline:
         assert restored.events[0].end_ms == 1500
         assert restored.events[0].duration_ms == 500
         assert restored.events[0].params == {"file": "horn.wav"}
+
+
+class TestBackgroundSpeech:
+    """Tests for the independent streaming background_speech audio effect."""
+
+    @staticmethod
+    def _write_pcm16_wav(
+        path: Path, samples: np.ndarray, sample_rate: int = 16000
+    ) -> Path:
+        audio = AudioData(
+            data=samples.astype(np.int16).tobytes(),
+            format=AudioFormat(
+                encoding=AudioEncoding.PCM_S16LE, sample_rate=sample_rate
+            ),
+        )
+        save_wav_file(audio, path)
+        return path
+
+    def test_noise_generator_background_speech_chunks_and_burst_independence(
+        self, burst_noise_file: Path, tmp_path: Path
+    ):
+        """Background speech chunks keep whole-clip RMS/SNR and stay independent of bursts."""
+        from tau2.voice_config import BACKGROUND_SPEECH_SNR_RANGE_DB
+
+        samples = np.concatenate(
+            [
+                np.full(500, 1000, dtype=np.int16),
+                np.full(500, 8000, dtype=np.int16),
+                np.full(250, 20000, dtype=np.int16),
+            ]
+        )
+        bg_wav = self._write_pcm16_wav(tmp_path / "bg_speech.wav", samples)
+
+        gen = BackgroundNoiseGenerator(sample_rate=16000, silent_mode=True, seed=42)
+        assert not gen.has_active_background_speech()
+        assert gen.get_background_speech_chunk(num_samples=500) is None
+
+        gen.add_burst(burst_noise_file)
+        gen.add_background_speech(bg_wav)
+        assert gen.has_active_burst()
+        assert gen.has_active_background_speech()
+
+        gen._clear_burst()
+        assert not gen.has_active_burst()
+        assert gen.has_active_background_speech()
+
+        c1 = gen.get_background_speech_chunk(num_samples=500)
+        c2 = gen.get_background_speech_chunk(num_samples=500)
+        c3 = gen.get_background_speech_chunk(num_samples=500)
+        assert c1 is not None and c2 is not None and c3 is not None
+        assert not gen.has_active_background_speech()
+        assert gen.get_background_speech_chunk(num_samples=500) is None
+
+        min_snr, max_snr = BACKGROUND_SPEECH_SNR_RANGE_DB
+        assert min_snr <= c1[1] <= max_snr
+        assert c1[1] == c2[1] == c3[1]
+        assert c1[2] == c2[2] == c3[2] > 0.0
+        assert len(c3[0]) == 500
+        assert np.all(c3[0][250:] == 0)
+
+    def test_scheduler_background_speech_slots_and_rng_isolation(self):
+        """EffectScheduler samples background_speech slots uniformly without perturbing other RNG streams."""
+        from tau2.data_model.audio_effects import (
+            ChannelEffectsConfig,
+            SourceEffectsConfig,
+            SpeechEffectsConfig,
+            UserSpeechInsert,
+        )
+
+        speech_cfg = SpeechEffectsConfig(
+            enable_vocal_tics=False,
+            enable_non_directed_phrases=True,
+            speech_insert_events_per_minute=30.0,
+            non_directed_phrases=[
+                UserSpeechInsert(text="one sec", type="non_directed_phrase"),
+                UserSpeechInsert(text="hold on", type="non_directed_phrase"),
+            ],
+        )
+        channel_cfg = ChannelEffectsConfig(
+            enable_frame_drops=True,
+            frame_drop_rate=0.05,
+            frame_drop_burst_duration_ms=100,
+        )
+        burst_files = [Path("horn.wav"), Path("siren.wav")]
+        slot_pool = [Path("ood.wav")] * 3 + [Path("in_domain.wav")] * 7
+
+        base_sched = EffectScheduler(
+            seed=99,
+            source_config=SourceEffectsConfig(
+                enable_burst_noise=True,
+                burst_noise_events_per_minute=30.0,
+                enable_background_speech=False,
+            ),
+            speech_config=speech_cfg,
+            channel_config=channel_cfg,
+            burst_noise_files=burst_files,
+        )
+        bg_sched = EffectScheduler(
+            seed=99,
+            source_config=SourceEffectsConfig(
+                enable_burst_noise=True,
+                burst_noise_events_per_minute=30.0,
+                enable_background_speech=True,
+                background_speech_events_per_minute=60.0,
+            ),
+            speech_config=speech_cfg,
+            channel_config=channel_cfg,
+            burst_noise_files=burst_files,
+            background_speech_files=slot_pool,
+        )
+
+        picked: list[str] = []
+        both_same_tick = False
+        active_sched = EffectScheduler(
+            seed=99,
+            source_config=bg_sched.source_config,
+            speech_config=speech_cfg,
+            channel_config=channel_cfg,
+            burst_noise_files=burst_files,
+            background_speech_files=slot_pool,
+        )
+        for i in range(600):
+            t_ms = i * 200
+            is_sil = i % 2 == 0
+            e_base = base_sched.check_for_effects(
+                200, is_silence=is_sil, current_time_ms=t_ms
+            )
+            e_bg = bg_sched.check_for_effects(
+                200, is_silence=is_sil, current_time_ms=t_ms
+            )
+            e_bg_without = [
+                e for e in e_bg if e.effect_type != "background_speech_file"
+            ]
+            assert e_bg_without == e_base
+
+            types = {e.effect_type for e in e_bg}
+            if {"burst_noise_file", "background_speech_file"}.issubset(types):
+                both_same_tick = True
+            for e in e_bg:
+                if (
+                    e.effect_type == "background_speech_file"
+                    and e.background_speech_file
+                ):
+                    picked.append(e.background_speech_file.name)
+
+            blocked = active_sched.check_for_effects(
+                200,
+                is_silence=is_sil,
+                current_time_ms=t_ms,
+                has_active_background_speech=True,
+            )
+            assert all(e.effect_type != "background_speech_file" for e in blocked)
+
+        assert both_same_tick
+        assert len(picked) >= 80
+        in_domain_ratio = picked.count("in_domain.wav") / len(picked)
+        assert 0.58 <= in_domain_ratio <= 0.82
+
+    def test_streaming_processor_mixes_background_speech_track(self, tmp_path: Path):
+        """process_streaming_chunk mixes background_speech on trigger tick and records SNR metadata."""
+        from tau2.voice.utils.audio_preprocessing import (
+            _snr_to_scale,
+            mix_audio_to_tracks,
+        )
+
+        speech = AudioData(
+            data=np.full(320, 1000, dtype=np.int16).tobytes(),
+            format=AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=16000),
+        )
+        noise = AudioData(
+            data=np.zeros(320, dtype=np.int16).tobytes(),
+            format=AudioFormat(encoding=AudioEncoding.PCM_S16LE, sample_rate=16000),
+        )
+        tracks = mix_audio_to_tracks(
+            speech,
+            noise,
+            np.full(320, 15.0),
+            background_speech_info=(np.full(200, 2000, dtype=np.int16), 9.0, 4000.0),
+        )
+        expected_scale = _snr_to_scale(9.0, 4000.0)
+        assert tracks.metadata["background_speech_snr_db"] == 9.0
+        assert tracks.metadata["background_speech_scale"] == pytest.approx(
+            expected_scale
+        )
+        assert np.allclose(tracks.background_speech[:200], 2000.0 * expected_scale)
+        assert np.all(tracks.background_speech[200:] == 0.0)
+
+        bg_wav = self._write_pcm16_wav(
+            tmp_path / "clip.wav", np.full(640, 6000, dtype=np.int16)
+        )
+        gen = BackgroundNoiseGenerator(sample_rate=16000, silent_mode=True, seed=7)
+        mixin = type("M", (StreamingAudioEffectsMixin,), {})()
+        effect = ScheduledEffect(
+            effect_type="background_speech_file",
+            timestamp_ms=0,
+            duration_ms=500,
+            timing="cross_turn",
+            background_speech_file=bg_wav,
+        )
+        res = mixin.process_streaming_chunk(
+            speech_audio=speech,
+            noise_generator=gen,
+            num_samples=320,
+            scheduled_effects=[effect],
+        )
+        assert res.background_speech_file == str(bg_wav)
+        assert res.source_effects is None
+        assert np.any(res.tracks.background_speech != 0.0)
+        mixed_np = audio_data_to_numpy(res.to_mixed_audio_data(), dtype=np.int16)
+        assert not np.array_equal(mixed_np, np.full(320, 1000, dtype=np.int16))

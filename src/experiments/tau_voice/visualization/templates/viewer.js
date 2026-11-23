@@ -364,6 +364,7 @@
   const effectMetaShared = {
     frame_drop:          { label: 'Frame Drops',        accent: 'var(--sierra-orange)' },
     burst_noise:         { label: 'Burst Noise',        accent: 'var(--sierra-purple)' },
+    background_speech:   { label: 'Background Speech',  accent: 'var(--sierra-teal)' },
     out_of_turn_speech:  { label: 'Out-of-Turn Speech', accent: 'var(--sierra-orange-mid)' },
     background_noise:    { label: 'Background Noise',   accent: 'var(--sierra-gray-dark)' },
     telephony:           { label: 'Telephony',          accent: 'var(--sierra-blue-mid)' },
@@ -373,7 +374,7 @@
     if (!D.effects || !D.effects.length) return;
     const byType = {};
     D.effects.forEach(e => { if (!byType[e.type]) byType[e.type] = []; byType[e.type].push(e); });
-    const typeOrder = ['frame_drop', 'burst_noise', 'out_of_turn_speech', 'background_noise', 'telephony'];
+    const typeOrder = ['frame_drop', 'burst_noise', 'background_speech', 'out_of_turn_speech', 'background_noise', 'telephony'];
     const activeTypes = typeOrder.filter(t => byType[t]);
     if (!activeTypes.length) return;
 
@@ -1013,6 +1014,7 @@
   const effectIcons = {
     frame_drop: '',
     burst_noise: '⚡',
+    background_speech: '💬',
     out_of_turn_speech: '🗣',
     background_noise: '🔊',
     telephony: '📞',
@@ -1051,6 +1053,7 @@
   const effectLegendMeta = {
     frame_drop:         { label: 'Frame Drop',        cls: 'mx-effect-frame-drop',         icon: '⏸' },
     burst_noise:        { label: 'Burst Noise',        cls: 'mx-effect-burst-noise',        icon: '⚡' },
+    background_speech:  { label: 'Background Speech',  cls: 'mx-effect-background-speech',  icon: '💬' },
     out_of_turn_speech: { label: 'Out-of-Turn Speech', cls: 'mx-effect-out-of-turn-speech', icon: '🗣' },
     background_noise:   { label: 'Background Noise',   cls: 'mx-effect-background-noise',   icon: '🔊' },
     telephony:          { label: 'Telephony',           cls: 'mx-effect-telephony',          icon: '📞' },
@@ -1063,7 +1066,7 @@
     ];
 
     const activeTypes = new Set(D.effects.map(e => e.type));
-    ['frame_drop', 'burst_noise', 'out_of_turn_speech', 'background_noise', 'telephony'].forEach(type => {
+    ['frame_drop', 'burst_noise', 'background_speech', 'out_of_turn_speech', 'background_noise', 'telephony'].forEach(type => {
       if (!activeTypes.has(type)) return;
       const m = effectLegendMeta[type];
       items.push({
