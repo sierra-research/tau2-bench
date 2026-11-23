@@ -88,6 +88,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   excluded. `VerdictFingerprint` gains `input_error_units`, so voice-v2
   packages prepared before this change must be re-prepared.
 
+### Fixed
+- The NL-assertion judge reply parser accepts a bare top-level array of
+  results and a reply wrapped in one outer code fence. Before, a bare array
+  raised `AttributeError` and a fenced reply raised `JSONDecodeError`. The
+  runner then retried the simulation, which could drop out of the metrics as
+  an infrastructure error. A reply with no list of results, or with an empty
+  list, now raises `ValueError`. Before, it gave zero verdicts, which scored
+  the assertions as met (#735).
+
 ## [2.0.0] - 2026-10-19
 
 > **⚠️ Scoring change — scores are not comparable with 1.x.** Communication checks,
