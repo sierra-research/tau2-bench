@@ -104,10 +104,14 @@ def test_evaluate_nl_assertions_reads_every_reply_shape(
     assert [c.justification for c in checks] == [r["reasoning"] for r in RESULTS]
 
 
-def test_evaluate_nl_assertions_raises_when_reply_has_no_results(monkeypatch):
+@pytest.mark.parametrize(
+    "reply",
+    [json.dumps({"verdicts": RESULTS}), json.dumps({"results": []}), "[]"],
+    ids=["no results key", "empty results", "empty array"],
+)
+def test_evaluate_nl_assertions_raises_when_reply_has_no_results(monkeypatch, reply):
     import tau2.evaluator.evaluator_nl_assertions as module
 
-    reply = json.dumps({"verdicts": RESULTS})
     monkeypatch.setattr(
         module, "generate", lambda **kwargs: SimpleNamespace(content=reply)
     )

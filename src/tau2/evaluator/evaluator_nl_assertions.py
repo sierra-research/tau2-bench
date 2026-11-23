@@ -158,6 +158,10 @@ class NLAssertionsEvaluator(EvaluatorBase[Message]):
             **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
         )
         results = parse_judge_results(assistant_message.content)
+        if nl_assertions and not results:
+            # all() over no verdicts is True, so an empty list would pass every
+            # assertion.
+            raise ValueError("NL-assertion judge returned no results")
         return [
             NLAssertionCheck(
                 nl_assertion=result["expectedOutcome"],

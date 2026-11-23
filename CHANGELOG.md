@@ -93,9 +93,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   results and a reply wrapped in one outer code fence. Before, a bare array
   raised `AttributeError` and a fenced reply raised `JSONDecodeError`. The
   runner then retried the simulation, which could drop out of the metrics as
-  an infrastructure error. A reply with no list of results now raises
-  `ValueError` instead of yielding zero verdicts, which scored the
-  assertions as met (#735).
+  an infrastructure error. A reply with no list of results, or with an empty
+  list, now raises `ValueError`. Before, it gave zero verdicts, which scored
+  the assertions as met (#735).
 
 ## [2.0.0] - 2026-10-19
 
