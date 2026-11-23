@@ -110,6 +110,10 @@ classification priority is: backchannel > vocal tic > non-directed speech >
 real interruption. Vocal tics and non-directed speech occurring during
 silence (out-of-turn effects) are also scored.
 
+When an out-of-turn effect starts while the agent is speaking, continuing
+through the full yield window counts as correct. If the recording ends before
+the full window and there is no observed stop, the effect is omitted.
+
 ## Detection windows
 
 | Parameter | Default | Meaning |

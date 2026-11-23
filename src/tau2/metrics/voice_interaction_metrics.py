@@ -34,6 +34,7 @@ for the parity test. Full definitions live in ``docs/interaction-metrics.md``.
 """
 
 from dataclasses import asdict, dataclass, field
+from math import inf, nextafter
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from loguru import logger
@@ -46,7 +47,7 @@ if TYPE_CHECKING:
 
     from tau2.data_model.simulation import Results
 
-INTERACTION_METRICS_VERSION = "1.0"
+INTERACTION_METRICS_VERSION = "1.1"
 
 
 @dataclass
@@ -1458,35 +1459,37 @@ def extract_interruption_events(
                     break
 
             if agent_speaking_during and speaking_agent_seg:
-                # Agent was speaking - check if they yielded (stopped) within yield window
                 agent_stopped_tick = speaking_agent_seg.end_tick
-                time_after_effect = (
-                    agent_stopped_tick - effect_tick
-                ) * tick_duration_sec
+                # Score through the last tick within the inclusive window.
+                window_limit = int(nextafter(yield_window_sec / tick_duration_sec, inf))
+                window_last_tick = effect_tick + window_limit
+                yielded = (
+                    agent_stopped_tick < len(ticks)
+                    and agent_stopped_tick <= window_last_tick
+                )
+                if not yielded and window_last_tick >= len(ticks):
+                    # Without an observed stop or a complete window, the outcome is unknown.
+                    continue
 
-                # If agent stopped within yield window of the effect, they incorrectly yielded
-                if time_after_effect <= yield_window_sec:
-                    if effect.effect_type == "vocal_tic":
-                        event_type = "vocal_tic"
-                    else:
-                        event_type = "non_directed_speech"
-
-                    events.append(
-                        InterruptionEvent(
-                            **base_metadata,
-                            event_type=event_type,
-                            interrupter_segment_idx=-1,  # Not a user segment
-                            interrupter_start_tick=effect_tick,
-                            interrupter_start_time_sec=effect.start_time_sec,
-                            interrupter_end_tick=effect.end_tick,
-                            interrupter_duration_sec=effect.duration_sec,
-                            interrupter_transcript=effect.text or "",
-                            interrupted_speaking_at_start=True,  # Agent was speaking
-                            interrupted_yielded=True,  # Agent incorrectly stopped
-                            yield_tick=agent_stopped_tick,
-                            yield_time_sec=time_after_effect,
-                        )
+                events.append(
+                    InterruptionEvent(
+                        **base_metadata,
+                        event_type=effect.effect_type,
+                        interrupter_segment_idx=-1,  # Not a user segment
+                        interrupter_start_tick=effect_tick,
+                        interrupter_start_time_sec=effect.start_time_sec,
+                        interrupter_end_tick=effect.end_tick,
+                        interrupter_duration_sec=effect.duration_sec,
+                        interrupter_transcript=effect.text or "",
+                        interrupted_speaking_at_start=True,
+                        interrupted_yielded=yielded,
+                        yield_tick=agent_stopped_tick if yielded else None,
+                        yield_time_sec=(agent_stopped_tick - effect_tick)
+                        * tick_duration_sec
+                        if yielded
+                        else 0.0,
                     )
+                )
             else:
                 # Agent was NOT speaking - check if they responded (started) within window
                 agent_responded = False

@@ -217,6 +217,42 @@ class TestSelectivityEvents:
         assert len(by_type["vocal_tic_error"]) == 1
         assert "vocal_tic_correct" not in by_type
 
+    @pytest.mark.parametrize(
+        ("effect", "event_type"),
+        [("vocal_tic", "vocal_tic"), ("non_directed_phrase", "non_directed")],
+    )
+    @pytest.mark.parametrize(
+        ("recorded_ticks", "stop_delay", "expected"),
+        [
+            pytest.param(8, 3, "error", id="stop-inside-window"),
+            pytest.param(8, 5, "error", id="stop-at-limit"),
+            pytest.param(8, 6, "correct", id="continues-past-limit"),
+            pytest.param(6, None, "correct", id="complete-window-no-stop"),
+            pytest.param(5, None, None, id="recording-ends-at-limit"),
+            pytest.param(3, None, None, id="short-recording-no-stop"),
+        ],
+    )
+    def test_out_of_turn_effect_during_agent_speech(
+        self, effect, event_type, recorded_ticks, stop_delay, expected
+    ):
+        onset = 5
+        ticks = [
+            make_tick(
+                tick_id,
+                agent_speech=stop_delay is None or tick_id < onset + stop_delay,
+                speech_insert_type=effect if tick_id == onset else None,
+            )
+            for tick_id in range(onset + recorded_ticks)
+        ]
+        selectivity = [
+            event
+            for event in extract_voice_quality_events_from_simulation(ticks)
+            if event.event_category == event_type
+        ]
+        assert [event.event_type for event in selectivity] == (
+            [] if expected is None else [f"{event_type}_{expected}"]
+        )
+
     def test_non_directed_correct_when_agent_silent_stays_silent(self):
         # Out-of-turn non-directed phrase while agent is silent; agent does
         # not respond within the 2s window -> non_directed_correct
@@ -316,12 +352,22 @@ class TestGoldenParity:
     exact files. Do not regenerate it with the ported module.
     """
 
-    def test_matches_original_pipeline(self):
+    def test_matches_original_pipeline_with_talk_through_correction(self):
         block = compute_interaction_metrics_block(
             discover_experiment_paths([str(TESTDATA / "experiment")])
         )
         with open(TESTDATA / "expected_metrics.json") as f:
             expected = json.load(f)
+
+        # The original pipeline omitted two complete out-of-turn windows.
+        # In the recorded ticks the agent speaks through 556–561 in simulation
+        # 7c6a3e3e (vocal tic) and 1004–1009 in cd9c5ed2 (non-directed speech).
+        for category in ("vocal_tic", "non_directed"):
+            count_key = f"{category}_total"
+            rate_key = f"selectivity_{category}"
+            total = expected["counts"][count_key]
+            expected["counts"][count_key] = total + 1
+            expected[rate_key] = (expected[rate_key] * total + 1) / (total + 1)
 
         actual = block["domains"]["retail"]
         for name, expected_value in expected.items():
