@@ -1131,8 +1131,9 @@ def basic_turn_taking_policy(
         yield_threshold_when_interrupted: How long self keeps speaking when OTHER initiated the interruption
             (i.e., self was talking first, other started speaking over self). If None, cannot be interrupted.
         yield_threshold_when_interrupting: How long self keeps speaking when SELF initiated the interruption
-            (i.e., other was talking first, self started speaking over other). Should be defaulted to
-            yield_threshold_when_interrupted at initialization if not explicitly set.
+            (i.e., other was talking first, self started speaking over other). The timer starts when self
+            starts speaking. Should be defaulted to yield_threshold_when_interrupted at initialization
+            if not explicitly set.
         backchannel_min_threshold: Minimum ticks before Poisson backchanneling is allowed.
             Used when use_llm_backchannel=False. If None, Poisson backchannel is disabled.
         backchannel_max_threshold: Maximum ticks - force Poisson backchannel at this point.
@@ -1186,6 +1187,11 @@ def basic_turn_taking_policy(
 
             # Choose threshold based on context
             overlap_initiator = state.overlap_initiator
+            if overlap_initiator == "self":
+                # Buffered speech can predate our onset, for example during real-time generation.
+                interruption_length = min(
+                    interruption_length, state.consecutive_self_speaking_ticks
+                )
             if state.delivering_tool_result_speech:
                 # Tool result speech is assertive — always use the high
                 # "interrupting" threshold so the participant holds its ground

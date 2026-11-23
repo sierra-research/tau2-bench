@@ -5,6 +5,8 @@ Focuses on the delivering_tool_result_speech threshold override
 and overlap/interruption logic.
 """
 
+import pytest
+
 from tau2.agent.base.streaming import (
     StreamingState,
     basic_turn_taking_policy,
@@ -125,6 +127,62 @@ class TestDeliveringToolResultSpeech:
         )
         # 3 ticks < threshold of 10 -> should keep talking
         assert action == "keep_talking"
+
+
+@pytest.mark.parametrize(
+    ("pre_onset_ticks", "overlap_ticks", "expected"),
+    [
+        pytest.param(0, 1, "keep_talking", id="no-buffered-speech"),
+        pytest.param(35, 1, "keep_talking", id="first-overlap-tick"),
+        pytest.param(35, 24, "keep_talking", id="before-yield-threshold"),
+        pytest.param(35, 25, "stop_talking", id="at-yield-threshold"),
+    ],
+)
+def test_self_initiated_overlap_counts_from_speech_onset(
+    pre_onset_ticks, overlap_ticks, expected
+):
+    other_speech_ticks = pre_onset_ticks + overlap_ticks
+    state = _make_state(
+        output_queue_size=5,
+        input_buffer_speech_ticks=other_speech_ticks,
+        consecutive_self_speaking=overlap_ticks,
+        consecutive_other_speaking=other_speech_ticks + 1,
+    )
+    assert state.overlap_initiator == "self"
+
+    action, _ = basic_turn_taking_policy(
+        state,
+        tick_duration_seconds=0.2,
+        yield_threshold_when_interrupting=25,
+        yield_threshold_when_interrupted=5,
+    )
+
+    assert action == expected
+    assert len(state.input_turn_taking_buffer) == other_speech_ticks
+
+
+def test_other_party_silence_resets_interruption_duration():
+    state = _make_state(
+        output_queue_size=5,
+        input_buffer_speech_ticks=35,
+        consecutive_self_speaking=10,
+        consecutive_other_speaking=1,
+    )
+    state.input_turn_taking_buffer.extend(
+        [
+            UserMessage(role="user", contains_speech=False),
+            UserMessage(role="user", content="Speaking again", contains_speech=True),
+        ]
+    )
+    assert state.overlap_initiator == "other"
+
+    action, _ = basic_turn_taking_policy(
+        state,
+        yield_threshold_when_interrupting=25,
+        yield_threshold_when_interrupted=5,
+    )
+
+    assert action == "keep_talking"
 
 
 class TestBasicTurnTakingActions:
