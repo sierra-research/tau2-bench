@@ -162,12 +162,8 @@ class RetailTools(ToolKitBase):  # Tools
         return user.payment_methods[payment_method_id]
 
     def _is_pending_order(self, order: Order) -> bool:
-        """Check if the order is pending. This is not a strict check, and not meant to be used for modify_items in pending orders.
-
-        Args:
-            order: The order.
-        """
-        return "pending" in order.status
+        """Check whether the order is still pending."""
+        return order.status == "pending"
 
     @is_tool(ToolType.GENERIC)
     def calculate(self, expression: str) -> str:

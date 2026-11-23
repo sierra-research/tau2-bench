@@ -394,6 +394,24 @@ def test_modify_pending_order_payment(
     assert response.content == "Error: Non-pending order cannot be modified"
 
 
+def test_order_with_modified_items_rejects_address_and_payment_changes(
+    environment: Environment,
+    modify_pending_order_items_call: ToolCall,
+    modify_pending_order_address_call: ToolCall,
+    modify_pending_order_payment_call: ToolCall,
+):
+    environment.get_response(modify_pending_order_items_call)
+    order_id = modify_pending_order_items_call.arguments["order_id"]
+    order = environment.tools.get_order_details(order_id)
+    assert order.status == "pending (item modified)"
+    original_order = order.model_copy(deep=True)
+
+    for call in (modify_pending_order_address_call, modify_pending_order_payment_call):
+        response = environment.get_response(call)
+        assert response.content == "Error: Non-pending order cannot be modified"
+        assert environment.tools.get_order_details(order_id) == original_order
+
+
 @pytest.fixture
 def modify_user_address_call() -> ToolCall:
     return ToolCall(
