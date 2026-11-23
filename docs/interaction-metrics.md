@@ -89,6 +89,10 @@ interruption, not a backchannel/tic/non-directed event):
   The time to stop is the yield latency.
 - **no_yield** — the agent kept talking through the window.
 
+If the recording ends before the window closes and no stop was observed, the
+interruption is omitted from the yield metrics. An observed stop still counts
+as a yield.
+
 ### Agent interruptions (I_A)
 
 Every agent segment that starts while the user is speaking counts as one

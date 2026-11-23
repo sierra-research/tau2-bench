@@ -159,6 +159,44 @@ class TestYieldEvents:
         assert len(by_type["no_yield"]) == 1
         assert "yield" not in by_type
 
+    @pytest.mark.parametrize(
+        ("recorded_ticks", "stop_tick_offset", "expected"),
+        [
+            pytest.param(4, None, None, id="short-window-no-stop"),
+            pytest.param(9, None, None, id="one-tick-short-no-stop"),
+            pytest.param(4, 3, "yield", id="stop-on-last-recorded-tick"),
+            pytest.param(10, None, "no_yield", id="full-window-no-stop"),
+            pytest.param(11, 10, "no_yield", id="stop-after-window"),
+        ],
+    )
+    def test_yield_window_at_recording_end(
+        self, recorded_ticks, stop_tick_offset, expected
+    ):
+        onset = 26
+        ticks = build_ticks(
+            [{"agent_speech": True}] * onset
+            + [
+                {
+                    "agent_speech": stop_tick_offset is None
+                    or offset < stop_tick_offset,
+                    "user_speech": True,
+                    "action": "keep_talking" if offset == 0 else None,
+                }
+                for offset in range(recorded_ticks)
+            ]
+        )
+
+        events = [
+            event
+            for event in extract_voice_quality_events_from_simulation(ticks)
+            if event.event_type in {"yield", "no_yield"}
+        ]
+        assert [event.event_type for event in events] == (
+            [] if expected is None else [expected]
+        )
+        if expected == "yield":
+            assert events[0].latency_sec == pytest.approx(stop_tick_offset * TICK)
+
 
 class TestSelectivityEvents:
     def test_backchannel_correct_when_agent_continues(self):

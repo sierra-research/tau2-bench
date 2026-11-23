@@ -1278,7 +1278,8 @@ def extract_interruption_events(
         agent_yielded = False
 
         # Look ahead up to yield_window_ticks to find when agent stopped
-        for i in range(start_tick, min(start_tick + yield_window_ticks, len(ticks))):
+        window_end_tick = start_tick + yield_window_ticks
+        for i in range(start_tick, min(window_end_tick, len(ticks))):
             agent_speaking = (
                 ticks[i].agent_chunk.contains_speech if ticks[i].agent_chunk else False
             )
@@ -1286,6 +1287,15 @@ def extract_interruption_events(
                 agent_yielded = True
                 yield_tick = i
                 break
+
+        # An unresolved interruption needs a complete window before it can count
+        # as a failure. A stop observed in a partial window still counts.
+        if (
+            event_type == "user_interrupts_agent"
+            and not agent_yielded
+            and window_end_tick > len(ticks)
+        ):
+            continue
 
         yield_time_sec = (
             (yield_tick - start_tick) * tick_duration_sec if yield_tick else 0.0
