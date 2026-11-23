@@ -137,7 +137,8 @@ PRICING: Dict[Tuple[str, str], Rates] = {
     ("xai", "grok-voice-think-fast-1.0"): Rates(per_audio_input_minute=0.05),
     ("xai", "grok-voice-think-fast-2.0"): Rates(per_audio_input_minute=0.08),
     # --- Phonic. Billed per minute of conversation. ---
-    ("phonic", "phonic-1"): Rates(per_audio_input_minute=0.06),
+    ("phonic", "phonic-1"): Rates(per_audio_input_minute=0.07),
+    ("phonic", "phonic-1.1"): Rates(per_audio_input_minute=0.07),
     # --- Cascaded legs (verified: deepgram.com/pricing, elevenlabs.io/pricing,
     # developers.openai.com, platform.claude.com) ---
     ("deepgram", "nova-3"): Rates(per_audio_input_minute=0.0048),  # streaming, en
