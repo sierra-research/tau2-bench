@@ -34,6 +34,7 @@ for the parity test. Full definitions live in ``docs/interaction-metrics.md``.
 """
 
 from dataclasses import asdict, dataclass, field
+from math import inf, nextafter
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from loguru import logger
@@ -46,7 +47,7 @@ if TYPE_CHECKING:
 
     from tau2.data_model.simulation import Results
 
-INTERACTION_METRICS_VERSION = "1.0"
+INTERACTION_METRICS_VERSION = "1.1"
 
 
 @dataclass
@@ -1224,9 +1225,13 @@ def extract_interruption_events(
     backchannel_yield_window_ticks = int(
         backchannel_yield_window_sec / tick_duration_sec
     )
-    vocal_tic_yield_window_ticks = int(vocal_tic_yield_window_sec / tick_duration_sec)
-    non_directed_yield_window_ticks = int(
-        non_directed_yield_window_sec / tick_duration_sec
+    # Use inclusive tick limits for these two selectivity windows in both paths.
+    # nextafter avoids losing a boundary tick to rounding in the division.
+    vocal_tic_yield_limit = int(
+        nextafter(vocal_tic_yield_window_sec / tick_duration_sec, inf)
+    )
+    non_directed_yield_limit = int(
+        nextafter(non_directed_yield_window_sec / tick_duration_sec, inf)
     )
     vocal_tic_response_window_ticks = int(
         vocal_tic_response_window_sec / tick_duration_sec
@@ -1259,10 +1264,10 @@ def extract_interruption_events(
             yield_window_ticks = backchannel_yield_window_ticks
         elif user_seg.has_vocal_tic:
             event_type = "vocal_tic"
-            yield_window_ticks = vocal_tic_yield_window_ticks
+            yield_window_ticks = vocal_tic_yield_limit + 1
         elif user_seg.has_non_directed_speech:
             event_type = "non_directed_speech"
-            yield_window_ticks = non_directed_yield_window_ticks
+            yield_window_ticks = non_directed_yield_limit + 1
         elif user_seg.is_interruption:
             event_type = "user_interrupts_agent"
             yield_window_ticks = no_yield_window_ticks
@@ -1442,10 +1447,10 @@ def extract_interruption_events(
 
             # Select appropriate windows based on effect type
             if effect.effect_type == "vocal_tic":
-                yield_window_sec = vocal_tic_yield_window_sec
+                yield_limit = vocal_tic_yield_limit
                 response_window_ticks = vocal_tic_response_window_ticks
             else:
-                yield_window_sec = non_directed_yield_window_sec
+                yield_limit = non_directed_yield_limit
                 response_window_ticks = non_directed_response_window_ticks
 
             # Check if agent was speaking during this effect
@@ -1460,12 +1465,10 @@ def extract_interruption_events(
             if agent_speaking_during and speaking_agent_seg:
                 # Agent was speaking - check if they yielded (stopped) within yield window
                 agent_stopped_tick = speaking_agent_seg.end_tick
-                time_after_effect = (
-                    agent_stopped_tick - effect_tick
-                ) * tick_duration_sec
+                stop_delay_ticks = agent_stopped_tick - effect_tick
 
-                # If agent stopped within yield window of the effect, they incorrectly yielded
-                if time_after_effect <= yield_window_sec:
+                # A segment ending with the recording does not establish a stop.
+                if agent_stopped_tick < len(ticks) and stop_delay_ticks <= yield_limit:
                     if effect.effect_type == "vocal_tic":
                         event_type = "vocal_tic"
                     else:
@@ -1484,7 +1487,7 @@ def extract_interruption_events(
                             interrupted_speaking_at_start=True,  # Agent was speaking
                             interrupted_yielded=True,  # Agent incorrectly stopped
                             yield_tick=agent_stopped_tick,
-                            yield_time_sec=time_after_effect,
+                            yield_time_sec=stop_delay_ticks * tick_duration_sec,
                         )
                     )
             else:

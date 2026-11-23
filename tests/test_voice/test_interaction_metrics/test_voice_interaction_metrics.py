@@ -217,6 +217,46 @@ class TestSelectivityEvents:
         assert len(by_type["vocal_tic_error"]) == 1
         assert "vocal_tic_correct" not in by_type
 
+    @pytest.mark.parametrize(
+        ("effect", "event_type"),
+        [("vocal_tic", "vocal_tic"), ("non_directed_phrase", "non_directed")],
+    )
+    @pytest.mark.parametrize(
+        ("window", "stop_delay", "recorded_stop", "is_error"),
+        [
+            pytest.param(1.0, 4, True, True, id="before"),
+            pytest.param(1.0, 5, True, True, id="at"),
+            pytest.param(1.0, 6, True, False, id="after"),
+            pytest.param(1.0, 5, False, False, id="recording-ends-at-boundary"),
+            pytest.param(0.6, 3, True, True, id="fractional-boundary"),
+        ],
+    )
+    @pytest.mark.parametrize("in_turn", [True, False], ids=["in-turn", "out-of-turn"])
+    def test_selectivity_yield_boundary(
+        self, effect, event_type, window, stop_delay, recorded_stop, is_error, in_turn
+    ):
+        onset = 5
+        stop = onset + stop_delay
+        ticks = [
+            make_tick(
+                tick_id,
+                user_speech=in_turn and onset <= tick_id < onset + 2,
+                agent_speech=tick_id < stop,
+                action="keep_talking" if in_turn and tick_id == onset else None,
+                speech_insert_type=effect if tick_id == onset else None,
+            )
+            for tick_id in range(stop + 5 if recorded_stop else stop)
+        ]
+
+        events = extract_voice_quality_events_from_simulation(
+            ticks,
+            vocal_tic_yield_window_sec=window,
+            non_directed_yield_window_sec=window,
+        )
+        assert sum(
+            event.event_type == f"{event_type}_error" for event in events
+        ) == int(is_error)
+
     def test_non_directed_correct_when_agent_silent_stays_silent(self):
         # Out-of-turn non-directed phrase while agent is silent; agent does
         # not respond within the 2s window -> non_directed_correct

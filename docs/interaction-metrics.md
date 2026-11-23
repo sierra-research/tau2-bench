@@ -110,6 +110,9 @@ classification priority is: backchannel > vocal tic > non-directed speech >
 real interruption. Vocal tics and non-directed speech occurring during
 silence (out-of-turn effects) are also scored.
 
+For vocal tics and non-directed speech, stopping exactly at the yield-window
+limit counts as an error in both representations.
+
 ## Detection windows
 
 | Parameter | Default | Meaning |
