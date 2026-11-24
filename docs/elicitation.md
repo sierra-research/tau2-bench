@@ -62,10 +62,12 @@ explicit selection of tasks from either tier.
 
 Reward compares the final database with the database produced by replaying the
 golden submission. The write tool normalizes accepted surface variants; wrong
-values, omitted fields, and missing submissions fail. The released
-normalization preserves unit wording: `mg`, `milligram`, and `milligrams` are
-distinct. Scoring version `1.2.0` also preserves decimal points within numbers:
-`0.5 mg` and `05 mg` are different values. It does not rewrite dates or times;
+values, omitted fields, and missing submissions fail. In the medication field,
+milligram units after a numeric dose are equivalent: `50 mg`, `50 milligram`,
+and `50 milligrams` are the same value, and a task-set strength written in
+words matches its digits (`one hundred milligrams` matches `100 mg`). Decimal
+points within numbers are preserved: `0.5 mg` and `05 mg` are different values.
+Normalization does not rewrite dates or times;
 only surrounding whitespace is removed. Submit dates as `YYYY-MM-DD` and times
 as `H:MM AM/PM`, without a leading hour zero. For example, `June 12, 2025` does
 not match `2025-06-12`, and `14:30` does not match `2:30 PM`. The agent must
