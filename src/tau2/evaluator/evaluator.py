@@ -301,6 +301,7 @@ def evaluate_simulation(
             full_trajectory=trajectory,
             solo_mode=solo_mode,
             env_kwargs=env_kwargs,
+            strict_replay=strict_replay,
         )
         action_reward_info = ActEvaluator.calculate_reward(
             task=task,
