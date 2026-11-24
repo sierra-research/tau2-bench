@@ -88,6 +88,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   excluded. `VerdictFingerprint` gains `input_error_units`, so voice-v2
   packages prepared before this change must be re-prepared.
 
+### Fixed
+- `llm_agent_solo` now runs against Gemini. Its first request held only the
+  system prompt, and Gemini rejects a function-call turn that does not follow
+  a user or function-response turn, so every solo run ended as an
+  infrastructure error on the first call. Each solo request now starts with a
+  fixed, content-free user turn ("Begin working on the ticket."). The ticket
+  stays in the system prompt, and the turn is not stored in the trajectory
+  (#487).
+
 ## [2.0.0] - 2026-10-19
 
 > **⚠️ Scoring change — scores are not comparable with 1.x.** Communication checks,

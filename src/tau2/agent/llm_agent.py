@@ -327,6 +327,11 @@ SYSTEM_PROMPT_SOLO = """
 </ticket>
 """.strip()
 
+# Some providers (e.g. Gemini) reject a function-call turn that does not follow
+# a user or function-response turn. The ticket lives in the system prompt, so
+# every solo request starts with this content-free user turn.
+SOLO_OPENING_TURN = "Begin working on the ticket."
+
 
 class LLMSoloAgent(
     LLMConfigMixin, HalfDuplexAgent[LLMAgentStateType], Generic[LLMAgentStateType]
@@ -475,7 +480,8 @@ class LLMSoloAgent(
             assert len(state.messages) == 0, "Message history should be empty"
         else:
             state.messages.append(message)
-        messages = state.system_messages + state.messages
+        opening = UserMessage(role="user", content=SOLO_OPENING_TURN)
+        messages = state.system_messages + [opening] + state.messages
         assistant_message = generate(
             model=self.llm,
             tools=self.tools,
