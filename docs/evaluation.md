@@ -17,7 +17,10 @@ required of the agent, this page is for you.
   compared (by hash) to the predicted environment's DB end state. The
   agent is **not** required to take this specific path; any sequence of
   tool calls that produces an equivalent DB end state passes the DB
-  check.
+  check. Before hashing, the DB check sorts lists whose order carries no
+  meaning (`src/tau2/evaluator/db_equivalence.py`). Airline sorts the
+  `passengers` and `payment_history` of each reservation, and keeps the
+  `flights` order.
 - The agent is required to match `actions` *only* when `RewardType.ACTION`
   is in `reward_basis` (used in a small subset of `banking_knowledge`
   tasks; **not used at all** in airline / retail / telecom). When that
