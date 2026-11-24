@@ -3,9 +3,15 @@ from typing import Callable, Dict, Optional
 from loguru import logger
 from pydantic import BaseModel
 
-from tau2.agent.discrete_time_audio_native_agent import (
-    create_discrete_time_audio_native_agent,
-)
+try:
+    from tau2.agent.discrete_time_audio_native_agent import (
+        create_discrete_time_audio_native_agent,
+    )
+except ImportError as exc:
+    # Voice support is optional. Keep text-mode domains usable when the voice
+    # extra (including websockets) is not installed.
+    logger.debug("Voice agent unavailable: %s", exc)
+    create_discrete_time_audio_native_agent = None
 from tau2.agent.llm_agent import (
     LLMGTAgent,
     LLMSoloAgent,
@@ -311,10 +317,11 @@ try:
         task_filter=LLMSoloAgent.check_valid_task,
         metadata={"solo_mode": True},
     )
-    registry.register_agent_factory(
-        create_discrete_time_audio_native_agent,
-        "discrete_time_audio_native_agent",
-    )
+    if create_discrete_time_audio_native_agent is not None:
+        registry.register_agent_factory(
+            create_discrete_time_audio_native_agent,
+            "discrete_time_audio_native_agent",
+        )
     registry.register_domain(mock_domain_get_environment, "mock")
     registry.register_tasks(mock_domain_get_tasks, "mock")
 
