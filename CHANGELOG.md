@@ -88,6 +88,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   excluded. `VerdictFingerprint` gains `input_error_units`, so voice-v2
   packages prepared before this change must be re-prepared.
 
+### Fixed
+- The airline DB check no longer depends on the order of passengers or
+  payment methods in a booking. The environment evaluators hash the
+  assistant DB through `tau2.evaluator.db_equivalence.db_check_hash`, which
+  sorts the `passengers` and `payment_history` of each airline reservation.
+  The `flights` order still counts. Other domains hash the same data as
+  before, and no domain source file changes, so binding revisions stay the
+  same. Order-dependent reservation ids, as in airline task 23, are not
+  changed (#736).
+
 ## [2.0.0] - 2026-10-19
 
 > **⚠️ Scoring change — scores are not comparable with 1.x.** Communication checks,

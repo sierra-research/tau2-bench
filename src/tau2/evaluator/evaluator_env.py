@@ -10,6 +10,7 @@ from tau2.data_model.message import (
 from tau2.data_model.simulation import DBCheck, EnvAssertionCheck, RewardInfo
 from tau2.data_model.tasks import RewardType, Task
 from tau2.environment.environment import Environment
+from tau2.evaluator.db_equivalence import db_check_hash
 from tau2.evaluator.evaluator_base import EvaluatorBase
 from tau2.utils.transcript.views import tool_messages
 
@@ -115,9 +116,9 @@ class EnvironmentEvaluator(EvaluatorBase[Message]):
                 )
 
         # Comparing the environments
-        agent_db_hash = gold_environment.get_db_hash()
+        agent_db_hash = db_check_hash(gold_environment)
         user_db_hash = gold_environment.get_user_db_hash()
-        predicted_agent_db_hash = predicted_environment.get_db_hash()
+        predicted_agent_db_hash = db_check_hash(predicted_environment)
         predicted_user_db_hash = predicted_environment.get_user_db_hash()
         agent_db_match = agent_db_hash == predicted_agent_db_hash
         user_db_match = user_db_hash == predicted_user_db_hash
@@ -272,9 +273,9 @@ class FullDuplexEnvironmentEvaluator(EvaluatorBase[Tick]):
                 )
 
         # Comparing the environments
-        agent_db_hash = gold_environment.get_db_hash()
+        agent_db_hash = db_check_hash(gold_environment)
         user_db_hash = gold_environment.get_user_db_hash()
-        predicted_agent_db_hash = predicted_environment.get_db_hash()
+        predicted_agent_db_hash = db_check_hash(predicted_environment)
         predicted_user_db_hash = predicted_environment.get_user_db_hash()
         agent_db_match = agent_db_hash == predicted_agent_db_hash
         user_db_match = user_db_hash == predicted_user_db_hash
