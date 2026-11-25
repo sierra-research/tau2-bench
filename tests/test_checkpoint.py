@@ -298,3 +298,29 @@ class TestCheckpointReplacer:
 
         assert len(on_disk["simulations"]) == 1
         assert on_disk["simulations"][0]["termination_reason"] == "user_stop"
+
+
+class TestJsonCheckpointCache:
+    """The JSON saver caches the parsed file; output must not change."""
+
+    def test_output_matches_full_rewrite(self, tmp_path):
+        save_path = tmp_path / "results.json"
+        data = {"info": {"a": 1}, "tasks": [], "simulations": [], "x": None}
+        with open(save_path, "w") as f:
+            json.dump(data, f)
+
+        lock = multiprocessing.Lock()
+        save_fn = create_checkpoint_saver(save_path, lock)
+        # Separate closure writing the same file: saver cache must notice.
+        replace_fn = create_checkpoint_replacer(save_path, lock)
+
+        save_fn(_make_sim("t0"))
+        save_fn(_make_sim("t1"))
+        replace_fn((0, "t0", 42), _make_sim("t0", seed=42))
+        save_fn(_make_sim("t2"))
+
+        text = save_path.read_text()
+        on_disk = json.loads(text)
+        assert text == json.dumps(on_disk, indent=2)
+        assert [s["task_id"] for s in on_disk["simulations"]] == ["t1", "t0", "t2"]
+        assert on_disk["x"] is None

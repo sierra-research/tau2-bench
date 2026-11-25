@@ -434,11 +434,50 @@ def create_checkpoint_fns(
 
         return _save_dir, _replace_dir
 
-    # Monolithic JSON format
-    def _save_json(simulation: SimulationRun):
-        with lock:
+    # Monolithic JSON format.
+    # Rewriting the whole file each save is unavoidable with this format, but
+    # re-parsing and re-encoding every earlier simulation made it quadratic. We
+    # keep the parsed file plus each simulation's encoded text in memory and
+    # only encode the new one. The cache is dropped if the file changes on disk
+    # (e.g. a separate saver/replacer pair writing the same file).
+    _cache: dict = {}
+
+    def _encode_sim(sim: dict) -> str:
+        # Same text json.dumps(ckpt, indent=2) emits for a list item at depth 2.
+        return "    " + json.dumps(sim, indent=2).replace("\n", "\n    ")
+
+    def _load_json() -> tuple[dict, list[str]]:
+        st = os.stat(save_path)
+        if _cache.get("stat") != (st.st_mtime_ns, st.st_size):
             with open(save_path, "r") as fp:
                 ckpt = json.load(fp)
+            _cache["ckpt"] = ckpt
+            _cache["encoded"] = [_encode_sim(sim) for sim in ckpt["simulations"]]
+        return _cache["ckpt"], _cache["encoded"]
+
+    def _write_json(ckpt: dict, encoded: list[str]):
+        placeholder = "\0simulations\0"
+        text = json.dumps({**ckpt, "simulations": placeholder}, indent=2)
+        sims_text = "[\n" + ",\n".join(encoded) + "\n  ]" if encoded else "[]"
+        text = text.replace(json.dumps(placeholder), sims_text, 1)
+        fd, tmp_path = tempfile.mkstemp(
+            suffix=".json", prefix=".results_", dir=save_path.parent
+        )
+        try:
+            with os.fdopen(fd, "w") as fp:
+                fp.write(text)
+            os.replace(tmp_path, save_path)
+        except Exception:
+            _cache.clear()
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            raise
+        st = os.stat(save_path)
+        _cache["stat"] = (st.st_mtime_ns, st.st_size)
+
+    def _save_json(simulation: SimulationRun):
+        with lock:
+            ckpt, encoded = _load_json()
             existing_keys = {
                 (sim.get("trial"), sim.get("task_id"), sim.get("seed"))
                 for sim in ckpt["simulations"]
@@ -450,18 +489,10 @@ def create_checkpoint_fns(
                     f"trial {simulation.trial}, seed {simulation.seed}"
                 )
                 return
-            ckpt["simulations"].append(simulation.model_dump())
-            fd, tmp_path = tempfile.mkstemp(
-                suffix=".json", prefix=".results_", dir=save_path.parent
-            )
-            try:
-                with os.fdopen(fd, "w") as fp:
-                    json.dump(ckpt, fp, indent=2)
-                os.replace(tmp_path, save_path)
-            except Exception:
-                if os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
-                raise
+            sim = simulation.model_dump()
+            ckpt["simulations"].append(sim)
+            encoded.append(_encode_sim(sim))
+            _write_json(ckpt, encoded)
 
     def _replace_json(
         key: tuple[int, str, int],
@@ -469,29 +500,22 @@ def create_checkpoint_fns(
     ):
         trial, task_id, seed = key
         with lock:
-            with open(save_path, "r") as fp:
-                ckpt = json.load(fp)
-            ckpt["simulations"] = [
-                sim
-                for sim in ckpt["simulations"]
+            ckpt, encoded = _load_json()
+            keep = [
+                i
+                for i, sim in enumerate(ckpt["simulations"])
                 if not (
                     sim.get("trial") == trial
                     and sim.get("task_id") == task_id
                     and sim.get("seed") == seed
                 )
             ]
-            ckpt["simulations"].append(simulation.model_dump())
-            fd, tmp_path = tempfile.mkstemp(
-                suffix=".json", prefix=".results_", dir=save_path.parent
-            )
-            try:
-                with os.fdopen(fd, "w") as fp:
-                    json.dump(ckpt, fp, indent=2)
-                os.replace(tmp_path, save_path)
-            except Exception:
-                if os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
-                raise
+            ckpt["simulations"] = [ckpt["simulations"][i] for i in keep]
+            encoded[:] = [encoded[i] for i in keep]
+            sim = simulation.model_dump()
+            ckpt["simulations"].append(sim)
+            encoded.append(_encode_sim(sim))
+            _write_json(ckpt, encoded)
 
     return _save_json, _replace_json
 
