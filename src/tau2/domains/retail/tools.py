@@ -213,20 +213,31 @@ class RetailTools(ToolKitBase):  # Tools
         if reason not in {"no longer needed", "ordered by mistake"}:
             raise ValueError("Invalid reason")
 
-        # handle refund
-        refunds = []
+        # handle refund: give back what each payment method still holds for this
+        # order, i.e. its payments minus refunds already issued on it. A refund
+        # row left by modify_pending_order_payment must not be refunded again.
+        outstanding: dict[str, float] = {}
         for payment in order.payment_history:
-            payment_id = payment.payment_method_id
+            sign = 1 if payment.transaction_type == "payment" else -1
+            outstanding[payment.payment_method_id] = round(
+                outstanding.get(payment.payment_method_id, 0.0) + sign * payment.amount,
+                2,
+            )
+
+        refunds = []
+        for payment_id, amount in outstanding.items():
+            if amount <= 0:
+                continue
             refund = OrderPayment(
                 transaction_type="refund",
-                amount=payment.amount,
+                amount=amount,
                 payment_method_id=payment_id,
             )
             refunds.append(refund)
             user = self._get_user(order.user_id)
             payment_method = self._get_payment_method(user.user_id, payment_id)
             if isinstance(payment_method, GiftCard):  # refund to gift card immediately
-                payment_method.balance += payment.amount
+                payment_method.balance += amount
                 payment_method.balance = round(payment_method.balance, 2)
 
         # update order status
