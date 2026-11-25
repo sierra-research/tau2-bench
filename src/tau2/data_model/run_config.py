@@ -168,7 +168,8 @@ class AudioNativeConfig(BaseModel):
             "resia_fullplex",
         ):
             raise ValueError(
-                "live_config is only valid for openai_live and resia_fullplex"
+                "live_config is required for openai_live and only valid for "
+                "openai_live and resia_fullplex"
             )
         return self
 
