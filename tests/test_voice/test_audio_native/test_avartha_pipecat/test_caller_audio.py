@@ -45,9 +45,9 @@ def test_no_mirror_image_above_4khz():
     audio = _tone_ulaw(3000)
     fixed = CallerAudioUpsampler(16000).convert_input(audio)
     assert _level_db(fixed, 3000) - _level_db(fixed, 5000) > 35
-    # The shared linear-interpolation converter keeps the twin within 15 dB.
-    linear = StreamingTelephonyConverter(input_sample_rate=16000).convert_input(audio)
-    assert _level_db(linear, 3000) - _level_db(linear, 5000) < 15
+    # The shared converter is band-limited too and suppresses the twin.
+    shared = StreamingTelephonyConverter(input_sample_rate=16000).convert_input(audio)
+    assert _level_db(shared, 3000) - _level_db(shared, 5000) > 35
 
 
 def test_the_voice_band_keeps_its_level():

@@ -88,6 +88,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   excluded. `VerdictFingerprint` gains `input_error_units`, so voice-v2
   packages prepared before this change must be re-prepared.
 
+### Fixed
+- Voice audio conversion between provider PCM16 (16, 22.05, 24, 44.1, 48 kHz)
+  and 8 kHz mu-law no longer aliases. `StreamingTelephonyConverter` (agent
+  audio of the Gemini, Nova, Qwen, LiveKit, Launa, OpenAI Live and Avartha
+  adapters, and the caller audio all but Avartha send) and the user
+  simulator's streaming telephony converter used `audioop.ratecv`, linear
+  interpolation without a low-pass filter: speech above 4 kHz folded into the
+  telephone band on the way down, and its 8 kHz audio gained mirror images
+  above 4 kHz on the way up. Both now use
+  `tau2.voice.utils.streaming_resampler.StreamingResampler`, a streaming
+  polyphase FIR (flat to 3.4 kHz, >= 60 dB rejection at and above 4 kHz) with
+  a numpy mu-law codec that is bit-exact with `audioop`. Downsampling 16, 24 or
+  48 kHz to 8 kHz returns the same number of bytes per chunk as before;
+  22.05 and 44.1 kHz match per 20 ms tick and may otherwise shift one sample
+  between chunks; upsampling returns a few more samples at the start of a
+  stream, where `ratecv` came up short. The audio content gains a fixed
+  3.625 ms delay per conversion. The user simulator's converter now rejects
+  non-mono input instead of misreading it. Voice scores may shift slightly, most for providers whose
+  output carries energy above 4 kHz.
+
 ## [2.0.0] - 2026-10-19
 
 > **⚠️ Scoring change — scores are not comparable with 1.x.** Communication checks,
