@@ -155,6 +155,59 @@ def test_cancel_pending_order(
     assert order.payment_history[1].amount == order.payment_history[0].amount
 
 
+def _ledger_totals(order: Order) -> dict[str, dict[str, float]]:
+    """Per payment method: total paid and total refunded for the order."""
+    totals: dict[str, dict[str, float]] = {}
+    for p in order.payment_history:
+        entry = totals.setdefault(p.payment_method_id, {"payment": 0.0, "refund": 0.0})
+        entry[p.transaction_type] = round(entry[p.transaction_type] + p.amount, 2)
+    return totals
+
+
+def test_cancel_pending_order_after_payment_change_to_gift_card(
+    environment: Environment, cancel_pending_order_call: ToolCall
+):
+    """modify_pending_order_payment already refunds the old method, so cancelling
+    must refund the old method nothing more and the new method once."""
+    environment.tools.modify_pending_order_payment("#W0000000", "gift_card_0000000")
+    gift_card = environment.tools.db.users["sara_doe_496"].payment_methods[
+        "gift_card_0000000"
+    ]
+    assert gift_card.balance == 70.01  # charged for the order
+
+    environment.get_response(cancel_pending_order_call)
+
+    order = environment.tools.get_order_details("#W0000000")
+    assert order.status == "cancelled"
+    # every method ends with exactly what it paid refunded, no more
+    for method, totals in _ledger_totals(order).items():
+        assert totals["refund"] == totals["payment"], method
+    assert gift_card.balance == 100.0  # fully restored, not over-credited
+
+
+def test_cancel_pending_order_after_payment_change_from_gift_card(
+    environment: Environment, cancel_pending_order_call: ToolCall
+):
+    """Old method is a gift card: it is credited once by the payment change and
+    must not be credited again (twice) by the cancellation."""
+    db = environment.tools.db
+    gift_card = db.users["sara_doe_496"].payment_methods["gift_card_0000000"]
+    # the order was originally paid with the gift card
+    db.orders["#W0000000"].payment_history[0].payment_method_id = "gift_card_0000000"
+    gift_card.balance = 70.01
+
+    environment.tools.modify_pending_order_payment("#W0000000", "credit_card_0000000")
+    assert gift_card.balance == 100.0  # refunded by the payment change
+
+    environment.get_response(cancel_pending_order_call)
+
+    order = environment.tools.get_order_details("#W0000000")
+    assert order.status == "cancelled"
+    for method, totals in _ledger_totals(order).items():
+        assert totals["refund"] == totals["payment"], method
+    assert gift_card.balance == 100.0  # not credited a second time
+
+
 @pytest.fixture
 def exchange_delivered_order_items_call() -> ToolCall:
     return ToolCall(
