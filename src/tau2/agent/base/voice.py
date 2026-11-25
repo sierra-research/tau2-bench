@@ -139,13 +139,17 @@ class VoiceMixin(
         text_effects_rng = random.Random(speech_env.voice_seed + effects_turn_idx)
 
         if speech_effects.speech_insert:
-            text_to_synthesize = insert_speech_text(
+            text_with_insert = insert_speech_text(
                 text_to_synthesize,
                 speech_effects.speech_insert,
                 rng=text_effects_rng,
                 min_words=speech_config.min_words_for_vocal_tics,
                 in_turn=True,
             )
+            if text_with_insert == text_to_synthesize:
+                # Record only inserts actually included in the TTS input.
+                speech_effects.speech_insert = None
+            text_to_synthesize = text_with_insert
 
         if synthesis_config.spelled_entity_tables is not None:
             # PT-BR TTS consistently mispronounces spelled-out letter names.
