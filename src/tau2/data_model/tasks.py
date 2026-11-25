@@ -156,6 +156,10 @@ class Action(BaseModel):
         description="The arguments to check in tool call. If None, will check all the arguments.",
         default=None,
     )
+    accepted_values: Optional[dict[str, list]] = Field(
+        description="For specific arguments, a list of accepted values (any match passes). Overrides exact equality for those arguments.",
+        default=None,
+    )
 
     def __str__(self) -> str:
         lines = []
@@ -190,9 +194,15 @@ class Action(BaseModel):
             compare_args = self.compare_args
         if len(compare_args) == 0:
             return True
-        tool_args = {k: v for k, v in tool_call.arguments.items() if k in compare_args}
-        action_args = {k: v for k, v in self.arguments.items() if k in compare_args}
-        return tool_args == action_args
+        for arg in compare_args:
+            tool_val = tool_call.arguments.get(arg)
+            if self.accepted_values and arg in self.accepted_values:
+                if tool_val not in self.accepted_values[arg]:
+                    return False
+            else:
+                if tool_val != self.arguments.get(arg):
+                    return False
+        return True
 
 
 class EnvFunctionCall(BaseModel):
