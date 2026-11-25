@@ -1,0 +1,50 @@
+{
+  "model_name": "Qwen3.8-27B-FP8 + Policy Harness",
+  "model_organization": "Geunho Lee (independent)",
+  "submitting_organization": "Geunho Lee (independent)",
+  "submission_date": "2026-10-12",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "beingrelative@gmail.com",
+    "name": "Geunho Lee",
+    "github": "beingrelative"
+  },
+  "results": {
+    "banking_knowledge": {
+      "pass_1": 57.21649484536082,
+      "pass_2": 46.391752577319586,
+      "pass_3": 39.69072164948454,
+      "pass_4": 35.051546391752574,
+      "retrieval_config": "alltools"
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "banking_knowledge": "qwen3.8-27b-fp8_lb-custom_banking_knowledge_gpt-5.2_4trials.json"
+  },
+  "references": [
+    {
+      "title": "Method description: a deterministic policy layer for tool-using LLM agents",
+      "url": "https://beingrelative.github.io/policy-harness/method/",
+      "type": "documentation"
+    },
+    {
+      "title": "Policy Harness project page",
+      "url": "https://beingrelative.github.io/policy-harness/",
+      "type": "blog_post"
+    }
+  ],
+  "methodology": {
+    "evaluation_date": "2026-09-20",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "gpt-5.2",
+    "notes": "CUSTOM scaffold. Agent model: Qwen/Qwen3.8-27B-FP8 (public weights, not fine-tuned, self-hosted with vLLM, temperature 0.0). Around the standard tau2 llm_agent and orchestrator, an in-process policy layer (Policy Harness; internal name LB, commit f9e69d8d) is installed. Before a proposed agent turn is committed, the layer checks it against declarative rules written for the banking_knowledge domain; a denied turn goes back to the same model with the reason and is regenerated. The layer also adds verifier tools that compute policy quantities from records, appends derived facts after read-tool outputs, compacts the context view, and issues auxiliary sub-calls to the same Qwen model for extraction and classification. Benchmark tasks, domain tools, user simulator, and evaluator code are unchanged. The layer's added tools and messages are visible in the trajectories. DEVELOPMENT DISCLOSURE: the rule declarations were developed iteratively on the banking_knowledge evaluation tasks, using trajectory outcomes (rewards) and inspection of reference solutions. Rule items that an internal audit traced to reference solutions were withdrawn or rewritten from knowledge-base text in this version. The remaining rules were still selected and tuned against evaluation-task outcomes. User simulator: gpt-5.2 via OpenRouter, reasoning_effort low, temperature 0.0. Retrieval: AllTools. 4 trials, seed 300, tau2-bench v1.0.1 (fc0055d). Execution was sharded one task per process (--task-ids) across several vLLM replicas serving the same weights. All 97 tasks x 4 trials are included.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "Agent-side context is modified by the policy layer (added verifier tools, deny-and-regenerate feedback, derived-fact messages, context compaction). Benchmark-supplied domain policy, task set, user-simulator prompt, and evaluator are unmodified. All 97 base-split tasks x 4 trials."
+    }
+  }
+}
