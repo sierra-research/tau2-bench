@@ -1,0 +1,1710 @@
+[
+  {
+    "id": "LIFE-0",
+    "description": {
+      "purpose": "Life claim with multiple adult beneficiaries and complete documents.",
+      "relevant_policies": "All mandatory documents received.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Request confirmation that claim can proceed to payment.",
+        "domain": "insurance",
+        "reason_for_call": "You submitted all required documents.",
+        "known_info": "Claim ID LIFE-TA-2024-00002. Two adult beneficiaries.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "LIFE-0_0",
+          "name": "verify_documents",
+          "arguments": { "claim_id": "LIFE-TA-2024-00002"},
+          "info": null
+        },
+        {
+          "action_id": "LIFE-0_0",
+          "name": "process_total_loss_payment",
+          "arguments": {"claim_id": "LIFE-TA-2024-00002"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent confirms completeness of mandatory life claim documents.",
+        "Agent cannot approve payment unless all mandatory documents are verified",
+        "A claim cannot be paid unless at least one payment exists and verified"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "LIFE-1",
+    "description": {
+      "purpose": "Life claim where one beneficiary is a minor without guardianship order.",
+      "relevant_policies": "Minor beneficiaries require court-issued guardianship order.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Insist birth certificate should be enough.",
+        "domain": "insurance",
+        "reason_for_call": "You want claim processed urgently.",
+        "known_info": "Claim ID LIFE-SO-2024-00003. One minor beneficiary.",
+        "unknown_info": "Guardianship order"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "LIFE-1_0",
+          "name": "request_documents",
+          "arguments": { "claim_id": "LIFE-SO-2024-00003","document":"guardianship_order" },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent blocks payment until guardianship order is provided."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "LIFE-2",
+    "description": {
+      "purpose": "Life claim with name mismatch between policy and death certificate.",
+      "relevant_policies": "Affidavit required where names differ.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Say spelling error should be ignored.",
+        "domain": "insurance",
+        "reason_for_call": "You want claim approved.",
+        "known_info": "Claim ID LIFE-ET-2024-00013.",
+        "unknown_info": "Affidavit of name difference"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "LIFE-2_0",
+          "name": "request_documents",
+          "arguments": { "claim_id": "LIFE-ET-2024-00013","document":"affidavit"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent requires affidavit to resolve identity mismatch."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "LIFE-3",
+    "description": {
+      "purpose": "Life claim involving estate settlement with no letters of administration.",
+      "relevant_policies": "Estate claims require letters of administration and confirmation of grant.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Claim beneficiaries already agreed verbally.",
+        "domain": "insurance",
+        "reason_for_call": "You want payout shared among siblings.",
+        "known_info": "Claim ID LIFE-ET-2024-00005.",
+        "unknown_info": "Letters of administration"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "LIFE-3_0",
+          "name": "request_documents",
+          "arguments": { "claim_id": "LIFE-ET-2024-00005","document":"letters_of_administration"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent does not proceed without legal authority documents."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "LIFE-4",
+    "description": {
+      "purpose": "Life claim where death resulted from an accident without police abstract.",
+      "relevant_policies": "Accidental death requires police abstract and post-mortem report.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Argue death certificate should be sufficient.",
+        "domain": "insurance",
+        "reason_for_call": "You want accidental benefit paid.",
+        "known_info": "Claim ID LIFE-UG-2024-00001. Accidental death.",
+        "unknown_info": "Police abstract"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "LIFE-4_0",
+          "name": "request_documents",
+          "arguments": { "claim_id": "LIFE-UG-2024-00001","document":"police_abstract"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent requires accident documentation to validate benefit."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "LIFE-5",
+    "description": {
+      "purpose": "Life claim with missing original policy document.",
+      "relevant_policies": "Original policy document is mandatory.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Say the insurer already has policy records.",
+        "domain": "insurance",
+        "reason_for_call": "You want claim processed.",
+        "known_info": "Claim ID LIFE-KE-2024-00007.",
+        "unknown_info": "Original policy document"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "LIFE-5_0",
+          "name": "request_documents",
+          "arguments": { "claim_id": "LIFE-KE-2024-00007"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent explains original policy document requirement."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "LIFE-6",
+    "description": {
+      "purpose": "Life claim with physician statement not submitted.",
+      "relevant_policies": "Proofs of death forms must be completed.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "State hospital already confirmed death.",
+        "domain": "insurance",
+        "reason_for_call": "You want claim finalized.",
+        "known_info": "Claim ID LIFE-ZA-2024-00006.",
+        "unknown_info": "Physician's statement (Form 43 No 2)"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "LIFE-6_0",
+          "name": "request_documents",
+          "arguments": { "claim_id": "LIFE-ZA-2024-00006" },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent requires completed Form 43 No 2."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "LIFE-7",
+    "description": {
+      "purpose": "Life claim with multiple beneficiaries disputing payout shares.",
+      "relevant_policies": "Disputed claims require legal clarification.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Demand equal split immediately.",
+        "domain": "insurance",
+        "reason_for_call": "You disagree with proposed distribution.",
+        "known_info": "Claim ID LIFE-NI-2024-00008. Three beneficiaries.",
+        "unknown_info": "Confirmed legal distribution"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "LIFE-7_0",
+          "name": "escalate_claim",
+          "arguments": { "claim_id": "LIFE-NI-2024-00008" },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent escalates due to beneficiary dispute."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "LIFE-8",
+    "description": {
+      "purpose": "Life claim close after all beneficiaries and documents are verified, and payment has been settled.",
+      "relevant_policies": "All mandatory requirements satisfied.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Confirm readiness for closing the claim",
+        "domain": "insurance",
+        "reason_for_call": "You want to close claim.",
+        "known_info": "Claim ID LIFE-ZA-2024-00012.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "LIFE-8_0",
+          "name": "close_claim",
+          "arguments": { "claim_id": "LIFE-ZA-2024-00012"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent approves closing the claim"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "LIFE-9",
+    "description": {
+      "purpose": "Life claim approved after all beneficiaries and documents are verified.",
+      "relevant_policies": "All mandatory requirements satisfied.",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Confirm readiness for payout.",
+        "domain": "insurance",
+        "reason_for_call": "You want payment released.",
+        "known_info": "Claim ID LIFE-TA-2024-00011. All documents verified.",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "LIFE-9_0",
+          "name": "approve_claim",
+          "arguments": { "claim_id": "LIFE-TA-2024-00011" },
+          "info": null
+        },
+        {
+          "action_id": "LIFE-9_0",
+          "name": "process_total_loss_payment",
+          "arguments": { "claim_id": "LIFE-TA-2024-00011" },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent approves life claim for payment.",
+        "Agent initiates payment after approval"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "TR-0",
+    "description": {
+      "purpose": "Verify baggage loss claim where police report is missing.",
+      "relevant_policies": null,
+      "notes": "Loss or theft must be reported within 24 hours."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Insist that reporting to hotel staff should be enough.",
+        "domain": "insurance",
+        "reason_for_call": "Your luggage was stolen during outbound travel.",
+        "known_info": "Travel insurance policy active. Outbound travel. CLAIM_ID TR-KE-2024-00001",
+        "unknown_info": "Police or written incident report"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "TR-0_0",
+          "name": "request_documents",
+          "arguments": { "claim_type": "baggage_loss","claim_id":"TR-KE-2024-00001"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent does not proceed without a police or written incident report."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "TR-1",
+    "description": {
+      "purpose": "Travel claim where boarding pass and ticket confirmation are missing.",
+      "relevant_policies": null,
+      "notes": "Proof of travel is required."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "State that you travelled but cannot find your ticket.",
+        "domain": "insurance",
+        "reason_for_call": "You want compensation for delayed baggage.",
+        "known_info": "Student travel policy and CLAIM_ID TR-UG-2024-00002",
+        "unknown_info": "Ticket or boarding pass"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "TR-1_0",
+          "name": "request_documents",
+          "arguments": { "claim_type": "delay", "claim_id":"TR-UG-2024-00002"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent places claim in awaiting documents state."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "TR-2",
+    "description": {
+      "purpose": "Medical emergency claim without prior insurer notification.",
+      "relevant_policies": null,
+      "notes": "Emergency exceptions apply."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Explain that treatment was urgent and insurer was not contacted.",
+        "domain": "insurance",
+        "reason_for_call": "You received emergency medical care abroad.",
+        "known_info": "Inbound travel. Medical receipts available.CLAIM ID TR-TA-2024-00003",
+        "unknown_info": "Pre-authorization"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "TR-2_0",
+          "name": "review_claim",
+          "arguments": { "emergency": true , "claim_id":"TR-TA-2024-00003"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent approves claim subject to receipt verification."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "TR-3",
+    "description": {
+      "purpose": "Claim for lost passport without replacement documentation.",
+      "relevant_policies": null,
+      "notes": "Replacement and police report required."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Request reimbursement for emergency travel documents.",
+        "domain": "insurance",
+        "reason_for_call": "Your passport was stolen.",
+        "known_info": "Outbound travel.CLAIM ID TR-ZA-2024-00012",
+        "unknown_info": "Police report, embassy confirmation"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "TR-3_0",
+          "name": "request_documents",
+          "arguments": {"claim_id":"TR-ZA-2024-00012"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent does not approve claim without supporting documentation."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "TR-4",
+    "description": {
+      "purpose": "Cancellation claim due to illness without medical certificate.",
+      "relevant_policies": null,
+      "notes": "Cancellation requires acceptable reason."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Say you were unwell but did not see a doctor.",
+        "domain": "insurance",
+        "reason_for_call": "You cancelled your trip.",
+        "known_info": "Corporate travel policy.CLAIM ID TR-KE-2024-00009",
+        "unknown_info": "Medical certificate"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "TR-4_0",
+          "name": "request_documents",
+          "arguments": {"claim_id":"TR-KE-2024-00009"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent refuses approval without valid cancellation evidence."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "TR-5",
+    "description": {
+      "purpose": "Baggage loss claim with receipts for emergency items.",
+      "relevant_policies": null,
+      "notes": "Receipts support reimbursement."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Provide receipts for toiletries and clothing.",
+        "domain": "insurance",
+        "reason_for_call": "Your luggage was delayed.",
+        "known_info": "Outbound travel. Receipts available.CLAIM ID TR-UG-2024-00004",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "TR-5_0",
+          "name": "approve_partial_reimbursement",
+          "arguments": {"claim_id":"TR-UG-2024-00004"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent approves reimbursement based on receipts."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "TR-6",
+    "description": {
+      "purpose": "Medical claim involving pre-existing condition not declared.",
+      "relevant_policies": null,
+      "notes": "Non-disclosure affects coverage."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "State condition existed before policy purchase.",
+        "domain": "insurance",
+        "reason_for_call": "You need medical reimbursement.",
+        "known_info": "Student travel policy. CLAIM ID TR-ET-2024-00005",
+        "unknown_info": "Disclosure confirmation"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "TR-6_0",
+          "name": "reject_claim",
+          "arguments": { "reason": "non_disclosure", "claim_id":"TR-ET-2024-00005" },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent rejects claim due to non-disclosure."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "TR-7",
+    "description": {
+      "purpose": "Early return claim due to family emergency.",
+      "relevant_policies": null,
+      "notes": "Only unused costs and extra travel covered."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Request full refund for entire trip.",
+        "domain": "insurance",
+        "reason_for_call": "You had to return home early.",
+        "known_info": "Inbound travel.CLAIM ID TR-NI-2024-00011",
+        "unknown_info": "Proof of emergency"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "TR-7_0",
+          "name": "verify_documents",
+          "arguments": {"claim_id":"TR-NI-2024-00011"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent limits reimbursement to eligible costs only."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "TR-8",
+    "description": {
+      "purpose": "Claim involving lost documents during domestic travel.",
+      "relevant_policies": null,
+      "notes": "Travel insurance may apply within covered scope."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Confirm travel was within country.",
+        "domain": "insurance",
+        "reason_for_call": "You lost important documents.",
+        "known_info": "Corporate travel.CLAIM ID TR-SO-2024-00014",
+        "unknown_info": "Policy scope confirmation"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "TR-8_0",
+          "name": "review_claim",
+          "arguments": {"claim_id":"TR-SO-2024-00014"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent verifies coverage before proceeding."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "TR-9",
+    "description": {
+      "purpose": "Travel claim fully documented and ready for approval.",
+      "relevant_policies": null,
+      "notes": "All requirements met."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Confirm all documents submitted.",
+        "domain": "insurance",
+        "reason_for_call": "You want claim finalized.",
+        "known_info": "Outbound travel. All documents verified. CLAIM ID TR-ZA-2024-00016",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "TR-9_0",
+          "name": "approve_claim",
+          "arguments": {"claim_id":"TR-ZA-2024-00016"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent approves travel claim."
+      ]
+    },
+    "annotations": null
+   },
+
+  {
+    "id": "HOME-0",
+    "description": {
+      "purpose": "Fire damage claim affecting the building structure.",
+      "relevant_policies": "Building Section – Fire & Special Perils",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Report that a fire damaged the main house and perimeter wall.",
+        "domain": "insurance",
+        "reason_for_call": "You want to file a building damage claim.",
+        "known_info": "Policy type: Domestic Package. Peril: Fire.CLAIM ID HOME-ET-2024-00003",
+        "unknown_info": "Fire brigade report"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "HOME-0_0",
+          "name": "create_claim",
+          "arguments": { "section": "Building", "peril": "Fire","claim_id":"HOME-ET-2024-00003" },
+          "info": null
+        },
+        {
+          "action_id": "HOME-0_1",
+          "name": "request_documents",
+          "arguments": { "document": "fire_report","claim_id":"HOME-ET-2024-00003"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent verifies the loss falls under Building Section.",
+        "Agent does not approve claim without fire report."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "HOME-1",
+    "description": {
+      "purpose": "Contents claim due to burglary and theft.",
+      "relevant_policies": "Contents Section – Burglary & Theft",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Report stolen household items after a break-in.",
+        "domain": "insurance",
+        "reason_for_call": "You want compensation for stolen furniture and electronics.",
+        "known_info": "Police abstract available.CLAIM ID HOME-SO-2024-00008",
+        "unknown_info": "Purchase receipts"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "HOME-1_0",
+          "name": "verify_documents",
+          "arguments": { "document": "police_abstract","claim_id":"HOME-SO-2024-00008" },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent confirms items fall under Contents Section.",
+        "Agent requests proof of ownership where applicable."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "HOME-2",
+    "description": {
+      "purpose": "Accidental breakage of fragile household items.",
+      "relevant_policies": "Contents Section – Accidental Breakage",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Claim for accidental breakage of glass table.",
+        "domain": "insurance",
+        "reason_for_call": "Item broke accidentally during cleaning.",
+        "known_info": "Item listed in household inventory.CLAIM ID HOME-TA-2024-00020",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+         {
+          "action_id": "HOME-2_0",
+          "name": "verify_documents",
+          "arguments": { "document": "photos","claim_id":"HOME-TA-2024-00020" },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent verifies accidental nature of loss.",
+        "Agent ensures item is not excluded."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "HOME-3",
+    "description": {
+      "purpose": "All Risks claim for stolen laptop outside the house.",
+      "relevant_policies": "All Risks Section",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Report theft of a laptop while traveling.",
+        "domain": "insurance",
+        "reason_for_call": "Laptop stolen from a café.",
+        "known_info": "Laptop listed under All Risks schedule.CLAIM ID HOME-TA-2024-00007",
+        "unknown_info": "Police report"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "HOME-3_0",
+          "name": "request_documents",
+          "arguments": { "document": "police_report","claim_id":"HOME-TA-2024-00007" },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent confirms item is scheduled under All Risks.",
+        "Agent does not approve claim without police report."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "HOME-4",
+    "description": {
+      "purpose":  "Verify policy status before claim processing.",
+      "relevant_policies": "No claims are payable if the policy was not active on the date of loss.",
+      "notes": "Policy status must be validated before coverage checks."
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Report water damage to furniture due to burst pipe.",
+        "domain": "insurance",
+        "reason_for_call": "Flooding occurred overnight.",
+        "known_info": "Plumber repair invoice available. CLAIM ID HOME-ZA-2024-00015",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "HOME-4_0",
+          "name": "check_policy_status",
+          "arguments": {"claim_id":"HOME-ZA-2024-00015" },
+          "info": null
+        },
+        {
+          "action_id": "HOME-4_1",
+          "name": "reject_claim",
+          "arguments": {"claim_id":"HOME-ZA-2024-00015","reason": "Policy expired — no active cover at date of loss"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent verifies policy status before making a decision.",
+        "Agent rejects the claim due to expired policy.",
+        "Agent clearly explains the reason for rejection."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "HOME-5",
+    "description": {
+      "purpose": "WIBA claim for injured domestic worker.",
+      "relevant_policies": "WIBA Section",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Report injury to house help while on duty.",
+        "domain": "insurance",
+        "reason_for_call": "Domestic worker slipped and fractured leg.",
+        "known_info": "Employee registered under WIBA.CLAIM ID HOME-SO-2024-00019 ",
+        "unknown_info": "Medical report"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "HOME-5_0",
+          "name": "request_documents",
+          "arguments": { "document": "medical_report","claim_id":"HOME-SO-2024-00019" },
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent verifies employment relationship.",
+        "Agent follows WIBA statutory process."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "HOME-6",
+    "description": {
+      "purpose": "Owners’ liability claim due to visitor injury.",
+      "relevant_policies": "Owners’/Occupiers’ Liability Section",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Report injury to a guest who slipped at your home.",
+        "domain": "insurance",
+        "reason_for_call": "Visitor is demanding compensation.",
+        "known_info": "Incident occurred within insured premises.CLAIM ID HOME-SO-2024-00005",
+        "unknown_info": "Witness statements"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "HOME-6_0",
+          "name": "create_claim",
+          "arguments": {"claim_id":"HOME-SO-2024-00005"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent verifies negligence requirement.",
+        "Agent escalates to liability assessment."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "HOME-7",
+    "description": {
+      "purpose": "Impact damage by vehicle to boundary wall.",
+      "relevant_policies": "Fire & Special Perils – Impact Damage",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Report vehicle crashing into your fence.",
+        "domain": "insurance",
+        "reason_for_call": "Boundary wall destroyed.",
+        "known_info": "Third-party driver identified.CLAIM ID HOME-KE-2024-00002",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "HOME-7_0",
+          "name": "identify_subrogation",
+          "arguments": {"claim_id":"HOME-KE-2024-00002"},
+          "info": null
+        },
+        {
+          "action_id": "HOME-7_1",
+          "name": "initiate_recovery",
+          "arguments": {"claim_id":"HOME-KE-2024-00002"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent checks subrogation potential.",
+        "Agent assigns recovery task if applicable."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "HOME-8",
+    "description": {
+      "purpose": "Storm and tempest damage to roof.",
+      "relevant_policies": "Fire & Special Perils – Storm & Tempest",
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Report roof damage after heavy storm.",
+        "domain": "insurance",
+        "reason_for_call": "Rain damaged ceiling and walls.",
+        "known_info": "Photos available.CLAIM ID HOME-NI-2024-00011",
+        "unknown_info": "Contractor estimate"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "HOME-8_0",
+          "name": "request_documents",
+          "arguments": {"claim_id":"HOME-NI-2024-00011"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent verifies storm peril.",
+        "Agent excludes wear and tear.",
+        "Agent requests repair estimate"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "HOME-9",
+    "description": {
+      "purpose": "Embedded travel insurance medical emergency claim.",
+      "relevant_policies": "Embedded Travel Insurance",
+      "notes": "Limit USD 40,000"
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Report medical emergency while abroad.",
+        "domain": "insurance",
+        "reason_for_call": "Hospitalized during travel.",
+        "known_info": "Domestic Package with embedded travel cover.CLAIM ID HOME-UG-2024-00017",
+        "unknown_info": "Medical bills"
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {
+          "action_id": "HOME-9_0",
+          "name": "verify_documents",
+          "arguments": {"claim_id":"HOME-UG-2024-00017"},
+          "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent confirms embedded travel cover is active.",
+        "Agent enforces USD 40,000 limit."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "MT-0",
+    "description": {
+      "purpose": "Submit an accidental damage claim and request repair authorization.",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Notify the insurer of an accident, submit the motor accident claim form, police abstract, driving license copy, and repair estimate. Request authorization to repair at an approved garage.",
+        "domain": "motor",
+        "reason_for_call": "You want your vehicle repaired after an accident.",
+        "known_info": "Claim type: Accidental Own Damage",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "MT-0_0", 
+        "name": "submit_claim", 
+        "arguments": {"claim_type":"accidental_own","claim_id":"CLM-MT-0001"}, "info": null},
+
+        {"action_id": "MT-0_1", 
+        "name": "authorize_repair", 
+        "arguments": {"claim_id":"CLM-MT-0001"}, 
+        "info": null}
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent authorizes repair only after verifying all required documents and assessment report."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "MT-1",
+    "description": {
+      "purpose": "Submit theft claim and request total loss payment.",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Notify the insurer of vehicle theft, submit motor theft claim form, police abstract, and logbook. Request total loss offer.",
+        "domain": "motor",
+        "reason_for_call": "Vehicle stolen and you want compensation.",
+        "known_info": "Claim type: Theft",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "MT-1_0", 
+        "name": "submit_claim", 
+        "arguments": {"claim_type":"theft","claim_id":"MT-ZA-2024-00014"}, 
+        "info": null
+        },
+        {"action_id": "MT-1_1", 
+        "name": "process_total_loss_payment", 
+        "arguments": {"claim_id":"MT-ZA-2024-00014"}, 
+        "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent should request and verify all required documents before making total loss offer."
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "MT-2",
+    "description": {
+      "purpose": "Submit liability claim and provide details of third-party injury.",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Report accident causing injury to a third party, provide internal investigation details if requested, and ask insurer to process liability claim.",
+        "domain": "motor",
+        "reason_for_call": "Third-party injury occurred in accident.",
+        "known_info": "Claim type: Liability",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "MT-2_0", 
+        "name": "submit_claim", 
+        "arguments": {"claim_id":"MT-UG-2024-00011"}, 
+        "info": null
+        },
+        {"action_id": "MT-2_1", 
+        "name": "investigate_liability", 
+        "arguments": {"claim_id":"MT-UG-2024-00011"}, 
+        "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent investigates liability and determines compensation based on report."]
+    },
+    "annotations": null
+  },
+  {
+    "id": "MT-3",
+    "description": {
+      "purpose": "Submit accidental damage claim with incomplete documents.",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Submit claim form without police abstract and ask for repair authorization.",
+        "domain": "motor",
+        "reason_for_call": "Vehicle damaged, urgent repair requested.",
+        "known_info": "Claim type: Accidental Own Damage",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "MT-3_0", 
+        "name": "submit_claim", 
+        "arguments": {"claim_type":"accidental_own","claim_id":"MT-TA-2024-00013"}, 
+        "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent should request missing police abstract before approving repair.",
+        "Agent should also verify the documents presented before approving repair"
+      ]
+    },
+    "annotations": null
+  },
+  {
+    "id": "MT-4",
+    "description": {
+      "purpose": "Submit theft claim and follow up on investigator report.",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Provide all documents for theft claim and ask insurer when investigator report will be ready to issue total loss offer.",
+        "domain": "motor",
+        "reason_for_call": "Want update on claim status.",
+        "known_info": "Claim type: Theft",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "MT-4_0", 
+        "name": "follow_up_investigator_report", 
+        "arguments": {"claim_id":"MT-NI-2024-00016"}, 
+        "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent provides estimated timeline for investigator report and total loss offer."]
+    },
+    "annotations": null
+  },
+  {
+    "id": "MT-5",
+    "description": {
+      "purpose": "Submit liability claim for accident with fatality.",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Report accident causing fatal injury, provide deceased details, and request insurer to process liability claim for dependents.",
+        "domain": "motor",
+        "reason_for_call": "Third-party fatality in accident.",
+        "known_info": "Claim type: Liability",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "MT-5_0", 
+        "name": "submit_claim", 
+        "arguments": {"claim_id":"MT-NI-2024-00001"}, 
+        "info": null
+        },
+        {"action_id": "MT-5_1", 
+        "name": "investigate_liability_fatal", 
+        "arguments": {"claim_id":"MT-NI-2024-00001"}, 
+        "info": null}
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent investigates accident and calculates compensation for dependents."]
+    },
+    "annotations": null
+  },
+  {
+  "id": "MT-6",
+  "description": {
+    "purpose": "Issue vehicle release letter after verifying all required documents are submitted and verified.",
+    "relevant_policies": "Motor – Accidental Damage Section",
+    "notes": null
+  },
+  "user_scenario": {
+    "persona": null,
+    "instructions": {
+      "task_instructions": "Check that all mandatory documents for vehicle repair are received and verified, then issue the release letter to the policyholder.",
+      "domain": "motor",
+      "reason_for_call": "Policyholder requests vehicle release.",
+      "known_info": "Mandatory documents: claim form, repair estimate, police abstract if applicable.",
+      "unknown_info": null
+    }
+  },
+  "initial_state": null,
+  "evaluation_criteria": {
+    "actions": [
+      {
+        "action_id": "MT-6_0",
+        "name": "verify_documents",
+        "arguments": {"claim_id": "MT-TA-2024-00003", "document_id": "police abstract"},
+        "info": null
+      },
+      {
+        "action_id": "MT-6_1",
+        "name": "verify_documents",
+        "arguments": {"claim_id": "MT-TA-2024-00003", "document_id": "claim form"},
+        "info": null
+      },
+      {
+        "action_id": "MT-6_2",
+        "name": "issue_release_letter",
+        "arguments": {"claim_id": "MT-TA-2024-00003"},
+        "info": null
+      }
+    ],
+    "communicate_info": [],
+    "nl_assertions": [
+      "Agent verifies that all mandatory documents are received and verified.",
+      "Agent issues the vehicle release letter to the policyholder.",
+      "Agent clearly explains that the vehicle can now be collected."
+    ]
+  },
+  "annotations": null 
+  },
+  {
+    "id": "MT-7",
+    "description": {
+      "purpose": "Liability claim for minor injuries and vehicle damage.",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Report minor injury to third party and vehicle damage, submit all requested info to insurer for processing.",
+        "domain": "motor",
+        "reason_for_call": "Accident with minor injuries.",
+        "known_info": "Claim type: Liability",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "MT-7_0", 
+        "name": "submit_claim", 
+        "arguments": {"claim_id":"MT-ZA-2024-00010"}, 
+        "info": null
+        },
+        {"action_id": "MT-7_1", 
+        "name": "process_liability_minor", 
+        "arguments": {"claim_id":"MT-ZA-2024-00010"}, 
+        "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent verifies minor injury details and compensates accordingly."]
+    },
+    "annotations": null
+  },
+  {
+    "id": "MT-8",
+    "description": {
+      "purpose": "Theft claim, ensure bank details submitted for payment over 1M.",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Submit theft claim and provide bank details to insurer for amounts above 1 million KES.",
+        "domain": "motor",
+        "reason_for_call": "Total loss payment requires bank info.",
+        "known_info": "Claim type: Theft",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "MT-8_0", 
+        "name": "verify_documents", 
+        "arguments": {"claim_id":"MT-KE-2024-00017"}, 
+        "info": null
+        },
+        {"action_id": "MT-8_1", 
+        "name": "process_total_loss_payment", 
+        "arguments": {"claim_id":"MT-KE-2024-00017"}, 
+        "info": null
+        }
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent processes payment after verifying bank details."]
+    },
+    "annotations": null
+  },
+  {
+    "id": "MT-9",
+    "description": {
+      "purpose": "Accidental damage claim, client wants urgent repair with all documents submitted.",
+      "relevant_policies": null,
+      "notes": null
+    },
+    "user_scenario": {
+      "persona": null,
+      "instructions": {
+        "task_instructions": "Submit all required documents for accidental damage and request urgent repair authorization from insurer.",
+        "domain": "motor",
+        "reason_for_call": "Vehicle urgently needs repair.",
+        "known_info": "Claim type: Accidental Own Damage",
+        "unknown_info": null
+      }
+    },
+    "initial_state": null,
+    "evaluation_criteria": {
+      "actions": [
+        {"action_id": "MT-9_0", 
+        "name": "verify_documents_and_authorize", 
+        "arguments": {"claim_id":"MT-ET-2024-00002"}, 
+        "info": null}
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent authorizes repair immediately after verifying all documents."]
+    },
+    "annotations": null
+  },
+  {
+    "id": "MED-0",
+    "description": {
+      "purpose": "Approve a fully documented outpatient reimbursement claim submitted within timeline.",
+      "relevant_policies": "Outpatient Reimbursement",
+      "notes": null
+    },
+    "user_scenario": {
+      "instructions": {
+        "task_instructions": "Request reimbursement for outpatient treatment and provide all required documents.",
+        "domain": "medical",
+        "reason_for_call": "Outpatient reimbursement claim.",
+        "known_info": "Claim submitted within 30 days with complete documents.CLAIM ID MC-UG-2024-00002",
+        "unknown_info": null
+      }
+    },
+    "initial_state": {
+      "claim_type": "outpatient"
+    },
+    "evaluation_criteria": {
+      "actions": [
+        { "action_id": "MED0_0", "name": "get_claim", "arguments": { "claim_id": "MC-UG-2024-00002" } },
+        { "action_id": "MED0_1", "name": "check_submission_timeline", "arguments": { "days_since_treatment": 30 } },
+        { "action_id": "MED0_2", "name": "verify_documents", "arguments": { "required_documents": ["claim_form", "receipts", "prescription", "bank_details"] } },
+        { "action_id": "MED0_3", "name": "approve_claim", "arguments": { "claim_id": "MC-UG-2024-00002" } },
+        { "action_id": "MED0_4", "name": "process_total_loss_payment", "arguments": { "method": "bank" } }
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent approves the outpatient claim and confirms payment processing."]
+    }
+  },
+  {
+    "id": "MED-1",
+    "description": {
+      "purpose": "Request missing prescription for outpatient reimbursement.",
+      "relevant_policies": "Outpatient Reimbursement",
+      "notes": "Prescription missing"
+    },
+    "user_scenario": {
+      "instructions": {
+        "task_instructions": "Submit outpatient claim without doctor prescription.",
+        "domain": "medical",
+        "reason_for_call": "Outpatient reimbursement.",
+        "known_info": "Prescription not provided.CLAIM ID MC-KE-2024-00003",
+        "unknown_info": null
+      }
+    },
+    "initial_state": { "claim_type": "outpatient" },
+    "evaluation_criteria": {
+      "actions": [
+        { "action_id": "MED1_0", "name": "get_claims", "arguments": { "claim_id": "MC-KE-2024-00003" } },
+        { "action_id": "MED1_1", "name": "verify_documents", "arguments": { "required_documents": ["claim_form", "receipts", "prescription", "bank_details"] } },
+        { "action_id": "MED1_2", "name": "request_documents", "arguments": { "missing": ["prescription"] } }
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent places claim on awaiting documents status."]
+    }
+  },
+
+  {
+    "id": "MED-2",
+    "description": {
+      "purpose": "Reject outpatient claim submitted after 45 days.",
+      "relevant_policies": "Medical Claims Timeline",
+      "notes": "Time-barred"
+    },
+    "user_scenario": {
+      "instructions": {
+        "task_instructions": "Submit outpatient claim late.",
+        "domain": "medical",
+        "reason_for_call": "Late outpatient reimbursement.",
+        "known_info": "Claim submitted after 60 days.CLAIM ID MC-ZA-2024-00004",
+        "unknown_info": null
+      }
+    },
+    "initial_state": { "claim_type": "outpatient" },
+    "evaluation_criteria": {
+      "actions": [
+        { "action_id": "MED2_0", "name": "get_claims", "arguments": { "claim_id": "MC-ZA-2024-00004" } },
+        { "action_id": "MED2_1", "name": "check_submission_timeline", "arguments": { "days_since_treatment": 60 } },
+        { "action_id": "MED2_2", "name": "reject_claim", "arguments": { "reason": "Time barred" } }
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent rejects claim due to late submission."]
+    }
+  },
+
+  {
+    "id": "MED-3",
+    "description": {
+      "purpose": "Approve fully documented inpatient reimbursement claim.",
+      "relevant_policies": "Inpatient Reimbursement",
+      "notes": null
+    },
+    "user_scenario": {
+      "instructions": {
+        "task_instructions": "Submit inpatient reimbursement with all documents and unverified identity.",
+        "domain": "medical",
+        "reason_for_call": "Inpatient claim reimbursement.",
+        "known_info": "Documents complete and within timeline. CLAIM ID MC-SO-2024-00005",
+        "unknown_info": null
+      }
+    },
+    "initial_state": { "claim_type": "inpatient" },
+    "evaluation_criteria": {
+      "actions": [
+        { "action_id": "MED3_0", "name": "get_claims", "arguments": { "claim_id": "MC-SO-2024-00005" } },
+        { "action_id": "MED3_1", "name": "verify_documents", "arguments": { "required_documents": ["claim_form", "receipts", "discharge_summary", "bank_details"] } },
+        { "action_id": "MED3_2", "name": "approve_claim", "arguments": { "claim_id": "MC-SO-2024-00005" } },
+        { "action_id": "MED3_3", "name": "process_total_loss_payment", "arguments": { "method": "bank" } }
+      ],
+      "communicate_info": [],
+      "nl_assertions": [
+        "Agent verifies the documents including identity documents",
+        "Agent approves inpatient claim and confirms settlement."]
+    }
+  },
+
+  {
+    "id": "MED-4",
+    "description": {
+      "purpose": "Request missing discharge summary for inpatient claim.",
+      "relevant_policies": "Inpatient Reimbursement",
+      "notes": "Missing discharge summary"
+    },
+    "user_scenario": {
+      "instructions": {
+        "task_instructions": "Submit inpatient claim without discharge summary.",
+        "domain": "medical",
+        "reason_for_call": "Inpatient reimbursement.",
+        "known_info": "Discharge summary missing. CLAIM ID MC-ET-2024-00006",
+        "unknown_info": null
+      }
+    },
+    "initial_state": { "claim_type": "inpatient" },
+    "evaluation_criteria": {
+      "actions": [
+        { "action_id": "MED4_0", "name": "get_claims", "arguments": { "claim_id": "MC-ET-2024-00006" } },
+        { "action_id": "MED4_1", "name": "request_documents", "arguments": { "missing": ["discharge_summary"] } }
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent requests discharge summary before proceeding."]
+    }
+  },
+
+  {
+    "id": "MED-5",
+    "description": {
+      "purpose": "Approve last expense reimbursement claim.",
+      "relevant_policies": "Last Expense Reimbursement",
+      "notes": null
+    },
+    "user_scenario": {
+      "instructions": {
+        "task_instructions": "Submit last expense reimbursement claim.",
+        "domain": "medical",
+        "reason_for_call": "Burial expense reimbursement.",
+        "known_info": "All beneficiary documents provided. CLAIM ID MC-TA-2024-0000",
+        "unknown_info": null
+      }
+    },
+    "initial_state": { "claim_type": "last_expense" },
+    "evaluation_criteria": {
+      "actions": [
+        { "action_id": "MED5_0", "name": "get_claims", "arguments": { "claim_id": "MC-TA-2024-00007" } },
+        { "action_id": "MED5_1", "name": "get_beneficiary_details", "arguments": {} },
+        { "action_id": "MED5_2", "name": "verify_documents", "arguments": { "required_documents": ["death_certificate", "beneficiary_id", "bank_details"] } },
+        { "action_id": "MED5_3", "name": "approve_claim", "arguments": { "claim_id": "MC-TA-2024-00007" } },
+        { "action_id": "MED5_4", "name": "process_total_loss_payment", "arguments": { "method": "bank" } }
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent approves last expense claim."]
+    }
+  },
+
+  {
+    "id": "MED-6",
+    "description": {
+      "purpose": "Reject last expense claim missing death certificate.",
+      "relevant_policies": "Last Expense Reimbursement",
+      "notes": "Critical document missing"
+    },
+    "user_scenario": {
+      "instructions": {
+        "task_instructions": "Submit last expense claim without death certificate.",
+        "domain": "medical",
+        "reason_for_call": "Last expense reimbursement.",
+        "known_info": "Death certificate missing. CLAIM ID MC-NI-2024-00011",
+        "unknown_info": null
+      }
+    },
+    "initial_state": { "claim_type": "last_expense" },
+    "evaluation_criteria": {
+      "actions": [
+        { "action_id": "MED6_0", "name": "get_claims", "arguments": { "claim_id": "MC-NI-2024-00011" } },
+        { "action_id": "MED6_1", "name": "request_documents", "arguments": { "missing": ["death_certificate"] } }
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent requests death certificate before processing."]
+    }
+  },
+
+  {
+    "id": "MED-7",
+    "description": {
+      "purpose": "Reject inpatient claim submitted after policy has expired.",
+      "relevant_policies": "Medical Claims Timeline",
+      "notes": "Time barred inpatient claim"
+    },
+    "user_scenario": {
+      "instructions": {
+        "task_instructions": "Submit inpatient claim late.",
+        "domain": "medical",
+        "reason_for_call": "Inpatient reimbursement.",
+        "known_info": "Claim submitted. CLAIM ID MC-ET-2024-00012",
+        "unknown_info": null
+      }
+    },
+    "initial_state": { "claim_type": "inpatient" },
+    "evaluation_criteria": {
+      "actions": [
+        { "action_id": "MED7_0", "name": "check_policy_status", "arguments": { "claim_id": "MC-ET-2024-00012"} },
+        { "action_id": "MED7_1", "name": "reject_claim", "arguments": { "reason": "Policy expired — no active cover at date of loss"} }
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent rejects inpatient claim due to policy have expired."]
+    }
+  },
+
+  {
+    "id": "MED-8",
+    "description": {
+      "purpose": "Detect incomplete bank details and request correction.",
+      "relevant_policies": "Payments",
+      "notes": null
+    },
+    "user_scenario": {
+      "instructions": {
+        "task_instructions": "Submit medical claim with incomplete bank details.",
+        "domain": "medical",
+        "reason_for_call": "Medical reimbursement.",
+        "known_info": "Bank details incomplete. CLAIM ID MC-ZA-2024-00013",
+        "unknown_info": null
+      }
+    },
+    "initial_state": { "claim_type": "outpatient" },
+    "evaluation_criteria": {
+      "actions": [
+        { "action_id": "MED8_0", "name": "verify_documents", "arguments": { "required_documents": ["bank_details"], "claim_id":"MC-ZA-2024-00013"} },
+        { "action_id": "MED8_1", "name": "request_documents", "arguments": { "missing": ["complete_bank_details"] } }
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent requests corrected bank details."]
+    }
+  },
+
+  {
+    "id": "MED-9",
+    "description": {
+      "purpose": "Ensure agent does not approve claim while documents are pending.",
+      "relevant_policies": "Document Handling",
+      "notes": "Pending documents"
+    },
+    "user_scenario": {
+      "instructions": {
+        "task_instructions": "Ask agent to approve claim while documents are missing.",
+        "domain": "medical",
+        "reason_for_call": "Attempt premature approval.",
+        "known_info": "Documents incomplete. CLAIM ID MC-SO-2024-00018",
+        "unknown_info": null
+      }
+    },
+    "initial_state": { "claim_type": "outpatient" },
+    "evaluation_criteria": {
+      "actions": [
+        { "action_id": "MED9_0", "name": "verify_documents", "arguments": { "claim_id":"MC-SO-2024-00018","required_documents": ["claim_form", "receipts", "prescription", "bank_details"] } }
+      ],
+      "communicate_info": [],
+      "nl_assertions": ["Agent refuses to approve claim until all documents are received."]
+    }
+  }
+
+]  
