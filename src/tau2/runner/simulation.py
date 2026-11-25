@@ -151,6 +151,8 @@ def run_simulation(
         customer_language=customer_language,
     )
     simulation.reward_info = reward_info
+    simulation.evaluator_cost = reward_info.evaluator_cost
+    simulation.evaluator_usage = reward_info.evaluator_usage
 
     logger.info(
         f"Simulation complete: domain={domain}, task={task.id}, "
