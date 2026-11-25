@@ -239,7 +239,9 @@ const authorPage = (slug, author) => {
     </header>
     <p class="author-bio">${authorBiography(author)}</p>
 
-    <section class="section">
+    ${
+      papers.length
+        ? `<section class="section">
       <h2 class="section-title">Papers</h2>
       <ul class="paper-list">
         ${papers
@@ -249,7 +251,9 @@ const authorPage = (slug, author) => {
           )
           .join('\n        ')}
       </ul>
-    </section>
+    </section>`
+        : ''
+    }
 
     ${
       posts.length
