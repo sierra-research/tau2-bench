@@ -1,0 +1,56 @@
+{
+  "model_name": "Qwen3-4B-Banking-PAI-v2-Smoke",
+  "model_organization": "aliyun pai",
+  "submitting_organization": "aliyun pai",
+  "submission_date": "2026-10-26",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "name": "李鹏",
+    "email": "jerry.lp@alibaba-inc.com",
+    "github": "jerryli1981"
+  },
+  "is_new": true,
+  "trajectories_available": false,
+  "trajectory_files": {
+    "banking_knowledge": "qwen3-4b-banking-pai-v2_banking-knowledge_bm25_local-27b_4trials.json"
+  },
+  "references": [
+    {
+      "title": "Unmodified native LLMAgent used for evaluation",
+      "type": "github",
+      "url": "https://github.com/sierra-research/tau2-bench/blob/fc0055dc4e0a316c3f83133267fbd6faaa770992/src/tau2/agent/llm_agent.py"
+    },
+    {
+      "title": "NVIDIA Megatron-Bridge source pin",
+      "type": "github",
+      "url": "https://github.com/NVIDIA-NeMo/Megatron-Bridge/tree/afcc7eee4cd916aedcf90562b01f3948ed76d82d"
+    },
+    {
+      "title": "NVIDIA Megatron-LM source pin",
+      "type": "github",
+      "url": "https://github.com/NVIDIA/Megatron-LM/tree/ed9c2c8c1cf4a5438922ae8d215181e7c8b9e0fe"
+    }
+  ],
+  "results": {
+    "banking_knowledge": {
+      "pass_1": 2.0618556701030926,
+      "pass_2": 0.6872852233676976,
+      "pass_3": 0.25773195876288657,
+      "pass_4": 0.0,
+      "cost": null,
+      "retrieval_config": "bm25"
+    }
+  },
+  "methodology": {
+    "evaluation_date": "2026-10-26",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "openai/banking-local-user-teacher",
+    "notes": "End-to-end infrastructure smoke run using PAI-Megatron-Patch v2 (a9328594d8d9475d2e1b2f72395e88be2da6de6c) and pai-slime master-v2 (b93e12c97313befb0ec9d60e927928cc2feaae9f). Both NVIDIA dependencies were upgraded to latest main at execution: Megatron-Bridge 0.8.0 source afcc7eee4cd916aedcf90562b01f3948ed76d82d and Megatron-LM/Core 0.21.0 source ed9c2c8c1cf4a5438922ae8d215181e7c8b9e0fe. Torch 2.9.1+cu129, Transformers 5.20.2, BF16. Base: Qwen/Qwen3-4B. SFT uses the Patch Bridge model provider, native Bridge fused LoRA (r8/alpha16/dropout0; linear_qkv, linear_proj, linear_fc1, linear_fc2; 14,303,232 trainable parameters), and the native Megatron trainer. Five SFT optimizer updates at LR1e-4, batch5, completion-only loss; 60 independent scripted synthetic decisions generated and validated in the native Banking environment, 25 consumed. The SFT adapter is merged before native pai-slime synchronous full-parameter GRPO: two effective optimizer updates at LR1e-6, group4, batch4, clip0.2, KL0, entropy0. Rollout sampling: temperature1, top_p1, no top_k, max256 new tokens per decision and four decisions per episode. Exact generated token IDs/logprobs are retained; environment/tool tokens have loss mask0. The native actor recomputes old logprobs on those exact tokens (use_rollout_logprobs=False; TIS disabled). GRPO uses the branch's native sample-standard-deviation advantage normalization and its native objective. One zero-variance group was skipped; 12 real episodes sampled, eight used for two optimizer updates. Training reward is exact whole native DB target hash success (1), otherwise .25 exact verification-state + .5 exact user-state, minus .01 per redundant real tool call capped at .05. Shaping is training-only. Independent synthetic customers/example.test addresses and email-correction goals; no formal evaluation task, evaluation customer DB or gold action was used for training. Curriculum covers verification/email changes only. Native SFT and GRPO checkpoints were saved and reloaded in fresh processes; exported HF weights compared exactly. Three BF16 SFT forward checks between native MCore and HF passed cosine>=.99 and same next token. The current Bridge exporter is integrated through pai-slime's official custom disk-updater hook to export complete tied Qwen weights. Rollout engines reload each checkpoint via the native disk/HTTP lifecycle. All 97 official v1.0.1 Banking tasks, four trials each, seed300; unmodified native LLMAgent, policy, tools, tasks and reward criteria; BM25. Saved final HF checkpoint loaded in new SGLang0.5.10.post1 servers (two identical agent replicas, four identical user replicas; no model routing). Agent/user temperature0, max_tokens1024, thinking disabled; max_steps200; concurrency32. Custom protocol: domain fine-tuning; local user simulator checkpoint named Qwen3.6-27B (qwen3_5 architecture), also used by the native NL-assertion judge. No NL assertion or task is omitted. An explicitly disclosed terminal context-error hook catches provider ContextWindowExceededError, or SGLang BadRequestError only if its message states requested token count exceeds maximum context length. Actual partial messages are retained; existing native context_window_exceeded termination receives native reward0. No prompt truncation or fabricated response; other exceptions propagate. Native auto-resume retries infrastructure failures only; ordinary model failures are retained. All 388 saved trajectories were independently regraded with the native evaluator and matched. Official PUBLIC trajectory validation and submission JSON schema checks passed. Training code, data, logs and weights remain private. Public references link only the evaluated native LLMAgent and official NVIDIA dependencies; private implementation limits public reproducibility. Local token cost is unknown/null. Only Banking is submitted. This smoke test does not establish training gain over a fully evaluated base model and is not directly comparable with Standard/gpt-5.2/alltools rows.",
+    "verification": {
+      "modified_prompts": false,
+      "omitted_questions": false,
+      "details": "All 97 Banking tasks x4; custom local 27B user/NL judge; explicit context exhaustion retains actual messages and uses native context_window_exceeded termination/reward0. External trajectories await maintainer review and S3 upload."
+    }
+  }
+}
