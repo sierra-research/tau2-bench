@@ -9,11 +9,68 @@ from typing import Optional, Union
 
 from loguru import logger
 
-from tau2.data_model.simulation import SimulationRun
+from tau2.data_model.simulation import (
+    DBCheck,
+    EnvAssertionCheck,
+    RewardInfo,
+    SimulationRun,
+    TerminationReason,
+)
+from tau2.data_model.tasks import RewardType
 from tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
 from tau2.orchestrator.full_duplex_orchestrator import FullDuplexOrchestrator
 from tau2.orchestrator.modes import CommunicationMode
 from tau2.orchestrator.orchestrator import Orchestrator
+
+
+def _uses_live_crm_evaluation(domain: str, task) -> bool:
+    criteria = task.evaluation_criteria
+    if domain != "crm" or criteria is None:
+        return False
+    basis = set(criteria.reward_basis or [])
+    return bool(criteria.env_assertions) and basis == {RewardType.ENV_ASSERTION}
+
+
+def _evaluate_live_crm(orchestrator, task) -> RewardInfo:
+    if orchestrator.termination_reason not in {
+        TerminationReason.AGENT_STOP,
+        TerminationReason.USER_STOP,
+    }:
+        return RewardInfo(
+            reward=0.0,
+            info={
+                "note": (
+                    "Simulation terminated prematurely. Termination reason: "
+                    f"{orchestrator.termination_reason.value}"
+                )
+            },
+        )
+
+    env = orchestrator.environment
+    checks = []
+    reward = 1.0
+    for assertion in task.evaluation_criteria.env_assertions or []:
+        try:
+            met = env.run_env_assertion(assertion, raise_assertion_error=False)
+        except Exception as exc:
+            logger.warning(f"Live CRM assertion {assertion.func_name} failed: {exc}")
+            met = False
+        check = EnvAssertionCheck(
+            env_assertion=assertion,
+            met=met,
+            reward=1.0 if met else 0.0,
+        )
+        checks.append(check)
+        reward *= check.reward
+
+    return RewardInfo(
+        reward=reward,
+        db_check=DBCheck(db_match=(reward == 1.0), db_reward=reward),
+        env_assertions=checks,
+        reward_basis=task.evaluation_criteria.reward_basis,
+        reward_breakdown={RewardType.ENV_ASSERTION: reward},
+        info={"note": "Evaluated live CRM environment; replay skipped"},
+    )
 
 
 def run_simulation(
@@ -73,15 +130,18 @@ def run_simulation(
     solo_mode = getattr(orchestrator, "solo_mode", False)
 
     # Evaluate
-    reward_info = evaluate_simulation(
-        simulation=simulation,
-        task=task,
-        evaluation_type=evaluation_type,
-        solo_mode=solo_mode,
-        domain=domain,
-        mode=mode,
-        env_kwargs=env_kwargs,
-    )
+    if _uses_live_crm_evaluation(domain, task):
+        reward_info = _evaluate_live_crm(orchestrator, task)
+    else:
+        reward_info = evaluate_simulation(
+            simulation=simulation,
+            task=task,
+            evaluation_type=evaluation_type,
+            solo_mode=solo_mode,
+            domain=domain,
+            mode=mode,
+            env_kwargs=env_kwargs,
+        )
     simulation.reward_info = reward_info
 
     logger.info(
