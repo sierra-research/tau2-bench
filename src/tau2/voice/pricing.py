@@ -66,6 +66,12 @@ PRICING: Dict[Tuple[str, str], Rates] = {
         output_text=16.00,
         output_audio=64.00,
     ),
+    # --- OpenAI Live (verified: developers.openai.com/api/docs/models/gpt-live-1.1,
+    # active WebRTC session billed at $0.05/min; backend delegation billed separately) ---
+    ("openai", "gpt-live-1.1"): Rates(per_audio_input_minute=0.05),
+    ("openai", "gpt-live-1"): Rates(per_audio_input_minute=0.05),
+    ("openai_live", "gpt-live-1.1"): Rates(per_audio_input_minute=0.05),
+    ("openai_live", "gpt-live-1"): Rates(per_audio_input_minute=0.05),
     # --- Gemini Live API (verified: ai.google.dev/gemini-api/docs/pricing).
     # No cached-token discount published for Live models: cached tokens are
     # charged at the full input rate (conservative). ---

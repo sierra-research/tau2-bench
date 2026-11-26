@@ -263,6 +263,19 @@ def test_unknown_language_hints_fail_explicitly(resolver):
         (xai_language_hint if resolver == "xai" else gemini_language_code)("unknown")
 
 
+@pytest.mark.parametrize("code", ["ar", "ar-EG", "ar-SA", "ar-AE"])
+def test_arabic_locale_parity_across_cascaded_xai_and_gemini(code):
+    from tau2.voice.audio_native.languages import (
+        cascaded_language,
+        gemini_language_code,
+        xai_language_hint,
+    )
+
+    assert cascaded_language(code) == ("ar", code)
+    assert xai_language_hint(code) in {"ar-EG", "ar-SA", "ar-AE"}
+    assert gemini_language_code(code) == "ar-EG"
+
+
 @pytest.mark.parametrize(
     "language,codes,expected",
     [
