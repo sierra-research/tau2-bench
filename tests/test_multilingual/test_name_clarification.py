@@ -1,5 +1,8 @@
 """Name facts come from the declared retail caller, never display-name parsing."""
 
+from functools import partial
+from itertools import permutations
+
 import pytest
 
 from tau2.data_model.language import LanguagePack, NameOrder
@@ -97,6 +100,14 @@ def test_given_first_adds_explicit_name_facts_and_is_idempotent(task, caller):
     )
 
 
+@pytest.mark.parametrize("source,target", permutations(NameOrder))
+def test_other_spoken_order_is_rewritten(task, caller, source, target):
+    clarify = partial(clarify_retail_name, caller_id=caller.user_id, caller=caller)
+    assert clarify(clarify(task, name_order=source), name_order=target) == clarify(
+        task, name_order=target
+    )
+
+
 @pytest.mark.parametrize(
     "given,family,full_name",
     [
@@ -154,10 +165,11 @@ def test_materialized_caller_requires_unambiguous_explicit_record(task, caller, 
         assert resolve_materialized_retail_caller(task) == caller
 
 
+@pytest.mark.parametrize("source", NameOrder)
 @pytest.mark.parametrize("defect", ["caller", "stale", "duplicate", "blank"])
-def test_invalid_name_facts_refuse(task, caller, defect):
+def test_invalid_name_facts_refuse(task, caller, defect, source):
     result = clarify_retail_name(
-        task, caller_id=caller.user_id, caller=caller, name_order=NameOrder.FAMILY_FIRST
+        task, caller_id=caller.user_id, caller=caller, name_order=source
     )
     if defect == "caller":
         caller.user_id = "different-caller"

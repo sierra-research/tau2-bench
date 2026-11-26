@@ -38,10 +38,23 @@ def resolve_materialized_retail_caller(task: "Task") -> "User":
     return caller
 
 
+def _name_facts(given: str, family: str, separator: str, order: NameOrder) -> str:
+    """Render the retail name roles and full name in one spoken order."""
+    family_first = order == NameOrder.FAMILY_FIRST
+    full_name = separator.join((family, given) if family_first else (given, family))
+    first_role, second_role = ("last", "first") if family_first else ("first", "last")
+    return (
+        f"Name details:\nYour first name is {given}, and your last name is {family}. "
+        f"When asked for your full name, give your {first_role} name first and your "
+        f"{second_role} name second: {full_name}."
+    )
+
+
 def clarify_retail_name(
     task: "Task", *, caller_id: str, caller: "User", name_order: NameOrder
 ) -> "Task":
-    """Append retail name roles and spoken order once; reject stale annotations.
+    """Append, or re-render from the other spoken order, the caller's name facts;
+    reject stale, duplicated or malformed annotations.
 
     The caller must come from the effective database under the explicit task caller
     ID. Display names play no part in determining the two name components.
@@ -68,29 +81,22 @@ def clarify_retail_name(
         if re.fullmatch(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+", given + family)
         else " "
     )
-    ordered = (
-        (family, given) if name_order == NameOrder.FAMILY_FIRST else (given, family)
-    )
-    full_name = separator.join(ordered)
-    first_role, second_role = (
-        ("last", "first") if name_order == NameOrder.FAMILY_FIRST else ("first", "last")
-    )
-    block = (
-        f"Name details:\nYour first name is {given}, and your last name is {family}. "
-        f"When asked for your full name, give your {first_role} name first and your "
-        f"{second_role} name second: {full_name}."
-    )
+    blocks = {
+        order: _name_facts(given, family, separator, order) for order in NameOrder
+    }
+    block = blocks[name_order]
     known = (
         instructions if isinstance(instructions, str) else instructions.known_info or ""
     )
-    if "Name details:" in known:
-        if known.count("Name details:") != 1 or not (
-            known == block or known.endswith("\n\n" + block)
-        ):
-            raise ValueError("retail name facts are stale, malformed or duplicated")
+    paragraphs = known.split("\n\n") if known else []
+    if paragraphs and paragraphs[-1] in blocks.values():
+        paragraphs.pop()
+    if any("Name details:" in paragraph for paragraph in paragraphs):
+        raise ValueError("retail name facts are stale, malformed or duplicated")
+    clarified = "\n\n".join([*paragraphs, block])
+    if clarified == known:
         return task
     result = task.model_copy(deep=True)
-    clarified = known + "\n\n" + block if known else block
     if isinstance(instructions, str):
         result.user_scenario.instructions = clarified
     else:
