@@ -1,0 +1,62 @@
+{
+  "model_name": "Ona harness by OnArrival (gpt-6.1-sol, high)",
+  "model_organization": "OnArrival",
+  "submitting_organization": "OnArrival",
+  "submission_date": "2026-11-25",
+  "submission_type": "custom",
+  "modality": "text",
+  "contact_info": {
+    "email": "pawan@onarrival.travel",
+    "name": "Pawan Shetty",
+    "github": null
+  },
+  "results": {
+    "airline": {
+      "pass_1": 79.5,
+      "pass_2": 71.66666666666667,
+      "pass_3": 67.0,
+      "pass_4": 64.0,
+      "cost": null
+    },
+    "retail": {
+      "pass_1": 67.54385964912281,
+      "pass_2": 55.409356725146196,
+      "pass_3": 47.58771929824561,
+      "pass_4": 41.228070175438596,
+      "cost": null
+    },
+    "telecom": {
+      "pass_1": 90.5701754385965,
+      "pass_2": 83.18713450292398,
+      "pass_3": 77.63157894736842,
+      "pass_4": 73.68421052631578,
+      "cost": null
+    }
+  },
+  "is_new": true,
+  "trajectories_available": true,
+  "trajectory_files": {
+    "airline": "ona-gpt-6.1-sol-high_airline_default_gpt-5.2_4trials.json",
+    "retail": "ona-gpt-6.1-sol-high_retail_default_gpt-5.2_4trials.json",
+    "telecom": "ona-gpt-6.1-sol-high_telecom_default_gpt-5.2_4trials.json"
+  },
+  "references": [
+    {
+      "title": "Ona harness by OnArrival",
+      "url": "https://agents.onarrival.com/harness",
+      "type": "documentation"
+    }
+  ],
+  "reasoning_effort": "high",
+  "methodology": {
+    "evaluation_date": "2026-11-25",
+    "tau2_bench_version": "1.0.1",
+    "user_simulator": "gpt-5.2",
+    "notes": "System under test: Ona, OnArrival's agent harness, through a τ²-bench v1.0.1 agent adapter (custom scaffold): a pi-agent-core model loop (parallel tool steps, retries with backoff) on gpt-6.1-sol (OpenAI, served through Microsoft Azure) at reasoning effort high, with Ona's core instructions plus τ²'s domain policy verbatim as its system prompt. No extra tools, no router, no second model, no gate: the arm submitted is Ona 'as is'. τ²'s tasks, tools, policies, user simulator (gpt-5.2, snapshot 2025-12-11 served through Microsoft Azure, at reasoning_effort low, as every ranked 1.x text entry uses) and evaluator are unchanged; all tasks of all three domains, 4 trials each, seed 300. Disclosure: the retail and telecom train-split items outside τ² v2.0.0's frozen subsets (46 and 47 tasks) were used only to choose this arm's reasoning effort (high over xhigh) and to develop a separate policy-checking mode that is not this arm; the agent model was not trained or fine-tuned on τ²-bench data. Cost is not reported per trajectory in USD.",
+    "verification": {
+      "modified_prompts": true,
+      "omitted_questions": false,
+      "details": "The agent's system prompt is Ona's core instructions with τ²'s domain policy verbatim (custom scaffold). The user simulator's prompts, the tasks and the evaluator are unchanged; no task was omitted."
+    }
+  }
+}
