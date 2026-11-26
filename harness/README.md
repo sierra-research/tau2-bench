@@ -4,7 +4,7 @@ This directory contains the fixed evaluation design for the thesis. It replaces 
 current CRM evaluation, which used an LLM judge in the reward and a shared Twenty
 CRM instance across trials.
 
-## What changes
+## Changes
 
 | Old | v2 |
 |---|---|
@@ -55,7 +55,7 @@ The scripts read `TWENTY_MCP_URL` and `TWENTY_MCP_TOKEN` from the environment, o
 from `.env` in the tau2 repo root. Example:
 
 ```env
-TWENTY_MCP_URL=http://x1000c1s1b0n0:3000/mcp?mode=direct
+TWENTY_MCP_URL=http://host_name_here:port_here/mcp?mode=direct
 TWENTY_MCP_TOKEN=...
 ```
 
