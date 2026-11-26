@@ -249,6 +249,10 @@ class TestPricing:
             lookup_rates("deepgram", "aura-2-thalia-en").per_million_characters == 30.0
         )
         assert lookup_rates("openai", "no-such-model") is None
+        r_live_11 = lookup_rates("openai", "gpt-live-1.1")
+        r_live_1 = lookup_rates("openai_live", "gpt-live-1")
+        assert r_live_11 is not None and r_live_11.per_audio_input_minute == 0.05
+        assert r_live_1 is not None and r_live_1.per_audio_input_minute == 0.05
 
     def test_openai_realtime_cost_math(self):
         record = UsageRecord(

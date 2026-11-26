@@ -35,7 +35,7 @@ CASCADED_LANGUAGE_CODES: dict[str, frozenset[str]] = {
 }
 CASCADED_LANGUAGE_CODES.update(
     {
-        "ar": frozenset({"ar", "ar-SA", "ar-AE"}),
+        "ar": frozenset({"ar", "ar-EG", "ar-SA", "ar-AE"}),
         "cs": frozenset({"cs", "cs-CZ"}),
         "da": frozenset({"da", "da-DK"}),
         "en": frozenset({"en", "en-US", "en-AU", "en-GB", "en-IN", "en-NZ"}),
@@ -89,6 +89,7 @@ XAI_LANGUAGE_CODES = frozenset(
     }
 )
 XAI_LANGUAGE_ALIASES = {
+    "ar": "ar-EG",
     "es": "es-ES",
     "pt": "pt-BR",
     "fr-FR": "fr",
@@ -147,4 +148,6 @@ def gemini_language_code(language: str) -> str:
         return language
     if language in {"zh-CN", "zh-Hans"}:
         return "cmn-CN"
+    if language in {"ar-SA", "ar-AE"}:
+        return "ar-EG"
     raise ValueError(f"Unsupported Gemini language hint {language!r}")
